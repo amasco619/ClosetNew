@@ -1,0 +1,334 @@
+You are continuing work on the existing AuraCloset project that you already generated: wardrobe and stylist assistant with Free and Premium tiers.  
+
+Add a small Node.js backend (in the same Replit workspace) that exposes a single HTTP endpoint `/classify-garment`, which the Flutter app will call whenever a user uploads a wardrobe photo. This backend must call Google Cloud Vision Label Detection and map its labels into AuraCloset’s internal garment schema.
+
+Follow these requirements exactly and avoid errors.
+
+### 1. Tech stack and project structure
+
+- Use Node.js + Express for the backend API.  
+- Create a folder `backend/` at the root of the Replit project with:
+  - `backend/package.json`
+  - `backend/index.js` (or `server.js`)
+  - `backend/.replit` and `backend/replit.nix` only if needed; otherwise integrate with existing Replit run configuration.
+- Install dependencies in `backend`:
+  - `"express"`, `"cors"`, `"axios"` and `"dotenv"`.
+- Ensure the Replit run command can start both:
+  - the Flutter app (as it already does), and
+  - the Node backend (e.g., via a separate run button or a simple `npm start` inside `backend`).  
+  If needed, document clearly how I should start the backend from Replit.
+
+### 2. Environment variables
+
+Use environment variables; do NOT hard‑code secrets.
+
+- Expect `GCV_API_KEY` to be set in Replit’s Secrets.  
+- Optionally accept `PORT` (default 4000).  
+- Load them via `dotenv` in the backend.
+
+### 3. Express server basics
+
+In `backend/index.js`:
+
+- Create an Express app with:
+  - JSON body parsing (`express.json()`).
+  - CORS enabled (allow all origins for now, or restrict to the Flutter dev host if you prefer).
+- Start the server on `process.env.PORT || 4000` and log the URL.
+
+### 4. Endpoint contract: POST /classify-garment
+
+Create a route:
+
+```text
+POST /classify-garment
+Content-Type: application/json
+```
+
+#### Request body
+
+```json
+{
+  "imageBase64": "string (optional, base64 JPEG/PNG without data: prefix)",
+  "imageUrl": "string (optional, HTTPS URL)",
+  "userId": "string"
+}
+```
+
+Validation rules:
+
+- Exactly one of `imageBase64` or `imageUrl` must be provided.
+- If both or neither are provided, respond with `400` and JSON `{ "error": "imageBase64 or imageUrl required" }`.
+- `userId` is optional for now (used later for logging or personalization).
+
+#### Successful response (200)
+
+Return JSON in this schema:
+
+```json
+{
+  "garmentType": "zip_up_hoodie",
+  "colorFamily": "grey",
+  "modelConfidence": 0.94,
+  "rawLabels": [
+    {
+      "description": "Hoodie",
+      "score": 0.94
+    },
+    {
+      "description": "Jacket",
+      "score": 0.91
+    }
+  ],
+  "source": "gcv_label_detection"
+}
+```
+
+Notes:
+
+- `garmentType` must be ONE of the normalized AuraCloset internal types (see mapping below).
+- `colorFamily` is a simple colour bucket string or `null` if unknown.
+- `modelConfidence` is the score (0–1) of the label that produced `garmentType`, or the highest available score when `garmentType` is `"unknown"`.
+- `rawLabels` is a truncated list (top 5) of the original labels from Google Vision (description + score only) for debugging and possible UI display.
+
+#### Error response (4xx/5xx)
+
+On any error (invalid input, Vision error, etc.) return:
+
+```json
+{ "error": "classification_failed" }
+```
+
+and log the real error on the server (console).
+
+### 5. Call to Google Cloud Vision (Label Detection)
+
+Use Google Cloud Vision REST API; no client libraries required.
+
+- Endpoint: `https://vision.googleapis.com/v1/images:annotate?key=${GCV_API_KEY}`  
+- Use a POST request with the following body:
+
+If `imageBase64` is provided:
+
+```json
+{
+  "requests": [
+    {
+      "image": { "content": "BASE64_DATA_HERE" },
+      "features": [
+        { "type": "LABEL_DETECTION", "maxResults": 10 }
+      ]
+    }
+  ]
+}
+```
+
+If `imageUrl` is provided:
+
+```json
+{
+  "requests": [
+    {
+      "image": { "source": { "imageUri": "IMAGE_URL_HERE" } },
+      "features": [
+        { "type": "LABEL_DETECTION", "maxResults": 10 }
+      ]
+    }
+  ]
+}
+```
+
+- Use `axios.post` to call this endpoint.
+- After receiving the response, read `responses[0].labelAnnotations`. Each label has fields including `description` and `score`.
+
+### 6. Mapping logic: Vision labels → AuraCloset schema
+
+Implement the mapping completely in the backend.
+
+Define a mapping table for garment labels:
+
+```js
+const GARMENT_LABEL_MAP = {
+  "Hoodie": "zip_up_hoodie",
+  "Sweatshirt": "sweatshirt",
+  "Jacket": "jacket",
+  "Coat": "coat",
+  "Shirt": "shirt",
+  "T-shirt": "t_shirt",
+  "Blouse": "blouse",
+  "Jeans": "jeans",
+  "Pants": "trousers",
+  "Trousers": "trousers",
+  "Skirt": "skirt",
+  "Dress": "dress"
+  // extend later if needed
+};
+```
+
+Define a mapping table for colours:
+
+```js
+const COLOR_LABEL_MAP = {
+  "Black": "black",
+  "White": "white",
+  "Gray": "grey",
+  "Grey": "grey",
+  "Blue": "blue",
+  "Red": "red",
+  "Green": "green",
+  "Brown": "brown",
+  "Beige": "beige",
+  "Yellow": "yellow",
+  "Pink": "pink",
+  "Purple": "purple",
+  "Orange": "orange"
+};
+```
+
+Algorithm for mapping:
+
+1. Extract `labelAnnotations` and map them to a simpler array:
+   - `{ description: label.description, score: label.score }`
+2. Set a confidence threshold:
+
+```js
+const CONF_THRESHOLD = 0.7;
+```
+
+3. Initialize:
+
+```js
+let garmentType = "unknown";
+let modelConfidence = 0;
+```
+
+4. Loop through labels in descending score order:
+   - If `label.score >= CONF_THRESHOLD` AND `GARMENT_LABEL_MAP[label.description]` exists:
+     - Set `garmentType = GARMENT_LABEL_MAP[label.description]`.
+     - Set `modelConfidence = label.score`.
+     - Break the loop.
+   - Regardless, track the maximum score seen as `modelConfidence` (for the unknown case).
+
+5. Determine `colorFamily`:
+
+```js
+let colorFamily = null;
+for (const l of labels) {
+  const mapped = COLOR_LABEL_MAP[l.description];
+  if (mapped) {
+    colorFamily = mapped;
+    break;
+  }
+}
+```
+
+6. Build `rawLabels` as the first 5 labels (description + score).  
+
+7. Return the response JSON:
+
+```js
+res.json({
+  garmentType,
+  colorFamily,
+  modelConfidence,
+  rawLabels: labels.slice(0, 5),
+  source: "gcv_label_detection"
+});
+```
+
+8. If something goes wrong with the Vision call (non‑2xx, missing fields, etc.), catch the error, log `err.response?.data || err.message`, and return status 500 with `{ error: "classification_failed" }`.
+
+### 7. Pseudo-code / expected implementation of /classify-garment
+
+Implement something equivalent to this logic (you can adjust names/style but behaviour must match):
+
+```js
+app.post("/classify-garment", async (req, res) => {
+  try {
+    const { imageBase64, imageUrl, userId } = req.body;
+
+    if ((!imageBase64 && !imageUrl) || (imageBase64 && imageUrl)) {
+      return res.status(400).json({ error: "imageBase64 or imageUrl required" });
+    }
+
+    const visionReq = {
+      requests: [
+        {
+          image: imageBase64
+            ? { content: imageBase64 }
+            : { source: { imageUri: imageUrl } },
+          features: [{ type: "LABEL_DETECTION", maxResults: 10 }]
+        }
+      ]
+    };
+
+    const apiKey = process.env.GCV_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "missing_gcv_api_key" });
+    }
+
+    const visionRes = await axios.post(
+      `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+      visionReq
+    );
+
+    const annotations =
+      visionRes.data.responses?.[0]?.labelAnnotations || [];
+
+    const labels = annotations.map(l => ({
+      description: l.description,
+      score: l.score
+    }));
+
+    const CONF_THRESHOLD = 0.7;
+    let garmentType = "unknown";
+    let modelConfidence = 0;
+
+    for (const l of labels) {
+      if (l.score > modelConfidence) {
+        modelConfidence = l.score;
+      }
+      const mapped = GARMENT_LABEL_MAP[l.description];
+      if (mapped && l.score >= CONF_THRESHOLD) {
+        garmentType = mapped;
+        modelConfidence = l.score;
+        break;
+      }
+    }
+
+    let colorFamily = null;
+    for (const l of labels) {
+      const mappedColor = COLOR_LABEL_MAP[l.description];
+      if (mappedColor) {
+        colorFamily = mappedColor;
+        break;
+      }
+    }
+
+    return res.json({
+      garmentType,
+      colorFamily,
+      modelConfidence,
+      rawLabels: labels.slice(0, 5),
+      source: "gcv_label_detection"
+    });
+  } catch (err) {
+    console.error("Vision error", err.response?.data || err.message);
+    return res.status(500).json({ error: "classification_failed" });
+  }
+});
+```
+
+### 8. Integration notes for the existing AuraCloset Flutter app
+
+- DO NOT implement Flutter code here; just ensure the backend is ready for the app to call.
+- The Flutter app will:
+  - Capture an image.
+  - Convert it to base64.
+  - Call `POST https://<REPLIT_BACKEND_URL>/classify-garment` with `{ imageBase64, userId }`.
+  - Use the `garmentType` and `colorFamily` to pre‑fill wardrobe item fields, then let the user confirm or edit.
+- Document in a short `backend/README.md`:
+  - How to set `GCV_API_KEY` in Replit.
+  - How to start the backend.
+  - The exact request/response schema (copy from above).
+
+Make sure all code compiles and runs without errors in Replit. If there are any conflicts with existing configuration, resolve them cleanly and keep the overall project structure tidy.

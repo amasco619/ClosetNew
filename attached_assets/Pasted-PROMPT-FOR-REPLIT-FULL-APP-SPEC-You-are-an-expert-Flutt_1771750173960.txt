@@ -1,0 +1,593 @@
+PROMPT FOR REPLIT (FULL APP SPEC)
+
+You are an expert Flutter and Firebase engineer and product designer.
+Build a production‑ready, cross‑platform mobile app (Android + iOS) called:
+
+Name: AuraCloset
+Tagline: “Your quiet‑luxury stylist in your pocket.”
+
+AuraCloset is a virtual wardrobe + jewelry‑aware stylist assistant with a Free tier and a Premium tier. There is no AR try‑on, no live price tracking, no receipt‑forwarding, no social feed, and no XP/gamification. The app uses image‑based clothing classification, rule‑based styling intelligence, and beautiful sample images to guide users to build a complete wardrobe over time.
+
+Build the entire app end‑to‑end, including:
+
+Flutter project (Flutter 3.x, null‑safe Dart).
+
+Firebase integration (Auth, Firestore, Storage, Functions, Analytics).
+
+All screens, navigation, state management, and business logic.
+
+Data models, services, and basic Cloud Functions where needed.
+
+Clear UI design that looks polished and premium.
+
+Make the app runnable in Replit with clear instructions (flutter pub get, flutter run), and configurable with my own Firebase project settings.
+
+1. Visual Identity & UI Design
+1.1 Brand & Logo
+App name: AuraCloset.
+
+Logo design:
+
+Simple, vector‑style logo generated as Flutter assets:
+
+Icon: A minimal outline of a clothes hanger combined with a small sparkle or halo (to suggest “aura” / quiet luxury).
+
+Colour: Deep navy or very dark charcoal line, with a small accent (soft gold or muted champagne).
+
+Export as:
+
+assets/logo/aura_closet_icon.png (square).
+
+assets/logo/aura_closet_wordmark.png (horizontal lockup with text “AuraCloset”).
+
+1.2 Colour & Typography
+Colour palette (quiet luxury):
+
+Primary: Deep navy (#101826) or charcoal (#121212).
+
+Secondary: Soft champagne gold (#D0B892).
+
+Accents: Muted sage (#8AA39B), soft blush (#EACFD3) for highlights.
+
+Background: Off‑white (#F5F3F0) for light mode, near‑black for dark mode.
+
+Typography:
+
+Use a modern, clean sans‑serif (e.g., Inter or SF Pro equivalent).
+
+Headings: slightly increased letter‑spacing, semi‑bold.
+
+Body: regular weight, comfortable line height.
+
+1.3 General UI Guidelines
+Use Material 3 with custom theming for light/dark modes.
+
+Lots of white space, rounded corners, subtle shadows.
+
+Use image‑first cards for selections (body type, eye colour, style goals, outfits).
+
+Transitions: smooth fade/slide animations between major flows.
+
+Make bottom navigation and main cards thumb‑friendly for mobile screens.
+
+2. Architecture & Tech Stack
+Framework: Flutter 3.x (Dart, null‑safety).
+
+State management: Riverpod or Bloc (choose one and be consistent; prefer Riverpod if simpler).
+
+Navigation: go_router or standard Navigator 2.0 with named routes.
+
+Backend: Firebase:
+
+Auth (email/password; we don’t need social login v1).
+
+Firestore (for user data, wardrobe, outfits, subscriptions, analytics).
+
+Storage (for item photos and profile pictures).
+
+Cloud Functions (for scheduled jobs and some heavy logic).
+
+Analytics (screen & event tracking).
+
+Project structure (example):
+
+lib/
+
+main.dart
+
+router/ – routing setup.
+
+theme/ – theming.
+
+features/
+
+auth/
+
+onboarding/
+
+profile/
+
+wardrobe/
+
+recommendations/
+
+analytics/
+
+premium/
+
+services/ – Firebase/firestore/storage clients, image classifier client.
+
+models/ – data models and enums.
+
+Include a README.md explaining how to add my Firebase config (GoogleServices‑Info, google‑services.json, etc.) and how to run the app in Replit.
+
+3. Data Model (Firestore – high‑level)
+Model the data so both Free and Premium features can work:
+
+users/{userId}
+
+email, createdAt, tier ("free" or "premium"), country, city.
+
+profiles/{userId}
+
+name, avatarUrl,
+
+bodyType (enum),
+
+eyeColor (enum + optional hex),
+
+skinTone (enum), undertone (enum),
+
+styleGoalPrimary (enum), styleGoalSecondary (optional),
+
+lifestyleContexts (e.g., work-heavy, social-heavy),
+
+constraints (JSON object with booleans: noSleeveless, noShortSkirts, maxHeelHeight, etc.).
+
+wardrobes/{userId}/items/{itemId}
+
+photoUrl,
+
+category (top/bottom/dress/outerwear/shoes/bag/jewelry),
+
+subType (shirt, turtleneck, jeans, blazer, sneakers, studs, hoops, etc.),
+
+colorFamily,
+
+occasionTags (array: work/date/casual/event),
+
+formalityLevel (1–5),
+
+seasonTags (winter/summer/allSeason),
+
+createdAt,
+
+price (optional), currency (optional).
+
+styleBlueprints/{userId}
+
+Stores ideal wardrobe counts/slots by context & category (Premium).
+
+recommendations/{userId}/outfitSets/{outfitId}
+
+scenario (e.g., "work", "date", "wedding", "travel"),
+
+season (winter/summer/… or null for free tier),
+
+Components:
+
+topSlot, bottomSlot, outerwearSlot, shoesSlot, jewelrySlots, accessorySlots – each with:
+
+requiredType (category/subType/colour family),
+
+owned (bool),
+
+matchedItemId (if owned),
+
+sampleImageAsset (local asset path).
+
+subscriptions/{userId}
+
+tier ("free" or "premium"),
+
+plan ("monthly", "annual"),
+
+status ("active", "canceled", "trial"),
+
+startDate, endDate.
+
+analytics/{userId}
+
+Aggregated stats for wardrobe distribution, context coverage, confidence feedback, etc.
+
+4. Free Tier Features – detailed spec
+4.1 Authentication & Tier Handling
+Email/password sign‑up and login with Firebase Auth.
+
+After login, check subscriptions or users.tier to set isPremium.
+
+Default new user tier: "free".
+
+4.2 Onboarding Flow (visual, multi‑step)
+Screens:
+
+Welcome & value proposition
+
+Show logo + tagline.
+
+Short copy: “Digitise your wardrobe, see what you’re missing, and get guided outfit ideas.”
+
+Body type selection with images
+
+Grid of cards, each with:
+
+Simple body outline illustration.
+
+Label (e.g., “Hourglass”).
+
+On tap: highlight and show short description under the grid.
+
+Eye colour selection with swatches
+
+Row/grid of eye icons with matching colours and labels (Dark Brown, Light Brown, Hazel, Green, Blue, Grey).
+
+On tap: select and show hex or descriptor in text.
+
+Skin tone & undertone
+
+Step 1: choose from 5–7 skin tone strips (very light → very deep) with small faces.
+
+Step 2: choose undertone (Cool/Neutral/Warm) for the chosen tone.
+
+Style goals with moodboards
+
+Cards with moodboard images and titles:
+
+Youthful, Elevated, Minimal, Romantic, Bold, Classic.
+
+Tapping a card opens full‑screen preview with 2 example outfits & one‑line description.
+
+User selects primary and optional secondary goal.
+
+Lifestyle & constraints
+
+Checkboxes/sliders for:
+
+How much of life is Work, Casual, Events.
+
+Constraints: no sleeveless, no short skirts, max heel height, dress code notes.
+
+Finish
+
+Save profile and navigate to main app (Home).
+
+4.3 Wardrobe Digitisation (Free tier cap = 30 items)
+Wardrobe screen shows a grid of item cards (photo + type + colour).
+
+“Add item” flow:
+
+Step 1: capture or pick photo.
+
+Step 2: call image classifier client (see section 5) to infer: category, subType, colourFamily.
+
+Step 3: show classification results and allow editing (dropdowns).
+
+Step 4: optional tags (occasion, season).
+
+Save to Firestore (wardrobe collection).
+
+Enforce free cap:
+
+If wardrobe count for user ≥ 30, “Add item” shows upgrade paywall dialog instead of capture screen.
+
+4.4 Free Outfit Recommendations (sample images only)
+Recommendations screen (Free):
+
+Shows a vertical list of outfit cards.
+
+Each card is a self‑contained outfit set with sample images for each component: top, bottom, outerwear (if needed), shoes, jewelry, accessories.
+
+For each component: show a small badge – “Owned” or “Need this”.
+
+Rules for generating outfits (Free):
+
+Must respect style goal, body shape, skin/eye colours and constraints (no sleeveless, etc.).
+
+Uses occasion only, not season (season/weather is Premium).
+
+Focus on a few core scenarios: Work, Date, Casual, Event.
+
+When user uploads a new item:
+
+Run classification.
+
+Recompute Owned/Needed flags across recommended outfits.
+
+If a previously missing piece (e.g., blue shirt) is now Owned, that component flips status.
+
+Optionally, move outfits that are fully covered to a “You can build this now” sub‑section.
+
+4.5 Basic Wardrobe Analytics (Free)
+Simple summary screen:
+
+Pie/bar chart of category distribution (tops/bottoms/dresses/outerwear/shoes/jewelry).
+
+Colour distribution chart (colour families).
+
+Basic coverage hints (text):
+
+“Your wardrobe is heavy on casual tops and light on work bottoms.”
+
+“You have very few date‑night options.”
+
+4.6 Simple Scenario Picker (Free)
+On Recommendations screen, allow user to choose basic context: Work / Casual / Date / Event.
+
+For each context, show 1–3 outfit sets drawn from the same outfit generation logic, using current wardrobe + sample images for gaps.
+
+5. Image‑based Clothing Classification (Core shared capability)
+Provide a service layer that:
+
+Accepts an image (local path or bytes).
+
+Returns best‑guess: category, subType, colorFamily.
+
+For this v1, implement it as a mockable API client with the expectation that we’ll eventually swap in a real model/API. For now:
+
+Use simple heuristics (based on user‑selected category) and pre‑defined mappings.
+
+Structure the code so all classification goes through a single service class (e.g., ImageClassificationService) to be easily replaced later.
+
+UI should always:
+
+Show the predicted values.
+
+Let the user change them before saving.
+
+6. Premium Tier Features – detailed spec
+6.1 Unlocking Premium
+Show a Premium screen explaining benefits using cards for each feature (BluePrint, Season‑smart, Travel, Jewelry intelligence, etc.).
+
+For now, implement upgrades as:
+
+A fake toggle in subscriptions (we can stub payment integration) – or
+
+A simple “Upgrade to Premium” button that sets tier = "premium" in Firestore after confirmation.
+
+All Premium‑only screens and features must check isPremium flag.
+
+6.2 Unlimited Wardrobe
+If tier == "premium":
+
+Remove the 30‑item restriction and allow unlimited items.
+
+6.3 Wardrobe Blueprint & Progress Meter
+Generate a Blueprint based on user profile:
+
+For each context (Work, Date, Casual, Event, Travel) and category, define recommended counts (e.g., work tops 7–10, work bottoms 4–6, date dresses 3–5).
+
+Store in styleBlueprints/{userId} as JSON structure.
+
+Blueprint screen:
+
+Show total “ideal” pieces vs “owned” per context & category.
+
+Progress bars:
+
+“Work wardrobe: 60% complete (9/15 key pieces).”
+
+“Date wardrobe: 25% complete (2/8 key pieces).”
+
+6.4 Advanced Wardrobe Completeness Diagnostics
+Detailed diagnostics page:
+
+List contexts and show coverage & gaps:
+
+“Work tops: 5/8 recommended – mostly black/white. Add 1 coloured shirt and 2 blouses with different necklines.”
+
+“Date outfits: 1/4 recommended dresses – consider a deep jewel tone and a lighter neutral dress.”
+
+For each gap, show:
+
+A sample image of the type (from asset library).
+
+A short “what to look for” description.
+
+6.5 Season & Weather Aware Styling (Premium only)
+Get user location (or allow manual city selection).
+
+Use simple weather/classification logic (no external API needed in v1 if we want to keep it simple):
+
+Map month + region to approximate “cold/mild/hot” or just four seasons.
+
+In Premium recommendations:
+
+Winter/cold: enforce outfit structure with outerwear + base layer + season‑appropriate footwear + jewelry that works with covered necklines.
+
+Summer/hot: lighten layers, adjust footwear, and adjust jewelry emphasis.
+
+UI: allow user to toggle between “Today’s outfits” (season‑aware) and “All‑season ideas”.
+
+6.6 Enhanced Scenario Engine
+More granular scenario selection:
+
+Work: normal day, important presentation, job interview.
+
+Dates: casual coffee, dinner, “special occasion”.
+
+Events: weddings, religious services, formal parties.
+
+Travel: travel days, sightseeing, dinners while traveling.
+
+For each scenario, the outfit generator:
+
+Uses appropriate formality levels, colours, and jewelry rules.
+
+Always generates outfits as sample‑image sets with Owned/Needed flags.
+
+6.7 Constraints‑aware Styling (Modesty/Culture/Comfort)
+All Premium recommendations honour constraints:
+
+No sleeveless (force sleeves), no short hemlines, coverage requirements, max heel heights, etc.
+
+Add constraint indicators to profile screen to remind user of their choices.
+
+Recommendation engine must filter out any combinations that violate constraints.
+
+6.8 Jewelry Intelligence & Jewelry‑Only Mode
+Add rules for jewelry scale and balance:
+
+If neckline is high or outfit has heavy print → recommend small earrings, no big necklace.
+
+If outfit is simple → allow statement earrings or necklace.
+
+In each outfit card:
+
+Jewelry section: show sample images for recommended pieces with short rationale (e.g., “small hoops to balance bold print”).
+
+Jewelry‑only mode screen:
+
+User selects a base outfit (from Owned items).
+
+App suggests 2–3 jewelry combinations (sample images) with explanation.
+
+6.9 Travel Capsule Generator
+Travel planner screen:
+
+Inputs: destination (free text), dates, main activities, luggage size (carry‑on / checked), climate (cold/mild/hot).
+
+Output:
+
+A mini‑capsule containing N items from existing wardrobe plus sample images for gaps.
+
+Show: “Pack these 12 pieces → 18 outfits.”
+
+Each recommended capsule item shows Owned/Needed.
+
+6.10 Before & After Wardrobe Evolution
+Evolution screen:
+
+Show snapshots: first month vs now.
+
+Graphs: category balance, context coverage, colour palette.
+
+Textual insights (templated):
+
+“Your wardrobe has shifted from 70% casual to a more balanced 50% work / 30% casual / 20% events.”
+
+6.11 Confidence Feedback Loop
+After user marks an outfit as worn (manual action):
+
+Prompt: “How confident did you feel?” (1–5 stars).
+
+Optional tags: “Too formal”, “Too casual”, “Colours off”, “Not me”.
+
+Store feedback in analytics/{userId}.
+
+Use basic rules to bias future suggestions:
+
+Promote outfits with similar attributes that scored 4–5.
+
+Suppress patterns that scored 1–2.
+
+7. Navigation & Screens Overview
+Use a bottom navigation bar with tabs:
+
+Home
+
+Welcome message, a “Today’s outfit” or “Top recommendation” card.
+
+Quick links: Add item, View Recommendations, Upgrade to Premium (if free).
+
+Wardrobe
+
+Grid/list of items.
+
+Filters by category, colour, occasion.
+
+Add item button with Free cap logic.
+
+Outfits / Recommendations
+
+Scenario picker at top (chips).
+
+List of outfit cards with Owned/Needed components and sample images.
+
+Premium: scenario, season, and constraints influences.
+
+Insights
+
+Free: basic wardrobe breakdown, simple hints.
+
+Premium: Blueprint progress, diagnostics, evolution, travel capsules, confidence insights.
+
+Profile / Settings
+
+Profile info, body/eye/skin/style goal summary with ability to edit.
+
+Tier status: Free or Premium.
+
+Upgrade button.
+
+App settings (theme, notifications).
+
+Implement all major screens and flows with responsive layouts.
+
+8. What You (Replit Agent) Must Deliver
+Full Flutter project with:
+
+Correct dependencies in pubspec.yaml.
+
+Clear project structure.
+
+Theming, navigation, and state management configured.
+
+All screens & flows described above, fully wired to Firestore/Auth/Storage:
+
+Onboarding wizard.
+
+Auth (sign‑up / login / logout).
+
+Wardrobe CRUD with item photo capture and classification.
+
+Recommendation engine using sample images & Owned/Needed logic.
+
+Free vs Premium gating and paywall screen.
+
+Blueprint, diagnostics, travel, and analytics screens.
+
+Mockable services for:
+
+Image classification (with a clear interface to be swapped out later).
+
+Optional weather/season logic (simple month‑based implementation now).
+
+Assets & sample content:
+
+Placeholder body type illustrations.
+
+Eye colour icons.
+
+Skin tone strips.
+
+Style goal moodboard images.
+
+Sample garments and jewelry images for recommendation cards.
+
+Instructions in README and comments:
+
+Where to place Firebase config files.
+
+Which environment variables to set (if needed).
+
+Exact commands to run in Replit.
+
+Error handling & basic UX polish:
+
+Handle network errors gracefully.
+
+Show loading indicators when fetching/saving data.
+
+Provide meaningful messages when user hits free tier limits.
+
+Start by outlining the folder structure and pubspec.yaml, then generate the code step by step so that the final project is buildable and runnable without errors inside Replit.
