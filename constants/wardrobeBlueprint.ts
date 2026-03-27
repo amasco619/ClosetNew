@@ -411,3 +411,38 @@ export function matchWardrobeItemToSlot(
   const colorMatch   = wardrobeItem.colorFamily === slot.colorFamily;
   return subTypeMatch || colorMatch;
 }
+
+export function initializeSlots(
+  wardrobeItems: Array<{ id: string; category: ItemCategory; subType: string; colorFamily: string }>,
+  blueprint: BlueprintItem[],
+): WardrobeSlot[] {
+  return blueprint.map(item => {
+    const match = wardrobeItems.find(wi => matchWardrobeItemToSlot(wi, item));
+    if (match) {
+      return { ...item, status: 'owned', matchedItemId: match.id };
+    }
+    return { ...item, status: 'needed' };
+  });
+}
+
+export function updateSlotsAfterAdd(
+  slots: WardrobeSlot[],
+  newItem: { id: string; category: ItemCategory; subType: string; colorFamily: string },
+): WardrobeSlot[] {
+  return slots.map(slot => {
+    if (slot.status === 'needed' && matchWardrobeItemToSlot(newItem, slot)) {
+      return { ...slot, status: 'owned', matchedItemId: newItem.id };
+    }
+    return slot;
+  });
+}
+
+export function getFirstNeededByCategory(slots: WardrobeSlot[]): Record<string, WardrobeSlot | undefined> {
+  const result: Record<string, WardrobeSlot | undefined> = {};
+  for (const slot of slots) {
+    if (slot.status === 'needed' && !result[slot.category]) {
+      result[slot.category] = slot;
+    }
+  }
+  return result;
+}
