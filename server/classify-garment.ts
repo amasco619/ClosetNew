@@ -50,6 +50,28 @@ const SUBTYPE_OCCASIONS: Record<string, OccasionTag[]> = {
   "wrap-dress":     ["date", "work"],
   "shirt-dress":    ["work", "casual"],
   "cocktail-dress": ["event", "date"],
+  // Shoes
+  "sneakers":       ["casual"],
+  "heels":          ["date", "event", "work"],
+  "flats":          ["work", "casual"],
+  "boots":          ["casual", "date"],
+  "sandals":        ["casual", "date"],
+  "loafers":        ["work", "casual"],
+  "mules":          ["casual", "date"],
+  // Bags
+  "tote":           ["work", "casual"],
+  "crossbody":      ["casual", "date"],
+  "clutch":         ["date", "event"],
+  "backpack":       ["casual"],
+  "shoulder-bag":   ["work", "casual", "date"],
+  "mini-bag":       ["date", "event"],
+  // Jewelry
+  "necklace":       ["date", "event", "casual"],
+  "earrings":       ["date", "event", "work"],
+  "bracelet":       ["casual", "date"],
+  "ring":           ["casual", "work"],
+  "watch":          ["work", "casual"],
+  "brooch":         ["work", "event"],
 };
 
 // Per-displayName overrides for garments that differ from their subType default
@@ -240,6 +262,137 @@ const GARMENT_LABEL_MAP: Record<string, GarmentMapping> = {
   "Cocktail dress":      { category: "dress", subType: "cocktail-dress", displayName: "Cocktail dress" },
   "Evening gown":        { category: "dress", subType: "cocktail-dress", displayName: "Evening gown" },
   "One-piece garment":   { category: "dress", subType: "midi-dress",     displayName: "Dress" },
+
+  // ── Sneakers & athletic shoes ────────────────────────────────────────────
+  "Sneakers":            { category: "shoes", subType: "sneakers",  displayName: "Sneakers" },
+  "Sneaker":             { category: "shoes", subType: "sneakers",  displayName: "Sneakers" },
+  "Athletic shoe":       { category: "shoes", subType: "sneakers",  displayName: "Sneakers" },
+  "Running shoe":        { category: "shoes", subType: "sneakers",  displayName: "Running shoes" },
+  "Sports shoes":        { category: "shoes", subType: "sneakers",  displayName: "Sneakers" },
+  "Tennis shoe":         { category: "shoes", subType: "sneakers",  displayName: "Tennis shoes" },
+  "Trainer":             { category: "shoes", subType: "sneakers",  displayName: "Trainers" },
+  "Trainers":            { category: "shoes", subType: "sneakers",  displayName: "Trainers" },
+
+  // ── Heels ────────────────────────────────────────────────────────────────
+  "High heels":          { category: "shoes", subType: "heels",     displayName: "Heels" },
+  "High-heeled shoe":    { category: "shoes", subType: "heels",     displayName: "Heels" },
+  "Stiletto":            { category: "shoes", subType: "heels",     displayName: "Stilettos" },
+  "Stilettos":           { category: "shoes", subType: "heels",     displayName: "Stilettos" },
+  "Pump":                { category: "shoes", subType: "heels",     displayName: "Pumps" },
+  "Pumps":               { category: "shoes", subType: "heels",     displayName: "Pumps" },
+  "Court shoe":          { category: "shoes", subType: "heels",     displayName: "Court heels" },
+  "Wedge":               { category: "shoes", subType: "heels",     displayName: "Wedge heels" },
+  "Block heel":          { category: "shoes", subType: "heels",     displayName: "Block heels" },
+  "Kitten heel":         { category: "shoes", subType: "heels",      displayName: "Kitten heels" },
+  "Slingback":           { category: "shoes", subType: "heels",      displayName: "Slingback heels" },
+
+  // ── Flats ─────────────────────────────────────────────────────────────────
+  "Flat shoes":          { category: "shoes", subType: "flats",     displayName: "Flats" },
+  "Ballet flat":         { category: "shoes", subType: "flats",     displayName: "Ballet flats" },
+  "Ballet flats":        { category: "shoes", subType: "flats",     displayName: "Ballet flats" },
+  "Ballerina":           { category: "shoes", subType: "flats",     displayName: "Ballet flats" },
+  "Ballet shoe":         { category: "shoes", subType: "flats",     displayName: "Ballet flats" },
+
+  // ── Boots ────────────────────────────────────────────────────────────────
+  "Boot":                { category: "shoes", subType: "boots",     displayName: "Boots" },
+  "Boots":               { category: "shoes", subType: "boots",     displayName: "Boots" },
+  "Ankle boot":          { category: "shoes", subType: "boots",     displayName: "Ankle boots" },
+  "Ankle boots":         { category: "shoes", subType: "boots",     displayName: "Ankle boots" },
+  "Knee-high boot":      { category: "shoes", subType: "boots",     displayName: "Knee-high boots" },
+  "Chelsea boot":        { category: "shoes", subType: "boots",     displayName: "Chelsea boots" },
+
+  // ── Sandals ──────────────────────────────────────────────────────────────
+  "Sandal":              { category: "shoes", subType: "sandals",   displayName: "Sandals" },
+  "Sandals":             { category: "shoes", subType: "sandals",   displayName: "Sandals" },
+  "Flip-flops":          { category: "shoes", subType: "sandals",   displayName: "Sandals" },
+  "Thong sandal":        { category: "shoes", subType: "sandals",   displayName: "Sandals" },
+
+  // ── Loafers & mules ──────────────────────────────────────────────────────
+  "Loafer":              { category: "shoes", subType: "loafers",   displayName: "Loafers" },
+  "Loafers":             { category: "shoes", subType: "loafers",   displayName: "Loafers" },
+  "Moccasin":            { category: "shoes", subType: "loafers",   displayName: "Loafers" },
+  "Oxford shoe":         { category: "shoes", subType: "loafers",   displayName: "Oxford shoes" },
+  "Derby shoe":          { category: "shoes", subType: "loafers",   displayName: "Derby shoes" },
+  "Mule":                { category: "shoes", subType: "mules",     displayName: "Mules" },
+  "Mules":               { category: "shoes", subType: "mules",     displayName: "Mules" },
+  "Slide":               { category: "shoes", subType: "mules",     displayName: "Slides" },
+
+  // ── Generic shoe fallback ─────────────────────────────────────────────────
+  "Shoe":                { category: "shoes", subType: "flats",     displayName: "Shoes" },
+  "Footwear":            { category: "shoes", subType: "sneakers",  displayName: "Shoes" },
+
+  // ── Totes & large bags ────────────────────────────────────────────────────
+  "Tote bag":            { category: "bag", subType: "tote",         displayName: "Tote bag" },
+  "Shopping bag":        { category: "bag", subType: "tote",         displayName: "Tote bag" },
+
+  // ── Shoulder bags & handbags ─────────────────────────────────────────────
+  "Handbag":             { category: "bag", subType: "shoulder-bag", displayName: "Handbag" },
+  "Bag":                 { category: "bag", subType: "shoulder-bag", displayName: "Bag" },
+  "Purse":               { category: "bag", subType: "shoulder-bag", displayName: "Bag" },
+  "Shoulder bag":        { category: "bag", subType: "shoulder-bag", displayName: "Shoulder bag" },
+  "Satchel":             { category: "bag", subType: "shoulder-bag", displayName: "Satchel" },
+  "Messenger bag":       { category: "bag", subType: "shoulder-bag", displayName: "Messenger bag" },
+
+  // ── Crossbody bags ───────────────────────────────────────────────────────
+  "Crossbody bag":       { category: "bag", subType: "crossbody",    displayName: "Crossbody bag" },
+  "Cross-body bag":      { category: "bag", subType: "crossbody",    displayName: "Crossbody bag" },
+
+  // ── Clutches ─────────────────────────────────────────────────────────────
+  "Clutch":              { category: "bag", subType: "clutch",        displayName: "Clutch" },
+  "Clutch bag":          { category: "bag", subType: "clutch",        displayName: "Clutch" },
+  "Evening bag":         { category: "bag", subType: "clutch",        displayName: "Evening clutch" },
+  "Minaudière":          { category: "bag", subType: "clutch",        displayName: "Clutch" },
+  "Wallet":              { category: "bag", subType: "clutch",        displayName: "Wallet" },
+
+  // ── Backpacks ─────────────────────────────────────────────────────────────
+  "Backpack":            { category: "bag", subType: "backpack",      displayName: "Backpack" },
+  "Knapsack":            { category: "bag", subType: "backpack",      displayName: "Backpack" },
+  "Rucksack":            { category: "bag", subType: "backpack",      displayName: "Backpack" },
+
+  // ── Necklaces ────────────────────────────────────────────────────────────
+  "Necklace":            { category: "jewelry", subType: "necklace",  displayName: "Necklace" },
+  "Pendant":             { category: "jewelry", subType: "necklace",  displayName: "Pendant necklace" },
+  "Chain":               { category: "jewelry", subType: "necklace",  displayName: "Chain necklace" },
+  "Choker":              { category: "jewelry", subType: "necklace",  displayName: "Choker" },
+  "Pearl necklace":      { category: "jewelry", subType: "necklace",  displayName: "Pearl necklace" },
+  "Gold chain":          { category: "jewelry", subType: "necklace",  displayName: "Gold chain" },
+
+  // ── Earrings ─────────────────────────────────────────────────────────────
+  "Earring":             { category: "jewelry", subType: "earrings",  displayName: "Earrings" },
+  "Earrings":            { category: "jewelry", subType: "earrings",  displayName: "Earrings" },
+  "Hoop earring":        { category: "jewelry", subType: "earrings",  displayName: "Hoop earrings" },
+  "Hoop earrings":       { category: "jewelry", subType: "earrings",  displayName: "Hoop earrings" },
+  "Stud earring":        { category: "jewelry", subType: "earrings",  displayName: "Stud earrings" },
+  "Drop earring":        { category: "jewelry", subType: "earrings",  displayName: "Drop earrings" },
+  "Dangle earring":      { category: "jewelry", subType: "earrings",  displayName: "Drop earrings" },
+
+  // ── Bracelets ─────────────────────────────────────────────────────────────
+  "Bracelet":            { category: "jewelry", subType: "bracelet",  displayName: "Bracelet" },
+  "Bangle":              { category: "jewelry", subType: "bracelet",  displayName: "Bangle" },
+  "Bangles":             { category: "jewelry", subType: "bracelet",  displayName: "Bangles" },
+  "Cuff":                { category: "jewelry", subType: "bracelet",  displayName: "Cuff bracelet" },
+  "Cuff bracelet":       { category: "jewelry", subType: "bracelet",  displayName: "Cuff bracelet" },
+
+  // ── Rings ─────────────────────────────────────────────────────────────────
+  "Ring":                { category: "jewelry", subType: "ring",      displayName: "Ring" },
+  "Rings":               { category: "jewelry", subType: "ring",      displayName: "Rings" },
+  "Band":                { category: "jewelry", subType: "ring",      displayName: "Ring" },
+  "Signet ring":         { category: "jewelry", subType: "ring",      displayName: "Signet ring" },
+
+  // ── Watches ──────────────────────────────────────────────────────────────
+  "Watch":               { category: "jewelry", subType: "watch",     displayName: "Watch" },
+  "Wristwatch":          { category: "jewelry", subType: "watch",     displayName: "Watch" },
+  "Timepiece":           { category: "jewelry", subType: "watch",     displayName: "Watch" },
+
+  // ── Brooches ──────────────────────────────────────────────────────────────
+  "Brooch":              { category: "jewelry", subType: "brooch",    displayName: "Brooch" },
+  "Pin":                 { category: "jewelry", subType: "brooch",    displayName: "Pin" },
+
+  // ── Generic jewelry fallback ──────────────────────────────────────────────
+  "Jewelry":             { category: "jewelry", subType: "necklace",  displayName: "Jewelry" },
+  "Jewellery":           { category: "jewelry", subType: "necklace",  displayName: "Jewellery" },
+  "Accessory":           { category: "jewelry", subType: "necklace",  displayName: "Accessory" },
+  "Fashion accessory":   { category: "jewelry", subType: "necklace",  displayName: "Accessory" },
 };
 
 const COLOR_LABEL_MAP: Record<string, string> = {
