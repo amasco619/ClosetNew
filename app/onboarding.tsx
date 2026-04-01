@@ -79,7 +79,7 @@ export default function OnboardingScreen() {
 
   const canProceed = () => {
     switch (step) {
-      case 0: return true;
+      case 0: return name.trim().length > 0;
       case 1: return !!bodyType;
       case 2: return !!eyeColor;
       case 3: return !!skinTone && !!undertone;
@@ -95,7 +95,7 @@ export default function OnboardingScreen() {
       setStep(step + 1);
     } else {
       updateProfile({
-        name: name || 'Style Explorer',
+        name: name.trim(),
         bodyType,
         eyeColor,
         skinTone,
