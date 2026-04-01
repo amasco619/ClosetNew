@@ -78,7 +78,7 @@ export default function WardrobeScreen() {
         <View>
           <Text style={styles.title}>Wardrobe</Text>
           <Text style={styles.subtitle}>
-            {wardrobeItems.length} items{!isPremium ? ` / 30 max` : ''}
+            {wardrobeItems.length} items{!isPremium ? ` / 10 max` : ''}
           </Text>
         </View>
         <Pressable

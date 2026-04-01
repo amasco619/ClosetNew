@@ -9,7 +9,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const FEATURES = [
-  { icon: 'infinite-outline', title: 'Unlimited Wardrobe', desc: 'No 30-item cap. Add every piece you own.' },
+  { icon: 'infinite-outline', title: 'Unlimited Wardrobe', desc: 'No 10-item cap. Add every piece you own.' },
   { icon: 'map-outline', title: 'Wardrobe Blueprint', desc: 'See exactly what pieces you need to build a complete wardrobe.' },
   { icon: 'partly-sunny-outline', title: 'Season-Smart Styling', desc: 'Weather-aware outfit recommendations for your location.' },
   { icon: 'layers-outline', title: 'Advanced Scenarios', desc: 'Job interviews, weddings, travel days, and more.' },

@@ -67,7 +67,7 @@ const defaultProfile: UserProfile = {
   onboardingComplete: false,
 };
 
-const FREE_ITEM_CAP = 30;
+const FREE_ITEM_CAP = 10;
 
 const AppContext = createContext<AppContextValue | null>(null);
 
