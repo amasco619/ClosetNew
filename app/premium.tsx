@@ -52,17 +52,28 @@ export default function PremiumScreen() {
           </LinearGradient>
         </Animated.View>
 
-        {FEATURES.map((feat, i) => (
-          <Animated.View key={feat.title} entering={FadeInDown.delay(200 + i * 80).duration(400)} style={styles.featureCard}>
-            <View style={styles.featureIconWrap}>
-              <Ionicons name={feat.icon as any} size={24} color={Colors.secondary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.featureTitle}>{feat.title}</Text>
-              <Text style={styles.featureDesc}>{feat.desc}</Text>
-            </View>
-          </Animated.View>
-        ))}
+        {FEATURES.map((feat, i) => {
+          const isBlueprintAndPremium = feat.title === 'Wardrobe Blueprint' && isPremium;
+          return (
+            <Animated.View key={feat.title} entering={FadeInDown.delay(200 + i * 80).duration(400)}>
+              <Pressable
+                style={({ pressed }) => [styles.featureCard, isBlueprintAndPremium && pressed && { opacity: 0.75 }]}
+                onPress={isBlueprintAndPremium ? () => router.replace('/blueprint') : undefined}
+              >
+                <View style={styles.featureIconWrap}>
+                  <Ionicons name={feat.icon as any} size={24} color={Colors.secondary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.featureTitle}>{feat.title}</Text>
+                  <Text style={styles.featureDesc}>{feat.desc}</Text>
+                </View>
+                {isBlueprintAndPremium && (
+                  <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
+                )}
+              </Pressable>
+            </Animated.View>
+          );
+        })}
 
         <Animated.View entering={FadeInDown.delay(700).duration(400)} style={styles.pricingCard}>
           <View style={styles.pricingHeader}>

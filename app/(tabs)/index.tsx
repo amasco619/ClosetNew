@@ -110,17 +110,24 @@ export default function HomeScreen() {
               </View>
               <Text style={styles.actionLabel}>Get Outfits</Text>
             </Pressable>
-            {!isPremium && (
-              <Pressable
-                style={({ pressed }) => [styles.actionButton, pressed && styles.actionPressed]}
-                onPress={() => router.push('/premium')}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: Colors.secondary + '30' }]}>
-                  <Ionicons name="star" size={24} color={Colors.secondary} />
-                </View>
-                <Text style={styles.actionLabel}>Go Premium</Text>
-              </Pressable>
-            )}
+            <Pressable
+              style={({ pressed }) => [styles.actionButton, pressed && styles.actionPressed]}
+              onPress={() => router.push(isPremium ? '/blueprint' : '/premium')}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: Colors.secondary + '20' }]}>
+                {isPremium ? (
+                  <Ionicons name="map-outline" size={24} color={Colors.secondary} />
+                ) : (
+                  <View style={{ position: 'relative' }}>
+                    <Ionicons name="map-outline" size={24} color={Colors.secondary} />
+                    <View style={styles.lockBadge}>
+                      <Ionicons name="lock-closed" size={9} color={Colors.white} />
+                    </View>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.actionLabel}>Blueprint</Text>
+            </Pressable>
           </View>
         </Animated.View>
 
@@ -214,6 +221,7 @@ const styles = StyleSheet.create({
   actionPressed: { opacity: 0.7, transform: [{ scale: 0.97 }] },
   actionIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   actionLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary },
+  lockBadge: { position: 'absolute', bottom: -3, right: -5, width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.secondary, alignItems: 'center', justifyContent: 'center' },
   breakdownCard: { backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 28 },
   breakdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
   breakdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
