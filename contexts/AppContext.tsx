@@ -91,10 +91,58 @@ const subTypes: Record<ItemCategory, string[]> = {
 const colorFamilies = ['black', 'white', 'navy', 'beige', 'grey', 'brown', 'red', 'pink', 'blue', 'green', 'burgundy', 'cream', 'olive', 'camel', 'lavender', 'coral'];
 
 function generateOutfitSets(items: WardrobeItem[], profile: UserProfile): OutfitSet[] {
-  const scenarios: OccasionTag[] = ['work', 'casual', 'date', 'event'];
+  const scenarios: OccasionTag[] = ['work', 'casual', 'date', 'event', 'interview', 'wedding', 'travel'];
   const sets: OutfitSet[] = [];
 
   const outfitTemplates: Record<OccasionTag, OutfitComponent[][]> = {
+    interview: [
+      [
+        { category: 'top', subType: 'blouse', colorFamily: 'white', owned: false },
+        { category: 'bottom', subType: 'trousers', colorFamily: 'navy', owned: false },
+        { category: 'outerwear', subType: 'blazer', colorFamily: 'navy', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'black', owned: false },
+        { category: 'bag', subType: 'tote', colorFamily: 'camel', owned: false },
+      ],
+      [
+        { category: 'dress', subType: 'midi-dress', colorFamily: 'black', owned: false },
+        { category: 'outerwear', subType: 'blazer', colorFamily: 'cream', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'beige', owned: false },
+        { category: 'bag', subType: 'shoulder-bag', colorFamily: 'camel', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'gold', owned: false },
+      ],
+    ],
+    wedding: [
+      [
+        { category: 'dress', subType: 'midi-dress', colorFamily: 'pink', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'beige', owned: false },
+        { category: 'bag', subType: 'clutch', colorFamily: 'gold', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'gold', owned: false },
+        { category: 'jewelry', subType: 'necklace', colorFamily: 'gold', owned: false },
+      ],
+      [
+        { category: 'dress', subType: 'cocktail-dress', colorFamily: 'cream', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'beige', owned: false },
+        { category: 'bag', subType: 'clutch', colorFamily: 'beige', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'silver', owned: false },
+        { category: 'jewelry', subType: 'bracelet', colorFamily: 'silver', owned: false },
+      ],
+    ],
+    travel: [
+      [
+        { category: 'top', subType: 'sweater', colorFamily: 'cream', owned: false },
+        { category: 'bottom', subType: 'jeans', colorFamily: 'navy', owned: false },
+        { category: 'shoes', subType: 'sneakers', colorFamily: 'white', owned: false },
+        { category: 'bag', subType: 'crossbody', colorFamily: 'brown', owned: false },
+        { category: 'outerwear', subType: 'blazer', colorFamily: 'camel', owned: false },
+      ],
+      [
+        { category: 'top', subType: 'shirt', colorFamily: 'white', owned: false },
+        { category: 'bottom', subType: 'trousers', colorFamily: 'beige', owned: false },
+        { category: 'shoes', subType: 'sneakers', colorFamily: 'white', owned: false },
+        { category: 'bag', subType: 'crossbody', colorFamily: 'black', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'gold', owned: false },
+      ],
+    ],
     work: [
       [
         { category: 'top', subType: 'blouse', colorFamily: 'white', owned: false },
