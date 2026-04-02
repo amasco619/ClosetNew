@@ -18,7 +18,7 @@ AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo 
 - Multi-step onboarding (body type with illustrated images, eye color, skin tone, style goals)
 - Wardrobe digitization with camera/gallery (30-item free cap)
 - Garment classification via Google Cloud Vision (POST /api/classify-garment)
-- Outfit recommendations by scenario (Work/Casual/Date/Event) with sample images per component
+- **Personalized outfit generation** — dynamic outfit combinations built from the user's actual wardrobe items, with their real photos shown on each outfit card. Algorithm uses occasion tags, color harmony (neutral + anything, monochromatic), style goal color preferences, and profile constraints (noSleeveless, noShortSkirts, maxHeelHeight).
 - Wardrobe analytics (category & color distribution)
 - WardrobeSlot blueprint system (19 essential items across tops, bottoms, outerwear, shoes, jewelry, dress, bag)
 - Starter Recommendations on Home screen (first needed slot per category)
@@ -47,6 +47,7 @@ constants/
   colors.ts            - Theme colors (navy/champagne gold palette)
   types.ts             - Shared type definitions (BodyType, StyleGoal, UserProfile, etc.)
   wardrobeBlueprint.ts - WardrobeSlot model, per-style blueprints, getProfileBlueprint, slot matching
+  outfitGenerator.ts   - Personalized outfit generator (generatePersonalizedOutfits). WardrobeItem/OutfitComponent/OutfitSet interfaces live in types.ts (moved from AppContext to avoid circular imports)
 assets/
   body_types/          - Illustrated body shape images (hourglass, pear, apple, rectangle, inverted triangle, athletic)
   recommendations/     - Sample images for wardrobe slots (19 flat-lay fashion photos)

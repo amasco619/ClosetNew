@@ -31,7 +31,7 @@ export default function HomeScreen() {
     categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
   });
 
-  const readyOutfits = outfitSets.filter(o => o.components.every(c => c.owned)).length;
+  const occasionsCovered = new Set(outfitSets.map(o => o.scenario)).size;
 
   const quickTips = [
     { icon: 'bulb-outline' as const, text: 'A navy blazer works for both work and evening events.' },
@@ -60,14 +60,14 @@ export default function HomeScreen() {
             <Text style={styles.statNumber}>{wardrobeItems.length}</Text>
             <Text style={styles.statLabel}>Items</Text>
           </Pressable>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{readyOutfits}</Text>
-            <Text style={styles.statLabel}>Ready Outfits</Text>
-          </View>
           <Pressable style={styles.statCard} onPress={() => router.push('/(tabs)/outfits')}>
             <Text style={styles.statNumber}>{outfitSets.length}</Text>
-            <Text style={styles.statLabel}>Outfit Ideas</Text>
+            <Text style={styles.statLabel}>Outfits</Text>
           </Pressable>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{occasionsCovered}</Text>
+            <Text style={styles.statLabel}>Occasions</Text>
+          </View>
         </Animated.View>
 
         {profile.styleGoalPrimary && (

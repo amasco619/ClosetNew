@@ -27,3 +27,31 @@ export interface UserProfile {
   constraints: Constraints;
   onboardingComplete: boolean;
 }
+
+export interface WardrobeItem {
+  id: string;
+  photoUri: string;
+  category: ItemCategory;
+  subType: string;
+  colorFamily: string;
+  description?: string;
+  occasionTags: OccasionTag[];
+  seasonTags: SeasonTag[];
+  formalityLevel: number;
+  createdAt: string;
+}
+
+export interface OutfitComponent {
+  category: ItemCategory;
+  subType: string;
+  colorFamily: string;
+  owned: boolean;
+  matchedItemId?: string;
+  photoUri?: string;
+}
+
+export interface OutfitSet {
+  id: string;
+  scenario: OccasionTag;
+  components: OutfitComponent[];
+}
