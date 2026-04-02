@@ -3,7 +3,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory, getProfileBlueprint } from '@/constants/wardrobeBlueprint';
 import { BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag, Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet } from '@/constants/types';
-import { generatePersonalizedOutfits } from '@/constants/outfitGenerator';
 
 export type { BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag, Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet } from '@/constants/types';
 
@@ -63,6 +62,159 @@ const subTypes: Record<ItemCategory, string[]> = {
 };
 
 const colorFamilies = ['black', 'white', 'navy', 'beige', 'grey', 'brown', 'red', 'pink', 'blue', 'green', 'burgundy', 'cream', 'olive', 'camel', 'lavender', 'coral'];
+
+function generateOutfitSets(items: WardrobeItem[], profile: UserProfile): OutfitSet[] {
+  const scenarios: OccasionTag[] = ['work', 'casual', 'date', 'event', 'interview', 'wedding', 'travel'];
+  const sets: OutfitSet[] = [];
+
+  const outfitTemplates: Record<OccasionTag, OutfitComponent[][]> = {
+    interview: [
+      [
+        { category: 'top', subType: 'blouse', colorFamily: 'white', owned: false },
+        { category: 'bottom', subType: 'trousers', colorFamily: 'navy', owned: false },
+        { category: 'outerwear', subType: 'blazer', colorFamily: 'navy', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'black', owned: false },
+        { category: 'bag', subType: 'tote', colorFamily: 'camel', owned: false },
+      ],
+      [
+        { category: 'dress', subType: 'midi-dress', colorFamily: 'black', owned: false },
+        { category: 'outerwear', subType: 'blazer', colorFamily: 'cream', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'beige', owned: false },
+        { category: 'bag', subType: 'shoulder-bag', colorFamily: 'camel', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'gold', owned: false },
+      ],
+    ],
+    wedding: [
+      [
+        { category: 'dress', subType: 'midi-dress', colorFamily: 'pink', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'beige', owned: false },
+        { category: 'bag', subType: 'clutch', colorFamily: 'gold', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'gold', owned: false },
+        { category: 'jewelry', subType: 'necklace', colorFamily: 'gold', owned: false },
+      ],
+      [
+        { category: 'dress', subType: 'cocktail-dress', colorFamily: 'cream', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'beige', owned: false },
+        { category: 'bag', subType: 'clutch', colorFamily: 'beige', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'silver', owned: false },
+        { category: 'jewelry', subType: 'bracelet', colorFamily: 'silver', owned: false },
+      ],
+    ],
+    travel: [
+      [
+        { category: 'top', subType: 'sweater', colorFamily: 'cream', owned: false },
+        { category: 'bottom', subType: 'jeans', colorFamily: 'navy', owned: false },
+        { category: 'shoes', subType: 'sneakers', colorFamily: 'white', owned: false },
+        { category: 'bag', subType: 'crossbody', colorFamily: 'brown', owned: false },
+        { category: 'outerwear', subType: 'blazer', colorFamily: 'camel', owned: false },
+      ],
+      [
+        { category: 'top', subType: 'shirt', colorFamily: 'white', owned: false },
+        { category: 'bottom', subType: 'trousers', colorFamily: 'beige', owned: false },
+        { category: 'shoes', subType: 'sneakers', colorFamily: 'white', owned: false },
+        { category: 'bag', subType: 'crossbody', colorFamily: 'black', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'gold', owned: false },
+      ],
+    ],
+    work: [
+      [
+        { category: 'top', subType: 'blouse', colorFamily: 'white', owned: false },
+        { category: 'bottom', subType: 'trousers', colorFamily: 'navy', owned: false },
+        { category: 'shoes', subType: 'loafers', colorFamily: 'black', owned: false },
+        { category: 'bag', subType: 'tote', colorFamily: 'camel', owned: false },
+        { category: 'jewelry', subType: 'watch', colorFamily: 'gold', owned: false },
+      ],
+      [
+        { category: 'top', subType: 'shirt', colorFamily: 'blue', owned: false },
+        { category: 'bottom', subType: 'chinos', colorFamily: 'beige', owned: false },
+        { category: 'outerwear', subType: 'blazer', colorFamily: 'navy', owned: false },
+        { category: 'shoes', subType: 'flats', colorFamily: 'black', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'gold', owned: false },
+      ],
+      [
+        { category: 'dress', subType: 'shirt-dress', colorFamily: 'navy', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'beige', owned: false },
+        { category: 'bag', subType: 'shoulder-bag', colorFamily: 'brown', owned: false },
+        { category: 'jewelry', subType: 'necklace', colorFamily: 'gold', owned: false },
+      ],
+    ],
+    casual: [
+      [
+        { category: 'top', subType: 't-shirt', colorFamily: 'white', owned: false },
+        { category: 'bottom', subType: 'jeans', colorFamily: 'blue', owned: false },
+        { category: 'shoes', subType: 'sneakers', colorFamily: 'white', owned: false },
+        { category: 'bag', subType: 'crossbody', colorFamily: 'brown', owned: false },
+      ],
+      [
+        { category: 'top', subType: 'sweater', colorFamily: 'cream', owned: false },
+        { category: 'bottom', subType: 'jeans', colorFamily: 'black', owned: false },
+        { category: 'shoes', subType: 'boots', colorFamily: 'brown', owned: false },
+        { category: 'jewelry', subType: 'bracelet', colorFamily: 'gold', owned: false },
+      ],
+    ],
+    date: [
+      [
+        { category: 'dress', subType: 'midi-dress', colorFamily: 'burgundy', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'black', owned: false },
+        { category: 'bag', subType: 'clutch', colorFamily: 'gold', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'gold', owned: false },
+        { category: 'jewelry', subType: 'necklace', colorFamily: 'gold', owned: false },
+      ],
+      [
+        { category: 'top', subType: 'blouse', colorFamily: 'pink', owned: false },
+        { category: 'bottom', subType: 'midi-skirt', colorFamily: 'black', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'beige', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'silver', owned: false },
+      ],
+    ],
+    event: [
+      [
+        { category: 'dress', subType: 'cocktail-dress', colorFamily: 'black', owned: false },
+        { category: 'shoes', subType: 'heels', colorFamily: 'gold', owned: false },
+        { category: 'bag', subType: 'clutch', colorFamily: 'black', owned: false },
+        { category: 'jewelry', subType: 'earrings', colorFamily: 'silver', owned: false },
+        { category: 'jewelry', subType: 'necklace', colorFamily: 'silver', owned: false },
+      ],
+      [
+        { category: 'top', subType: 'blouse', colorFamily: 'cream', owned: false },
+        { category: 'bottom', subType: 'wide-leg', colorFamily: 'black', owned: false },
+        { category: 'outerwear', subType: 'blazer', colorFamily: 'black', owned: false },
+        { category: 'shoes', subType: 'mules', colorFamily: 'gold', owned: false },
+        { category: 'jewelry', subType: 'ring', colorFamily: 'gold', owned: false },
+      ],
+    ],
+  };
+
+  for (const scenario of scenarios) {
+    const templates = outfitTemplates[scenario];
+    for (let i = 0; i < templates.length; i++) {
+      const components = templates[i].map(comp => {
+        // Apply profile constraints — swap out restricted sub-types
+        let subType = comp.subType;
+        if (profile.constraints.noSleeveless && subType === 'tank-top') subType = 'blouse';
+        if (profile.constraints.noShortSkirts && subType === 'mini-dress') subType = 'midi-dress';
+        if (profile.constraints.noShortSkirts && subType === 'mini-skirt') subType = 'midi-skirt';
+        if (profile.constraints.maxHeelHeight === 'flat' && subType === 'heels') subType = 'flats';
+        if (profile.constraints.maxHeelHeight === 'low' && subType === 'heels') subType = 'mules';
+
+        // Find a matching item in the wardrobe (same category + subType OR same category + colorFamily)
+        const match = items.find(
+          item => item.category === comp.category &&
+            (item.subType === subType || item.colorFamily === comp.colorFamily)
+        );
+
+        if (match) {
+          return { ...comp, subType, owned: true, matchedItemId: match.id, photoUri: match.photoUri };
+        }
+        return { ...comp, subType };
+      });
+
+      sets.push({ id: `${scenario}-${i}`, scenario, components });
+    }
+  }
+
+  return sets;
+}
 
 export { subTypes, colorFamilies };
 export type { WardrobeSlot } from '@/constants/wardrobeBlueprint';
@@ -188,7 +340,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const outfitSets = useMemo(() => generatePersonalizedOutfits(wardrobeItems, profile), [wardrobeItems, profile]);
+  const outfitSets = useMemo(() => generateOutfitSets(wardrobeItems, profile), [wardrobeItems, profile]);
   const canAddItem = isPremium || wardrobeItems.length < FREE_ITEM_CAP;
   const starterRecommendations = useMemo(() => getFirstNeededByCategory(recommendationSlots), [recommendationSlots]);
 

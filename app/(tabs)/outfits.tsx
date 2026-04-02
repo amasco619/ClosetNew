@@ -87,17 +87,24 @@ function getComponentImage(comp: OutfitComponent): ImageSourcePropType | null {
 }
 
 function OutfitCard({ outfit, index }: { outfit: OutfitSet; index: number }) {
-  const pieceCount = outfit.components.length;
+  const ownedCount = outfit.components.filter(c => c.owned).length;
+  const totalCount = outfit.components.length;
+  const isComplete = ownedCount === totalCount;
 
   return (
     <Animated.View entering={FadeInDown.delay(index * 100).duration(400)}>
-      <View style={styles.outfitCard}>
+      <View style={[styles.outfitCard, isComplete && styles.outfitCardComplete]}>
+        {isComplete && (
+          <View style={styles.readyBadge}>
+            <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+            <Text style={styles.readyText}>Ready to wear</Text>
+          </View>
+        )}
         <View style={styles.outfitHeader}>
           <Ionicons name={scenarioLabels[outfit.scenario]?.icon as any || 'ellipse'} size={18} color={Colors.secondary} />
           <Text style={styles.outfitScenario}>{scenarioLabels[outfit.scenario]?.label}</Text>
           <View style={styles.progressPill}>
-            <Ionicons name="checkmark-circle" size={12} color={Colors.success} />
-            <Text style={styles.progressText}>{pieceCount} pieces</Text>
+            <Text style={styles.progressText}>{ownedCount}/{totalCount}</Text>
           </View>
         </View>
         <View style={styles.componentsGrid}>
@@ -113,7 +120,7 @@ function OutfitCard({ outfit, index }: { outfit: OutfitSet; index: number }) {
 function ComponentCard({ component }: { component: OutfitComponent }) {
   const stockImage = getComponentImage(component);
   return (
-    <View style={styles.componentCard}>
+    <View style={[styles.componentCard, component.owned && styles.componentOwned]}>
       {component.photoUri ? (
         <Image source={{ uri: component.photoUri }} style={styles.componentImage} resizeMode="cover" />
       ) : stockImage ? (
@@ -123,12 +130,17 @@ function ComponentCard({ component }: { component: OutfitComponent }) {
           <Ionicons
             name={categoryIcons[component.category] as any || 'ellipse-outline'}
             size={20}
-            color={Colors.textLight}
+            color={component.owned ? Colors.success : Colors.textLight}
           />
         </View>
       )}
       <Text style={styles.componentType} numberOfLines={1}>{component.subType.replace(/-/g, ' ')}</Text>
       <Text style={styles.componentColor} numberOfLines={1}>{component.colorFamily}</Text>
+      <View style={[styles.statusBadge, component.owned ? styles.statusOwned : styles.statusNeeded]}>
+        <Text style={[styles.statusText, component.owned ? styles.statusTextOwned : styles.statusTextNeeded]}>
+          {component.owned ? 'Owned' : 'Need'}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -155,7 +167,7 @@ export default function OutfitsScreen() {
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Outfit Ideas</Text>
-        <Text style={styles.subtitle}>Outfits built from your actual wardrobe</Text>
+        <Text style={styles.subtitle}>Track what you own — unlock ready-to-wear looks</Text>
       </View>
 
       <ScrollView
@@ -218,20 +230,12 @@ export default function OutfitsScreen() {
       </ScrollView>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {wardrobeItems.length === 0 ? (
+        {filtered.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="shirt-outline" size={48} color={Colors.textLight} />
-            <Text style={styles.emptyTitle}>Your wardrobe is empty</Text>
+            <Ionicons name="sparkles-outline" size={48} color={Colors.textLight} />
+            <Text style={styles.emptyTitle}>Loading outfit ideas</Text>
             <Text style={styles.emptySubtitle}>
-              Add your first piece and AuraCloset will start building outfits from what you own
-            </Text>
-          </View>
-        ) : filtered.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="layers-outline" size={48} color={Colors.textLight} />
-            <Text style={styles.emptyTitle}>No outfits yet for this occasion</Text>
-            <Text style={styles.emptySubtitle}>
-              When adding items, tag them with this occasion so AuraCloset can build outfits for you
+              Outfit suggestions appear here. Add wardrobe items to see which pieces you already own.
             </Text>
           </View>
         ) : (
@@ -283,16 +287,26 @@ const styles = StyleSheet.create({
 
   scrollContent: { paddingHorizontal: 20 },
   outfitCard: { backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 16 },
+  outfitCardComplete: { borderWidth: 1, borderColor: Colors.success + '40' },
+  readyBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
+  readyText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.success },
   outfitHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   outfitScenario: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.primary, flex: 1 },
-  progressPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.success + '15', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  progressText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.success },
+  progressPill: { backgroundColor: Colors.background, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  progressText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.textSecondary },
   componentsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   componentCard: { width: '30%', backgroundColor: Colors.background, borderRadius: 12, padding: 8, alignItems: 'center', flexGrow: 1 },
+  componentOwned: { backgroundColor: Colors.success + '10' },
   componentImage: { width: 64, height: 80, borderRadius: 10, marginBottom: 6, backgroundColor: Colors.border },
   componentIconWrap: { width: 64, height: 80, borderRadius: 10, backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   componentType: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.primary, textTransform: 'capitalize', textAlign: 'center' },
   componentColor: { fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.textSecondary, textTransform: 'capitalize', marginTop: 2 },
+  statusBadge: { marginTop: 6, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  statusOwned: { backgroundColor: Colors.success + '20' },
+  statusNeeded: { backgroundColor: Colors.warning + '20' },
+  statusText: { fontFamily: 'Inter_600SemiBold', fontSize: 10 },
+  statusTextOwned: { color: Colors.success },
+  statusTextNeeded: { color: Colors.warning },
   emptyState: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 40 },
   emptyTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary, marginTop: 16, textAlign: 'center' },
   emptySubtitle: { fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary, marginTop: 8, textAlign: 'center', lineHeight: 20 },
