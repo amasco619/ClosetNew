@@ -463,9 +463,11 @@ function rgbToColorFamily(r: number, g: number, b: number): string {
   const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1));
 
   // Achromatic (grey/white/black)
+  // Real-world black items (leather, denim, wool) photograph at lightness 0.18–0.28
+  // due to indoor lighting, sheen, and camera exposure — raise the threshold accordingly.
   if (saturation < 0.12) {
     if (lightness > 0.88) return "white";
-    if (lightness < 0.18) return "black";
+    if (lightness < 0.28) return "black";
     return "grey";
   }
 
@@ -643,6 +645,14 @@ export async function classifyGarment(req: Request, res: Response) {
       if (matched?.subType === "t-shirt" || matched?.subType === "long-sleeve" || matched?.subType === "sweater") {
         matched = { category: "top", subType: "polo-shirt", displayName: "Polo shirt" };
       }
+    }
+
+    // Refine: "High-heeled shoe" + Leather + Strap → heeled ankle boots.
+    // GCV labels block-heel ankle boots as "High-heeled shoe" because they detect the heel.
+    // However, pure heels (pumps, stilettos) almost never produce a "Strap" label — that
+    // signal is characteristic of the zipper pull or ankle strap on boots.
+    if (matched?.subType === "heels" && labelSet.has("Strap") && labelSet.has("Leather")) {
+      matched = { category: "shoes", subType: "boots", displayName: "Ankle boots" };
     }
 
     // Use IMAGE_PROPERTIES (pixel-level analysis) as primary color source — it reflects the actual
