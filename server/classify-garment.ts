@@ -523,12 +523,13 @@ function dominantColorFamily(
 
   if (candidates.length === 0) return null;
 
-  // Strongly prefer black: photographic backgrounds are never black, so any black
-  // pixel in the top 8 (non-near-white) candidates almost certainly belongs to the
-  // garment — not a specular highlight, shadow, or background artefact.
-  // This prevents dark patent leather / denim from reading as "grey" due to
-  // highlight pixels outweighing the true-black body pixels by pixel fraction.
-  if (candidates.some(c => c === 'black')) return 'black';
+  // Prefer black when the MOST DOMINANT (highest pixel-fraction) non-white pixel maps
+  // to black. For a genuinely black item (leather boot, black denim) the largest colour
+  // region is the dark body, so candidates[0] is black. For a grey item with shadow
+  // creases, the largest region is the grey fabric, so candidates[0] is grey and the
+  // dark crease pixels are minor candidates — they no longer trigger a false "black".
+  // Backgrounds are never black, so candidates[0] === 'black' is always the garment.
+  if (candidates[0] === 'black') return 'black';
 
   // Prefer any other neutral: neutrals are overwhelmingly more common as garment
   // colors than as backgrounds.
