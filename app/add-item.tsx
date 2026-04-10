@@ -162,7 +162,7 @@ export default function AddItemScreen() {
             <Text style={styles.sectionTitle}>Choose Photo</Text>
             <View style={styles.cropTip}>
               <Ionicons name="crop-outline" size={14} color={Colors.secondary} />
-              <Text style={styles.cropTipText}>Crop tightly around the garment and remove any background for the most accurate colour results.</Text>
+              <Text style={styles.cropTipText}>Crop tightly around the garment and remove any background for the most accurate results.</Text>
             </View>
             <View style={styles.photoActions}>
               <Pressable
