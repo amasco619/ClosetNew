@@ -482,21 +482,36 @@ function rgbToColorFamily(r: number, g: number, b: number): string {
   return "red";
 }
 
+// Neutrals are almost always the garment color, rarely a background color (except white/grey walls,
+// which are already filtered by lightness > 0.90). Saturated colors (green blanket, blue sofa, etc.)
+// are far more likely to be environmental backgrounds.
+const NEUTRAL_FAMILIES = new Set(['black', 'grey', 'white', 'brown', 'beige', 'cream', 'navy', 'camel']);
+
 function dominantColorFamily(
   colors: Array<{ color: { red: number; green: number; blue: number }; pixelFraction: number }>
 ): string | null {
   if (!colors || colors.length === 0) return null;
-  // Sort by pixel fraction descending, skip near-white and near-neutral background tones
+
   const sorted = [...colors].sort((a, b) => b.pixelFraction - a.pixelFraction);
-  for (const entry of sorted.slice(0, 5)) {
+
+  const candidates: string[] = [];
+  for (const entry of sorted.slice(0, 8)) {
     const { red: r, green: g, blue: b } = entry.color;
-    const candidate = rgbToColorFamily(r, g, b);
-    // Skip very light colours that are likely the background
     const lightness = (Math.max(r, g, b) + Math.min(r, g, b)) / 2 / 255;
-    if (lightness > 0.90) continue;
-    return candidate;
+    if (lightness > 0.90) continue; // skip near-white (likely background / plain wall)
+    candidates.push(rgbToColorFamily(r, g, b));
   }
-  return null;
+
+  if (candidates.length === 0) return null;
+
+  // Prefer a neutral color: neutrals are overwhelmingly more common as garment colors
+  // than as backgrounds, so they are a stronger signal than a saturated hue.
+  const neutral = candidates.find(c => NEUTRAL_FAMILIES.has(c));
+  if (neutral) return neutral;
+
+  // No neutral found — the item is itself a saturated color (red dress, blue jeans, etc.)
+  // Return the most dominant non-light candidate.
+  return candidates[0];
 }
 
 function buildDescription(displayName: string, colorFamily: string | null): string {
@@ -507,7 +522,7 @@ function buildDescription(displayName: string, colorFamily: string | null): stri
   return displayName;
 }
 
-const CONF_THRESHOLD = 0.7;
+const CONF_THRESHOLD = 0.55;
 
 interface VisionLabel {
   description: string;
@@ -587,17 +602,21 @@ export async function classifyGarment(req: Request, res: Response) {
       }
     }
 
-    let colorFamily: string | null = null;
-    for (const l of labels) {
-      const mappedColor = COLOR_LABEL_MAP[l.description];
-      if (mappedColor) {
-        colorFamily = mappedColor;
-        break;
-      }
-    }
-    // Fallback: use dominant colour from image properties when no colour label was detected
+    // Use IMAGE_PROPERTIES (pixel-level analysis) as primary color source — it reflects the actual
+    // garment pixels rather than scene-level labels like "Grey" or "Green" that GCV applies
+    // to the whole image (often picking up the background color instead of the item).
+    let colorFamily: string | null = dominantColorFamily(dominantColors);
+
+    // Secondary: if pixel analysis returned nothing, try explicit color labels from GCV.
+    // These can be useful when the image is solid-colored and IMAGE_PROPERTIES is sparse.
     if (!colorFamily) {
-      colorFamily = dominantColorFamily(dominantColors);
+      for (const l of labels) {
+        const mappedColor = COLOR_LABEL_MAP[l.description];
+        if (mappedColor) {
+          colorFamily = mappedColor;
+          break;
+        }
+      }
     }
 
     if (userId) {
