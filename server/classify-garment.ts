@@ -568,6 +568,7 @@ export async function classifyGarment(req: Request, res: Response) {
             : { source: { imageUri: imageUrl } },
           features: [
             { type: "LABEL_DETECTION", maxResults: 20 },
+            { type: "OBJECT_LOCALIZATION", maxResults: 10 },
             { type: "IMAGE_PROPERTIES" },
           ],
         },
@@ -581,6 +582,8 @@ export async function classifyGarment(req: Request, res: Response) {
 
     const response = visionRes.data.responses?.[0] || {};
     const annotations = response.labelAnnotations || [];
+    const objectAnnotations: Array<{ name: string; score: number }> =
+      response.localizedObjectAnnotations || [];
     const dominantColors: Array<{ color: { red: number; green: number; blue: number }; pixelFraction: number }> =
       response.imagePropertiesAnnotation?.dominantColors?.colors || [];
 
@@ -589,9 +592,14 @@ export async function classifyGarment(req: Request, res: Response) {
       score: l.score,
     }));
 
+    // Log all GCV signals so misclassifications are diagnosable in server logs
+    console.log("[classify] labels:", labels.slice(0, 8).map(l => `${l.description}(${l.score.toFixed(2)})`).join(", "));
+    console.log("[classify] objects:", objectAnnotations.slice(0, 5).map(o => `${o.name}(${o.score.toFixed(2)})`).join(", "));
+
     let matched: GarmentMapping | null = null;
     let modelConfidence = 0;
 
+    // Pass 1: try to match from LABEL_DETECTION results
     for (const l of labels) {
       if (l.score > modelConfidence) {
         modelConfidence = l.score;
@@ -604,8 +612,26 @@ export async function classifyGarment(req: Request, res: Response) {
       }
     }
 
+    // Pass 2: if labels gave no match, try OBJECT_LOCALIZATION.
+    // Object localization is often better at naming specific garment/shoe types
+    // in photos with mixed backgrounds (e.g. "Boot" inside a scene with textiles).
+    if (!matched) {
+      for (const obj of objectAnnotations) {
+        const mapping = GARMENT_LABEL_MAP[obj.name];
+        if (mapping && obj.score >= CONF_THRESHOLD) {
+          matched = mapping;
+          modelConfidence = obj.score;
+          console.log(`[classify] matched via object localization: ${obj.name} (${obj.score.toFixed(2)})`);
+          break;
+        }
+      }
+    }
+
     // Refine: if a hood is detected alongside a jacket, it's a hoodie (maps to jacket subType with hoodie display name)
-    const labelSet = new Set(labels.map((l) => l.description));
+    const labelSet = new Set([
+      ...labels.map((l) => l.description),
+      ...objectAnnotations.map((o) => o.name),
+    ]);
     if (labelSet.has("Hood") || labelSet.has("Hoodie") || labelSet.has("Drawstring")) {
       if (!matched || matched.subType === "jacket" || matched.subType === "sweater") {
         matched = { category: "outerwear", subType: "hoodie", displayName: "Hoodie" };
@@ -654,7 +680,8 @@ export async function classifyGarment(req: Request, res: Response) {
       occasionTags,
       modelConfidence,
       rawLabels: labels.slice(0, 5),
-      source: "gcv_label_detection",
+      rawObjects: objectAnnotations.slice(0, 5),
+      source: matched ? "gcv" : "fallback",
     });
   } catch (err: any) {
     console.error("Vision error", err.response?.data || err.message);
