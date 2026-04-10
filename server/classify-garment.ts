@@ -667,7 +667,10 @@ export async function classifyGarment(req: Request, res: Response) {
     // so we apply neutral preference to skip past background hues and find the item colour.
     // Clothing items fill the frame once near-white backgrounds are filtered, so we trust
     // the most dominant pixel directly — neutral preference would wrongly pick up shadow creases.
-    const isOnColoredSurface = matched?.category === 'shoes' || matched?.category === 'bag';
+    // When matched is null (unrecognised item), default to neutral preference ON — safest fallback.
+    const isOnColoredSurface = matched
+      ? matched.category === 'shoes' || matched.category === 'bag'
+      : true;
     let colorFamily: string | null = dominantColorFamily(dominantColors, isOnColoredSurface);
 
     // Secondary: if pixel analysis returned nothing, try explicit color labels from GCV.
