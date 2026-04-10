@@ -523,8 +523,15 @@ function dominantColorFamily(
 
   if (candidates.length === 0) return null;
 
-  // Prefer a neutral color: neutrals are overwhelmingly more common as garment colors
-  // than as backgrounds, so they are a stronger signal than a saturated hue.
+  // Strongly prefer black: photographic backgrounds are never black, so any black
+  // pixel in the top 8 (non-near-white) candidates almost certainly belongs to the
+  // garment — not a specular highlight, shadow, or background artefact.
+  // This prevents dark patent leather / denim from reading as "grey" due to
+  // highlight pixels outweighing the true-black body pixels by pixel fraction.
+  if (candidates.some(c => c === 'black')) return 'black';
+
+  // Prefer any other neutral: neutrals are overwhelmingly more common as garment
+  // colors than as backgrounds.
   const neutral = candidates.find(c => NEUTRAL_FAMILIES.has(c));
   if (neutral) return neutral;
 
