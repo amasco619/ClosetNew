@@ -218,7 +218,7 @@ export default function AddItemScreen() {
             ) : description ? (
               <View style={styles.descriptionCard}>
                 <Ionicons name="sparkles" size={15} color={Colors.secondary} />
-                <Text style={styles.descriptionText}>{description}</Text>
+                <Text style={styles.descriptionText}>{"Looks like " + description.charAt(0).toLowerCase() + description.slice(1)}</Text>
               </View>
             ) : null}
 
