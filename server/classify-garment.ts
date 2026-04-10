@@ -507,7 +507,8 @@ function rgbToColorFamily(r: number, g: number, b: number): string {
 const NEUTRAL_FAMILIES = new Set(['black', 'grey', 'white', 'brown', 'beige', 'cream', 'navy', 'camel']);
 
 function dominantColorFamily(
-  colors: Array<{ color: { red: number; green: number; blue: number }; pixelFraction: number }>
+  colors: Array<{ color: { red: number; green: number; blue: number }; pixelFraction: number }>,
+  applyNeutralPreference = true
 ): string | null {
   if (!colors || colors.length === 0) return null;
 
@@ -523,21 +524,19 @@ function dominantColorFamily(
 
   if (candidates.length === 0) return null;
 
-  // Prefer black when the MOST DOMINANT (highest pixel-fraction) non-white pixel maps
-  // to black. For a genuinely black item (leather boot, black denim) the largest colour
-  // region is the dark body, so candidates[0] is black. For a grey item with shadow
-  // creases, the largest region is the grey fabric, so candidates[0] is grey and the
-  // dark crease pixels are minor candidates — they no longer trigger a false "black".
-  // Backgrounds are never black, so candidates[0] === 'black' is always the garment.
+  // If the most dominant pixel is black it is always the garment (backgrounds are never black).
   if (candidates[0] === 'black') return 'black';
 
-  // Prefer any other neutral: neutrals are overwhelmingly more common as garment
-  // colors than as backgrounds.
-  const neutral = candidates.find(c => NEUTRAL_FAMILIES.has(c));
-  if (neutral) return neutral;
+  if (applyNeutralPreference) {
+    // Footwear and bags are often photographed on coloured surfaces (green blanket, wood floor).
+    // Scan all top candidates for any neutral — it is far more likely to be the item's colour
+    // than the background, which will be a saturated hue (green, teal, brown, etc.).
+    const neutral = candidates.find(c => NEUTRAL_FAMILIES.has(c));
+    if (neutral) return neutral;
+  }
 
-  // No neutral found — the item is itself a saturated color (red dress, blue jeans, etc.)
-  // Return the most dominant non-light candidate.
+  // For clothing items the garment fills the frame once near-white backgrounds are filtered,
+  // so the most dominant pixel is reliably the garment body colour.
   return candidates[0];
 }
 
@@ -663,10 +662,13 @@ export async function classifyGarment(req: Request, res: Response) {
       matched = { category: "shoes", subType: "boots", displayName: "Ankle boots" };
     }
 
-    // Use IMAGE_PROPERTIES (pixel-level analysis) as primary color source — it reflects the actual
-    // garment pixels rather than scene-level labels like "Grey" or "Green" that GCV applies
-    // to the whole image (often picking up the background color instead of the item).
-    let colorFamily: string | null = dominantColorFamily(dominantColors);
+    // Use IMAGE_PROPERTIES (pixel-level analysis) as primary color source.
+    // Footwear and bags are frequently photographed on coloured surfaces (blankets, floors),
+    // so we apply neutral preference to skip past background hues and find the item colour.
+    // Clothing items fill the frame once near-white backgrounds are filtered, so we trust
+    // the most dominant pixel directly — neutral preference would wrongly pick up shadow creases.
+    const isOnColoredSurface = matched?.category === 'shoes' || matched?.category === 'bag';
+    let colorFamily: string | null = dominantColorFamily(dominantColors, isOnColoredSurface);
 
     // Secondary: if pixel analysis returned nothing, try explicit color labels from GCV.
     // These can be useful when the image is solid-colored and IMAGE_PROPERTIES is sparse.
