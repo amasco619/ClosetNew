@@ -76,7 +76,6 @@ export default function AddItemScreen() {
       const pickerOptions: ImagePicker.ImagePickerOptions = {
         quality: 0.8,
         allowsEditing: true,
-        aspect: [3, 4],
         base64: true,
       };
       if (useCamera) {
@@ -161,6 +160,10 @@ export default function AddItemScreen() {
         {step === 0 ? (
           <Animated.View entering={FadeInDown.duration(400)}>
             <Text style={styles.sectionTitle}>Choose Photo</Text>
+            <View style={styles.cropTip}>
+              <Ionicons name="crop-outline" size={14} color={Colors.secondary} />
+              <Text style={styles.cropTipText}>Crop tightly around the garment and remove any background for the most accurate colour results.</Text>
+            </View>
             <View style={styles.photoActions}>
               <Pressable
                 style={({ pressed }) => [styles.photoBtn, pressed && { opacity: 0.7 }]}
@@ -320,6 +323,8 @@ const styles = StyleSheet.create({
   topTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 17, color: Colors.primary },
   scrollContent: { paddingHorizontal: 20 },
   sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary, marginBottom: 12, letterSpacing: -0.3 },
+  cropTip: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, backgroundColor: Colors.secondary + '18', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 14, borderWidth: 1, borderColor: Colors.secondary + '30' },
+  cropTipText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, flex: 1, lineHeight: 17 },
   photoActions: { flexDirection: 'row', gap: 14 },
   photoBtn: { flex: 1, backgroundColor: Colors.white, borderRadius: 16, padding: 24, alignItems: 'center' },
   photoBtnIcon: { width: 56, height: 56, borderRadius: 16, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
