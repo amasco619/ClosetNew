@@ -471,15 +471,9 @@ function rgbToColorFamily(r: number, g: number, b: number): string {
     return "grey";
   }
 
-  // Warm neutrals (beige, camel, brown, cream) — low-ish saturation, warm hue
-  if (saturation < 0.45 && rn >= gn && gn >= bn) {
-    if (lightness > 0.82) return "cream";
-    if (lightness > 0.65) return "beige";
-    if (lightness > 0.45) return "camel";
-    return "brown";
-  }
-
-  // Calculate hue (0–360)
+  // Calculate hue (0–360) — computed early so the warm-neutral block can use it
+  // to exclude rust/terracotta (hue 9–18°) which share saturation with camel/brown
+  // but are chromatically orange, not warm-neutral.
   let hue = 0;
   if (delta !== 0) {
     if (max === rn) hue = ((gn - bn) / delta) % 6;
@@ -489,11 +483,23 @@ function rgbToColorFamily(r: number, g: number, b: number): string {
     if (hue < 0) hue += 360;
   }
 
-  if (hue < 20 || hue >= 345) return lightness < 0.35 ? "burgundy" : "red";
-  if (hue < 40)  return "orange";
+  // Warm neutrals (beige, camel, brown, cream) — muted saturation AND true warm-brown hue.
+  // Require hue >= 18° so that rust/terracotta (hue 9–17°) falls through to the orange band
+  // below instead of being misclassified as camel or brown.
+  if (saturation < 0.45 && hue >= 18 && rn >= gn && gn >= bn) {
+    if (lightness > 0.82) return "cream";
+    if (lightness > 0.65) return "beige";
+    if (lightness > 0.45) return "camel";
+    return "brown";
+  }
+
+  // True reds occupy hue 0–8° (pure red, scarlet, crimson via >=345°).
+  // Rust, terracotta, and burnt-orange start at ~9° and should read as "orange".
+  if (hue < 9 || hue >= 345) return lightness < 0.35 ? "burgundy" : "red";
+  if (hue < 50)  return "orange"; // 9–49°: rust, terracotta, burnt-orange, true orange
   if (hue < 65)  return "yellow";
-  if (hue < 85)  return lightness < 0.40 ? "olive" : "yellow"; // yellowish-green = olive
-  if (hue < 160) return "green"; // true greens are always green, not olive
+  if (hue < 85)  return lightness < 0.40 ? "olive" : "yellow";
+  if (hue < 160) return "green";
   if (hue < 200) return "green";
   if (hue < 255) return lightness < 0.30 ? "navy" : "blue";
   if (hue < 290) return "lavender";
