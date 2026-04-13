@@ -25,6 +25,7 @@ AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo 
 - WardrobeSlot blueprint system (19 essential items across tops, bottoms, outerwear, shoes, jewelry, dress, bag)
 - Starter Recommendations on Home screen (first needed slot per category)
 - Slot status tracking (needed/owned) with automatic matching on item add/remove
+- **Deep Diagnostics** (premium) — computed from stored wardrobe data: overall health score (0–100, graded A–F), category balance analysis, colour palette neutral/accent ratio, scenario coverage strength, hardest-working versatile pieces, blueprint completion %, and a prioritised gap list with contextual explanations. Accessible from the Premium page once upgraded.
 - Premium tier toggle (unlimited items, blueprint, advanced features)
 - Profile management with style constraints
 

@@ -13,7 +13,7 @@ const FEATURES = [
   { icon: 'map-outline', title: 'Wardrobe Blueprint', desc: 'See exactly what pieces you need to build a complete wardrobe.' },
   { icon: 'partly-sunny-outline', title: 'Season-Smart Styling', desc: 'Weather-aware outfit recommendations for your location.' },
   { icon: 'layers-outline', title: 'Advanced Scenarios', desc: 'Job interviews, weddings, travel days, and more.' },
-  { icon: 'analytics-outline', title: 'Deep Diagnostics', desc: 'Detailed gap analysis with shopping suggestions.' },
+  { icon: 'analytics-outline', title: 'Deep Diagnostics', desc: 'Wardrobe health score, colour palette analysis, scenario coverage, and priority gap recommendations.' },
   { icon: 'diamond-outline', title: 'Jewelry Intelligence', desc: 'Smart jewelry pairing based on neckline, occasion, and metals.' },
 ];
 
@@ -54,11 +54,17 @@ export default function PremiumScreen() {
 
         {FEATURES.map((feat, i) => {
           const isBlueprintAndPremium = feat.title === 'Wardrobe Blueprint' && isPremium;
+          const isDiagnosticsAndPremium = feat.title === 'Deep Diagnostics' && isPremium;
+          const isTappable = isBlueprintAndPremium || isDiagnosticsAndPremium;
           return (
             <Animated.View key={feat.title} entering={FadeInDown.delay(200 + i * 80).duration(400)}>
               <Pressable
-                style={({ pressed }) => [styles.featureCard, isBlueprintAndPremium && pressed && { opacity: 0.75 }]}
-                onPress={isBlueprintAndPremium ? () => router.replace('/blueprint') : undefined}
+                style={({ pressed }) => [styles.featureCard, isTappable && pressed && { opacity: 0.75 }]}
+                onPress={
+                  isBlueprintAndPremium ? () => router.replace('/blueprint')
+                  : isDiagnosticsAndPremium ? () => router.push('/diagnostics')
+                  : undefined
+                }
               >
                 <View style={styles.featureIconWrap}>
                   <Ionicons name={feat.icon as any} size={24} color={Colors.secondary} />
@@ -67,7 +73,7 @@ export default function PremiumScreen() {
                   <Text style={styles.featureTitle}>{feat.title}</Text>
                   <Text style={styles.featureDesc}>{feat.desc}</Text>
                 </View>
-                {isBlueprintAndPremium && (
+                {isTappable && (
                   <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
                 )}
               </Pressable>
