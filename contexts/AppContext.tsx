@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory, getProfileBlueprint } from '@/constants/wardrobeBlueprint';
 import { BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag, Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet } from '@/constants/types';
+import { generatePersonalizedOutfits, generateOutfitsForItem } from '@/constants/outfitGenerator';
 
 export type { BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag, Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet } from '@/constants/types';
 
@@ -15,6 +16,8 @@ interface AppContextValue {
   isPremium: boolean;
   togglePremium: () => void;
   outfitSets: OutfitSet[];
+  lastAddedSuggestions: OutfitSet[];
+  clearLastAddedSuggestions: () => void;
   isLoading: boolean;
   canAddItem: boolean;
   recommendationSlots: WardrobeSlot[];
@@ -226,6 +229,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [recommendationSlots, setRecommendationSlots] = useState<WardrobeSlot[]>([]);
   const [slotsInitialized, setSlotsInitialized] = useState(false);
+  const [lastAddedSuggestions, setLastAddedSuggestions] = useState<OutfitSet[]>([]);
 
   useEffect(() => {
     loadData();
@@ -298,6 +302,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const clearLastAddedSuggestions = useCallback(() => {
+    setLastAddedSuggestions([]);
+  }, []);
+
   const addWardrobeItem = useCallback((item: Omit<WardrobeItem, 'id' | 'createdAt'>) => {
     const newItem: WardrobeItem = {
       ...item,
@@ -307,6 +315,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWardrobeItems(prev => {
       const updated = [...prev, newItem];
       AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
+      const suggestions = generateOutfitsForItem(newItem, updated, profile);
+      setLastAddedSuggestions(suggestions);
       return updated;
     });
     setRecommendationSlots(prev => {
@@ -316,7 +326,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ));
       return updated;
     });
-  }, []);
+  }, [profile]);
 
   const removeWardrobeItem = useCallback((id: string) => {
     setWardrobeItems(prev => {
@@ -340,7 +350,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const outfitSets = useMemo(() => generateOutfitSets(wardrobeItems, profile), [wardrobeItems, profile]);
+  const outfitSets = useMemo(() => generatePersonalizedOutfits(wardrobeItems, profile), [wardrobeItems, profile]);
   const canAddItem = isPremium || wardrobeItems.length < FREE_ITEM_CAP;
   const starterRecommendations = useMemo(() => getFirstNeededByCategory(recommendationSlots), [recommendationSlots]);
 
@@ -353,11 +363,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isPremium,
     togglePremium,
     outfitSets,
+    lastAddedSuggestions,
+    clearLastAddedSuggestions,
     isLoading,
     canAddItem,
     recommendationSlots,
     starterRecommendations,
-  }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, isPremium, togglePremium, outfitSets, isLoading, canAddItem, recommendationSlots, starterRecommendations]);
+  }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions, isLoading, canAddItem, recommendationSlots, starterRecommendations]);
 
   return (
     <AppContext.Provider value={value}>

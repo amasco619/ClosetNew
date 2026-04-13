@@ -103,7 +103,6 @@ function buildOutfit(
 
   let baseColor = '';
 
-  // Core: dress OR (top + bottom)
   const bestDress = pickBest(dresses, scenario, profile, usedIds);
   const bestTop   = pickBest(tops, scenario, profile, usedIds);
   const bestBottom = bestTop
@@ -136,19 +135,15 @@ function buildOutfit(
     return null;
   }
 
-  // Shoes
   const shoe = pickHarmonious(shoes, baseColor, scenario, profile, usedIds);
   if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
 
-  // Outerwear (optional)
   const coat = pickHarmonious(outerwear, baseColor, scenario, profile, usedIds);
   if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
 
-  // Bag (optional)
   const bag = pickHarmonious(bags, baseColor, scenario, profile, usedIds);
   if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
 
-  // Jewelry (optional)
   const jewel = pickBest(jewelry, scenario, profile, usedIds);
   if (jewel) { outfit.push(toComponent(jewel)); usedIds.add(jewel.id); }
 
@@ -175,7 +170,6 @@ export function generatePersonalizedOutfits(
   const eligible = items.filter(i => passesConstraints(i, profile));
 
   for (const scenario of scenarios) {
-    // Prefer items that score > 0 for this scenario; fall back to all eligible items
     const scored = eligible.filter(i => scoreForScenario(i, scenario, profile) > 0);
     const pool = scored.length >= 2 ? scored : eligible;
     const byCategory = groupByCategory(pool);
@@ -183,7 +177,6 @@ export function generatePersonalizedOutfits(
     const usedAcrossOutfits = new Set<string>();
     const outfitsForScenario: OutfitSet[] = [];
 
-    // Generate up to 2 outfits per scenario
     for (let attempt = 0; attempt < 2; attempt++) {
       const components = buildOutfit(byCategory, scenario, profile, usedAcrossOutfits);
       if (components) {
@@ -197,6 +190,123 @@ export function generatePersonalizedOutfits(
     }
 
     sets.push(...outfitsForScenario);
+  }
+
+  return sets;
+}
+
+export function generateOutfitsForItem(
+  newItem: WardrobeItem,
+  allItems: WardrobeItem[],
+  profile: UserProfile,
+): OutfitSet[] {
+  const otherItems = allItems.filter(i => i.id !== newItem.id && passesConstraints(i, profile));
+  if (otherItems.length === 0) return [];
+
+  const byCategory = groupByCategory(otherItems);
+
+  const ALL_SCENARIOS: OccasionTag[] = ['casual', 'work', 'date', 'event', 'interview', 'wedding', 'travel'];
+
+  let targetScenarios: OccasionTag[];
+  if (newItem.occasionTags.length > 0) {
+    targetScenarios = newItem.occasionTags.filter(t => ALL_SCENARIOS.includes(t));
+  } else {
+    targetScenarios = ALL_SCENARIOS.filter(s => scoreForScenario(newItem, s, profile) > 0);
+  }
+  if (targetScenarios.length === 0) {
+    targetScenarios = ['casual', 'work'];
+  }
+
+  const sets: OutfitSet[] = [];
+  const usedScenarios = new Set<string>();
+
+  for (const scenario of targetScenarios) {
+    if (sets.length >= 3) break;
+    if (usedScenarios.has(scenario)) continue;
+    usedScenarios.add(scenario);
+
+    const usedIds = new Set<string>([newItem.id]);
+    const outfit: OutfitComponent[] = [toComponent(newItem)];
+    let baseColor = newItem.colorFamily;
+
+    if (newItem.category === 'top') {
+      const bottom = pickHarmonious(byCategory['bottom'] || [], baseColor, scenario, profile, usedIds);
+      if (bottom) { outfit.push(toComponent(bottom)); usedIds.add(bottom.id); }
+      const shoe = pickHarmonious(byCategory['shoes'] || [], baseColor, scenario, profile, usedIds);
+      if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
+      const coat = pickHarmonious(byCategory['outerwear'] || [], baseColor, scenario, profile, usedIds);
+      if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
+      const bag = pickHarmonious(byCategory['bag'] || [], baseColor, scenario, profile, usedIds);
+      if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
+      const jewel = pickBest(byCategory['jewelry'] || [], scenario, profile, usedIds);
+      if (jewel) { outfit.push(toComponent(jewel)); usedIds.add(jewel.id); }
+
+    } else if (newItem.category === 'bottom') {
+      const top = pickHarmonious(byCategory['top'] || [], baseColor, scenario, profile, usedIds);
+      if (top) { outfit.push(toComponent(top)); usedIds.add(top.id); baseColor = top.colorFamily; }
+      const shoe = pickHarmonious(byCategory['shoes'] || [], baseColor, scenario, profile, usedIds);
+      if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
+      const coat = pickHarmonious(byCategory['outerwear'] || [], baseColor, scenario, profile, usedIds);
+      if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
+      const bag = pickHarmonious(byCategory['bag'] || [], baseColor, scenario, profile, usedIds);
+      if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
+      const jewel = pickBest(byCategory['jewelry'] || [], scenario, profile, usedIds);
+      if (jewel) { outfit.push(toComponent(jewel)); usedIds.add(jewel.id); }
+
+    } else if (newItem.category === 'dress') {
+      const shoe = pickHarmonious(byCategory['shoes'] || [], baseColor, scenario, profile, usedIds);
+      if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
+      const coat = pickHarmonious(byCategory['outerwear'] || [], baseColor, scenario, profile, usedIds);
+      if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
+      const bag = pickHarmonious(byCategory['bag'] || [], baseColor, scenario, profile, usedIds);
+      if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
+      const jewel = pickBest(byCategory['jewelry'] || [], scenario, profile, usedIds);
+      if (jewel) { outfit.push(toComponent(jewel)); usedIds.add(jewel.id); }
+
+    } else if (newItem.category === 'outerwear') {
+      const top = pickBest(byCategory['top'] || [], scenario, profile, usedIds);
+      if (top) { outfit.push(toComponent(top)); usedIds.add(top.id); }
+      const bottom = pickHarmonious(byCategory['bottom'] || [], baseColor, scenario, profile, usedIds);
+      if (bottom) { outfit.push(toComponent(bottom)); usedIds.add(bottom.id); }
+      const shoe = pickHarmonious(byCategory['shoes'] || [], baseColor, scenario, profile, usedIds);
+      if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
+      const bag = pickHarmonious(byCategory['bag'] || [], baseColor, scenario, profile, usedIds);
+      if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
+
+    } else if (newItem.category === 'shoes') {
+      const dress = pickBest(byCategory['dress'] || [], scenario, profile, usedIds);
+      const top = pickBest(byCategory['top'] || [], scenario, profile, usedIds);
+      const bottom = top
+        ? pickHarmonious(byCategory['bottom'] || [], top.colorFamily, scenario, profile, new Set([...usedIds, top.id]))
+        : null;
+      if (dress && (!top || scoreForScenario(dress, scenario, profile) >= scoreForScenario(top, scenario, profile))) {
+        outfit.push(toComponent(dress)); usedIds.add(dress.id);
+      } else if (top) {
+        outfit.push(toComponent(top)); usedIds.add(top.id);
+        if (bottom) { outfit.push(toComponent(bottom)); usedIds.add(bottom.id); }
+      }
+      const coat = pickHarmonious(byCategory['outerwear'] || [], baseColor, scenario, profile, usedIds);
+      if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
+      const bag = pickHarmonious(byCategory['bag'] || [], baseColor, scenario, profile, usedIds);
+      if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
+      const jewel = pickBest(byCategory['jewelry'] || [], scenario, profile, usedIds);
+      if (jewel) { outfit.push(toComponent(jewel)); usedIds.add(jewel.id); }
+
+    } else {
+      const coreCategories = groupByCategory(otherItems.filter(i => i.category !== newItem.category));
+      const components = buildOutfit(coreCategories, scenario, profile, usedIds);
+      if (components) {
+        outfit.push(...components);
+      }
+    }
+
+    if (outfit.length >= 2) {
+      sets.push({
+        id: `newitem-${newItem.id}-${scenario}`,
+        scenario,
+        components: outfit,
+      });
+    }
   }
 
   return sets;
