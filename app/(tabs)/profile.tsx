@@ -145,22 +145,51 @@ export default function ProfileScreen() {
                   {isPremium ? 'Unlimited items, blueprint, season-smart styling' : 'Upgrade for unlimited features'}
                 </Text>
               </View>
-              {isPremium ? (
-                <Pressable style={styles.manageBtn} onPress={togglePremium}>
+              <Pressable
+                style={isPremium ? styles.manageBtn : styles.upgradeBtn}
+                onPress={() => router.push('/premium')}
+              >
+                {isPremium ? (
                   <Text style={styles.manageBtnText}>Manage</Text>
-                </Pressable>
-              ) : (
-                <Pressable
-                  style={styles.upgradeBtn}
-                  onPress={() => router.push('/premium')}
-                >
-                  <Ionicons name="star" size={16} color={Colors.white} />
-                  <Text style={styles.upgradeBtnText}>Upgrade</Text>
-                </Pressable>
-              )}
+                ) : (
+                  <>
+                    <Ionicons name="star" size={16} color={Colors.white} />
+                    <Text style={styles.upgradeBtnText}>Upgrade</Text>
+                  </>
+                )}
+              </Pressable>
             </View>
           </View>
         </Animated.View>
+
+        {isPremium && (
+          <Animated.View entering={FadeInDown.delay(560).duration(500)}>
+            <Text style={styles.sectionTitle}>Premium Features</Text>
+            <View style={styles.card}>
+              <Pressable style={styles.premiumFeatureRow} onPress={() => router.push('/diagnostics')}>
+                <View style={[styles.premiumFeatureIcon, { backgroundColor: Colors.secondary + '15' }]}>
+                  <Ionicons name="analytics-outline" size={18} color={Colors.secondary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.premiumFeatureLabel}>Deep Diagnostics</Text>
+                  <Text style={styles.premiumFeatureDesc}>Wardrobe health score & gap analysis</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
+              </Pressable>
+              <View style={styles.featureDivider} />
+              <Pressable style={styles.premiumFeatureRow} onPress={() => router.push('/blueprint')}>
+                <View style={[styles.premiumFeatureIcon, { backgroundColor: Colors.sage + '20' }]}>
+                  <Ionicons name="map-outline" size={18} color={Colors.sage} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.premiumFeatureLabel}>Wardrobe Blueprint</Text>
+                  <Text style={styles.premiumFeatureDesc}>Essential pieces for your style goal</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
+              </Pressable>
+            </View>
+          </Animated.View>
+        )}
 
         <Animated.View entering={FadeInDown.delay(600).duration(500)}>
           <Pressable
@@ -212,6 +241,11 @@ const styles = StyleSheet.create({
   manageBtnText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
   upgradeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: Colors.secondary },
   upgradeBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.white },
+  premiumFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+  premiumFeatureIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  premiumFeatureLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary },
+  premiumFeatureDesc: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  featureDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 14 },
   redoOnboarding: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14 },
   redoText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.textSecondary },
 });
