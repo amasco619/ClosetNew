@@ -2,14 +2,14 @@ import { createContext, useContext, useState, useEffect, useMemo, ReactNode, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory, getProfileBlueprint } from '@/constants/wardrobeBlueprint';
-import { BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag, Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet } from '@/constants/types';
+import { BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag, Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet, WearEntry } from '@/constants/types';
 import { generateOutfitsForItem } from '@/constants/outfitGenerator';
 import {
   RotationState, INITIAL_ROTATION_STATE,
   generateOutfitPool, applyDailyRotation, computePoolHash, todayString,
 } from '@/constants/outfitRotation';
 
-export type { BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag, Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet } from '@/constants/types';
+export type { BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag, Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet, WearEntry } from '@/constants/types';
 
 interface AppContextValue {
   profile: UserProfile;
@@ -26,6 +26,12 @@ interface AppContextValue {
   canAddItem: boolean;
   recommendationSlots: WardrobeSlot[];
   starterRecommendations: Record<string, WardrobeSlot | undefined>;
+  wearHistory: WearEntry[];
+  todaysWear: WearEntry[];
+  logWear: (outfit: OutfitSet) => void;
+  undoWear: (entryId: string) => void;
+  getItemWearCount: (itemId: string) => number;
+  isWornToday: (outfit: OutfitSet) => boolean;
 }
 
 const defaultProfile: UserProfile = {
@@ -57,6 +63,7 @@ const STORAGE_KEYS = {
   premium: '@auracloset_premium',
   slots: '@auracloset_slots',
   rotation: '@auracloset_rotation',
+  wearHistory: '@auracloset_wear_history',
 };
 
 const subTypes: Record<ItemCategory, string[]> = {
@@ -84,6 +91,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [slotsInitialized, setSlotsInitialized] = useState(false);
   const [lastAddedSuggestions, setLastAddedSuggestions] = useState<OutfitSet[]>([]);
   const [rotationState, setRotationState] = useState<RotationState>(INITIAL_ROTATION_STATE);
+  const [wearHistory, setWearHistory] = useState<WearEntry[]>([]);
 
   useEffect(() => {
     loadData();
@@ -116,18 +124,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loadData = async () => {
     try {
-      const [profileData, wardrobeData, premiumData, slotsData, rotationData] = await Promise.all([
+      const [profileData, wardrobeData, premiumData, slotsData, rotationData, wearData] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.profile),
         AsyncStorage.getItem(STORAGE_KEYS.wardrobe),
         AsyncStorage.getItem(STORAGE_KEYS.premium),
         AsyncStorage.getItem(STORAGE_KEYS.slots),
         AsyncStorage.getItem(STORAGE_KEYS.rotation),
+        AsyncStorage.getItem(STORAGE_KEYS.wearHistory),
       ]);
       if (profileData) setProfile(JSON.parse(profileData));
       const loadedItems = wardrobeData ? JSON.parse(wardrobeData) : [];
       if (wardrobeData) setWardrobeItems(loadedItems);
       if (premiumData) setIsPremium(JSON.parse(premiumData));
       if (rotationData) setRotationState(JSON.parse(rotationData));
+      if (wearData) setWearHistory(JSON.parse(wearData));
       if (slotsData) {
         const savedStatuses: { id: string; status: 'needed' | 'owned'; matchedItemId?: string }[] = JSON.parse(slotsData);
         const loadedProfile = profileData ? JSON.parse(profileData) : defaultProfile;
@@ -161,6 +171,63 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const clearLastAddedSuggestions = useCallback(() => {
     setLastAddedSuggestions([]);
   }, []);
+
+  // ── Wear tracking ─────────────────────────────────────────────────────────────
+
+  function outfitFingerprintOf(outfit: OutfitSet): string {
+    return outfit.components
+      .map(c => c.matchedItemId)
+      .filter(Boolean)
+      .sort()
+      .join('|');
+  }
+
+  const logWear = useCallback((outfit: OutfitSet) => {
+    const fp = outfitFingerprintOf(outfit);
+    const itemIds = outfit.components
+      .map(c => c.matchedItemId)
+      .filter((id): id is string => Boolean(id));
+    const entry: WearEntry = {
+      id: Crypto.randomUUID(),
+      date: todayString(),
+      occasion: outfit.scenario,
+      outfitFingerprint: fp,
+      itemIds,
+      loggedAt: new Date().toISOString(),
+    };
+    setWearHistory(prev => {
+      const updated = [entry, ...prev];
+      AsyncStorage.setItem(STORAGE_KEYS.wearHistory, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const undoWear = useCallback((entryId: string) => {
+    setWearHistory(prev => {
+      const updated = prev.filter(e => e.id !== entryId);
+      AsyncStorage.setItem(STORAGE_KEYS.wearHistory, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const todaysWear = useMemo(() => {
+    const today = todayString();
+    return wearHistory.filter(e => e.date === today);
+  }, [wearHistory]);
+
+  const getItemWearCount = useCallback(
+    (itemId: string) => wearHistory.filter(e => e.itemIds.includes(itemId)).length,
+    [wearHistory],
+  );
+
+  const isWornToday = useCallback(
+    (outfit: OutfitSet) => {
+      const fp = outfitFingerprintOf(outfit);
+      const today = todayString();
+      return wearHistory.some(e => e.date === today && e.outfitFingerprint === fp);
+    },
+    [wearHistory],
+  );
 
   const addWardrobeItem = useCallback((item: Omit<WardrobeItem, 'id' | 'createdAt'>) => {
     const newItem: WardrobeItem = {
@@ -267,7 +334,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     canAddItem,
     recommendationSlots,
     starterRecommendations,
-  }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions, isLoading, canAddItem, recommendationSlots, starterRecommendations]);
+    wearHistory,
+    todaysWear,
+    logWear,
+    undoWear,
+    getItemWearCount,
+    isWornToday,
+  }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions, isLoading, canAddItem, recommendationSlots, starterRecommendations, wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday]);
 
   return (
     <AppContext.Provider value={value}>

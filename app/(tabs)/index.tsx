@@ -21,9 +21,14 @@ const categoryLabels: Record<string, string> = {
   top: 'Tops', bottom: 'Bottoms', outerwear: 'Outerwear', shoes: 'Shoes', jewelry: 'Jewelry',
 };
 
+const occasionLabels: Record<string, string> = {
+  work: 'Work', casual: 'Casual', date: 'Date', event: 'Event',
+  interview: 'Interview', wedding: 'Wedding', travel: 'Travel',
+};
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, wardrobeItems, outfitSets, isPremium, canAddItem, starterRecommendations } = useApp();
+  const { profile, wardrobeItems, outfitSets, isPremium, canAddItem, starterRecommendations, todaysWear, wearHistory } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const categoryCounts: Record<string, number> = {};
@@ -80,6 +85,27 @@ export default function HomeScreen() {
               {styleGoalLabels[profile.styleGoalPrimary]}
               {profile.styleGoalSecondary ? ` + ${styleGoalLabels[profile.styleGoalSecondary]}` : ''}
             </Text>
+          </Animated.View>
+        )}
+
+        {todaysWear.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(350).duration(500)} style={styles.todayCard}>
+            <View style={styles.todayCardHeader}>
+              <Ionicons name="calendar" size={18} color={Colors.secondary} />
+              <Text style={styles.todayCardTitle}>Today's Looks</Text>
+              <Pressable onPress={() => router.push('/wear-log')} style={styles.todaySeeAll}>
+                <Text style={styles.todaySeeAllText}>See all</Text>
+                <Ionicons name="chevron-forward" size={13} color={Colors.secondary} />
+              </Pressable>
+            </View>
+            <View style={styles.todayPills}>
+              {todaysWear.map(entry => (
+                <View key={entry.id} style={styles.todayPill}>
+                  <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
+                  <Text style={styles.todayPillText}>{occasionLabels[entry.occasion] ?? entry.occasion}</Text>
+                </View>
+              ))}
+            </View>
           </Animated.View>
         )}
 
@@ -232,6 +258,23 @@ const styles = StyleSheet.create({
   breakdownCount: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.textSecondary, width: 24, textAlign: 'right' },
   tipCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.white, borderRadius: 12, padding: 14, marginBottom: 8 },
   tipText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, flex: 1, lineHeight: 18 },
+
+  todayCard: {
+    backgroundColor: Colors.white, borderRadius: 16, padding: 16,
+    marginBottom: 24, borderWidth: 1, borderColor: Colors.success + '40',
+  },
+  todayCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  todayCardTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, flex: 1 },
+  todaySeeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  todaySeeAllText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.secondary },
+  todayPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  todayPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: Colors.success + '12', borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderWidth: 1, borderColor: Colors.success + '30',
+  },
+  todayPillText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.primary },
   recSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, marginBottom: 14, marginTop: -8 },
   recScroll: { marginBottom: 24, marginHorizontal: -20 },
   recScrollContent: { paddingHorizontal: 20, gap: 12 },

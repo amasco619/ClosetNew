@@ -26,6 +26,8 @@ AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo 
 - Starter Recommendations on Home screen (first needed slot per category)
 - Slot status tracking (needed/owned) with automatic matching on item add/remove
 - **Deep Diagnostics** (premium) — computed from stored wardrobe data: overall health score (0–100, graded A–F), category balance analysis, colour palette neutral/accent ratio, scenario coverage strength, hardest-working versatile pieces, blueprint completion %, and a prioritised gap list with contextual explanations. Accessible from the Premium page once upgraded.
+- **Wear Tracking** — full outfit wear log system: "Wearing this today" button on each OutfitCard (only shown when outfit has owned items), tapping logs a WearEntry (id, date, occasion, outfitFingerprint, itemIds, loggedAt) to AsyncStorage. Worn cards show green "Worn today" badge + "Undo" button. Wear Log screen (`/wear-log`) shows all entries grouped by date with item thumbnails. Home tab shows "Today's Looks" pill card when anything is logged. Profile tab has a "Track & History" section with Wear Log shortcut showing total log count.
+- Daily rotation engine — seeded Mulberry32 shuffle with per-scenario cursors, 2 outfits/scenario/day, persisted to AsyncStorage
 - Premium tier toggle (unlimited items, blueprint, advanced features)
 - Profile management with style constraints
 

@@ -55,3 +55,12 @@ export interface OutfitSet {
   scenario: OccasionTag;
   components: OutfitComponent[];
 }
+
+export interface WearEntry {
+  id: string;
+  date: string;              // YYYY-MM-DD
+  occasion: OccasionTag;
+  outfitFingerprint: string; // sorted matched item IDs joined by '|'
+  itemIds: string[];         // wardrobe item IDs worn
+  loggedAt: string;          // ISO timestamp
+}

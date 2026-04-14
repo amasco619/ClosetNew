@@ -8,7 +8,7 @@ import { router } from 'expo-router';
 import { useApp, OutfitSet, OutfitComponent } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { OccasionTag } from '@/constants/types';
 
 const FREE_SCENARIOS: OccasionTag[] = ['work', 'casual', 'date', 'event'];
@@ -56,7 +56,23 @@ function OutfitItemPhoto({ component, size = 72 }: { component: OutfitComponent;
   );
 }
 
-function OutfitCard({ outfit, index, highlight = false }: { outfit: OutfitSet; index: number; highlight?: boolean }) {
+function OutfitCard({
+  outfit,
+  index,
+  highlight = false,
+  wornToday,
+  wornTodayEntryId,
+  onLogWear,
+  onUndoWear,
+}: {
+  outfit: OutfitSet;
+  index: number;
+  highlight?: boolean;
+  wornToday: boolean;
+  wornTodayEntryId?: string;
+  onLogWear: (outfit: OutfitSet) => void;
+  onUndoWear: (entryId: string) => void;
+}) {
   const scenario = scenarioLabels[outfit.scenario];
   const coreItems = outfit.components.filter(c =>
     ['top', 'bottom', 'dress'].includes(c.category)
@@ -64,19 +80,27 @@ function OutfitCard({ outfit, index, highlight = false }: { outfit: OutfitSet; i
   const accessories = outfit.components.filter(c =>
     ['shoes', 'bag', 'jewelry', 'outerwear'].includes(c.category)
   );
+  const hasOwnedItems = outfit.components.some(c => c.owned && c.matchedItemId);
 
   return (
     <Animated.View entering={FadeInDown.delay(index * 80).duration(400)}>
-      <View style={[styles.outfitCard, highlight && styles.outfitCardHighlight]}>
+      <View style={[styles.outfitCard, highlight && styles.outfitCardHighlight, wornToday && styles.outfitCardWorn]}>
         <View style={styles.outfitCardHeader}>
           <View style={styles.scenarioPill}>
             <Ionicons name={scenario?.icon as any || 'ellipse'} size={13} color={Colors.secondary} />
             <Text style={styles.scenarioPillText}>{scenario?.label}</Text>
           </View>
-          <View style={styles.readyBadge}>
-            <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
-            <Text style={styles.readyText}>Ready to wear</Text>
-          </View>
+          {wornToday ? (
+            <View style={styles.wornBadge}>
+              <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
+              <Text style={styles.wornBadgeText}>Worn today</Text>
+            </View>
+          ) : (
+            <View style={styles.readyBadge}>
+              <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
+              <Text style={styles.readyText}>Ready to wear</Text>
+            </View>
+          )}
         </View>
 
         {scenario?.mood && (
@@ -105,6 +129,28 @@ function OutfitCard({ outfit, index, highlight = false }: { outfit: OutfitSet; i
                 </Text>
               </View>
             ))}
+          </View>
+        )}
+
+        {hasOwnedItems && (
+          <View style={styles.wearButtonRow}>
+            {wornToday ? (
+              <Pressable
+                style={styles.undoWearButton}
+                onPress={() => wornTodayEntryId && onUndoWear(wornTodayEntryId)}
+              >
+                <Ionicons name="return-up-back-outline" size={14} color={Colors.textSecondary} />
+                <Text style={styles.undoWearText}>Undo</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={styles.logWearButton}
+                onPress={() => onLogWear(outfit)}
+              >
+                <Ionicons name="calendar-outline" size={14} color={Colors.white} />
+                <Text style={styles.logWearText}>Wearing this today</Text>
+              </Pressable>
+            )}
           </View>
         )}
       </View>
@@ -180,6 +226,10 @@ export default function OutfitsScreen() {
     isPremium,
     lastAddedSuggestions,
     clearLastAddedSuggestions,
+    todaysWear,
+    logWear,
+    undoWear,
+    isWornToday,
   } = useApp();
   const [selectedScenario, setSelectedScenario] = useState<OccasionTag>('casual');
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
@@ -195,6 +245,16 @@ export default function OutfitsScreen() {
     } else {
       setSelectedScenario(scenario);
     }
+  }
+
+  function getTodayEntryId(outfit: OutfitSet): string | undefined {
+    const fp = outfit.components
+      .map(c => c.matchedItemId)
+      .filter(Boolean)
+      .sort()
+      .join('|');
+    const today = new Date().toISOString().slice(0, 10);
+    return todaysWear.find(e => e.date === today && e.outfitFingerprint === fp)?.id;
   }
 
   return (
@@ -298,9 +358,21 @@ export default function OutfitsScreen() {
             </Pressable>
           </View>
         ) : (
-          filtered.map((outfit, i) => (
-            <OutfitCard key={outfit.id} outfit={outfit} index={i} />
-          ))
+          filtered.map((outfit, i) => {
+            const worn = isWornToday(outfit);
+            const entryId = worn ? getTodayEntryId(outfit) : undefined;
+            return (
+              <OutfitCard
+                key={outfit.id}
+                outfit={outfit}
+                index={i}
+                wornToday={worn}
+                wornTodayEntryId={entryId}
+                onLogWear={logWear}
+                onUndoWear={undoWear}
+              />
+            );
+          })
         )}
 
         {!isPremium && hasWardrobe && !isPremiumScenario && (
@@ -380,6 +452,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   outfitCardHighlight: { borderColor: Colors.secondary + '50', backgroundColor: Colors.secondary + '05' },
+  outfitCardWorn: { borderColor: Colors.success + '50', backgroundColor: Colors.success + '06' },
 
   outfitCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   scenarioPill: {
@@ -391,6 +464,28 @@ const styles = StyleSheet.create({
 
   readyBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   readyText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.success },
+
+  wornBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  wornBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.success },
+
+  wearButtonRow: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  logWearButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: Colors.primary, borderRadius: 10,
+    paddingVertical: 9, paddingHorizontal: 16,
+  },
+  logWearText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.white },
+  undoWearButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: Colors.background, borderRadius: 10, borderWidth: 1,
+    borderColor: Colors.border, paddingVertical: 8, paddingHorizontal: 16,
+  },
+  undoWearText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
 
   moodText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginBottom: 14, fontStyle: 'italic' },
 

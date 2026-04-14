@@ -47,7 +47,7 @@ function ProfileRow({ icon, iconColor, label, value, onPress }: { icon: string; 
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, updateProfile, wardrobeItems, isPremium, togglePremium } = useApp();
+  const { profile, updateProfile, wardrobeItems, isPremium, togglePremium, wearHistory } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   return (
@@ -132,6 +132,26 @@ export default function ProfileScreen() {
                 ))}
               </View>
             </View>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(460).duration(500)}>
+          <Text style={styles.sectionTitle}>Track & History</Text>
+          <View style={styles.card}>
+            <Pressable style={styles.premiumFeatureRow} onPress={() => router.push('/wear-log')}>
+              <View style={[styles.premiumFeatureIcon, { backgroundColor: Colors.blush + '30' }]}>
+                <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.premiumFeatureLabel}>Wear Log</Text>
+                <Text style={styles.premiumFeatureDesc}>
+                  {wearHistory.length === 0
+                    ? 'Track outfits you wear each day'
+                    : `${wearHistory.length} outfit${wearHistory.length === 1 ? '' : 's'} logged`}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
+            </Pressable>
           </View>
         </Animated.View>
 
