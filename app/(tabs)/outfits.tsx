@@ -9,10 +9,42 @@ import { useApp, OutfitSet, OutfitComponent } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useState, useCallback } from 'react';
-import { OccasionTag } from '@/constants/types';
+import { OccasionTag, WearEntry } from '@/constants/types';
 
 const FREE_SCENARIOS: OccasionTag[] = ['work', 'casual', 'date', 'event'];
 const PREMIUM_SCENARIOS: OccasionTag[] = ['interview', 'wedding', 'travel'];
+
+const REWEAR_THRESHOLDS: Record<OccasionTag, number> = {
+  work:      7,
+  casual:    7,
+  date:      14,
+  event:     14,
+  interview: 21,
+  wedding:   21,
+  travel:    0,
+};
+
+function getLastWornInfo(
+  outfit: OutfitSet,
+  wearHistory: WearEntry[],
+): { daysAgo: number; date: string } | null {
+  const fp = outfit.components
+    .map(c => c.matchedItemId)
+    .filter(Boolean)
+    .sort()
+    .join('|');
+  if (!fp) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const matches = wearHistory
+    .filter(e => e.outfitFingerprint === fp && e.date < today)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  if (matches.length === 0) return null;
+  const lastDate = matches[0].date;
+  const daysAgo = Math.round(
+    (Date.now() - new Date(lastDate + 'T12:00:00').getTime()) / (1000 * 60 * 60 * 24),
+  );
+  return { daysAgo, date: lastDate };
+}
 
 const scenarioLabels: Record<OccasionTag, { label: string; icon: string; mood: string }> = {
   work:      { label: 'Work',      icon: 'briefcase-outline',  mood: 'Sharp & polished' },
@@ -64,6 +96,7 @@ function OutfitCard({
   wornTodayEntryId,
   onLogWear,
   onUndoWear,
+  wearHistory,
 }: {
   outfit: OutfitSet;
   index: number;
@@ -72,6 +105,7 @@ function OutfitCard({
   wornTodayEntryId?: string;
   onLogWear: (outfit: OutfitSet) => void;
   onUndoWear: (entryId: string) => void;
+  wearHistory: WearEntry[];
 }) {
   const scenario = scenarioLabels[outfit.scenario];
   const coreItems = outfit.components.filter(c =>
@@ -81,6 +115,12 @@ function OutfitCard({
     ['shoes', 'bag', 'jewelry', 'outerwear'].includes(c.category)
   );
   const hasOwnedItems = outfit.components.some(c => c.owned && c.matchedItemId);
+
+  const lastWorn = getLastWornInfo(outfit, wearHistory);
+  const threshold = REWEAR_THRESHOLDS[outfit.scenario];
+  const showRewearAdvisor = lastWorn !== null && threshold > 0 && lastWorn.daysAgo < threshold;
+  const halfThreshold = Math.ceil(threshold / 2);
+  const rewearUrgent = lastWorn !== null && lastWorn.daysAgo < halfThreshold;
 
   return (
     <Animated.View entering={FadeInDown.delay(index * 80).duration(400)}>
@@ -105,6 +145,21 @@ function OutfitCard({
 
         {scenario?.mood && (
           <Text style={styles.moodText}>{scenario.mood}</Text>
+        )}
+
+        {showRewearAdvisor && !wornToday && (
+          <View style={[styles.rewearAdvisor, rewearUrgent && styles.rewearAdvisorUrgent]}>
+            <Ionicons
+              name={rewearUrgent ? 'time-outline' : 'refresh-circle-outline'}
+              size={13}
+              color={rewearUrgent ? '#B45309' : Colors.secondary}
+            />
+            <Text style={[styles.rewearAdvisorText, rewearUrgent && styles.rewearAdvisorTextUrgent]}>
+              {rewearUrgent
+                ? `Worn ${lastWorn.daysAgo === 1 ? 'yesterday' : `${lastWorn.daysAgo} days ago`} — let this one breathe a little longer`
+                : `Worn ${lastWorn.daysAgo} days ago — almost ready to re-wear`}
+            </Text>
+          </View>
         )}
 
         <View style={styles.photosRow}>
@@ -230,6 +285,7 @@ export default function OutfitsScreen() {
     logWear,
     undoWear,
     isWornToday,
+    wearHistory,
   } = useApp();
   const [selectedScenario, setSelectedScenario] = useState<OccasionTag>('casual');
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
@@ -370,6 +426,7 @@ export default function OutfitsScreen() {
                 wornTodayEntryId={entryId}
                 onLogWear={logWear}
                 onUndoWear={undoWear}
+                wearHistory={wearHistory}
               />
             );
           })
@@ -487,7 +544,25 @@ const styles = StyleSheet.create({
   },
   undoWearText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
 
-  moodText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginBottom: 14, fontStyle: 'italic' },
+  moodText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginBottom: 8, fontStyle: 'italic' },
+
+  rewearAdvisor: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.secondary + '12', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 7, marginBottom: 12,
+    borderWidth: 1, borderColor: Colors.secondary + '25',
+  },
+  rewearAdvisorUrgent: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FCD34D',
+  },
+  rewearAdvisorText: {
+    fontFamily: 'Inter_500Medium', fontSize: 11,
+    color: Colors.secondary, flex: 1, lineHeight: 15,
+  },
+  rewearAdvisorTextUrgent: {
+    color: '#92400E',
+  },
 
   photosRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   photoWrap: { alignItems: 'center', flex: 1 },

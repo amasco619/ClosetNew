@@ -38,6 +38,7 @@ export interface WardrobeItem {
   occasionTags: OccasionTag[];
   seasonTags: SeasonTag[];
   formalityLevel: number;
+  purchasePrice?: number;
   createdAt: string;
 }
 

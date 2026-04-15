@@ -17,6 +17,7 @@ interface AppContextValue {
   wardrobeItems: WardrobeItem[];
   addWardrobeItem: (item: Omit<WardrobeItem, 'id' | 'createdAt'>) => void;
   removeWardrobeItem: (id: string) => void;
+  updateWardrobeItem: (id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => void;
   isPremium: boolean;
   togglePremium: () => void;
   outfitSets: OutfitSet[];
@@ -265,6 +266,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [profile]);
 
+  const updateWardrobeItem = useCallback((id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => {
+    setWardrobeItems(prev => {
+      const next = prev.map(item => item.id === id ? { ...item, ...updates } : item);
+      AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const togglePremium = useCallback(() => {
     setIsPremium(prev => {
       const updated = !prev;
@@ -348,6 +357,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     wardrobeItems,
     addWardrobeItem,
     removeWardrobeItem,
+    updateWardrobeItem,
     isPremium,
     togglePremium,
     outfitSets,
@@ -363,7 +373,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     undoWear,
     getItemWearCount,
     isWornToday,
-  }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions, isLoading, canAddItem, recommendationSlots, starterRecommendations, wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday]);
+  }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem, isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions, isLoading, canAddItem, recommendationSlots, starterRecommendations, wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday]);
 
   return (
     <AppContext.Provider value={value}>

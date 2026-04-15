@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, Platform, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, Platform, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -49,6 +49,7 @@ export default function AddItemScreen() {
   const [classifying, setClassifying] = useState(false);
   const [occasions, setOccasions] = useState<OccasionTag[]>([]);
   const [seasons, setSeasons] = useState<SeasonTag[]>(['all-season']);
+  const [purchasePrice, setPurchasePrice] = useState('');
   const [step, setStep] = useState(0);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -125,6 +126,7 @@ export default function AddItemScreen() {
   const handleSave = () => {
     if (!photoUri) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const parsedPrice = parseFloat(purchasePrice.replace(/[^0-9.]/g, ''));
     addWardrobeItem({
       photoUri,
       category,
@@ -134,6 +136,7 @@ export default function AddItemScreen() {
       occasionTags: occasions,
       seasonTags: seasons,
       formalityLevel: 3,
+      purchasePrice: isNaN(parsedPrice) || parsedPrice <= 0 ? undefined : parsedPrice,
     });
     router.back();
   };
@@ -295,6 +298,23 @@ export default function AddItemScreen() {
                 </Pressable>
               ))}
             </View>
+
+            <Text style={styles.sectionTitle}>Purchase Price <Text style={styles.optionalLabel}>(optional)</Text></Text>
+            <View style={styles.priceInputRow}>
+              <View style={styles.priceCurrencyWrap}>
+                <Ionicons name="pricetag-outline" size={15} color={Colors.textSecondary} />
+              </View>
+              <TextInput
+                style={styles.priceInput}
+                placeholder="e.g. 45.00"
+                placeholderTextColor={Colors.textLight}
+                keyboardType="decimal-pad"
+                value={purchasePrice}
+                onChangeText={setPurchasePrice}
+                returnKeyType="done"
+              />
+            </View>
+            <Text style={styles.priceHint}>Used to calculate cost per wear as you log outfits</Text>
           </Animated.View>
         )}
         <View style={{ height: 100 }} />
@@ -353,4 +373,9 @@ const styles = StyleSheet.create({
   footer: { paddingHorizontal: 20, paddingTop: 12, backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: Colors.border },
   saveButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16 },
   saveButtonText: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.white },
+  optionalLabel: { fontFamily: 'Inter_400Regular', color: Colors.textLight, fontSize: 13 },
+  priceInputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 8, overflow: 'hidden' },
+  priceCurrencyWrap: { paddingHorizontal: 12, paddingVertical: 13, borderRightWidth: 1, borderRightColor: Colors.border, backgroundColor: Colors.background },
+  priceInput: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 15, color: Colors.primary, paddingHorizontal: 14, paddingVertical: 13 },
+  priceHint: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, marginBottom: 24, lineHeight: 17 },
 });
