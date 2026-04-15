@@ -281,15 +281,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [wardrobeItems, profile],
   );
 
-  // Today's outfits: a stable slice of the shuffled pool
+  // Fingerprints of outfits worn in the last 7 days — used for freshness ranking
+  const recentWornFingerprints = useMemo(() => {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const set = new Set<string>();
+    for (const entry of wearHistory) {
+      if (entry.date >= sevenDaysAgo && entry.outfitFingerprint) {
+        set.add(entry.outfitFingerprint);
+      }
+    }
+    return set;
+  }, [wearHistory]);
+
+  // Today's outfits: a stable slice of the confidence-ranked, freshness-adjusted pool
   const outfitSets = useMemo(() => {
     if (wardrobeItems.length === 0) return [];
     const today = todayString();
-    const { outfits } = applyDailyRotation(outfitPool, rotationState, today);
+    const { outfits } = applyDailyRotation(
+      outfitPool,
+      rotationState,
+      today,
+      recentWornFingerprints,
+    );
     return outfits;
-  }, [outfitPool, rotationState, wardrobeItems.length]);
+  }, [outfitPool, rotationState, wardrobeItems.length, recentWornFingerprints]);
 
-  // Advance or reset the rotation cursor when the day changes or wardrobe changes
+  // Advance or reset the rotation cursor when the day changes or wardrobe/profile changes
   useEffect(() => {
     if (isLoading || wardrobeItems.length === 0) return;
     const today = todayString();
@@ -300,8 +319,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     let baseState = rotationState;
     if (hashChanged) {
-      // Wardrobe changed → assign a new random shuffle seed so the new pool
-      // has a fresh order, and reset all cursors to 0
+      // Wardrobe or profile changed → fresh shuffle seed, reset cursors
       baseState = {
         ...INITIAL_ROTATION_STATE,
         poolHash: newHash,
@@ -309,12 +327,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    const { newState } = applyDailyRotation(outfitPool, baseState, today);
+    const { newState } = applyDailyRotation(
+      outfitPool,
+      baseState,
+      today,
+      recentWornFingerprints,
+    );
     const stateToSave: RotationState = { ...newState, poolHash: newHash };
     setRotationState(stateToSave);
     AsyncStorage.setItem(STORAGE_KEYS.rotation, JSON.stringify(stateToSave));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wardrobeItems, profile, outfitPool, rotationState.poolHash, rotationState.lastDate, isLoading]);
+  }, [wardrobeItems, profile, outfitPool, rotationState.poolHash, rotationState.lastDate, isLoading, recentWornFingerprints]);
 
   const canAddItem = isPremium || wardrobeItems.length < FREE_ITEM_CAP;
   const starterRecommendations = useMemo(() => getFirstNeededByCategory(recommendationSlots), [recommendationSlots]);

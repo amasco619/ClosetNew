@@ -1,4 +1,26 @@
+/**
+ * Daily Rotation Engine
+ *
+ * Generates all valid outfit combinations (the "pool"), ranks each one by a
+ * multi-dimensional confidence score, then applies a seeded daily shuffle so
+ * the user sees a fresh selection every day — always from their most flattering
+ * looks first.
+ *
+ * Confidence score dimensions (see outfitScoring.ts):
+ *  Item-level: scenario fit, formality band, style goal (color + silhouette),
+ *              undertone harmony, skin depth contrast, eye complementary, body type.
+ *  Outfit-level: completeness (shoes/bag/jewelry), full color harmony, piece count.
+ *
+ * Freshness: outfits worn within the last 7 days are moved to the back of the
+ * pool so every day feels like a new discovery.
+ */
+
 import { WardrobeItem, OutfitSet, OutfitComponent, OccasionTag, UserProfile } from './types';
+import {
+  isNeutral, colorsHarmonize, passesConstraints, toComponent,
+  SCENARIO_AFFINITY, STYLE_PREFERRED_COLORS,
+  scoreItemForProfile, scoreOutfitCombo,
+} from './outfitScoring';
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 
@@ -6,74 +28,8 @@ export const SCENARIOS: OccasionTag[] = [
   'work', 'casual', 'date', 'event', 'interview', 'wedding', 'travel',
 ];
 
-/** How many outfit variants to show per scenario each day */
 const OUTFITS_PER_SCENARIO_PER_DAY = 2;
-
-/** Max outfits to generate per scenario in the pool */
-const MAX_PER_SCENARIO = 24;
-
-// ─── Colour / scoring (mirrors outfitGenerator, kept local to avoid coupling) ─
-
-const NEUTRAL_COLORS = new Set([
-  'black', 'white', 'grey', 'beige', 'cream', 'navy', 'camel', 'brown', 'olive',
-]);
-const isNeutral = (c: string): boolean => NEUTRAL_COLORS.has(c);
-const colorsHarmonize = (c1: string, c2: string): boolean =>
-  c1 === c2 || isNeutral(c1) || isNeutral(c2);
-
-const SCENARIO_AFFINITY: Record<OccasionTag, string[]> = {
-  casual:    ['t-shirt','long-sleeve','henley','sweater','jeans','chinos','shorts','leggings','sneakers','flats','crossbody','backpack','hoodie','cardigan','denim-jacket'],
-  work:      ['blouse','shirt','polo-shirt','sweater','trousers','chinos','midi-skirt','blazer','coat','heels','flats','loafers','tote','shoulder-bag','earrings','watch'],
-  date:      ['blouse','camisole','midi-dress','wrap-dress','mini-dress','midi-skirt','heels','mules','flats','clutch','mini-bag','crossbody','earrings','necklace'],
-  event:     ['cocktail-dress','midi-dress','maxi-dress','blouse','wide-leg','blazer','heels','clutch','mini-bag','earrings','necklace','bracelet'],
-  interview: ['blouse','shirt','blazer','trousers','midi-skirt','midi-dress','coat','heels','flats','loafers','tote','shoulder-bag','earrings','watch'],
-  wedding:   ['midi-dress','maxi-dress','cocktail-dress','wrap-dress','midi-skirt','blouse','heels','clutch','mini-bag','earrings','necklace','bracelet'],
-  travel:    ['t-shirt','long-sleeve','sweater','shirt','jeans','chinos','trousers','sneakers','flats','boots','crossbody','backpack','tote','blazer','cardigan','denim-jacket'],
-};
-
-const STYLE_PREFERRED_COLORS: Record<string, string[]> = {
-  minimal:  ['black','white','grey','beige','cream'],
-  elevated: ['black','navy','cream','camel','burgundy'],
-  bold:     ['red','blue','green','pink','coral','burgundy'],
-  romantic: ['pink','lavender','cream','beige','white'],
-  classic:  ['navy','black','white','camel','grey'],
-  youthful: ['pink','blue','green','red','coral','lavender'],
-};
-
-function passesConstraints(item: WardrobeItem, profile: UserProfile): boolean {
-  if (profile.constraints.noSleeveless && item.subType === 'tank-top') return false;
-  if (profile.constraints.noShortSkirts && (item.subType === 'mini-skirt' || item.subType === 'mini-dress')) return false;
-  if ((profile.constraints.maxHeelHeight === 'flat' || profile.constraints.maxHeelHeight === 'low') && item.subType === 'heels') return false;
-  return true;
-}
-
-function scoreForScenario(item: WardrobeItem, scenario: OccasionTag, profile: UserProfile): number {
-  let score = 0;
-  if (item.occasionTags.includes(scenario)) score += 4;
-  if (SCENARIO_AFFINITY[scenario].includes(item.subType)) score += 2;
-  const preferred = STYLE_PREFERRED_COLORS[profile.styleGoalPrimary ?? ''] ?? [];
-  if (preferred.includes(item.colorFamily)) score += 1;
-  return score;
-}
-
-function toComponent(item: WardrobeItem): OutfitComponent {
-  return {
-    category: item.category,
-    subType: item.subType,
-    colorFamily: item.colorFamily,
-    owned: true,
-    matchedItemId: item.id,
-    photoUri: item.photoUri,
-  };
-}
-
-function fingerprint(components: OutfitComponent[]): string {
-  return components
-    .map(c => c.matchedItemId)
-    .filter(Boolean)
-    .sort()
-    .join('|');
-}
+const MAX_PER_SCENARIO = 30;
 
 // ─── Seeded PRNG (Mulberry32) ─────────────────────────────────────────────────
 
@@ -97,20 +53,42 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
   return result;
 }
 
+/**
+ * Tiered shuffle: preserves quality ordering while adding variety.
+ * Divides pool into thirds by confidence score, shuffles within each tier,
+ * then concatenates. Top-tier outfits always surface before mid/low-tier ones.
+ */
+function tieredShuffle(pool: OutfitSet[], seed: number): OutfitSet[] {
+  if (pool.length <= 3) return seededShuffle(pool, seed);
+  const third = Math.ceil(pool.length / 3);
+  const top = pool.slice(0, third);
+  const mid = pool.slice(third, third * 2);
+  const low = pool.slice(third * 2);
+  return [
+    ...seededShuffle(top, seed),
+    ...seededShuffle(mid, seed + 1),
+    ...seededShuffle(low, seed + 2),
+  ];
+}
+
+// ─── Fingerprint ──────────────────────────────────────────────────────────────
+
+function fingerprint(components: OutfitComponent[]): string {
+  return components
+    .map(c => c.matchedItemId)
+    .filter(Boolean)
+    .sort()
+    .join('|');
+}
+
 // ─── Rotation State ────────────────────────────────────────────────────────────
 
 export interface RotationState {
-  /** Changes when wardrobe or constraints change — triggers pool reset */
   poolHash: string;
-  /** Stable random seed used to shuffle this pool's order */
   shuffleSeed: number;
-  /** Per-scenario cursor: index of first outfit shown TODAY */
   todayCursors: Partial<Record<OccasionTag, number>>;
-  /** Per-scenario cursor: index to start from TOMORROW */
   nextCursors: Partial<Record<OccasionTag, number>>;
-  /** ISO date string (YYYY-MM-DD) when cursors were last advanced */
   lastDate: string;
-  /** How many full cycles through the pool have been completed */
   cycleCount: number;
 }
 
@@ -123,16 +101,24 @@ export const INITIAL_ROTATION_STATE: RotationState = {
   cycleCount: 0,
 };
 
-// ─── Pool hash ────────────────────────────────────────────────────────────────
+// ─── Pool hash ─────────────────────────────────────────────────────────────────
 
-/** Produces a stable string that changes whenever wardrobe contents or constraints change */
+/**
+ * Stable hash that changes whenever wardrobe contents OR any profile dimension
+ * that affects scoring changes. Triggers full pool rebuild.
+ */
 export function computePoolHash(items: WardrobeItem[], profile: UserProfile): string {
   const itemSig = items
-    .map(i => `${i.id}:${i.category}:${i.subType}:${i.colorFamily}`)
+    .map(i => `${i.id}:${i.category}:${i.subType}:${i.colorFamily}:${i.formalityLevel}`)
     .sort()
     .join(',');
   const profileSig = [
     profile.styleGoalPrimary ?? '',
+    profile.styleGoalSecondary ?? '',
+    profile.bodyType ?? '',
+    profile.skinTone ?? '',
+    profile.undertone ?? '',
+    profile.eyeColor ?? '',
     String(profile.constraints.noSleeveless),
     String(profile.constraints.noShortSkirts),
     profile.constraints.maxHeelHeight,
@@ -143,9 +129,17 @@ export function computePoolHash(items: WardrobeItem[], profile: UserProfile): st
 // ─── Pool generation ──────────────────────────────────────────────────────────
 
 /**
- * Generates all valid outfit combinations grouped by scenario.
- * Returns more combinations than will ever be shown in a day — this is the
- * full pool the rotation cursor cycles through.
+ * Generates all valid outfit combinations grouped by scenario, ranked by
+ * multi-dimensional confidence score. The highest-scoring outfits appear first.
+ *
+ * Algorithm per scenario:
+ *  1. Filter items by constraints.
+ *  2. Score and sort each category by scoreItemForProfile.
+ *  3. Build cores: dress-only OR top+harmonious-bottom pairs.
+ *  4. For each core, try multiple shoe options.
+ *  5. Add best harmonious bag and jewelry.
+ *  6. Score each assembled outfit (item scores + combo bonus).
+ *  7. Sort pool by confidence score descending.
  */
 export function generateOutfitPool(
   items: WardrobeItem[],
@@ -156,8 +150,8 @@ export function generateOutfitPool(
 
   for (const scenario of SCENARIOS) {
     const seen = new Set<string>();
-    const pool: OutfitSet[] = [];
 
+    // ── Sort each category by scenario+profile confidence score ──────────────
     const byCategory: Record<string, WardrobeItem[]> = {};
     for (const item of eligible) {
       if (!byCategory[item.category]) byCategory[item.category] = [];
@@ -165,7 +159,9 @@ export function generateOutfitPool(
     }
     for (const cat of Object.keys(byCategory)) {
       byCategory[cat].sort(
-        (a, b) => scoreForScenario(b, scenario, profile) - scoreForScenario(a, scenario, profile),
+        (a, b) =>
+          scoreItemForProfile(b, scenario, profile) -
+          scoreItemForProfile(a, scenario, profile),
       );
     }
 
@@ -176,42 +172,44 @@ export function generateOutfitPool(
     const bagsAll  = byCategory['bag']      ?? [];
     const jewelAll = byCategory['jewelry']  ?? [];
 
-    // ── Build cores (dress -or- top+bottom pair) ──────────────────────────────
-
+    // ── Build core combinations ───────────────────────────────────────────────
     type Core = { coreItems: WardrobeItem[]; baseColor: string };
     const cores: Core[] = [];
 
-    for (const dress of dresses.slice(0, 6)) {
+    // Dress-only cores — dresses score high for feminine, date, event, wedding
+    for (const dress of dresses.slice(0, 8)) {
       cores.push({ coreItems: [dress], baseColor: dress.colorFamily });
     }
 
+    // Top + bottom pairs — always try to harmonise colors
     if (bottoms.length === 0) {
-      for (const top of tops.slice(0, 6)) {
+      for (const top of tops.slice(0, 8)) {
         cores.push({ coreItems: [top], baseColor: top.colorFamily });
       }
     } else {
-      for (const top of tops.slice(0, 6)) {
+      for (const top of tops.slice(0, 8)) {
         let addedPair = false;
-        for (const bottom of bottoms.slice(0, 5)) {
+        for (const bottom of bottoms.slice(0, 6)) {
           if (colorsHarmonize(top.colorFamily, bottom.colorFamily)) {
             cores.push({ coreItems: [top, bottom], baseColor: top.colorFamily });
             addedPair = true;
           }
         }
-        // Fallback: top-only if no harmonious bottom found
         if (!addedPair) {
           cores.push({ coreItems: [top], baseColor: top.colorFamily });
         }
       }
     }
 
-    // ── For each core, try different shoe options ─────────────────────────────
+    // ── Expand cores with shoe variations, bag, jewelry ───────────────────────
+    // Each assembled outfit is scored and tracked for sorting.
+    type ScoredOutfit = { outfit: OutfitSet; score: number };
+    const scoredPool: ScoredOutfit[] = [];
 
     for (const core of cores) {
-      if (pool.length >= MAX_PER_SCENARIO) break;
+      if (scoredPool.length >= MAX_PER_SCENARIO) break;
 
       const coreIds = new Set(core.coreItems.map(i => i.id));
-
       const harmShoes = shoesAll.filter(
         s => !coreIds.has(s.id) && colorsHarmonize(core.baseColor, s.colorFamily),
       );
@@ -219,7 +217,6 @@ export function generateOutfitPool(
         s => !coreIds.has(s.id) && !harmShoes.includes(s),
       );
 
-      // Try harmonious shoes first, then neutral fallbacks
       const shoeOptions: (WardrobeItem | null)[] =
         harmShoes.length > 0
           ? harmShoes.slice(0, 3)
@@ -228,15 +225,12 @@ export function generateOutfitPool(
           : [null];
 
       for (const shoe of shoeOptions) {
-        if (pool.length >= MAX_PER_SCENARIO) break;
+        if (scoredPool.length >= MAX_PER_SCENARIO) break;
 
         const outfit: OutfitComponent[] = core.coreItems.map(toComponent);
         const usedIds = new Set(coreIds);
 
-        if (shoe) {
-          outfit.push(toComponent(shoe));
-          usedIds.add(shoe.id);
-        }
+        if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
 
         // Best harmonious bag
         const bag =
@@ -244,7 +238,7 @@ export function generateOutfitPool(
           bagsAll.find(b => !usedIds.has(b.id));
         if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
 
-        // Best jewelry
+        // Highest-scoring jewelry
         const jewel = jewelAll.find(j => !usedIds.has(j.id));
         if (jewel) { outfit.push(toComponent(jewel)); }
 
@@ -252,15 +246,36 @@ export function generateOutfitPool(
         if (!fp || seen.has(fp)) continue;
         seen.add(fp);
 
-        pool.push({
-          id: `pool-${scenario}-${pool.length}`,
-          scenario,
-          components: outfit,
+        // ── Compute confidence score ─────────────────────────────────────────
+        // bag and jewel are already WardrobeItem references from find()
+        const allItems = [
+          ...core.coreItems,
+          shoe ?? null,
+          bag ?? null,
+          jewel ?? null,
+        ].filter(Boolean) as WardrobeItem[];
+
+        const itemScore = allItems.reduce(
+          (sum, item) => sum + scoreItemForProfile(item, scenario, profile),
+          0,
+        );
+        const comboScore = scoreOutfitCombo(outfit);
+        const totalScore = itemScore + comboScore;
+
+        scoredPool.push({
+          score: totalScore,
+          outfit: {
+            id: `pool-${scenario}-${scoredPool.length}`,
+            scenario,
+            components: outfit,
+          },
         });
       }
     }
 
-    result[scenario] = pool;
+    // ── Sort by confidence score descending ───────────────────────────────────
+    scoredPool.sort((a, b) => b.score - a.score);
+    result[scenario] = scoredPool.map(s => s.outfit);
   }
 
   return result;
@@ -269,18 +284,20 @@ export function generateOutfitPool(
 // ─── Daily rotation ───────────────────────────────────────────────────────────
 
 /**
- * Given the full pool and stored rotation state, returns today's outfits.
+ * Given the full confidence-ranked pool and rotation state, returns today's
+ * outfit selection.
  *
- * - Same day   → returns the same outfits as yesterday (stable within a day)
- * - New day    → advances each scenario cursor by OUTFITS_PER_SCENARIO_PER_DAY
- * - Pool empty → gracefully returns empty array
- *
- * Returns both the outfits to display and the updated state to persist.
+ * - Same day      → returns the same stable outfits
+ * - New day       → advances each scenario cursor by OUTFITS_PER_SCENARIO_PER_DAY
+ * - Freshness     → outfits matching recentWornFingerprints are moved to the
+ *                   back so the user always sees a fresh look first
+ * - Shuffle       → tiered shuffle preserves quality bands while adding variety
  */
 export function applyDailyRotation(
   pool: Record<OccasionTag, OutfitSet[]>,
   state: RotationState,
   today: string,
+  recentWornFingerprints?: Set<string>,
 ): { outfits: OutfitSet[]; newState: RotationState } {
   const isNewDay = today !== state.lastDate;
   const n = OUTFITS_PER_SCENARIO_PER_DAY;
@@ -294,17 +311,30 @@ export function applyDailyRotation(
     const scenarioPool = pool[scenario] ?? [];
     if (scenarioPool.length === 0) return;
 
-    // Each scenario gets a different shuffle by offsetting the seed
-    const shuffled = seededShuffle(scenarioPool, state.shuffleSeed + si * 7919);
+    // Apply freshness: push recently-worn outfits to the back.
+    // The rest (already confidence-sorted) remain in their ranked order.
+    let orderedPool = scenarioPool;
+    if (recentWornFingerprints && recentWornFingerprints.size > 0) {
+      const fresh = scenarioPool.filter(o => {
+        const fp = fingerprint(o.components);
+        return !recentWornFingerprints.has(fp);
+      });
+      const stale = scenarioPool.filter(o => {
+        const fp = fingerprint(o.components);
+        return recentWornFingerprints.has(fp);
+      });
+      orderedPool = [...fresh, ...stale];
+    }
 
-    // Determine today's starting cursor
+    // Tiered shuffle: preserves quality bands, each scenario gets its own seed
+    const shuffled = tieredShuffle(orderedPool, state.shuffleSeed + si * 7919);
+
     const startCursor = isNewDay
       ? (state.nextCursors[scenario] ?? 0)
       : (state.todayCursors[scenario] ?? 0);
 
     todayCursors[scenario] = startCursor;
 
-    // Pick this day's outfits
     const count = Math.min(n, shuffled.length);
     for (let i = 0; i < count; i++) {
       const idx = (startCursor + i) % shuffled.length;
@@ -314,7 +344,6 @@ export function applyDailyRotation(
       });
     }
 
-    // Compute next day's cursor (wraps around)
     const next = (startCursor + count) % shuffled.length;
     if (next < startCursor) cycleCount = cycleCount + 1;
     nextCursors[scenario] = next;
@@ -332,7 +361,8 @@ export function applyDailyRotation(
   return { outfits, newState };
 }
 
-/** Today's date string in YYYY-MM-DD format */
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 export function todayString(): string {
   return new Date().toISOString().split('T')[0];
 }
