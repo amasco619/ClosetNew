@@ -46,6 +46,7 @@ export default function WardrobeScreen() {
     <Animated.View entering={FadeInDown.delay(index * 50).duration(400)} style={styles.itemCard}>
       <Pressable
         style={({ pressed }) => [styles.itemPressable, pressed && { opacity: 0.8 }]}
+        onPress={() => router.push(`/item-detail?id=${item.id}`)}
         onLongPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           handleDelete(item);
