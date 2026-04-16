@@ -1,4 +1,8 @@
-import { StyleSheet, Text, View, ScrollView, Pressable, Platform, Image } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  StyleSheet, Text, View, ScrollView, Pressable, Platform, Image,
+  Modal, TextInput, KeyboardAvoidingView,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -51,31 +55,66 @@ function SlotChip({ slot }: { slot: WardrobeSlot }) {
   );
 }
 
-function OutfitGroupCard({ group, index }: { group: RecommendedOutfitGroup; index: number }) {
+interface OutfitGroupCardProps {
+  group: RecommendedOutfitGroup;
+  index: number;
+  displayLabel: string;
+  isSaved: boolean;
+  onToggleSave: () => void;
+  onRename: () => void;
+  compact?: boolean;
+}
+
+function OutfitGroupCard({
+  group, index, displayLabel, isSaved, onToggleSave, onRename, compact,
+}: OutfitGroupCardProps) {
   const neededCount = group.slots.filter(s => s.status === 'needed').length;
+  const renamed = displayLabel !== group.label;
 
   return (
     <Animated.View entering={FadeInDown.delay(index * 60).duration(400)} style={[
       styles.groupCard,
       group.isComplete && styles.groupCardComplete,
+      compact && styles.groupCardCompact,
     ]}>
       <View style={styles.groupHeader}>
         <View style={styles.groupLabelRow}>
-          <View style={[styles.lookBadge, group.isComplete && styles.lookBadgeComplete]}>
-            <Text style={[styles.lookBadgeText, group.isComplete && styles.lookBadgeTextComplete]}>
-              {group.label}
-            </Text>
-          </View>
-          {group.isComplete ? (
-            <View style={styles.completePill}>
-              <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
-              <Text style={styles.completePillText}>Ready to wear</Text>
+          <View style={styles.labelSide}>
+            <View style={[styles.lookBadge, group.isComplete && styles.lookBadgeComplete]}>
+              <Text style={[styles.lookBadgeText, group.isComplete && styles.lookBadgeTextComplete]} numberOfLines={1}>
+                {displayLabel}
+              </Text>
             </View>
-          ) : (
-            <Text style={styles.missingText}>
-              {neededCount} piece{neededCount !== 1 ? 's' : ''} to go
-            </Text>
-          )}
+            {renamed ? (
+              <Text style={styles.originalLabel} numberOfLines={1}>
+                orig. {group.label}
+              </Text>
+            ) : null}
+          </View>
+          <View style={styles.headerActions}>
+            {group.isComplete ? (
+              <View style={styles.completePill}>
+                <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
+                <Text style={styles.completePillText}>Ready</Text>
+              </View>
+            ) : (
+              <Text style={styles.missingText}>
+                {neededCount} to go
+              </Text>
+            )}
+            {isSaved ? (
+              <Pressable onPress={onRename} hitSlop={8} style={styles.iconBtn}>
+                <Ionicons name="pencil" size={15} color={Colors.secondary} />
+              </Pressable>
+            ) : null}
+            <Pressable onPress={onToggleSave} hitSlop={8} style={styles.iconBtn}>
+              <Ionicons
+                name={isSaved ? 'heart' : 'heart-outline'}
+                size={20}
+                color={isSaved ? Colors.secondary : Colors.textSecondary}
+              />
+            </Pressable>
+          </View>
         </View>
         {group.vibe ? (
           <View style={styles.vibeRow}>
@@ -103,7 +142,10 @@ function OutfitGroupCard({ group, index }: { group: RecommendedOutfitGroup; inde
 
 export default function OutfitIdeasScreen() {
   const insets = useSafeAreaInsets();
-  const { recommendationSlots, profile } = useApp();
+  const {
+    recommendationSlots, profile,
+    savedLooks, toggleSavedLook, isLookSaved, renameSavedLook, getSavedLookName,
+  } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const groups = generateRecommendedOutfitGroups(recommendationSlots);
@@ -113,6 +155,37 @@ export default function OutfitIdeasScreen() {
   const styleLabel = profile.styleGoalPrimary
     ? STYLE_GOAL_LABELS[profile.styleGoalPrimary]
     : 'Classic';
+
+  // Preserve user-saved order (newest first) and drop saved entries that no
+  // longer match any currently visible look (e.g. style goal changed).
+  const savedGroups = useMemo(() => {
+    const byId = new Map(groups.map(g => [g.id, g]));
+    return savedLooks
+      .map(s => byId.get(s.id))
+      .filter((g): g is RecommendedOutfitGroup => !!g);
+  }, [groups, savedLooks]);
+
+  const [renameTarget, setRenameTarget] = useState<RecommendedOutfitGroup | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  const openRename = (group: RecommendedOutfitGroup) => {
+    setRenameTarget(group);
+    setRenameValue(getSavedLookName(group.id, group.label));
+  };
+
+  const closeRename = () => setRenameTarget(null);
+
+  const confirmRename = () => {
+    if (!renameTarget) return;
+    renameSavedLook(renameTarget.id, renameValue);
+    closeRename();
+  };
+
+  const resetRename = () => {
+    if (!renameTarget) return;
+    renameSavedLook(renameTarget.id, '');
+    closeRename();
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
@@ -155,17 +228,99 @@ export default function OutfitIdeasScreen() {
           </View>
         </Animated.View>
 
-        <Text style={styles.sectionTitle}>Your Curated Looks</Text>
+        {savedGroups.length > 0 ? (
+          <>
+            <View style={styles.sectionHeaderRow}>
+              <Ionicons name="heart" size={16} color={Colors.secondary} />
+              <Text style={styles.sectionTitle}>Saved Looks</Text>
+              <View style={styles.savedCountPill}>
+                <Text style={styles.savedCountText}>{savedGroups.length}</Text>
+              </View>
+            </View>
+            <Text style={styles.sectionSubtitle}>
+              Your favourites — tap the pencil to rename, or the heart to unsave.
+            </Text>
+            {savedGroups.map((group, index) => (
+              <OutfitGroupCard
+                key={`saved-${group.id}`}
+                group={group}
+                index={index}
+                displayLabel={getSavedLookName(group.id, group.label)}
+                isSaved
+                onToggleSave={() => toggleSavedLook(group.id)}
+                onRename={() => openRename(group)}
+              />
+            ))}
+          </>
+        ) : null}
+
+        <Text style={[styles.sectionTitle, savedGroups.length > 0 && styles.sectionTitleSpaced]}>
+          Your Curated Looks
+        </Text>
         <Text style={styles.sectionSubtitle}>
-          Acquire all pieces in a look to unlock it from your wardrobe. Owned items are tracked automatically.
+          Acquire all pieces in a look to unlock it from your wardrobe. Tap the heart to save a favourite.
         </Text>
 
-        {groups.map((group, index) => (
-          <OutfitGroupCard key={group.id} group={group} index={index} />
-        ))}
+        {groups.map((group, index) => {
+          const saved = isLookSaved(group.id);
+          return (
+            <OutfitGroupCard
+              key={group.id}
+              group={group}
+              index={index}
+              displayLabel={saved ? getSavedLookName(group.id, group.label) : group.label}
+              isSaved={saved}
+              onToggleSave={() => toggleSavedLook(group.id)}
+              onRename={() => openRename(group)}
+            />
+          );
+        })}
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <Modal
+        visible={renameTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeRename}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeRename} />
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Rename look</Text>
+            {renameTarget ? (
+              <Text style={styles.modalSubtitle}>Original: {renameTarget.label}</Text>
+            ) : null}
+            <TextInput
+              value={renameValue}
+              onChangeText={setRenameValue}
+              placeholder="My Saturday Uniform"
+              placeholderTextColor={Colors.textLight}
+              style={styles.modalInput}
+              autoFocus
+              maxLength={40}
+              returnKeyType="done"
+              onSubmitEditing={confirmRename}
+            />
+            <View style={styles.modalActionsRow}>
+              <Pressable onPress={resetRename} style={styles.modalSecondaryBtn}>
+                <Text style={styles.modalSecondaryText}>Reset</Text>
+              </Pressable>
+              <View style={{ flex: 1 }} />
+              <Pressable onPress={closeRename} style={styles.modalSecondaryBtn}>
+                <Text style={styles.modalSecondaryText}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={confirmRename} style={styles.modalPrimaryBtn}>
+                <Text style={styles.modalPrimaryText}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -232,6 +387,24 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
 
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  savedCountPill: {
+    backgroundColor: Colors.secondary + '18',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 2,
+  },
+  savedCountText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    color: Colors.secondary,
+  },
   sectionTitle: {
     fontFamily: 'Inter_700Bold',
     fontSize: 18,
@@ -239,6 +412,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
     marginBottom: 4,
   },
+  sectionTitleSpaced: { marginTop: 8 },
   sectionSubtitle: {
     fontFamily: 'Inter_400Regular',
     fontSize: 13,
@@ -259,6 +433,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.success + '60',
     backgroundColor: Colors.success + '06',
   },
+  groupCardCompact: {},
 
   groupHeader: { marginBottom: 14 },
   vibeRow: {
@@ -284,6 +459,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
+  },
+  labelSide: { flex: 1, minWidth: 0 },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  iconBtn: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  originalLabel: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 10,
+    color: Colors.textLight,
+    marginTop: 3,
+    fontStyle: 'italic',
   },
 
   lookBadge: {
@@ -291,6 +486,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
   lookBadgeComplete: { backgroundColor: Colors.success + '18' },
   lookBadgeText: {
@@ -379,6 +576,73 @@ const styles = StyleSheet.create({
   slotStatusText: {
     fontFamily: 'Inter_500Medium',
     fontSize: 9,
+  },
+
+  // ── Rename modal ──────────────────────────────────────────────────────
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: Colors.white,
+    borderRadius: 18,
+    padding: 20,
+  },
+  modalTitle: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 17,
+    color: Colors.primary,
+    letterSpacing: -0.3,
+  },
+  modalSubtitle: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 4,
+  },
+  modalInput: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 15,
+    color: Colors.primary,
+    backgroundColor: Colors.background,
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    gap: 8,
+  },
+  modalSecondaryBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalSecondaryText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  modalPrimaryBtn: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalPrimaryText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    color: Colors.white,
   },
 
   emptyState: {

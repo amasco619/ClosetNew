@@ -5,7 +5,7 @@ import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCat
 import {
   BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag,
   Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet, WearEntry,
-  MoodGoal, OutfitReaction, ReactionType, MoodOfDay,
+  MoodGoal, OutfitReaction, ReactionType, MoodOfDay, SavedLook,
 } from '@/constants/types';
 import { generateOutfitsForItem } from '@/constants/outfitGenerator';
 import {
@@ -52,6 +52,12 @@ interface AppContextValue {
   missingDimensions: string[];
   dismissProfileNudge: () => void;
   shouldShowProfileNudge: boolean;
+  // Saved looks
+  savedLooks: SavedLook[];
+  toggleSavedLook: (lookId: string) => void;
+  isLookSaved: (lookId: string) => boolean;
+  renameSavedLook: (lookId: string, name: string) => void;
+  getSavedLookName: (lookId: string, fallback: string) => string;
 }
 
 const defaultProfile: UserProfile = {
@@ -94,6 +100,7 @@ const STORAGE_KEYS = {
   wearHistory: '@auracloset_wear_history',
   reactions: '@auracloset_reactions',
   mood: '@auracloset_mood',
+  savedLooks: '@auracloset_saved_looks',
 };
 
 const subTypes: Record<ItemCategory, string[]> = {
@@ -156,6 +163,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [wearHistory, setWearHistory] = useState<WearEntry[]>([]);
   const [reactions, setReactions] = useState<OutfitReaction[]>([]);
   const [moodOfDay, setMoodOfDay] = useState<MoodOfDay | null>(null);
+  const [savedLooks, setSavedLooks] = useState<SavedLook[]>([]);
 
   useEffect(() => { loadData(); }, []);
 
@@ -197,7 +205,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loadData = async () => {
     try {
-      const [profileData, wardrobeData, premiumData, slotsData, rotationData, wearData, reactionsData, moodData] = await Promise.all([
+      const [profileData, wardrobeData, premiumData, slotsData, rotationData, wearData, reactionsData, moodData, savedLooksData] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.profile),
         AsyncStorage.getItem(STORAGE_KEYS.wardrobe),
         AsyncStorage.getItem(STORAGE_KEYS.premium),
@@ -206,6 +214,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         AsyncStorage.getItem(STORAGE_KEYS.wearHistory),
         AsyncStorage.getItem(STORAGE_KEYS.reactions),
         AsyncStorage.getItem(STORAGE_KEYS.mood),
+        AsyncStorage.getItem(STORAGE_KEYS.savedLooks),
       ]);
       const loadedProfile = profileData ? mergeProfile(JSON.parse(profileData)) : defaultProfile;
       setProfile(loadedProfile);
@@ -216,6 +225,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (wearData) setWearHistory(JSON.parse(wearData));
       if (reactionsData) setReactions(JSON.parse(reactionsData));
       if (moodData) setMoodOfDay(JSON.parse(moodData));
+      if (savedLooksData) setSavedLooks(JSON.parse(savedLooksData));
       if (slotsData) {
         const savedStatuses: { id: string; status: 'needed' | 'owned'; matchedItemId?: string }[] = JSON.parse(slotsData);
         const blueprint = getProfileBlueprint(loadedProfile);
@@ -472,6 +482,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const missingDimensions = useMemo(() => missingScoringDimensions(profile), [profile]);
 
+  // ── Saved looks ──────────────────────────────────────────────────────────────
+
+  const persistSavedLooks = (looks: SavedLook[]) => {
+    AsyncStorage.setItem(STORAGE_KEYS.savedLooks, JSON.stringify(looks));
+  };
+
+  const toggleSavedLook = useCallback((lookId: string) => {
+    setSavedLooks(prev => {
+      const exists = prev.some(l => l.id === lookId);
+      const updated = exists
+        ? prev.filter(l => l.id !== lookId)
+        : [{ id: lookId, savedAt: new Date().toISOString() }, ...prev];
+      persistSavedLooks(updated);
+      return updated;
+    });
+  }, []);
+
+  const isLookSaved = useCallback(
+    (lookId: string) => savedLooks.some(l => l.id === lookId),
+    [savedLooks],
+  );
+
+  const renameSavedLook = useCallback((lookId: string, name: string) => {
+    setSavedLooks(prev => {
+      const trimmed = name.trim();
+      const updated = prev.map(l =>
+        l.id === lookId ? { ...l, customName: trimmed.length > 0 ? trimmed : undefined } : l,
+      );
+      persistSavedLooks(updated);
+      return updated;
+    });
+  }, []);
+
+  const getSavedLookName = useCallback(
+    (lookId: string, fallback: string) => {
+      const entry = savedLooks.find(l => l.id === lookId);
+      return entry?.customName && entry.customName.length > 0 ? entry.customName : fallback;
+    },
+    [savedLooks],
+  );
+
   const shouldShowProfileNudge = useMemo(() => {
     if (profile.dismissedProfileNudge === todayString()) return false;
     // Dimension-aware: only prompt when a scoring dimension would silently
@@ -487,12 +538,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
     todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
     profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,
+    savedLooks, toggleSavedLook, isLookSaved, renameSavedLook, getSavedLookName,
   }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
        isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, canAddItem, recommendationSlots, starterRecommendations,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
        todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
-       profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge]);
+       profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,
+       savedLooks, toggleSavedLook, isLookSaved, renameSavedLook, getSavedLookName]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

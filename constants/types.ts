@@ -123,3 +123,9 @@ export interface MoodOfDay {
   date: string;              // YYYY-MM-DD
   mood: MoodGoal | null;     // null = user explicitly cleared mood for today
 }
+
+export interface SavedLook {
+  id: string;                // RecommendedOutfitGroup.id (recipe id)
+  customName?: string;       // user-provided rename; falls back to recipe label
+  savedAt: string;           // ISO timestamp
+}
