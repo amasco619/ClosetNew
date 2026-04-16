@@ -20,6 +20,7 @@ function RootLayoutNav() {
       <Stack.Screen name="add-item" options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="premium" options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="item-detail" options={{ headerShown: false, presentation: 'modal' }} />
+      <Stack.Screen name="outfit-ideas" options={{ headerShown: false }} />
     </Stack>
   );
 }

@@ -80,11 +80,11 @@ export default function HomeScreen() {
             <Text style={styles.statNumber}>{wardrobeItems.length}</Text>
             <Text style={styles.statLabel}>Items</Text>
           </Pressable>
-          <View style={styles.statCard}>
+          <Pressable style={styles.statCard} onPress={() => router.push('/(tabs)/outfits')}>
             <Text style={styles.statNumber}>{readyOutfits}</Text>
             <Text style={styles.statLabel}>Ready Outfits</Text>
-          </View>
-          <Pressable style={styles.statCard} onPress={() => router.push('/(tabs)/outfits')}>
+          </Pressable>
+          <Pressable style={styles.statCard} onPress={() => router.push('/outfit-ideas')}>
             <Text style={styles.statNumber}>{outfitIdeas}</Text>
             <Text style={styles.statLabel}>Outfit Ideas</Text>
           </Pressable>

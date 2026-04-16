@@ -438,24 +438,71 @@ export function updateSlotsAfterAdd(
 }
 
 /**
- * Counts how many complete outfit looks can be assembled from a set of
- * recommendation slots. A complete look requires:
- *   (top + bottom) OR dress   — plus at least one shoe pair available.
+ * A single curated outfit group assembled from recommendation slots.
+ * Each group represents one complete ready-to-wear look from the blueprint.
+ */
+export interface RecommendedOutfitGroup {
+  id: string;
+  label: string;
+  slots: WardrobeSlot[];
+  isComplete: boolean;
+}
+
+/**
+ * Pairs recommendation slots into complete outfit groups:
+ *   top[i] + bottom[i] + shoes[i]   (top-bottom looks)
+ *   dress[i] + shoes[i]             (dress looks)
  *
- * Shoes are treated as reusable across different looks (the same shoe works
- * with multiple tops/bottoms/dresses), so a single shoe in the blueprint
- * "unlocks" all eligible core pairings.
+ * Slots are sorted by priority so Priority-1 items form Look 1, etc.
+ * Shoes cycle if fewer shoe slots than clothing cores (same pair in multiple looks).
+ * An outfit group is "complete" when every slot in it is owned.
+ */
+export function generateRecommendedOutfitGroups(slots: WardrobeSlot[]): RecommendedOutfitGroup[] {
+  const tops    = slots.filter(s => s.category === 'top').sort((a, b) => a.priority - b.priority);
+  const bottoms = slots.filter(s => s.category === 'bottom').sort((a, b) => a.priority - b.priority);
+  const dresses = slots.filter(s => s.category === 'dress').sort((a, b) => a.priority - b.priority);
+  const shoes   = slots.filter(s => s.category === 'shoes').sort((a, b) => a.priority - b.priority);
+
+  if (shoes.length === 0) return [];
+
+  const groups: RecommendedOutfitGroup[] = [];
+  let lookIndex = 1;
+
+  const topBottomCount = Math.min(tops.length, bottoms.length);
+  for (let i = 0; i < topBottomCount; i++) {
+    const shoe = shoes[i % shoes.length];
+    const groupSlots = [tops[i], bottoms[i], shoe];
+    groups.push({
+      id: `look-tb-${i}`,
+      label: `Look ${lookIndex}`,
+      slots: groupSlots,
+      isComplete: groupSlots.every(s => s.status === 'owned'),
+    });
+    lookIndex++;
+  }
+
+  for (let i = 0; i < dresses.length; i++) {
+    const shoe = shoes[i % shoes.length];
+    const groupSlots = [dresses[i], shoe];
+    groups.push({
+      id: `look-dr-${i}`,
+      label: `Look ${lookIndex}`,
+      slots: groupSlots,
+      isComplete: groupSlots.every(s => s.status === 'owned'),
+    });
+    lookIndex++;
+  }
+
+  return groups;
+}
+
+/**
+ * Counts outfit ideas remaining — i.e., complete outfit groups from the
+ * blueprint that the user does NOT yet fully own.
+ * When all items in a group are acquired the count drops by 1.
  */
 export function countRecommendedOutfits(slots: WardrobeSlot[]): number {
-  const tops    = slots.filter(s => s.category === 'top').length;
-  const bottoms = slots.filter(s => s.category === 'bottom').length;
-  const dresses = slots.filter(s => s.category === 'dress').length;
-  const shoes   = slots.filter(s => s.category === 'shoes').length;
-
-  if (shoes === 0) return 0;
-
-  const topBottomCores = Math.min(tops, bottoms);
-  return topBottomCores + dresses;
+  return generateRecommendedOutfitGroups(slots).filter(g => !g.isComplete).length;
 }
 
 export function getFirstNeededByCategory(slots: WardrobeSlot[]): Record<string, WardrobeSlot | undefined> {
