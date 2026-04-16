@@ -49,6 +49,7 @@ interface AppContextValue {
   clearOutfitReaction: (fingerprint: string) => void;
   getOutfitReaction: (outfit: OutfitSet) => ReactionType | null;
   profileCompleteness: number; // 0..1
+  missingDimensions: string[];
   dismissProfileNudge: () => void;
   shouldShowProfileNudge: boolean;
 }
@@ -110,14 +111,37 @@ const colorFamilies = ['black', 'white', 'navy', 'beige', 'grey', 'brown', 'red'
 export { subTypes, colorFamilies };
 export type { WardrobeSlot } from '@/constants/wardrobeBlueprint';
 
+// Each profile dimension that materially feeds scoring. Each entry declares
+// which scoring dimensions it unlocks so the nudge can be dimension-aware.
+type ProfileDimension = { key: keyof UserProfile; unlocks: readonly string[] };
+const PROFILE_DIMENSIONS: readonly ProfileDimension[] = [
+  { key: 'name',             unlocks: ['personalization'] },
+  { key: 'bodyType',         unlocks: ['proportion-balance'] },
+  { key: 'eyeColor',         unlocks: ['color-harmony'] },
+  { key: 'skinTone',         unlocks: ['color-harmony'] },
+  { key: 'undertone',        unlocks: ['metal-cohesion', 'color-harmony'] },
+  { key: 'styleGoalPrimary', unlocks: ['mood'] },
+  { key: 'hairColor',        unlocks: ['hair-color-interaction'] },
+  { key: 'heightBand',       unlocks: ['proportion-balance'] },
+  { key: 'contrastLevel',    unlocks: ['contrast-match'] },
+  { key: 'metalPreference',  unlocks: ['metal-cohesion'] },
+] as const;
+
+function isFilled(v: unknown): boolean {
+  return v !== null && v !== undefined && v !== '';
+}
+
 function computeProfileCompleteness(p: UserProfile): number {
-  const fields: any[] = [
-    p.name, p.bodyType, p.eyeColor, p.skinTone, p.undertone,
-    p.styleGoalPrimary,
-    p.hairColor, p.heightBand, p.contrastLevel, p.metalPreference,
-  ];
-  const filled = fields.filter(f => f !== null && f !== undefined && f !== '').length;
-  return filled / fields.length;
+  const filled = PROFILE_DIMENSIONS.filter(d => isFilled(p[d.key])).length;
+  return filled / PROFILE_DIMENSIONS.length;
+}
+
+function missingScoringDimensions(p: UserProfile): string[] {
+  const missing = new Set<string>();
+  for (const d of PROFILE_DIMENSIONS) {
+    if (!isFilled(p[d.key])) d.unlocks.forEach(u => missing.add(u));
+  }
+  return Array.from(missing);
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -446,11 +470,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateProfile({ dismissedProfileNudge: todayString() });
   }, [updateProfile]);
 
+  const missingDimensions = useMemo(() => missingScoringDimensions(profile), [profile]);
+
   const shouldShowProfileNudge = useMemo(() => {
-    if (profileCompleteness >= 0.9) return false;
     if (profile.dismissedProfileNudge === todayString()) return false;
-    return true;
-  }, [profileCompleteness, profile.dismissedProfileNudge]);
+    // Dimension-aware: only prompt when a scoring dimension would silently
+    // score zero — not just because completeness is below an arbitrary %.
+    const silentlyZero = missingDimensions.filter(d => d !== 'personalization');
+    return silentlyZero.length > 0;
+  }, [missingDimensions, profile.dismissedProfileNudge]);
 
   const value = useMemo(() => ({
     profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
@@ -458,13 +486,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isLoading, canAddItem, recommendationSlots, starterRecommendations,
     wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
     todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
-    profileCompleteness, dismissProfileNudge, shouldShowProfileNudge,
+    profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,
   }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
        isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, canAddItem, recommendationSlots, starterRecommendations,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
        todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
-       profileCompleteness, dismissProfileNudge, shouldShowProfileNudge]);
+       profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

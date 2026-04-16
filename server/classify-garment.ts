@@ -691,6 +691,25 @@ export async function classifyGarment(req: Request, res: Response) {
       }
     }
 
+    // Accent color: second-most-dominant pixel family (ignoring near-white and
+    // near-black that are almost always background / shadow). Used by prints,
+    // color-block garments, and scoring for two-tone harmony checks.
+    let accentColor: string | undefined;
+    const accentSorted = [...dominantColors].sort((a, b) => b.pixelFraction - a.pixelFraction);
+    for (const entry of accentSorted.slice(0, 8)) {
+      const { red: r, green: g, blue: b } = entry.color;
+      const lightness = (Math.max(r, g, b) + Math.min(r, g, b)) / 2 / 255;
+      if (lightness > 0.90) continue;
+      const fam = rgbToColorFamily(r, g, b);
+      if (fam && fam !== colorFamily) { accentColor = fam; break; }
+    }
+    if (!accentColor) {
+      for (const l of labels) {
+        const mappedColor = COLOR_LABEL_MAP[l.description];
+        if (mappedColor && mappedColor !== colorFamily) { accentColor = mappedColor; break; }
+      }
+    }
+
     if (userId) {
       console.log(`Classified garment for user ${userId}: ${matched?.subType ?? "unknown"}`);
     }
@@ -725,6 +744,7 @@ export async function classifyGarment(req: Request, res: Response) {
       category,
       subType,
       colorFamily,
+      accentColor,
       description,
       occasionTags,
       pattern,

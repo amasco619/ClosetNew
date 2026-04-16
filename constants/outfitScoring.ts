@@ -265,6 +265,8 @@ export interface OutfitScoreBreakdown {
   patternSafety: number;
   contrastMatch: number;
   pieces: number;
+  proportionBalance: number;
+  metalCohesion: number;
 }
 
 export function scoreOutfitCombo(
@@ -330,9 +332,70 @@ export function scoreOutfitCombo(
   if (components.length >= 4) pieces += 1;
   if (components.length >= 5) pieces += 1;
 
-  const total = completeness + palette + formalityCohesion + patternSafety + contrastMatch + pieces;
+  // ─── Proportion balance ──────────────────────────────────────────────────
+  // A silhouette reads deliberate when loose/oversized volume on one half is
+  // paired with slim/tailored on the other half (and vice versa). Matching
+  // volumes on both halves can look unbalanced; two cropped/short pieces
+  // stacked also reads unpolished.
+  let proportionBalance = 0;
+  if (resolved.length >= 2) {
+    const top = resolved.find(i => i.category === 'top');
+    const bottom = resolved.find(i => i.category === 'bottom');
+    const dress = resolved.find(i => i.category === 'dress');
+    const isVolume = (f?: string) => f === 'loose' || f === 'oversized';
+    const isSleek  = (f?: string) => f === 'slim' || f === 'tailored';
+    if (top?.fit && bottom?.fit) {
+      if (isVolume(top.fit) && isSleek(bottom.fit)) proportionBalance += 2;
+      else if (isSleek(top.fit) && isVolume(bottom.fit)) proportionBalance += 2;
+      else if (isVolume(top.fit) && isVolume(bottom.fit)) proportionBalance -= 2;
+      else proportionBalance += 1;
+    } else if (dress?.fit) {
+      // Solo dress — tailored or regular reads confident; oversized can be moody.
+      if (isSleek(dress.fit)) proportionBalance += 1;
+    }
+    // Cropped+short stacking penalty: crop-top + mini-skirt/shorts reads unstyled.
+    const hasCrop = resolved.some(i => i.subType === 'crop-top');
+    const hasShort = resolved.some(i =>
+      i.subType === 'mini-skirt' || i.subType === 'shorts' || i.subType === 'mini-dress');
+    if (hasCrop && hasShort) proportionBalance -= 2;
+    // Height-awareness: petite + maxi + flat shoes can overwhelm proportions.
+    if (profile?.heightBand === 'petite') {
+      const hasMaxi = resolved.some(i => i.subType === 'maxi-dress' || i.subType === 'maxi-skirt');
+      const hasFlats = resolved.some(i => i.subType === 'flats' || i.subType === 'sneakers');
+      if (hasMaxi && hasFlats) proportionBalance -= 1;
+    }
+  }
 
-  return { total, completeness, palette, paletteType, formalityCohesion, patternSafety, contrastMatch, pieces };
+  // ─── Metal cohesion ──────────────────────────────────────────────────────
+  // Jewelry and hardware with conflicting metal tones jar a polished look
+  // unless the user has explicitly opted into mixing metals.
+  let metalCohesion = 0;
+  const metals = resolved
+    .map(i => i.metalTone)
+    .filter((m): m is NonNullable<typeof m> => Boolean(m) && m !== 'none');
+  const uniqueMetals = new Set(metals);
+  if (uniqueMetals.size >= 2) {
+    if (profile?.metalPreference === 'mixed') metalCohesion = 1;
+    else metalCohesion = -2;
+  } else if (uniqueMetals.size === 1) {
+    const [only] = Array.from(uniqueMetals);
+    if (!profile?.metalPreference || profile.metalPreference === 'mixed'
+        || profile.metalPreference === only) {
+      metalCohesion = 1;
+    } else {
+      // Wrong single metal vs user preference — small negative.
+      metalCohesion = -1;
+    }
+  }
+
+  const total = completeness + palette + formalityCohesion + patternSafety
+    + contrastMatch + pieces + proportionBalance + metalCohesion;
+
+  return {
+    total, completeness, palette, paletteType,
+    formalityCohesion, patternSafety, contrastMatch, pieces,
+    proportionBalance, metalCohesion,
+  };
 }
 
 // ─── Reaction adjustment ──────────────────────────────────────────────────────

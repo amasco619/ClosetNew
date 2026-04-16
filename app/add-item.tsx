@@ -6,17 +6,20 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useApp, ItemCategory, OccasionTag, SeasonTag, subTypes, colorFamilies } from '@/contexts/AppContext';
-import type { Pattern, PatternScale, Fabric } from '@/constants/types';
+import type { Pattern, PatternScale, Fabric, Fit } from '@/constants/types';
 
 const PATTERNS: readonly Pattern[] = ['solid','stripe','floral','check','print','color-block','geometric','animal'] as const;
 const PATTERN_SCALES: readonly PatternScale[] = ['small','medium','large'] as const;
 const FABRICS: readonly Fabric[] = ['cotton','silk','denim','wool','linen','synthetic','leather','knit','satin','cashmere'] as const;
+const FITS: readonly Fit[] = ['slim','regular','loose','oversized','tailored'] as const;
 const asPattern = (v: string | undefined): Pattern | undefined =>
   v && (PATTERNS as readonly string[]).includes(v) ? (v as Pattern) : undefined;
 const asPatternScale = (v: string | undefined): PatternScale | undefined =>
   v && (PATTERN_SCALES as readonly string[]).includes(v) ? (v as PatternScale) : undefined;
 const asFabric = (v: string | undefined): Fabric | undefined =>
   v && (FABRICS as readonly string[]).includes(v) ? (v as Fabric) : undefined;
+const asFit = (v: string | undefined): Fit | undefined =>
+  v && (FITS as readonly string[]).includes(v) ? (v as Fit) : undefined;
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -65,9 +68,11 @@ export default function AddItemScreen() {
   const [pattern, setPattern] = useState<string | undefined>(undefined);
   const [patternScale, setPatternScale] = useState<string | undefined>(undefined);
   const [fabric, setFabric] = useState<string | undefined>(undefined);
+  const [accentColor, setAccentColor] = useState<string | undefined>(undefined);
+  const [fit, setFit] = useState<string | undefined>(undefined);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
-  const classifyWithServer = async (base64: string, cat: ItemCategory): Promise<{ category: ItemCategory; subType: string; colorFamily: string; description: string; occasionTags: OccasionTag[]; pattern?: string; patternScale?: string; fabric?: string }> => {
+  const classifyWithServer = async (base64: string, cat: ItemCategory): Promise<{ category: ItemCategory; subType: string; colorFamily: string; accentColor?: string; description: string; occasionTags: OccasionTag[]; pattern?: string; patternScale?: string; fabric?: string }> => {
     try {
       const res = await apiRequest('POST', '/api/classify-garment', { imageBase64: base64 });
       const data = await res.json();
@@ -76,6 +81,7 @@ export default function AddItemScreen() {
         category: (data.category as ItemCategory) || cat,
         subType: data.subType || fallback.subType,
         colorFamily: data.colorFamily || fallback.colorFamily,
+        accentColor: data.accentColor,
         description: data.description || '',
         occasionTags: Array.isArray(data.occasionTags) ? data.occasionTags : [],
         pattern: data.pattern,
@@ -92,6 +98,8 @@ export default function AddItemScreen() {
     setPattern(undefined);
     setPatternScale(undefined);
     setFabric(undefined);
+    setAccentColor(undefined);
+    setFit(undefined);
     try {
       let result: ImagePicker.ImagePickerResult;
       const pickerOptions: ImagePicker.ImagePickerOptions = {
@@ -132,6 +140,7 @@ export default function AddItemScreen() {
           if (classified.pattern) setPattern(classified.pattern);
           if (classified.patternScale) setPatternScale(classified.patternScale);
           if (classified.fabric) setFabric(classified.fabric);
+          if (classified.accentColor) setAccentColor(classified.accentColor);
           setClassifying(false);
         } else {
           const fallback = localClassifyFallback(category);
@@ -163,6 +172,8 @@ export default function AddItemScreen() {
       pattern: asPattern(pattern),
       patternScale: asPatternScale(patternScale),
       fabric: asFabric(fabric),
+      fit: asFit(fit),
+      accentColor: accentColor && colorFamilies.includes(accentColor) ? accentColor : undefined,
     });
     router.back();
   };
@@ -321,6 +332,55 @@ export default function AddItemScreen() {
                   onPress={() => toggleSeason(s)}
                 >
                   <Text style={[styles.chipSmallText, seasons.includes(s) && styles.chipSmallTextActive]}>{s.replace('-', ' ')}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.sectionTitle}>Pattern <Text style={styles.optionalLabel}>(optional)</Text></Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+              {PATTERNS.map(p => (
+                <Pressable key={p}
+                  style={[styles.chipSmall, pattern === p && styles.chipSmallActive]}
+                  onPress={() => {
+                    const next = pattern === p ? undefined : p;
+                    setPattern(next);
+                    if (!next || next === 'solid') setPatternScale(undefined);
+                  }}>
+                  <Text style={[styles.chipSmallText, pattern === p && styles.chipSmallTextActive]}>{p.replace('-', ' ')}</Text>
+                </Pressable>
+              ))}
+            </View>
+            {pattern && pattern !== 'solid' && (
+              <>
+                <Text style={styles.sectionTitle}>Pattern scale</Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+                  {PATTERN_SCALES.map(s => (
+                    <Pressable key={s}
+                      style={[styles.chipSmall, patternScale === s && styles.chipSmallActive]}
+                      onPress={() => setPatternScale(patternScale === s ? undefined : s)}>
+                      <Text style={[styles.chipSmallText, patternScale === s && styles.chipSmallTextActive]}>{s}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+            <Text style={styles.sectionTitle}>Fabric <Text style={styles.optionalLabel}>(optional)</Text></Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+              {FABRICS.map(f => (
+                <Pressable key={f}
+                  style={[styles.chipSmall, fabric === f && styles.chipSmallActive]}
+                  onPress={() => setFabric(fabric === f ? undefined : f)}>
+                  <Text style={[styles.chipSmallText, fabric === f && styles.chipSmallTextActive]}>{f}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.sectionTitle}>Fit <Text style={styles.optionalLabel}>(optional)</Text></Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+              {FITS.map(f => (
+                <Pressable key={f}
+                  style={[styles.chipSmall, fit === f && styles.chipSmallActive]}
+                  onPress={() => setFit(fit === f ? undefined : f)}>
+                  <Text style={[styles.chipSmallText, fit === f && styles.chipSmallTextActive]}>{f}</Text>
                 </Pressable>
               ))}
             </View>

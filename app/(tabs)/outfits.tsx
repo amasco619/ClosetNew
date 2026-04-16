@@ -484,7 +484,7 @@ export default function OutfitsScreen() {
                 A few more details — hair, height, metal preference — sharpen every recommendation.
               </Text>
               <View style={styles.profileNudgeActions}>
-                <Pressable onPress={() => router.push('/(tabs)/profile' as any)} style={styles.profileNudgeCta}>
+                <Pressable onPress={() => router.push('/(tabs)/profile')} style={styles.profileNudgeCta}>
                   <Text style={styles.profileNudgeCtaText}>Refine</Text>
                   <Ionicons name="arrow-forward" size={12} color={Colors.secondary} />
                 </Pressable>
