@@ -337,6 +337,7 @@ export default function OutfitsScreen() {
     profileCompleteness,
     shouldShowProfileNudge,
     dismissProfileNudge,
+    missingDimensions,
   } = useApp();
   const [selectedScenario, setSelectedScenario] = useState<OccasionTag>('casual');
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
@@ -481,7 +482,9 @@ export default function OutfitsScreen() {
                 Your style profile is {Math.round(profileCompleteness * 100)}% complete
               </Text>
               <Text style={styles.profileNudgeSubtitle}>
-                A few more details — hair, height, metal preference — sharpen every recommendation.
+                {missingDimensions.length > 0
+                  ? `Add ${missingDimensions.slice(0, 3).join(', ')} to sharpen every recommendation.`
+                  : 'A few more details sharpen every recommendation.'}
               </Text>
               <View style={styles.profileNudgeActions}>
                 <Pressable onPress={() => router.push('/(tabs)/profile')} style={styles.profileNudgeCta}>

@@ -722,7 +722,7 @@ export async function classifyGarment(req: Request, res: Response) {
 
     // ── Pattern / fabric inference from labels (optional signals) ─────────────
     // These are best-effort. The client still lets the user correct them.
-    let pattern: string = "solid";
+    let pattern: string | undefined;
     let patternScale: string | undefined;
     if (labelSet.has("Stripe") || labelSet.has("Pinstripe")) { pattern = "stripe"; }
     else if (labelSet.has("Plaid") || labelSet.has("Tartan") || labelSet.has("Check") || labelSet.has("Gingham")) { pattern = "check"; }

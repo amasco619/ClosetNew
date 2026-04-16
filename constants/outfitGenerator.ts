@@ -140,6 +140,7 @@ export function generateOutfitsForItem(
   allItems: WardrobeItem[],
   profile: UserProfile,
 ): OutfitSet[] {
+  if (!passesConstraints(newItem, profile)) return [];
   const otherItems = allItems.filter(
     i => i.id !== newItem.id && passesConstraints(i, profile),
   );
