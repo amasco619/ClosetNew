@@ -1,11 +1,12 @@
 import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal, LifePhase } from '@/constants/types';
+import { useEffect, useRef, useState } from 'react';
 
 const HAIR_OPTS: { id: HairColor; label: string }[] = [
   { id: 'black', label: 'Black' }, { id: 'dark-brown', label: 'Dark Brown' },
@@ -69,10 +70,22 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { profile, updateProfile, wardrobeItems, isPremium, togglePremium, wearHistory } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+  const { focus } = useLocalSearchParams<{ focus?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
+  const [refinementsY, setRefinementsY] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (focus === 'refinements' && refinementsY != null) {
+      const t = setTimeout(() => {
+        scrollRef.current?.scrollTo({ y: Math.max(0, refinementsY - 12), animated: true });
+      }, 250);
+      return () => clearTimeout(t);
+    }
+  }, [focus, refinementsY]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.header}>
           <View style={styles.avatarCircle}>
             <MaterialCommunityIcons name="hanger" size={32} color={Colors.secondary} />
@@ -115,7 +128,10 @@ export default function ProfileScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(350).duration(500)}>
+        <Animated.View
+          entering={FadeInDown.delay(350).duration(500)}
+          onLayout={(e) => setRefinementsY(e.nativeEvent.layout.y)}
+        >
           <Text style={styles.sectionTitle}>Refinements</Text>
           <View style={styles.card}>
             <Text style={styles.refineHelp}>Optional — sharpen every recommendation.</Text>

@@ -465,6 +465,14 @@ export default function OutfitsScreen() {
               </Pressable>
             );
           })}
+          <Pressable
+            style={styles.moodEditChip}
+            onPress={() => router.push('/(tabs)/profile?focus=refinements')}
+            hitSlop={6}
+          >
+            <Ionicons name="options-outline" size={12} color={Colors.textSecondary} />
+            <Text style={styles.moodEditChipText}>Set default</Text>
+          </Pressable>
         </ScrollView>
       )}
 
@@ -487,7 +495,7 @@ export default function OutfitsScreen() {
                   : 'A few more details sharpen every recommendation.'}
               </Text>
               <View style={styles.profileNudgeActions}>
-                <Pressable onPress={() => router.push('/(tabs)/profile')} style={styles.profileNudgeCta}>
+                <Pressable onPress={() => router.push('/(tabs)/profile?focus=refinements')} style={styles.profileNudgeCta}>
                   <Text style={styles.profileNudgeCtaText}>Refine</Text>
                   <Ionicons name="arrow-forward" size={12} color={Colors.secondary} />
                 </Pressable>
@@ -671,6 +679,13 @@ const styles = StyleSheet.create({
   moodChipActive: { backgroundColor: Colors.secondary, borderColor: Colors.secondary },
   moodChipText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.secondary },
   moodChipTextActive: { color: Colors.white },
+  moodEditChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 14,
+    borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed',
+    backgroundColor: 'transparent', marginLeft: 4,
+  },
+  moodEditChipText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary },
 
   profileNudge: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
