@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
-import { generateRecommendedOutfitGroups, RecommendedOutfitGroup, WardrobeSlot } from '@/constants/wardrobeBlueprint';
+import { computeNextSmartBuy, generateRecommendedOutfitGroups, RecommendedOutfitGroup, WardrobeSlot } from '@/constants/wardrobeBlueprint';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -151,6 +151,7 @@ export default function OutfitIdeasScreen() {
   const groups = generateRecommendedOutfitGroups(recommendationSlots);
   const remaining = groups.filter(g => !g.isComplete).length;
   const completed = groups.filter(g => g.isComplete).length;
+  const nextBuy = computeNextSmartBuy(recommendationSlots);
 
   const styleLabel = profile.styleGoalPrimary
     ? STYLE_GOAL_LABELS[profile.styleGoalPrimary]
@@ -252,6 +253,37 @@ export default function OutfitIdeasScreen() {
               />
             ))}
           </>
+        ) : null}
+
+        {nextBuy ? (
+          <Animated.View entering={FadeInDown.delay(40).duration(400)}>
+            <Pressable
+              onPress={() => router.push({ pathname: '/blueprint', params: { highlight: nextBuy.slot.id } })}
+              style={({ pressed }) => [styles.smartBuyCard, pressed && { opacity: 0.9 }]}
+            >
+              <View style={styles.smartBuyHeader}>
+                <Ionicons name="flash" size={13} color={Colors.secondary} />
+                <Text style={styles.smartBuyKicker}>Your next smart buy</Text>
+              </View>
+              <View style={styles.smartBuyBody}>
+                <Image source={nextBuy.slot.sampleImage} style={styles.smartBuyImage} resizeMode="cover" />
+                <View style={styles.smartBuyTextCol}>
+                  <Text style={styles.smartBuyTitle} numberOfLines={2}>
+                    Add a {nextBuy.slot.label}
+                  </Text>
+                  <Text style={styles.smartBuySub} numberOfLines={2}>
+                    {nextBuy.isDirectUnlock
+                      ? `Unlocks ${nextBuy.unlocks} more look${nextBuy.unlocks !== 1 ? 's' : ''} instantly`
+                      : `Featured in ${nextBuy.appearsIn} look${nextBuy.appearsIn !== 1 ? 's' : ''} you're building`}
+                  </Text>
+                  <View style={styles.smartBuyCta}>
+                    <Text style={styles.smartBuyCtaText}>See in blueprint</Text>
+                    <Ionicons name="arrow-forward" size={13} color={Colors.secondary} />
+                  </View>
+                </View>
+              </View>
+            </Pressable>
+          </Animated.View>
         ) : null}
 
         <Text style={[styles.sectionTitle, savedGroups.length > 0 && styles.sectionTitleSpaced]}>
@@ -405,6 +437,64 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.secondary,
   },
+  smartBuyCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 20,
+    borderWidth: 1.5,
+    borderColor: Colors.secondary + '40',
+  },
+  smartBuyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 10,
+  },
+  smartBuyKicker: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    color: Colors.secondary,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  smartBuyBody: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  smartBuyImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+    backgroundColor: Colors.border,
+  },
+  smartBuyTextCol: { flex: 1 },
+  smartBuyTitle: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 15,
+    color: Colors.primary,
+    letterSpacing: -0.2,
+  },
+  smartBuySub: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: 3,
+    lineHeight: 17,
+  },
+  smartBuyCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  smartBuyCtaText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    color: Colors.secondary,
+  },
+
   sectionTitle: {
     fontFamily: 'Inter_700Bold',
     fontSize: 18,

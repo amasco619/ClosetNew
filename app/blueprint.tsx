@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View, ScrollView, Pressable, Platform, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import { WardrobeSlot } from '@/constants/wardrobeBlueprint';
 import Colors from '@/constants/colors';
@@ -39,10 +39,16 @@ function groupSlotsByCategory(slots: WardrobeSlot[]): Record<string, WardrobeSlo
   return grouped;
 }
 
-function SlotCard({ slot }: { slot: WardrobeSlot }) {
+function SlotCard({ slot, highlighted }: { slot: WardrobeSlot; highlighted?: boolean }) {
   const isOwned = slot.status === 'owned';
   return (
-    <View style={styles.slotCard}>
+    <View style={[styles.slotCard, highlighted && styles.slotCardHighlighted]}>
+      {highlighted ? (
+        <View style={styles.slotHighlightBadge}>
+          <Ionicons name="flash" size={10} color={Colors.white} />
+          <Text style={styles.slotHighlightText}>Next smart buy</Text>
+        </View>
+      ) : null}
       <View style={styles.slotImageWrap}>
         <Image source={slot.sampleImage} style={styles.slotImage} resizeMode="cover" />
         <View style={[styles.slotBadge, isOwned ? styles.slotBadgeOwned : styles.slotBadgeNeeded]}>
@@ -93,6 +99,7 @@ function PremiumGate() {
 export default function BlueprintScreen() {
   const insets = useSafeAreaInsets();
   const { isPremium, recommendationSlots, profile } = useApp();
+  const { highlight } = useLocalSearchParams<{ highlight?: string }>();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const totalSlots = recommendationSlots.length;
@@ -197,7 +204,7 @@ export default function BlueprintScreen() {
                     style={styles.slotsScroll}
                     contentContainerStyle={styles.slotsScrollContent}
                   >
-                    {slots.map(slot => <SlotCard key={slot.id} slot={slot} />)}
+                    {slots.map(slot => <SlotCard key={slot.id} slot={slot} highlighted={slot.id === highlight} />)}
                   </ScrollView>
                 </View>
               </Animated.View>
@@ -238,6 +245,30 @@ const styles = StyleSheet.create({
 
   slotCard: { width: 155, backgroundColor: Colors.white, borderRadius: 14, overflow: 'hidden' },
   slotCardBlurred: { opacity: 0.4 },
+  slotCardHighlighted: {
+    borderWidth: 2,
+    borderColor: Colors.secondary,
+  },
+  slotHighlightBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    zIndex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Colors.secondary,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  slotHighlightText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 9,
+    color: Colors.white,
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
   slotImageWrap: { width: 155, height: 140, backgroundColor: Colors.border, position: 'relative' },
   slotImage: { width: 155, height: 140 },
   slotBadge: { position: 'absolute', bottom: 8, left: 8, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, backgroundColor: Colors.white },

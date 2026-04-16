@@ -770,6 +770,69 @@ export function countRecommendedOutfits(slots: WardrobeSlot[]): number {
   return generateRecommendedOutfitGroups(slots).filter(g => !g.isComplete).length;
 }
 
+/**
+ * A suggestion for the single highest-leverage missing item — the one slot
+ * whose acquisition would immediately complete (unlock) the greatest number
+ * of currently-incomplete curated looks. Falls back to the most-frequently
+ * needed slot across incomplete looks when no single item would finish any.
+ */
+export interface NextSmartBuy {
+  slot: WardrobeSlot;
+  unlocks: number;
+  appearsIn: number;
+  isDirectUnlock: boolean;
+}
+
+export function computeNextSmartBuy(slots: WardrobeSlot[]): NextSmartBuy | null {
+  const groups = generateRecommendedOutfitGroups(slots);
+  const incomplete = groups.filter(g => !g.isComplete);
+  if (incomplete.length === 0) return null;
+
+  const unlockCount = new Map<string, number>();
+  const appearCount = new Map<string, number>();
+  const slotById = new Map<string, WardrobeSlot>();
+
+  for (const group of incomplete) {
+    const needed = group.slots.filter(s => s.status === 'needed');
+    for (const s of needed) {
+      slotById.set(s.id, s);
+      appearCount.set(s.id, (appearCount.get(s.id) ?? 0) + 1);
+    }
+    if (needed.length === 1) {
+      const only = needed[0];
+      unlockCount.set(only.id, (unlockCount.get(only.id) ?? 0) + 1);
+    }
+  }
+
+  const pick = (map: Map<string, number>): NextSmartBuy | null => {
+    let bestId: string | null = null;
+    let bestScore = 0;
+    for (const [id, score] of map.entries()) {
+      if (score <= 0) continue;
+      const slot = slotById.get(id);
+      if (!slot) continue;
+      if (
+        score > bestScore ||
+        (score === bestScore && bestId && slot.priority < (slotById.get(bestId)?.priority ?? 99)) ||
+        (score === bestScore && bestId && slot.priority === (slotById.get(bestId)?.priority ?? 99) && id < bestId)
+      ) {
+        bestId = id;
+        bestScore = score;
+      }
+    }
+    if (!bestId) return null;
+    const slot = slotById.get(bestId)!;
+    return {
+      slot,
+      unlocks: unlockCount.get(bestId) ?? 0,
+      appearsIn: appearCount.get(bestId) ?? 0,
+      isDirectUnlock: (unlockCount.get(bestId) ?? 0) > 0,
+    };
+  };
+
+  return pick(unlockCount) ?? pick(appearCount);
+}
+
 export function getFirstNeededByCategory(slots: WardrobeSlot[]): Record<string, WardrobeSlot | undefined> {
   const result: Record<string, WardrobeSlot | undefined> = {};
   for (const slot of slots) {
