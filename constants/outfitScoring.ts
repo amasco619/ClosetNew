@@ -17,12 +17,12 @@
  */
 
 import {
-  WardrobeItem, OutfitComponent, OutfitSet, OccasionTag, UserProfile,
+  WardrobeItem, OutfitComponent, OccasionTag, UserProfile,
   MoodGoal, OutfitReaction, WearEntry,
 } from './types';
 import {
-  classifyPalette, scorePaletteType, colorsHarmonize as paletteHarmonize,
-  isNeutralColor, isWarmColor,
+  classifyPalette, scorePaletteType,
+  isNeutralColor,
 } from './colorTheory';
 
 // Re-export for backward compatibility

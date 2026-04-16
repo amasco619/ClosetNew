@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp, BodyType, EyeColor, SkinTone, Undertone, StyleGoal } from '@/contexts/AppContext';
-import type { HairColor, HeightBand, ContrastLevel, MoodGoal, LifePhase } from '@/constants/types';
+import type { HairColor, HeightBand, ContrastLevel, MoodGoal, LifePhase, MetalPreference } from '@/constants/types';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
@@ -72,6 +72,7 @@ const HAIR_OPTS: { id: HairColor; label: string }[] = [
 const HEIGHT_OPTS: HeightBand[] = ['petite', 'average', 'tall'];
 const CONTRAST_OPTS: ContrastLevel[] = ['low', 'medium', 'high'];
 const MOOD_OPTS: MoodGoal[] = ['confident', 'soft', 'joyful', 'grounded', 'romantic', 'powerful'];
+const METAL_OPTS: MetalPreference[] = ['gold', 'silver', 'rose-gold', 'mixed'];
 const LIFE_PHASE_OPTS: { id: LifePhase; label: string }[] = [
   { id: 'none', label: 'None' },
   { id: 'pregnancy', label: 'Pregnancy' },
@@ -112,6 +113,7 @@ export default function OnboardingScreen() {
   const [contrastManual, setContrastManual] = useState<boolean>(!!profile.contrastLevel);
   const [defaultMood, setDefaultMood] = useState<MoodGoal | null>(profile.defaultMood ?? null);
   const [lifePhase, setLifePhase] = useState<LifePhase | null>(profile.lifePhase ?? null);
+  const [metalPreference, setMetalPreference] = useState<MetalPreference | null>(profile.metalPreference ?? null);
   const [colorAversions, setColorAversions] = useState<string[]>(profile.constraints.colorAversions ?? []);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -157,6 +159,7 @@ export default function OnboardingScreen() {
         contrastLevel: effectiveContrast,
         defaultMood,
         lifePhase,
+        metalPreference,
         constraints: { ...profile.constraints, colorAversions },
         onboardingComplete: true,
       });
@@ -357,6 +360,21 @@ export default function OnboardingScreen() {
                     style={[styles.chip, active && styles.chipActive]}>
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
                       {c.charAt(0).toUpperCase() + c.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.subLabel, { marginTop: 20 }]}>Metal preference</Text>
+            <View style={styles.chipRow}>
+              {METAL_OPTS.map(m => {
+                const active = metalPreference === m;
+                return (
+                  <Pressable key={m} onPress={() => { Haptics.selectionAsync(); setMetalPreference(active ? null : m); }}
+                    style={[styles.chip, active && styles.chipActive]}>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {m === 'rose-gold' ? 'Rose gold' : m.charAt(0).toUpperCase() + m.slice(1)}
                     </Text>
                   </Pressable>
                 );
