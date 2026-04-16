@@ -1,0 +1,56 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "uvAAYwuQ37cVsIjrc3rV2"
+uri = "file://assets/recommendations/beige_crop_top.png"
+type = "image"
+title = "beige crop top"
+
+[[generated]]
+id = "NzhGm-saTnWt9WohaU0ux"
+uri = "file://assets/recommendations/denim_mini_skirt.png"
+type = "image"
+title = "denim mini skirt"
+
+[[generated]]
+id = "KqLXPx9jnau1CEuksWUdw"
+uri = "file://assets/recommendations/grey_hoodie.png"
+type = "image"
+title = "grey hoodie"
+
+[[generated]]
+id = "rfUZx6KOKqwhZV27nqwRf"
+uri = "file://assets/recommendations/satin_bomber.png"
+type = "image"
+title = "satin bomber"
+
+[[generated]]
+id = "dkwLfsBQUhl044AfHZCRc"
+uri = "file://assets/recommendations/high_waist_jeans.png"
+type = "image"
+title = "high waist jeans"
+
+[[generated]]
+id = "-6Yvf3TAlvYDvIur2VmOB"
+uri = "file://assets/recommendations/oversized_blazer.png"
+type = "image"
+title = "oversized blazer"
+
+[[generated]]
+id = "Bkqrh3Ofkxub6TuapVjLX"
+uri = "file://assets/recommendations/casual_slip_dress.png"
+type = "image"
+title = "casual slip dress"
+
+[[generated]]
+id = "3Q1TRIeeo7CRX3iKzzn2_"
+uri = "file://assets/recommendations/denim_jacket.png"
+type = "image"
+title = "denim jacket"
+
+[[generated]]
+id = "OciFuSf0zc3Ruzw5utW4G"
+uri = "file://assets/recommendations/chunky_trainers.png"
+type = "image"
+title = "chunky trainers"

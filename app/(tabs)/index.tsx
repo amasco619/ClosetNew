@@ -37,10 +37,12 @@ export default function HomeScreen() {
     categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
   });
 
-  // Outfit Ideas: count complete looks assembable from the style blueprint.
-  // Uses the full recommendation set (owned + needed) so the number reflects
-  // all curated looks for the user's style, not just what they already own.
-  const outfitIdeas = countRecommendedOutfits(recommendationSlots);
+  // Outfit Ideas: count curated looks for the user's style blueprint.
+  // Gated on a primary style goal so the number matches the Outfit Ideas
+  // screen (which requires a style goal before showing any looks).
+  const outfitIdeas = profile.styleGoalPrimary
+    ? countRecommendedOutfits(recommendationSlots)
+    : 0;
 
   // A "ready" outfit requires all pieces to be owned AND a complete core:
   // (dress OR top+bottom) AND shoes together.

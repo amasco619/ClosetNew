@@ -31,6 +31,7 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   lilac_lace_cami:         require('@/assets/recommendations/lilac_lace_cami.png'),
   navy_polo:               require('@/assets/recommendations/navy_polo.png'),
   graphic_tee:             require('@/assets/recommendations/graphic_tee.png'),
+  beige_crop_top:          require('@/assets/recommendations/beige_crop_top.png'),
   // ── Bottoms ─────────────────────────────────────────────────────────────
   dark_trousers:           require('@/assets/recommendations/dark_trousers.png'),
   beige_trousers:          require('@/assets/recommendations/beige_trousers.png'),
@@ -42,6 +43,8 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   white_broderie_skirt:    require('@/assets/recommendations/white_broderie_skirt.png'),
   camel_midi_skirt:        require('@/assets/recommendations/camel_midi_skirt.png'),
   plaid_mini_skirt:        require('@/assets/recommendations/plaid_mini_skirt.png'),
+  denim_mini_skirt:        require('@/assets/recommendations/denim_mini_skirt.png'),
+  high_waist_jeans:        require('@/assets/recommendations/high_waist_jeans.png'),
   // ── Dresses ─────────────────────────────────────────────────────────────
   black_dress:             require('@/assets/recommendations/black_dress.png'),
   pink_dress:              require('@/assets/recommendations/pink_dress.png'),
@@ -58,6 +61,7 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   camel_wrap_dress:        require('@/assets/recommendations/camel_wrap_dress.png'),
   denim_shirt_dress:       require('@/assets/recommendations/denim_shirt_dress.png'),
   floral_smocked_dress:    require('@/assets/recommendations/floral_smocked_dress.png'),
+  casual_slip_dress:       require('@/assets/recommendations/casual_slip_dress.png'),
   // ── Outerwear ────────────────────────────────────────────────────────────
   navy_blazer:             require('@/assets/recommendations/navy_blazer.png'),
   red_blazer:              require('@/assets/recommendations/red_blazer.png'),
@@ -68,6 +72,10 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   pink_faux_fur:           require('@/assets/recommendations/pink_faux_fur.png'),
   black_pea_coat:          require('@/assets/recommendations/black_pea_coat.png'),
   varsity_jacket:          require('@/assets/recommendations/varsity_jacket.png'),
+  grey_hoodie:             require('@/assets/recommendations/grey_hoodie.png'),
+  satin_bomber:            require('@/assets/recommendations/satin_bomber.png'),
+  oversized_blazer:        require('@/assets/recommendations/oversized_blazer.png'),
+  denim_jacket:            require('@/assets/recommendations/denim_jacket.png'),
   // ── Shoes ────────────────────────────────────────────────────────────────
   white_sneakers:          require('@/assets/recommendations/white_sneakers.png'),
   white_flats:             require('@/assets/recommendations/white_flats.png'),
@@ -83,6 +91,7 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   ballet_pink_flats:       require('@/assets/recommendations/ballet_pink_flats.png'),
   ivory_kitten_heels:      require('@/assets/recommendations/ivory_kitten_heels.png'),
   white_chunky_sandals:    require('@/assets/recommendations/white_chunky_sandals.png'),
+  chunky_trainers:         require('@/assets/recommendations/chunky_trainers.png'),
   // ── Bags ─────────────────────────────────────────────────────────────────
   black_bag:               require('@/assets/recommendations/black_bag.png'),
   camel_bag:               require('@/assets/recommendations/camel_bag.png'),
@@ -293,24 +302,29 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
   youthful: [
     // Tops
     { id: 'yth-top-1', category: 'top',       subType: 'tank-top',      colorFamily: 'white',  priority: 1, label: 'Fitted White Ribbed Tank',          description: 'The essential — a clean ribbed tank for any layered look',    sampleImage: SAMPLE_IMAGES.white_tee },
-    { id: 'yth-top-2', category: 'top',       subType: 'crop-top',      colorFamily: 'beige',  priority: 2, label: 'Beige Ribbed Crop Top',             description: 'Playful proportions with a flattering, relaxed fit',          sampleImage: SAMPLE_IMAGES.beige_trousers },
+    { id: 'yth-top-2', category: 'top',       subType: 'crop-top',      colorFamily: 'beige',  priority: 2, label: 'Beige Ribbed Crop Top',             description: 'Playful proportions with a flattering, relaxed fit',          sampleImage: SAMPLE_IMAGES.beige_crop_top },
     { id: 'yth-top-3', category: 'top',       subType: 'graphic-tee',   colorFamily: 'white',  priority: 3, label: 'Vintage-Inspired Graphic Tee',      description: 'Retro nostalgia in a soft tee — effortlessly cool and current', sampleImage: SAMPLE_IMAGES.graphic_tee },
     // Bottoms
     { id: 'yth-bot-1', category: 'bottom',    subType: 'wide-leg',      colorFamily: 'camel',  priority: 1, label: 'High-Waist Wide-Leg Camel Trousers',description: 'Relaxed and on-trend — the trouser that goes with everything', sampleImage: SAMPLE_IMAGES.beige_trousers },
-    { id: 'yth-bot-2', category: 'bottom',    subType: 'mini-skirt',    colorFamily: 'navy',   priority: 2, label: 'Denim Mini Skirt',                  description: 'High-waist denim energy — retro, fun and endlessly fresh',    sampleImage: SAMPLE_IMAGES.jeans },
-    { id: 'yth-bot-3', category: 'bottom',    subType: 'mini-skirt',    colorFamily: 'plaid',  priority: 3, label: 'Plaid Mini Skirt',                  description: 'Preppy plaid in a fun mini cut — playful, cheeky and charming', sampleImage: SAMPLE_IMAGES.plaid_mini_skirt },
+    { id: 'yth-bot-2', category: 'bottom',    subType: 'jeans',         colorFamily: 'blue',   priority: 2, label: 'High-Waist Straight Jeans',         description: 'The 90s youth formula — high-waist, straight-leg and endlessly wearable', sampleImage: SAMPLE_IMAGES.high_waist_jeans },
+    { id: 'yth-bot-3', category: 'bottom',    subType: 'mini-skirt',    colorFamily: 'blue',   priority: 3, label: 'Denim Mini Skirt',                  description: 'High-waist denim energy — retro, fun and endlessly fresh',    sampleImage: SAMPLE_IMAGES.denim_mini_skirt },
+    { id: 'yth-bot-4', category: 'bottom',    subType: 'mini-skirt',    colorFamily: 'plaid',  priority: 4, label: 'Plaid Mini Skirt',                  description: 'Preppy plaid in a fun mini cut — playful, cheeky and charming', sampleImage: SAMPLE_IMAGES.plaid_mini_skirt },
     // Dresses
     { id: 'yth-drs-1', category: 'dress',     subType: 'mini-dress',    colorFamily: 'black',  priority: 1, label: 'Mini Babydoll Dress',               description: 'A playful silhouette that goes from day to night instantly',  sampleImage: SAMPLE_IMAGES.black_dress },
     { id: 'yth-drs-2', category: 'dress',     subType: 'shirt-dress',   colorFamily: 'blue',   priority: 2, label: 'Denim Shirt Dress',                 description: 'Effortless denim from collar to hem — the casual dress icon',  sampleImage: SAMPLE_IMAGES.denim_shirt_dress },
-    { id: 'yth-drs-3', category: 'dress',     subType: 'mini-dress',    colorFamily: 'floral', priority: 3, label: 'Floral Smocked Mini Dress',         description: 'Puff sleeves and sweet florals — the ultimate carefree summer dress', sampleImage: SAMPLE_IMAGES.floral_smocked_dress },
+    { id: 'yth-drs-3', category: 'dress',     subType: 'slip-dress',    colorFamily: 'black',  priority: 3, label: 'Casual Black Slip Dress',           description: 'Soft satin, bias-cut and effortless — the easiest way to look pulled together', sampleImage: SAMPLE_IMAGES.casual_slip_dress },
+    { id: 'yth-drs-4', category: 'dress',     subType: 'mini-dress',    colorFamily: 'floral', priority: 4, label: 'Floral Smocked Mini Dress',         description: 'Puff sleeves and sweet florals — the ultimate carefree summer dress', sampleImage: SAMPLE_IMAGES.floral_smocked_dress },
     // Outerwear
-    { id: 'yth-out-1', category: 'outerwear', subType: 'hoodie',        colorFamily: 'grey',   priority: 1, label: 'Oversized Grey Hoodie',             description: 'Comfy, cool, and effortless — the street-style essential',    sampleImage: SAMPLE_IMAGES.grey_cardigan },
-    { id: 'yth-out-2', category: 'outerwear', subType: 'bomber-jacket', colorFamily: 'black',  priority: 2, label: 'Black Satin Bomber Jacket',         description: 'Sleek and on-trend — the finisher for any youthful outfit',   sampleImage: SAMPLE_IMAGES.navy_blazer },
-    { id: 'yth-out-3', category: 'outerwear', subType: 'varsity-jacket',colorFamily: 'multi',  priority: 3, label: 'Colourful Varsity Jacket',          description: 'Retro team spirit — bold colourblocking with nostalgic charm', sampleImage: SAMPLE_IMAGES.varsity_jacket },
+    { id: 'yth-out-1', category: 'outerwear', subType: 'blazer',        colorFamily: 'black',  priority: 1, label: 'Oversized Black Blazer',            description: 'Smart-meets-playful — the trend-forward layer over jeans, skirts and dresses', sampleImage: SAMPLE_IMAGES.oversized_blazer },
+    { id: 'yth-out-2', category: 'outerwear', subType: 'denim-jacket',  colorFamily: 'blue',   priority: 2, label: 'Classic Denim Jacket',              description: 'The Americana staple — throws over anything and adds instant cool', sampleImage: SAMPLE_IMAGES.denim_jacket },
+    { id: 'yth-out-3', category: 'outerwear', subType: 'hoodie',        colorFamily: 'grey',   priority: 3, label: 'Oversized Grey Hoodie',             description: 'Comfy, cool, and effortless — the street-style essential',    sampleImage: SAMPLE_IMAGES.grey_hoodie },
+    { id: 'yth-out-4', category: 'outerwear', subType: 'bomber-jacket', colorFamily: 'black',  priority: 4, label: 'Black Satin Bomber Jacket',         description: 'Sleek and on-trend — the finisher for any youthful outfit',   sampleImage: SAMPLE_IMAGES.satin_bomber },
+    { id: 'yth-out-5', category: 'outerwear', subType: 'varsity-jacket',colorFamily: 'multi',  priority: 5, label: 'Colourful Varsity Jacket',          description: 'Retro team spirit — bold colourblocking with nostalgic charm', sampleImage: SAMPLE_IMAGES.varsity_jacket },
     // Shoes
-    { id: 'yth-sho-1', category: 'shoes',     subType: 'sneakers',      colorFamily: 'white',  priority: 1, label: 'White Platform Trainers',           description: 'Fresh kicks that give every outfit an instant lift',          sampleImage: SAMPLE_IMAGES.white_sneakers },
-    { id: 'yth-sho-2', category: 'shoes',     subType: 'flats',         colorFamily: 'pink',   priority: 2, label: 'Ballet Pink Flats',                 description: 'Soft and sweet — ballerina energy for every day',             sampleImage: SAMPLE_IMAGES.ballet_pink_flats },
-    { id: 'yth-sho-3', category: 'shoes',     subType: 'sandals',       colorFamily: 'white',  priority: 3, label: 'White Chunky Platform Sandals',     description: 'Retro platform vibes — chunky, bold and brilliantly fun',     sampleImage: SAMPLE_IMAGES.white_chunky_sandals },
+    { id: 'yth-sho-1', category: 'shoes',     subType: 'sneakers',      colorFamily: 'white',  priority: 1, label: 'White Chunky Trainers',             description: 'Thick-sole 90s dad sneakers — the youth-formula finisher',    sampleImage: SAMPLE_IMAGES.chunky_trainers },
+    { id: 'yth-sho-2', category: 'shoes',     subType: 'sneakers',      colorFamily: 'white',  priority: 2, label: 'White Platform Trainers',           description: 'Fresh kicks that give every outfit an instant lift',          sampleImage: SAMPLE_IMAGES.white_sneakers },
+    { id: 'yth-sho-3', category: 'shoes',     subType: 'flats',         colorFamily: 'pink',   priority: 3, label: 'Ballet Pink Flats',                 description: 'Soft and sweet — ballerina energy for every day',             sampleImage: SAMPLE_IMAGES.ballet_pink_flats },
+    { id: 'yth-sho-4', category: 'shoes',     subType: 'sandals',       colorFamily: 'white',  priority: 4, label: 'White Chunky Platform Sandals',     description: 'Retro platform vibes — chunky, bold and brilliantly fun',     sampleImage: SAMPLE_IMAGES.white_chunky_sandals },
     // Bags
     { id: 'yth-bag-1', category: 'bag',       subType: 'mini-bag',      colorFamily: 'black',  priority: 1, label: 'Mini Gold-Hardware Shoulder Bag',   description: 'Tiny bag with big personality — gold chain, endless style',   sampleImage: SAMPLE_IMAGES.mini_bag },
     { id: 'yth-bag-2', category: 'bag',       subType: 'tote',          colorFamily: 'canvas', priority: 2, label: 'Natural Canvas Tote Bag',           description: 'Carry everything casually — the laid-back everyday essential', sampleImage: SAMPLE_IMAGES.canvas_tote },
@@ -444,30 +458,282 @@ export function updateSlotsAfterAdd(
 export interface RecommendedOutfitGroup {
   id: string;
   label: string;
+  vibe?: string;
+  rationale?: string;
   slots: WardrobeSlot[];
   isComplete: boolean;
 }
 
 /**
- * Pairs recommendation slots into complete outfit groups:
- *   top[i] + bottom[i] + shoes[i]   (top-bottom looks)
- *   dress[i] + shoes[i]             (dress looks)
- *
- * Slots are sorted by priority so Priority-1 items form Look 1, etc.
- * Shoes cycle if fewer shoe slots than clothing cores (same pair in multiple looks).
+ * A curated outfit recipe that references specific blueprint items by ID.
+ * These are authored styled combinations — e.g. for youthful:
+ * crop top + high-waist jeans + chunky trainers — not positional mash-ups.
+ */
+export interface OutfitRecipe {
+  id: string;
+  label: string;
+  vibe: string;
+  rationale: string;
+  slotIds: string[];
+}
+
+const PREFIX_TO_GOAL: Record<string, StyleGoal> = {
+  yth: 'youthful', min: 'minimal', elv: 'elevated',
+  bld: 'bold',     rom: 'romantic', cls: 'classic',
+};
+
+const OUTFIT_RECIPES: Record<StyleGoal, OutfitRecipe[]> = {
+  youthful: [
+    {
+      id: 'yth-look-1',
+      label: 'Off-Duty City',
+      vibe: 'Casual, confident, off-duty',
+      rationale: 'The most reliable "youth formula" right now — clean, flattering and effortlessly current.',
+      slotIds: ['yth-top-2', 'yth-bot-2', 'yth-sho-1'],
+    },
+    {
+      id: 'yth-look-2',
+      label: 'Smart & Playful',
+      vibe: 'Smart but youthful, city-ready',
+      rationale: 'Blends polish with playfulness — key for looking trendy without looking older.',
+      slotIds: ['yth-top-1', 'yth-out-1', 'yth-bot-3', 'yth-sho-1'],
+    },
+    {
+      id: 'yth-look-3',
+      label: 'Soft & Effortless',
+      vibe: 'Soft, effortless, slightly elevated',
+      rationale: 'The easiest way to look feminine and relaxed at the same time.',
+      slotIds: ['yth-drs-3', 'yth-out-2', 'yth-sho-1'],
+    },
+    {
+      id: 'yth-look-4',
+      label: 'Preppy Weekend',
+      vibe: 'Retro preppy, fun',
+      rationale: 'Plaid and platforms — the playful study-hall energy that still reads fresh.',
+      slotIds: ['yth-top-3', 'yth-bot-4', 'yth-sho-2'],
+    },
+    {
+      id: 'yth-look-5',
+      label: 'Summer Smocked',
+      vibe: 'Sweet, carefree',
+      rationale: 'Puff sleeves, ballet flats — a romantic afternoon staple.',
+      slotIds: ['yth-drs-4', 'yth-sho-3'],
+    },
+  ],
+
+  minimal: [
+    {
+      id: 'min-look-1',
+      label: 'Quiet Neutral',
+      vibe: 'Soft, considered, calm',
+      rationale: 'Cream over grey — the gentlest way to wear the clean-line minimalist uniform.',
+      slotIds: ['min-top-2', 'min-bot-1', 'min-sho-2'],
+    },
+    {
+      id: 'min-look-2',
+      label: 'Linen Easy',
+      vibe: 'Airy, summery, effortless',
+      rationale: 'All-white linen with bare trainers — minimal dressing at its most forgiving.',
+      slotIds: ['min-top-1', 'min-bot-3', 'min-sho-3'],
+    },
+    {
+      id: 'min-look-3',
+      label: 'Silk Slip',
+      vibe: 'Fluid, pared-back, poised',
+      rationale: 'One silk slip dress, one pointed mule — a complete look in two pieces.',
+      slotIds: ['min-drs-1', 'min-sho-2'],
+    },
+    {
+      id: 'min-look-4',
+      label: 'Weekend Layer',
+      vibe: 'Relaxed, composed',
+      rationale: 'Linen overshirt + slim denim + flats + camel coat — layered minimalism for the commute.',
+      slotIds: ['min-top-3', 'min-bot-2', 'min-sho-1', 'min-out-1'],
+    },
+  ],
+
+  elevated: [
+    {
+      id: 'elv-look-1',
+      label: 'Power Suit',
+      vibe: 'Polished, commanding',
+      rationale: 'Silk camisole under a navy blazer with wide-leg trousers — the executive cornerstone.',
+      slotIds: ['elv-top-3', 'elv-out-1', 'elv-bot-1', 'elv-sho-1'],
+    },
+    {
+      id: 'elv-look-2',
+      label: 'Camel Polish',
+      vibe: 'Refined, elegant',
+      rationale: 'Black silk blouse + camel midi skirt + slingbacks — quiet European luxury.',
+      slotIds: ['elv-top-1', 'elv-bot-2', 'elv-sho-3'],
+    },
+    {
+      id: 'elv-look-3',
+      label: 'Soft Luxe',
+      vibe: 'Understated, cashmere-soft',
+      rationale: 'Cashmere + wide-leg black + nude heels — powerful without shouting.',
+      slotIds: ['elv-top-2', 'elv-bot-3', 'elv-sho-2', 'elv-out-3'],
+    },
+    {
+      id: 'elv-look-4',
+      label: 'Satin Evening',
+      vibe: 'Luminous, occasion-ready',
+      rationale: 'Champagne satin slip + pointed heels — one piece, maximum elevation.',
+      slotIds: ['elv-drs-3', 'elv-sho-1'],
+    },
+  ],
+
+  bold: [
+    {
+      id: 'bld-look-1',
+      label: 'Red Power',
+      vibe: 'Commanding, unapologetic',
+      rationale: 'Red satin + black wide-leg + platform heels + red blazer — stops traffic.',
+      slotIds: ['bld-top-1', 'bld-bot-1', 'bld-sho-1', 'bld-out-1'],
+    },
+    {
+      id: 'bld-look-2',
+      label: 'Print Edge',
+      vibe: 'Rebellious, confident',
+      rationale: 'Leopard mini, cutout crop and snake boots — fearless mix with leather backbone.',
+      slotIds: ['bld-top-2', 'bld-bot-3', 'bld-sho-3', 'bld-out-2'],
+    },
+    {
+      id: 'bld-look-3',
+      label: 'Jewel Dress',
+      vibe: 'Statement, electric',
+      rationale: 'Emerald midi + red heels — colour-blocking that means business.',
+      slotIds: ['bld-drs-3', 'bld-sho-2'],
+    },
+    {
+      id: 'bld-look-4',
+      label: 'Maxi Drama',
+      vibe: 'Sweeping, cinematic',
+      rationale: 'Red wrap maxi + black platforms + animal coat — entrance guaranteed.',
+      slotIds: ['bld-drs-2', 'bld-sho-1', 'bld-out-3'],
+    },
+  ],
+
+  romantic: [
+    {
+      id: 'rom-look-1',
+      label: 'Blush Day',
+      vibe: 'Soft, feminine, daytime',
+      rationale: 'Pink ruffle blouse + satin midi skirt + ballet flats — pure daytime romance.',
+      slotIds: ['rom-top-1', 'rom-bot-1', 'rom-sho-2', 'rom-out-2'],
+    },
+    {
+      id: 'rom-look-2',
+      label: 'Floral Dream',
+      vibe: 'Pretty, sunlit',
+      rationale: 'Floral wrap midi + strappy heels — the dress-and-go romantic default.',
+      slotIds: ['rom-drs-1', 'rom-sho-1'],
+    },
+    {
+      id: 'rom-look-3',
+      label: 'Ivory Lace',
+      vibe: 'Ethereal, delicate',
+      rationale: 'Lace maxi + kitten heel mules — timeless feminine grace.',
+      slotIds: ['rom-drs-3', 'rom-sho-3'],
+    },
+    {
+      id: 'rom-look-4',
+      label: 'Sweet Picnic',
+      vibe: 'Fresh, carefree, summery',
+      rationale: 'Off-shoulder cream knit + broderie mini + ballet flats — a romantic afternoon uniform.',
+      slotIds: ['rom-top-2', 'rom-bot-3', 'rom-sho-2'],
+    },
+  ],
+
+  classic: [
+    {
+      id: 'cls-look-1',
+      label: 'Heritage Office',
+      vibe: 'Polished, timeless',
+      rationale: 'White button-down + dark trousers + loafers + navy blazer — the investment uniform.',
+      slotIds: ['cls-top-1', 'cls-bot-1', 'cls-sho-1', 'cls-out-1'],
+    },
+    {
+      id: 'cls-look-2',
+      label: 'Wrap & Trench',
+      vibe: 'Graceful, ageless',
+      rationale: 'Camel wrap dress + loafers + trench — flattering and forever-wearable.',
+      slotIds: ['cls-drs-3', 'cls-sho-1', 'cls-out-2'],
+    },
+    {
+      id: 'cls-look-3',
+      label: 'Little Black Dress',
+      vibe: 'Iconic, simple',
+      rationale: 'The LBD + pointed heels — the emergency look that never fails.',
+      slotIds: ['cls-drs-1', 'cls-sho-2'],
+    },
+    {
+      id: 'cls-look-4',
+      label: 'Weekend Polished',
+      vibe: 'Relaxed but pulled-together',
+      rationale: 'Navy polo + mid-wash straight jeans + white sneakers — preppy weekend staple.',
+      slotIds: ['cls-top-3', 'cls-bot-2', 'cls-sho-3'],
+    },
+  ],
+};
+
+function inferStyleGoal(slots: WardrobeSlot[]): StyleGoal | null {
+  const counts: Record<string, number> = {};
+  for (const s of slots) {
+    const prefix = s.id.split('-')[0];
+    if (PREFIX_TO_GOAL[prefix]) {
+      counts[prefix] = (counts[prefix] ?? 0) + 1;
+    }
+  }
+  let best: string | null = null;
+  let bestCount = 0;
+  for (const [p, c] of Object.entries(counts)) {
+    if (c > bestCount) { best = p; bestCount = c; }
+  }
+  return best ? PREFIX_TO_GOAL[best] : null;
+}
+
+/**
+ * Pairs recommendation slots into curated outfit groups using style-goal
+ * recipes (authored combinations, not positional pairing). Falls back to
+ * positional pairing only if no recipes match the current slot set.
  * An outfit group is "complete" when every slot in it is owned.
  */
 export function generateRecommendedOutfitGroups(slots: WardrobeSlot[]): RecommendedOutfitGroup[] {
+  if (slots.length === 0) return [];
+
+  const goal = inferStyleGoal(slots);
+  const slotsById = new Map(slots.map(s => [s.id, s]));
+  const groups: RecommendedOutfitGroup[] = [];
+
+  if (goal) {
+    const recipes = OUTFIT_RECIPES[goal] ?? [];
+    for (const recipe of recipes) {
+      const resolved = recipe.slotIds
+        .map(id => slotsById.get(id))
+        .filter((s): s is WardrobeSlot => !!s);
+      if (resolved.length !== recipe.slotIds.length) continue;
+
+      groups.push({
+        id: recipe.id,
+        label: recipe.label,
+        vibe: recipe.vibe,
+        rationale: recipe.rationale,
+        slots: resolved,
+        isComplete: resolved.every(s => s.status === 'owned'),
+      });
+    }
+    if (groups.length > 0) return groups;
+  }
+
+  // Fallback: positional pairing (preserves behaviour for custom blueprints).
   const tops    = slots.filter(s => s.category === 'top').sort((a, b) => a.priority - b.priority);
   const bottoms = slots.filter(s => s.category === 'bottom').sort((a, b) => a.priority - b.priority);
   const dresses = slots.filter(s => s.category === 'dress').sort((a, b) => a.priority - b.priority);
   const shoes   = slots.filter(s => s.category === 'shoes').sort((a, b) => a.priority - b.priority);
-
   if (shoes.length === 0) return [];
 
-  const groups: RecommendedOutfitGroup[] = [];
   let lookIndex = 1;
-
   const topBottomCount = Math.min(tops.length, bottoms.length);
   for (let i = 0; i < topBottomCount; i++) {
     const shoe = shoes[i % shoes.length];
@@ -480,7 +746,6 @@ export function generateRecommendedOutfitGroups(slots: WardrobeSlot[]): Recommen
     });
     lookIndex++;
   }
-
   for (let i = 0; i < dresses.length; i++) {
     const shoe = shoes[i % shoes.length];
     const groupSlots = [dresses[i], shoe];

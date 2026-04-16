@@ -77,6 +77,15 @@ function OutfitGroupCard({ group, index }: { group: RecommendedOutfitGroup; inde
             </Text>
           )}
         </View>
+        {group.vibe ? (
+          <View style={styles.vibeRow}>
+            <Ionicons name="sparkles-outline" size={11} color={Colors.secondary} />
+            <Text style={styles.vibeText}>{group.vibe}</Text>
+          </View>
+        ) : null}
+        {group.rationale ? (
+          <Text style={styles.rationaleText}>{group.rationale}</Text>
+        ) : null}
       </View>
 
       <ScrollView
@@ -265,6 +274,25 @@ const styles = StyleSheet.create({
   },
 
   groupHeader: { marginBottom: 14 },
+  vibeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
+  vibeText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
+    color: Colors.secondary,
+    letterSpacing: 0.2,
+  },
+  rationaleText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 17,
+    marginTop: 6,
+  },
   groupLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
