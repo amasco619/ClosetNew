@@ -112,7 +112,7 @@ export default function OutfitIdeasScreen() {
 
   const styleLabel = profile.styleGoalPrimary
     ? STYLE_GOAL_LABELS[profile.styleGoalPrimary]
-    : null;
+    : 'Classic';
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
@@ -124,61 +124,48 @@ export default function OutfitIdeasScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      {!profile.styleGoalPrimary ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIcon}>
-            <Ionicons name="color-wand-outline" size={40} color={Colors.secondary} />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <Animated.View entering={FadeInDown.delay(0).duration(400)} style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryBlock}>
+              <Text style={styles.summaryNumber}>{remaining}</Text>
+              <Text style={styles.summaryLabel}>Ideas remaining</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryBlock}>
+              <Text style={[styles.summaryNumber, { color: Colors.success }]}>{completed}</Text>
+              <Text style={styles.summaryLabel}>Looks complete</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryBlock}>
+              <Text style={styles.summaryNumber}>{groups.length}</Text>
+              <Text style={styles.summaryLabel}>Total looks</Text>
+            </View>
           </View>
-          <Text style={styles.emptyTitle}>No style goal set</Text>
-          <Text style={styles.emptySubtitle}>
-            Set a primary style goal in your profile to unlock curated outfit ideas tailored to you.
-          </Text>
-          <Pressable style={styles.emptyButton} onPress={() => router.push('/(tabs)/profile')}>
-            <Text style={styles.emptyButtonText}>Go to Profile</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-          <Animated.View entering={FadeInDown.delay(0).duration(400)} style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryBlock}>
-                <Text style={styles.summaryNumber}>{remaining}</Text>
-                <Text style={styles.summaryLabel}>Ideas remaining</Text>
-              </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryBlock}>
-                <Text style={[styles.summaryNumber, { color: Colors.success }]}>{completed}</Text>
-                <Text style={styles.summaryLabel}>Looks complete</Text>
-              </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.summaryBlock}>
-                <Text style={styles.summaryNumber}>{groups.length}</Text>
-                <Text style={styles.summaryLabel}>Total looks</Text>
-              </View>
-            </View>
-            <View style={styles.styleTagRow}>
-              <Ionicons name="sparkles" size={13} color={Colors.secondary} />
-              <Text style={styles.styleTag}>
-                Curated for your {styleLabel} style
-                {profile.styleGoalSecondary
-                  ? ` + ${STYLE_GOAL_LABELS[profile.styleGoalSecondary]}`
-                  : ''}
-              </Text>
-            </View>
-          </Animated.View>
+          <View style={styles.styleTagRow}>
+            <Ionicons name="sparkles" size={13} color={Colors.secondary} />
+            <Text style={styles.styleTag}>
+              {profile.styleGoalPrimary
+                ? `Curated for your ${styleLabel} style`
+                : `Showing ${styleLabel} staples — set a style goal in your profile to personalise`}
+              {profile.styleGoalSecondary
+                ? ` + ${STYLE_GOAL_LABELS[profile.styleGoalSecondary]}`
+                : ''}
+            </Text>
+          </View>
+        </Animated.View>
 
-          <Text style={styles.sectionTitle}>Your Curated Looks</Text>
-          <Text style={styles.sectionSubtitle}>
-            Acquire all pieces in a look to unlock it from your wardrobe. Owned items are tracked automatically.
-          </Text>
+        <Text style={styles.sectionTitle}>Your Curated Looks</Text>
+        <Text style={styles.sectionSubtitle}>
+          Acquire all pieces in a look to unlock it from your wardrobe. Owned items are tracked automatically.
+        </Text>
 
-          {groups.map((group, index) => (
-            <OutfitGroupCard key={group.id} group={group} index={index} />
-          ))}
+        {groups.map((group, index) => (
+          <OutfitGroupCard key={group.id} group={group} index={index} />
+        ))}
 
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      )}
+        <View style={{ height: 40 }} />
+      </ScrollView>
     </View>
   );
 }
