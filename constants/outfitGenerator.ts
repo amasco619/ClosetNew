@@ -89,6 +89,8 @@ function buildOutfit(
   const topScore   = bestTop   ? scoreItemForProfile(bestTop, scenario, profile)   : -1;
   const useDress   = bestDress && dressScore >= topScore;
 
+  // A valid core is a dress alone, OR top + bottom together.
+  // A lone top without any bottom is never a complete outfit.
   if (useDress && bestDress) {
     outfit.push(toComponent(bestDress));
     usedIds.add(bestDress.id);
@@ -98,15 +100,13 @@ function buildOutfit(
     usedIds.add(bestTop.id);
     usedIds.add(bestBottom.id);
     baseColor = bestTop.colorFamily;
-  } else if (bestTop) {
-    outfit.push(toComponent(bestTop));
-    usedIds.add(bestTop.id);
-    baseColor = bestTop.colorFamily;
   } else if (bestDress) {
+    // Dress is the only valid standalone option
     outfit.push(toComponent(bestDress));
     usedIds.add(bestDress.id);
     baseColor = bestDress.colorFamily;
   } else {
+    // No complete core available — return null rather than a partial outfit
     return null;
   }
 
@@ -250,7 +250,14 @@ export function generateOutfitsForItem(
       if (components) outfit.push(...components);
     }
 
-    if (outfit.length >= 2) {
+    // Only publish outfits that have a complete core:
+    // dress standalone, OR top + bottom together. Top + shoes alone is not enough.
+    const hasDress  = outfit.some(c => c.category === 'dress');
+    const hasTop    = outfit.some(c => c.category === 'top');
+    const hasBottom = outfit.some(c => c.category === 'bottom');
+    const hasCompleteCore = hasDress || (hasTop && hasBottom);
+
+    if (hasCompleteCore && outfit.length >= 2) {
       sets.push({
         id: `newitem-${newItem.id}-${scenario}`,
         scenario,

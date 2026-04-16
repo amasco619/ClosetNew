@@ -173,32 +173,34 @@ export function generateOutfitPool(
     const jewelAll = byCategory['jewelry']  ?? [];
 
     // ── Build core combinations ───────────────────────────────────────────────
+    // A valid core is EITHER a dress (standalone) OR a top paired with a bottom.
+    // A lone top is never a valid core — it does not constitute a complete outfit.
     type Core = { coreItems: WardrobeItem[]; baseColor: string };
     const cores: Core[] = [];
 
-    // Dress-only cores — dresses score high for feminine, date, event, wedding
+    // Dress-only cores — valid as complete looks on their own
     for (const dress of dresses.slice(0, 8)) {
       cores.push({ coreItems: [dress], baseColor: dress.colorFamily });
     }
 
-    // Top + bottom pairs — always try to harmonise colors
-    if (bottoms.length === 0) {
-      for (const top of tops.slice(0, 8)) {
-        cores.push({ coreItems: [top], baseColor: top.colorFamily });
-      }
-    } else {
-      for (const top of tops.slice(0, 8)) {
-        let addedPair = false;
-        for (const bottom of bottoms.slice(0, 6)) {
-          if (colorsHarmonize(top.colorFamily, bottom.colorFamily)) {
-            cores.push({ coreItems: [top, bottom], baseColor: top.colorFamily });
-            addedPair = true;
-          }
+    // Top + bottom pairs — tops MUST be paired with at least one bottom.
+    // Harmonious colors are preferred; if none harmonise, use the
+    // highest-scoring available bottom rather than skipping the top entirely.
+    // If there are no bottoms in the wardrobe at all, tops are skipped.
+    for (const top of tops.slice(0, 8)) {
+      const harmoniousBottoms = bottoms.filter(b =>
+        colorsHarmonize(top.colorFamily, b.colorFamily),
+      );
+      if (harmoniousBottoms.length > 0) {
+        // Pair with up to 3 harmonious bottoms for variety
+        for (const bottom of harmoniousBottoms.slice(0, 3)) {
+          cores.push({ coreItems: [top, bottom], baseColor: top.colorFamily });
         }
-        if (!addedPair) {
-          cores.push({ coreItems: [top], baseColor: top.colorFamily });
-        }
+      } else if (bottoms.length > 0) {
+        // No harmonious match — still pair with the highest-scoring bottom
+        cores.push({ coreItems: [top, bottoms[0]], baseColor: top.colorFamily });
       }
+      // If bottoms is empty, this top is skipped — a lone top is not an outfit
     }
 
     // ── Expand cores with shoe variations, bag, jewelry ───────────────────────

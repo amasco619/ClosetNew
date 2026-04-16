@@ -36,7 +36,15 @@ export default function HomeScreen() {
     categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
   });
 
-  const readyOutfits = outfitSets.filter(o => o.components.every(c => c.owned)).length;
+  // A "ready" outfit requires all pieces to be owned AND a complete core:
+  // either a dress (standalone look) or both a top and a bottom together.
+  const readyOutfits = outfitSets.filter(o => {
+    if (!o.components.every(c => c.owned)) return false;
+    const hasDress  = o.components.some(c => c.category === 'dress');
+    const hasTop    = o.components.some(c => c.category === 'top');
+    const hasBottom = o.components.some(c => c.category === 'bottom');
+    return hasDress || (hasTop && hasBottom);
+  }).length;
 
   const quickTips = [
     { icon: 'bulb-outline' as const, text: 'A navy blazer works for both work and evening events.' },
