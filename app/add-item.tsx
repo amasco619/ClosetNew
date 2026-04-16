@@ -6,6 +6,17 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useApp, ItemCategory, OccasionTag, SeasonTag, subTypes, colorFamilies } from '@/contexts/AppContext';
+import type { Pattern, PatternScale, Fabric } from '@/constants/types';
+
+const PATTERNS: readonly Pattern[] = ['solid','stripe','floral','check','print','color-block','geometric','animal'] as const;
+const PATTERN_SCALES: readonly PatternScale[] = ['small','medium','large'] as const;
+const FABRICS: readonly Fabric[] = ['cotton','silk','denim','wool','linen','synthetic','leather','knit','satin','cashmere'] as const;
+const asPattern = (v: string | undefined): Pattern | undefined =>
+  v && (PATTERNS as readonly string[]).includes(v) ? (v as Pattern) : undefined;
+const asPatternScale = (v: string | undefined): PatternScale | undefined =>
+  v && (PATTERN_SCALES as readonly string[]).includes(v) ? (v as PatternScale) : undefined;
+const asFabric = (v: string | undefined): Fabric | undefined =>
+  v && (FABRICS as readonly string[]).includes(v) ? (v as Fabric) : undefined;
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -149,9 +160,9 @@ export default function AddItemScreen() {
       seasonTags: seasons,
       formalityLevel: 3,
       purchasePrice: isNaN(parsedPrice) || parsedPrice <= 0 ? undefined : parsedPrice,
-      pattern: (['solid','stripe','floral','check','print','color-block','geometric','animal'].includes(pattern ?? '') ? pattern : undefined) as any,
-      patternScale: (['small','medium','large'].includes(patternScale ?? '') ? patternScale : undefined) as any,
-      fabric: (['cotton','silk','denim','wool','linen','synthetic','leather','knit','satin','cashmere'].includes(fabric ?? '') ? fabric : undefined) as any,
+      pattern: asPattern(pattern),
+      patternScale: asPatternScale(patternScale),
+      fabric: asFabric(fabric),
     });
     router.back();
   };

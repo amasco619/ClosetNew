@@ -5,6 +5,18 @@ import { router } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal } from '@/constants/types';
+
+const HAIR_OPTS: { id: HairColor; label: string }[] = [
+  { id: 'black', label: 'Black' }, { id: 'dark-brown', label: 'Dark Brown' },
+  { id: 'medium-brown', label: 'Med Brown' }, { id: 'light-brown', label: 'Light Brown' },
+  { id: 'blonde', label: 'Blonde' }, { id: 'red', label: 'Red' },
+  { id: 'grey', label: 'Grey' }, { id: 'silver', label: 'Silver' },
+];
+const HEIGHT_OPTS: HeightBand[] = ['petite', 'average', 'tall'];
+const CONTRAST_OPTS: ContrastLevel[] = ['low', 'medium', 'high'];
+const METAL_OPTS: MetalPreference[] = ['gold', 'silver', 'rose-gold', 'mixed'];
+const MOOD_OPTS: MoodGoal[] = ['confident', 'soft', 'joyful', 'grounded', 'romantic', 'powerful'];
 
 const bodyTypeLabels: Record<string, string> = {
   hourglass: 'Hourglass', pear: 'Pear', apple: 'Apple',
@@ -92,6 +104,86 @@ export default function ProfileScreen() {
                 value={`${styleGoalLabels[profile.styleGoalPrimary]}${profile.styleGoalSecondary ? ` + ${styleGoalLabels[profile.styleGoalSecondary]}` : ''}`}
               />
             )}
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(350).duration(500)}>
+          <Text style={styles.sectionTitle}>Refinements</Text>
+          <View style={styles.card}>
+            <Text style={styles.refineHelp}>Optional — sharpen every recommendation.</Text>
+
+            <Text style={styles.refineLabel}>Hair</Text>
+            <View style={styles.refineChipRow}>
+              {HAIR_OPTS.map(h => {
+                const active = profile.hairColor === h.id;
+                return (
+                  <Pressable key={h.id} onPress={() => updateProfile({ hairColor: active ? null : h.id })}
+                    style={[styles.refineChip, active && styles.refineChipActive]}>
+                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>{h.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.refineLabel}>Height</Text>
+            <View style={styles.refineChipRow}>
+              {HEIGHT_OPTS.map(h => {
+                const active = profile.heightBand === h;
+                return (
+                  <Pressable key={h} onPress={() => updateProfile({ heightBand: active ? null : h })}
+                    style={[styles.refineChip, active && styles.refineChipActive]}>
+                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                      {h.charAt(0).toUpperCase() + h.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.refineLabel}>Contrast</Text>
+            <View style={styles.refineChipRow}>
+              {CONTRAST_OPTS.map(c => {
+                const active = profile.contrastLevel === c;
+                return (
+                  <Pressable key={c} onPress={() => updateProfile({ contrastLevel: active ? null : c })}
+                    style={[styles.refineChip, active && styles.refineChipActive]}>
+                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                      {c.charAt(0).toUpperCase() + c.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.refineLabel}>Metal preference</Text>
+            <View style={styles.refineChipRow}>
+              {METAL_OPTS.map(m => {
+                const active = profile.metalPreference === m;
+                return (
+                  <Pressable key={m} onPress={() => updateProfile({ metalPreference: active ? null : m })}
+                    style={[styles.refineChip, active && styles.refineChipActive]}>
+                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                      {m === 'rose-gold' ? 'Rose gold' : m.charAt(0).toUpperCase() + m.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.refineLabel}>Default mood</Text>
+            <View style={styles.refineChipRow}>
+              {MOOD_OPTS.map(m => {
+                const active = profile.defaultMood === m;
+                return (
+                  <Pressable key={m} onPress={() => updateProfile({ defaultMood: active ? null : m })}
+                    style={[styles.refineChip, active && styles.refineChipActive]}>
+                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                      {m.charAt(0).toUpperCase() + m.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </Animated.View>
 
@@ -252,6 +344,13 @@ const styles = StyleSheet.create({
   constraintLabel: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.primary },
   heelOptions: { flexDirection: 'row', gap: 6 },
   heelChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
+  refineHelp: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, marginBottom: 10, fontStyle: 'italic' },
+  refineLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, marginTop: 10, marginBottom: 6 },
+  refineChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  refineChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
+  refineChipActive: { backgroundColor: Colors.secondary, borderColor: Colors.secondary },
+  refineChipText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary },
+  refineChipTextActive: { color: Colors.white },
   heelChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   heelChipText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary },
   heelChipTextActive: { color: Colors.white },

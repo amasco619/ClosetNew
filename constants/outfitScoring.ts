@@ -347,30 +347,56 @@ export function adjustScoreForReactions(
   fingerprint: string,
   reactions: OutfitReaction[],
   today: string,
+  itemIds: string[] = [],
 ): number {
-  if (!fingerprint || reactions.length === 0) return baseScore;
-  const relevant = reactions.filter(r => r.outfitFingerprint === fingerprint);
-  if (relevant.length === 0) return baseScore;
+  if (reactions.length === 0) return baseScore;
 
   const todayMs = new Date(today + 'T12:00:00').getTime();
+  const ageDaysOf = (date: string) => Math.max(0, Math.round(
+    (todayMs - new Date(date + 'T12:00:00').getTime()) / (1000 * 60 * 60 * 24)
+  ));
+
   let bonus = 0;
 
-  for (const r of relevant) {
-    const ageDays = Math.max(0, Math.round(
-      (todayMs - new Date(r.date + 'T12:00:00').getTime()) / (1000 * 60 * 60 * 24)
-    ));
+  // 1. Exact-outfit fingerprint reactions — strong signal
+  for (const r of reactions.filter(r => r.outfitFingerprint === fingerprint)) {
+    const ageDays = ageDaysOf(r.date);
     if (r.type === 'love') {
-      // Love gives a lasting boost (2 weeks strong, gentle decay after)
       if (ageDays <= 14) bonus += 8;
       else bonus += Math.max(2, 8 - Math.floor((ageDays - 14) / 7));
     } else {
-      // Not-today: suppress for ~2 weeks, gradual return
       if (ageDays <= 3)  bonus -= 20;
       else if (ageDays <= 7)  bonus -= 12;
       else if (ageDays <= 14) bonus -= 6;
       else if (ageDays <= 28) bonus -= 2;
     }
   }
+
+  // 2. Item-level preference learning: tally each item's reactions across any
+  //    outfit it has appeared in. Loved items lift new combinations they are
+  //    part of; not-today items dampen them.
+  if (itemIds.length > 0) {
+    const itemSet = new Set(itemIds);
+    const itemScores: Record<string, number> = {};
+    for (const r of reactions) {
+      const ageDays = ageDaysOf(r.date);
+      const parts = r.outfitFingerprint ? r.outfitFingerprint.split('|') : [];
+      const weight = r.type === 'love'
+        ? (ageDays <= 14 ? 1.5 : Math.max(0.4, 1.5 - (ageDays - 14) / 21))
+        : (ageDays <= 7 ? -2.2 : ageDays <= 21 ? -1.2 : -0.4);
+      for (const id of parts) {
+        if (!itemSet.has(id)) continue;
+        itemScores[id] = (itemScores[id] ?? 0) + weight;
+      }
+    }
+    for (const id of itemIds) {
+      const s = itemScores[id];
+      if (!s) continue;
+      // Clamp per-item contribution so a single item can't dominate.
+      bonus += Math.max(-6, Math.min(6, s));
+    }
+  }
+
   return baseScore + bonus;
 }
 

@@ -216,7 +216,8 @@ export function generateOutfitPool(
         );
         const combo = scoreOutfitCombo(outfit, items, profile);
         const rawTotal = itemScore + combo.total;
-        const totalScore = adjustScoreForReactions(rawTotal, fp, reactions, today);
+        const itemIds = allItems.map(it => it.id);
+        const totalScore = adjustScoreForReactions(rawTotal, fp, reactions, today, itemIds);
 
         const rationale = generateRationale(outfit, items, profile, mood);
 

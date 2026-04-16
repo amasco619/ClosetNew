@@ -113,5 +113,5 @@ export interface OutfitReaction {
 
 export interface MoodOfDay {
   date: string;              // YYYY-MM-DD
-  mood: MoodGoal;
+  mood: MoodGoal | null;     // null = user explicitly cleared mood for today
 }

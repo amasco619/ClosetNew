@@ -12,7 +12,7 @@ import { useState, useCallback } from 'react';
 import { OccasionTag, WearEntry, MoodGoal, ReactionType } from '@/constants/types';
 import * as Haptics from 'expo-haptics';
 
-const MOOD_OPTIONS: { id: MoodGoal; label: string; icon: string }[] = [
+const MOOD_OPTIONS: { id: MoodGoal; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
   { id: 'confident', label: 'Confident', icon: 'flash-outline' },
   { id: 'soft',      label: 'Soft',      icon: 'cloud-outline' },
   { id: 'joyful',    label: 'Joyful',    icon: 'sunny-outline' },
@@ -454,7 +454,7 @@ export default function OutfitsScreen() {
                 }}
               >
                 <Ionicons
-                  name={m.icon as any}
+                  name={m.icon}
                   size={13}
                   color={active ? Colors.white : Colors.secondary}
                 />

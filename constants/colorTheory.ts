@@ -67,6 +67,31 @@ function hueDistance(a: number, b: number): number {
   return Math.min(diff, 12 - diff);
 }
 
+// Explicit clashing pairs — tones that sit close on the wheel but read jarring
+// to the eye (red/pink, orange/magenta, etc). These require a neutral bridge.
+const CLASH_PAIRS: ReadonlySet<string> = new Set([
+  'red|pink', 'red|blush', 'red|rose',
+  'red|coral', 'red|orange', 'red|peach',
+  'orange|pink', 'orange|blush', 'orange|rose',
+  'coral|pink', 'coral|rose',
+  'burgundy|pink', 'burgundy|coral', 'burgundy|orange',
+  'mustard|pink', 'yellow|pink',
+]);
+
+function pairKey(a: string, b: string): string {
+  return [a, b].sort().join('|');
+}
+
+function hasExplicitClash(colors: string[]): boolean {
+  const set = Array.from(new Set(colors));
+  for (let i = 0; i < set.length; i++) {
+    for (let j = i + 1; j < set.length; j++) {
+      if (CLASH_PAIRS.has(pairKey(set[i], set[j]))) return true;
+    }
+  }
+  return false;
+}
+
 /** Classify a palette of colours into a harmony type. */
 export function classifyPalette(colors: string[]): PaletteType {
   const uniq = Array.from(new Set(colors));
@@ -74,6 +99,11 @@ export function classifyPalette(colors: string[]): PaletteType {
 
   const chromatic = wheeled.filter(w => !w.neutral && w.hue !== null);
   const neutrals = wheeled.filter(w => w.neutral);
+
+  // Explicit clash pairs beat any adjacency — unless a neutral bridges them.
+  if (hasExplicitClash(uniq)) {
+    return neutrals.length >= 1 ? 'neutral-bridge' : 'clash';
+  }
 
   if (chromatic.length === 0) return 'neutral-only';
 
