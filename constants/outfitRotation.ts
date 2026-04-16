@@ -136,7 +136,7 @@ export function computePoolHash(items: WardrobeItem[], profile: UserProfile): st
  *  1. Filter items by constraints.
  *  2. Score and sort each category by scoreItemForProfile.
  *  3. Build cores: dress-only OR top+harmonious-bottom pairs.
- *  4. For each core, try multiple shoe options.
+ *  4. For each core, try multiple shoe options (shoes are required — no shoes = no outfit).
  *  5. Add best harmonious bag and jewelry.
  *  6. Score each assembled outfit (item scores + combo bonus).
  *  7. Sort pool by confidence score descending.
@@ -219,12 +219,14 @@ export function generateOutfitPool(
         s => !coreIds.has(s.id) && !harmShoes.includes(s),
       );
 
-      const shoeOptions: (WardrobeItem | null)[] =
+      // Shoes are now part of the complete outfit core — outfits without shoes are not shown.
+      const shoeOptions: WardrobeItem[] =
         harmShoes.length > 0
           ? harmShoes.slice(0, 3)
-          : otherShoes.length > 0
-          ? otherShoes.slice(0, 2)
-          : [null];
+          : otherShoes.slice(0, 2);
+
+      // No shoes in the wardrobe → skip this core entirely
+      if (shoeOptions.length === 0) continue;
 
       for (const shoe of shoeOptions) {
         if (scoredPool.length >= MAX_PER_SCENARIO) break;
@@ -232,7 +234,7 @@ export function generateOutfitPool(
         const outfit: OutfitComponent[] = core.coreItems.map(toComponent);
         const usedIds = new Set(coreIds);
 
-        if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
+        outfit.push(toComponent(shoe)); usedIds.add(shoe.id);
 
         // Best harmonious bag
         const bag =

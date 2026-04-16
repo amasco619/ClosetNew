@@ -37,13 +37,14 @@ export default function HomeScreen() {
   });
 
   // A "ready" outfit requires all pieces to be owned AND a complete core:
-  // either a dress (standalone look) or both a top and a bottom together.
+  // (dress OR top+bottom) AND shoes together.
   const readyOutfits = outfitSets.filter(o => {
     if (!o.components.every(c => c.owned)) return false;
     const hasDress  = o.components.some(c => c.category === 'dress');
     const hasTop    = o.components.some(c => c.category === 'top');
     const hasBottom = o.components.some(c => c.category === 'bottom');
-    return hasDress || (hasTop && hasBottom);
+    const hasShoes  = o.components.some(c => c.category === 'shoes');
+    return (hasDress || (hasTop && hasBottom)) && hasShoes;
   }).length;
 
   const quickTips = [

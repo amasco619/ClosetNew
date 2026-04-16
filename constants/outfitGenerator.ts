@@ -110,8 +110,11 @@ function buildOutfit(
     return null;
   }
 
+  // Shoes are required for a complete outfit — no shoe means no valid outfit
   const shoe = pickHarmonious(shoes, baseColor, scenario, profile, usedIds);
-  if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
+  if (!shoe) return null;
+  outfit.push(toComponent(shoe));
+  usedIds.add(shoe.id);
 
   const coat = pickHarmonious(outerwear, baseColor, scenario, profile, usedIds);
   if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
@@ -251,11 +254,12 @@ export function generateOutfitsForItem(
     }
 
     // Only publish outfits that have a complete core:
-    // dress standalone, OR top + bottom together. Top + shoes alone is not enough.
+    // (dress OR top+bottom) AND shoes. Shoes are now required.
     const hasDress  = outfit.some(c => c.category === 'dress');
     const hasTop    = outfit.some(c => c.category === 'top');
     const hasBottom = outfit.some(c => c.category === 'bottom');
-    const hasCompleteCore = hasDress || (hasTop && hasBottom);
+    const hasShoes  = outfit.some(c => c.category === 'shoes');
+    const hasCompleteCore = (hasDress || (hasTop && hasBottom)) && hasShoes;
 
     if (hasCompleteCore && outfit.length >= 2) {
       sets.push({
