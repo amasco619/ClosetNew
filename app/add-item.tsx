@@ -6,12 +6,16 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useApp, ItemCategory, OccasionTag, SeasonTag, subTypes, colorFamilies } from '@/contexts/AppContext';
-import type { Pattern, PatternScale, Fabric, Fit } from '@/constants/types';
+import type { Pattern, PatternScale, Fabric, Fit, Neckline, SleeveLength, Rise, WarmthBand } from '@/constants/types';
 
 const PATTERNS: readonly Pattern[] = ['solid','stripe','floral','check','print','color-block','geometric','animal'] as const;
 const PATTERN_SCALES: readonly PatternScale[] = ['small','medium','large'] as const;
 const FABRICS: readonly Fabric[] = ['cotton','silk','denim','wool','linen','synthetic','leather','knit','satin','cashmere'] as const;
 const FITS: readonly Fit[] = ['slim','regular','loose','oversized','tailored'] as const;
+const NECKLINES: readonly Neckline[] = ['crew','v-neck','scoop','turtleneck','boat','square','halter','off-shoulder','collared'] as const;
+const SLEEVES: readonly SleeveLength[] = ['sleeveless','short','three-quarter','long'] as const;
+const RISES: readonly Rise[] = ['low','mid','high'] as const;
+const WARMTHS: readonly WarmthBand[] = ['cold','cool','mild','warm','hot'] as const;
 const asPattern = (v: string | undefined): Pattern | undefined =>
   v && (PATTERNS as readonly string[]).includes(v) ? (v as Pattern) : undefined;
 const asPatternScale = (v: string | undefined): PatternScale | undefined =>
@@ -20,6 +24,14 @@ const asFabric = (v: string | undefined): Fabric | undefined =>
   v && (FABRICS as readonly string[]).includes(v) ? (v as Fabric) : undefined;
 const asFit = (v: string | undefined): Fit | undefined =>
   v && (FITS as readonly string[]).includes(v) ? (v as Fit) : undefined;
+const asNeckline = (v: string | undefined): Neckline | undefined =>
+  v && (NECKLINES as readonly string[]).includes(v) ? (v as Neckline) : undefined;
+const asSleeve = (v: string | undefined): SleeveLength | undefined =>
+  v && (SLEEVES as readonly string[]).includes(v) ? (v as SleeveLength) : undefined;
+const asRise = (v: string | undefined): Rise | undefined =>
+  v && (RISES as readonly string[]).includes(v) ? (v as Rise) : undefined;
+const asWarmth = (v: string | undefined): WarmthBand | undefined =>
+  v && (WARMTHS as readonly string[]).includes(v) ? (v as WarmthBand) : undefined;
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -71,6 +83,10 @@ export default function AddItemScreen() {
   const [accentColor, setAccentColor] = useState<string | undefined>(undefined);
   const [fit, setFit] = useState<string | undefined>(undefined);
   const [metalTone, setMetalTone] = useState<string | undefined>(undefined);
+  const [neckline, setNeckline] = useState<string | undefined>(undefined);
+  const [sleeveLength, setSleeveLength] = useState<string | undefined>(undefined);
+  const [rise, setRise] = useState<string | undefined>(undefined);
+  const [warmthBand, setWarmthBand] = useState<string | undefined>(undefined);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const classifyWithServer = async (base64: string, cat: ItemCategory): Promise<{ category: ItemCategory; subType: string; colorFamily: string; accentColor?: string; description: string; occasionTags: OccasionTag[]; pattern?: string; patternScale?: string; fabric?: string }> => {
@@ -176,6 +192,10 @@ export default function AddItemScreen() {
       fit: asFit(fit),
       accentColor: accentColor && colorFamilies.includes(accentColor) ? accentColor : undefined,
       metalTone: (metalTone === 'gold' || metalTone === 'silver' || metalTone === 'rose-gold' || metalTone === 'mixed' || metalTone === 'none') ? metalTone : undefined,
+      neckline: asNeckline(neckline),
+      sleeveLength: asSleeve(sleeveLength),
+      rise: asRise(rise),
+      warmthBand: asWarmth(warmthBand),
     });
     router.back();
   };
@@ -405,12 +425,63 @@ export default function AddItemScreen() {
             )}
 
             <Text style={styles.sectionTitle}>Accent color <Text style={styles.optionalLabel}>(optional)</Text></Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
               {colorFamilies.map(cf => (
                 <Pressable key={cf}
                   style={[styles.chipSmall, accentColor === cf && styles.chipSmallActive]}
                   onPress={() => setAccentColor(accentColor === cf ? undefined : cf)}>
                   <Text style={[styles.chipSmallText, accentColor === cf && styles.chipSmallTextActive]}>{cf}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {(category === 'top' || category === 'dress' || category === 'outerwear') && (
+              <>
+                <Text style={styles.sectionTitle}>Neckline <Text style={styles.optionalLabel}>(optional)</Text></Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                  {NECKLINES.map(n => (
+                    <Pressable key={n}
+                      style={[styles.chipSmall, neckline === n && styles.chipSmallActive]}
+                      onPress={() => setNeckline(neckline === n ? undefined : n)}>
+                      <Text style={[styles.chipSmallText, neckline === n && styles.chipSmallTextActive]}>{n.replace('-', ' ')}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={styles.sectionTitle}>Sleeve <Text style={styles.optionalLabel}>(optional)</Text></Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                  {SLEEVES.map(s => (
+                    <Pressable key={s}
+                      style={[styles.chipSmall, sleeveLength === s && styles.chipSmallActive]}
+                      onPress={() => setSleeveLength(sleeveLength === s ? undefined : s)}>
+                      <Text style={[styles.chipSmallText, sleeveLength === s && styles.chipSmallTextActive]}>{s.replace('-', ' ')}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {category === 'bottom' && (
+              <>
+                <Text style={styles.sectionTitle}>Rise <Text style={styles.optionalLabel}>(optional)</Text></Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                  {RISES.map(r => (
+                    <Pressable key={r}
+                      style={[styles.chipSmall, rise === r && styles.chipSmallActive]}
+                      onPress={() => setRise(rise === r ? undefined : r)}>
+                      <Text style={[styles.chipSmallText, rise === r && styles.chipSmallTextActive]}>{r}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+
+            <Text style={styles.sectionTitle}>Warmth <Text style={styles.optionalLabel}>(optional)</Text></Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+              {WARMTHS.map(w => (
+                <Pressable key={w}
+                  style={[styles.chipSmall, warmthBand === w && styles.chipSmallActive]}
+                  onPress={() => setWarmthBand(warmthBand === w ? undefined : w)}>
+                  <Text style={[styles.chipSmallText, warmthBand === w && styles.chipSmallTextActive]}>{w}</Text>
                 </Pressable>
               ))}
             </View>

@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp, BodyType, EyeColor, SkinTone, Undertone, StyleGoal } from '@/contexts/AppContext';
+import type { HairColor, HeightBand, ContrastLevel, MoodGoal, LifePhase } from '@/constants/types';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
@@ -62,7 +63,37 @@ const STYLE_GOALS: { id: StyleGoal; label: string; desc: string; icon: string }[
   { id: 'classic', label: 'Classic', desc: 'Timeless, elegant, traditional', icon: 'shield-outline' },
 ];
 
-const TOTAL_STEPS = 6;
+const HAIR_OPTS: { id: HairColor; label: string }[] = [
+  { id: 'black', label: 'Black' }, { id: 'dark-brown', label: 'Dark Brown' },
+  { id: 'medium-brown', label: 'Med Brown' }, { id: 'light-brown', label: 'Light Brown' },
+  { id: 'blonde', label: 'Blonde' }, { id: 'red', label: 'Red' },
+  { id: 'grey', label: 'Grey' }, { id: 'silver', label: 'Silver' },
+];
+const HEIGHT_OPTS: HeightBand[] = ['petite', 'average', 'tall'];
+const CONTRAST_OPTS: ContrastLevel[] = ['low', 'medium', 'high'];
+const MOOD_OPTS: MoodGoal[] = ['confident', 'soft', 'joyful', 'grounded', 'romantic', 'powerful'];
+const LIFE_PHASE_OPTS: { id: LifePhase; label: string }[] = [
+  { id: 'none', label: 'None' },
+  { id: 'pregnancy', label: 'Pregnancy' },
+  { id: 'postpartum', label: 'Postpartum' },
+  { id: 'weight-flux', label: 'Weight flux' },
+  { id: 'feeling-off', label: 'Feeling off' },
+];
+const AVERSION_OPTS: string[] = ['yellow', 'orange', 'neon', 'pink', 'red', 'green', 'brown', 'purple'];
+
+function deriveContrast(skin: SkinTone | null, hair: HairColor | null): ContrastLevel | null {
+  if (!skin || !hair) return null;
+  const isLightSkin = skin === 'very-light' || skin === 'light' || skin === 'medium-light';
+  const isDarkSkin = skin === 'dark' || skin === 'very-dark';
+  const isDarkHair = hair === 'black' || hair === 'dark-brown';
+  const isLightHair = hair === 'blonde' || hair === 'light-brown' || hair === 'grey' || hair === 'silver';
+  if ((isLightSkin && isDarkHair) || (isDarkSkin && isLightHair)) return 'high';
+  if (isLightSkin && isLightHair) return 'low';
+  if (isDarkSkin && isDarkHair) return 'medium';
+  return 'medium';
+}
+
+const TOTAL_STEPS = 7;
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -75,7 +106,17 @@ export default function OnboardingScreen() {
   const [undertone, setUndertone] = useState<Undertone | null>(profile.undertone);
   const [styleGoalPrimary, setStyleGoalPrimary] = useState<StyleGoal | null>(profile.styleGoalPrimary);
   const [styleGoalSecondary, setStyleGoalSecondary] = useState<StyleGoal | null>(profile.styleGoalSecondary);
+  const [hairColor, setHairColor] = useState<HairColor | null>(profile.hairColor ?? null);
+  const [heightBand, setHeightBand] = useState<HeightBand | null>(profile.heightBand ?? null);
+  const [contrastLevel, setContrastLevel] = useState<ContrastLevel | null>(profile.contrastLevel ?? null);
+  const [contrastManual, setContrastManual] = useState<boolean>(!!profile.contrastLevel);
+  const [defaultMood, setDefaultMood] = useState<MoodGoal | null>(profile.defaultMood ?? null);
+  const [lifePhase, setLifePhase] = useState<LifePhase | null>(profile.lifePhase ?? null);
+  const [colorAversions, setColorAversions] = useState<string[]>(profile.constraints.colorAversions ?? []);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+
+  const derivedContrast = deriveContrast(skinTone, hairColor);
+  const effectiveContrast = contrastManual ? contrastLevel : derivedContrast;
 
   const canProceed = () => {
     switch (step) {
@@ -85,8 +126,17 @@ export default function OnboardingScreen() {
       case 3: return !!skinTone && !!undertone;
       case 4: return !!styleGoalPrimary;
       case 5: return true;
+      case 6: return true;
       default: return true;
     }
+  };
+
+  const toggleAversion = (c: string) => {
+    setColorAversions(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
+  };
+  const skipStep = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (step < TOTAL_STEPS - 1) setStep(step + 1);
   };
 
   const handleNext = () => {
@@ -102,6 +152,12 @@ export default function OnboardingScreen() {
         undertone,
         styleGoalPrimary,
         styleGoalSecondary,
+        hairColor,
+        heightBand,
+        contrastLevel: effectiveContrast,
+        defaultMood,
+        lifePhase,
+        constraints: { ...profile.constraints, colorAversions },
         onboardingComplete: true,
       });
       router.replace('/(tabs)');
@@ -255,6 +311,109 @@ export default function OnboardingScreen() {
       case 5:
         return (
           <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
+            <Text style={styles.stepTitle}>A few finishing touches</Text>
+            <Text style={styles.stepSubtitle}>Optional — each one sharpens your recommendations. You can skip anything.</Text>
+
+            <Text style={styles.subLabel}>Hair</Text>
+            <View style={styles.chipRow}>
+              {HAIR_OPTS.map(h => {
+                const active = hairColor === h.id;
+                return (
+                  <Pressable key={h.id} onPress={() => { Haptics.selectionAsync(); setHairColor(active ? null : h.id); }}
+                    style={[styles.chip, active && styles.chipActive]}>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{h.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.subLabel, { marginTop: 20 }]}>Height</Text>
+            <View style={styles.chipRow}>
+              {HEIGHT_OPTS.map(h => {
+                const active = heightBand === h;
+                return (
+                  <Pressable key={h} onPress={() => { Haptics.selectionAsync(); setHeightBand(active ? null : h); }}
+                    style={[styles.chip, active && styles.chipActive]}>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {h.charAt(0).toUpperCase() + h.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.subLabel, { marginTop: 20 }]}>
+              Contrast{derivedContrast && !contrastManual ? ` (auto: ${derivedContrast})` : ''}
+            </Text>
+            <View style={styles.chipRow}>
+              {CONTRAST_OPTS.map(c => {
+                const active = (contrastManual ? contrastLevel : derivedContrast) === c;
+                return (
+                  <Pressable key={c} onPress={() => {
+                    Haptics.selectionAsync();
+                    if (active && contrastManual) { setContrastManual(false); setContrastLevel(null); }
+                    else { setContrastManual(true); setContrastLevel(c); }
+                  }}
+                    style={[styles.chip, active && styles.chipActive]}>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {c.charAt(0).toUpperCase() + c.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.subLabel, { marginTop: 20 }]}>Default mood</Text>
+            <View style={styles.chipRow}>
+              {MOOD_OPTS.map(m => {
+                const active = defaultMood === m;
+                return (
+                  <Pressable key={m} onPress={() => { Haptics.selectionAsync(); setDefaultMood(active ? null : m); }}
+                    style={[styles.chip, active && styles.chipActive]}>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {m.charAt(0).toUpperCase() + m.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.subLabel, { marginTop: 20 }]}>Life phase</Text>
+            <View style={styles.chipRow}>
+              {LIFE_PHASE_OPTS.map(l => {
+                const active = lifePhase === l.id;
+                return (
+                  <Pressable key={l.id} onPress={() => { Haptics.selectionAsync(); setLifePhase(active ? null : l.id); }}
+                    style={[styles.chip, active && styles.chipActive]}>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{l.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.subLabel, { marginTop: 20 }]}>Colors to avoid</Text>
+            <View style={styles.chipRow}>
+              {AVERSION_OPTS.map(c => {
+                const active = colorAversions.includes(c);
+                return (
+                  <Pressable key={c} onPress={() => { Haptics.selectionAsync(); toggleAversion(c); }}
+                    style={[styles.chip, active && styles.chipActive]}>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {c.charAt(0).toUpperCase() + c.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Pressable style={styles.skipRow} onPress={skipStep}>
+              <Text style={styles.skipText}>Skip for now — I'll add these later</Text>
+            </Pressable>
+          </Animated.View>
+        );
+      case 6:
+        return (
+          <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
             <View style={styles.finishIcon}>
               <Ionicons name="checkmark-circle" size={56} color={Colors.success} />
             </View>
@@ -355,6 +514,13 @@ const styles = StyleSheet.create({
   primaryBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: Colors.secondary },
   secondaryBadge: { marginTop: 6, backgroundColor: Colors.sage + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start' },
   secondaryBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: Colors.sage },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { backgroundColor: Colors.white, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.5, borderColor: Colors.border },
+  chipActive: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '15' },
+  chipText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
+  chipTextActive: { color: Colors.secondary },
+  skipRow: { marginTop: 24, marginBottom: 8, alignItems: 'center' as const },
+  skipText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textLight, textDecorationLine: 'underline' as const },
   finishIcon: { alignSelf: 'center', marginBottom: 20, marginTop: 40 },
   footer: { paddingHorizontal: 24, paddingTop: 12, backgroundColor: Colors.background },
   nextButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16 },

@@ -217,6 +217,37 @@ export function generateOutfitPool(
           0,
         );
         const combo = scoreOutfitCombo(outfit, items, profile);
+
+        // ── Hard gates — violations we never want to surface ─────────────
+        // (soft penalties in scoreOutfitCombo surface near the bottom; these
+        //  are the cases the scoring team explicitly wants eliminated.)
+        const formalities = allItems.map(i => i.formalityLevel ?? 5);
+        const formalitySpread = Math.max(...formalities) - Math.min(...formalities);
+        if (formalitySpread > 3) continue;
+
+        const bold = allItems.filter(i =>
+          i.pattern && i.pattern !== 'solid' &&
+          (i.patternScale === 'large' || i.pattern === 'animal' || i.pattern === 'floral')
+        );
+        if (bold.length >= 2) continue;
+
+        const topI = allItems.find(i => i.category === 'top');
+        const bottomI = allItems.find(i => i.category === 'bottom');
+        const isVolumeFit = (f?: string) => f === 'loose' || f === 'oversized';
+        if (topI?.fit && bottomI?.fit && isVolumeFit(topI.fit) && isVolumeFit(bottomI.fit)) continue;
+
+        const hasCrop = allItems.some(i => i.subType === 'crop-top');
+        const hasShort = allItems.some(i =>
+          i.subType === 'mini-skirt' || i.subType === 'shorts' || i.subType === 'mini-dress');
+        if (hasCrop && hasShort) continue;
+
+        if (profile.metalPreference && profile.metalPreference !== 'mixed') {
+          const metals = new Set(
+            allItems.map(i => i.metalTone).filter((m): m is NonNullable<typeof m> => !!m && m !== 'none')
+          );
+          if (metals.size >= 2) continue;
+        }
+
         const rawTotal = itemScore + combo.total;
         const itemIds = allItems.map(it => it.id);
         const reactionAdjusted = adjustScoreForReactions(rawTotal, fp, reactions, today, itemIds);

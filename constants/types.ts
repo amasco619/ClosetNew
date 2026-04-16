@@ -19,6 +19,10 @@ export type Pattern = 'solid' | 'stripe' | 'floral' | 'check' | 'print' | 'color
 export type PatternScale = 'small' | 'medium' | 'large';
 export type Fabric = 'cotton' | 'silk' | 'denim' | 'wool' | 'linen' | 'synthetic' | 'leather' | 'knit' | 'satin' | 'cashmere';
 export type Fit = 'slim' | 'regular' | 'loose' | 'oversized' | 'tailored';
+export type Neckline = 'crew' | 'v-neck' | 'scoop' | 'turtleneck' | 'boat' | 'square' | 'halter' | 'off-shoulder' | 'collared';
+export type SleeveLength = 'sleeveless' | 'short' | 'three-quarter' | 'long';
+export type Rise = 'low' | 'mid' | 'high';
+export type WarmthBand = 'cold' | 'cool' | 'mild' | 'warm' | 'hot';
 export type MetalTone = 'gold' | 'silver' | 'rose-gold' | 'mixed' | 'none';
 
 export type ColorAversion = string; // e.g. 'yellow', 'orange', 'neon'
@@ -73,6 +77,10 @@ export interface WardrobeItem {
   metalTone?: MetalTone;       // for jewelry, buckles, hardware
   accentColor?: string;         // secondary color for prints/color-blocks
   mood?: MoodGoal[];            // moods this item naturally evokes
+  neckline?: Neckline;         // tops / dresses
+  sleeveLength?: SleeveLength; // tops / dresses / outerwear
+  rise?: Rise;                 // bottoms
+  warmthBand?: WarmthBand;     // how warm/cool this item feels to wear
 }
 
 export interface OutfitComponent {
