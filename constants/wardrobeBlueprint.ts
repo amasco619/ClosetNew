@@ -437,6 +437,27 @@ export function updateSlotsAfterAdd(
   });
 }
 
+/**
+ * Counts how many complete outfit looks can be assembled from a set of
+ * recommendation slots. A complete look requires:
+ *   (top + bottom) OR dress   — plus at least one shoe pair available.
+ *
+ * Shoes are treated as reusable across different looks (the same shoe works
+ * with multiple tops/bottoms/dresses), so a single shoe in the blueprint
+ * "unlocks" all eligible core pairings.
+ */
+export function countRecommendedOutfits(slots: WardrobeSlot[]): number {
+  const tops    = slots.filter(s => s.category === 'top').length;
+  const bottoms = slots.filter(s => s.category === 'bottom').length;
+  const dresses = slots.filter(s => s.category === 'dress').length;
+  const shoes   = slots.filter(s => s.category === 'shoes').length;
+
+  if (shoes === 0) return 0;
+
+  const topBottomCores = Math.min(tops, bottoms);
+  return topBottomCores + dresses;
+}
+
 export function getFirstNeededByCategory(slots: WardrobeSlot[]): Record<string, WardrobeSlot | undefined> {
   const result: Record<string, WardrobeSlot | undefined> = {};
   for (const slot of slots) {

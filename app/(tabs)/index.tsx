@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
+import { countRecommendedOutfits } from '@/constants/wardrobeBlueprint';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -28,13 +29,18 @@ const occasionLabels: Record<string, string> = {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, wardrobeItems, outfitSets, isPremium, canAddItem, starterRecommendations, todaysWear, wearHistory } = useApp();
+  const { profile, wardrobeItems, outfitSets, isPremium, canAddItem, starterRecommendations, recommendationSlots, todaysWear, wearHistory } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const categoryCounts: Record<string, number> = {};
   wardrobeItems.forEach(item => {
     categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
   });
+
+  // Outfit Ideas: count complete looks assembable from the style blueprint.
+  // Uses the full recommendation set (owned + needed) so the number reflects
+  // all curated looks for the user's style, not just what they already own.
+  const outfitIdeas = countRecommendedOutfits(recommendationSlots);
 
   // A "ready" outfit requires all pieces to be owned AND a complete core:
   // (dress OR top+bottom) AND shoes together.
@@ -79,7 +85,7 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Ready Outfits</Text>
           </View>
           <Pressable style={styles.statCard} onPress={() => router.push('/(tabs)/outfits')}>
-            <Text style={styles.statNumber}>{outfitSets.length}</Text>
+            <Text style={styles.statNumber}>{outfitIdeas}</Text>
             <Text style={styles.statLabel}>Outfit Ideas</Text>
           </Pressable>
         </Animated.View>
