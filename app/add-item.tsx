@@ -70,6 +70,7 @@ export default function AddItemScreen() {
   const [fabric, setFabric] = useState<string | undefined>(undefined);
   const [accentColor, setAccentColor] = useState<string | undefined>(undefined);
   const [fit, setFit] = useState<string | undefined>(undefined);
+  const [metalTone, setMetalTone] = useState<string | undefined>(undefined);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const classifyWithServer = async (base64: string, cat: ItemCategory): Promise<{ category: ItemCategory; subType: string; colorFamily: string; accentColor?: string; description: string; occasionTags: OccasionTag[]; pattern?: string; patternScale?: string; fabric?: string }> => {
@@ -174,6 +175,7 @@ export default function AddItemScreen() {
       fabric: asFabric(fabric),
       fit: asFit(fit),
       accentColor: accentColor && colorFamilies.includes(accentColor) ? accentColor : undefined,
+      metalTone: (metalTone === 'gold' || metalTone === 'silver' || metalTone === 'rose-gold' || metalTone === 'mixed' || metalTone === 'none') ? metalTone : undefined,
     });
     router.back();
   };
@@ -375,12 +377,40 @@ export default function AddItemScreen() {
               ))}
             </View>
             <Text style={styles.sectionTitle}>Fit <Text style={styles.optionalLabel}>(optional)</Text></Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
               {FITS.map(f => (
                 <Pressable key={f}
                   style={[styles.chipSmall, fit === f && styles.chipSmallActive]}
                   onPress={() => setFit(fit === f ? undefined : f)}>
                   <Text style={[styles.chipSmallText, fit === f && styles.chipSmallTextActive]}>{f}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {(category === 'jewelry' || category === 'bag' || category === 'shoes') && (
+              <>
+                <Text style={styles.sectionTitle}>Metal tone <Text style={styles.optionalLabel}>(optional)</Text></Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                  {(['gold', 'silver', 'rose-gold', 'mixed', 'none'] as const).map(m => (
+                    <Pressable key={m}
+                      style={[styles.chipSmall, metalTone === m && styles.chipSmallActive]}
+                      onPress={() => setMetalTone(metalTone === m ? undefined : m)}>
+                      <Text style={[styles.chipSmallText, metalTone === m && styles.chipSmallTextActive]}>
+                        {m === 'rose-gold' ? 'Rose gold' : m}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+
+            <Text style={styles.sectionTitle}>Accent color <Text style={styles.optionalLabel}>(optional)</Text></Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+              {colorFamilies.map(cf => (
+                <Pressable key={cf}
+                  style={[styles.chipSmall, accentColor === cf && styles.chipSmallActive]}
+                  onPress={() => setAccentColor(accentColor === cf ? undefined : cf)}>
+                  <Text style={[styles.chipSmallText, accentColor === cf && styles.chipSmallTextActive]}>{cf}</Text>
                 </Pressable>
               ))}
             </View>

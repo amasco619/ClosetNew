@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal } from '@/constants/types';
+import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal, LifePhase } from '@/constants/types';
 
 const HAIR_OPTS: { id: HairColor; label: string }[] = [
   { id: 'black', label: 'Black' }, { id: 'dark-brown', label: 'Dark Brown' },
@@ -17,6 +17,14 @@ const HEIGHT_OPTS: HeightBand[] = ['petite', 'average', 'tall'];
 const CONTRAST_OPTS: ContrastLevel[] = ['low', 'medium', 'high'];
 const METAL_OPTS: MetalPreference[] = ['gold', 'silver', 'rose-gold', 'mixed'];
 const MOOD_OPTS: MoodGoal[] = ['confident', 'soft', 'joyful', 'grounded', 'romantic', 'powerful'];
+const LIFE_PHASE_OPTS: { id: LifePhase; label: string }[] = [
+  { id: 'none', label: 'None' },
+  { id: 'pregnancy', label: 'Pregnancy' },
+  { id: 'postpartum', label: 'Postpartum' },
+  { id: 'weight-flux', label: 'Weight flux' },
+  { id: 'feeling-off', label: 'Feeling off' },
+];
+const AVERSION_OPTS: string[] = ['yellow', 'orange', 'neon', 'pink', 'red', 'green', 'brown', 'purple'];
 
 const bodyTypeLabels: Record<string, string> = {
   hourglass: 'Hourglass', pear: 'Pear', apple: 'Apple',
@@ -179,6 +187,40 @@ export default function ProfileScreen() {
                     style={[styles.refineChip, active && styles.refineChipActive]}>
                     <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
                       {m.charAt(0).toUpperCase() + m.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.refineLabel}>Life phase</Text>
+            <View style={styles.refineChipRow}>
+              {LIFE_PHASE_OPTS.map(l => {
+                const active = profile.lifePhase === l.id;
+                return (
+                  <Pressable key={l.id} onPress={() => updateProfile({ lifePhase: active ? null : l.id })}
+                    style={[styles.refineChip, active && styles.refineChipActive]}>
+                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                      {l.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.refineLabel}>Colors to avoid</Text>
+            <View style={styles.refineChipRow}>
+              {AVERSION_OPTS.map(c => {
+                const current = profile.constraints.colorAversions ?? [];
+                const active = current.includes(c);
+                return (
+                  <Pressable key={c} onPress={() => {
+                    const next = active ? current.filter((x: string) => x !== c) : [...current, c];
+                    updateProfile({ constraints: { ...profile.constraints, colorAversions: next } });
+                  }}
+                    style={[styles.refineChip, active && styles.refineChipActive]}>
+                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                      {c.charAt(0).toUpperCase() + c.slice(1)}
                     </Text>
                   </Pressable>
                 );

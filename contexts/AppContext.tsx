@@ -416,8 +416,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ── Rotation-based outfit generation ─────────────────────────────────────────
 
   const outfitPool = useMemo(
-    () => generateOutfitPool(wardrobeItems, profile, todayMood, reactions, todayString()),
-    [wardrobeItems, profile, todayMood, reactions],
+    () => generateOutfitPool(wardrobeItems, profile, todayMood, reactions, todayString(), wearHistory),
+    [wardrobeItems, profile, todayMood, reactions, wearHistory],
   );
 
   const recentWornFingerprints = useMemo(() => {

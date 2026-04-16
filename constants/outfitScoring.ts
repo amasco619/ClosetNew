@@ -18,7 +18,7 @@
 
 import {
   WardrobeItem, OutfitComponent, OutfitSet, OccasionTag, UserProfile,
-  MoodGoal, OutfitReaction,
+  MoodGoal, OutfitReaction, WearEntry,
 } from './types';
 import {
   classifyPalette, scorePaletteType, colorsHarmonize as paletteHarmonize,
@@ -461,6 +461,45 @@ export function adjustScoreForReactions(
   }
 
   return baseScore + bonus;
+}
+
+/**
+ * Worn-history positive weighting.
+ *
+ * Per spec, outfits the user has actually worn remain the strongest positive
+ * signal — stronger than a "love" tap — because the user has committed to them
+ * in real life. This boost is additive on top of reaction adjustments, and is
+ * applied by the rotation engine to the exact outfit fingerprint.
+ *
+ *   +10 if worn in the last 60 days
+ *   +6  if worn earlier than that
+ *   +2 per additional wear (capped so a single look can't fully dominate)
+ *
+ * A mild recency damper (−2) kicks in only if worn in the last 2 days, so the
+ * user still sees fresh ideas alongside reliable favourites.
+ */
+export function wornHistoryBoost(
+  fingerprint: string,
+  wearHistory: WearEntry[],
+  today: string,
+): number {
+  if (!fingerprint || wearHistory.length === 0) return 0;
+  const todayMs = new Date(today + 'T12:00:00').getTime();
+  const matches = wearHistory.filter(w => w.outfitFingerprint === fingerprint);
+  if (matches.length === 0) return 0;
+
+  let mostRecentDays = Infinity;
+  for (const w of matches) {
+    const ageDays = Math.max(0, Math.round(
+      (todayMs - new Date(w.date + 'T12:00:00').getTime()) / (1000 * 60 * 60 * 24)
+    ));
+    if (ageDays < mostRecentDays) mostRecentDays = ageDays;
+  }
+
+  let boost = mostRecentDays <= 60 ? 10 : 6;
+  boost += Math.min(6, Math.max(0, matches.length - 1) * 2);
+  if (mostRecentDays <= 2) boost -= 2;
+  return boost;
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────

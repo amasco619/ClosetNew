@@ -6,11 +6,12 @@
 
 import {
   WardrobeItem, OutfitSet, OutfitComponent, OccasionTag, UserProfile,
-  MoodGoal, OutfitReaction,
+  MoodGoal, OutfitReaction, WearEntry,
 } from './types';
 import {
   colorsHarmonize, passesConstraints, toComponent,
   scoreItemForProfile, scoreOutfitCombo, adjustScoreForReactions,
+  wornHistoryBoost,
 } from './outfitScoring';
 import { generateRationale } from './rationale';
 
@@ -117,6 +118,7 @@ export function generateOutfitPool(
   mood?: MoodGoal | null,
   reactions: OutfitReaction[] = [],
   today: string = todayString(),
+  wearHistory: WearEntry[] = [],
 ): Record<OccasionTag, OutfitSet[]> {
   const result = {} as Record<OccasionTag, OutfitSet[]>;
   const eligible = items.filter(i => passesConstraints(i, profile));
@@ -217,7 +219,8 @@ export function generateOutfitPool(
         const combo = scoreOutfitCombo(outfit, items, profile);
         const rawTotal = itemScore + combo.total;
         const itemIds = allItems.map(it => it.id);
-        const totalScore = adjustScoreForReactions(rawTotal, fp, reactions, today, itemIds);
+        const reactionAdjusted = adjustScoreForReactions(rawTotal, fp, reactions, today, itemIds);
+        const totalScore = reactionAdjusted + wornHistoryBoost(fp, wearHistory, today);
 
         const rationale = generateRationale(outfit, items, profile, mood);
 
