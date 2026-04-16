@@ -2,14 +2,22 @@ import { createContext, useContext, useState, useEffect, useMemo, ReactNode, use
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory, getProfileBlueprint } from '@/constants/wardrobeBlueprint';
-import { BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag, Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet, WearEntry } from '@/constants/types';
+import {
+  BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag,
+  Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet, WearEntry,
+  MoodGoal, OutfitReaction, ReactionType, MoodOfDay,
+} from '@/constants/types';
 import { generateOutfitsForItem } from '@/constants/outfitGenerator';
 import {
   RotationState, INITIAL_ROTATION_STATE,
   generateOutfitPool, applyDailyRotation, computePoolHash, todayString,
 } from '@/constants/outfitRotation';
 
-export type { BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag, Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet, WearEntry } from '@/constants/types';
+export type {
+  BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag,
+  Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet, WearEntry,
+  MoodGoal, OutfitReaction, ReactionType,
+} from '@/constants/types';
 
 interface AppContextValue {
   profile: UserProfile;
@@ -33,6 +41,16 @@ interface AppContextValue {
   undoWear: (entryId: string) => void;
   getItemWearCount: (itemId: string) => number;
   isWornToday: (outfit: OutfitSet) => boolean;
+  // Sophisticated stylist additions
+  todayMood: MoodGoal | null;
+  setTodayMood: (mood: MoodGoal | null) => void;
+  reactions: OutfitReaction[];
+  reactToOutfit: (outfit: OutfitSet, type: ReactionType) => void;
+  clearOutfitReaction: (fingerprint: string) => void;
+  getOutfitReaction: (outfit: OutfitSet) => ReactionType | null;
+  profileCompleteness: number; // 0..1
+  dismissProfileNudge: () => void;
+  shouldShowProfileNudge: boolean;
 }
 
 const defaultProfile: UserProfile = {
@@ -50,8 +68,16 @@ const defaultProfile: UserProfile = {
     noSleeveless: false,
     noShortSkirts: false,
     maxHeelHeight: 'any',
+    colorAversions: [],
   },
   onboardingComplete: false,
+  hairColor: null,
+  heightBand: null,
+  contrastLevel: null,
+  metalPreference: null,
+  lifePhase: 'none',
+  defaultMood: null,
+  dismissedProfileNudge: undefined,
 };
 
 const FREE_ITEM_CAP = 10;
@@ -65,6 +91,8 @@ const STORAGE_KEYS = {
   slots: '@auracloset_slots',
   rotation: '@auracloset_rotation',
   wearHistory: '@auracloset_wear_history',
+  reactions: '@auracloset_reactions',
+  mood: '@auracloset_mood',
 };
 
 const subTypes: Record<ItemCategory, string[]> = {
@@ -79,9 +107,18 @@ const subTypes: Record<ItemCategory, string[]> = {
 
 const colorFamilies = ['black', 'white', 'navy', 'beige', 'grey', 'brown', 'red', 'pink', 'blue', 'green', 'burgundy', 'cream', 'olive', 'camel', 'lavender', 'coral'];
 
-
 export { subTypes, colorFamilies };
 export type { WardrobeSlot } from '@/constants/wardrobeBlueprint';
+
+function computeProfileCompleteness(p: UserProfile): number {
+  const fields: any[] = [
+    p.name, p.bodyType, p.eyeColor, p.skinTone, p.undertone,
+    p.styleGoalPrimary,
+    p.hairColor, p.heightBand, p.contrastLevel, p.metalPreference,
+  ];
+  const filled = fields.filter(f => f !== null && f !== undefined && f !== '').length;
+  return filled / fields.length;
+}
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
@@ -93,10 +130,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [lastAddedSuggestions, setLastAddedSuggestions] = useState<OutfitSet[]>([]);
   const [rotationState, setRotationState] = useState<RotationState>(INITIAL_ROTATION_STATE);
   const [wearHistory, setWearHistory] = useState<WearEntry[]>([]);
+  const [reactions, setReactions] = useState<OutfitReaction[]>([]);
+  const [moodOfDay, setMoodOfDay] = useState<MoodOfDay | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
+
+  // Merge stored profile with defaults so fields added in later versions exist
+  const mergeProfile = (stored: Partial<UserProfile>): UserProfile => ({
+    ...defaultProfile,
+    ...stored,
+    constraints: {
+      ...defaultProfile.constraints,
+      ...(stored.constraints ?? {}),
+      colorAversions: stored.constraints?.colorAversions ?? [],
+    },
+  });
 
   const profileBlueprintKey = `${profile.styleGoalPrimary || ''}-${profile.styleGoalSecondary || ''}-${profile.bodyType || ''}-${profile.lifestyleWork}-${profile.lifestyleCasual}-${profile.lifestyleEvents}-${profile.constraints.noSleeveless}-${profile.constraints.noShortSkirts}-${profile.constraints.maxHeelHeight}`;
 
@@ -125,30 +173,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loadData = async () => {
     try {
-      const [profileData, wardrobeData, premiumData, slotsData, rotationData, wearData] = await Promise.all([
+      const [profileData, wardrobeData, premiumData, slotsData, rotationData, wearData, reactionsData, moodData] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.profile),
         AsyncStorage.getItem(STORAGE_KEYS.wardrobe),
         AsyncStorage.getItem(STORAGE_KEYS.premium),
         AsyncStorage.getItem(STORAGE_KEYS.slots),
         AsyncStorage.getItem(STORAGE_KEYS.rotation),
         AsyncStorage.getItem(STORAGE_KEYS.wearHistory),
+        AsyncStorage.getItem(STORAGE_KEYS.reactions),
+        AsyncStorage.getItem(STORAGE_KEYS.mood),
       ]);
-      if (profileData) setProfile(JSON.parse(profileData));
+      const loadedProfile = profileData ? mergeProfile(JSON.parse(profileData)) : defaultProfile;
+      setProfile(loadedProfile);
       const loadedItems = wardrobeData ? JSON.parse(wardrobeData) : [];
       if (wardrobeData) setWardrobeItems(loadedItems);
       if (premiumData) setIsPremium(JSON.parse(premiumData));
       if (rotationData) setRotationState(JSON.parse(rotationData));
       if (wearData) setWearHistory(JSON.parse(wearData));
+      if (reactionsData) setReactions(JSON.parse(reactionsData));
+      if (moodData) setMoodOfDay(JSON.parse(moodData));
       if (slotsData) {
         const savedStatuses: { id: string; status: 'needed' | 'owned'; matchedItemId?: string }[] = JSON.parse(slotsData);
-        const loadedProfile = profileData ? JSON.parse(profileData) : defaultProfile;
         const blueprint = getProfileBlueprint(loadedProfile);
         const fullSlots = initializeSlots(loadedItems, blueprint);
         const merged = fullSlots.map(slot => {
           const saved = savedStatuses.find(s => s.id === slot.id);
-          if (saved) {
-            return { ...slot, status: saved.status, matchedItemId: saved.matchedItemId };
-          }
+          if (saved) return { ...slot, status: saved.status, matchedItemId: saved.matchedItemId };
           return slot;
         });
         setRecommendationSlots(merged);
@@ -163,31 +213,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updateProfile = useCallback((updates: Partial<UserProfile>) => {
     setProfile(prev => {
-      const updated = { ...prev, ...updates };
+      const updated = { ...prev, ...updates, constraints: { ...prev.constraints, ...(updates.constraints ?? {}) } };
       AsyncStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(updated));
       return updated;
     });
   }, []);
 
-  const clearLastAddedSuggestions = useCallback(() => {
-    setLastAddedSuggestions([]);
-  }, []);
+  const clearLastAddedSuggestions = useCallback(() => setLastAddedSuggestions([]), []);
 
   // ── Wear tracking ─────────────────────────────────────────────────────────────
 
   function outfitFingerprintOf(outfit: OutfitSet): string {
-    return outfit.components
-      .map(c => c.matchedItemId)
-      .filter(Boolean)
-      .sort()
-      .join('|');
+    return outfit.components.map(c => c.matchedItemId).filter(Boolean).sort().join('|');
   }
 
   const logWear = useCallback((outfit: OutfitSet) => {
     const fp = outfitFingerprintOf(outfit);
-    const itemIds = outfit.components
-      .map(c => c.matchedItemId)
-      .filter((id): id is string => Boolean(id));
+    const itemIds = outfit.components.map(c => c.matchedItemId).filter((id): id is string => Boolean(id));
     const entry: WearEntry = {
       id: Crypto.randomUUID(),
       date: todayString(),
@@ -229,6 +271,71 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [wearHistory],
   );
+
+  // ── Reactions ────────────────────────────────────────────────────────────────
+
+  const reactToOutfit = useCallback((outfit: OutfitSet, type: ReactionType) => {
+    const fp = outfitFingerprintOf(outfit);
+    if (!fp) return;
+    const today = todayString();
+    setReactions(prev => {
+      // Replace any existing reaction of the same type+fp from today (toggle)
+      const withoutSameToday = prev.filter(
+        r => !(r.outfitFingerprint === fp && r.date === today && r.type === type)
+      );
+      if (withoutSameToday.length < prev.length) {
+        AsyncStorage.setItem(STORAGE_KEYS.reactions, JSON.stringify(withoutSameToday));
+        return withoutSameToday; // toggle off
+      }
+      // Otherwise add new (and remove opposite type for today)
+      const cleaned = prev.filter(
+        r => !(r.outfitFingerprint === fp && r.date === today)
+      );
+      const entry: OutfitReaction = {
+        id: Crypto.randomUUID(),
+        outfitFingerprint: fp,
+        type,
+        date: today,
+        scenario: outfit.scenario,
+      };
+      const updated = [entry, ...cleaned];
+      AsyncStorage.setItem(STORAGE_KEYS.reactions, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const clearOutfitReaction = useCallback((fingerprint: string) => {
+    setReactions(prev => {
+      const updated = prev.filter(r => r.outfitFingerprint !== fingerprint);
+      AsyncStorage.setItem(STORAGE_KEYS.reactions, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const getOutfitReaction = useCallback((outfit: OutfitSet): ReactionType | null => {
+    const fp = outfitFingerprintOf(outfit);
+    if (!fp) return null;
+    const today = todayString();
+    const todayReaction = reactions.find(r => r.outfitFingerprint === fp && r.date === today);
+    return todayReaction?.type ?? null;
+  }, [reactions]);
+
+  // ── Mood of day ──────────────────────────────────────────────────────────────
+
+  const todayMood: MoodGoal | null = useMemo(() => {
+    const today = todayString();
+    if (moodOfDay && moodOfDay.date === today) return moodOfDay.mood;
+    return profile.defaultMood ?? null;
+  }, [moodOfDay, profile.defaultMood]);
+
+  const setTodayMood = useCallback((mood: MoodGoal | null) => {
+    const today = todayString();
+    const entry: MoodOfDay = { date: today, mood };
+    setMoodOfDay(entry);
+    AsyncStorage.setItem(STORAGE_KEYS.mood, JSON.stringify(entry));
+  }, []);
+
+  // ── Wardrobe mutations ───────────────────────────────────────────────────────
 
   const addWardrobeItem = useCallback((item: Omit<WardrobeItem, 'id' | 'createdAt'>) => {
     const newItem: WardrobeItem = {
@@ -284,102 +391,82 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Rotation-based outfit generation ─────────────────────────────────────────
 
-  // Full pool of all valid combinations, regenerated when wardrobe / constraints change
   const outfitPool = useMemo(
-    () => generateOutfitPool(wardrobeItems, profile),
-    [wardrobeItems, profile],
+    () => generateOutfitPool(wardrobeItems, profile, todayMood, reactions, todayString()),
+    [wardrobeItems, profile, todayMood, reactions],
   );
 
-  // Fingerprints of outfits worn in the last 7 days — used for freshness ranking
   const recentWornFingerprints = useMemo(() => {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const set = new Set<string>();
     for (const entry of wearHistory) {
-      if (entry.date >= sevenDaysAgo && entry.outfitFingerprint) {
-        set.add(entry.outfitFingerprint);
-      }
+      if (entry.date >= sevenDaysAgo && entry.outfitFingerprint) set.add(entry.outfitFingerprint);
     }
     return set;
   }, [wearHistory]);
 
-  // Today's outfits: a stable slice of the confidence-ranked, freshness-adjusted pool
   const outfitSets = useMemo(() => {
     if (wardrobeItems.length === 0) return [];
     const today = todayString();
-    const { outfits } = applyDailyRotation(
-      outfitPool,
-      rotationState,
-      today,
-      recentWornFingerprints,
-    );
+    const { outfits } = applyDailyRotation(outfitPool, rotationState, today, recentWornFingerprints);
     return outfits;
   }, [outfitPool, rotationState, wardrobeItems.length, recentWornFingerprints]);
 
-  // Advance or reset the rotation cursor when the day changes or wardrobe/profile changes
   useEffect(() => {
     if (isLoading || wardrobeItems.length === 0) return;
     const today = todayString();
-    const newHash = computePoolHash(wardrobeItems, profile);
+    const newHash = computePoolHash(wardrobeItems, profile, todayMood);
     const hashChanged = newHash !== rotationState.poolHash;
     const dateChanged = today !== rotationState.lastDate;
     if (!hashChanged && !dateChanged) return;
 
     let baseState = rotationState;
     if (hashChanged) {
-      // Wardrobe or profile changed → fresh shuffle seed, reset cursors
       baseState = {
         ...INITIAL_ROTATION_STATE,
         poolHash: newHash,
         shuffleSeed: Math.floor(Math.random() * 9_000_000) + 1_000_000,
       };
     }
-
-    const { newState } = applyDailyRotation(
-      outfitPool,
-      baseState,
-      today,
-      recentWornFingerprints,
-    );
+    const { newState } = applyDailyRotation(outfitPool, baseState, today, recentWornFingerprints);
     const stateToSave: RotationState = { ...newState, poolHash: newHash };
     setRotationState(stateToSave);
     AsyncStorage.setItem(STORAGE_KEYS.rotation, JSON.stringify(stateToSave));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wardrobeItems, profile, outfitPool, rotationState.poolHash, rotationState.lastDate, isLoading, recentWornFingerprints]);
+  }, [wardrobeItems, profile, todayMood, outfitPool, rotationState.poolHash, rotationState.lastDate, isLoading, recentWornFingerprints]);
 
   const canAddItem = isPremium || wardrobeItems.length < FREE_ITEM_CAP;
   const starterRecommendations = useMemo(() => getFirstNeededByCategory(recommendationSlots), [recommendationSlots]);
 
-  const value = useMemo(() => ({
-    profile,
-    updateProfile,
-    wardrobeItems,
-    addWardrobeItem,
-    removeWardrobeItem,
-    updateWardrobeItem,
-    isPremium,
-    togglePremium,
-    outfitSets,
-    lastAddedSuggestions,
-    clearLastAddedSuggestions,
-    isLoading,
-    canAddItem,
-    recommendationSlots,
-    starterRecommendations,
-    wearHistory,
-    todaysWear,
-    logWear,
-    undoWear,
-    getItemWearCount,
-    isWornToday,
-  }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem, isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions, isLoading, canAddItem, recommendationSlots, starterRecommendations, wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday]);
+  // ── Profile completeness / nudge ─────────────────────────────────────────────
 
-  return (
-    <AppContext.Provider value={value}>
-      {children}
-    </AppContext.Provider>
-  );
+  const profileCompleteness = useMemo(() => computeProfileCompleteness(profile), [profile]);
+
+  const dismissProfileNudge = useCallback(() => {
+    updateProfile({ dismissedProfileNudge: todayString() });
+  }, [updateProfile]);
+
+  const shouldShowProfileNudge = useMemo(() => {
+    if (profileCompleteness >= 0.9) return false;
+    if (profile.dismissedProfileNudge === todayString()) return false;
+    return true;
+  }, [profileCompleteness, profile.dismissedProfileNudge]);
+
+  const value = useMemo(() => ({
+    profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
+    isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
+    isLoading, canAddItem, recommendationSlots, starterRecommendations,
+    wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
+    todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
+    profileCompleteness, dismissProfileNudge, shouldShowProfileNudge,
+  }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
+       isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
+       isLoading, canAddItem, recommendationSlots, starterRecommendations,
+       wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
+       todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
+       profileCompleteness, dismissProfileNudge, shouldShowProfileNudge]);
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
 export function useApp() {

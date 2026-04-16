@@ -7,10 +7,27 @@ export type ItemCategory = 'top' | 'bottom' | 'dress' | 'outerwear' | 'shoes' | 
 export type OccasionTag = 'work' | 'date' | 'casual' | 'event' | 'interview' | 'wedding' | 'travel';
 export type SeasonTag = 'winter' | 'summer' | 'spring' | 'fall' | 'all-season';
 
+// ─── Sophisticated stylist signals (all optional for backward compatibility) ─────
+export type HairColor = 'black' | 'dark-brown' | 'medium-brown' | 'light-brown' | 'blonde' | 'red' | 'grey' | 'silver';
+export type HeightBand = 'petite' | 'average' | 'tall';
+export type ContrastLevel = 'high' | 'medium' | 'low';
+export type MoodGoal = 'confident' | 'soft' | 'joyful' | 'grounded' | 'romantic' | 'powerful';
+export type LifePhase = 'none' | 'pregnancy' | 'postpartum' | 'weight-flux' | 'feeling-off';
+export type MetalPreference = 'gold' | 'silver' | 'rose-gold' | 'mixed';
+
+export type Pattern = 'solid' | 'stripe' | 'floral' | 'check' | 'print' | 'color-block' | 'geometric' | 'animal';
+export type PatternScale = 'small' | 'medium' | 'large';
+export type Fabric = 'cotton' | 'silk' | 'denim' | 'wool' | 'linen' | 'synthetic' | 'leather' | 'knit' | 'satin' | 'cashmere';
+export type Fit = 'slim' | 'regular' | 'loose' | 'oversized' | 'tailored';
+export type MetalTone = 'gold' | 'silver' | 'rose-gold' | 'mixed' | 'none';
+
+export type ColorAversion = string; // e.g. 'yellow', 'orange', 'neon'
+
 export interface Constraints {
   noSleeveless: boolean;
   noShortSkirts: boolean;
   maxHeelHeight: 'any' | 'low' | 'medium' | 'flat';
+  colorAversions?: ColorAversion[];
 }
 
 export interface UserProfile {
@@ -26,6 +43,14 @@ export interface UserProfile {
   lifestyleEvents: number;
   constraints: Constraints;
   onboardingComplete: boolean;
+  // Sophisticated stylist fields (optional)
+  hairColor?: HairColor | null;
+  heightBand?: HeightBand | null;
+  contrastLevel?: ContrastLevel | null;
+  metalPreference?: MetalPreference | null;
+  lifePhase?: LifePhase | null;
+  defaultMood?: MoodGoal | null;
+  dismissedProfileNudge?: string; // YYYY-MM-DD
 }
 
 export interface WardrobeItem {
@@ -40,6 +65,14 @@ export interface WardrobeItem {
   formalityLevel: number;
   purchasePrice?: number;
   createdAt: string;
+  // Sophisticated stylist signals (all optional)
+  pattern?: Pattern;
+  patternScale?: PatternScale;
+  fabric?: Fabric;
+  fit?: Fit;
+  metalTone?: MetalTone;       // for jewelry, buckles, hardware
+  accentColor?: string;         // secondary color for prints/color-blocks
+  mood?: MoodGoal[];            // moods this item naturally evokes
 }
 
 export interface OutfitComponent {
@@ -55,6 +88,8 @@ export interface OutfitSet {
   id: string;
   scenario: OccasionTag;
   components: OutfitComponent[];
+  rationale?: string;           // Human-readable one-liner: why this works
+  confidenceScore?: number;     // total score, for display/debugging
 }
 
 export interface WearEntry {
@@ -64,4 +99,19 @@ export interface WearEntry {
   outfitFingerprint: string; // sorted matched item IDs joined by '|'
   itemIds: string[];         // wardrobe item IDs worn
   loggedAt: string;          // ISO timestamp
+}
+
+export type ReactionType = 'love' | 'not-today';
+
+export interface OutfitReaction {
+  id: string;
+  outfitFingerprint: string;
+  type: ReactionType;
+  date: string;              // YYYY-MM-DD of reaction
+  scenario: OccasionTag;
+}
+
+export interface MoodOfDay {
+  date: string;              // YYYY-MM-DD
+  mood: MoodGoal;
 }

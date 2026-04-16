@@ -1,28 +1,18 @@
 /**
- * Daily Rotation Engine
+ * Daily Rotation Engine — v2
  *
- * Generates all valid outfit combinations (the "pool"), ranks each one by a
- * multi-dimensional confidence score, then applies a seeded daily shuffle so
- * the user sees a fresh selection every day — always from their most flattering
- * looks first.
- *
- * Confidence score dimensions (see outfitScoring.ts):
- *  Item-level: scenario fit, formality band, style goal (color + silhouette),
- *              undertone harmony, skin depth contrast, eye complementary, body type.
- *  Outfit-level: completeness (shoes/bag/jewelry), full color harmony, piece count.
- *
- * Freshness: outfits worn within the last 7 days are moved to the back of the
- * pool so every day feels like a new discovery.
+ * Adds mood-of-day and reaction feedback to the confidence-ranked pool.
  */
 
-import { WardrobeItem, OutfitSet, OutfitComponent, OccasionTag, UserProfile } from './types';
 import {
-  isNeutral, colorsHarmonize, passesConstraints, toComponent,
-  SCENARIO_AFFINITY, STYLE_PREFERRED_COLORS,
-  scoreItemForProfile, scoreOutfitCombo,
+  WardrobeItem, OutfitSet, OutfitComponent, OccasionTag, UserProfile,
+  MoodGoal, OutfitReaction,
+} from './types';
+import {
+  colorsHarmonize, passesConstraints, toComponent,
+  scoreItemForProfile, scoreOutfitCombo, adjustScoreForReactions,
 } from './outfitScoring';
-
-// ─── Config ────────────────────────────────────────────────────────────────────
+import { generateRationale } from './rationale';
 
 export const SCENARIOS: OccasionTag[] = [
   'work', 'casual', 'date', 'event', 'interview', 'wedding', 'travel',
@@ -53,11 +43,6 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
   return result;
 }
 
-/**
- * Tiered shuffle: preserves quality ordering while adding variety.
- * Divides pool into thirds by confidence score, shuffles within each tier,
- * then concatenates. Top-tier outfits always surface before mid/low-tier ones.
- */
 function tieredShuffle(pool: OutfitSet[], seed: number): OutfitSet[] {
   if (pool.length <= 3) return seededShuffle(pool, seed);
   const third = Math.ceil(pool.length / 3);
@@ -71,8 +56,6 @@ function tieredShuffle(pool: OutfitSet[], seed: number): OutfitSet[] {
   ];
 }
 
-// ─── Fingerprint ──────────────────────────────────────────────────────────────
-
 function fingerprint(components: OutfitComponent[]): string {
   return components
     .map(c => c.matchedItemId)
@@ -80,8 +63,6 @@ function fingerprint(components: OutfitComponent[]): string {
     .sort()
     .join('|');
 }
-
-// ─── Rotation State ────────────────────────────────────────────────────────────
 
 export interface RotationState {
   poolHash: string;
@@ -101,15 +82,13 @@ export const INITIAL_ROTATION_STATE: RotationState = {
   cycleCount: 0,
 };
 
-// ─── Pool hash ─────────────────────────────────────────────────────────────────
-
-/**
- * Stable hash that changes whenever wardrobe contents OR any profile dimension
- * that affects scoring changes. Triggers full pool rebuild.
- */
-export function computePoolHash(items: WardrobeItem[], profile: UserProfile): string {
+export function computePoolHash(
+  items: WardrobeItem[],
+  profile: UserProfile,
+  mood?: MoodGoal | null,
+): string {
   const itemSig = items
-    .map(i => `${i.id}:${i.category}:${i.subType}:${i.colorFamily}:${i.formalityLevel}`)
+    .map(i => `${i.id}:${i.category}:${i.subType}:${i.colorFamily}:${i.formalityLevel}:${i.pattern ?? ''}:${i.fabric ?? ''}:${i.fit ?? ''}:${i.metalTone ?? ''}`)
     .sort()
     .join(',');
   const profileSig = [
@@ -119,31 +98,25 @@ export function computePoolHash(items: WardrobeItem[], profile: UserProfile): st
     profile.skinTone ?? '',
     profile.undertone ?? '',
     profile.eyeColor ?? '',
+    profile.hairColor ?? '',
+    profile.heightBand ?? '',
+    profile.contrastLevel ?? '',
+    profile.metalPreference ?? '',
+    profile.lifePhase ?? '',
+    (profile.constraints.colorAversions ?? []).sort().join(','),
     String(profile.constraints.noSleeveless),
     String(profile.constraints.noShortSkirts),
     profile.constraints.maxHeelHeight,
   ].join(':');
-  return `${itemSig}|${profileSig}`;
+  return `${itemSig}|${profileSig}|${mood ?? ''}`;
 }
 
-// ─── Pool generation ──────────────────────────────────────────────────────────
-
-/**
- * Generates all valid outfit combinations grouped by scenario, ranked by
- * multi-dimensional confidence score. The highest-scoring outfits appear first.
- *
- * Algorithm per scenario:
- *  1. Filter items by constraints.
- *  2. Score and sort each category by scoreItemForProfile.
- *  3. Build cores: dress-only OR top+harmonious-bottom pairs.
- *  4. For each core, try multiple shoe options (shoes are required — no shoes = no outfit).
- *  5. Add best harmonious bag and jewelry.
- *  6. Score each assembled outfit (item scores + combo bonus).
- *  7. Sort pool by confidence score descending.
- */
 export function generateOutfitPool(
   items: WardrobeItem[],
   profile: UserProfile,
+  mood?: MoodGoal | null,
+  reactions: OutfitReaction[] = [],
+  today: string = todayString(),
 ): Record<OccasionTag, OutfitSet[]> {
   const result = {} as Record<OccasionTag, OutfitSet[]>;
   const eligible = items.filter(i => passesConstraints(i, profile));
@@ -151,7 +124,6 @@ export function generateOutfitPool(
   for (const scenario of SCENARIOS) {
     const seen = new Set<string>();
 
-    // ── Sort each category by scenario+profile confidence score ──────────────
     const byCategory: Record<string, WardrobeItem[]> = {};
     for (const item of eligible) {
       if (!byCategory[item.category]) byCategory[item.category] = [];
@@ -160,8 +132,8 @@ export function generateOutfitPool(
     for (const cat of Object.keys(byCategory)) {
       byCategory[cat].sort(
         (a, b) =>
-          scoreItemForProfile(b, scenario, profile) -
-          scoreItemForProfile(a, scenario, profile),
+          scoreItemForProfile(b, scenario, profile, mood) -
+          scoreItemForProfile(a, scenario, profile, mood),
       );
     }
 
@@ -172,39 +144,26 @@ export function generateOutfitPool(
     const bagsAll  = byCategory['bag']      ?? [];
     const jewelAll = byCategory['jewelry']  ?? [];
 
-    // ── Build core combinations ───────────────────────────────────────────────
-    // A valid core is EITHER a dress (standalone) OR a top paired with a bottom.
-    // A lone top is never a valid core — it does not constitute a complete outfit.
     type Core = { coreItems: WardrobeItem[]; baseColor: string };
     const cores: Core[] = [];
 
-    // Dress-only cores — valid as complete looks on their own
     for (const dress of dresses.slice(0, 8)) {
       cores.push({ coreItems: [dress], baseColor: dress.colorFamily });
     }
 
-    // Top + bottom pairs — tops MUST be paired with at least one bottom.
-    // Harmonious colors are preferred; if none harmonise, use the
-    // highest-scoring available bottom rather than skipping the top entirely.
-    // If there are no bottoms in the wardrobe at all, tops are skipped.
     for (const top of tops.slice(0, 8)) {
       const harmoniousBottoms = bottoms.filter(b =>
         colorsHarmonize(top.colorFamily, b.colorFamily),
       );
       if (harmoniousBottoms.length > 0) {
-        // Pair with up to 3 harmonious bottoms for variety
         for (const bottom of harmoniousBottoms.slice(0, 3)) {
           cores.push({ coreItems: [top, bottom], baseColor: top.colorFamily });
         }
       } else if (bottoms.length > 0) {
-        // No harmonious match — still pair with the highest-scoring bottom
         cores.push({ coreItems: [top, bottoms[0]], baseColor: top.colorFamily });
       }
-      // If bottoms is empty, this top is skipped — a lone top is not an outfit
     }
 
-    // ── Expand cores with shoe variations, bag, jewelry ───────────────────────
-    // Each assembled outfit is scored and tracked for sorting.
     type ScoredOutfit = { outfit: OutfitSet; score: number };
     const scoredPool: ScoredOutfit[] = [];
 
@@ -219,13 +178,9 @@ export function generateOutfitPool(
         s => !coreIds.has(s.id) && !harmShoes.includes(s),
       );
 
-      // Shoes are now part of the complete outfit core — outfits without shoes are not shown.
       const shoeOptions: WardrobeItem[] =
-        harmShoes.length > 0
-          ? harmShoes.slice(0, 3)
-          : otherShoes.slice(0, 2);
+        harmShoes.length > 0 ? harmShoes.slice(0, 3) : otherShoes.slice(0, 2);
 
-      // No shoes in the wardrobe → skip this core entirely
       if (shoeOptions.length === 0) continue;
 
       for (const shoe of shoeOptions) {
@@ -236,13 +191,11 @@ export function generateOutfitPool(
 
         outfit.push(toComponent(shoe)); usedIds.add(shoe.id);
 
-        // Best harmonious bag
         const bag =
           bagsAll.find(b => !usedIds.has(b.id) && colorsHarmonize(core.baseColor, b.colorFamily)) ??
           bagsAll.find(b => !usedIds.has(b.id));
         if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
 
-        // Highest-scoring jewelry
         const jewel = jewelAll.find(j => !usedIds.has(j.id));
         if (jewel) { outfit.push(toComponent(jewel)); }
 
@@ -250,8 +203,6 @@ export function generateOutfitPool(
         if (!fp || seen.has(fp)) continue;
         seen.add(fp);
 
-        // ── Compute confidence score ─────────────────────────────────────────
-        // bag and jewel are already WardrobeItem references from find()
         const allItems = [
           ...core.coreItems,
           shoe ?? null,
@@ -260,11 +211,14 @@ export function generateOutfitPool(
         ].filter(Boolean) as WardrobeItem[];
 
         const itemScore = allItems.reduce(
-          (sum, item) => sum + scoreItemForProfile(item, scenario, profile),
+          (sum, item) => sum + scoreItemForProfile(item, scenario, profile, mood),
           0,
         );
-        const comboScore = scoreOutfitCombo(outfit);
-        const totalScore = itemScore + comboScore;
+        const combo = scoreOutfitCombo(outfit, items, profile);
+        const rawTotal = itemScore + combo.total;
+        const totalScore = adjustScoreForReactions(rawTotal, fp, reactions, today);
+
+        const rationale = generateRationale(outfit, items, profile, mood);
 
         scoredPool.push({
           score: totalScore,
@@ -272,12 +226,13 @@ export function generateOutfitPool(
             id: `pool-${scenario}-${scoredPool.length}`,
             scenario,
             components: outfit,
+            rationale,
+            confidenceScore: Math.round(totalScore),
           },
         });
       }
     }
 
-    // ── Sort by confidence score descending ───────────────────────────────────
     scoredPool.sort((a, b) => b.score - a.score);
     result[scenario] = scoredPool.map(s => s.outfit);
   }
@@ -285,18 +240,6 @@ export function generateOutfitPool(
   return result;
 }
 
-// ─── Daily rotation ───────────────────────────────────────────────────────────
-
-/**
- * Given the full confidence-ranked pool and rotation state, returns today's
- * outfit selection.
- *
- * - Same day      → returns the same stable outfits
- * - New day       → advances each scenario cursor by OUTFITS_PER_SCENARIO_PER_DAY
- * - Freshness     → outfits matching recentWornFingerprints are moved to the
- *                   back so the user always sees a fresh look first
- * - Shuffle       → tiered shuffle preserves quality bands while adding variety
- */
 export function applyDailyRotation(
   pool: Record<OccasionTag, OutfitSet[]>,
   state: RotationState,
@@ -315,8 +258,6 @@ export function applyDailyRotation(
     const scenarioPool = pool[scenario] ?? [];
     if (scenarioPool.length === 0) return;
 
-    // Apply freshness: push recently-worn outfits to the back.
-    // The rest (already confidence-sorted) remain in their ranked order.
     let orderedPool = scenarioPool;
     if (recentWornFingerprints && recentWornFingerprints.size > 0) {
       const fresh = scenarioPool.filter(o => {
@@ -330,7 +271,6 @@ export function applyDailyRotation(
       orderedPool = [...fresh, ...stale];
     }
 
-    // Tiered shuffle: preserves quality bands, each scenario gets its own seed
     const shuffled = tieredShuffle(orderedPool, state.shuffleSeed + si * 7919);
 
     const startCursor = isNewDay
@@ -364,8 +304,6 @@ export function applyDailyRotation(
 
   return { outfits, newState };
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export function todayString(): string {
   return new Date().toISOString().split('T')[0];

@@ -51,9 +51,12 @@ export default function AddItemScreen() {
   const [seasons, setSeasons] = useState<SeasonTag[]>(['all-season']);
   const [purchasePrice, setPurchasePrice] = useState('');
   const [step, setStep] = useState(0);
+  const [pattern, setPattern] = useState<string | undefined>(undefined);
+  const [patternScale, setPatternScale] = useState<string | undefined>(undefined);
+  const [fabric, setFabric] = useState<string | undefined>(undefined);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
-  const classifyWithServer = async (base64: string, cat: ItemCategory): Promise<{ category: ItemCategory; subType: string; colorFamily: string; description: string; occasionTags: OccasionTag[] }> => {
+  const classifyWithServer = async (base64: string, cat: ItemCategory): Promise<{ category: ItemCategory; subType: string; colorFamily: string; description: string; occasionTags: OccasionTag[]; pattern?: string; patternScale?: string; fabric?: string }> => {
     try {
       const res = await apiRequest('POST', '/api/classify-garment', { imageBase64: base64 });
       const data = await res.json();
@@ -64,6 +67,9 @@ export default function AddItemScreen() {
         colorFamily: data.colorFamily || fallback.colorFamily,
         description: data.description || '',
         occasionTags: Array.isArray(data.occasionTags) ? data.occasionTags : [],
+        pattern: data.pattern,
+        patternScale: data.patternScale,
+        fabric: data.fabric,
       };
     } catch {
       const fallback = localClassifyFallback(cat);
@@ -72,6 +78,9 @@ export default function AddItemScreen() {
   };
 
   const pickImage = async (useCamera: boolean) => {
+    setPattern(undefined);
+    setPatternScale(undefined);
+    setFabric(undefined);
     try {
       let result: ImagePicker.ImagePickerResult;
       const pickerOptions: ImagePicker.ImagePickerOptions = {
@@ -109,6 +118,9 @@ export default function AddItemScreen() {
           if (classified.occasionTags.length > 0) {
             setOccasions(classified.occasionTags);
           }
+          if (classified.pattern) setPattern(classified.pattern);
+          if (classified.patternScale) setPatternScale(classified.patternScale);
+          if (classified.fabric) setFabric(classified.fabric);
           setClassifying(false);
         } else {
           const fallback = localClassifyFallback(category);
@@ -137,6 +149,9 @@ export default function AddItemScreen() {
       seasonTags: seasons,
       formalityLevel: 3,
       purchasePrice: isNaN(parsedPrice) || parsedPrice <= 0 ? undefined : parsedPrice,
+      pattern: (['solid','stripe','floral','check','print','color-block','geometric','animal'].includes(pattern ?? '') ? pattern : undefined) as any,
+      patternScale: (['small','medium','large'].includes(patternScale ?? '') ? patternScale : undefined) as any,
+      fabric: (['cotton','silk','denim','wool','linen','synthetic','leather','knit','satin','cashmere'].includes(fabric ?? '') ? fabric : undefined) as any,
     });
     router.back();
   };

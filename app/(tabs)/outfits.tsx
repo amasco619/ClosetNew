@@ -9,7 +9,17 @@ import { useApp, OutfitSet, OutfitComponent } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useState, useCallback } from 'react';
-import { OccasionTag, WearEntry } from '@/constants/types';
+import { OccasionTag, WearEntry, MoodGoal, ReactionType } from '@/constants/types';
+import * as Haptics from 'expo-haptics';
+
+const MOOD_OPTIONS: { id: MoodGoal; label: string; icon: string }[] = [
+  { id: 'confident', label: 'Confident', icon: 'flash-outline' },
+  { id: 'soft',      label: 'Soft',      icon: 'cloud-outline' },
+  { id: 'joyful',    label: 'Joyful',    icon: 'sunny-outline' },
+  { id: 'grounded',  label: 'Grounded',  icon: 'leaf-outline' },
+  { id: 'romantic',  label: 'Romantic',  icon: 'rose-outline' },
+  { id: 'powerful',  label: 'Powerful',  icon: 'trophy-outline' },
+];
 
 const FREE_SCENARIOS: OccasionTag[] = ['work', 'casual', 'date', 'event'];
 const PREMIUM_SCENARIOS: OccasionTag[] = ['interview', 'wedding', 'travel'];
@@ -97,6 +107,8 @@ function OutfitCard({
   onLogWear,
   onUndoWear,
   wearHistory,
+  reaction,
+  onReact,
 }: {
   outfit: OutfitSet;
   index: number;
@@ -106,6 +118,8 @@ function OutfitCard({
   onLogWear: (outfit: OutfitSet) => void;
   onUndoWear: (entryId: string) => void;
   wearHistory: WearEntry[];
+  reaction: ReactionType | null;
+  onReact: (outfit: OutfitSet, type: ReactionType) => void;
 }) {
   const scenario = scenarioLabels[outfit.scenario];
   const coreItems = outfit.components.filter(c =>
@@ -143,9 +157,11 @@ function OutfitCard({
           )}
         </View>
 
-        {scenario?.mood && (
+        {outfit.rationale ? (
+          <Text style={styles.moodText}>{outfit.rationale}</Text>
+        ) : scenario?.mood ? (
           <Text style={styles.moodText}>{scenario.mood}</Text>
-        )}
+        ) : null}
 
         {showRewearAdvisor && !wornToday && (
           <View style={[styles.rewearAdvisor, rewearUrgent && styles.rewearAdvisorUrgent]}>
@@ -206,6 +222,34 @@ function OutfitCard({
                 <Text style={styles.logWearText}>Wearing this today</Text>
               </Pressable>
             )}
+            <View style={styles.reactionRow}>
+              <Pressable
+                style={[styles.reactionButton, reaction === 'love' && styles.reactionButtonLove]}
+                onPress={() => { Haptics.selectionAsync(); onReact(outfit, 'love'); }}
+                hitSlop={6}
+              >
+                <Ionicons
+                  name={reaction === 'love' ? 'heart' : 'heart-outline'}
+                  size={16}
+                  color={reaction === 'love' ? '#DC2626' : Colors.textSecondary}
+                />
+                <Text style={[styles.reactionText, reaction === 'love' && { color: '#DC2626' }]}>
+                  Love
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.reactionButton, reaction === 'not-today' && styles.reactionButtonSkip]}
+                onPress={() => { Haptics.selectionAsync(); onReact(outfit, 'not-today'); }}
+                hitSlop={6}
+              >
+                <Ionicons
+                  name={reaction === 'not-today' ? 'close-circle' : 'close-circle-outline'}
+                  size={16}
+                  color={reaction === 'not-today' ? Colors.textSecondary : Colors.textLight}
+                />
+                <Text style={styles.reactionText}>Not today</Text>
+              </Pressable>
+            </View>
           </View>
         )}
       </View>
@@ -286,6 +330,13 @@ export default function OutfitsScreen() {
     undoWear,
     isWornToday,
     wearHistory,
+    todayMood,
+    setTodayMood,
+    reactToOutfit,
+    getOutfitReaction,
+    profileCompleteness,
+    shouldShowProfileNudge,
+    dismissProfileNudge,
   } = useApp();
   const [selectedScenario, setSelectedScenario] = useState<OccasionTag>('casual');
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
@@ -383,10 +434,68 @@ export default function OutfitsScreen() {
         })}
       </ScrollView>
 
+      {hasWardrobe && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.moodScroll}
+          contentContainerStyle={styles.moodScrollContent}
+        >
+          <Text style={styles.moodPrompt}>Today I want to feel</Text>
+          {MOOD_OPTIONS.map(m => {
+            const active = todayMood === m.id;
+            return (
+              <Pressable
+                key={m.id}
+                style={[styles.moodChip, active && styles.moodChipActive]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setTodayMood(active ? null : m.id);
+                }}
+              >
+                <Ionicons
+                  name={m.icon as any}
+                  size={13}
+                  color={active ? Colors.white : Colors.secondary}
+                />
+                <Text style={[styles.moodChipText, active && styles.moodChipTextActive]}>
+                  {m.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {shouldShowProfileNudge && hasWardrobe && (
+          <View style={styles.profileNudge}>
+            <View style={styles.profileNudgeIconWrap}>
+              <Ionicons name="sparkles-outline" size={16} color={Colors.secondary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.profileNudgeTitle}>
+                Your style profile is {Math.round(profileCompleteness * 100)}% complete
+              </Text>
+              <Text style={styles.profileNudgeSubtitle}>
+                A few more details — hair, height, metal preference — sharpen every recommendation.
+              </Text>
+              <View style={styles.profileNudgeActions}>
+                <Pressable onPress={() => router.push('/(tabs)/profile' as any)} style={styles.profileNudgeCta}>
+                  <Text style={styles.profileNudgeCtaText}>Refine</Text>
+                  <Ionicons name="arrow-forward" size={12} color={Colors.secondary} />
+                </Pressable>
+                <Pressable onPress={dismissProfileNudge} hitSlop={8}>
+                  <Text style={styles.profileNudgeDismiss}>Not now</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        )}
+
         {lastAddedSuggestions.length > 0 && (
           <JustAddedBanner
             suggestions={lastAddedSuggestions}
@@ -427,6 +536,8 @@ export default function OutfitsScreen() {
                 onLogWear={logWear}
                 onUndoWear={undoWear}
                 wearHistory={wearHistory}
+                reaction={getOutfitReaction(outfit)}
+                onReact={reactToOutfit}
               />
             );
           })
@@ -544,7 +655,49 @@ const styles = StyleSheet.create({
   },
   undoWearText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
 
-  moodText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginBottom: 8, fontStyle: 'italic' },
+  moodText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginBottom: 8, fontStyle: 'italic', lineHeight: 17 },
+
+  moodScroll: { flexGrow: 0, marginBottom: 10 },
+  moodScrollContent: { paddingHorizontal: 20, gap: 8, alignItems: 'center' },
+  moodPrompt: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, marginRight: 4 },
+  moodChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingVertical: 6, paddingHorizontal: 11, borderRadius: 11,
+    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.secondary + '40',
+  },
+  moodChipActive: { backgroundColor: Colors.secondary, borderColor: Colors.secondary },
+  moodChipText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.secondary },
+  moodChipTextActive: { color: Colors.white },
+
+  profileNudge: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: Colors.secondary + '08', borderRadius: 14,
+    padding: 14, marginBottom: 16,
+    borderWidth: 1, borderColor: Colors.secondary + '25',
+  },
+  profileNudgeIconWrap: {
+    width: 32, height: 32, borderRadius: 8,
+    backgroundColor: Colors.secondary + '15',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  profileNudgeTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary, marginBottom: 2 },
+  profileNudgeSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },
+  profileNudgeActions: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 8 },
+  profileNudgeCta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  profileNudgeCtaText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.secondary },
+  profileNudgeDismiss: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight },
+
+  reactionRow: {
+    flexDirection: 'row', gap: 12, alignItems: 'center',
+    marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  reactionButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingVertical: 5, paddingHorizontal: 9, borderRadius: 8,
+  },
+  reactionButtonLove: { backgroundColor: '#FEE2E2' },
+  reactionButtonSkip: { backgroundColor: Colors.border },
+  reactionText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary },
 
   rewearAdvisor: {
     flexDirection: 'row', alignItems: 'center', gap: 6,

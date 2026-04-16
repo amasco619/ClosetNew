@@ -701,12 +701,35 @@ export async function classifyGarment(req: Request, res: Response) {
     const description = buildDescription(displayName, colorFamily);
     const occasionTags = inferOccasions(subType, displayName);
 
+    // ── Pattern / fabric inference from labels (optional signals) ─────────────
+    // These are best-effort. The client still lets the user correct them.
+    let pattern: string = "solid";
+    let patternScale: string | undefined;
+    if (labelSet.has("Stripe") || labelSet.has("Pinstripe")) { pattern = "stripe"; }
+    else if (labelSet.has("Plaid") || labelSet.has("Tartan") || labelSet.has("Check") || labelSet.has("Gingham")) { pattern = "check"; }
+    else if (labelSet.has("Floral design") || labelSet.has("Floral")) { pattern = "floral"; patternScale = "medium"; }
+    else if (labelSet.has("Polka dot") || labelSet.has("Pattern")) { pattern = "print"; }
+    else if (labelSet.has("Animal print") || labelSet.has("Leopard") || labelSet.has("Zebra")) { pattern = "animal"; patternScale = "large"; }
+
+    let fabric: string | undefined;
+    if (labelSet.has("Denim") || labelSet.has("Jeans")) fabric = "denim";
+    else if (labelSet.has("Leather")) fabric = "leather";
+    else if (labelSet.has("Silk") || labelSet.has("Satin")) fabric = "silk";
+    else if (labelSet.has("Wool") || labelSet.has("Tweed")) fabric = "wool";
+    else if (labelSet.has("Linen")) fabric = "linen";
+    else if (labelSet.has("Cashmere")) fabric = "cashmere";
+    else if (labelSet.has("Knit") || labelSet.has("Knitting")) fabric = "knit";
+    else if (labelSet.has("Cotton")) fabric = "cotton";
+
     return res.json({
       category,
       subType,
       colorFamily,
       description,
       occasionTags,
+      pattern,
+      patternScale,
+      fabric,
       modelConfidence,
       rawLabels: labels.slice(0, 5),
       rawObjects: objectAnnotations.slice(0, 5),
