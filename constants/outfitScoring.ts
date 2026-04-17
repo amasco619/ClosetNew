@@ -74,6 +74,49 @@ export const SCENARIO_FORMALITY: Record<OccasionTag, [number, number]> = {
   wedding:   [6, 9],
 };
 
+// ─── Sub-type → default formality ─────────────────────────────────────────────
+// 1 = athleisure / loungewear, 5 = smart casual, 9 = black-tie.
+// Used to derive a reliable formality for items even when the user didn't tag
+// one explicitly. Looked up via `effectiveFormality(item)` below.
+export const SUBTYPE_FORMALITY: Record<string, number> = {
+  // tops
+  'tank-top': 2, 't-shirt': 2, 'tee': 2, 'henley': 2, 'long-sleeve': 3,
+  'polo-shirt': 3, 'rugby-shirt': 3, 'hoodie': 1, 'sweatshirt': 1,
+  'sweater': 4, 'knit-top': 4, 'cardigan': 4, 'turtleneck': 5,
+  'shirt': 5, 'button-down': 5, 'blouse': 6, 'camisole': 5, 'crop-top': 3,
+  // bottoms
+  'joggers': 1, 'leggings': 2, 'shorts': 2, 'jeans': 3, 'chinos': 4,
+  'wide-leg': 5, 'trousers': 6, 'pencil-skirt': 6,
+  'mini-skirt': 4, 'midi-skirt': 5, 'maxi-skirt': 5,
+  // dresses
+  'shirt-dress': 4, 'knit-dress': 4, 'mini-dress': 4,
+  'midi-dress': 5, 'wrap-dress': 6, 'maxi-dress': 6,
+  'slip-dress': 6, 'cocktail-dress': 7, 'gown': 9,
+  // outerwear
+  'denim-jacket': 3, 'jacket': 4, 'leather-jacket': 4,
+  'trench': 5, 'blazer': 6, 'coat': 6,
+  // shoes
+  'sneakers': 1, 'sandals': 3, 'boots': 4, 'ankle-boots': 4, 'flats': 4,
+  'mules': 5, 'loafers': 5, 'heels': 6, 'pumps': 6, 'stilettos': 7,
+  // bags
+  'backpack': 1, 'crossbody': 3, 'tote': 4, 'shoulder-bag': 5,
+  'mini-bag': 5, 'clutch': 6,
+  // jewelry — neutral
+  'earrings': 4, 'necklace': 4, 'bracelet': 4, 'watch': 4, 'ring': 4,
+};
+
+/**
+ * Returns the most reliable formality level for an item: the sub-type default
+ * if known, otherwise the user-tagged value, otherwise 5 (mid).
+ *
+ * The stored `formalityLevel` field has historically been hard-coded to 3 for
+ * every item, which makes it useless for scenario filtering. The sub-type is a
+ * far more reliable signal, so we prefer it.
+ */
+export function effectiveFormality(item: WardrobeItem): number {
+  return SUBTYPE_FORMALITY[item.subType] ?? item.formalityLevel ?? 5;
+}
+
 const UNDERTONE_FLATTERING: Record<string, Set<string>> = {
   cool:    new Set(['navy', 'burgundy', 'lavender', 'grey', 'white', 'blue', 'pink', 'black', 'emerald', 'purple', 'rose']),
   warm:    new Set(['camel', 'olive', 'coral', 'cream', 'brown', 'red', 'orange', 'beige', 'terracotta', 'gold', 'mustard']),
@@ -183,7 +226,7 @@ export function scoreItemForProfile(
 
   // 2. Formality band (max +2)
   const [minF, maxF] = SCENARIO_FORMALITY[scenario];
-  const f = item.formalityLevel ?? 5;
+  const f = effectiveFormality(item);
   if (f >= minF && f <= maxF) score += 2;
   else if (f >= minF - 1 && f <= maxF + 1) score += 1;
 

@@ -11,7 +11,7 @@ import {
 import {
   colorsHarmonize, passesConstraints, toComponent,
   scoreItemForProfile, scoreOutfitCombo, adjustScoreForReactions,
-  wornHistoryBoost,
+  wornHistoryBoost, effectiveFormality, SCENARIO_FORMALITY,
 } from './outfitScoring';
 import { generateRationale } from './rationale';
 
@@ -89,7 +89,7 @@ export function computePoolHash(
   mood?: MoodGoal | null,
 ): string {
   const itemSig = items
-    .map(i => `${i.id}:${i.category}:${i.subType}:${i.colorFamily}:${i.formalityLevel}:${i.pattern ?? ''}:${i.fabric ?? ''}:${i.fit ?? ''}:${i.metalTone ?? ''}`)
+    .map(i => `${i.id}:${i.category}:${i.subType}:${i.colorFamily}:${effectiveFormality(i)}:${i.pattern ?? ''}:${i.fabric ?? ''}:${i.fit ?? ''}:${i.metalTone ?? ''}`)
     .sort()
     .join(',');
   const profileSig = [
@@ -146,10 +146,22 @@ export function generateOutfitPool(
     const bagsAll  = byCategory['bag']      ?? [];
     const jewelAll = byCategory['jewelry']  ?? [];
 
+    // Hard scenario gate: drop cores whose average formality falls more than
+    // ±1 level outside the scenario's expected band. Without this gate, a
+    // sparse wardrobe produces the same outfit for every scenario.
+    const [scenMinF, scenMaxF] = SCENARIO_FORMALITY[scenario];
+    const TOLERANCE = 1;
+    const coreFitsScenario = (coreItems: WardrobeItem[]): boolean => {
+      const fs = coreItems.map(effectiveFormality);
+      const avg = fs.reduce((a, b) => a + b, 0) / fs.length;
+      return avg >= scenMinF - TOLERANCE && avg <= scenMaxF + TOLERANCE;
+    };
+
     type Core = { coreItems: WardrobeItem[]; baseColor: string };
     const cores: Core[] = [];
 
     for (const dress of dresses.slice(0, 8)) {
+      if (!coreFitsScenario([dress])) continue;
       cores.push({ coreItems: [dress], baseColor: dress.colorFamily });
     }
 
@@ -159,9 +171,11 @@ export function generateOutfitPool(
       );
       if (harmoniousBottoms.length > 0) {
         for (const bottom of harmoniousBottoms.slice(0, 3)) {
+          if (!coreFitsScenario([top, bottom])) continue;
           cores.push({ coreItems: [top, bottom], baseColor: top.colorFamily });
         }
       } else if (bottoms.length > 0) {
+        if (!coreFitsScenario([top, bottoms[0]])) continue;
         cores.push({ coreItems: [top, bottoms[0]], baseColor: top.colorFamily });
       }
     }
@@ -221,7 +235,7 @@ export function generateOutfitPool(
         // ── Hard gates — violations we never want to surface ─────────────
         // (soft penalties in scoreOutfitCombo surface near the bottom; these
         //  are the cases the scoring team explicitly wants eliminated.)
-        const formalities = allItems.map(i => i.formalityLevel ?? 5);
+        const formalities = allItems.map(effectiveFormality);
         const formalitySpread = Math.max(...formalities) - Math.min(...formalities);
         if (formalitySpread > 3) continue;
 

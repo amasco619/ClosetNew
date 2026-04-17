@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useApp, ItemCategory, OccasionTag, SeasonTag, subTypes, colorFamilies } from '@/contexts/AppContext';
 import type { Pattern, PatternScale, Fabric, Fit, Neckline, SleeveLength, Rise, WarmthBand } from '@/constants/types';
+import { SUBTYPE_FORMALITY } from '@/constants/outfitScoring';
 
 const PATTERNS: readonly Pattern[] = ['solid','stripe','floral','check','print','color-block','geometric','animal'] as const;
 const PATTERN_SCALES: readonly PatternScale[] = ['small','medium','large'] as const;
@@ -199,7 +200,7 @@ export default function AddItemScreen() {
       description: description || undefined,
       occasionTags: occasions,
       seasonTags: seasons,
-      formalityLevel: 3,
+      formalityLevel: SUBTYPE_FORMALITY[subType] ?? 5,
       purchasePrice: isNaN(parsedPrice) || parsedPrice <= 0 ? undefined : parsedPrice,
       pattern: asPattern(pattern),
       patternScale: asPatternScale(patternScale),

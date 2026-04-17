@@ -9,8 +9,18 @@
 import { WardrobeItem, OutfitComponent, OutfitSet, OccasionTag, UserProfile } from '@/constants/types';
 import {
   passesConstraints, colorsHarmonize, toComponent,
-  scoreItemForProfile,
+  scoreItemForProfile, effectiveFormality, SCENARIO_FORMALITY,
 } from '@/constants/outfitScoring';
+
+const SCENARIO_TOLERANCE = 1;
+
+function fitsScenarioFormality(items: WardrobeItem[], scenario: OccasionTag): boolean {
+  if (items.length === 0) return false;
+  const [minF, maxF] = SCENARIO_FORMALITY[scenario];
+  const fs = items.map(effectiveFormality);
+  const avg = fs.reduce((a, b) => a + b, 0) / fs.length;
+  return avg >= minF - SCENARIO_TOLERANCE && avg <= maxF + SCENARIO_TOLERANCE;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -170,6 +180,10 @@ export function generateOutfitsForItem(
     if (sets.length >= 3) break;
     if (usedScenarios.has(scenario)) continue;
     usedScenarios.add(scenario);
+
+    // Hard scenario gate: skip scenarios where the anchor item's formality is
+    // clearly off-band, so a casual piece doesn't get suggested for a wedding.
+    if (!fitsScenarioFormality([newItem], scenario)) continue;
 
     const usedIds = new Set<string>([newItem.id]);
     const outfit: OutfitComponent[] = [toComponent(newItem)];
