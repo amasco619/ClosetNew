@@ -32,6 +32,7 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   navy_polo:               require('@/assets/recommendations/navy_polo.png'),
   graphic_tee:             require('@/assets/recommendations/graphic_tee.png'),
   beige_crop_top:          require('@/assets/recommendations/beige_crop_top.png'),
+  black_cutout_crop_top:   require('@/assets/recommendations/black_cutout_crop_top.png'),
   // ── Bottoms ─────────────────────────────────────────────────────────────
   dark_trousers:           require('@/assets/recommendations/dark_trousers.png'),
   beige_trousers:          require('@/assets/recommendations/beige_trousers.png'),
@@ -45,6 +46,12 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   plaid_mini_skirt:        require('@/assets/recommendations/plaid_mini_skirt.png'),
   denim_mini_skirt:        require('@/assets/recommendations/denim_mini_skirt.png'),
   high_waist_jeans:        require('@/assets/recommendations/high_waist_jeans.png'),
+  grey_trousers:           require('@/assets/recommendations/grey_trousers.png'),
+  dark_slim_jeans:         require('@/assets/recommendations/dark_slim_jeans.png'),
+  navy_wide_leg_trousers:  require('@/assets/recommendations/navy_wide_leg_trousers.png'),
+  red_pencil_skirt:        require('@/assets/recommendations/red_pencil_skirt.png'),
+  beige_satin_midi:        require('@/assets/recommendations/beige_satin_midi.png'),
+  floral_blush_maxi_skirt: require('@/assets/recommendations/floral_blush_maxi_skirt.png'),
   // ── Dresses ─────────────────────────────────────────────────────────────
   black_dress:             require('@/assets/recommendations/black_dress.png'),
   pink_dress:              require('@/assets/recommendations/pink_dress.png'),
@@ -62,6 +69,9 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   denim_shirt_dress:       require('@/assets/recommendations/denim_shirt_dress.png'),
   floral_smocked_dress:    require('@/assets/recommendations/floral_smocked_dress.png'),
   casual_slip_dress:       require('@/assets/recommendations/casual_slip_dress.png'),
+  black_silk_slip_dress:   require('@/assets/recommendations/black_silk_slip_dress.png'),
+  black_bodycon_dress:     require('@/assets/recommendations/black_bodycon_dress.png'),
+  floral_pink_wrap_dress:  require('@/assets/recommendations/floral_pink_wrap_dress.png'),
   // ── Outerwear ────────────────────────────────────────────────────────────
   navy_blazer:             require('@/assets/recommendations/navy_blazer.png'),
   red_blazer:              require('@/assets/recommendations/red_blazer.png'),
@@ -76,6 +86,9 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   satin_bomber:            require('@/assets/recommendations/satin_bomber.png'),
   oversized_blazer:        require('@/assets/recommendations/oversized_blazer.png'),
   denim_jacket:            require('@/assets/recommendations/denim_jacket.png'),
+  black_leather_moto:      require('@/assets/recommendations/black_leather_moto.png'),
+  blush_trench_coat:       require('@/assets/recommendations/blush_trench_coat.png'),
+  cream_linen_blazer:      require('@/assets/recommendations/cream_linen_blazer.png'),
   // ── Shoes ────────────────────────────────────────────────────────────────
   white_sneakers:          require('@/assets/recommendations/white_sneakers.png'),
   white_flats:             require('@/assets/recommendations/white_flats.png'),
@@ -122,6 +135,11 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   gold_bangle:             require('@/assets/recommendations/gold_bangle.png'),
   layered_necklaces:       require('@/assets/recommendations/layered_necklaces.png'),
   colorful_bangles:        require('@/assets/recommendations/colorful_bangles.png'),
+  gold_stacking_rings:     require('@/assets/recommendations/gold_stacking_rings.png'),
+  gold_drop_earrings:      require('@/assets/recommendations/gold_drop_earrings.png'),
+  chunky_gold_chain:       require('@/assets/recommendations/chunky_gold_chain.png'),
+  pearl_gold_pendant:      require('@/assets/recommendations/pearl_gold_pendant.png'),
+  gold_dress_watch:        require('@/assets/recommendations/gold_dress_watch.png'),
 };
 
 const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
@@ -135,8 +153,8 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'min-top-2', category: 'top',       subType: 'sweater',       colorFamily: 'cream',  priority: 2, label: 'Fine-Knit Cream Sweater',           description: 'Soft texture in a quiet, warm neutral',                        sampleImage: SAMPLE_IMAGES.cream_sweater },
     { id: 'min-top-3', category: 'top',       subType: 'shirt',         colorFamily: 'white',  priority: 3, label: 'Oversized White Linen Shirt',        description: 'Relaxed linen volume — minimal dressing at its best',          sampleImage: SAMPLE_IMAGES.white_linen_overshirt },
     // Bottoms
-    { id: 'min-bot-1', category: 'bottom',    subType: 'trousers',      colorFamily: 'grey',   priority: 1, label: 'Straight-Leg Grey Trousers',        description: 'Precise tailoring with no unnecessary detail',                 sampleImage: SAMPLE_IMAGES.dark_trousers },
-    { id: 'min-bot-2', category: 'bottom',    subType: 'jeans',         colorFamily: 'navy',   priority: 2, label: 'Dark Slim Straight Jeans',          description: 'Clean denim in a sleek, pared-back cut',                       sampleImage: SAMPLE_IMAGES.jeans },
+    { id: 'min-bot-1', category: 'bottom',    subType: 'trousers',      colorFamily: 'grey',   priority: 1, label: 'Straight-Leg Grey Trousers',        description: 'Precise tailoring with no unnecessary detail',                 sampleImage: SAMPLE_IMAGES.grey_trousers },
+    { id: 'min-bot-2', category: 'bottom',    subType: 'jeans',         colorFamily: 'navy',   priority: 2, label: 'Dark Slim Straight Jeans',          description: 'Clean denim in a sleek, pared-back cut',                       sampleImage: SAMPLE_IMAGES.dark_slim_jeans },
     { id: 'min-bot-3', category: 'bottom',    subType: 'wide-leg',      colorFamily: 'white',  priority: 3, label: 'White Wide-Leg Linen Trousers',     description: 'Flowing white linen — airy, light and intentionally simple',   sampleImage: SAMPLE_IMAGES.white_wide_leg_trousers },
     // Dresses
     { id: 'min-drs-1', category: 'dress',     subType: 'midi-dress',    colorFamily: 'beige',  priority: 1, label: 'Beige Silk Slip Midi Dress',        description: 'Fluid, understated, and beautifully minimal',                  sampleImage: SAMPLE_IMAGES.beige_slip_dress },
@@ -155,7 +173,7 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'min-bag-2', category: 'bag',       subType: 'tote',          colorFamily: 'beige',  priority: 2, label: 'Beige Leather Tote',                description: 'Soft and unfussy — the everyday carry for a minimal wardrobe', sampleImage: SAMPLE_IMAGES.beige_bag },
     { id: 'min-bag-3', category: 'bag',       subType: 'crossbody',     colorFamily: 'white',  priority: 3, label: 'White Compact Crossbody',           description: 'Small, clean, and precise — just what you need',               sampleImage: SAMPLE_IMAGES.white_crossbody },
     // Jewelry
-    { id: 'min-jew-1', category: 'jewelry',   subType: 'ring',          colorFamily: 'gold',   priority: 1, label: 'Thin Gold Stacking Rings',          description: 'A quiet glimmer — barely there but perfectly placed',          sampleImage: SAMPLE_IMAGES.gold_necklace },
+    { id: 'min-jew-1', category: 'jewelry',   subType: 'ring',          colorFamily: 'gold',   priority: 1, label: 'Thin Gold Stacking Rings',          description: 'A quiet glimmer — barely there but perfectly placed',          sampleImage: SAMPLE_IMAGES.gold_stacking_rings },
     { id: 'min-jew-2', category: 'jewelry',   subType: 'necklace',      colorFamily: 'gold',   priority: 2, label: 'Gold Delicate Chain Necklace',      description: 'One fine chain, close to the collarbone — nothing more needed', sampleImage: SAMPLE_IMAGES.gold_necklace },
     { id: 'min-jew-3', category: 'jewelry',   subType: 'earrings',      colorFamily: 'gold',   priority: 3, label: 'Small Gold Stud Earrings',          description: 'A single, quiet dot of gold — the only finish you need',      sampleImage: SAMPLE_IMAGES.gold_stud_earrings },
   ],
@@ -169,11 +187,11 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'elv-top-2', category: 'top',       subType: 'sweater',       colorFamily: 'cream',  priority: 2, label: 'Cashmere Ribbed Crewneck',          description: 'Premium softness — the definition of quiet luxury',            sampleImage: SAMPLE_IMAGES.cream_sweater },
     { id: 'elv-top-3', category: 'top',       subType: 'camisole',      colorFamily: 'ivory',  priority: 3, label: 'Ivory Silk Camisole',               description: 'Barely-there elegance — silk against the skin, effortlessly chic', sampleImage: SAMPLE_IMAGES.ivory_silk_cami },
     // Bottoms
-    { id: 'elv-bot-1', category: 'bottom',    subType: 'trousers',      colorFamily: 'navy',   priority: 1, label: 'Wide-Leg Navy Trousers',            description: 'Fluid lines and sharp tailoring — effortlessly refined',       sampleImage: SAMPLE_IMAGES.dark_trousers },
+    { id: 'elv-bot-1', category: 'bottom',    subType: 'trousers',      colorFamily: 'navy',   priority: 1, label: 'Wide-Leg Navy Trousers',            description: 'Fluid lines and sharp tailoring — effortlessly refined',       sampleImage: SAMPLE_IMAGES.navy_wide_leg_trousers },
     { id: 'elv-bot-2', category: 'bottom',    subType: 'midi-skirt',    colorFamily: 'camel',  priority: 2, label: 'Camel Midi A-Line Skirt',           description: 'A sophisticated silhouette in a warm statement neutral',       sampleImage: SAMPLE_IMAGES.camel_skirt },
     { id: 'elv-bot-3', category: 'bottom',    subType: 'wide-leg',      colorFamily: 'black',  priority: 3, label: 'Black Tailored Wide-Leg Pants',     description: 'Strong lines and clean drape — polished power dressing',      sampleImage: SAMPLE_IMAGES.black_wide_leg_pants },
     // Dresses
-    { id: 'elv-drs-1', category: 'dress',     subType: 'midi-dress',    colorFamily: 'black',  priority: 1, label: 'Black Silk Slip Midi Dress',        description: 'Understated glamour for elevated evenings',                    sampleImage: SAMPLE_IMAGES.black_dress },
+    { id: 'elv-drs-1', category: 'dress',     subType: 'midi-dress',    colorFamily: 'black',  priority: 1, label: 'Black Silk Slip Midi Dress',        description: 'Understated glamour for elevated evenings',                    sampleImage: SAMPLE_IMAGES.black_silk_slip_dress },
     { id: 'elv-drs-2', category: 'dress',     subType: 'wrap-dress',    colorFamily: 'navy',   priority: 2, label: 'Navy Wrap Midi Dress',              description: 'A polished wrap silhouette in a deeply elegant navy',          sampleImage: SAMPLE_IMAGES.navy_wrap_dress },
     { id: 'elv-drs-3', category: 'dress',     subType: 'slip-dress',    colorFamily: 'champagne', priority: 3, label: 'Champagne Satin Slip Dress',    description: 'Luminous satin that turns any occasion into a moment',         sampleImage: SAMPLE_IMAGES.champagne_slip_dress },
     // Outerwear
@@ -189,7 +207,7 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'elv-bag-2', category: 'bag',       subType: 'mini-bag',      colorFamily: 'black',  priority: 2, label: 'Black Mini Structured Bag',         description: 'Compact luxury — a small bag with maximum presence',           sampleImage: SAMPLE_IMAGES.mini_bag },
     { id: 'elv-bag-3', category: 'bag',       subType: 'clutch',        colorFamily: 'tan',    priority: 3, label: 'Tan Leather Clutch',                description: 'Clean lines and buttery leather — a timeless evening carry',   sampleImage: SAMPLE_IMAGES.tan_clutch },
     // Jewelry
-    { id: 'elv-jew-1', category: 'jewelry',   subType: 'earrings',      colorFamily: 'gold',   priority: 1, label: 'Gold Statement Drop Earrings',      description: 'A refined finishing touch that elevates every look',           sampleImage: SAMPLE_IMAGES.gold_hoops },
+    { id: 'elv-jew-1', category: 'jewelry',   subType: 'earrings',      colorFamily: 'gold',   priority: 1, label: 'Gold Statement Drop Earrings',      description: 'A refined finishing touch that elevates every look',           sampleImage: SAMPLE_IMAGES.gold_drop_earrings },
     { id: 'elv-jew-2', category: 'jewelry',   subType: 'bracelet',      colorFamily: 'gold',   priority: 2, label: 'Gold Chain Bracelet',               description: 'Linked gold at the wrist — understated elegance in motion',    sampleImage: SAMPLE_IMAGES.gold_bracelet },
     { id: 'elv-jew-3', category: 'jewelry',   subType: 'earrings',      colorFamily: 'pearl',  priority: 3, label: 'Pearl Stud Earrings',               description: 'The most timeless jewel — soft luminescence, always right',   sampleImage: SAMPLE_IMAGES.pearl_studs },
   ],
@@ -200,19 +218,19 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
   bold: [
     // Tops
     { id: 'bld-top-1', category: 'top',       subType: 'blouse',        colorFamily: 'red',    priority: 1, label: 'Red Satin Statement Blouse',        description: 'Rich red that stops the room before you say a word',          sampleImage: SAMPLE_IMAGES.red_blouse },
-    { id: 'bld-top-2', category: 'top',       subType: 'crop-top',      colorFamily: 'black',  priority: 2, label: 'Black Cutout Crop Top',             description: 'Bold proportions with an edge — confidence in every cut',     sampleImage: SAMPLE_IMAGES.black_blouse },
+    { id: 'bld-top-2', category: 'top',       subType: 'crop-top',      colorFamily: 'black',  priority: 2, label: 'Black Cutout Crop Top',             description: 'Bold proportions with an edge — confidence in every cut',     sampleImage: SAMPLE_IMAGES.black_cutout_crop_top },
     { id: 'bld-top-3', category: 'top',       subType: 'fitted-top',    colorFamily: 'cobalt', priority: 3, label: 'Cobalt Blue Fitted Top',            description: 'Vivid cobalt energy — a colour that demands the spotlight',    sampleImage: SAMPLE_IMAGES.cobalt_blue_top },
     // Bottoms
-    { id: 'bld-bot-1', category: 'bottom',    subType: 'wide-leg',      colorFamily: 'black',  priority: 1, label: 'High-Waist Wide-Leg Trousers',      description: 'Powerful silhouette with strong, graphic lines',               sampleImage: SAMPLE_IMAGES.dark_trousers },
-    { id: 'bld-bot-2', category: 'bottom',    subType: 'midi-skirt',    colorFamily: 'red',    priority: 2, label: 'Red Midi Pencil Skirt',             description: 'A bold, body-skimming statement from waist to knee',          sampleImage: SAMPLE_IMAGES.camel_skirt },
+    { id: 'bld-bot-1', category: 'bottom',    subType: 'wide-leg',      colorFamily: 'black',  priority: 1, label: 'High-Waist Wide-Leg Trousers',      description: 'Powerful silhouette with strong, graphic lines',               sampleImage: SAMPLE_IMAGES.black_wide_leg_pants },
+    { id: 'bld-bot-2', category: 'bottom',    subType: 'midi-skirt',    colorFamily: 'red',    priority: 2, label: 'Red Midi Pencil Skirt',             description: 'A bold, body-skimming statement from waist to knee',          sampleImage: SAMPLE_IMAGES.red_pencil_skirt },
     { id: 'bld-bot-3', category: 'bottom',    subType: 'mini-skirt',    colorFamily: 'leopard',priority: 3, label: 'Leopard Print Mini Skirt',          description: 'Fearless animal print — you\'re not here to blend in',        sampleImage: SAMPLE_IMAGES.leopard_mini_skirt },
     // Dresses
-    { id: 'bld-drs-1', category: 'dress',     subType: 'mini-dress',    colorFamily: 'black',  priority: 1, label: 'Black Bodycon Mini Dress',          description: 'Confident curves and unapologetic style in one piece',         sampleImage: SAMPLE_IMAGES.black_dress },
+    { id: 'bld-drs-1', category: 'dress',     subType: 'mini-dress',    colorFamily: 'black',  priority: 1, label: 'Black Bodycon Mini Dress',          description: 'Confident curves and unapologetic style in one piece',         sampleImage: SAMPLE_IMAGES.black_bodycon_dress },
     { id: 'bld-drs-2', category: 'dress',     subType: 'maxi-dress',    colorFamily: 'red',    priority: 2, label: 'Red Wrap Maxi Dress',               description: 'Sweeping red drama — a head-turning entrance guaranteed',      sampleImage: SAMPLE_IMAGES.red_wrap_dress },
     { id: 'bld-drs-3', category: 'dress',     subType: 'midi-dress',    colorFamily: 'emerald',priority: 3, label: 'Emerald Green Midi Dress',          description: 'Rich jewel-tone green that commands every room effortlessly',  sampleImage: SAMPLE_IMAGES.emerald_dress },
     // Outerwear
     { id: 'bld-out-1', category: 'outerwear', subType: 'blazer',        colorFamily: 'red',    priority: 1, label: 'Oversized Red Power Blazer',        description: 'Own the room — structured shoulders and pure red energy',     sampleImage: SAMPLE_IMAGES.red_blazer },
-    { id: 'bld-out-2', category: 'outerwear', subType: 'leather-jacket',colorFamily: 'black',  priority: 2, label: 'Black Leather Moto Jacket',         description: 'Grounded edge that works with everything in your wardrobe',   sampleImage: SAMPLE_IMAGES.navy_blazer },
+    { id: 'bld-out-2', category: 'outerwear', subType: 'leather-jacket',colorFamily: 'black',  priority: 2, label: 'Black Leather Moto Jacket',         description: 'Grounded edge that works with everything in your wardrobe',   sampleImage: SAMPLE_IMAGES.black_leather_moto },
     { id: 'bld-out-3', category: 'outerwear', subType: 'coat',          colorFamily: 'animal', priority: 3, label: 'Animal Print Statement Coat',       description: 'Wear the coat, become the statement — fearless from the first layer', sampleImage: SAMPLE_IMAGES.animal_print_coat },
     // Shoes
     { id: 'bld-sho-1', category: 'shoes',     subType: 'heels',         colorFamily: 'black',  priority: 1, label: 'Black Platform Block Heels',        description: 'Height, attitude and drama — bold from the ground up',        sampleImage: SAMPLE_IMAGES.black_heels },
@@ -223,7 +241,7 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'bld-bag-2', category: 'bag',       subType: 'mini-bag',      colorFamily: 'red',    priority: 2, label: 'Red Structured Mini Bag',           description: 'Bold red on your arm — small bag, massive impact',             sampleImage: SAMPLE_IMAGES.red_mini_bag },
     { id: 'bld-bag-3', category: 'bag',       subType: 'clutch',        colorFamily: 'gold',   priority: 3, label: 'Gold Metallic Evening Clutch',      description: 'Gleaming gold that makes the whole look electric',             sampleImage: SAMPLE_IMAGES.gold_clutch },
     // Jewelry
-    { id: 'bld-jew-1', category: 'jewelry',   subType: 'necklace',      colorFamily: 'gold',   priority: 1, label: 'Chunky Gold Statement Chain',       description: 'Go big — a neck piece that declares you\'ve arrived',         sampleImage: SAMPLE_IMAGES.gold_necklace },
+    { id: 'bld-jew-1', category: 'jewelry',   subType: 'necklace',      colorFamily: 'gold',   priority: 1, label: 'Chunky Gold Statement Chain',       description: 'Go big — a neck piece that declares you\'ve arrived',         sampleImage: SAMPLE_IMAGES.chunky_gold_chain },
     { id: 'bld-jew-2', category: 'jewelry',   subType: 'earrings',      colorFamily: 'gold',   priority: 2, label: 'Bold Geometric Drop Earrings',      description: 'Architectural shapes that frame the face with intention',      sampleImage: SAMPLE_IMAGES.geometric_earrings },
     { id: 'bld-jew-3', category: 'jewelry',   subType: 'bracelet',      colorFamily: 'gold',   priority: 3, label: 'Layered Gold Bangles',              description: 'Stack them all — cascading gold that makes noise when you move', sampleImage: SAMPLE_IMAGES.gold_bangles },
   ],
@@ -237,16 +255,16 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'rom-top-2', category: 'top',       subType: 'sweater',       colorFamily: 'cream',  priority: 2, label: 'Off-Shoulder Cream Knit',           description: 'Gentle and feminine — cosy texture with delicate appeal',     sampleImage: SAMPLE_IMAGES.cream_sweater },
     { id: 'rom-top-3', category: 'top',       subType: 'camisole',      colorFamily: 'lilac',  priority: 3, label: 'Lilac Lace Trim Camisole',          description: 'Soft lilac with delicate lace — tenderly feminine and sweet',  sampleImage: SAMPLE_IMAGES.lilac_lace_cami },
     // Bottoms
-    { id: 'rom-bot-1', category: 'bottom',    subType: 'midi-skirt',    colorFamily: 'beige',  priority: 1, label: 'Beige Satin Midi Skirt',            description: 'Soft drape and quiet sheen for feminine, graceful dressing',  sampleImage: SAMPLE_IMAGES.camel_skirt },
-    { id: 'rom-bot-2', category: 'bottom',    subType: 'maxi-skirt',    colorFamily: 'pink',   priority: 2, label: 'Floral Blush Maxi Skirt',           description: 'Flowing florals and pretty blush tones — pure romance',       sampleImage: SAMPLE_IMAGES.pink_dress },
+    { id: 'rom-bot-1', category: 'bottom',    subType: 'midi-skirt',    colorFamily: 'beige',  priority: 1, label: 'Beige Satin Midi Skirt',            description: 'Soft drape and quiet sheen for feminine, graceful dressing',  sampleImage: SAMPLE_IMAGES.beige_satin_midi },
+    { id: 'rom-bot-2', category: 'bottom',    subType: 'maxi-skirt',    colorFamily: 'pink',   priority: 2, label: 'Floral Blush Maxi Skirt',           description: 'Flowing florals and pretty blush tones — pure romance',       sampleImage: SAMPLE_IMAGES.floral_blush_maxi_skirt },
     { id: 'rom-bot-3', category: 'bottom',    subType: 'mini-skirt',    colorFamily: 'white',  priority: 3, label: 'White Broderie Anglaise Mini Skirt',description: 'Delicate eyelet embroidery — sweetly romantic and summery',    sampleImage: SAMPLE_IMAGES.white_broderie_skirt },
     // Dresses
-    { id: 'rom-drs-1', category: 'dress',     subType: 'wrap-dress',    colorFamily: 'pink',   priority: 1, label: 'Floral Pink Wrap Midi Dress',       description: 'Feminine wrap silhouette in a soft, romantic print',          sampleImage: SAMPLE_IMAGES.pink_dress },
+    { id: 'rom-drs-1', category: 'dress',     subType: 'wrap-dress',    colorFamily: 'pink',   priority: 1, label: 'Floral Pink Wrap Midi Dress',       description: 'Feminine wrap silhouette in a soft, romantic print',          sampleImage: SAMPLE_IMAGES.floral_pink_wrap_dress },
     { id: 'rom-drs-2', category: 'dress',     subType: 'midi-dress',    colorFamily: 'blush',  priority: 2, label: 'Blush Tulle Midi Dress',            description: 'Dreamy layers of blush tulle — a romantic vision in motion',   sampleImage: SAMPLE_IMAGES.blush_tulle_dress },
     { id: 'rom-drs-3', category: 'dress',     subType: 'maxi-dress',    colorFamily: 'ivory',  priority: 3, label: 'Ivory Lace Maxi Dress',             description: 'Delicate floral lace from hem to cuff — timeless feminine grace', sampleImage: SAMPLE_IMAGES.ivory_lace_dress },
     // Outerwear
-    { id: 'rom-out-1', category: 'outerwear', subType: 'trench',        colorFamily: 'beige',  priority: 1, label: 'Blush Belted Trench Coat',          description: 'A cinched-waist silhouette that flatters and enchants',       sampleImage: SAMPLE_IMAGES.camel_coat },
-    { id: 'rom-out-2', category: 'outerwear', subType: 'blazer',        colorFamily: 'cream',  priority: 2, label: 'Cream Linen Blazer',                description: 'Light and feminine — soft tailoring for warmer days',         sampleImage: SAMPLE_IMAGES.navy_blazer },
+    { id: 'rom-out-1', category: 'outerwear', subType: 'trench',        colorFamily: 'beige',  priority: 1, label: 'Blush Belted Trench Coat',          description: 'A cinched-waist silhouette that flatters and enchants',       sampleImage: SAMPLE_IMAGES.blush_trench_coat },
+    { id: 'rom-out-2', category: 'outerwear', subType: 'blazer',        colorFamily: 'cream',  priority: 2, label: 'Cream Linen Blazer',                description: 'Light and feminine — soft tailoring for warmer days',         sampleImage: SAMPLE_IMAGES.cream_linen_blazer },
     { id: 'rom-out-3', category: 'outerwear', subType: 'jacket',        colorFamily: 'pink',   priority: 3, label: 'Pink Faux Fur Jacket',              description: 'Fluffy, playful and unapologetically feminine — wear joy',    sampleImage: SAMPLE_IMAGES.pink_faux_fur },
     // Shoes
     { id: 'rom-sho-1', category: 'shoes',     subType: 'heels',         colorFamily: 'beige',  priority: 1, label: 'Beige Strappy Block Heels',         description: 'Delicate straps and a neutral tone for romantic dressing',    sampleImage: SAMPLE_IMAGES.beige_heels },
@@ -257,7 +275,7 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'rom-bag-2', category: 'bag',       subType: 'mini-bag',      colorFamily: 'pink',   priority: 2, label: 'Pink Mini Quilted Bag',             description: 'Quilted blush with gold chain — a romantic bag in miniature', sampleImage: SAMPLE_IMAGES.pink_mini_bag },
     { id: 'rom-bag-3', category: 'bag',       subType: 'clutch',        colorFamily: 'cream',  priority: 3, label: 'Cream Pearl-Detail Clutch',         description: 'Pearl-trimmed ivory — the most enchanting evening carry',     sampleImage: SAMPLE_IMAGES.cream_clutch },
     // Jewelry
-    { id: 'rom-jew-1', category: 'jewelry',   subType: 'necklace',      colorFamily: 'gold',   priority: 1, label: 'Dainty Pearl & Gold Pendant',       description: 'A whisper of gold close to the heart — delicate and sweet',   sampleImage: SAMPLE_IMAGES.gold_necklace },
+    { id: 'rom-jew-1', category: 'jewelry',   subType: 'necklace',      colorFamily: 'gold',   priority: 1, label: 'Dainty Pearl & Gold Pendant',       description: 'A whisper of gold close to the heart — delicate and sweet',   sampleImage: SAMPLE_IMAGES.pearl_gold_pendant },
     { id: 'rom-jew-2', category: 'jewelry',   subType: 'bracelet',      colorFamily: 'rose-gold', priority: 2, label: 'Rose Gold Chain Bracelet',      description: 'Blush-toned gold that glows softly at the wrist',             sampleImage: SAMPLE_IMAGES.rose_gold_bracelet },
     { id: 'rom-jew-3', category: 'jewelry',   subType: 'earrings',      colorFamily: 'pink',   priority: 3, label: 'Pink Crystal Drop Earrings',        description: 'Glittering pink crystals — light-catching and utterly pretty', sampleImage: SAMPLE_IMAGES.pink_crystal_earrings },
   ],
@@ -291,7 +309,7 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'cls-bag-2', category: 'bag',       subType: 'clutch',        colorFamily: 'black',  priority: 2, label: 'Black Patent Leather Clutch',       description: 'High-gloss patent — the classic evening bag, perfected',      sampleImage: SAMPLE_IMAGES.black_patent_clutch },
     { id: 'cls-bag-3', category: 'bag',       subType: 'shoulder-bag',  colorFamily: 'navy',   priority: 3, label: 'Navy Chain Shoulder Bag',           description: 'A gold-chained navy bag — European elegance in every link',   sampleImage: SAMPLE_IMAGES.navy_chain_bag },
     // Jewelry
-    { id: 'cls-jew-1', category: 'jewelry',   subType: 'watch',         colorFamily: 'gold',   priority: 1, label: 'Gold Classic Dress Watch',          description: 'The refined finishing touch — elegance measured in time',     sampleImage: SAMPLE_IMAGES.silver_watch },
+    { id: 'cls-jew-1', category: 'jewelry',   subType: 'watch',         colorFamily: 'gold',   priority: 1, label: 'Gold Classic Dress Watch',          description: 'The refined finishing touch — elegance measured in time',     sampleImage: SAMPLE_IMAGES.gold_dress_watch },
     { id: 'cls-jew-2', category: 'jewelry',   subType: 'earrings',      colorFamily: 'pearl',  priority: 2, label: 'Pearl Drop Earrings',               description: 'Heritage elegance at the ear — softly luminous and timeless', sampleImage: SAMPLE_IMAGES.pearl_drop_earrings },
     { id: 'cls-jew-3', category: 'jewelry',   subType: 'bracelet',      colorFamily: 'gold',   priority: 3, label: 'Simple Gold Bangle',                description: 'One smooth arc of gold — the most enduring arm statement',    sampleImage: SAMPLE_IMAGES.gold_bangle },
   ],
