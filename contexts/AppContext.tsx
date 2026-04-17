@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory, getProfileBlueprint } from '@/constants/wardrobeBlueprint';
+import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory, getProfileBlueprint, BLUEPRINT_SUBTYPES_BY_CATEGORY } from '@/constants/wardrobeBlueprint';
 import {
   BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag,
   Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet, WearEntry,
@@ -103,15 +103,10 @@ const STORAGE_KEYS = {
   savedLooks: '@auracloset_saved_looks',
 };
 
-const subTypes: Record<ItemCategory, string[]> = {
-  top: ['t-shirt', 'graphic-tee', 'long-sleeve', 'polo-shirt', 'henley', 'rugby-shirt', 'shirt', 'blouse', 'fitted-top', 'sweater', 'turtleneck', 'tank-top', 'camisole', 'crop-top', 'cardigan'],
-  bottom: ['jeans', 'trousers', 'chinos', 'wide-leg', 'joggers', 'shorts', 'leggings', 'mini-skirt', 'midi-skirt', 'maxi-skirt'],
-  dress: ['mini-dress', 'midi-dress', 'maxi-dress', 'wrap-dress', 'shirt-dress', 'cocktail-dress', 'slip-dress', 'knit-dress', 'sheath-dress'],
-  outerwear: ['jacket', 'hoodie', 'blazer', 'coat', 'pea-coat', 'trench', 'raincoat', 'puffer', 'vest', 'denim-jacket', 'bomber-jacket', 'leather-jacket', 'varsity-jacket'],
-  shoes: ['sneakers', 'heels', 'kitten-heels', 'flats', 'boots', 'sandals', 'loafers', 'mules', 'slingbacks'],
-  bag: ['tote', 'crossbody', 'clutch', 'backpack', 'shoulder-bag', 'mini-bag'],
-  jewelry: ['necklace', 'earrings', 'bracelet', 'ring', 'watch', 'brooch'],
-};
+// Sub-type chips are derived from the curated blueprints (single source
+// of truth) so every blueprint slot is guaranteed to be selectable from
+// Add Item / Item Detail under the strict matcher.
+const subTypes: Record<ItemCategory, string[]> = BLUEPRINT_SUBTYPES_BY_CATEGORY;
 
 const colorFamilies = ['black', 'white', 'navy', 'beige', 'grey', 'brown', 'red', 'pink', 'blue', 'green', 'burgundy', 'cream', 'olive', 'camel', 'lavender', 'coral'];
 

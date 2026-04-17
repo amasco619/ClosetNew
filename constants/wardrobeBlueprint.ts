@@ -371,6 +371,39 @@ const LIFESTYLE_CATEGORY_WEIGHTS: Record<string, Record<ItemCategory, number>> =
 
 export const WARDROBE_BLUEPRINT: BlueprintItem[] = STYLE_BLUEPRINTS.classic;
 
+/**
+ * Single source of truth for sub-type chips shown in Add Item / Item
+ * Detail pickers. Derived from every sub-type used across all curated
+ * blueprints, then merged with hand-curated extras so common everyday
+ * garments stay selectable. Guarantees that every blueprint slot is
+ * fillable from the UI under the strict matcher.
+ */
+const EXTRA_SUBTYPES: Record<ItemCategory, string[]> = {
+  top: ['t-shirt', 'long-sleeve', 'polo-shirt', 'henley', 'rugby-shirt', 'turtleneck'],
+  bottom: ['chinos', 'joggers', 'shorts', 'leggings'],
+  dress: ['cocktail-dress'],
+  outerwear: ['raincoat', 'puffer', 'vest'],
+  shoes: [],
+  bag: [],
+  jewelry: ['brooch'],
+};
+
+export const BLUEPRINT_SUBTYPES_BY_CATEGORY: Record<ItemCategory, string[]> = (() => {
+  const acc: Record<ItemCategory, Set<string>> = {
+    top: new Set(), bottom: new Set(), dress: new Set(), outerwear: new Set(),
+    shoes: new Set(), bag: new Set(), jewelry: new Set(),
+  };
+  for (const items of Object.values(STYLE_BLUEPRINTS)) {
+    for (const it of items) acc[it.category]?.add(it.subType);
+  }
+  for (const [cat, extras] of Object.entries(EXTRA_SUBTYPES) as Array<[ItemCategory, string[]]>) {
+    extras.forEach(s => acc[cat].add(s));
+  }
+  const out = {} as Record<ItemCategory, string[]>;
+  (Object.keys(acc) as ItemCategory[]).forEach(c => { out[c] = [...acc[c]].sort(); });
+  return out;
+})();
+
 export function getProfileBlueprint(profile: UserProfile): BlueprintItem[] {
   const primaryGoal = profile.styleGoalPrimary;
   if (!primaryGoal) return WARDROBE_BLUEPRINT;
