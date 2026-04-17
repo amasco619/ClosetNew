@@ -25,11 +25,14 @@ const colorDots: Record<string, string> = {
 
 export default function WardrobeScreen() {
   const insets = useSafeAreaInsets();
-  const { wardrobeItems, removeWardrobeItem, canAddItem, isPremium } = useApp();
+  const { wardrobeItems, activeWardrobeItems, removeWardrobeItem, canAddItem, isPremium } = useApp();
   const [filter, setFilter] = useState<string>('all');
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
-  const filteredItems = filter === 'all' ? wardrobeItems : wardrobeItems.filter(item => item.category === filter);
+  const hiddenCount = wardrobeItems.length - activeWardrobeItems.length;
+  const filteredItems = filter === 'all'
+    ? activeWardrobeItems
+    : activeWardrobeItems.filter(item => item.category === filter);
 
   const handleDelete = (item: WardrobeItem) => {
     if (Platform.OS === 'web') {
@@ -79,7 +82,7 @@ export default function WardrobeScreen() {
         <View>
           <Text style={styles.title}>Wardrobe</Text>
           <Text style={styles.subtitle}>
-            {wardrobeItems.length} items{!isPremium ? ` / 10 max` : ''}
+            {activeWardrobeItems.length} items{!isPremium ? ` / 10 max` : ''}
           </Text>
         </View>
         <Pressable
@@ -117,14 +120,24 @@ export default function WardrobeScreen() {
         />
       </View>
 
+      {hiddenCount > 0 && (
+        <Pressable style={styles.hiddenBanner} onPress={() => router.push('/premium')}>
+          <Ionicons name="lock-closed" size={13} color={Colors.secondary} />
+          <Text style={styles.hiddenBannerText}>
+            {hiddenCount} item{hiddenCount > 1 ? 's' : ''} hidden — upgrade to show all
+          </Text>
+          <Ionicons name="chevron-forward" size={13} color={Colors.secondary} />
+        </Pressable>
+      )}
+
       {filteredItems.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="shirt-outline" size={48} color={Colors.textLight} />
           <Text style={styles.emptyTitle}>
-            {wardrobeItems.length === 0 ? 'Start your closet' : 'No items in this category'}
+            {activeWardrobeItems.length === 0 ? 'Start your closet' : 'No items in this category'}
           </Text>
           <Text style={styles.emptySubtitle}>
-            {wardrobeItems.length === 0 ? 'Add your first item to begin building your wardrobe' : 'Try adding items to this category'}
+            {activeWardrobeItems.length === 0 ? 'Add your first item to begin building your wardrobe' : 'Try adding items to this category'}
           </Text>
         </View>
       ) : (
@@ -170,4 +183,13 @@ const styles = StyleSheet.create({
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   emptyTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary, marginTop: 16, textAlign: 'center' },
   emptySubtitle: { fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary, marginTop: 8, textAlign: 'center', lineHeight: 20 },
+  hiddenBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 20, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 10,
+    backgroundColor: Colors.secondary + '10', borderRadius: 12,
+    borderWidth: 1, borderColor: Colors.secondary + '25',
+  },
+  hiddenBannerText: {
+    fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.secondary, flex: 1,
+  },
 });

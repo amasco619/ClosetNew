@@ -23,6 +23,7 @@ interface AppContextValue {
   profile: UserProfile;
   updateProfile: (updates: Partial<UserProfile>) => void;
   wardrobeItems: WardrobeItem[];
+  activeWardrobeItems: WardrobeItem[];
   addWardrobeItem: (item: Omit<WardrobeItem, 'id' | 'createdAt'>) => void;
   removeWardrobeItem: (id: string) => void;
   updateWardrobeItem: (id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => void;
@@ -178,25 +179,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isLoading && !slotsInitialized) {
       const blueprint = getProfileBlueprint(profile);
-      const slots = initializeSlots(wardrobeItems, blueprint);
+      const active = isPremium ? wardrobeItems : wardrobeItems.slice(0, FREE_ITEM_CAP);
+      const slots = initializeSlots(active, blueprint);
       setRecommendationSlots(slots);
       setSlotsInitialized(true);
       AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
         slots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
       ));
     }
-  }, [isLoading, slotsInitialized, wardrobeItems]);
+  }, [isLoading, slotsInitialized, wardrobeItems, isPremium]);
 
   useEffect(() => {
     if (slotsInitialized) {
       const blueprint = getProfileBlueprint(profile);
-      const slots = initializeSlots(wardrobeItems, blueprint);
+      const active = isPremium ? wardrobeItems : wardrobeItems.slice(0, FREE_ITEM_CAP);
+      const slots = initializeSlots(active, blueprint);
       setRecommendationSlots(slots);
       AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
         slots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
       ));
     }
-  }, [profileBlueprintKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileBlueprintKey, isPremium]);
 
   const loadData = async () => {
     try {
@@ -394,14 +398,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const updated = prev.filter(item => item.id !== id);
       AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
       const blueprint = getProfileBlueprint(profile);
-      const refreshedSlots = initializeSlots(updated, blueprint);
+      const activeUpdated = isPremium ? updated : updated.slice(0, FREE_ITEM_CAP);
+      const refreshedSlots = initializeSlots(activeUpdated, blueprint);
       setRecommendationSlots(refreshedSlots);
       AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
         refreshedSlots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
       ));
       return updated;
     });
-  }, [profile]);
+  }, [profile, isPremium]);
 
   const updateWardrobeItem = useCallback((id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => {
     setWardrobeItems(prev => {
@@ -416,7 +421,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updates.colorFamily !== undefined;
       if (matcherFieldChanged) {
         const blueprint = getProfileBlueprint(profile);
-        const refreshedSlots = initializeSlots(next, blueprint);
+        const activeNext = isPremium ? next : next.slice(0, FREE_ITEM_CAP);
+        const refreshedSlots = initializeSlots(activeNext, blueprint);
         setRecommendationSlots(refreshedSlots);
         AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
           refreshedSlots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
@@ -424,7 +430,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       return next;
     });
-  }, [profile]);
+  }, [profile, isPremium]);
 
   const togglePremium = useCallback(() => {
     setIsPremium(prev => {
@@ -436,9 +442,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Rotation-based outfit generation ─────────────────────────────────────────
 
+  // The slice of wardrobeItems that is active for display and outfit/slot
+  // computation. Free users see only the first FREE_ITEM_CAP items; all
+  // items are still persisted so upgrading restores the full wardrobe.
+  const activeWardrobeItems = useMemo(
+    () => (isPremium ? wardrobeItems : wardrobeItems.slice(0, FREE_ITEM_CAP)),
+    [isPremium, wardrobeItems],
+  );
+
   const outfitPool = useMemo(
-    () => generateOutfitPool(wardrobeItems, profile, todayMood, reactions, todayString(), wearHistory),
-    [wardrobeItems, profile, todayMood, reactions, wearHistory],
+    () => generateOutfitPool(activeWardrobeItems, profile, todayMood, reactions, todayString(), wearHistory),
+    [activeWardrobeItems, profile, todayMood, reactions, wearHistory],
   );
 
   const recentWornFingerprints = useMemo(() => {
@@ -451,16 +465,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [wearHistory]);
 
   const outfitSets = useMemo(() => {
-    if (wardrobeItems.length === 0) return [];
+    if (activeWardrobeItems.length === 0) return [];
     const today = todayString();
     const { outfits } = applyDailyRotation(outfitPool, rotationState, today, recentWornFingerprints);
     return outfits;
-  }, [outfitPool, rotationState, wardrobeItems.length, recentWornFingerprints]);
+  }, [outfitPool, rotationState, activeWardrobeItems.length, recentWornFingerprints]);
 
   useEffect(() => {
-    if (isLoading || wardrobeItems.length === 0) return;
+    if (isLoading || activeWardrobeItems.length === 0) return;
     const today = todayString();
-    const newHash = computePoolHash(wardrobeItems, profile, todayMood);
+    const newHash = computePoolHash(activeWardrobeItems, profile, todayMood);
     const hashChanged = newHash !== rotationState.poolHash;
     const dateChanged = today !== rotationState.lastDate;
     if (!hashChanged && !dateChanged) return;
@@ -478,7 +492,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRotationState(stateToSave);
     AsyncStorage.setItem(STORAGE_KEYS.rotation, JSON.stringify(stateToSave));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wardrobeItems, profile, todayMood, outfitPool, rotationState.poolHash, rotationState.lastDate, isLoading, recentWornFingerprints]);
+  }, [activeWardrobeItems, profile, todayMood, outfitPool, rotationState.poolHash, rotationState.lastDate, isLoading, recentWornFingerprints]);
 
   const canAddItem = isPremium || wardrobeItems.length < FREE_ITEM_CAP;
   const starterRecommendations = useMemo(() => getFirstNeededByCategory(recommendationSlots), [recommendationSlots]);
@@ -543,14 +557,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [missingDimensions, profile.dismissedProfileNudge]);
 
   const value = useMemo(() => ({
-    profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
+    profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
     isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
     isLoading, canAddItem, recommendationSlots, starterRecommendations,
     wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
     todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
     profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,
     savedLooks, toggleSavedLook, isLookSaved, renameSavedLook, getSavedLookName,
-  }), [profile, updateProfile, wardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
+  }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
        isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, canAddItem, recommendationSlots, starterRecommendations,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,

@@ -29,11 +29,11 @@ const occasionLabels: Record<string, string> = {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, wardrobeItems, outfitSets, isPremium, canAddItem, starterRecommendations, recommendationSlots, todaysWear, wearHistory } = useApp();
+  const { profile, wardrobeItems, activeWardrobeItems, outfitSets, isPremium, canAddItem, starterRecommendations, recommendationSlots, todaysWear, wearHistory } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const categoryCounts: Record<string, number> = {};
-  wardrobeItems.forEach(item => {
+  activeWardrobeItems.forEach(item => {
     categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
   });
 
@@ -78,7 +78,7 @@ export default function HomeScreen() {
 
         <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.statsRow}>
           <Pressable style={styles.statCard} onPress={() => router.push('/(tabs)/wardrobe')}>
-            <Text style={styles.statNumber}>{wardrobeItems.length}</Text>
+            <Text style={styles.statNumber}>{activeWardrobeItems.length}</Text>
             <Text style={styles.statLabel}>Items</Text>
           </Pressable>
           <Pressable style={styles.statCard} onPress={() => router.push('/(tabs)/outfits')}>
@@ -203,7 +203,7 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        {wardrobeItems.length > 0 && (
+        {activeWardrobeItems.length > 0 && (
           <Animated.View entering={FadeInDown.delay(500).duration(500)}>
             <Text style={styles.sectionTitle}>Wardrobe Breakdown</Text>
             <View style={styles.breakdownCard}>
@@ -215,7 +215,7 @@ export default function HomeScreen() {
                   </View>
                   <View style={styles.breakdownRight}>
                     <View style={styles.breakdownBarBg}>
-                      <View style={[styles.breakdownBarFill, { width: `${Math.min((count / wardrobeItems.length) * 100, 100)}%` }]} />
+                      <View style={[styles.breakdownBarFill, { width: `${Math.min((count / activeWardrobeItems.length) * 100, 100)}%` }]} />
                     </View>
                     <Text style={styles.breakdownCount}>{count}</Text>
                   </View>

@@ -322,6 +322,7 @@ export default function OutfitsScreen() {
   const {
     outfitSets,
     wardrobeItems,
+    activeWardrobeItems,
     isPremium,
     lastAddedSuggestions,
     clearLastAddedSuggestions,
@@ -344,7 +345,7 @@ export default function OutfitsScreen() {
 
   const filtered = outfitSets.filter(o => o.scenario === selectedScenario);
   const isPremiumScenario = PREMIUM_SCENARIOS.includes(selectedScenario);
-  const hasWardrobe = wardrobeItems.length > 0;
+  const hasWardrobe = activeWardrobeItems.length > 0;
 
   function handleScenarioPress(scenario: OccasionTag) {
     const isLocked = PREMIUM_SCENARIOS.includes(scenario) && !isPremium;

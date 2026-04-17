@@ -106,7 +106,7 @@ function PremiumGate() {
 
 export default function BlueprintScreen() {
   const insets = useSafeAreaInsets();
-  const { isPremium, recommendationSlots, profile, wardrobeItems } = useApp();
+  const { isPremium, recommendationSlots, profile, wardrobeItems, activeWardrobeItems } = useApp();
   const { highlight } = useLocalSearchParams<{ highlight?: string }>();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -213,7 +213,7 @@ export default function BlueprintScreen() {
                     contentContainerStyle={styles.slotsScrollContent}
                   >
                     {slots.map(slot => {
-                      const close = findCloseMatch(wardrobeItems, slot);
+                      const close = findCloseMatch(activeWardrobeItems, slot);
                       return (
                         <SlotCard
                           key={slot.id}
