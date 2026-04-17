@@ -3,7 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
-import { WardrobeSlot } from '@/constants/wardrobeBlueprint';
+import { WardrobeSlot, findCloseMatch } from '@/constants/wardrobeBlueprint';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -39,7 +39,7 @@ function groupSlotsByCategory(slots: WardrobeSlot[]): Record<string, WardrobeSlo
   return grouped;
 }
 
-function SlotCard({ slot, highlighted }: { slot: WardrobeSlot; highlighted?: boolean }) {
+function SlotCard({ slot, highlighted, closeMatchColor }: { slot: WardrobeSlot; highlighted?: boolean; closeMatchColor?: string }) {
   const isOwned = slot.status === 'owned';
   return (
     <View style={[styles.slotCard, highlighted && styles.slotCardHighlighted]}>
@@ -64,6 +64,12 @@ function SlotCard({ slot, highlighted }: { slot: WardrobeSlot; highlighted?: boo
       </View>
       <Text style={styles.slotLabel} numberOfLines={2}>{slot.label}</Text>
       <Text style={styles.slotDesc} numberOfLines={2}>{slot.description}</Text>
+      {!isOwned && closeMatchColor ? (
+        <View style={styles.closeMatchHint}>
+          <Ionicons name="eye-outline" size={10} color={Colors.secondary} />
+          <Text style={styles.closeMatchText} numberOfLines={1}>You own a {closeMatchColor} one</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -98,7 +104,7 @@ function PremiumGate() {
 
 export default function BlueprintScreen() {
   const insets = useSafeAreaInsets();
-  const { isPremium, recommendationSlots, profile } = useApp();
+  const { isPremium, recommendationSlots, profile, wardrobeItems } = useApp();
   const { highlight } = useLocalSearchParams<{ highlight?: string }>();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -204,7 +210,17 @@ export default function BlueprintScreen() {
                     style={styles.slotsScroll}
                     contentContainerStyle={styles.slotsScrollContent}
                   >
-                    {slots.map(slot => <SlotCard key={slot.id} slot={slot} highlighted={slot.id === highlight} />)}
+                    {slots.map(slot => {
+                      const close = findCloseMatch(wardrobeItems, slot);
+                      return (
+                        <SlotCard
+                          key={slot.id}
+                          slot={slot}
+                          highlighted={slot.id === highlight}
+                          closeMatchColor={close?.colorFamily}
+                        />
+                      );
+                    })}
                   </ScrollView>
                 </View>
               </Animated.View>
@@ -279,6 +295,16 @@ const styles = StyleSheet.create({
   slotDesc: { fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.textSecondary, paddingHorizontal: 10, paddingTop: 2, paddingBottom: 10, lineHeight: 14 },
 
   blurLine: { height: 10, backgroundColor: Colors.border, borderRadius: 5, marginHorizontal: 10, marginTop: 8, width: '80%' },
+  closeMatchHint: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    marginHorizontal: 10, marginBottom: 10, marginTop: 4,
+    paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6,
+    backgroundColor: Colors.secondary + '14',
+  },
+  closeMatchText: {
+    fontFamily: 'Inter_500Medium', fontSize: 9.5, color: Colors.secondary,
+    textTransform: 'capitalize', flexShrink: 1,
+  },
 
   previewFade: { flex: 1, overflow: 'hidden' },
 

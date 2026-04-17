@@ -227,15 +227,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (moodData) setMoodOfDay(JSON.parse(moodData));
       if (savedLooksData) setSavedLooks(JSON.parse(savedLooksData));
       if (slotsData) {
-        const savedStatuses: { id: string; status: 'needed' | 'owned'; matchedItemId?: string }[] = JSON.parse(slotsData);
+        // Always trust strict matcher recomputation against current items and
+        // current blueprint — guarantees that legacy persisted statuses from a
+        // looser matcher are corrected on load. Persisted status is no longer
+        // honoured because slot ownership is fully derivable from items.
         const blueprint = getProfileBlueprint(loadedProfile);
         const fullSlots = initializeSlots(loadedItems, blueprint);
-        const merged = fullSlots.map(slot => {
-          const saved = savedStatuses.find(s => s.id === slot.id);
-          if (saved) return { ...slot, status: saved.status, matchedItemId: saved.matchedItemId };
-          return slot;
-        });
-        setRecommendationSlots(merged);
+        setRecommendationSlots(fullSlots);
+        AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
+          fullSlots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
+        ));
         setSlotsInitialized(true);
       }
     } catch (e) {
@@ -411,9 +412,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWardrobeItems(prev => {
       const next = prev.map(item => item.id === id ? { ...item, ...updates } : item);
       AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(next));
+      // Edits to category / sub-type / colour can change which blueprint slot
+      // an item satisfies under strict matching. Recompute slot ownership so
+      // Blueprint progress, Outfit Ideas, and Smart Buy stay in sync.
+      const matcherFieldChanged =
+        updates.category !== undefined ||
+        updates.subType !== undefined ||
+        updates.colorFamily !== undefined;
+      if (matcherFieldChanged) {
+        const blueprint = getProfileBlueprint(profile);
+        const refreshedSlots = initializeSlots(next, blueprint);
+        setRecommendationSlots(refreshedSlots);
+        AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
+          refreshedSlots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
+        ));
+      }
       return next;
     });
-  }, []);
+  }, [profile]);
 
   const togglePremium = useCallback(() => {
     setIsPremium(prev => {

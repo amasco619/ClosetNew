@@ -148,8 +148,13 @@ export default function AddItemScreen() {
           setClassifying(true);
           const classified = await classifyWithServer(asset.base64, category);
           setCategory(classified.category);
-          setSubType(classified.subType);
-          setColorFamily(classified.colorFamily);
+          // Only accept classifier sub-type / colour if they map to a real chip
+          // — otherwise clear so the user is forced to pick a known value
+          // (strict matcher relies on canonical sub-type + colour).
+          const validSub = subTypes[classified.category]?.includes(classified.subType) ? classified.subType : '';
+          const validCol = colorFamilies.includes(classified.colorFamily) ? classified.colorFamily : '';
+          setSubType(validSub);
+          setColorFamily(validCol);
           setDescription(classified.description);
           if (classified.occasionTags.length > 0) {
             setOccasions(classified.occasionTags);
@@ -174,13 +179,23 @@ export default function AddItemScreen() {
 
   const handleSave = () => {
     if (!photoUri) return;
+    if (!subType) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('Pick a type', 'Choose the specific type for this item before saving — it helps your blueprint match accurately.');
+      return;
+    }
+    if (!colorFamily) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('Pick a colour', 'Choose the dominant colour family before saving.');
+      return;
+    }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const parsedPrice = parseFloat(purchasePrice.replace(/[^0-9.]/g, ''));
     addWardrobeItem({
       photoUri,
       category,
-      subType: subType || subTypes[category][0],
-      colorFamily: colorFamily || 'black',
+      subType,
+      colorFamily,
       description: description || undefined,
       occasionTags: occasions,
       seasonTags: seasons,
@@ -293,8 +308,7 @@ export default function AddItemScreen() {
                     style={[styles.chipSmall, category === cat.id && styles.chipSmallActive]}
                     onPress={() => {
                       setCategory(cat.id);
-                      const c = localClassifyFallback(cat.id);
-                      setSubType(c.subType);
+                      setSubType('');
                     }}
                   >
                     <Text style={[styles.chipSmallText, category === cat.id && styles.chipSmallTextActive]}>{cat.label}</Text>
@@ -303,7 +317,10 @@ export default function AddItemScreen() {
               </View>
             </ScrollView>
 
-            <Text style={styles.sectionTitle}>Type</Text>
+            <Text style={styles.sectionTitle}>Type <Text style={styles.requiredLabel}>*</Text></Text>
+            {!subType && !classifying && (
+              <Text style={styles.requiredHint}>Pick the specific type so your blueprint matches accurately.</Text>
+            )}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 {subTypes[category].map(st => (
@@ -318,7 +335,10 @@ export default function AddItemScreen() {
               </View>
             </ScrollView>
 
-            <Text style={styles.sectionTitle}>Color</Text>
+            <Text style={styles.sectionTitle}>Color <Text style={styles.requiredLabel}>*</Text></Text>
+            {!colorFamily && !classifying && (
+              <Text style={styles.requiredHint}>Pick the dominant colour family.</Text>
+            )}
             <View style={styles.colorGrid}>
               {colorFamilies.map(cf => (
                 <Pressable
@@ -510,9 +530,9 @@ export default function AddItemScreen() {
       {step === 1 && (
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) + (Platform.OS === 'web' ? 34 : 0) }]}>
           <Pressable
-            style={[styles.saveButton, (!photoUri || classifying) && { opacity: 0.4 }]}
+            style={[styles.saveButton, (!photoUri || classifying || !subType || !colorFamily) && { opacity: 0.4 }]}
             onPress={handleSave}
-            disabled={!photoUri || classifying}
+            disabled={!photoUri || classifying || !subType || !colorFamily}
           >
             <Ionicons name="checkmark" size={22} color={Colors.white} />
             <Text style={styles.saveButtonText}>Save to Wardrobe</Text>
@@ -561,6 +581,8 @@ const styles = StyleSheet.create({
   saveButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16 },
   saveButtonText: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.white },
   optionalLabel: { fontFamily: 'Inter_400Regular', color: Colors.textLight, fontSize: 13 },
+  requiredLabel: { fontFamily: 'Inter_700Bold', color: Colors.error, fontSize: 14 },
+  requiredHint: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.error, marginTop: -6, marginBottom: 10 },
   priceInputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 8, overflow: 'hidden' },
   priceCurrencyWrap: { paddingHorizontal: 12, paddingVertical: 13, borderRightWidth: 1, borderRightColor: Colors.border, backgroundColor: Colors.background },
   priceInput: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 15, color: Colors.primary, paddingHorizontal: 14, paddingVertical: 13 },

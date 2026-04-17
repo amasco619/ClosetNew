@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useApp } from '@/contexts/AppContext';
+import { useApp, subTypes, colorFamilies } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 
@@ -29,6 +29,8 @@ export default function ItemDetailScreen() {
 
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceInput, setPriceInput] = useState('');
+  const [editingType, setEditingType] = useState(false);
+  const [editingColor, setEditingColor] = useState(false);
 
   if (!item) {
     return (
@@ -98,13 +100,52 @@ export default function ItemDetailScreen() {
         <Image source={{ uri: item.photoUri }} style={styles.image} contentFit="cover" />
 
         <View style={styles.details}>
-          <Text style={styles.itemType}>{item.subType.replace('-', ' ')}</Text>
-          <View style={styles.metaRow}>
+          <Pressable style={styles.itemTypeRow} onPress={() => setEditingType(v => !v)} hitSlop={6}>
+            <Text style={styles.itemType}>{item.subType.replace('-', ' ')}</Text>
+            <Ionicons name={editingType ? 'chevron-up' : 'pencil-outline'} size={15} color={Colors.textSecondary} />
+          </Pressable>
+          {editingType && (
+            <View style={styles.editChipsWrap}>
+              {subTypes[item.category].map(st => (
+                <Pressable
+                  key={st}
+                  style={[styles.editChip, item.subType === st && styles.editChipActive]}
+                  onPress={() => {
+                    updateWardrobeItem(item.id, { subType: st });
+                    Haptics.selectionAsync();
+                    setEditingType(false);
+                  }}
+                >
+                  <Text style={[styles.editChipText, item.subType === st && styles.editChipTextActive]}>{st.replace('-', ' ')}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+          <Pressable style={styles.metaRow} onPress={() => setEditingColor(v => !v)} hitSlop={6}>
             <View style={[styles.dot, { backgroundColor: colorDots[item.colorFamily] || '#ccc' }]} />
             <Text style={styles.metaText}>{item.colorFamily}</Text>
             <Text style={styles.metaDivider}>|</Text>
             <Text style={styles.metaText}>{item.category}</Text>
-          </View>
+            <Ionicons name={editingColor ? 'chevron-up' : 'pencil-outline'} size={13} color={Colors.textSecondary} style={{ marginLeft: 4 }} />
+          </Pressable>
+          {editingColor && (
+            <View style={styles.editChipsWrap}>
+              {colorFamilies.map(cf => (
+                <Pressable
+                  key={cf}
+                  style={[styles.editColorChip, item.colorFamily === cf && styles.editColorChipActive]}
+                  onPress={() => {
+                    updateWardrobeItem(item.id, { colorFamily: cf });
+                    Haptics.selectionAsync();
+                    setEditingColor(false);
+                  }}
+                >
+                  <View style={[styles.editColorDot, { backgroundColor: colorDots[cf] || '#ccc' }]} />
+                  <Text style={[styles.editChipText, item.colorFamily === cf && styles.editChipTextActive]}>{cf}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
 
           {item.occasionTags.length > 0 && (
             <View style={styles.tagsRow}>
@@ -228,7 +269,16 @@ const styles = StyleSheet.create({
   closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   image: { width: '100%', aspectRatio: 0.75, backgroundColor: Colors.border },
   details: { padding: 24, paddingBottom: 48 },
+  itemTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   itemType: { fontFamily: 'Inter_700Bold', fontSize: 24, color: Colors.primary, textTransform: 'capitalize' },
+  editChipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+  editChip: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },
+  editChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  editChipText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, textTransform: 'capitalize' },
+  editChipTextActive: { color: Colors.white },
+  editColorChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },
+  editColorChipActive: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '12' },
+  editColorDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 0.5, borderColor: Colors.border },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 0.5, borderColor: Colors.border },
   metaText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.textSecondary, textTransform: 'capitalize' },

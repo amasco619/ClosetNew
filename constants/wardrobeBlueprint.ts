@@ -439,9 +439,115 @@ export function matchWardrobeItemToSlot(
   slot: BlueprintItem,
 ): boolean {
   if (wardrobeItem.category !== slot.category) return false;
-  const subTypeMatch = wardrobeItem.subType === slot.subType;
-  const colorMatch   = wardrobeItem.colorFamily === slot.colorFamily;
-  return subTypeMatch || colorMatch;
+  return normalizeSubType(wardrobeItem.subType) === normalizeSubType(slot.subType)
+    && normalizeColor(wardrobeItem.colorFamily) === normalizeColor(slot.colorFamily);
+}
+
+// Sub-type aliases — multiple labels that refer to the same garment shape.
+// Anything matching maps to the canonical key. Unknown values pass through
+// (lower-cased) so the strict equality check still works for new sub-types.
+const SUBTYPE_ALIASES: Record<string, string> = {
+  'tee': 't-shirt',
+  'tshirt': 't-shirt',
+  't shirt': 't-shirt',
+  'longsleeve': 'long-sleeve',
+  'long sleeve': 'long-sleeve',
+  'polo': 'polo-shirt',
+  'tank': 'tank-top',
+  'crop': 'crop-top',
+  'jean': 'jeans',
+  'denim': 'jeans',
+  'pants': 'trousers',
+  'trouser': 'trousers',
+  'wide leg': 'wide-leg',
+  'wideleg': 'wide-leg',
+  'short': 'shorts',
+  'mini skirt': 'mini-skirt',
+  'midi skirt': 'midi-skirt',
+  'maxi skirt': 'maxi-skirt',
+  'mini dress': 'mini-dress',
+  'midi dress': 'midi-dress',
+  'maxi dress': 'maxi-dress',
+  'wrap dress': 'wrap-dress',
+  'shirt dress': 'shirt-dress',
+  'cocktail dress': 'cocktail-dress',
+  'denim jacket': 'denim-jacket',
+  'bomber': 'bomber-jacket',
+  'bomber jacket': 'bomber-jacket',
+  'leather jacket': 'leather-jacket',
+  'sneaker': 'sneakers',
+  'trainer': 'sneakers',
+  'trainers': 'sneakers',
+  'heel': 'heels',
+  'flat': 'flats',
+  'boot': 'boots',
+  'sandal': 'sandals',
+  'loafer': 'loafers',
+  'mule': 'mules',
+};
+
+function normalizeSubType(value: string | undefined): string {
+  if (!value) return '';
+  const cleaned = value.trim().toLowerCase();
+  return SUBTYPE_ALIASES[cleaned] ?? cleaned;
+}
+
+// Colour aliases — equivalents that should be treated as the same family for
+// blueprint matching. Blueprint authors freely use evocative names like
+// "ivory" or "champagne"; user-visible chips stay limited.
+const COLOR_ALIASES: Record<string, string> = {
+  'ivory': 'cream',
+  'off-white': 'cream',
+  'off white': 'cream',
+  'champagne': 'cream',
+  'pearl': 'cream',
+  'nude': 'beige',
+  'tan': 'camel',
+  'taupe': 'beige',
+  'sand': 'beige',
+  'stone': 'beige',
+  'charcoal': 'grey',
+  'gray': 'grey',
+  'silver': 'grey',
+  'gold': 'beige',
+  'blush': 'pink',
+  'rose': 'pink',
+  'wine': 'burgundy',
+  'maroon': 'burgundy',
+  'forest': 'green',
+  'emerald': 'green',
+  'sage': 'green',
+  'khaki': 'olive',
+  'mustard': 'olive',
+  'denim': 'blue',
+  'midnight': 'navy',
+  'chocolate': 'brown',
+};
+
+function normalizeColor(value: string | undefined): string {
+  if (!value) return '';
+  const cleaned = value.trim().toLowerCase();
+  return COLOR_ALIASES[cleaned] ?? cleaned;
+}
+
+/**
+ * A close-but-not-exact match: same category + sub-type but a different
+ * colour family. Used for the "you have something similar" hint on slots
+ * that are still classed as "needed" by the strict matcher.
+ */
+export function findCloseMatch(
+  wardrobeItems: Array<{ id: string; category: ItemCategory; subType: string; colorFamily: string }>,
+  slot: WardrobeSlot,
+): { id: string; colorFamily: string } | null {
+  if (slot.status === 'owned') return null;
+  const slotSub = normalizeSubType(slot.subType);
+  const slotCol = normalizeColor(slot.colorFamily);
+  const hit = wardrobeItems.find(wi =>
+    wi.category === slot.category
+    && normalizeSubType(wi.subType) === slotSub
+    && normalizeColor(wi.colorFamily) !== slotCol
+  );
+  return hit ? { id: hit.id, colorFamily: hit.colorFamily } : null;
 }
 
 export function initializeSlots(
