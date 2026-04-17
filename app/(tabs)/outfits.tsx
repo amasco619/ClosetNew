@@ -435,7 +435,25 @@ export default function OutfitsScreen() {
         })}
       </ScrollView>
 
-      {hasWardrobe && (
+      {hasWardrobe && !isPremium && (
+        <Pressable
+          style={styles.moodLockedRow}
+          onPress={() => router.push('/premium')}
+        >
+          <Text style={styles.moodPrompt}>Today I want to feel</Text>
+          {MOOD_OPTIONS.slice(0, 3).map(m => (
+            <View key={m.id} style={[styles.moodChip, styles.moodChipLocked]}>
+              <Ionicons name={m.icon} size={13} color={Colors.textLight} />
+              <Text style={[styles.moodChipText, styles.moodChipTextLocked]}>{m.label}</Text>
+            </View>
+          ))}
+          <View style={styles.moodLockBadge}>
+            <Ionicons name="lock-closed" size={10} color={Colors.white} />
+          </View>
+        </Pressable>
+      )}
+
+      {hasWardrobe && isPremium && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -686,6 +704,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent', marginLeft: 4,
   },
   moodEditChipText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary },
+  moodLockedRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 20, paddingVertical: 10, marginBottom: 10,
+    position: 'relative',
+  },
+  moodChipLocked: { opacity: 0.35 },
+  moodChipTextLocked: { color: Colors.textLight },
+  moodLockBadge: {
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: Colors.secondary, alignItems: 'center', justifyContent: 'center',
+    marginLeft: 2,
+  },
 
   profileNudge: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,

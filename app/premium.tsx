@@ -11,6 +11,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 const FEATURES = [
   { icon: 'infinite-outline', title: 'Unlimited Wardrobe', desc: 'No 10-item cap. Add every piece you own.' },
   { icon: 'map-outline', title: 'Wardrobe Blueprint', desc: 'See exactly what pieces you need to build a complete wardrobe.' },
+  { icon: 'sparkles-outline', title: 'Mood Styling', desc: 'Set your mood each day — Confident, Soft, Powerful — and get outfits that match how you want to feel.' },
+  { icon: 'calendar-outline', title: 'Wear Log', desc: 'Track every outfit you wear, review your full history, and discover your cost-per-wear.' },
   { icon: 'partly-sunny-outline', title: 'Season-Smart Styling', desc: 'Weather-aware outfit recommendations for your location.' },
   { icon: 'layers-outline', title: 'Advanced Scenarios', desc: 'Job interviews, weddings, travel days, and more.' },
   { icon: 'analytics-outline', title: 'Deep Diagnostics', desc: 'Wardrobe health score, colour palette analysis, scenario coverage, and priority gap recommendations.' },

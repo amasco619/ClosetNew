@@ -65,7 +65,7 @@ function ItemThumb({ item }: { item: WardrobeItem | undefined }) {
 
 export default function WearLogScreen() {
   const insets = useSafeAreaInsets();
-  const { wearHistory, undoWear, wardrobeItems } = useApp();
+  const { wearHistory, undoWear, wardrobeItems, isPremium } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const grouped = groupByDate(wearHistory);
@@ -74,6 +74,34 @@ export default function WearLogScreen() {
     return entry.itemIds
       .map(id => wardrobeItems.find(w => w.id === id))
       .filter((w): w is WardrobeItem => Boolean(w));
+  }
+
+  if (!isPremium) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+            <Ionicons name="chevron-back" size={22} color={Colors.primary} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Wear Log</Text>
+          </View>
+        </View>
+        <View style={styles.gateContainer}>
+          <View style={styles.gateIcon}>
+            <Ionicons name="calendar-outline" size={36} color={Colors.secondary} />
+          </View>
+          <Text style={styles.gateTitle}>Wear Log</Text>
+          <Text style={styles.gateDesc}>
+            Track every outfit you wear, review your history, and discover your cost-per-wear. A Premium feature.
+          </Text>
+          <Pressable style={styles.gateButton} onPress={() => router.push('/premium')}>
+            <Ionicons name="star" size={16} color={Colors.white} />
+            <Text style={styles.gateButtonText}>Unlock with Premium</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -255,4 +283,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 12, marginTop: 24,
   },
   emptyActionText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.white },
+
+  gateContainer: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 36, paddingBottom: 80,
+  },
+  gateIcon: {
+    width: 80, height: 80, borderRadius: 24,
+    backgroundColor: Colors.secondary + '12',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 20,
+  },
+  gateTitle: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary, textAlign: 'center' },
+  gateDesc: {
+    fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary,
+    textAlign: 'center', lineHeight: 21, marginTop: 10, marginBottom: 28,
+  },
+  gateButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.secondary, borderRadius: 14,
+    paddingHorizontal: 24, paddingVertical: 14,
+  },
+  gateButtonText: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.white },
 });

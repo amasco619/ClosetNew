@@ -109,7 +109,7 @@ export default function HomeScreen() {
             <View style={styles.todayCardHeader}>
               <Ionicons name="calendar" size={18} color={Colors.secondary} />
               <Text style={styles.todayCardTitle}>Today's Looks</Text>
-              <Pressable onPress={() => router.push('/wear-log')} style={styles.todaySeeAll}>
+              <Pressable onPress={() => router.push(isPremium ? '/wear-log' : '/premium')} style={styles.todaySeeAll}>
                 <Text style={styles.todaySeeAllText}>See all</Text>
                 <Ionicons name="chevron-forward" size={13} color={Colors.secondary} />
               </Pressable>
