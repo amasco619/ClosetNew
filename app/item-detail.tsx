@@ -50,6 +50,13 @@ export default function ItemDetailScreen() {
 
   const wearCount = getItemWearCount(item.id);
   const cpw = item.purchasePrice ? formatCPW(item.purchasePrice, wearCount) : null;
+  const cpwInsight = (() => {
+    if (cpw === null || cpw === '—') return null;
+    const cpwNumber = parseFloat(cpw);
+    if (cpwNumber <= 5) return `Excellent investment — only £${cpw} each time you wear this.`;
+    if (cpwNumber <= 15) return `Good value at £${cpw} per wear. Keep reaching for it.`;
+    return `At £${cpw} per wear, this piece has room to earn its keep.`;
+  })();
 
   const handleDelete = () => {
     if (Platform.OS === 'web') {
@@ -210,16 +217,10 @@ export default function ItemDetailScreen() {
             </View>
           </View>
 
-          {wearCount > 0 && item.purchasePrice && cpw !== '—' && (
+          {wearCount > 0 && item.purchasePrice && cpwInsight && (
             <View style={styles.cpwInsight}>
               <Ionicons name="sparkles" size={13} color={Colors.secondary} />
-              <Text style={styles.cpwInsightText}>
-                {parseFloat(cpw) <= 5
-                  ? `Excellent investment — only £${cpw} each time you wear this.`
-                  : parseFloat(cpw) <= 15
-                  ? `Good value at £${cpw} per wear. Keep reaching for it.`
-                  : `At £${cpw} per wear, this piece has room to earn its keep.`}
-              </Text>
+              <Text style={styles.cpwInsightText}>{cpwInsight}</Text>
             </View>
           )}
 
