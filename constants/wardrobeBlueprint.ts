@@ -521,7 +521,19 @@ const COLOR_ALIASES: Record<string, string> = {
   'mustard': 'olive',
   'denim': 'blue',
   'midnight': 'navy',
+  'cobalt': 'blue',
   'chocolate': 'brown',
+  'lilac': 'lavender',
+  'rose-gold': 'pink',
+  'rosegold': 'pink',
+  'canvas': 'beige',
+  'animal': 'brown',
+  'leopard': 'brown',
+  'snake': 'brown',
+  'plaid': 'brown',
+  'floral': 'pink',
+  'pastel': 'pink',
+  'multi': 'multi',
 };
 
 function normalizeColor(value: string | undefined): string {
@@ -531,23 +543,24 @@ function normalizeColor(value: string | undefined): string {
 }
 
 /**
- * A close-but-not-exact match: same category + sub-type but a different
- * colour family. Used for the "you have something similar" hint on slots
- * that are still classed as "needed" by the strict matcher.
+ * A close-but-not-exact match: same category + same colour family but a
+ * different sub-type. Used for the "you have something similar" hint on
+ * slots that are still classed as "needed" by the strict matcher — e.g.
+ * the slot wants a beige midi-dress and the user owns a beige maxi-dress.
  */
 export function findCloseMatch(
-  wardrobeItems: Array<{ id: string; category: ItemCategory; subType: string; colorFamily: string }>,
+  wardrobeItems: Array<{ id: string; name?: string; category: ItemCategory; subType: string; colorFamily: string }>,
   slot: WardrobeSlot,
-): { id: string; colorFamily: string } | null {
+): { id: string; name?: string; subType: string } | null {
   if (slot.status === 'owned') return null;
   const slotSub = normalizeSubType(slot.subType);
   const slotCol = normalizeColor(slot.colorFamily);
   const hit = wardrobeItems.find(wi =>
     wi.category === slot.category
-    && normalizeSubType(wi.subType) === slotSub
-    && normalizeColor(wi.colorFamily) !== slotCol
+    && normalizeColor(wi.colorFamily) === slotCol
+    && normalizeSubType(wi.subType) !== slotSub
   );
-  return hit ? { id: hit.id, colorFamily: hit.colorFamily } : null;
+  return hit ? { id: hit.id, name: hit.name, subType: hit.subType } : null;
 }
 
 export function initializeSlots(

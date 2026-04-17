@@ -39,7 +39,7 @@ function groupSlotsByCategory(slots: WardrobeSlot[]): Record<string, WardrobeSlo
   return grouped;
 }
 
-function SlotCard({ slot, highlighted, closeMatchColor }: { slot: WardrobeSlot; highlighted?: boolean; closeMatchColor?: string }) {
+function SlotCard({ slot, highlighted, closeMatch }: { slot: WardrobeSlot; highlighted?: boolean; closeMatch?: { name?: string; subType: string } }) {
   const isOwned = slot.status === 'owned';
   return (
     <View style={[styles.slotCard, highlighted && styles.slotCardHighlighted]}>
@@ -64,10 +64,12 @@ function SlotCard({ slot, highlighted, closeMatchColor }: { slot: WardrobeSlot; 
       </View>
       <Text style={styles.slotLabel} numberOfLines={2}>{slot.label}</Text>
       <Text style={styles.slotDesc} numberOfLines={2}>{slot.description}</Text>
-      {!isOwned && closeMatchColor ? (
+      {!isOwned && closeMatch ? (
         <View style={styles.closeMatchHint}>
           <Ionicons name="eye-outline" size={10} color={Colors.secondary} />
-          <Text style={styles.closeMatchText} numberOfLines={1}>You own a {closeMatchColor} one</Text>
+          <Text style={styles.closeMatchText} numberOfLines={1}>
+            You own {closeMatch.name ? `"${closeMatch.name}"` : `a ${closeMatch.subType.replace(/-/g, ' ')}`} in this colour
+          </Text>
         </View>
       ) : null}
     </View>
@@ -217,7 +219,7 @@ export default function BlueprintScreen() {
                           key={slot.id}
                           slot={slot}
                           highlighted={slot.id === highlight}
-                          closeMatchColor={close?.colorFamily}
+                          closeMatch={close ?? undefined}
                         />
                       );
                     })}

@@ -104,11 +104,11 @@ const STORAGE_KEYS = {
 };
 
 const subTypes: Record<ItemCategory, string[]> = {
-  top: ['t-shirt', 'long-sleeve', 'polo-shirt', 'henley', 'rugby-shirt', 'shirt', 'blouse', 'sweater', 'turtleneck', 'tank-top', 'crop-top', 'cardigan'],
+  top: ['t-shirt', 'graphic-tee', 'long-sleeve', 'polo-shirt', 'henley', 'rugby-shirt', 'shirt', 'blouse', 'fitted-top', 'sweater', 'turtleneck', 'tank-top', 'camisole', 'crop-top', 'cardigan'],
   bottom: ['jeans', 'trousers', 'chinos', 'wide-leg', 'joggers', 'shorts', 'leggings', 'mini-skirt', 'midi-skirt', 'maxi-skirt'],
-  dress: ['mini-dress', 'midi-dress', 'maxi-dress', 'wrap-dress', 'shirt-dress', 'cocktail-dress'],
-  outerwear: ['jacket', 'hoodie', 'blazer', 'coat', 'peacoat', 'trench', 'raincoat', 'puffer', 'vest', 'denim-jacket', 'bomber-jacket', 'leather-jacket'],
-  shoes: ['sneakers', 'heels', 'flats', 'boots', 'sandals', 'loafers', 'mules'],
+  dress: ['mini-dress', 'midi-dress', 'maxi-dress', 'wrap-dress', 'shirt-dress', 'cocktail-dress', 'slip-dress', 'knit-dress', 'sheath-dress'],
+  outerwear: ['jacket', 'hoodie', 'blazer', 'coat', 'pea-coat', 'trench', 'raincoat', 'puffer', 'vest', 'denim-jacket', 'bomber-jacket', 'leather-jacket', 'varsity-jacket'],
+  shoes: ['sneakers', 'heels', 'kitten-heels', 'flats', 'boots', 'sandals', 'loafers', 'mules', 'slingbacks'],
   bag: ['tote', 'crossbody', 'clutch', 'backpack', 'shoulder-bag', 'mini-bag'],
   jewelry: ['necklace', 'earrings', 'bracelet', 'ring', 'watch', 'brooch'],
 };
