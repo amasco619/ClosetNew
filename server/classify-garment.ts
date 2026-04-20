@@ -520,6 +520,33 @@ function dominantColorFamily(
 
   const sorted = [...colors].sort((a, b) => b.pixelFraction - a.pixelFraction);
 
+  // ── Pre-flight: rescue white garments shot on coloured / dark surfaces ────
+  // The default flow below discards pixels with lightness > 0.90 as background,
+  // which is correct for studio white walls but *incorrect* when the garment
+  // itself is white (e.g. white sneakers on a green towel). In that case the
+  // white body gets filtered and only shadows / interior / logo pixels remain,
+  // producing a "black" or "grey" result. Detect the signature here and
+  // short-circuit before the lightness filter kicks in.
+  const familyFractions: Record<string, number> = {};
+  for (const entry of sorted) {
+    const fam = rgbToColorFamily(entry.color.red, entry.color.green, entry.color.blue);
+    familyFractions[fam] = (familyFractions[fam] ?? 0) + entry.pixelFraction;
+  }
+  const whiteFrac = familyFractions['white'] ?? 0;
+  const blackFrac = familyFractions['black'] ?? 0;
+  const greyFrac  = familyFractions['grey']  ?? 0;
+  const beigeFrac = familyFractions['beige'] ?? 0;
+  const creamFrac = familyFractions['cream'] ?? 0;
+  const brownFrac = familyFractions['brown'] ?? 0;
+  const camelFrac = familyFractions['camel'] ?? 0;
+  const navyFrac  = familyFractions['navy']  ?? 0;
+  const otherNeutralMax = Math.max(blackFrac, greyFrac, beigeFrac, creamFrac, brownFrac, camelFrac, navyFrac);
+  if (whiteFrac >= 0.20 &&
+      whiteFrac > blackFrac * 2 &&          // guard vs. black-item-on-white-wall shots
+      whiteFrac > otherNeutralMax * 1.2) {  // guard vs. grey / beige / cream / brown / camel / navy garments
+    return 'white';
+  }
+
   const candidates: string[] = [];
   for (const entry of sorted.slice(0, 8)) {
     const { red: r, green: g, blue: b } = entry.color;
