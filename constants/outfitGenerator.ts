@@ -12,14 +12,12 @@ import {
   scoreItemForProfile, effectiveFormality, SCENARIO_FORMALITY,
 } from '@/constants/outfitScoring';
 
-const SCENARIO_TOLERANCE = 1;
-
 function fitsScenarioFormality(items: WardrobeItem[], scenario: OccasionTag): boolean {
   if (items.length === 0) return false;
   const [minF, maxF] = SCENARIO_FORMALITY[scenario];
   const fs = items.map(effectiveFormality);
   const avg = fs.reduce((a, b) => a + b, 0) / fs.length;
-  return avg >= minF - SCENARIO_TOLERANCE && avg <= maxF + SCENARIO_TOLERANCE;
+  return avg >= minF && avg <= maxF;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

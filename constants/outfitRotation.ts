@@ -146,15 +146,14 @@ export function generateOutfitPool(
     const bagsAll  = byCategory['bag']      ?? [];
     const jewelAll = byCategory['jewelry']  ?? [];
 
-    // Hard scenario gate: drop cores whose average formality falls more than
-    // ±1 level outside the scenario's expected band. Without this gate, a
-    // sparse wardrobe produces the same outfit for every scenario.
+    // Hard scenario gate: drop any core whose average formality falls outside
+    // the scenario's expected band. Strict — a top-tier stylist would never
+    // suggest a casual piece for a wedding "because it's close enough".
     const [scenMinF, scenMaxF] = SCENARIO_FORMALITY[scenario];
-    const TOLERANCE = 1;
     const coreFitsScenario = (coreItems: WardrobeItem[]): boolean => {
       const fs = coreItems.map(effectiveFormality);
       const avg = fs.reduce((a, b) => a + b, 0) / fs.length;
-      return avg >= scenMinF - TOLERANCE && avg <= scenMaxF + TOLERANCE;
+      return avg >= scenMinF && avg <= scenMaxF;
     };
 
     type Core = { coreItems: WardrobeItem[]; baseColor: string };
