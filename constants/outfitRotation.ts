@@ -12,6 +12,7 @@ import {
   colorsHarmonize, passesConstraints, toComponent,
   scoreItemForProfile, scoreOutfitCombo, adjustScoreForReactions,
   wornHistoryBoost, effectiveFormality, SCENARIO_FORMALITY,
+  itemMatchesMood, itemContradictsMood,
 } from './outfitScoring';
 import { generateRationale } from './rationale';
 
@@ -156,11 +157,22 @@ export function generateOutfitPool(
       return avg >= scenMinF && avg <= scenMaxF;
     };
 
+    // Hard mood gate: when a mood is set, the core must (a) contain at least
+    // one piece that naturally embodies the mood and (b) contain no piece
+    // that visibly contradicts it. Mirrors the scenario gate so an empty
+    // result is an honest "your wardrobe doesn't feel that way today" signal.
+    const coreFitsMood = (coreItems: WardrobeItem[]): boolean => {
+      if (!mood) return true;
+      if (coreItems.some(i => itemContradictsMood(i, mood))) return false;
+      return coreItems.some(i => itemMatchesMood(i, mood));
+    };
+
     type Core = { coreItems: WardrobeItem[]; baseColor: string };
     const cores: Core[] = [];
 
     for (const dress of dresses.slice(0, 8)) {
       if (!coreFitsScenario([dress])) continue;
+      if (!coreFitsMood([dress])) continue;
       cores.push({ coreItems: [dress], baseColor: dress.colorFamily });
     }
 
@@ -171,10 +183,12 @@ export function generateOutfitPool(
       if (harmoniousBottoms.length > 0) {
         for (const bottom of harmoniousBottoms.slice(0, 3)) {
           if (!coreFitsScenario([top, bottom])) continue;
+          if (!coreFitsMood([top, bottom])) continue;
           cores.push({ coreItems: [top, bottom], baseColor: top.colorFamily });
         }
       } else if (bottoms.length > 0) {
         if (!coreFitsScenario([top, bottoms[0]])) continue;
+        if (!coreFitsMood([top, bottoms[0]])) continue;
         cores.push({ coreItems: [top, bottoms[0]], baseColor: top.colorFamily });
       }
     }

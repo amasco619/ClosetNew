@@ -6,10 +6,11 @@
  * user immediately sees how their new piece slots into their wardrobe.
  */
 
-import { WardrobeItem, OutfitComponent, OutfitSet, OccasionTag, UserProfile } from '@/constants/types';
+import { WardrobeItem, OutfitComponent, OutfitSet, OccasionTag, UserProfile, MoodGoal } from '@/constants/types';
 import {
   passesConstraints, colorsHarmonize, toComponent,
   scoreItemForProfile, effectiveFormality, SCENARIO_FORMALITY,
+  itemMatchesMood, itemContradictsMood,
 } from '@/constants/outfitScoring';
 
 function fitsScenarioFormality(items: WardrobeItem[], scenario: OccasionTag): boolean {
@@ -18,6 +19,12 @@ function fitsScenarioFormality(items: WardrobeItem[], scenario: OccasionTag): bo
   const fs = items.map(effectiveFormality);
   const avg = fs.reduce((a, b) => a + b, 0) / fs.length;
   return avg >= minF && avg <= maxF;
+}
+
+function fitsMood(items: WardrobeItem[], mood?: MoodGoal | null): boolean {
+  if (!mood) return true;
+  if (items.some(i => itemContradictsMood(i, mood))) return false;
+  return items.some(i => itemMatchesMood(i, mood));
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

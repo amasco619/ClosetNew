@@ -173,6 +173,45 @@ const MOOD_FABRICS: Record<MoodGoal, Set<string>> = {
   powerful:  new Set(['wool', 'leather', 'satin', 'silk']),
 };
 
+// ─── Mood contradictions ──────────────────────────────────────────────────────
+// Items that visibly clash with a mood. A real stylist would never serve a
+// hoodie when the brief is "powerful", or all-black leather when the brief is
+// "soft". A core piece in this set causes the outfit to be dropped from the
+// mood-filtered pool entirely.
+const MOOD_CONTRA_COLORS: Record<MoodGoal, Set<string>> = {
+  confident: new Set([]),
+  soft:      new Set(['black', 'red', 'burgundy']),
+  joyful:    new Set(['black', 'grey', 'brown', 'olive']),
+  grounded:  new Set(['pink', 'lavender', 'blush', 'coral']),
+  romantic:  new Set(['black', 'olive', 'orange']),
+  powerful:  new Set(['blush', 'pink', 'lavender', 'cream']),
+};
+
+const MOOD_CONTRA_SUBTYPES: Record<MoodGoal, Set<string>> = {
+  confident: new Set(['hoodie', 'joggers', 'sweatshirt']),
+  soft:      new Set(['leather-jacket', 'hoodie', 'joggers', 'sweatshirt']),
+  joyful:    new Set(['blazer', 'trench', 'turtleneck', 'leather-jacket']),
+  grounded:  new Set(['cocktail-dress', 'gown', 'stilettos', 'mini-dress']),
+  romantic:  new Set(['hoodie', 'joggers', 'sweatshirt', 'leather-jacket', 'denim-jacket']),
+  powerful:  new Set(['hoodie', 'joggers', 'sweatshirt', 'cardigan', 'sneakers']),
+};
+
+/** True if the item naturally embodies the mood (any one signal suffices). */
+export function itemMatchesMood(item: WardrobeItem, mood: MoodGoal): boolean {
+  if (MOOD_COLORS[mood].has(item.colorFamily)) return true;
+  if (MOOD_SUBTYPES[mood].has(item.subType)) return true;
+  if (item.fabric && MOOD_FABRICS[mood].has(item.fabric)) return true;
+  if (item.mood && item.mood.includes(mood)) return true;
+  return false;
+}
+
+/** True if the item visibly clashes with the mood (would be vetoed by a stylist). */
+export function itemContradictsMood(item: WardrobeItem, mood: MoodGoal): boolean {
+  if (MOOD_CONTRA_COLORS[mood].has(item.colorFamily)) return true;
+  if (MOOD_CONTRA_SUBTYPES[mood].has(item.subType)) return true;
+  return false;
+}
+
 // ─── Hair colour × clothing colour harmony ────────────────────────────────────
 
 const HAIR_FLATTERING: Record<string, Set<string>> = {
@@ -277,14 +316,14 @@ export function scoreItemForProfile(
     }
   }
 
-  // 11. Mood alignment (max +3)
+  // 11. Mood alignment (max +10) — heavyweight so a clearly-on-mood piece can
+  //     overtake a merely-on-scenario piece, the way a real stylist would
+  //     prioritise feel over technical fit on a mood-driven day.
   if (mood) {
-    const moodColors = MOOD_COLORS[mood];
-    if (moodColors.has(item.colorFamily)) score += 1;
-    const moodSubs = MOOD_SUBTYPES[mood];
-    if (moodSubs.has(item.subType)) score += 1;
-    if (item.fabric && MOOD_FABRICS[mood].has(item.fabric)) score += 1;
-    if (item.mood && item.mood.includes(mood)) score += 1;
+    if (MOOD_COLORS[mood].has(item.colorFamily)) score += 2;
+    if (MOOD_SUBTYPES[mood].has(item.subType)) score += 3;
+    if (item.fabric && MOOD_FABRICS[mood].has(item.fabric)) score += 2;
+    if (item.mood && item.mood.includes(mood)) score += 3;
   }
 
   // 12. Life-phase comfort (soft bonus for forgiving silhouettes)
