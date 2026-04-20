@@ -16,11 +16,14 @@ const categoryLabels: Record<string, string> = {
 };
 
 const colorDots: Record<string, string> = {
-  black: '#1a1a1a', white: '#f5f5f5', navy: '#1B2A4A', beige: '#D4C5A9',
-  grey: '#8B8B8B', brown: '#6B4226', red: '#C0392B', pink: '#E8A0BF',
-  blue: '#3498DB', green: '#27AE60', burgundy: '#7D2027', cream: '#FFFDD0',
-  olive: '#556B2F', camel: '#C19A6B', lavender: '#B57EDC', coral: '#FF7F50',
-  gold: '#D4AF37', silver: '#C0C0C0',
+  black: '#1a1a1a', white: '#f5f5f5', grey: '#8B8B8B', cream: '#FFFDD0',
+  beige: '#D4C5A9', camel: '#C19A6B', brown: '#6B4226', khaki: '#BDB76B',
+  mustard: '#C9A227', gold: '#C8A951', silver: '#BFC1C2',
+  red: '#C0392B', maroon: '#800000', burgundy: '#7D2027',
+  coral: '#FF7F50', orange: '#E67E22', yellow: '#F4C542',
+  olive: '#556B2F', green: '#27AE60', mint: '#98D8B9', teal: '#1F7A7A',
+  blue: '#3498DB', navy: '#1B2A4A',
+  lavender: '#B57EDC', purple: '#7D3C98', pink: '#E8A0BF',
 };
 
 export default function WardrobeScreen() {

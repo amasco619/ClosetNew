@@ -109,7 +109,16 @@ const STORAGE_KEYS = {
 // Add Item / Item Detail under the strict matcher.
 const subTypes: Record<ItemCategory, string[]> = BLUEPRINT_SUBTYPES_BY_CATEGORY;
 
-const colorFamilies = ['black', 'white', 'navy', 'beige', 'grey', 'brown', 'red', 'pink', 'blue', 'green', 'burgundy', 'cream', 'olive', 'camel', 'lavender', 'coral'];
+const colorFamilies = [
+  // Neutrals
+  'black', 'white', 'grey', 'cream', 'beige', 'camel', 'brown', 'khaki',
+  // Warm
+  'mustard', 'gold', 'silver', 'red', 'maroon', 'burgundy', 'coral', 'orange', 'yellow',
+  // Cool
+  'olive', 'green', 'mint', 'teal', 'blue', 'navy',
+  // Specialty
+  'lavender', 'purple', 'pink',
+];
 
 export { subTypes, colorFamilies };
 export type { WardrobeSlot } from '@/constants/wardrobeBlueprint';
