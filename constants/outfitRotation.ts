@@ -13,6 +13,7 @@ import {
   scoreItemForProfile, scoreOutfitCombo, adjustScoreForReactions,
   wornHistoryBoost, effectiveFormality, SCENARIO_FORMALITY,
   itemMatchesMood, itemContradictsMood,
+  currentSeason, itemFitsSeason,
 } from './outfitScoring';
 import { generateRationale } from './rationale';
 
@@ -110,7 +111,7 @@ export function computePoolHash(
     String(profile.constraints.noShortSkirts),
     profile.constraints.maxHeelHeight,
   ].join(':');
-  return `${itemSig}|${profileSig}|${mood ?? ''}`;
+  return `${itemSig}|${profileSig}|${mood ?? ''}|${currentSeason()}`;
 }
 
 export function generateOutfitPool(
@@ -122,7 +123,14 @@ export function generateOutfitPool(
   wearHistory: WearEntry[] = [],
 ): Record<OccasionTag, OutfitSet[]> {
   const result = {} as Record<OccasionTag, OutfitSet[]>;
-  const eligible = items.filter(i => passesConstraints(i, profile));
+  // Hard seasonal gate: respect user-supplied season tags. Untagged items and
+  // items tagged 'all-season' always pass. A top stylist would never serve
+  // tweed in July or linen shorts in December — once the user has told us a
+  // piece is season-specific, we honour that strictly.
+  const season = currentSeason();
+  const eligible = items
+    .filter(i => passesConstraints(i, profile))
+    .filter(i => itemFitsSeason(i, season));
 
   for (const scenario of SCENARIOS) {
     const seen = new Set<string>();

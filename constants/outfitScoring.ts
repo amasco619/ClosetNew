@@ -117,6 +117,37 @@ export function effectiveFormality(item: WardrobeItem): number {
   return SUBTYPE_FORMALITY[item.subType] ?? item.formalityLevel ?? 5;
 }
 
+// ─── Season inference (month-based, Northern hemisphere) ─────────────────────
+// We don't have a weather API, so seasons follow the calendar. A real stylist
+// would never serve tweed in July or linen shorts in December — once a user
+// has tagged an item with seasons, we honour those tags as a hard filter.
+
+export type Season = 'winter' | 'spring' | 'summer' | 'fall';
+
+const MONTH_TO_SEASON: Season[] = [
+  'winter', 'winter',                                 // Jan, Feb
+  'spring', 'spring', 'spring',                       // Mar, Apr, May
+  'summer', 'summer', 'summer',                       // Jun, Jul, Aug
+  'fall',   'fall',   'fall',                         // Sep, Oct, Nov
+  'winter',                                           // Dec
+];
+
+export function currentSeason(date: Date = new Date()): Season {
+  return MONTH_TO_SEASON[date.getMonth()];
+}
+
+/**
+ * True if the item is appropriate for the current season. Untagged items pass
+ * (the user hasn't told us either way — assume year-round). Items tagged
+ * 'all-season' always pass. Otherwise the item must explicitly include the
+ * current season.
+ */
+export function itemFitsSeason(item: WardrobeItem, season: Season): boolean {
+  if (!item.seasonTags || item.seasonTags.length === 0) return true;
+  if (item.seasonTags.includes('all-season')) return true;
+  return item.seasonTags.includes(season);
+}
+
 const UNDERTONE_FLATTERING: Record<string, Set<string>> = {
   cool:    new Set(['navy', 'burgundy', 'lavender', 'grey', 'white', 'blue', 'pink', 'black', 'emerald', 'purple', 'rose']),
   warm:    new Set(['camel', 'olive', 'coral', 'cream', 'brown', 'red', 'orange', 'beige', 'terracotta', 'gold', 'mustard']),
@@ -269,17 +300,39 @@ export function scoreItemForProfile(
   if (f >= minF && f <= maxF) score += 2;
   else if (f >= minF - 1 && f <= maxF + 1) score += 1;
 
-  // 3. Style goal — colour (max +4)
+  // 3. Style goal — colour (max +6)
   const primaryColors = STYLE_PREFERRED_COLORS[profile.styleGoalPrimary ?? ''] ?? [];
-  if (primaryColors.includes(item.colorFamily)) score += 3;
-  if (profile.styleGoalSecondary) {
-    const secColors = STYLE_PREFERRED_COLORS[profile.styleGoalSecondary] ?? [];
-    if (secColors.includes(item.colorFamily)) score += 1;
-  }
+  const matchesPrimaryColor = primaryColors.includes(item.colorFamily);
+  if (matchesPrimaryColor) score += 5;
+  const secColors = profile.styleGoalSecondary
+    ? STYLE_PREFERRED_COLORS[profile.styleGoalSecondary] ?? []
+    : [];
+  const matchesSecondaryColor = secColors.includes(item.colorFamily);
+  if (matchesSecondaryColor) score += 1;
 
-  // 4. Style goal — silhouette (max +2)
+  // 4. Style goal — silhouette (max +3)
   const primarySubtypes = STYLE_GOAL_SUBTYPES[profile.styleGoalPrimary ?? ''];
-  if (primarySubtypes?.has(item.subType)) score += 2;
+  const matchesPrimarySubtype = primarySubtypes?.has(item.subType) ?? false;
+  if (matchesPrimarySubtype) score += 3;
+  const secondarySubtypes = profile.styleGoalSecondary
+    ? STYLE_GOAL_SUBTYPES[profile.styleGoalSecondary]
+    : undefined;
+  const matchesSecondarySubtype = secondarySubtypes?.has(item.subType) ?? false;
+
+  // 4b. Off-brief penalty — when a style goal is set and the item matches
+  //     NONE of the goal's preferred colours OR signature silhouettes
+  //     (primary OR secondary), a stylist would visibly demote it. Applied
+  //     softly (-3) rather than as a hard veto so true neutrals
+  //     (black/white/grey/cream/beige/navy) and accessories can still slot in.
+  //     Skipped for jewelry (too small to read off-brief).
+  if (profile.styleGoalPrimary && item.category !== 'jewelry') {
+    const isTrueNeutral = ['black', 'white', 'grey', 'cream', 'beige', 'navy'].includes(item.colorFamily);
+    const onBrief = matchesPrimaryColor || matchesPrimarySubtype ||
+                    matchesSecondaryColor || matchesSecondarySubtype;
+    if (!onBrief && !isTrueNeutral) {
+      score -= 3;
+    }
+  }
 
   // 5. Undertone harmony (max +4)
   const undertoneColors = UNDERTONE_FLATTERING[profile.undertone ?? 'neutral'];
@@ -378,7 +431,7 @@ export function scoreOutfitCombo(
   // Formality cohesion — items should sit within ±2 of each other
   let formalityCohesion = 0;
   if (resolved.length >= 2) {
-    const fs = resolved.map(i => i.formalityLevel ?? 5);
+    const fs = resolved.map(i => effectiveFormality(i));
     const spread = Math.max(...fs) - Math.min(...fs);
     if (spread <= 1) formalityCohesion = 3;
     else if (spread <= 2) formalityCohesion = 2;

@@ -11,6 +11,7 @@ import {
   passesConstraints, colorsHarmonize, toComponent,
   scoreItemForProfile, effectiveFormality, SCENARIO_FORMALITY,
   itemMatchesMood, itemContradictsMood,
+  currentSeason, itemFitsSeason,
 } from '@/constants/outfitScoring';
 
 function fitsScenarioFormality(items: WardrobeItem[], scenario: OccasionTag): boolean {
@@ -156,8 +157,12 @@ export function generateOutfitsForItem(
   profile: UserProfile,
 ): OutfitSet[] {
   if (!passesConstraints(newItem, profile)) return [];
+  // Honour seasonal tagging on the just-added preview as well — pairing a new
+  // sundress with a wool peacoat in July would undermine the whole pitch.
+  const season = currentSeason();
+  if (!itemFitsSeason(newItem, season)) return [];
   const otherItems = allItems.filter(
-    i => i.id !== newItem.id && passesConstraints(i, profile),
+    i => i.id !== newItem.id && passesConstraints(i, profile) && itemFitsSeason(i, season),
   );
   if (otherItems.length === 0) return [];
 
