@@ -48,7 +48,18 @@ const CATEGORIES: { id: ItemCategory; label: string; icon: string }[] = [
   { id: 'jewelry', label: 'Jewelry', icon: 'diamond-outline' },
 ];
 
-const OCCASIONS: OccasionTag[] = ['work', 'casual', 'date', 'event'];
+const OCCASIONS: OccasionTag[] = ['work', 'casual', 'date-casual', 'date-dressy', 'event'];
+
+const OCCASION_LABELS: Record<OccasionTag, string> = {
+  work: 'Work',
+  casual: 'Casual',
+  'date-casual': 'Date · Day',
+  'date-dressy': 'Date Night',
+  event: 'Event',
+  interview: 'Interview',
+  wedding: 'Wedding',
+  travel: 'Travel',
+};
 const SEASONS: SeasonTag[] = ['all-season', 'spring', 'summer', 'fall', 'winter'];
 
 const colorDots: Record<string, string> = {
@@ -385,7 +396,7 @@ export default function AddItemScreen() {
                   style={[styles.chipSmall, occasions.includes(o) && styles.chipSmallActive]}
                   onPress={() => toggleOccasion(o)}
                 >
-                  <Text style={[styles.chipSmallText, occasions.includes(o) && styles.chipSmallTextActive]}>{o}</Text>
+                  <Text style={[styles.chipSmallText, occasions.includes(o) && styles.chipSmallTextActive]}>{OCCASION_LABELS[o]}</Text>
                 </Pressable>
               ))}
             </View>

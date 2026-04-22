@@ -6,13 +6,14 @@ const NEUTRAL_COLORS = new Set([
 ]);
 
 const SCENARIO_AFFINITY: Record<OccasionTag, string[]> = {
-  casual:    ['t-shirt', 'long-sleeve', 'henley', 'sweater', 'jeans', 'chinos', 'shorts', 'leggings', 'sneakers', 'flats', 'crossbody', 'backpack', 'hoodie', 'cardigan', 'denim-jacket'],
-  work:      ['blouse', 'shirt', 'polo-shirt', 'sweater', 'trousers', 'chinos', 'midi-skirt', 'blazer', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch'],
-  date:      ['blouse', 'camisole', 'midi-dress', 'wrap-dress', 'mini-dress', 'midi-skirt', 'heels', 'mules', 'flats', 'clutch', 'mini-bag', 'crossbody', 'earrings', 'necklace'],
-  event:     ['cocktail-dress', 'midi-dress', 'maxi-dress', 'blouse', 'wide-leg', 'blazer', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
-  interview: ['blouse', 'shirt', 'blazer', 'trousers', 'midi-skirt', 'midi-dress', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch'],
-  wedding:   ['midi-dress', 'maxi-dress', 'cocktail-dress', 'wrap-dress', 'midi-skirt', 'blouse', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
-  travel:    ['t-shirt', 'long-sleeve', 'sweater', 'shirt', 'jeans', 'chinos', 'trousers', 'sneakers', 'flats', 'boots', 'crossbody', 'backpack', 'tote', 'blazer', 'cardigan', 'denim-jacket'],
+  casual:        ['t-shirt', 'long-sleeve', 'henley', 'sweater', 'jeans', 'chinos', 'shorts', 'leggings', 'sneakers', 'flats', 'crossbody', 'backpack', 'hoodie', 'cardigan', 'denim-jacket'],
+  work:          ['blouse', 'shirt', 'polo-shirt', 'sweater', 'trousers', 'chinos', 'midi-skirt', 'blazer', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch'],
+  'date-casual': ['blouse', 'camisole', 't-shirt', 'long-sleeve', 'sweater', 'cardigan', 'jeans', 'chinos', 'wide-leg', 'midi-skirt', 'midi-dress', 'wrap-dress', 'sundress', 'flats', 'mules', 'sneakers', 'loafers', 'crossbody', 'mini-bag', 'earrings'],
+  'date-dressy': ['blouse', 'camisole', 'midi-dress', 'wrap-dress', 'mini-dress', 'midi-skirt', 'heels', 'mules', 'clutch', 'mini-bag', 'earrings', 'necklace'],
+  event:         ['cocktail-dress', 'midi-dress', 'maxi-dress', 'blouse', 'wide-leg', 'blazer', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
+  interview:     ['blouse', 'shirt', 'blazer', 'trousers', 'midi-skirt', 'midi-dress', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch'],
+  wedding:       ['midi-dress', 'maxi-dress', 'cocktail-dress', 'wrap-dress', 'midi-skirt', 'blouse', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
+  travel:        ['t-shirt', 'long-sleeve', 'sweater', 'shirt', 'jeans', 'chinos', 'trousers', 'sneakers', 'flats', 'boots', 'crossbody', 'backpack', 'tote', 'blazer', 'cardigan', 'denim-jacket'],
 };
 
 function scoreForScenario(item: WardrobeItem, scenario: OccasionTag): number {
@@ -114,13 +115,14 @@ const COLOR_HEX: Record<string, string> = {
 };
 
 const SCENARIO_META: Record<OccasionTag, { label: string; icon: string }> = {
-  casual:    { label: 'Casual',    icon: 'cafe-outline' },
-  work:      { label: 'Work',      icon: 'briefcase-outline' },
-  date:      { label: 'Date',      icon: 'heart-outline' },
-  event:     { label: 'Event',     icon: 'sparkles-outline' },
-  interview: { label: 'Interview', icon: 'mic-outline' },
-  wedding:   { label: 'Wedding',   icon: 'rose-outline' },
-  travel:    { label: 'Travel',    icon: 'airplane-outline' },
+  casual:        { label: 'Casual',     icon: 'cafe-outline' },
+  work:          { label: 'Work',       icon: 'briefcase-outline' },
+  'date-casual': { label: 'Date · Day', icon: 'cafe-outline' },
+  'date-dressy': { label: 'Date Night', icon: 'heart-outline' },
+  event:         { label: 'Event',      icon: 'sparkles-outline' },
+  interview:     { label: 'Interview',  icon: 'mic-outline' },
+  wedding:       { label: 'Wedding',    icon: 'rose-outline' },
+  travel:        { label: 'Travel',     icon: 'airplane-outline' },
 };
 
 function gradeScore(score: number): WardrobeDiagnostics['grade'] {
@@ -209,7 +211,7 @@ export function computeDiagnostics(
   }
 
   // ── 3. Scenario Coverage ────────────────────────────────────────────────
-  const ALL_SCENARIOS: OccasionTag[] = ['casual', 'work', 'date', 'event', 'interview', 'wedding', 'travel'];
+  const ALL_SCENARIOS: OccasionTag[] = ['casual', 'work', 'date-casual', 'date-dressy', 'event', 'interview', 'wedding', 'travel'];
 
   const scenarioCoverage: ScenarioCoverage[] = ALL_SCENARIOS.map(scenario => {
     const scoringItems = items.filter(i => scoreForScenario(i, scenario) > 0).length;

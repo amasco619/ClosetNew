@@ -21,17 +21,18 @@ const MOOD_OPTIONS: { id: MoodGoal; label: string; icon: React.ComponentProps<ty
   { id: 'powerful',  label: 'Powerful',  icon: 'trophy-outline' },
 ];
 
-const FREE_SCENARIOS: OccasionTag[] = ['work', 'casual', 'date', 'event'];
+const FREE_SCENARIOS: OccasionTag[] = ['work', 'casual', 'date-casual', 'date-dressy', 'event'];
 const PREMIUM_SCENARIOS: OccasionTag[] = ['interview', 'wedding', 'travel'];
 
 const REWEAR_THRESHOLDS: Record<OccasionTag, number> = {
-  work:      7,
-  casual:    7,
-  date:      14,
-  event:     14,
-  interview: 21,
-  wedding:   21,
-  travel:    0,
+  work:          7,
+  casual:        7,
+  'date-casual': 7,
+  'date-dressy': 14,
+  event:         14,
+  interview:     21,
+  wedding:       21,
+  travel:        0,
 };
 
 function getLastWornInfo(
@@ -57,13 +58,14 @@ function getLastWornInfo(
 }
 
 const scenarioLabels: Record<OccasionTag, { label: string; icon: string; mood: string }> = {
-  work:      { label: 'Work',      icon: 'briefcase-outline',  mood: 'Sharp & polished' },
-  casual:    { label: 'Casual',    icon: 'cafe-outline',       mood: 'Easy & effortless' },
-  date:      { label: 'Date',      icon: 'heart-outline',      mood: 'Confident & feminine' },
-  event:     { label: 'Event',     icon: 'sparkles-outline',   mood: 'Dressed to impress' },
-  interview: { label: 'Interview', icon: 'mic-outline',        mood: 'Authoritative & calm' },
-  wedding:   { label: 'Wedding',   icon: 'rose-outline',       mood: 'Elegant & celebratory' },
-  travel:    { label: 'Travel',    icon: 'airplane-outline',   mood: 'Chic & comfortable' },
+  work:          { label: 'Work',       icon: 'briefcase-outline', mood: 'Sharp & polished' },
+  casual:        { label: 'Casual',     icon: 'cafe-outline',      mood: 'Easy & effortless' },
+  'date-casual': { label: 'Date · Day', icon: 'cafe-outline',      mood: 'Relaxed & charming' },
+  'date-dressy': { label: 'Date Night', icon: 'heart-outline',     mood: 'Confident & feminine' },
+  event:         { label: 'Event',      icon: 'sparkles-outline',  mood: 'Dressed to impress' },
+  interview:     { label: 'Interview',  icon: 'mic-outline',       mood: 'Authoritative & calm' },
+  wedding:       { label: 'Wedding',    icon: 'rose-outline',      mood: 'Elegant & celebratory' },
+  travel:        { label: 'Travel',     icon: 'airplane-outline',  mood: 'Chic & comfortable' },
 };
 
 const categoryLabels: Record<string, string> = {

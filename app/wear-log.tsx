@@ -10,13 +10,14 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { OccasionTag } from '@/constants/types';
 
 const scenarioLabels: Record<OccasionTag, { label: string; icon: string }> = {
-  work:      { label: 'Work',      icon: 'briefcase-outline' },
-  casual:    { label: 'Casual',    icon: 'cafe-outline' },
-  date:      { label: 'Date',      icon: 'heart-outline' },
-  event:     { label: 'Event',     icon: 'sparkles-outline' },
-  interview: { label: 'Interview', icon: 'mic-outline' },
-  wedding:   { label: 'Wedding',   icon: 'rose-outline' },
-  travel:    { label: 'Travel',    icon: 'airplane-outline' },
+  work:          { label: 'Work',       icon: 'briefcase-outline' },
+  casual:        { label: 'Casual',     icon: 'cafe-outline' },
+  'date-casual': { label: 'Date · Day', icon: 'cafe-outline' },
+  'date-dressy': { label: 'Date Night', icon: 'heart-outline' },
+  event:         { label: 'Event',      icon: 'sparkles-outline' },
+  interview:     { label: 'Interview',  icon: 'mic-outline' },
+  wedding:       { label: 'Wedding',    icon: 'rose-outline' },
+  travel:        { label: 'Travel',     icon: 'airplane-outline' },
 };
 
 function formatDate(dateStr: string): string {

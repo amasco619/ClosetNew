@@ -4,7 +4,8 @@ export type SkinTone = 'very-light' | 'light' | 'medium-light' | 'medium' | 'med
 export type Undertone = 'cool' | 'neutral' | 'warm';
 export type StyleGoal = 'youthful' | 'elevated' | 'minimal' | 'romantic' | 'bold' | 'classic';
 export type ItemCategory = 'top' | 'bottom' | 'dress' | 'outerwear' | 'shoes' | 'bag' | 'jewelry';
-export type OccasionTag = 'work' | 'date' | 'casual' | 'event' | 'interview' | 'wedding' | 'travel';
+export type OccasionTag = 'work' | 'date-casual' | 'date-dressy' | 'casual' | 'event' | 'interview' | 'wedding' | 'travel';
+export type Industry = 'creative' | 'corporate' | 'tech' | 'unspecified';
 export type SeasonTag = 'winter' | 'summer' | 'spring' | 'fall' | 'all-season';
 
 // ─── Sophisticated stylist signals (all optional for backward compatibility) ─────
@@ -54,6 +55,7 @@ export interface UserProfile {
   metalPreference?: MetalPreference | null;
   lifePhase?: LifePhase | null;
   defaultMood?: MoodGoal | null;
+  industry?: Industry | null;
   dismissedProfileNudge?: string; // YYYY-MM-DD
 }
 

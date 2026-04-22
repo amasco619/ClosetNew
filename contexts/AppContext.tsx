@@ -89,6 +89,7 @@ const defaultProfile: UserProfile = {
   metalPreference: null,
   lifePhase: 'none',
   defaultMood: null,
+  industry: 'unspecified',
   dismissedProfileNudge: undefined,
 };
 
@@ -243,11 +244,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // A persistent flag prevents this from ever running twice.
       const legacyIds = new Set<string>();
       const seededItems = rawItems.map((it) => {
-        if (it.dominantHsl && it.dominantLab) return it;
-        const hsl = it.dominantHsl ?? centroidHsl(it.colorFamily);
-        const lab = it.dominantLab ?? hslToLab(hsl.h, hsl.s, hsl.l);
-        legacyIds.add(it.id);
-        return { ...it, dominantHsl: hsl, dominantLab: lab };
+        // One-shot occasion migration (April 2026): the legacy `'date'` tag
+        // was split into `'date-casual'` / `'date-dressy'`. Default forward
+        // to `'date-dressy'` since the historical scorer band [3,7] sat
+        // closer to the new dressy band than the casual one. Users can
+        // re-tag explicitly if they prefer the casual variant.
+        const occasionTags = (it.occasionTags ?? []).map(t =>
+          (t as string) === 'date' ? 'date-dressy' : t,
+        ) as typeof it.occasionTags;
+        const withTags = occasionTags === it.occasionTags ? it : { ...it, occasionTags };
+        if (withTags.dominantHsl && withTags.dominantLab) return withTags;
+        const hsl = withTags.dominantHsl ?? centroidHsl(withTags.colorFamily);
+        const lab = withTags.dominantLab ?? hslToLab(hsl.h, hsl.s, hsl.l);
+        legacyIds.add(withTags.id);
+        return { ...withTags, dominantHsl: hsl, dominantLab: lab };
       });
       if (wardrobeData) setWardrobeItems(seededItems);
       if (legacyIds.size > 0) {

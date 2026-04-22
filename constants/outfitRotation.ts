@@ -11,14 +11,14 @@ import {
 import {
   colorsHarmonize, passesConstraints, toComponent,
   scoreItemForProfile, scoreOutfitCombo, adjustScoreForReactions,
-  wornHistoryBoost, effectiveFormality, SCENARIO_FORMALITY,
+  wornHistoryBoost, effectiveFormality, getScenarioFormality,
   itemMatchesMood, itemContradictsMood,
   currentSeason, itemFitsSeason,
 } from './outfitScoring';
 import { generateRationale } from './rationale';
 
 export const SCENARIOS: OccasionTag[] = [
-  'work', 'casual', 'date', 'event', 'interview', 'wedding', 'travel',
+  'work', 'casual', 'date-casual', 'date-dressy', 'event', 'interview', 'wedding', 'travel',
 ];
 
 const OUTFITS_PER_SCENARIO_PER_DAY = 2;
@@ -158,7 +158,7 @@ export function generateOutfitPool(
     // Hard scenario gate: drop any core whose average formality falls outside
     // the scenario's expected band. Strict — a top-tier stylist would never
     // suggest a casual piece for a wedding "because it's close enough".
-    const [scenMinF, scenMaxF] = SCENARIO_FORMALITY[scenario];
+    const [scenMinF, scenMaxF] = getScenarioFormality(scenario, profile);
     const coreFitsScenario = (coreItems: WardrobeItem[]): boolean => {
       const fs = coreItems.map(effectiveFormality);
       const avg = fs.reduce((a, b) => a + b, 0) / fs.length;

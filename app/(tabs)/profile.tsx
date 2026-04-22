@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal, LifePhase } from '@/constants/types';
+import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal, LifePhase, Industry } from '@/constants/types';
 import { useEffect, useRef, useState } from 'react';
 
 const HAIR_OPTS: { id: HairColor; label: string }[] = [
@@ -18,6 +18,12 @@ const HEIGHT_OPTS: HeightBand[] = ['petite', 'average', 'tall'];
 const CONTRAST_OPTS: ContrastLevel[] = ['low', 'medium', 'high'];
 const METAL_OPTS: MetalPreference[] = ['gold', 'silver', 'rose-gold', 'mixed'];
 const MOOD_OPTS: MoodGoal[] = ['confident', 'soft', 'joyful', 'grounded', 'romantic', 'powerful'];
+const INDUSTRY_OPTS: { id: Industry; label: string }[] = [
+  { id: 'creative',    label: 'Creative' },
+  { id: 'tech',        label: 'Tech' },
+  { id: 'corporate',   label: 'Corporate' },
+  { id: 'unspecified', label: 'Other' },
+];
 const LIFE_PHASE_OPTS: { id: LifePhase; label: string }[] = [
   { id: 'none', label: 'None' },
   { id: 'pregnancy', label: 'Pregnancy' },
@@ -203,6 +209,21 @@ export default function ProfileScreen() {
                     style={[styles.refineChip, active && styles.refineChipActive]}>
                     <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
                       {m.charAt(0).toUpperCase() + m.slice(1)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.refineLabel}>Industry</Text>
+            <View style={styles.refineChipRow}>
+              {INDUSTRY_OPTS.map(i => {
+                const active = (profile.industry ?? 'unspecified') === i.id;
+                return (
+                  <Pressable key={i.id} onPress={() => updateProfile({ industry: i.id })}
+                    style={[styles.refineChip, active && styles.refineChipActive]}>
+                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                      {i.label}
                     </Text>
                   </Pressable>
                 );

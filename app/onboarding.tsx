@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp, BodyType, EyeColor, SkinTone, Undertone, StyleGoal } from '@/contexts/AppContext';
-import type { HairColor, HeightBand, ContrastLevel, MoodGoal, LifePhase, MetalPreference } from '@/constants/types';
+import type { HairColor, HeightBand, ContrastLevel, MoodGoal, LifePhase, MetalPreference, Industry } from '@/constants/types';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
@@ -73,6 +73,12 @@ const HEIGHT_OPTS: HeightBand[] = ['petite', 'average', 'tall'];
 const CONTRAST_OPTS: ContrastLevel[] = ['low', 'medium', 'high'];
 const MOOD_OPTS: MoodGoal[] = ['confident', 'soft', 'joyful', 'grounded', 'romantic', 'powerful'];
 const METAL_OPTS: MetalPreference[] = ['gold', 'silver', 'rose-gold', 'mixed'];
+const INDUSTRY_OPTS: { id: Industry; label: string }[] = [
+  { id: 'creative',    label: 'Creative' },
+  { id: 'tech',        label: 'Tech' },
+  { id: 'corporate',   label: 'Corporate' },
+  { id: 'unspecified', label: 'Other' },
+];
 const LIFE_PHASE_OPTS: { id: LifePhase; label: string }[] = [
   { id: 'none', label: 'None' },
   { id: 'pregnancy', label: 'Pregnancy' },
@@ -112,6 +118,7 @@ export default function OnboardingScreen() {
   const [contrastLevel, setContrastLevel] = useState<ContrastLevel | null>(profile.contrastLevel ?? null);
   const [contrastManual, setContrastManual] = useState<boolean>(!!profile.contrastLevel);
   const [defaultMood, setDefaultMood] = useState<MoodGoal | null>(profile.defaultMood ?? null);
+  const [industry, setIndustry] = useState<Industry>(profile.industry ?? 'unspecified');
   const [lifePhase, setLifePhase] = useState<LifePhase | null>(profile.lifePhase ?? null);
   const [metalPreference, setMetalPreference] = useState<MetalPreference | null>(profile.metalPreference ?? null);
   const [colorAversions, setColorAversions] = useState<string[]>(profile.constraints.colorAversions ?? []);
@@ -160,6 +167,7 @@ export default function OnboardingScreen() {
         defaultMood,
         lifePhase,
         metalPreference,
+        industry,
         constraints: { ...profile.constraints, colorAversions },
         onboardingComplete: true,
       });
@@ -391,6 +399,20 @@ export default function OnboardingScreen() {
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
                       {m.charAt(0).toUpperCase() + m.slice(1)}
                     </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={[styles.subLabel, { marginTop: 20 }]}>Industry</Text>
+            <Text style={[styles.stepSubtitle, { textAlign: 'left', marginBottom: 12 }]}>Helps tune interview formality — creatives can dress softer than corporate.</Text>
+            <View style={styles.chipRow}>
+              {INDUSTRY_OPTS.map(i => {
+                const active = industry === i.id;
+                return (
+                  <Pressable key={i.id} onPress={() => { Haptics.selectionAsync(); setIndustry(i.id); }}
+                    style={[styles.chip, active && styles.chipActive]}>
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{i.label}</Text>
                   </Pressable>
                 );
               })}

@@ -46,13 +46,16 @@ export function isNeutral(color: string): boolean {
 // ─── Scenario sub-type affinity ───────────────────────────────────────────────
 
 export const SCENARIO_AFFINITY: Record<OccasionTag, string[]> = {
-  casual:    ['t-shirt', 'long-sleeve', 'henley', 'sweater', 'jeans', 'chinos', 'shorts', 'leggings', 'sneakers', 'flats', 'crossbody', 'backpack', 'hoodie', 'cardigan', 'denim-jacket', 'polo-shirt', 'rugby-shirt', 'joggers'],
-  work:      ['blouse', 'shirt', 'polo-shirt', 'sweater', 'trousers', 'chinos', 'midi-skirt', 'blazer', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch', 'turtleneck'],
-  date:      ['blouse', 'camisole', 'midi-dress', 'wrap-dress', 'mini-dress', 'midi-skirt', 'heels', 'mules', 'flats', 'clutch', 'mini-bag', 'crossbody', 'earrings', 'necklace', 'dress'],
-  event:     ['cocktail-dress', 'midi-dress', 'maxi-dress', 'blouse', 'wide-leg', 'blazer', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
-  interview: ['blouse', 'shirt', 'blazer', 'trousers', 'midi-skirt', 'midi-dress', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch', 'turtleneck'],
-  wedding:   ['midi-dress', 'maxi-dress', 'cocktail-dress', 'wrap-dress', 'midi-skirt', 'blouse', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
-  travel:    ['t-shirt', 'long-sleeve', 'sweater', 'shirt', 'jeans', 'chinos', 'trousers', 'sneakers', 'flats', 'boots', 'crossbody', 'backpack', 'tote', 'blazer', 'cardigan', 'denim-jacket', 'wide-leg'],
+  casual:        ['t-shirt', 'long-sleeve', 'henley', 'sweater', 'jeans', 'chinos', 'shorts', 'leggings', 'sneakers', 'flats', 'crossbody', 'backpack', 'hoodie', 'cardigan', 'denim-jacket', 'polo-shirt', 'rugby-shirt', 'joggers'],
+  work:          ['blouse', 'shirt', 'polo-shirt', 'sweater', 'trousers', 'chinos', 'midi-skirt', 'blazer', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch', 'turtleneck'],
+  // Coffee / lunch / low-key first dates — keep it relaxed but considered.
+  'date-casual': ['blouse', 'camisole', 't-shirt', 'long-sleeve', 'sweater', 'cardigan', 'jeans', 'chinos', 'wide-leg', 'midi-skirt', 'midi-dress', 'wrap-dress', 'sundress', 'flats', 'mules', 'sneakers', 'loafers', 'crossbody', 'mini-bag', 'earrings'],
+  // Dinner / wine bar / something to dress for.
+  'date-dressy': ['blouse', 'camisole', 'midi-dress', 'wrap-dress', 'mini-dress', 'maxi-dress', 'midi-skirt', 'heels', 'mules', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet', 'dress', 'blazer'],
+  event:         ['cocktail-dress', 'midi-dress', 'maxi-dress', 'blouse', 'wide-leg', 'blazer', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
+  interview:     ['blouse', 'shirt', 'blazer', 'trousers', 'midi-skirt', 'midi-dress', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch', 'turtleneck'],
+  wedding:       ['midi-dress', 'maxi-dress', 'cocktail-dress', 'wrap-dress', 'midi-skirt', 'blouse', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
+  travel:        ['t-shirt', 'long-sleeve', 'sweater', 'shirt', 'jeans', 'chinos', 'trousers', 'sneakers', 'flats', 'boots', 'crossbody', 'backpack', 'tote', 'blazer', 'cardigan', 'denim-jacket', 'wide-leg'],
 };
 
 export const STYLE_PREFERRED_COLORS: Record<string, string[]> = {
@@ -73,15 +76,57 @@ export const STYLE_GOAL_SUBTYPES: Record<string, Set<string>> = {
   youthful: new Set(['t-shirt', 'mini-skirt', 'sneakers', 'jeans', 'shorts', 'crossbody', 'earrings', 'hoodie', 'mini-dress', 'crop-top']),
 };
 
+// ─── Scenario formality bands ────────────────────────────────────────────────
+// Each scenario has a [min, max] formality band (1=loungewear, 9=black-tie).
+// The scorer awards +2 for in-band, +1 for one-step-off-band, 0 otherwise.
+// Audit (April 2026) — every band justified explicitly:
+//   casual        [1, 5]  Anchors weekend wear; widened from [1,4] so smart
+//                         casual (f=5: shirt, turtleneck) qualifies — coffee,
+//                         park, errands, casual-Friday office.
+//   travel        [1, 5]  Comfort-first but a polished blazer/loafer is still
+//                         airport-appropriate.
+//   date-casual   [3, 5]  Coffee / lunch / low-key first date. Excludes pure
+//                         loungewear (f<3) and dressy heels-and-clutch.
+//   date-dressy   [5, 8]  Dinner / wine bar — smart casual to cocktail.
+//                         Replaces the legacy single `date` (was [3,7]).
+//   work          [4, 7]  Business casual through traditional office; sweater,
+//                         blouse, blazer, tailored trouser.
+//   event         [5, 8]  Cocktail-leaning gathering — birthday, gallery.
+//   interview     varies  Defaults to [6, 9] (sharp, conservative) but is
+//                         relaxed by `getScenarioFormality` when the user's
+//                         profile.industry is `creative` (band [4, 7]) or
+//                         `tech` (band [5, 8]). Corporate and unspecified
+//                         keep the conservative default. See helper below.
+//   wedding       [6, 9]  Cocktail through formal — never casual.
 export const SCENARIO_FORMALITY: Record<OccasionTag, [number, number]> = {
-  casual:    [1, 4],
-  travel:    [1, 5],
-  date:      [3, 7],
-  work:      [4, 7],
-  event:     [5, 8],
-  interview: [6, 9],
-  wedding:   [6, 9],
+  casual:        [1, 5],
+  travel:        [1, 5],
+  'date-casual': [3, 5],
+  'date-dressy': [5, 8],
+  work:          [4, 7],
+  event:         [5, 8],
+  interview:     [6, 9],
+  wedding:       [6, 9],
 };
+
+/**
+ * Industry-aware formality lookup. For most scenarios this just returns the
+ * static band, but `interview` is relaxed for creative/tech industries where
+ * a force-suited candidate would actually feel off.
+ */
+export function getScenarioFormality(
+  scenario: OccasionTag,
+  profile?: Pick<UserProfile, 'industry'> | null,
+): [number, number] {
+  if (scenario === 'interview') {
+    const ind = profile?.industry ?? 'unspecified';
+    if (ind === 'creative') return [4, 7];
+    if (ind === 'tech')     return [5, 8];
+    // corporate + unspecified keep the conservative default.
+    return [6, 9];
+  }
+  return SCENARIO_FORMALITY[scenario];
+}
 
 // ─── Sub-type → default formality ─────────────────────────────────────────────
 // 1 = athleisure / loungewear, 5 = smart casual, 9 = black-tie.
@@ -303,8 +348,8 @@ export function scoreItemForProfile(
   if (item.occasionTags.includes(scenario)) score += 5;
   if (SCENARIO_AFFINITY[scenario].includes(item.subType)) score += 3;
 
-  // 2. Formality band (max +2)
-  const [minF, maxF] = SCENARIO_FORMALITY[scenario];
+  // 2. Formality band (max +2) — industry-aware for `interview`.
+  const [minF, maxF] = getScenarioFormality(scenario, profile);
   const f = effectiveFormality(item);
   if (f >= minF && f <= maxF) score += 2;
   else if (f >= minF - 1 && f <= maxF + 1) score += 1;
