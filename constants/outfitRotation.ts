@@ -106,6 +106,7 @@ export function computePoolHash(
     profile.contrastLevel ?? '',
     profile.metalPreference ?? '',
     profile.lifePhase ?? '',
+    profile.industry ?? '',
     (profile.constraints.colorAversions ?? []).sort().join(','),
     String(profile.constraints.noSleeveless),
     String(profile.constraints.noShortSkirts),
