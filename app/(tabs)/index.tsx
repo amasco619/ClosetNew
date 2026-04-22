@@ -23,8 +23,9 @@ const categoryLabels: Record<string, string> = {
 };
 
 const occasionLabels: Record<string, string> = {
-  work: 'Work', casual: 'Casual', date: 'Date', event: 'Event',
-  interview: 'Interview', wedding: 'Wedding', travel: 'Travel',
+  work: 'Work', casual: 'Casual',
+  'date-casual': 'Date · Day', 'date-dressy': 'Date Night',
+  event: 'Event', interview: 'Interview', wedding: 'Wedding', travel: 'Travel',
 };
 
 export default function HomeScreen() {

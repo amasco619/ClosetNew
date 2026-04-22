@@ -279,8 +279,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       if (premiumData) setIsPremium(JSON.parse(premiumData));
       if (rotationData) setRotationState(JSON.parse(rotationData));
-      if (wearData) setWearHistory(JSON.parse(wearData));
-      if (reactionsData) setReactions(JSON.parse(reactionsData));
+      // Migrate persisted wear history + reactions from the legacy single
+      // `'date'` scenario to `'date-dressy'` so labels/lookups don't blank
+      // out for users with existing logs.
+      if (wearData) {
+        const parsed: WearEntry[] = JSON.parse(wearData);
+        let mutated = false;
+        const migrated = parsed.map(e => {
+          if ((e.occasion as string) === 'date') {
+            mutated = true;
+            return { ...e, occasion: 'date-dressy' as const };
+          }
+          return e;
+        });
+        setWearHistory(migrated);
+        if (mutated) AsyncStorage.setItem(STORAGE_KEYS.wearHistory, JSON.stringify(migrated));
+      }
+      if (reactionsData) {
+        const parsed: OutfitReaction[] = JSON.parse(reactionsData);
+        let mutated = false;
+        const migrated = parsed.map(r => {
+          if ((r.scenario as string) === 'date') {
+            mutated = true;
+            return { ...r, scenario: 'date-dressy' as const };
+          }
+          return r;
+        });
+        setReactions(migrated);
+        if (mutated) AsyncStorage.setItem(STORAGE_KEYS.reactions, JSON.stringify(migrated));
+      }
       if (moodData) setMoodOfDay(JSON.parse(moodData));
       if (savedLooksData) setSavedLooks(JSON.parse(savedLooksData));
       if (slotsData) {
