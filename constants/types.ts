@@ -81,6 +81,12 @@ export interface WardrobeItem {
   sleeveLength?: SleeveLength; // tops / dresses / outerwear
   rise?: Rise;                 // bottoms
   warmthBand?: WarmthBand;     // how warm/cool this item feels to wear
+  // Perceptual colour signals — derived from the dominant garment pixel at
+  // upload time, or backfilled from the colour-family centroid for legacy
+  // items. Used by the combo scorer to reason about temperature, value, and
+  // saturation harmony across a look. Family labels still drive UI.
+  dominantHsl?: { h: number; s: number; l: number };  // h: 0-360, s/l: 0-1
+  dominantLab?: { L: number; a: number; b: number };  // CIE Lab
 }
 
 export interface OutfitComponent {

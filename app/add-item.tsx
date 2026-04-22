@@ -86,6 +86,8 @@ export default function AddItemScreen() {
   const [patternScale, setPatternScale] = useState<string | undefined>(undefined);
   const [fabric, setFabric] = useState<string | undefined>(undefined);
   const [accentColor, setAccentColor] = useState<string | undefined>(undefined);
+  const [dominantHsl, setDominantHsl] = useState<{ h: number; s: number; l: number } | undefined>(undefined);
+  const [dominantLab, setDominantLab] = useState<{ L: number; a: number; b: number } | undefined>(undefined);
   const [fit, setFit] = useState<string | undefined>(undefined);
   const [metalTone, setMetalTone] = useState<string | undefined>(undefined);
   const [neckline, setNeckline] = useState<string | undefined>(undefined);
@@ -94,7 +96,7 @@ export default function AddItemScreen() {
   const [warmthBand, setWarmthBand] = useState<string | undefined>(undefined);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
-  const classifyWithServer = async (base64: string, cat: ItemCategory): Promise<{ category: ItemCategory; subType: string; colorFamily: string; accentColor?: string; description: string; occasionTags: OccasionTag[]; pattern?: string; patternScale?: string; fabric?: string }> => {
+  const classifyWithServer = async (base64: string, cat: ItemCategory): Promise<{ category: ItemCategory; subType: string; colorFamily: string; accentColor?: string; description: string; occasionTags: OccasionTag[]; pattern?: string; patternScale?: string; fabric?: string; dominantHsl?: { h: number; s: number; l: number }; dominantLab?: { L: number; a: number; b: number } }> => {
     try {
       const res = await apiRequest('POST', '/api/classify-garment', { imageBase64: base64 });
       const data = await res.json();
@@ -109,6 +111,8 @@ export default function AddItemScreen() {
         pattern: data.pattern,
         patternScale: data.patternScale,
         fabric: data.fabric,
+        dominantHsl: data.dominantHsl,
+        dominantLab: data.dominantLab,
       };
     } catch {
       const fallback = localClassifyFallback(cat);
@@ -122,6 +126,8 @@ export default function AddItemScreen() {
     setFabric(undefined);
     setAccentColor(undefined);
     setFit(undefined);
+    setDominantHsl(undefined);
+    setDominantLab(undefined);
     try {
       let result: ImagePicker.ImagePickerResult;
       const pickerOptions: ImagePicker.ImagePickerOptions = {
@@ -168,6 +174,8 @@ export default function AddItemScreen() {
           if (classified.patternScale) setPatternScale(classified.patternScale);
           if (classified.fabric) setFabric(classified.fabric);
           if (classified.accentColor) setAccentColor(classified.accentColor);
+          if (classified.dominantHsl) setDominantHsl(classified.dominantHsl);
+          if (classified.dominantLab) setDominantLab(classified.dominantLab);
           setClassifying(false);
         } else {
           const fallback = localClassifyFallback(category);
@@ -216,6 +224,8 @@ export default function AddItemScreen() {
       sleeveLength: asSleeve(sleeveLength),
       rise: asRise(rise),
       warmthBand: asWarmth(warmthBand),
+      dominantHsl,
+      dominantLab,
     });
     router.back();
   };
@@ -349,7 +359,17 @@ export default function AddItemScreen() {
                 <Pressable
                   key={cf}
                   style={[styles.colorChip, colorFamily === cf && styles.colorChipActive]}
-                  onPress={() => setColorFamily(cf)}
+                  onPress={() => {
+                    if (cf !== colorFamily) {
+                      // User overrode the classifier — drop stale perceptual
+                      // values so the scorer falls back to the centroid for
+                      // the chosen family. Re-classifying the photo would
+                      // overwrite these with precise per-pixel values.
+                      setDominantHsl(undefined);
+                      setDominantLab(undefined);
+                    }
+                    setColorFamily(cf);
+                  }}
                 >
                   <View style={[styles.colorDot, { backgroundColor: colorDots[cf] || '#ccc' }]} />
                   <Text style={[styles.colorLabel, colorFamily === cf && { color: Colors.primary }]}>{cf}</Text>

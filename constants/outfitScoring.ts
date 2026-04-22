@@ -24,6 +24,15 @@ import {
   classifyPalette, scorePaletteType,
   isNeutralColor,
 } from './colorTheory';
+import {
+  Hsl, centroidHsl,
+  temperatureHarmony, valueSpread, saturationDominance,
+} from './colorPerceptual';
+
+/** Resolve a usable HSL for an item — prefer captured value, fall back to centroid. */
+function itemHsl(item: WardrobeItem): Hsl {
+  return item.dominantHsl ?? centroidHsl(item.colorFamily);
+}
 
 // Re-export for backward compatibility
 export { colorsHarmonize } from './colorTheory';
@@ -402,6 +411,10 @@ export interface OutfitScoreBreakdown {
   pieces: number;
   proportionBalance: number;
   metalCohesion: number;
+  // Perceptual colour signals (v3) — operate on per-item HSL/Lab
+  temperatureHarmony: number;
+  valueSpread: number;
+  saturationDominance: number;
 }
 
 export function scoreOutfitCombo(
@@ -523,13 +536,32 @@ export function scoreOutfitCombo(
     }
   }
 
+  // ─── Perceptual colour signals ───────────────────────────────────────────
+  // Three combo-level scorers that read the per-item HSL captured at upload
+  // time (or backfilled from the colour-family centroid for legacy items).
+  // These let the engine reason about colour the way a stylist actually does:
+  // temperature coherence, pleasing value spread, and one dominant focal piece.
+  let tempHarmonyScore = 0;
+  let valueSpreadScore = 0;
+  let saturationDomScore = 0;
+  if (resolved.length >= 2) {
+    const hsls = resolved.map(itemHsl);
+    tempHarmonyScore = temperatureHarmony(hsls);
+    valueSpreadScore = valueSpread(hsls);
+    saturationDomScore = saturationDominance(hsls);
+  }
+
   const total = completeness + palette + formalityCohesion + patternSafety
-    + contrastMatch + pieces + proportionBalance + metalCohesion;
+    + contrastMatch + pieces + proportionBalance + metalCohesion
+    + tempHarmonyScore + valueSpreadScore + saturationDomScore;
 
   return {
     total, completeness, palette, paletteType,
     formalityCohesion, patternSafety, contrastMatch, pieces,
     proportionBalance, metalCohesion,
+    temperatureHarmony: tempHarmonyScore,
+    valueSpread: valueSpreadScore,
+    saturationDominance: saturationDomScore,
   };
 }
 

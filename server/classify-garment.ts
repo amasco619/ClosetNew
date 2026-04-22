@@ -512,6 +512,71 @@ function rgbToColorFamily(r: number, g: number, b: number): string {
 // are far more likely to be environmental backgrounds.
 const NEUTRAL_FAMILIES = new Set(['black', 'grey', 'white', 'brown', 'beige', 'cream', 'navy', 'camel']);
 
+// sRGB → HSL. Mirrors the client-side `rgbToHsl` so server and client agree on
+// per-item perceptual values.
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  const rn = r / 255, gn = g / 255, bn = b / 255;
+  const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  let h = 0, s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case rn: h = (gn - bn) / d + (gn < bn ? 6 : 0); break;
+      case gn: h = (bn - rn) / d + 2; break;
+      case bn: h = (rn - gn) / d + 4; break;
+    }
+    h *= 60;
+  }
+  return { h, s, l };
+}
+
+// sRGB → CIE Lab (D65)
+function rgbToLab(r: number, g: number, b: number): { L: number; a: number; b: number } {
+  const lin = [r, g, b].map(v => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  const X = (lin[0] * 0.4124564 + lin[1] * 0.3575761 + lin[2] * 0.1804375) / 0.95047;
+  const Y = (lin[0] * 0.2126729 + lin[1] * 0.7151522 + lin[2] * 0.0721750);
+  const Z = (lin[0] * 0.0193339 + lin[1] * 0.1191920 + lin[2] * 0.9503041) / 1.08883;
+  const f = (t: number) => t > 0.008856 ? Math.cbrt(t) : (7.787 * t + 16 / 116);
+  const fx = f(X), fy = f(Y), fz = f(Z);
+  return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+}
+
+/**
+ * Find the RGB pixel that best represents the garment's chosen colour family.
+ * Reuses the same logic as `dominantColorFamily` so the perceptual HSL/Lab
+ * values agree with the displayed family label.
+ */
+function dominantGarmentRgb(
+  colors: Array<{ color: { red: number; green: number; blue: number }; pixelFraction: number }>,
+  chosenFamily: string,
+  applyNeutralPreference: boolean,
+): { red: number; green: number; blue: number } | null {
+  if (!colors || colors.length === 0) return null;
+  const sorted = [...colors].sort((a, b) => b.pixelFraction - a.pixelFraction);
+  // Find the first pixel whose family matches the chosen family.
+  for (const entry of sorted) {
+    const { red: r, green: g, blue: b } = entry.color;
+    const lightness = (Math.max(r, g, b) + Math.min(r, g, b)) / 2 / 255;
+    // Skip near-white pixels for non-white items only.
+    if (chosenFamily !== 'white' && lightness > 0.90) continue;
+    const fam = rgbToColorFamily(r, g, b);
+    if (fam === chosenFamily) return entry.color;
+  }
+  // Fallback: most-dominant non-background pixel.
+  for (const entry of sorted) {
+    const { red: r, green: g, blue: b } = entry.color;
+    const lightness = (Math.max(r, g, b) + Math.min(r, g, b)) / 2 / 255;
+    if (chosenFamily !== 'white' && lightness > 0.90) continue;
+    return entry.color;
+  }
+  return sorted[0]?.color ?? null;
+}
+
 function dominantColorFamily(
   colors: Array<{ color: { red: number; green: number; blue: number }; pixelFraction: number }>,
   applyNeutralPreference = true
@@ -767,6 +832,20 @@ export async function classifyGarment(req: Request, res: Response) {
     else if (labelSet.has("Knit") || labelSet.has("Knitting")) fabric = "knit";
     else if (labelSet.has("Cotton")) fabric = "cotton";
 
+    // Perceptual colour signals — derive HSL + Lab from the actual garment
+    // pixel that won the family vote. Lets the outfit scorer reason about
+    // undertone temperature, value spread, and saturation dominance — the
+    // things a real stylist actually thinks about.
+    let dominantHsl: { h: number; s: number; l: number } | undefined;
+    let dominantLab: { L: number; a: number; b: number } | undefined;
+    if (colorFamily) {
+      const garmentRgb = dominantGarmentRgb(dominantColors, colorFamily, isOnColoredSurface);
+      if (garmentRgb) {
+        dominantHsl = rgbToHsl(garmentRgb.red, garmentRgb.green, garmentRgb.blue);
+        dominantLab = rgbToLab(garmentRgb.red, garmentRgb.green, garmentRgb.blue);
+      }
+    }
+
     return res.json({
       category,
       subType,
@@ -777,6 +856,8 @@ export async function classifyGarment(req: Request, res: Response) {
       pattern,
       patternScale,
       fabric,
+      dominantHsl,
+      dominantLab,
       modelConfidence,
       rawLabels: labels.slice(0, 5),
       rawObjects: objectAnnotations.slice(0, 5),

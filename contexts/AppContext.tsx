@@ -8,6 +8,7 @@ import {
   MoodGoal, OutfitReaction, ReactionType, MoodOfDay, SavedLook,
 } from '@/constants/types';
 import { generateOutfitsForItem } from '@/constants/outfitGenerator';
+import { centroidHsl, hslToLab } from '@/constants/colorPerceptual';
 import {
   RotationState, INITIAL_ROTATION_STATE,
   generateOutfitPool, applyDailyRotation, computePoolHash, todayString,
@@ -226,8 +227,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ]);
       const loadedProfile = profileData ? mergeProfile(JSON.parse(profileData)) : defaultProfile;
       setProfile(loadedProfile);
-      const loadedItems = wardrobeData ? JSON.parse(wardrobeData) : [];
+      const rawItems: WardrobeItem[] = wardrobeData ? JSON.parse(wardrobeData) : [];
+      // One-shot perceptual backfill: items added before perceptual scoring
+      // existed (or saved without HSL/Lab data) get their values seeded from
+      // the colour-family centroid. Cheap (pure math, no image I/O) and
+      // reversible — a re-classify on the item will overwrite with the precise
+      // per-pixel values.
+      let backfilled = false;
+      const loadedItems = rawItems.map((it) => {
+        if (it.dominantHsl && it.dominantLab) return it;
+        const hsl = it.dominantHsl ?? centroidHsl(it.colorFamily);
+        const lab = it.dominantLab ?? hslToLab(hsl.h, hsl.s, hsl.l);
+        backfilled = true;
+        return { ...it, dominantHsl: hsl, dominantLab: lab };
+      });
       if (wardrobeData) setWardrobeItems(loadedItems);
+      if (backfilled && loadedItems.length > 0) {
+        AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(loadedItems));
+      }
       if (premiumData) setIsPremium(JSON.parse(premiumData));
       if (rotationData) setRotationState(JSON.parse(rotationData));
       if (wearData) setWearHistory(JSON.parse(wearData));
@@ -419,7 +436,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updateWardrobeItem = useCallback((id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => {
     setWardrobeItems(prev => {
-      const next = prev.map(item => item.id === id ? { ...item, ...updates } : item);
+      const next = prev.map(item => {
+        if (item.id !== id) return item;
+        const merged = { ...item, ...updates };
+        // Consistency rule: when the user changes colorFamily without supplying
+        // fresh perceptual values, reseed dominantHsl/Lab from the centroid of
+        // the new family. Otherwise the scorer would keep using stale values
+        // sampled from an image whose colour the user has just overridden.
+        if (
+          updates.colorFamily !== undefined &&
+          updates.colorFamily !== item.colorFamily &&
+          updates.dominantHsl === undefined &&
+          updates.dominantLab === undefined
+        ) {
+          const hsl = centroidHsl(updates.colorFamily);
+          merged.dominantHsl = hsl;
+          merged.dominantLab = hslToLab(hsl.h, hsl.s, hsl.l);
+        }
+        return merged;
+      });
       AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(next));
       // Edits to category / sub-type / colour can change which blueprint slot
       // an item satisfies under strict matching. Recompute slot ownership so
