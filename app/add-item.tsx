@@ -6,12 +6,18 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useApp, ItemCategory, OccasionTag, SeasonTag, subTypes, colorFamilies } from '@/contexts/AppContext';
-import type { Pattern, PatternScale, Fabric, Fit, Neckline, SleeveLength, Rise, WarmthBand } from '@/constants/types';
+import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, SleeveLength, Rise, WarmthBand } from '@/constants/types';
 import { SUBTYPE_FORMALITY } from '@/constants/outfitScoring';
 
 const PATTERNS: readonly Pattern[] = ['solid','stripe','floral','check','print','color-block','geometric','animal'] as const;
 const PATTERN_SCALES: readonly PatternScale[] = ['small','medium','large'] as const;
 const FABRICS: readonly Fabric[] = ['cotton','silk','denim','wool','linen','synthetic','leather','knit','satin','cashmere'] as const;
+const FABRIC_WEIGHTS: readonly FabricWeight[] = ['light','mid','heavy'] as const;
+const WEIGHT_LABELS: Record<FabricWeight, string> = {
+  light: 'light',
+  mid: 'mid',
+  heavy: 'heavy',
+};
 const FITS: readonly Fit[] = ['slim','regular','loose','oversized','tailored'] as const;
 const NECKLINES: readonly Neckline[] = ['crew','v-neck','scoop','turtleneck','boat','square','halter','off-shoulder','collared'] as const;
 const SLEEVES: readonly SleeveLength[] = ['sleeveless','short','three-quarter','long'] as const;
@@ -23,6 +29,8 @@ const asPatternScale = (v: string | undefined): PatternScale | undefined =>
   v && (PATTERN_SCALES as readonly string[]).includes(v) ? (v as PatternScale) : undefined;
 const asFabric = (v: string | undefined): Fabric | undefined =>
   v && (FABRICS as readonly string[]).includes(v) ? (v as Fabric) : undefined;
+const asWeight = (v: string | undefined): FabricWeight | undefined =>
+  v && (FABRIC_WEIGHTS as readonly string[]).includes(v) ? (v as FabricWeight) : undefined;
 const asFit = (v: string | undefined): Fit | undefined =>
   v && (FITS as readonly string[]).includes(v) ? (v as Fit) : undefined;
 const asNeckline = (v: string | undefined): Neckline | undefined =>
@@ -96,6 +104,7 @@ export default function AddItemScreen() {
   const [pattern, setPattern] = useState<string | undefined>(undefined);
   const [patternScale, setPatternScale] = useState<string | undefined>(undefined);
   const [fabric, setFabric] = useState<string | undefined>(undefined);
+  const [weight, setWeight] = useState<string | undefined>(undefined);
   const [accentColor, setAccentColor] = useState<string | undefined>(undefined);
   const [dominantHsl, setDominantHsl] = useState<{ h: number; s: number; l: number } | undefined>(undefined);
   const [dominantLab, setDominantLab] = useState<{ L: number; a: number; b: number } | undefined>(undefined);
@@ -107,7 +116,7 @@ export default function AddItemScreen() {
   const [warmthBand, setWarmthBand] = useState<string | undefined>(undefined);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
-  const classifyWithServer = async (base64: string, cat: ItemCategory): Promise<{ category: ItemCategory; subType: string; colorFamily: string; accentColor?: string; description: string; occasionTags: OccasionTag[]; pattern?: string; patternScale?: string; fabric?: string; dominantHsl?: { h: number; s: number; l: number }; dominantLab?: { L: number; a: number; b: number } }> => {
+  const classifyWithServer = async (base64: string, cat: ItemCategory): Promise<{ category: ItemCategory; subType: string; colorFamily: string; accentColor?: string; description: string; occasionTags: OccasionTag[]; pattern?: string; patternScale?: string; fabric?: string; weight?: string; dominantHsl?: { h: number; s: number; l: number }; dominantLab?: { L: number; a: number; b: number } }> => {
     try {
       const res = await apiRequest('POST', '/api/classify-garment', { imageBase64: base64 });
       const data = await res.json();
@@ -122,6 +131,7 @@ export default function AddItemScreen() {
         pattern: data.pattern,
         patternScale: data.patternScale,
         fabric: data.fabric,
+        weight: data.weight,
         dominantHsl: data.dominantHsl,
         dominantLab: data.dominantLab,
       };
@@ -135,6 +145,7 @@ export default function AddItemScreen() {
     setPattern(undefined);
     setPatternScale(undefined);
     setFabric(undefined);
+    setWeight(undefined);
     setAccentColor(undefined);
     setFit(undefined);
     setDominantHsl(undefined);
@@ -184,6 +195,7 @@ export default function AddItemScreen() {
           if (classified.pattern) setPattern(classified.pattern);
           if (classified.patternScale) setPatternScale(classified.patternScale);
           if (classified.fabric) setFabric(classified.fabric);
+          if (classified.weight) setWeight(classified.weight);
           if (classified.accentColor) setAccentColor(classified.accentColor);
           if (classified.dominantHsl) setDominantHsl(classified.dominantHsl);
           if (classified.dominantLab) setDominantLab(classified.dominantLab);
@@ -228,6 +240,7 @@ export default function AddItemScreen() {
       pattern: asPattern(pattern),
       patternScale: asPatternScale(patternScale),
       fabric: asFabric(fabric),
+      weight: asWeight(weight),
       fit: asFit(fit),
       accentColor: accentColor && colorFamilies.includes(accentColor) ? accentColor : undefined,
       metalTone: (metalTone === 'gold' || metalTone === 'silver' || metalTone === 'rose-gold' || metalTone === 'mixed' || metalTone === 'none') ? metalTone : undefined,
@@ -449,6 +462,16 @@ export default function AddItemScreen() {
                   style={[styles.chipSmall, fabric === f && styles.chipSmallActive]}
                   onPress={() => setFabric(fabric === f ? undefined : f)}>
                   <Text style={[styles.chipSmallText, fabric === f && styles.chipSmallTextActive]}>{f}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.sectionTitle}>Weight <Text style={styles.optionalLabel}>(optional)</Text></Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+              {FABRIC_WEIGHTS.map(w => (
+                <Pressable key={w}
+                  style={[styles.chipSmall, weight === w && styles.chipSmallActive]}
+                  onPress={() => setWeight(weight === w ? undefined : w)}>
+                  <Text style={[styles.chipSmallText, weight === w && styles.chipSmallTextActive]}>{WEIGHT_LABELS[w]}</Text>
                 </Pressable>
               ))}
             </View>

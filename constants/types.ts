@@ -19,6 +19,10 @@ export type MetalPreference = 'gold' | 'silver' | 'rose-gold' | 'mixed';
 export type Pattern = 'solid' | 'stripe' | 'floral' | 'check' | 'print' | 'color-block' | 'geometric' | 'animal';
 export type PatternScale = 'small' | 'medium' | 'large';
 export type Fabric = 'cotton' | 'silk' | 'denim' | 'wool' | 'linen' | 'synthetic' | 'leather' | 'knit' | 'satin' | 'cashmere';
+// Perceived fabric weight. Drives texture-pairing logic ("lighter top + heavier
+// bottom in cool seasons reads layered, not lumpy"). Captured at upload, or
+// inferred from sub-type for legacy items via `inferFabricWeight()`.
+export type FabricWeight = 'light' | 'mid' | 'heavy';
 export type Fit = 'slim' | 'regular' | 'loose' | 'oversized' | 'tailored';
 export type Neckline = 'crew' | 'v-neck' | 'scoop' | 'turtleneck' | 'boat' | 'square' | 'halter' | 'off-shoulder' | 'collared';
 export type SleeveLength = 'sleeveless' | 'short' | 'three-quarter' | 'long';
@@ -75,6 +79,7 @@ export interface WardrobeItem {
   pattern?: Pattern;
   patternScale?: PatternScale;
   fabric?: Fabric;
+  weight?: FabricWeight;       // perceived fabric weight (texture pairing)
   fit?: Fit;
   metalTone?: MetalTone;       // for jewelry, buckles, hardware
   accentColor?: string;         // secondary color for prints/color-blocks

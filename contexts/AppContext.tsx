@@ -8,6 +8,7 @@ import {
   MoodGoal, OutfitReaction, ReactionType, MoodOfDay, SavedLook,
 } from '@/constants/types';
 import { generateOutfitsForItem } from '@/constants/outfitGenerator';
+import { inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
 import { centroidHsl, hslToLab } from '@/constants/colorPerceptual';
 import { apiRequest } from '@/lib/query-client';
 import {
@@ -243,6 +244,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // from the dominant garment pixel — same pipeline as new uploads.
       // A persistent flag prevents this from ever running twice.
       const legacyIds = new Set<string>();
+      const texturePersistIds = new Set<string>();
       const seededItems = rawItems.map((it) => {
         // One-shot occasion migration (April 2026): the legacy `'date'` tag
         // was split into `'date-casual'` / `'date-dressy'`. Default forward
@@ -253,14 +255,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
           (t as string) === 'date' ? 'date-dressy' : t,
         ) as typeof it.occasionTags;
         const withTags = occasionTags === it.occasionTags ? it : { ...it, occasionTags };
-        if (withTags.dominantHsl && withTags.dominantLab) return withTags;
-        const hsl = withTags.dominantHsl ?? centroidHsl(withTags.colorFamily);
-        const lab = withTags.dominantLab ?? hslToLab(hsl.h, hsl.s, hsl.l);
-        legacyIds.add(withTags.id);
-        return { ...withTags, dominantHsl: hsl, dominantLab: lab };
+        // Texture pairing migration (April 2026): items uploaded before
+        // fabric/weight capture get a sub-type-derived default so the new
+        // textureHarmony scorer has something to reason about. User-tagged
+        // values are preserved.
+        const fabricBackfill = withTags.fabric ?? inferFabric(withTags.subType);
+        const weightBackfill = withTags.weight ?? inferFabricWeight(withTags.subType);
+        const needsTextureBackfill = fabricBackfill !== withTags.fabric || weightBackfill !== withTags.weight;
+        const withTexture = needsTextureBackfill
+          ? { ...withTags, fabric: fabricBackfill, weight: weightBackfill }
+          : withTags;
+        // Texture-only backfills should persist to disk but must NOT enrol the
+        // item in the expensive image-based perceptual migration pass — that
+        // path is reserved for items missing HSL/Lab.
+        if (needsTextureBackfill) texturePersistIds.add(withTexture.id);
+        if (withTexture.dominantHsl && withTexture.dominantLab) return withTexture;
+        const hsl = withTexture.dominantHsl ?? centroidHsl(withTexture.colorFamily);
+        const lab = withTexture.dominantLab ?? hslToLab(hsl.h, hsl.s, hsl.l);
+        legacyIds.add(withTexture.id);
+        return { ...withTexture, dominantHsl: hsl, dominantLab: lab };
       });
       if (wardrobeData) setWardrobeItems(seededItems);
-      if (legacyIds.size > 0) {
+      if (legacyIds.size > 0 || texturePersistIds.size > 0) {
         AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(seededItems));
       }
       // Phase 2 image refinement only runs if there is genuine legacy work to

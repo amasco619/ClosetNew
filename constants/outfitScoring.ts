@@ -18,7 +18,7 @@
 
 import {
   WardrobeItem, OutfitComponent, OccasionTag, UserProfile,
-  MoodGoal, OutfitReaction, WearEntry,
+  MoodGoal, OutfitReaction, WearEntry, Fabric, FabricWeight,
 } from './types';
 import {
   classifyPalette, scorePaletteType,
@@ -169,6 +169,158 @@ export const SUBTYPE_FORMALITY: Record<string, number> = {
  */
 export function effectiveFormality(item: WardrobeItem): number {
   return SUBTYPE_FORMALITY[item.subType] ?? item.formalityLevel ?? 5;
+}
+
+// ─── Sub-type → fabric / weight defaults ──────────────────────────────────────
+// Used to backfill legacy items that were saved before fabric/weight capture
+// landed, and as a fallback inside the scorer when a user skips those chips.
+// Picks the most likely fabric for each silhouette — denim for jeans,
+// cashmere/wool for sweaters, satin for cocktail dresses, etc. The aim isn't
+// perfect coverage (a velvet midi-skirt won't be guessed) but a sensible
+// default that the texture scorer can reason against.
+const SUBTYPE_FABRIC: Record<string, Fabric> = {
+  // tops
+  't-shirt': 'cotton', 'tank-top': 'cotton', 'tee': 'cotton', 'henley': 'cotton',
+  'long-sleeve': 'cotton', 'polo-shirt': 'cotton', 'rugby-shirt': 'cotton',
+  'crop-top': 'cotton', 'hoodie': 'knit', 'sweatshirt': 'knit',
+  'sweater': 'knit', 'knit-top': 'knit', 'cardigan': 'knit', 'turtleneck': 'knit',
+  'shirt': 'cotton', 'button-down': 'cotton', 'blouse': 'silk', 'camisole': 'silk',
+  // bottoms
+  'jeans': 'denim', 'chinos': 'cotton', 'shorts': 'cotton', 'leggings': 'synthetic',
+  'joggers': 'cotton', 'wide-leg': 'wool', 'trousers': 'wool',
+  'pencil-skirt': 'wool', 'mini-skirt': 'cotton', 'midi-skirt': 'wool', 'maxi-skirt': 'cotton',
+  // dresses
+  'shirt-dress': 'cotton', 'knit-dress': 'knit', 'mini-dress': 'cotton',
+  'midi-dress': 'silk', 'wrap-dress': 'silk', 'maxi-dress': 'cotton',
+  'slip-dress': 'satin', 'cocktail-dress': 'satin', 'gown': 'satin',
+  // outerwear
+  'denim-jacket': 'denim', 'jacket': 'cotton', 'leather-jacket': 'leather',
+  'bomber-jacket': 'synthetic', 'trench': 'cotton', 'blazer': 'wool',
+  'coat': 'wool', 'peacoat': 'wool', 'puffer': 'synthetic', 'raincoat': 'synthetic',
+  // shoes / bags / jewelry are texture-secondary in the scorer, but a denim-
+  // ish fabric default for sneakers wouldn't help — leave undefined.
+};
+
+const SUBTYPE_WEIGHT: Record<string, FabricWeight> = {
+  // light — silks, cotton tees, summer linens
+  't-shirt': 'light', 'tank-top': 'light', 'tee': 'light', 'henley': 'light',
+  'crop-top': 'light', 'blouse': 'light', 'camisole': 'light',
+  'shirt': 'light', 'button-down': 'light', 'shorts': 'light',
+  'mini-skirt': 'light', 'mini-dress': 'light', 'shirt-dress': 'light',
+  'wrap-dress': 'light', 'slip-dress': 'light',
+  // mid — chinos, denim, knit tops, midi pieces
+  'long-sleeve': 'mid', 'polo-shirt': 'mid', 'rugby-shirt': 'mid',
+  'sweater': 'mid', 'knit-top': 'mid', 'cardigan': 'mid', 'turtleneck': 'mid',
+  'jeans': 'mid', 'chinos': 'mid', 'wide-leg': 'mid', 'trousers': 'mid',
+  'pencil-skirt': 'mid', 'midi-skirt': 'mid', 'maxi-skirt': 'mid',
+  'midi-dress': 'mid', 'maxi-dress': 'mid', 'cocktail-dress': 'mid',
+  'denim-jacket': 'mid', 'jacket': 'mid', 'leather-jacket': 'mid',
+  'bomber-jacket': 'mid', 'trench': 'mid', 'blazer': 'mid',
+  'leggings': 'mid', 'knit-dress': 'mid',
+  // heavy — wool overcoats, hoodies, puffers, gowns with structure
+  'hoodie': 'heavy', 'sweatshirt': 'heavy', 'joggers': 'heavy',
+  'coat': 'heavy', 'peacoat': 'heavy', 'puffer': 'heavy', 'raincoat': 'heavy',
+  'gown': 'heavy',
+};
+
+/** Best-guess fabric for a sub-type (undefined when truly unclear). */
+export function inferFabric(subType: string): Fabric | undefined {
+  return SUBTYPE_FABRIC[subType];
+}
+
+/** Best-guess perceived weight for a sub-type (defaults to mid). */
+export function inferFabricWeight(subType: string): FabricWeight {
+  return SUBTYPE_WEIGHT[subType] ?? 'mid';
+}
+
+/** Resolve fabric for an item, preferring user-tagged value. */
+function effectiveFabric(item: WardrobeItem): Fabric | undefined {
+  return item.fabric ?? SUBTYPE_FABRIC[item.subType];
+}
+
+/** Resolve perceived weight for an item, preferring user-tagged value. */
+function effectiveWeight(item: WardrobeItem): FabricWeight {
+  return item.weight ?? SUBTYPE_WEIGHT[item.subType] ?? 'mid';
+}
+
+// ─── Texture taxonomy ────────────────────────────────────────────────────────
+// "Statement" textures are fabrics that carry their own visual weight — a
+// stylist will build around exactly one of them (a leather jacket, a silk
+// slip, a satin skirt) and let the rest of the look stay flat. Two statement
+// textures fight for attention; zero statement textures (all flat cotton +
+// denim) reads underdeveloped.
+const STATEMENT_FABRICS: Set<Fabric> = new Set(['leather', 'silk', 'satin', 'cashmere']);
+// "Flat" textures read as plain background — every look needs at least some,
+// but a pure-flat outfit has no tactile interest. Denim counts as flat in this
+// taxonomy because while it has visible weave, paired with cotton/synthetic it
+// still reads tactile-monotone (jeans + tee + cotton jacket).
+const FLAT_FABRICS: Set<Fabric> = new Set(['cotton', 'synthetic', 'denim']);
+// "Shiny" subset of statement textures — two shinies side-by-side reads
+// over-the-top (silk top + satin skirt = bridal/costume).
+const SHINY_FABRICS: Set<Fabric> = new Set(['silk', 'satin', 'leather']);
+
+/**
+ * Texture-harmony scorer. Returns a small integer [-3, +4] applied to the
+ * combo total. Rules a stylist actually obeys:
+ *   +3  exactly one statement texture in the look (the "hero")
+ *   -3  two or more statement textures (over-styled / loud)
+ *   -2  every piece is flat (no tactile interest)
+ *   -2  two shiny pieces side-by-side (silk-on-satin etc.)
+ *   +1  cool-season weight progression: lighter top + heavier bottom or
+ *        heavier outerwear over a lighter base. Awarded once.
+ *   -1  identical-weight stack across all 3+ core pieces (looks lumpy).
+ * Items without a captured fabric fall back to sub-type inference, so even
+ * legacy wardrobes get useful texture reasoning.
+ */
+export function textureHarmony(
+  items: WardrobeItem[],
+  season?: Season,
+): number {
+  if (items.length < 2) return 0;
+  const core = items.filter(i =>
+    i.category === 'top' || i.category === 'bottom' ||
+    i.category === 'dress' || i.category === 'outerwear',
+  );
+  if (core.length === 0) return 0;
+  const fabrics = core.map(effectiveFabric);
+  const weights = core.map(effectiveWeight);
+
+  let score = 0;
+
+  const statementCount = fabrics.filter(f => f && STATEMENT_FABRICS.has(f)).length;
+  if (statementCount === 1) score += 3;
+  else if (statementCount >= 2) score -= 3;
+
+  const knownFabrics = fabrics.filter((f): f is Fabric => Boolean(f));
+  if (knownFabrics.length >= 2 && knownFabrics.every(f => FLAT_FABRICS.has(f))) {
+    score -= 2;
+  }
+
+  const shinyCount = fabrics.filter(f => f && SHINY_FABRICS.has(f)).length;
+  if (shinyCount >= 2) score -= 2;
+
+  const top = core.find(i => i.category === 'top');
+  const bottom = core.find(i => i.category === 'bottom');
+  const outer = core.find(i => i.category === 'outerwear');
+  const base = top ?? core.find(i => i.category === 'dress');
+  const ord = (w: FabricWeight) => w === 'light' ? 0 : w === 'mid' ? 1 : 2;
+  const isCool = season === 'fall' || season === 'winter';
+  if (isCool) {
+    // Award the cool-season progression bonus when EITHER axis qualifies:
+    //   (a) lighter top sitting under a heavier bottom, OR
+    //   (b) heavier outerwear layered over a lighter base.
+    // Capped at +1 — we only want to reward the layering instinct once.
+    const topOverBottom = !!(top && bottom && ord(effectiveWeight(top)) < ord(effectiveWeight(bottom)));
+    const outerOverBase = !!(outer && base && ord(effectiveWeight(outer)) > ord(effectiveWeight(base)));
+    if (topOverBottom || outerOverBase) score += 1;
+  }
+
+  if (core.length >= 3) {
+    const allSame = weights.every(w => w === weights[0]);
+    if (allSame) score -= 1;
+  }
+
+  return score;
 }
 
 // ─── Season inference (month-based, Northern hemisphere) ─────────────────────
@@ -460,12 +612,15 @@ export interface OutfitScoreBreakdown {
   temperatureHarmony: number;
   valueSpread: number;
   saturationDominance: number;
+  // Texture pairing (v4) — fabric weight + statement-texture interaction
+  textureHarmony: number;
 }
 
 export function scoreOutfitCombo(
   components: OutfitComponent[],
   items?: WardrobeItem[],     // lookup for pattern/fabric/formality signals
   profile?: UserProfile,
+  season?: Season,            // optional — enables cool-season weight bonus
 ): OutfitScoreBreakdown {
   const categories = new Set(components.map(c => c.category));
   const colors = components.map(c => c.colorFamily);
@@ -596,9 +751,15 @@ export function scoreOutfitCombo(
     saturationDomScore = saturationDominance(hsls);
   }
 
+  // ─── Texture-harmony signal ──────────────────────────────────────────────
+  // Reads each item's fabric (or sub-type fallback) and applies the
+  // statement-texture / weight-progression rules a stylist follows.
+  const textureScore = textureHarmony(resolved, season);
+
   const total = completeness + palette + formalityCohesion + patternSafety
     + contrastMatch + pieces + proportionBalance + metalCohesion
-    + tempHarmonyScore + valueSpreadScore + saturationDomScore;
+    + tempHarmonyScore + valueSpreadScore + saturationDomScore
+    + textureScore;
 
   return {
     total, completeness, palette, paletteType,
@@ -607,6 +768,7 @@ export function scoreOutfitCombo(
     temperatureHarmony: tempHarmonyScore,
     valueSpread: valueSpreadScore,
     saturationDominance: saturationDomScore,
+    textureHarmony: textureScore,
   };
 }
 

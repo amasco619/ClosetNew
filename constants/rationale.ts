@@ -4,8 +4,9 @@
  * formality cohesion, complexion harmony).
  */
 
-import { WardrobeItem, OutfitComponent, UserProfile, MoodGoal } from './types';
+import { WardrobeItem, OutfitComponent, UserProfile, MoodGoal, Fabric } from './types';
 import { classifyPalette } from './colorTheory';
+import { inferFabric } from './outfitScoring';
 
 const PALETTE_PHRASES: Record<string, string[]> = {
   'mono':           ['a quiet monochrome', 'a single-tone palette', 'tonal layering'],
@@ -80,6 +81,27 @@ export function generateRationale(
   // Mood phrase, if mood applied
   if (mood) {
     parts.push(pick(MOOD_PHRASES[mood], seed + 7));
+  }
+
+  // Texture observation — if exactly one statement-fabric piece anchors the
+  // look, name it as the hero. This mirrors the +3 textureHarmony bonus and
+  // gives the rationale tactile vocabulary to use.
+  // Mirrors textureHarmony's effective-fabric resolution so the phrase fires
+  // for backfilled items too (e.g. an unlabelled "leather-jacket" sub-type).
+  const STATEMENT_FABRIC_PHRASE: Record<string, string> = {
+    leather:  'with the leather as the anchor',
+    silk:     'letting the silk do the talking',
+    satin:    'with the satin catching the light',
+    cashmere: 'with the cashmere softening the line',
+  };
+  const effectiveFabric = (i: WardrobeItem): Fabric | undefined => i.fabric ?? inferFabric(i.subType);
+  const statementItems = resolved.filter(i => {
+    const f = effectiveFabric(i);
+    return f === 'leather' || f === 'silk' || f === 'satin' || f === 'cashmere';
+  });
+  if (statementItems.length === 1) {
+    const f = effectiveFabric(statementItems[0]) as string;
+    parts.push(STATEMENT_FABRIC_PHRASE[f]);
   }
 
   // Undertone note — only if outfit is strongly in undertone palette

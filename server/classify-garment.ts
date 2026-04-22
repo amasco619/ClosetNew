@@ -827,12 +827,23 @@ export async function classifyGarment(req: Request, res: Response) {
     let fabric: string | undefined;
     if (labelSet.has("Denim") || labelSet.has("Jeans")) fabric = "denim";
     else if (labelSet.has("Leather")) fabric = "leather";
-    else if (labelSet.has("Silk") || labelSet.has("Satin")) fabric = "silk";
+    else if (labelSet.has("Satin")) fabric = "satin";
+    else if (labelSet.has("Silk")) fabric = "silk";
     else if (labelSet.has("Wool") || labelSet.has("Tweed")) fabric = "wool";
     else if (labelSet.has("Linen")) fabric = "linen";
     else if (labelSet.has("Cashmere")) fabric = "cashmere";
     else if (labelSet.has("Knit") || labelSet.has("Knitting")) fabric = "knit";
     else if (labelSet.has("Cotton")) fabric = "cotton";
+
+    // Perceived fabric weight — derived from the inferred fabric so the
+    // wardrobe item carries a default chip selection on creation. Users can
+    // still override on the Add Item screen. Heavy = wool / cashmere / leather
+    // / synthetic puffer fabrics; light = silk / satin / linen / chiffon;
+    // everything else (denim, knit, cotton) reads mid.
+    let weight: "light" | "mid" | "heavy" | undefined;
+    if (fabric === "wool" || fabric === "cashmere" || fabric === "leather") weight = "heavy";
+    else if (fabric === "silk" || fabric === "satin" || fabric === "linen") weight = "light";
+    else if (fabric) weight = "mid";
 
     // Perceptual colour signals — derive HSL + Lab from the actual garment
     // pixel that won the family vote. Lets the outfit scorer reason about
@@ -858,6 +869,7 @@ export async function classifyGarment(req: Request, res: Response) {
       pattern,
       patternScale,
       fabric,
+      weight,
       dominantHsl,
       dominantLab,
       modelConfidence,

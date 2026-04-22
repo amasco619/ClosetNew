@@ -252,7 +252,7 @@ export function generateOutfitPool(
           (sum, item) => sum + scoreItemForProfile(item, scenario, profile, mood),
           0,
         );
-        const combo = scoreOutfitCombo(outfit, items, profile);
+        const combo = scoreOutfitCombo(outfit, items, profile, season);
 
         // ── Hard gates — violations we never want to surface ─────────────
         // (soft penalties in scoreOutfitCombo surface near the bottom; these
