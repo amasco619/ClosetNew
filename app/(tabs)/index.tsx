@@ -29,7 +29,7 @@ const occasionLabels: Record<string, string> = {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, wardrobeItems, activeWardrobeItems, outfitSets, isPremium, canAddItem, starterRecommendations, recommendationSlots, todaysWear, wearHistory } = useApp();
+  const { profile, wardrobeItems, activeWardrobeItems, outfitSets, isPremium, canAddItem, starterRecommendations, recommendationSlots, todaysWear, wearHistory, backfillProgress } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const categoryCounts: Record<string, number> = {};
@@ -75,6 +75,23 @@ export default function HomeScreen() {
             </View>
           )}
         </Animated.View>
+
+        {backfillProgress && backfillProgress.total > 0 && (
+          <View style={styles.backfillBanner}>
+            <Ionicons name="color-palette-outline" size={16} color={Colors.secondary} />
+            <Text style={styles.backfillText}>
+              Refining colour analysis · {backfillProgress.done}/{backfillProgress.total}
+            </Text>
+            <View style={styles.backfillTrack}>
+              <View
+                style={[
+                  styles.backfillFill,
+                  { width: `${Math.round((backfillProgress.done / backfillProgress.total) * 100)}%` },
+                ]}
+              />
+            </View>
+          </View>
+        )}
 
         <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.statsRow}>
           <Pressable style={styles.statCard} onPress={() => router.push('/(tabs)/wardrobe')}>
@@ -249,6 +266,10 @@ const styles = StyleSheet.create({
   appName: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.primary, letterSpacing: -0.5 },
   premiumBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.secondary + '15', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   premiumText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.secondary },
+  backfillBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 24, marginTop: 4, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: Colors.secondary + '12' },
+  backfillText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, flexShrink: 1 },
+  backfillTrack: { flex: 1, height: 4, borderRadius: 2, backgroundColor: Colors.secondary + '20', overflow: 'hidden', marginLeft: 4 },
+  backfillFill: { height: '100%', backgroundColor: Colors.secondary, borderRadius: 2 },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
   statCard: { flex: 1, backgroundColor: Colors.white, borderRadius: 16, padding: 16, alignItems: 'center' },
   statNumber: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.primary },
