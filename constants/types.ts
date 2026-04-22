@@ -111,6 +111,10 @@ export interface OutfitSet {
   components: OutfitComponent[];
   rationale?: string;           // Human-readable one-liner: why this works
   confidenceScore?: number;     // total score, for display/debugging
+  heroId?: string;              // wardrobe id of the statement piece this look
+                                //   was built around (see pickHero). Used by
+                                //   the rationale to name the focal piece and
+                                //   by the rotation to diversify across days.
 }
 
 export interface WearEntry {

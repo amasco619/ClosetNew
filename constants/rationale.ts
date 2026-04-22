@@ -47,14 +47,56 @@ function stringHash(s: string): number {
 }
 
 /**
+ * Friendly description for naming the hero in copy. Prefers a colour + sub-type
+ * pair ("camel trench", "burgundy slip dress") because that's what a stylist
+ * actually says aloud — never "your top.id 7f3" or raw enum values.
+ */
+function describeHero(item: WardrobeItem): string {
+  const COLOR_LABELS: Record<string, string> = {
+    'cream': 'cream', 'beige': 'beige', 'camel': 'camel', 'brown': 'brown',
+    'olive': 'olive', 'navy': 'navy', 'black': 'black', 'white': 'white',
+    'grey': 'grey', 'burgundy': 'burgundy', 'red': 'red', 'pink': 'pink',
+    'blush': 'blush', 'coral': 'coral', 'orange': 'orange', 'yellow': 'yellow',
+    'mustard': 'mustard', 'green': 'green', 'emerald': 'emerald', 'blue': 'blue',
+    'lavender': 'lavender', 'purple': 'purple', 'rose': 'rose',
+    'terracotta': 'terracotta', 'gold': 'gold', 'peach': 'peach',
+  };
+  const SUBTYPE_LABELS: Record<string, string> = {
+    'leather-jacket': 'leather jacket', 'denim-jacket': 'denim jacket',
+    'bomber-jacket': 'bomber', 'trench': 'trench', 'blazer': 'blazer',
+    'coat': 'coat', 'peacoat': 'peacoat', 'puffer': 'puffer',
+    'slip-dress': 'slip dress', 'cocktail-dress': 'cocktail dress',
+    'wrap-dress': 'wrap dress', 'midi-dress': 'midi dress',
+    'maxi-dress': 'maxi dress', 'mini-dress': 'mini dress',
+    'shirt-dress': 'shirt dress', 'knit-dress': 'knit dress',
+    'wide-leg': 'wide-leg trouser', 'pencil-skirt': 'pencil skirt',
+    'midi-skirt': 'midi skirt', 'maxi-skirt': 'maxi skirt',
+    'mini-skirt': 'mini skirt', 'turtleneck': 'turtleneck',
+    'camisole': 'camisole', 'blouse': 'blouse', 'shirt': 'shirt',
+    'sweater': 'sweater', 'cardigan': 'cardigan',
+    'heels': 'heels', 'stilettos': 'stilettos', 'mules': 'mules',
+    'loafers': 'loafers', 'boots': 'boots', 'sneakers': 'sneakers',
+    'clutch': 'clutch', 'tote': 'tote', 'shoulder-bag': 'shoulder bag',
+    'mini-bag': 'mini bag', 'crossbody': 'crossbody',
+  };
+  const color = COLOR_LABELS[item.colorFamily] ?? item.colorFamily.replace(/-/g, ' ');
+  const sub = SUBTYPE_LABELS[item.subType] ?? item.subType.replace(/-/g, ' ');
+  return `${color} ${sub}`;
+}
+
+/**
  * Build a one-line rationale for the outfit.
  * Deterministic given the outfit fingerprint so copy is stable day to day.
+ *
+ * `heroId` (optional) names the focal piece the look was built around so the
+ * copy can read like a stylist's note ("built around your camel trench").
  */
 export function generateRationale(
   components: OutfitComponent[],
   items: WardrobeItem[],
   profile: UserProfile,
   mood?: MoodGoal | null,
+  heroId?: string,
 ): string {
   const resolved = components
     .map(c => items.find(i => i.id === c.matchedItemId))
@@ -83,11 +125,11 @@ export function generateRationale(
     parts.push(pick(MOOD_PHRASES[mood], seed + 7));
   }
 
-  // Texture observation — if exactly one statement-fabric piece anchors the
-  // look, name it as the hero. This mirrors the +3 textureHarmony bonus and
-  // gives the rationale tactile vocabulary to use.
-  // Mirrors textureHarmony's effective-fabric resolution so the phrase fires
-  // for backfilled items too (e.g. an unlabelled "leather-jacket" sub-type).
+  // Hero / texture observation. When a heroId is provided we name the hero
+  // explicitly ("built around your camel trench") — that's the language a
+  // stylist actually uses. Falls back to the older statement-fabric phrase
+  // when no hero is supplied (legacy callers, generator-driven previews
+  // that haven't passed heroId yet) so existing copy still reads naturally.
   const STATEMENT_FABRIC_PHRASE: Record<string, string> = {
     leather:  'with the leather as the anchor',
     silk:     'letting the silk do the talking',
@@ -95,26 +137,44 @@ export function generateRationale(
     cashmere: 'with the cashmere softening the line',
   };
   const effectiveFabric = (i: WardrobeItem): Fabric | undefined => i.fabric ?? inferFabric(i.subType);
-  const statementItems = resolved.filter(i => {
-    const f = effectiveFabric(i);
-    return f === 'leather' || f === 'silk' || f === 'satin' || f === 'cashmere';
-  });
-  if (statementItems.length === 1) {
-    const f = effectiveFabric(statementItems[0]) as string;
-    parts.push(STATEMENT_FABRIC_PHRASE[f]);
+
+  // The hero phrase reads as a coda ("..., built around your camel trench.")
+  // rather than a clause ("X that built around Y" — ungrammatical), so we keep
+  // it out of the parts array and append it at the end.
+  const heroItem = heroId ? resolved.find(i => i.id === heroId) : undefined;
+  let heroCoda = '';
+  if (heroItem) {
+    heroCoda = `built around your ${describeHero(heroItem)}`;
+  } else {
+    const statementItems = resolved.filter(i => {
+      const f = effectiveFabric(i);
+      return f === 'leather' || f === 'silk' || f === 'satin' || f === 'cashmere';
+    });
+    if (statementItems.length === 1) {
+      const f = effectiveFabric(statementItems[0]) as string;
+      parts.push(STATEMENT_FABRIC_PHRASE[f]);
+    }
   }
 
   // Undertone note — only if outfit is strongly in undertone palette
   // (handled implicitly by selection, so we keep the sentence short)
 
+  let body: string;
   if (parts.length === 1) {
-    return `${cap(parts[0])} — an easy, polished look.`;
+    body = heroCoda
+      ? `${cap(parts[0])}, ${heroCoda}.`
+      : `${cap(parts[0])} — an easy, polished look.`;
+  } else if (parts.length === 2) {
+    body = heroCoda
+      ? `${cap(parts[0])} that ${parts[1]}, ${heroCoda}.`
+      : `${cap(parts[0])} that ${parts[1]}.`;
+  } else {
+    // 3+ parts
+    body = heroCoda
+      ? `${cap(parts[0])} that ${parts[1]} and ${parts[2]}, ${heroCoda}.`
+      : `${cap(parts[0])} that ${parts[1]} and ${parts[2]}.`;
   }
-  if (parts.length === 2) {
-    return `${cap(parts[0])} that ${parts[1]}.`;
-  }
-  // 3+ parts
-  return `${cap(parts[0])} that ${parts[1]} and ${parts[2]}.`;
+  return body;
 }
 
 function cap(s: string): string {

@@ -291,6 +291,9 @@ export function generateOutfitsForItem(
         id: `newitem-${newItem.id}-${scenario}`,
         scenario,
         components: outfit,
+        // The freshly-added item is, by definition, the hero of every preview
+        // we serve here — that's the entire point of the "Just Added" banner.
+        heroId: newItem.id,
       });
     }
   }

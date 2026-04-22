@@ -323,6 +323,206 @@ export function textureHarmony(
   return score;
 }
 
+// ─── Hero-piece distinctiveness ──────────────────────────────────────────────
+// A real stylist builds outfits *around* one statement piece — the camel
+// trench, the leather jacket, the silk slip, the bright cocktail dress — and
+// lets every other piece quietly support it. `pickHero` selects the most
+// distinctive item per scenario so the rotation engine can seed cores around
+// it; `recedeScore` rewards supporting pieces that step back instead of
+// fighting the hero for attention.
+//
+// Distinctiveness axes (independent, additive):
+//   • Saturation        — vivid garments naturally pull the eye.
+//   • Statement texture — leather / silk / satin / cashmere always read first.
+//   • Signature silhouette — pieces with their own architecture (trench,
+//                            blazer, leather-jacket, cocktail-dress, slip,
+//                            wide-leg, gown) anchor a look on their own.
+//   • Bold pattern       — a large/animal/floral pattern is itself a hero.
+//   • Style-goal lift    — the user's primary style goal shapes which heroes
+//                          feel "intentional" vs random.
+// Pure neutrals (black/white/grey/cream/beige/navy) take a small dampener so
+// they don't accidentally win as heroes when they're really meant to support.
+
+const HERO_SIGNATURE_SUBTYPES: Set<string> = new Set([
+  'leather-jacket', 'trench', 'blazer', 'coat', 'peacoat',
+  'slip-dress', 'cocktail-dress', 'gown', 'maxi-dress', 'wrap-dress',
+  'wide-leg', 'pencil-skirt', 'maxi-skirt',
+  'camisole',                          // when silk, a statement on its own
+  'turtleneck',                        // sculptural neckline
+  'stilettos', 'heels',                // the "shoes carry the look" case
+  'clutch',                            // jewel-toned clutch as the spark
+]);
+
+const NEUTRAL_HERO_DAMPENERS = new Set([
+  'black', 'white', 'grey', 'cream', 'beige', 'navy',
+]);
+
+/**
+ * Score how visually distinctive an item is — i.e. how well it can carry the
+ * role of "the one piece you build the outfit around".
+ *
+ * Returns a number roughly in [-3, 16]. Items below ~3 are unlikely to read
+ * as a hero on their own.
+ */
+export function distinctivenessScore(
+  item: WardrobeItem,
+  profile?: Pick<UserProfile, 'styleGoalPrimary' | 'styleGoalSecondary'> | null,
+): number {
+  let score = 0;
+
+  // 1. Saturation — vivid colours pull the eye. HSL.s is 0..1.
+  const sat = itemHsl(item).s;
+  if (sat >= 0.55) score += 5;
+  else if (sat >= 0.35) score += 3;
+  else if (sat >= 0.18) score += 1;
+
+  // 2. Statement texture (resolved fabric, falling back to sub-type guess).
+  const fab = effectiveFabric(item);
+  if (fab && STATEMENT_FABRICS.has(fab)) score += 5;
+  else if (fab && FLAT_FABRICS.has(fab)) score -= 1;
+
+  // 3. Signature silhouette.
+  if (HERO_SIGNATURE_SUBTYPES.has(item.subType)) score += 3;
+
+  // 4. Bold pattern — a single large/animal/floral piece is itself a hero.
+  if (
+    item.pattern && item.pattern !== 'solid' &&
+    (item.patternScale === 'large' || item.pattern === 'animal' || item.pattern === 'floral')
+  ) score += 4;
+
+  // 5. Style-goal lift — heroes that align with the user's primary goal feel
+  //    "on brief" and read more intentional. Secondary goal worth less.
+  const primaryHero = STYLE_GOAL_SUBTYPES[profile?.styleGoalPrimary ?? '']?.has(item.subType);
+  if (primaryHero) score += 2;
+  const secHero = profile?.styleGoalSecondary
+    ? STYLE_GOAL_SUBTYPES[profile.styleGoalSecondary]?.has(item.subType)
+    : false;
+  if (secHero) score += 1;
+
+  // 6. Pure-neutral dampener — a flat-cotton black tee shouldn't beat a silk
+  //    slip just because we're scoring atomically. Doesn't apply to jewelry.
+  if (item.category !== 'jewelry' && NEUTRAL_HERO_DAMPENERS.has(item.colorFamily) && sat < 0.18) {
+    // Only dampen when we have NO other reason to consider it distinctive.
+    if (!fab || !STATEMENT_FABRICS.has(fab)) score -= 2;
+  }
+
+  return score;
+}
+
+/**
+ * Pick up to `limit` candidate hero items for a scenario, sorted by
+ * distinctiveness × scenario fit. Drops items that read as supporting-only
+ * (low distinctiveness) and items that sit clearly outside the scenario
+ * formality band so a leather jacket isn't picked as the hero of a wedding.
+ *
+ * Heroes are restricted to the categories that can visibly anchor a look:
+ *   top, bottom, dress, outerwear, shoes (when statement). Bags and jewelry
+ * rarely drive an outfit and we keep them as accents.
+ */
+export function pickHeroCandidates(
+  items: WardrobeItem[],
+  scenario: OccasionTag,
+  profile: UserProfile,
+  limit = 6,
+): WardrobeItem[] {
+  const [minF, maxF] = getScenarioFormality(scenario, profile);
+  const HERO_CATEGORIES = new Set(['top', 'bottom', 'dress', 'outerwear', 'shoes']);
+  const eligible = items.filter(i => {
+    if (!HERO_CATEGORIES.has(i.category)) return false;
+    const f = effectiveFormality(i);
+    // Allow one step outside band — band-strict cores still gate the final
+    // outfit, but heroes can stretch slightly (e.g. an elevated blazer worn
+    // with jeans for a date-casual brief).
+    return f >= minF - 1 && f <= maxF + 1;
+  });
+  const scored = eligible
+    .map(i => ({
+      item: i,
+      score: distinctivenessScore(i, profile) + 0.1 * scoreItemForProfile(i, scenario, profile),
+    }))
+    .filter(s => s.score >= 4)               // weed out clearly-supporting pieces
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map(s => s.item);
+}
+
+/**
+ * Convenience: pick the single best hero for a scenario.
+ */
+export function pickHero(
+  items: WardrobeItem[],
+  scenario: OccasionTag,
+  profile: UserProfile,
+): WardrobeItem | null {
+  return pickHeroCandidates(items, scenario, profile, 1)[0] ?? null;
+}
+
+/**
+ * Score how well an item RECEDES around a given hero — i.e. how good a
+ * supporting piece it is. Higher = quieter, more cooperative.
+ *
+ * Rules a stylist follows when supporting a hero:
+ *   • Lower saturation than the hero (don't compete on colour intensity).
+ *   • Non-statement texture (one statement per look — never two).
+ *   • Neutral or harmonising colour family.
+ *   • Complementary silhouette volume (slim under loose, tailored under
+ *     boxy) so the hero's shape reads cleanly.
+ *
+ * Returns a number roughly in [-6, 8]. Neutral / 0 means "fine, no opinion".
+ */
+export function recedeScore(item: WardrobeItem, hero: WardrobeItem): number {
+  if (item.id === hero.id) return 0;
+  let score = 0;
+
+  // 1. Saturation — supporting pieces should sit BELOW the hero.
+  const heroSat = itemHsl(hero).s;
+  const itemSat = itemHsl(item).s;
+  const satGap = heroSat - itemSat;
+  if (satGap >= 0.25) score += 3;
+  else if (satGap >= 0.10) score += 1;
+  else if (satGap <= -0.15) score -= 3;       // supporter brighter than hero
+  else if (satGap <= -0.05) score -= 1;
+
+  // 2. Texture — one statement per look. Penalise a second statement fabric.
+  const heroFab = effectiveFabric(hero);
+  const itemFab = effectiveFabric(item);
+  const heroIsStatement = !!(heroFab && STATEMENT_FABRICS.has(heroFab));
+  const itemIsStatement = !!(itemFab && STATEMENT_FABRICS.has(itemFab));
+  if (heroIsStatement && itemIsStatement) score -= 4;
+  else if (itemFab && FLAT_FABRICS.has(itemFab)) score += 2;
+
+  // 3. Colour — neutrals and harmonising tones recede; off-key brights clash.
+  if (isNeutralColor(item.colorFamily)) score += 2;
+  // colorsHarmonize is checked elsewhere in the pipeline — we only add a
+  // modest bonus here when the supporter shares a temperature with the hero.
+
+  // 4. Silhouette balance — opposite volume reads deliberate.
+  const isVolume = (f?: string) => f === 'loose' || f === 'oversized';
+  const isSleek  = (f?: string) => f === 'slim' || f === 'tailored';
+  if (hero.fit && item.fit) {
+    if (isVolume(hero.fit) && isSleek(item.fit)) score += 2;
+    else if (isSleek(hero.fit) && isVolume(item.fit)) score += 2;
+    else if (isVolume(hero.fit) && isVolume(item.fit)) score -= 1;
+  }
+
+  // 5. Signature silhouette penalty — two architectural pieces fight.
+  if (HERO_SIGNATURE_SUBTYPES.has(hero.subType) && HERO_SIGNATURE_SUBTYPES.has(item.subType)) {
+    // Coats and jackets layered over a signature dress are fine — only
+    // penalise pieces in the SAME silhouette role (e.g. trench + blazer).
+    const layeringRoles = new Set(['leather-jacket', 'trench', 'blazer', 'coat', 'peacoat']);
+    const heroIsOuter = layeringRoles.has(hero.subType);
+    const itemIsOuter = layeringRoles.has(item.subType);
+    if (heroIsOuter === itemIsOuter) score -= 2;
+  }
+
+  // 6. Bold pattern penalty — a hero already carries the look's visual load.
+  if (
+    item.pattern && item.pattern !== 'solid' &&
+    (item.patternScale === 'large' || item.pattern === 'animal' || item.pattern === 'floral')
+  ) score -= 2;
+
+  return score;
+}
+
 // ─── Season inference (month-based, Northern hemisphere) ─────────────────────
 // We don't have a weather API, so seasons follow the calendar. A real stylist
 // would never serve tweed in July or linen shorts in December — once a user
