@@ -97,6 +97,19 @@ assets/
 - Blush: #EACFD3
 - Background: #F5F3F0
 
+## Testing & Quality Automation
+
+### Running tests
+- **Single run**: `npm test` — runs all `__tests__/*.test.ts` files via `scripts/run-tests.mjs`
+- **Watch mode**: `npm run test:watch` — re-runs affected tests automatically whenever a `.ts`, `.tsx`, or `.mjs` file changes in `__tests__/`, `constants/`, `contexts/`, `app/`, `components/`, `lib/`, `server/`, or `shared/`. Uses a 400 ms debounce. Script: `scripts/watch-tests.mjs`
+
+### Pre-commit hook
+A git pre-commit hook (`scripts/install-hooks.mjs`) blocks commits when any test fails.
+- **Auto-installed** on `npm install` (wired into `postinstall`)
+- **Manual install / reinstall**: `npm run hooks:install`
+- The hook runs `node scripts/run-tests.mjs`; a non-zero exit aborts the commit with a clear error message
+- If a custom pre-commit hook already exists the installer skips the file and prints instructions for manual integration
+
 ## User Preferences
 - Quiet luxury aesthetic
 - No emojis in the app
