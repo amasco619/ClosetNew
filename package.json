@@ -14,7 +14,8 @@
     "start": "npx expo start",
     "lint": "npx expo lint",
     "lint:fix": "npx expo lint --fix",
-    "test": "node scripts/run-tests.mjs"
+    "test": "node scripts/run-tests.mjs",
+    "test:watch": "node scripts/watch-tests.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
