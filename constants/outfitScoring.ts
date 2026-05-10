@@ -838,6 +838,8 @@ export interface OutfitScoreBreakdown {
   heightProportion: number;
   // Personal colorimetry (v6) — full-outfit undertone palette harmony
   undertoneHarmony: number;
+  // Neckline × jewelry coordination (v8) — necklace and earring fit for neckline shape
+  necklineJewelry: number;
 }
 
 export function scoreOutfitCombo(
@@ -1193,6 +1195,44 @@ export function scoreOutfitCombo(
     }
   }
 
+  // ─── Neckline × jewelry coordination ────────────────────────────────────
+  // Checks whether the jewelry type (necklace / earrings) suits the neckline
+  // shape of the core garment. Fully backward compatible: scorer returns 0
+  // when no garment carries neckline data or no jewelry is in the outfit.
+  let necklineJewelry = 0;
+  {
+    const njGarment =
+      resolved.find(i => i.neckline && i.category === 'dress') ??
+      resolved.find(i => i.neckline && i.category === 'top');
+    const njJewelry = resolved.filter(i => i.category === 'jewelry');
+
+    if (njGarment?.neckline && njJewelry.length > 0) {
+      const neckline = njGarment.neckline;
+      for (const piece of njJewelry) {
+        const isNecklace = piece.subType === 'necklace';
+        const isEarrings = piece.subType === 'earrings';
+
+        if (isNecklace) {
+          switch (neckline) {
+            case 'turtleneck':                  necklineJewelry -= 2; break; // physically blocked
+            case 'collared':                    necklineJewelry -= 1; break; // collar competes
+            case 'off-shoulder': case 'halter': necklineJewelry -= 1; break; // clutters bared shoulder
+            case 'crew': case 'scoop':
+            case 'v-neck': case 'square':
+            case 'boat':                        necklineJewelry += 1; break; // fills / echoes neckline
+          }
+        } else if (isEarrings) {
+          switch (neckline) {
+            case 'turtleneck':
+            case 'collared':
+            case 'off-shoulder': case 'halter': necklineJewelry += 1; break; // earrings are the right accent
+            // crew / scoop / v-neck / square / boat → neutral (0)
+          }
+        }
+      }
+    }
+  }
+
   // ─── Perceptual colour signals ───────────────────────────────────────────
   // Three combo-level scorers that read the per-item HSL captured at upload
   // time (or backfilled from the colour-family centroid for legacy items).
@@ -1217,7 +1257,7 @@ export function scoreOutfitCombo(
     + contrastMatch + pieces + proportionBalance + metalCohesion
     + tempHarmonyScore + valueSpreadScore + saturationDomScore
     + textureScore + bodyTypeProportion + hemlineShoeHarmony
-    + heightProportion + undertoneHarmony;
+    + heightProportion + undertoneHarmony + necklineJewelry;
 
   return {
     total, completeness, palette, paletteType,
@@ -1228,7 +1268,7 @@ export function scoreOutfitCombo(
     saturationDominance: saturationDomScore,
     textureHarmony: textureScore,
     bodyTypeProportion, hemlineShoeHarmony,
-    heightProportion, undertoneHarmony,
+    heightProportion, undertoneHarmony, necklineJewelry,
   };
 }
 

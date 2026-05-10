@@ -918,7 +918,146 @@ console.log('\ntotal aggregation (with heightProportion):');
   assert(br.total === expectedTotal, `total equals sum including heightProportion (got total=${br.total}, sum=${expectedTotal})`);
 }
 
-// ── 12. generateRationale — undertone phrase presence ─────────────────────────
+// ── 12. necklineJewelry ───────────────────────────────────────────────────────
+
+console.log('\nnecklineJewelry:');
+
+function makeJewelryItem(id: string, subType: string): WardrobeItem {
+  return makeItem({ id, category: 'jewelry', subType, colorFamily: 'gold' });
+}
+function makeJewelryComponent(id: string, subType: string): OutfitComponent {
+  return { category: 'jewelry', subType, colorFamily: 'gold', owned: true, matchedItemId: id };
+}
+
+// (a) Turtleneck + necklace → −2 (necklace physically blocked)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',     subType: 'turtleneck', colorFamily: 'black', neckline: 'turtleneck' }),
+    makeJewelryItem('b', 'necklace'),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top', 'black'),
+    makeJewelryComponent('b', 'necklace'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.necklineJewelry === -2, `turtleneck + necklace → necklineJewelry -2 (got ${result.necklineJewelry})`);
+}
+
+// (b) Turtleneck + earrings → +1 (earrings frame face when neck is covered)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',     subType: 'turtleneck', colorFamily: 'black', neckline: 'turtleneck' }),
+    makeJewelryItem('b', 'earrings'),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top', 'black'),
+    makeJewelryComponent('b', 'earrings'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.necklineJewelry === 1, `turtleneck + earrings → necklineJewelry +1 (got ${result.necklineJewelry})`);
+}
+
+// (c) V-neck + necklace → +1 (pendant follows the V-line beautifully)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',     subType: 'blouse', colorFamily: 'white', neckline: 'v-neck' }),
+    makeJewelryItem('b', 'necklace'),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top', 'white'),
+    makeJewelryComponent('b', 'necklace'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.necklineJewelry === 1, `v-neck + necklace → necklineJewelry +1 (got ${result.necklineJewelry})`);
+}
+
+// (d) Off-shoulder + necklace → −1 (clutters the collarbone area)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',     subType: 'blouse', colorFamily: 'blush', neckline: 'off-shoulder' }),
+    makeJewelryItem('b', 'necklace'),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top', 'blush'),
+    makeJewelryComponent('b', 'necklace'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.necklineJewelry === -1, `off-shoulder + necklace → necklineJewelry -1 (got ${result.necklineJewelry})`);
+}
+
+// (e) No neckline data → 0 (fully backward compatible)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',     subType: 'blouse', colorFamily: 'white' }),
+    makeJewelryItem('b', 'necklace'),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top', 'white'),
+    makeJewelryComponent('b', 'necklace'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.necklineJewelry === 0, `no neckline data → necklineJewelry 0 (got ${result.necklineJewelry})`);
+}
+
+// (f) Collared top + earrings → +1 (earrings work without cluttering collar)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',     subType: 'shirt', colorFamily: 'white', neckline: 'collared' }),
+    makeJewelryItem('b', 'earrings'),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top', 'white'),
+    makeJewelryComponent('b', 'earrings'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.necklineJewelry === 1, `collared + earrings → necklineJewelry +1 (got ${result.necklineJewelry})`);
+}
+
+// (g) Turtleneck + necklace + earrings → −2 + 1 = −1 (additive across jewelry pieces)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',     subType: 'turtleneck', colorFamily: 'black', neckline: 'turtleneck' }),
+    makeJewelryItem('b', 'necklace'),
+    makeJewelryItem('c', 'earrings'),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top', 'black'),
+    makeJewelryComponent('b', 'necklace'),
+    makeJewelryComponent('c', 'earrings'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.necklineJewelry === -1, `turtleneck + necklace + earrings → necklineJewelry -1 (additive: -2+1) (got ${result.necklineJewelry})`);
+}
+
+// ── 12b. Aggregation test (includes necklineJewelry) ─────────────────────────
+
+console.log('\ntotal aggregation (with necklineJewelry):');
+
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'black', fabric: 'silk',   pattern: 'solid', neckline: 'v-neck' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'white', fabric: 'wool',   pattern: 'solid' }),
+    makeItem({ id: 'c', category: 'shoes',  subType: 'heels',    colorFamily: 'black', fabric: undefined, pattern: 'solid' }),
+    makeJewelryItem('d', 'necklace'),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'black'),
+    makeComponent('b', 'bottom', 'white'),
+    makeComponent('c', 'shoes',  'black'),
+    makeJewelryComponent('d', 'necklace'),
+  ];
+  const prof = baseProfile({ contrastLevel: 'high', undertone: 'cool', heightBand: 'petite' });
+  const br = scoreOutfitCombo(components, items, prof);
+  const expectedTotal =
+    br.completeness + br.palette + br.formalityCohesion + br.patternSafety +
+    br.contrastMatch + br.pieces + br.proportionBalance + br.metalCohesion +
+    br.temperatureHarmony + br.valueSpread + br.saturationDominance + br.textureHarmony +
+    br.bodyTypeProportion + br.hemlineShoeHarmony + br.heightProportion +
+    br.undertoneHarmony + br.necklineJewelry;
+  assert(br.total === expectedTotal, `total equals sum including necklineJewelry (got total=${br.total}, sum=${expectedTotal})`);
+}
+
+// ── 13. generateRationale — undertone phrase presence ─────────────────────────
 
 console.log('\ngenerateRationale undertone phrase:');
 
