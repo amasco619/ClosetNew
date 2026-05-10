@@ -18,7 +18,7 @@
 
 import {
   WardrobeItem, OutfitComponent, OccasionTag, UserProfile,
-  MoodGoal, OutfitReaction, WearEntry, Fabric, FabricWeight,
+  MoodGoal, OutfitReaction, WearEntry, Fabric, FabricWeight, FaceShape, Neckline,
 } from './types';
 import {
   classifyPalette, scorePaletteType,
@@ -696,6 +696,78 @@ export function passesConstraints(item: WardrobeItem, profile: UserProfile): boo
   return true;
 }
 
+// ─── Face shape × neckline ────────────────────────────────────────────────────
+// Scores how well a neckline flatters a given face shape.
+// Positive values = flattering; negative = unflattering.
+// Rules follow professional colour/style analysis:
+//   round   — wants elongation: V-neck and halter draw the eye vertically;
+//             wide horizontal necklines (boat, square) add unwanted width.
+//   oval    — universally proportionate; almost all necklines work, so the
+//             differences are small positives for particularly good choices.
+//   square  — wants softness: scoop and V-neck curve away from the jaw;
+//             square necklines echo and amplify hard angles.
+//   heart   — wide forehead, narrow chin: boat and off-shoulder balance the
+//             jaw; halter and deep-V can over-emphasise the forehead/narrow chin.
+//   oblong  — wants width, not length: boat and off-shoulder add horizontal
+//             interest; V-neck and scoop continue the face's vertical line.
+export const FACE_SHAPE_NECKLINE: Record<FaceShape, Partial<Record<Neckline, number>>> = {
+  round: {
+    'v-neck':       2,
+    scoop:          1,
+    halter:         1,
+    collared:       0,
+    'off-shoulder': 0,
+    crew:          -1,
+    boat:          -1,
+    turtleneck:    -1,
+    square:        -2,
+  },
+  oval: {
+    'v-neck':       1,
+    scoop:          1,
+    boat:           1,
+    square:         1,
+    'off-shoulder': 1,
+    halter:         0,
+    crew:           0,
+    turtleneck:     0,
+    collared:       0,
+  },
+  square: {
+    scoop:          2,
+    'v-neck':       2,
+    'off-shoulder': 1,
+    crew:           1,
+    halter:         0,
+    turtleneck:     0,
+    boat:          -1,
+    collared:      -1,
+    square:        -2,
+  },
+  heart: {
+    boat:           2,
+    'off-shoulder': 2,
+    square:         1,
+    'v-neck':       1,
+    scoop:          1,
+    crew:           0,
+    turtleneck:     0,
+    collared:       0,
+    halter:        -1,
+  },
+  oblong: {
+    boat:           2,
+    'off-shoulder': 2,
+    crew:           1,
+    square:         1,
+    turtleneck:     1,
+    collared:       0,
+    halter:         0,
+    scoop:          0,
+    'v-neck':      -1,
+  },
+};
+
 // ─── Core item scorer ─────────────────────────────────────────────────────────
 
 export function scoreItemForProfile(
@@ -807,6 +879,14 @@ export function scoreItemForProfile(
   if (profile.heightBand === 'petite' &&
       item.pattern === 'stripe' && item.patternScale !== 'small') {
     score -= 1;
+  }
+
+  // 14. Face shape × neckline — a real stylist picks necklines that either
+  //     elongate or soften the face depending on its geometry. Only fires when
+  //     both faceShape and item.neckline are present; max +2 / min -2.
+  if (profile.faceShape && item.neckline) {
+    const delta = FACE_SHAPE_NECKLINE[profile.faceShape]?.[item.neckline] ?? 0;
+    score += delta;
   }
 
   return score;

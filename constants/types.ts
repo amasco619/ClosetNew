@@ -30,6 +30,8 @@ export type Rise = 'low' | 'mid' | 'high';
 export type WarmthBand = 'cold' | 'cool' | 'mild' | 'warm' | 'hot';
 export type MetalTone = 'gold' | 'silver' | 'rose-gold' | 'mixed' | 'none';
 
+export type FaceShape = 'round' | 'oval' | 'square' | 'heart' | 'oblong';
+
 export type ColorAversion = string; // e.g. 'yellow', 'orange', 'neon'
 
 export interface Constraints {
@@ -60,6 +62,7 @@ export interface UserProfile {
   lifePhase?: LifePhase | null;
   defaultMood?: MoodGoal | null;
   industry?: Industry | null;
+  faceShape?: FaceShape | null;
   dismissedProfileNudge?: string; // YYYY-MM-DD
   weatherEnabled?: boolean;       // weather-aware outerwear (defaults true)
   tempUnit?: 'C' | 'F';           // temperature unit override (auto-detected from locale when unset)

@@ -5,7 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal, LifePhase, Industry } from '@/constants/types';
+import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal, LifePhase, Industry, FaceShape } from '@/constants/types';
 import { useEffect, useRef, useState } from 'react';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 
@@ -33,6 +33,18 @@ const LIFE_PHASE_OPTS: { id: LifePhase; label: string }[] = [
   { id: 'feeling-off', label: 'Feeling off' },
 ];
 const AVERSION_OPTS: string[] = ['yellow', 'orange', 'neon', 'pink', 'red', 'green', 'brown', 'purple'];
+
+const FACE_SHAPE_OPTS: { id: FaceShape; label: string }[] = [
+  { id: 'oval',   label: 'Oval' },
+  { id: 'round',  label: 'Round' },
+  { id: 'square', label: 'Square' },
+  { id: 'heart',  label: 'Heart' },
+  { id: 'oblong', label: 'Oblong' },
+];
+
+const faceShapeLabels: Record<FaceShape, string> = {
+  oval: 'Oval', round: 'Round', square: 'Square', heart: 'Heart', oblong: 'Oblong',
+};
 
 const bodyTypeLabels: Record<string, string> = {
   hourglass: 'Hourglass', pear: 'Pear', apple: 'Apple',
@@ -134,6 +146,7 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Style Profile</Text>
           <View style={styles.card}>
             {profile.bodyType && <ProfileRow icon="body-outline" label="Body Type" value={bodyTypeLabels[profile.bodyType] || ''} />}
+            {profile.faceShape && <ProfileRow icon="happy-outline" iconColor={Colors.sage} label="Face Shape" value={faceShapeLabels[profile.faceShape] || ''} />}
             {profile.eyeColor && <ProfileRow icon="eye-outline" iconColor={Colors.sage} label="Eye Color" value={eyeColorLabels[profile.eyeColor] || ''} />}
             {profile.skinTone && <ProfileRow icon="color-palette-outline" iconColor={Colors.blush.replace('#', '#')} label="Skin Tone" value={`${skinToneLabels[profile.skinTone] || ''} - ${undertoneLabels[profile.undertone || ''] || ''}`} />}
             {profile.styleGoalPrimary && (
@@ -253,6 +266,20 @@ export default function ProfileScreen() {
                     <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
                       {l.label}
                     </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.refineLabel}>Face shape</Text>
+            <Text style={[{ fontSize: 12, color: Colors.textSecondary, marginBottom: 8 }]}>Shapes neckline recommendations for your features.</Text>
+            <View style={styles.refineChipRow}>
+              {FACE_SHAPE_OPTS.map(f => {
+                const active = profile.faceShape === f.id;
+                return (
+                  <Pressable key={f.id} onPress={() => updateProfile({ faceShape: active ? null : f.id })}
+                    style={[styles.refineChip, active && styles.refineChipActive]}>
+                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>{f.label}</Text>
                   </Pressable>
                 );
               })}

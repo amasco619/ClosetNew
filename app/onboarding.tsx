@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp, BodyType, EyeColor, SkinTone, Undertone, StyleGoal } from '@/contexts/AppContext';
-import type { HairColor, HeightBand, ContrastLevel, MoodGoal, LifePhase, MetalPreference, Industry } from '@/constants/types';
+import type { HairColor, HeightBand, ContrastLevel, MoodGoal, LifePhase, MetalPreference, Industry, FaceShape } from '@/constants/types';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
@@ -88,6 +88,22 @@ const LIFE_PHASE_OPTS: { id: LifePhase; label: string }[] = [
 ];
 const AVERSION_OPTS: string[] = ['yellow', 'orange', 'neon', 'pink', 'red', 'green', 'brown', 'purple'];
 
+const FACE_SHAPES: { id: FaceShape; label: string; desc: string }[] = [
+  { id: 'oval',   label: 'Oval',   desc: 'Balanced proportions, slightly wider at cheeks' },
+  { id: 'round',  label: 'Round',  desc: 'Equal width and length, soft angles' },
+  { id: 'square', label: 'Square', desc: 'Strong jaw, equal width throughout' },
+  { id: 'heart',  label: 'Heart',  desc: 'Wider forehead, narrow chin' },
+  { id: 'oblong', label: 'Oblong', desc: 'Longer than wide, narrow throughout' },
+];
+
+const FACE_SHAPE_STYLE: Record<FaceShape, { width: number; height: number; borderRadius: number }> = {
+  oval:   { width: 52, height: 72, borderRadius: 26 },
+  round:  { width: 64, height: 64, borderRadius: 32 },
+  square: { width: 64, height: 68, borderRadius: 8 },
+  heart:  { width: 64, height: 70, borderRadius: 32 },
+  oblong: { width: 44, height: 80, borderRadius: 22 },
+};
+
 function deriveContrast(skin: SkinTone | null, hair: HairColor | null): ContrastLevel | null {
   if (!skin || !hair) return null;
   const isLightSkin = skin === 'very-light' || skin === 'light' || skin === 'medium-light';
@@ -100,7 +116,7 @@ function deriveContrast(skin: SkinTone | null, hair: HairColor | null): Contrast
   return 'medium';
 }
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 8;
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -108,6 +124,7 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [name, setName] = useState(profile.name || '');
   const [bodyType, setBodyType] = useState<BodyType | null>(profile.bodyType);
+  const [faceShape, setFaceShape] = useState<FaceShape | null>(profile.faceShape ?? null);
   const [eyeColor, setEyeColor] = useState<EyeColor | null>(profile.eyeColor);
   const [skinTone, setSkinTone] = useState<SkinTone | null>(profile.skinTone);
   const [undertone, setUndertone] = useState<Undertone | null>(profile.undertone);
@@ -131,11 +148,12 @@ export default function OnboardingScreen() {
     switch (step) {
       case 0: return name.trim().length > 0;
       case 1: return !!bodyType;
-      case 2: return !!eyeColor;
-      case 3: return !!skinTone && !!undertone;
-      case 4: return !!styleGoalPrimary;
-      case 5: return true;
+      case 2: return true;        // face shape is optional — can skip
+      case 3: return !!eyeColor;
+      case 4: return !!skinTone && !!undertone;
+      case 5: return !!styleGoalPrimary;
       case 6: return true;
+      case 7: return true;
       default: return true;
     }
   };
@@ -156,6 +174,7 @@ export default function OnboardingScreen() {
       updateProfile({
         name: name.trim(),
         bodyType,
+        faceShape,
         eyeColor,
         skinTone,
         undertone,
@@ -225,6 +244,46 @@ export default function OnboardingScreen() {
       case 2:
         return (
           <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
+            <Text style={styles.stepTitle}>Face Shape</Text>
+            <Text style={styles.stepSubtitle}>Helps us suggest necklines that flatter your features. You can skip this.</Text>
+            <View style={styles.optionsGrid}>
+              {FACE_SHAPES.map(fs => {
+                const shapeStyle = FACE_SHAPE_STYLE[fs.id];
+                const selected = faceShape === fs.id;
+                return (
+                  <Pressable
+                    key={fs.id}
+                    style={[styles.optionCard, selected && styles.optionCardSelected]}
+                    onPress={() => { setFaceShape(selected ? null : fs.id); Haptics.selectionAsync(); }}
+                  >
+                    <View style={styles.faceShapeIllustration}>
+                      <View
+                        style={[
+                          styles.faceShapeOutline,
+                          {
+                            width: shapeStyle.width,
+                            height: shapeStyle.height,
+                            borderRadius: shapeStyle.borderRadius,
+                            borderColor: selected ? Colors.secondary : Colors.textLight,
+                          },
+                          fs.id === 'heart' && styles.faceShapeHeart,
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]}>{fs.label}</Text>
+                    <Text style={styles.optionDesc}>{fs.desc}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Pressable style={styles.skipRow} onPress={skipStep}>
+              <Text style={styles.skipText}>Skip — I'll decide later</Text>
+            </Pressable>
+          </Animated.View>
+        );
+      case 3:
+        return (
+          <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Eye Color</Text>
             <Text style={styles.stepSubtitle}>We'll suggest jewelry and colours that complement your eyes</Text>
             <View style={styles.eyeGrid}>
@@ -243,7 +302,7 @@ export default function OnboardingScreen() {
             </View>
           </Animated.View>
         );
-      case 3:
+      case 4:
         return (
           <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Skin Tone & Undertone</Text>
@@ -278,7 +337,7 @@ export default function OnboardingScreen() {
             </View>
           </Animated.View>
         );
-      case 4:
+      case 5:
         return (
           <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Style Goals</Text>
@@ -319,7 +378,7 @@ export default function OnboardingScreen() {
             </View>
           </Animated.View>
         );
-      case 5:
+      case 6:
         return (
           <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>A few finishing touches</Text>
@@ -451,7 +510,7 @@ export default function OnboardingScreen() {
             </Pressable>
           </Animated.View>
         );
-      case 6:
+      case 7:
         return (
           <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
             <View style={styles.finishIcon}>
@@ -527,6 +586,9 @@ const styles = StyleSheet.create({
   optionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, marginTop: 8 },
   optionLabelSelected: { color: Colors.secondary },
   optionDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 4, lineHeight: 15 },
+  faceShapeIllustration: { width: 80, height: 90, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  faceShapeOutline: { borderWidth: 2 },
+  faceShapeHeart: { borderTopLeftRadius: 32, borderTopRightRadius: 32, borderBottomLeftRadius: 50, borderBottomRightRadius: 50 },
   eyeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   eyeCard: { width: (width - 72) / 3, backgroundColor: Colors.white, borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1.5, borderColor: Colors.border },
   eyeCardSelected: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '08' },

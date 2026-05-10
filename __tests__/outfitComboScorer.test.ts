@@ -12,9 +12,9 @@
  * Exits non-zero on any failed assertion.
  */
 
-import { scoreOutfitCombo } from '../constants/outfitScoring';
+import { scoreOutfitCombo, scoreItemForProfile } from '../constants/outfitScoring';
 import { generateRationale } from '../constants/rationale';
-import type { OutfitComponent, WardrobeItem, UserProfile } from '../constants/types';
+import type { OutfitComponent, WardrobeItem, UserProfile, OccasionTag } from '../constants/types';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
 
@@ -1135,6 +1135,118 @@ function makeRationaleFixture(colorFamily: string): { items: WardrobeItem[]; com
     !rationale.includes('in tones that work with your complexion'),
     `undertoneScore omitted → phrase absent, no crash (got: "${rationale}")`,
   );
+}
+
+// ── 14. faceShapeNeckline item scorer ─────────────────────────────────────────
+// Tests scoreItemForProfile step 14: face shape × neckline bonus/penalty.
+
+console.log('\nfaceShapeNeckline (scoreItemForProfile step 14):');
+
+const CASUAL: OccasionTag = 'casual';
+
+// Helper: make a top item with the given neckline
+function makeNecklaceItem(id: string, neckline: WardrobeItem['neckline']): WardrobeItem {
+  return makeItem({
+    id,
+    category: 'top',
+    subType: 'blouse',
+    colorFamily: 'black',
+    occasionTags: [CASUAL],
+    neckline,
+  });
+}
+
+// Helper: minimal profile with only faceShape set (plus required fields)
+function faceProfile(faceShape: UserProfile['faceShape']): UserProfile {
+  return baseProfile({ faceShape });
+}
+
+// (a) Round face + v-neck → +2 boost on item score
+{
+  const item = makeNecklaceItem('a', 'v-neck');
+  const noFace  = scoreItemForProfile(item, CASUAL, faceProfile(null));
+  const withFace = scoreItemForProfile(item, CASUAL, faceProfile('round'));
+  assert(withFace - noFace === 2, `round face + v-neck → +2 delta (got ${withFace - noFace})`);
+}
+
+// (b) Round face + square neckline → -2 penalty
+{
+  const item = makeNecklaceItem('b', 'square');
+  const noFace  = scoreItemForProfile(item, CASUAL, faceProfile(null));
+  const withFace = scoreItemForProfile(item, CASUAL, faceProfile('round'));
+  assert(withFace - noFace === -2, `round face + square neckline → -2 delta (got ${withFace - noFace})`);
+}
+
+// (c) Square face + scoop → +2 boost
+{
+  const item = makeNecklaceItem('c', 'scoop');
+  const noFace  = scoreItemForProfile(item, CASUAL, faceProfile(null));
+  const withFace = scoreItemForProfile(item, CASUAL, faceProfile('square'));
+  assert(withFace - noFace === 2, `square face + scoop → +2 delta (got ${withFace - noFace})`);
+}
+
+// (d) Square face + square neckline → -2 penalty
+{
+  const item = makeNecklaceItem('d', 'square');
+  const noFace  = scoreItemForProfile(item, CASUAL, faceProfile(null));
+  const withFace = scoreItemForProfile(item, CASUAL, faceProfile('square'));
+  assert(withFace - noFace === -2, `square face + square neckline → -2 delta (got ${withFace - noFace})`);
+}
+
+// (e) Heart face + boat neckline → +2 boost
+{
+  const item = makeNecklaceItem('e', 'boat');
+  const noFace  = scoreItemForProfile(item, CASUAL, faceProfile(null));
+  const withFace = scoreItemForProfile(item, CASUAL, faceProfile('heart'));
+  assert(withFace - noFace === 2, `heart face + boat neckline → +2 delta (got ${withFace - noFace})`);
+}
+
+// (f) Heart face + halter → -1 penalty
+{
+  const item = makeNecklaceItem('f', 'halter');
+  const noFace  = scoreItemForProfile(item, CASUAL, faceProfile(null));
+  const withFace = scoreItemForProfile(item, CASUAL, faceProfile('heart'));
+  assert(withFace - noFace === -1, `heart face + halter → -1 delta (got ${withFace - noFace})`);
+}
+
+// (g) Oblong face + boat neckline → +2 boost
+{
+  const item = makeNecklaceItem('g', 'boat');
+  const noFace  = scoreItemForProfile(item, CASUAL, faceProfile(null));
+  const withFace = scoreItemForProfile(item, CASUAL, faceProfile('oblong'));
+  assert(withFace - noFace === 2, `oblong face + boat neckline → +2 delta (got ${withFace - noFace})`);
+}
+
+// (h) Oblong face + v-neck → -1 penalty (elongates further)
+{
+  const item = makeNecklaceItem('h', 'v-neck');
+  const noFace  = scoreItemForProfile(item, CASUAL, faceProfile(null));
+  const withFace = scoreItemForProfile(item, CASUAL, faceProfile('oblong'));
+  assert(withFace - noFace === -1, `oblong face + v-neck → -1 delta (got ${withFace - noFace})`);
+}
+
+// (i) Oval face + v-neck → +1 (universally safe with small positive)
+{
+  const item = makeNecklaceItem('i', 'v-neck');
+  const noFace  = scoreItemForProfile(item, CASUAL, faceProfile(null));
+  const withFace = scoreItemForProfile(item, CASUAL, faceProfile('oval'));
+  assert(withFace - noFace === 1, `oval face + v-neck → +1 delta (got ${withFace - noFace})`);
+}
+
+// (j) No neckline on item → scorer is a no-op (faceShape set, neckline absent)
+{
+  const item = makeItem({ id: 'j', category: 'top', subType: 'blouse', colorFamily: 'black', occasionTags: [CASUAL] });
+  const noFace  = scoreItemForProfile(item, CASUAL, faceProfile(null));
+  const withFace = scoreItemForProfile(item, CASUAL, faceProfile('round'));
+  assert(withFace - noFace === 0, `no neckline on item → no-op, delta 0 (got ${withFace - noFace})`);
+}
+
+// (k) No faceShape on profile → scorer is a no-op (neckline set, faceShape absent)
+{
+  const item = makeNecklaceItem('k', 'v-neck');
+  const noFace  = scoreItemForProfile(item, CASUAL, faceProfile(null));
+  const withNull = scoreItemForProfile(item, CASUAL, baseProfile({ faceShape: null }));
+  assert(noFace === withNull, `null faceShape → no-op (got noFace=${noFace}, withNull=${withNull})`);
 }
 
 // ── Summary ───────────────────────────────────────────────────────────────────
