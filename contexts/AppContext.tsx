@@ -15,6 +15,10 @@ import {
   RotationState, INITIAL_ROTATION_STATE,
   generateOutfitPool, applyDailyRotation, computePoolHash, todayString,
 } from '@/constants/outfitRotation';
+import {
+  AffinityState, computeAffinity, MIN_SIGNALS_TO_APPLY,
+  topAffinityItems, topAffinityPairs,
+} from '@/constants/affinity';
 
 export type {
   BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag,
@@ -64,6 +68,12 @@ interface AppContextValue {
   getSavedLookName: (lookId: string, fallback: string) => string;
   // Perceptual-colour migration progress (one-shot legacy backfill)
   backfillProgress: { done: number; total: number } | null;
+  // Personal calibration loop — affinity learned from reactions + wear
+  affinityState: AffinityState;
+  affinityActive: boolean;        // true once N≥5 signals have accumulated
+  affinitySignalCount: number;    // for "X reactions logged" UI copy
+  topAffinityItems: ReturnType<typeof topAffinityItems>;
+  topAffinityPairs: ReturnType<typeof topAffinityPairs>;
 }
 
 const defaultProfile: UserProfile = {
@@ -625,9 +635,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [isPremium, wardrobeItems],
   );
 
+  const affinityState = useMemo(
+    () => computeAffinity(reactions, wearHistory, todayString()),
+    [reactions, wearHistory],
+  );
+
   const outfitPool = useMemo(
-    () => generateOutfitPool(activeWardrobeItems, profile, todayMood, reactions, todayString(), wearHistory),
-    [activeWardrobeItems, profile, todayMood, reactions, wearHistory],
+    () => generateOutfitPool(
+      activeWardrobeItems, profile, todayMood, reactions, todayString(), wearHistory, affinityState,
+    ),
+    [activeWardrobeItems, profile, todayMood, reactions, wearHistory, affinityState],
   );
 
   const recentWornFingerprints = useMemo(() => {
@@ -731,6 +748,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return silentlyZero.length > 0;
   }, [missingDimensions, profile.dismissedProfileNudge]);
 
+  const topItems = useMemo(() => topAffinityItems(affinityState, 5), [affinityState]);
+  const topPairs = useMemo(() => topAffinityPairs(affinityState, 5), [affinityState]);
+  const affinityActive = affinityState.signalCount >= MIN_SIGNALS_TO_APPLY;
+
   const value = useMemo(() => ({
     profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
     isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
@@ -740,6 +761,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,
     savedLooks, toggleSavedLook, isLookSaved, renameSavedLook, getSavedLookName,
     backfillProgress,
+    affinityState, affinityActive,
+    affinitySignalCount: affinityState.signalCount,
+    topAffinityItems: topItems, topAffinityPairs: topPairs,
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
        isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, canAddItem, recommendationSlots, starterRecommendations,
@@ -747,7 +771,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
        todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
        profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,
        savedLooks, toggleSavedLook, isLookSaved, renameSavedLook, getSavedLookName,
-       backfillProgress]);
+       backfillProgress, affinityState, affinityActive, topItems, topPairs]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

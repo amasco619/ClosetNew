@@ -74,7 +74,17 @@ function ProfileRow({ icon, iconColor, label, value, onPress }: { icon: string; 
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, updateProfile, wardrobeItems, isPremium, togglePremium, wearHistory } = useApp();
+  const {
+    profile, updateProfile, wardrobeItems, isPremium, togglePremium, wearHistory,
+    affinityActive, affinitySignalCount, topAffinityItems, topAffinityPairs,
+  } = useApp();
+  const [showAffinityDebug, setShowAffinityDebug] = useState(false);
+  const itemById = (id: string) => wardrobeItems.find(w => w.id === id);
+  const itemLabel = (id: string) => {
+    const it = itemById(id);
+    if (!it) return 'Removed item';
+    return `${it.colorFamily} ${it.subType.replace(/-/g, ' ')}`;
+  };
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const { focus } = useLocalSearchParams<{ focus?: string }>();
   const scrollRef = useRef<ScrollView>(null);
@@ -326,6 +336,95 @@ export default function ProfileScreen() {
           </View>
         </Animated.View>
 
+        <Animated.View entering={FadeInDown.delay(480).duration(500)}>
+          <Pressable
+            onPress={() => setShowAffinityDebug(s => !s)}
+            style={styles.affinityHeaderRow}
+          >
+            <Text style={styles.sectionTitle}>Why this changed</Text>
+            <Ionicons
+              name={showAffinityDebug ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={Colors.textSecondary}
+            />
+          </Pressable>
+          {showAffinityDebug && (
+            <View style={styles.card}>
+              <View style={styles.affinityStatusRow}>
+                <Ionicons
+                  name={affinityActive ? 'sparkles' : 'time-outline'}
+                  size={14}
+                  color={affinityActive ? Colors.secondary : Colors.textLight}
+                />
+                <Text style={styles.affinityStatusText}>
+                  {affinityActive
+                    ? `Calibrating from ${Math.round(affinitySignalCount)} signal${Math.round(affinitySignalCount) === 1 ? '' : 's'}`
+                    : `Learning… ${Math.round(affinitySignalCount)}/5 signals before tuning kicks in`}
+                </Text>
+              </View>
+              <Text style={styles.affinityHelp}>
+                Loves, "not today" taps, and outfits you actually wear quietly
+                shape what surfaces next. Nothing is ever fully banned.
+              </Text>
+
+              <Text style={styles.affinityListTitle}>Pieces you reach for</Text>
+              {topAffinityItems.liked.length === 0 ? (
+                <Text style={styles.affinityEmpty}>None yet — log a few outfits to start.</Text>
+              ) : (
+                topAffinityItems.liked.map(({ id, score }) => (
+                  <View key={`liked-${id}`} style={styles.affinityRow}>
+                    <View style={[styles.affinityDot, { backgroundColor: Colors.success }]} />
+                    <Text style={styles.affinityRowLabel} numberOfLines={1}>{itemLabel(id)}</Text>
+                    <Text style={styles.affinityRowScore}>+{score.toFixed(1)}</Text>
+                  </View>
+                ))
+              )}
+
+              <Text style={styles.affinityListTitle}>Pieces you skip</Text>
+              {topAffinityItems.disliked.length === 0 ? (
+                <Text style={styles.affinityEmpty}>None — keep tapping "not today" to teach me.</Text>
+              ) : (
+                topAffinityItems.disliked.map(({ id, score }) => (
+                  <View key={`disliked-${id}`} style={styles.affinityRow}>
+                    <View style={[styles.affinityDot, { backgroundColor: Colors.warning }]} />
+                    <Text style={styles.affinityRowLabel} numberOfLines={1}>{itemLabel(id)}</Text>
+                    <Text style={styles.affinityRowScore}>{score.toFixed(1)}</Text>
+                  </View>
+                ))
+              )}
+
+              {topAffinityPairs.liked.length > 0 && (
+                <>
+                  <Text style={styles.affinityListTitle}>Combinations that work</Text>
+                  {topAffinityPairs.liked.map(({ ids, score }) => (
+                    <View key={`pair-liked-${ids[0]}-${ids[1]}`} style={styles.affinityRow}>
+                      <View style={[styles.affinityDot, { backgroundColor: Colors.success }]} />
+                      <Text style={styles.affinityRowLabel} numberOfLines={1}>
+                        {itemLabel(ids[0])} + {itemLabel(ids[1])}
+                      </Text>
+                      <Text style={styles.affinityRowScore}>+{score.toFixed(1)}</Text>
+                    </View>
+                  ))}
+                </>
+              )}
+              {topAffinityPairs.disliked.length > 0 && (
+                <>
+                  <Text style={styles.affinityListTitle}>Combinations that don't</Text>
+                  {topAffinityPairs.disliked.map(({ ids, score }) => (
+                    <View key={`pair-disliked-${ids[0]}-${ids[1]}`} style={styles.affinityRow}>
+                      <View style={[styles.affinityDot, { backgroundColor: Colors.warning }]} />
+                      <Text style={styles.affinityRowLabel} numberOfLines={1}>
+                        {itemLabel(ids[0])} + {itemLabel(ids[1])}
+                      </Text>
+                      <Text style={styles.affinityRowScore}>{score.toFixed(1)}</Text>
+                    </View>
+                  ))}
+                </>
+              )}
+            </View>
+          )}
+        </Animated.View>
+
         <Animated.View entering={FadeInDown.delay(500).duration(500)}>
           <Text style={styles.sectionTitle}>Subscription</Text>
           <View style={styles.card}>
@@ -446,4 +545,14 @@ const styles = StyleSheet.create({
   featureDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 14 },
   redoOnboarding: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14 },
   redoText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.textSecondary },
+  affinityHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  affinityStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 },
+  affinityStatusText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary },
+  affinityHelp: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, paddingHorizontal: 14, paddingBottom: 10, lineHeight: 17 },
+  affinityListTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.primary, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4, letterSpacing: 0.2, textTransform: 'uppercase' },
+  affinityRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 6 },
+  affinityDot: { width: 6, height: 6, borderRadius: 3 },
+  affinityRowLabel: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.primary, textTransform: 'capitalize' },
+  affinityRowScore: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
+  affinityEmpty: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, paddingHorizontal: 14, paddingVertical: 6, fontStyle: 'italic' },
 });

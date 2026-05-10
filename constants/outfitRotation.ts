@@ -17,6 +17,10 @@ import {
   pickHeroCandidates, recedeScore,
 } from './outfitScoring';
 import { generateRationale } from './rationale';
+import {
+  AffinityState, EMPTY_AFFINITY,
+  itemAffinityMultiplier, comboPairAffinityMultiplier,
+} from './affinity';
 
 export const SCENARIOS: OccasionTag[] = [
   'work', 'casual', 'date-casual', 'date-dressy', 'event', 'interview', 'wedding', 'travel',
@@ -123,6 +127,7 @@ export function generateOutfitPool(
   reactions: OutfitReaction[] = [],
   today: string = todayString(),
   wearHistory: WearEntry[] = [],
+  affinity: AffinityState = EMPTY_AFFINITY,
 ): Record<OccasionTag, OutfitSet[]> {
   const result = {} as Record<OccasionTag, OutfitSet[]>;
   // Hard seasonal gate: respect user-supplied season tags. Untagged items and
@@ -352,10 +357,18 @@ export function generateOutfitPool(
         ].filter(Boolean) as WardrobeItem[];
 
         const itemScore = allItems.reduce(
-          (sum, item) => sum + scoreItemForProfile(item, scenario, profile, mood),
+          (sum, item) =>
+            sum +
+            scoreItemForProfile(item, scenario, profile, mood) *
+              itemAffinityMultiplier(affinity, item.id),
           0,
         );
         const combo = scoreOutfitCombo(outfit, items, profile, season);
+        // Pair-affinity nudge — multiplies the combo's geometric "fit" score
+        // by how well these items have played together for the user. Cold-
+        // start safe: returns 1.0 until ≥5 signals have been logged.
+        const pairMult = comboPairAffinityMultiplier(affinity, allItems.map(i => i.id));
+        combo.total = combo.total * pairMult;
 
         // ── Hard gates — violations we never want to surface ─────────────
         // (soft penalties in scoreOutfitCombo surface near the bottom; these

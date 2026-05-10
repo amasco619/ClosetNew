@@ -6,8 +6,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { useApp } from '@/contexts/AppContext';
 import { computeNextSmartBuy, generateRecommendedOutfitGroups, RecommendedOutfitGroup, WardrobeSlot } from '@/constants/wardrobeBlueprint';
+import { OutfitSet, ReactionType, OccasionTag } from '@/constants/types';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -55,6 +57,36 @@ function SlotChip({ slot }: { slot: WardrobeSlot }) {
   );
 }
 
+function inferGroupScenario(group: RecommendedOutfitGroup): OccasionTag {
+  const hay = `${group.label} ${group.vibe ?? ''}`.toLowerCase();
+  if (/work|office|interview|meeting|board/.test(hay)) return 'work';
+  if (/wedding/.test(hay)) return 'wedding';
+  if (/event|gala|cocktail|night|evening/.test(hay)) return 'event';
+  if (/date/.test(hay)) return 'date-casual';
+  if (/travel|trip|holiday/.test(hay)) return 'travel';
+  return 'casual';
+}
+
+/** Build a synthetic OutfitSet from a recipe group's owned slots so the
+ *  shared reaction / wear-tracking handlers can consume it. Returns null
+ *  when the group has fewer than two owned pieces — there's nothing
+ *  meaningful to learn from a one-piece "outfit". */
+function groupAsOutfitSet(group: RecommendedOutfitGroup): OutfitSet | null {
+  const ownedSlots = group.slots.filter(s => s.status === 'owned' && s.matchedItemId);
+  if (ownedSlots.length < 2) return null;
+  return {
+    id: group.id,
+    scenario: inferGroupScenario(group),
+    components: ownedSlots.map(s => ({
+      category: s.category,
+      subType: s.subType,
+      colorFamily: s.colorFamily,
+      owned: true,
+      matchedItemId: s.matchedItemId,
+    })),
+  };
+}
+
 interface OutfitGroupCardProps {
   group: RecommendedOutfitGroup;
   index: number;
@@ -63,13 +95,21 @@ interface OutfitGroupCardProps {
   onToggleSave: () => void;
   onRename: () => void;
   compact?: boolean;
+  reaction?: ReactionType | null;
+  wornToday?: boolean;
+  wornEntryId?: string | null;
+  onReact?: (outfit: OutfitSet, type: ReactionType) => void;
+  onLogWear?: (outfit: OutfitSet) => void;
+  onUndoWear?: (entryId: string) => void;
 }
 
 function OutfitGroupCard({
   group, index, displayLabel, isSaved, onToggleSave, onRename, compact,
+  reaction, wornToday, wornEntryId, onReact, onLogWear, onUndoWear,
 }: OutfitGroupCardProps) {
   const neededCount = group.slots.filter(s => s.status === 'needed').length;
   const renamed = displayLabel !== group.label;
+  const reactableOutfit = groupAsOutfitSet(group);
 
   return (
     <Animated.View entering={FadeInDown.delay(index * 60).duration(400)} style={[
@@ -136,6 +176,56 @@ function OutfitGroupCard({
           <SlotChip key={slot.id} slot={slot} />
         ))}
       </ScrollView>
+
+      {reactableOutfit && (onReact || onLogWear) ? (
+        <View style={styles.feedbackRow}>
+          {onLogWear && onUndoWear ? (
+            wornToday ? (
+              <Pressable
+                style={styles.undoWearBtn}
+                onPress={() => wornEntryId && onUndoWear(wornEntryId)}
+              >
+                <Ionicons name="return-up-back-outline" size={13} color={Colors.textSecondary} />
+                <Text style={styles.undoWearText}>Worn — undo</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                style={styles.logWearBtn}
+                onPress={() => { Haptics.selectionAsync(); onLogWear(reactableOutfit); }}
+              >
+                <Ionicons name="calendar-outline" size={13} color={Colors.white} />
+                <Text style={styles.logWearText}>Wore today</Text>
+              </Pressable>
+            )
+          ) : null}
+          {onReact ? (
+            <View style={styles.reactionRow}>
+              <Pressable
+                style={[styles.reactionBtn, reaction === 'love' && styles.reactionBtnLove]}
+                onPress={() => { Haptics.selectionAsync(); onReact(reactableOutfit, 'love'); }}
+                hitSlop={6}
+              >
+                <Ionicons
+                  name={reaction === 'love' ? 'heart' : 'heart-outline'}
+                  size={15}
+                  color={reaction === 'love' ? '#DC2626' : Colors.textSecondary}
+                />
+              </Pressable>
+              <Pressable
+                style={[styles.reactionBtn, reaction === 'not-today' && styles.reactionBtnSkip]}
+                onPress={() => { Haptics.selectionAsync(); onReact(reactableOutfit, 'not-today'); }}
+                hitSlop={6}
+              >
+                <Ionicons
+                  name={reaction === 'not-today' ? 'close-circle' : 'close-circle-outline'}
+                  size={15}
+                  color={reaction === 'not-today' ? Colors.textSecondary : Colors.textLight}
+                />
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
     </Animated.View>
   );
 }
@@ -145,6 +235,7 @@ export default function OutfitIdeasScreen() {
   const {
     recommendationSlots, profile,
     savedLooks, toggleSavedLook, isLookSaved, renameSavedLook, getSavedLookName,
+    reactToOutfit, getOutfitReaction, logWear, undoWear, isWornToday, wearHistory,
   } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -241,17 +332,28 @@ export default function OutfitIdeasScreen() {
             <Text style={styles.sectionSubtitle}>
               Your favourites — tap the pencil to rename, or the heart to unsave.
             </Text>
-            {savedGroups.map((group, index) => (
-              <OutfitGroupCard
-                key={`saved-${group.id}`}
-                group={group}
-                index={index}
-                displayLabel={getSavedLookName(group.id, group.label)}
-                isSaved
-                onToggleSave={() => toggleSavedLook(group.id)}
-                onRename={() => openRename(group)}
-              />
-            ))}
+            {savedGroups.map((group, index) => {
+              const synth = groupAsOutfitSet(group);
+              const fp = synth ? synth.components.map(c => c.matchedItemId).filter(Boolean).sort().join('|') : '';
+              const wornEntry = synth ? wearHistory.find(e => e.outfitFingerprint === fp && e.date === new Date().toISOString().slice(0, 10)) : undefined;
+              return (
+                <OutfitGroupCard
+                  key={`saved-${group.id}`}
+                  group={group}
+                  index={index}
+                  displayLabel={getSavedLookName(group.id, group.label)}
+                  isSaved
+                  onToggleSave={() => toggleSavedLook(group.id)}
+                  onRename={() => openRename(group)}
+                  reaction={synth ? getOutfitReaction(synth) : null}
+                  wornToday={synth ? isWornToday(synth) : false}
+                  wornEntryId={wornEntry?.id ?? null}
+                  onReact={reactToOutfit}
+                  onLogWear={logWear}
+                  onUndoWear={undoWear}
+                />
+              );
+            })}
           </>
         ) : null}
 
@@ -295,6 +397,9 @@ export default function OutfitIdeasScreen() {
 
         {groups.map((group, index) => {
           const saved = isLookSaved(group.id);
+          const synth = groupAsOutfitSet(group);
+          const fp = synth ? synth.components.map(c => c.matchedItemId).filter(Boolean).sort().join('|') : '';
+          const wornEntry = synth ? wearHistory.find(e => e.outfitFingerprint === fp && e.date === new Date().toISOString().slice(0, 10)) : undefined;
           return (
             <OutfitGroupCard
               key={group.id}
@@ -304,6 +409,12 @@ export default function OutfitIdeasScreen() {
               isSaved={saved}
               onToggleSave={() => toggleSavedLook(group.id)}
               onRename={() => openRename(group)}
+              reaction={synth ? getOutfitReaction(synth) : null}
+              wornToday={synth ? isWornToday(synth) : false}
+              wornEntryId={wornEntry?.id ?? null}
+              onReact={reactToOutfit}
+              onLogWear={logWear}
+              onUndoWear={undoWear}
             />
           );
         })}
@@ -777,4 +888,27 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.white,
   },
+  feedbackRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    gap: 8, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 12,
+    borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 8,
+  },
+  logWearBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: Colors.primary, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 18,
+  },
+  logWearText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.white },
+  undoWearBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: Colors.success + '18', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 18,
+  },
+  undoWearText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary },
+  reactionRow: { flexDirection: 'row', gap: 6 },
+  reactionBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
+  },
+  reactionBtnLove: { backgroundColor: '#FEE2E2', borderColor: '#FECACA' },
+  reactionBtnSkip: { backgroundColor: Colors.background, borderColor: Colors.textLight },
 });

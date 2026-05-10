@@ -2,6 +2,8 @@ import { StyleSheet, Text, View, ScrollView, Pressable, Platform, Image } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { useMemo } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { countRecommendedOutfits } from '@/constants/wardrobeBlueprint';
 import Colors from '@/constants/colors';
@@ -30,7 +32,11 @@ const occasionLabels: Record<string, string> = {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, wardrobeItems, activeWardrobeItems, outfitSets, isPremium, canAddItem, starterRecommendations, recommendationSlots, todaysWear, wearHistory, backfillProgress } = useApp();
+  const {
+    profile, wardrobeItems, activeWardrobeItems, outfitSets, isPremium, canAddItem,
+    starterRecommendations, recommendationSlots, todaysWear, wearHistory, backfillProgress,
+    reactToOutfit, getOutfitReaction, logWear, undoWear, isWornToday,
+  } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const categoryCounts: Record<string, number> = {};
@@ -46,14 +52,26 @@ export default function HomeScreen() {
 
   // A "ready" outfit requires all pieces to be owned AND a complete core:
   // (dress OR top+bottom) AND shoes together.
-  const readyOutfits = outfitSets.filter(o => {
+  const readyOutfitsList = useMemo(() => outfitSets.filter(o => {
     if (!o.components.every(c => c.owned)) return false;
     const hasDress  = o.components.some(c => c.category === 'dress');
     const hasTop    = o.components.some(c => c.category === 'top');
     const hasBottom = o.components.some(c => c.category === 'bottom');
     const hasShoes  = o.components.some(c => c.category === 'shoes');
     return (hasDress || (hasTop && hasBottom)) && hasShoes;
-  }).length;
+  }), [outfitSets]);
+  const readyOutfits = readyOutfitsList.length;
+  // Surface one "Today's Pick" — the highest-confidence ready outfit — so the
+  // calibration loop can collect signals straight from the dashboard.
+  const todaysPick = readyOutfitsList[0] ?? null;
+  const pickReaction = todaysPick ? getOutfitReaction(todaysPick) : null;
+  const pickWornToday = todaysPick ? isWornToday(todaysPick) : false;
+  const pickFp = todaysPick
+    ? todaysPick.components.map(c => c.matchedItemId).filter(Boolean).sort().join('|')
+    : '';
+  const pickWornEntry = pickFp
+    ? wearHistory.find(e => e.outfitFingerprint === pickFp && e.date === new Date().toISOString().slice(0, 10))
+    : undefined;
 
   const quickTips = [
     { icon: 'bulb-outline' as const, text: 'A navy blazer works for both work and evening events.' },
@@ -108,6 +126,78 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Outfit Ideas</Text>
           </Pressable>
         </Animated.View>
+
+        {todaysPick && (
+          <Animated.View entering={FadeInDown.delay(280).duration(500)} style={styles.pickCard}>
+            <View style={styles.pickHeader}>
+              <Ionicons name="sparkles" size={16} color={Colors.secondary} />
+              <Text style={styles.pickTitle}>Today's Pick</Text>
+              <Pressable onPress={() => router.push('/(tabs)/outfits')} style={styles.pickSeeAll}>
+                <Text style={styles.pickSeeAllText}>More</Text>
+                <Ionicons name="chevron-forward" size={13} color={Colors.secondary} />
+              </Pressable>
+            </View>
+            <View style={styles.pickPhotosRow}>
+              {todaysPick.components.slice(0, 4).map((c, i) => {
+                const item = c.matchedItemId ? wardrobeItems.find(w => w.id === c.matchedItemId) : null;
+                return (
+                  <View key={`pick-${i}`} style={styles.pickPhotoWrap}>
+                    {item?.photoUri ? (
+                      <Image source={{ uri: item.photoUri }} style={styles.pickPhoto} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.pickPhoto, styles.pickPhotoFallback]}>
+                        <Ionicons name="shirt-outline" size={20} color={Colors.textLight} />
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+            <View style={styles.pickActions}>
+              {pickWornToday ? (
+                <Pressable
+                  style={styles.pickUndoBtn}
+                  onPress={() => pickWornEntry && undoWear(pickWornEntry.id)}
+                >
+                  <Ionicons name="return-up-back-outline" size={13} color={Colors.textSecondary} />
+                  <Text style={styles.pickUndoText}>Worn — undo</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  style={styles.pickWearBtn}
+                  onPress={() => { Haptics.selectionAsync(); logWear(todaysPick); }}
+                >
+                  <Ionicons name="calendar-outline" size={13} color={Colors.white} />
+                  <Text style={styles.pickWearText}>Wore today</Text>
+                </Pressable>
+              )}
+              <View style={styles.pickReactionRow}>
+                <Pressable
+                  style={[styles.pickReactBtn, pickReaction === 'love' && styles.pickReactBtnLove]}
+                  onPress={() => { Haptics.selectionAsync(); reactToOutfit(todaysPick, 'love'); }}
+                  hitSlop={6}
+                >
+                  <Ionicons
+                    name={pickReaction === 'love' ? 'heart' : 'heart-outline'}
+                    size={15}
+                    color={pickReaction === 'love' ? '#DC2626' : Colors.textSecondary}
+                  />
+                </Pressable>
+                <Pressable
+                  style={[styles.pickReactBtn, pickReaction === 'not-today' && styles.pickReactBtnSkip]}
+                  onPress={() => { Haptics.selectionAsync(); reactToOutfit(todaysPick, 'not-today'); }}
+                  hitSlop={6}
+                >
+                  <Ionicons
+                    name={pickReaction === 'not-today' ? 'close-circle' : 'close-circle-outline'}
+                    size={15}
+                    color={pickReaction === 'not-today' ? Colors.textSecondary : Colors.textLight}
+                  />
+                </Pressable>
+              </View>
+            </View>
+          </Animated.View>
+        )}
 
         {profile.styleGoalPrimary && (
           <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.styleCard}>
@@ -324,4 +414,34 @@ const styles = StyleSheet.create({
   recDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, paddingHorizontal: 10, marginTop: 2, lineHeight: 15 },
   recNeededBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 8 },
   recNeededText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.warning },
+  pickCard: {
+    backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 24,
+    borderWidth: 1, borderColor: Colors.secondary + '30',
+  },
+  pickHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  pickTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, flex: 1 },
+  pickSeeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  pickSeeAllText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.secondary },
+  pickPhotosRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  pickPhotoWrap: { flex: 1, aspectRatio: 1, maxWidth: 70 },
+  pickPhoto: { width: '100%', height: '100%', borderRadius: 10, backgroundColor: Colors.background },
+  pickPhotoFallback: { alignItems: 'center', justifyContent: 'center' },
+  pickActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  pickWearBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: Colors.primary, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 18,
+  },
+  pickWearText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.white },
+  pickUndoBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: Colors.success + '18', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 18,
+  },
+  pickUndoText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary },
+  pickReactionRow: { flexDirection: 'row', gap: 6 },
+  pickReactBtn: {
+    width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
+  },
+  pickReactBtnLove: { backgroundColor: '#FEE2E2', borderColor: '#FECACA' },
+  pickReactBtnSkip: { backgroundColor: Colors.background, borderColor: Colors.textLight },
 });
