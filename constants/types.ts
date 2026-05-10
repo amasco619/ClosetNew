@@ -137,6 +137,7 @@ export interface WearEntry {
   outfitFingerprint: string; // sorted matched item IDs joined by '|'
   itemIds: string[];         // wardrobe item IDs worn
   loggedAt: string;          // ISO timestamp
+  heroId?: string;           // wardrobe id of the focal piece at time of logging
 }
 
 export type ReactionType = 'love' | 'not-today';

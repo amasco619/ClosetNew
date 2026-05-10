@@ -46,19 +46,22 @@ function groupByDate(entries: WearEntry[]): { date: string; entries: WearEntry[]
     .map(([date, entries]) => ({ date, entries }));
 }
 
-function ItemThumb({ item }: { item: WardrobeItem | undefined }) {
+function ItemThumb({ item, isHero = false }: { item: WardrobeItem | undefined; isHero?: boolean }) {
   if (!item) return null;
+  const heroBorderStyle = isHero
+    ? { borderWidth: 2, borderColor: Colors.secondary }
+    : {};
   if (item.photoUri) {
     return (
       <Image
         source={{ uri: item.photoUri }}
-        style={styles.itemThumb}
+        style={[styles.itemThumb, heroBorderStyle]}
         resizeMode="cover"
       />
     );
   }
   return (
-    <View style={[styles.itemThumb, styles.itemThumbFallback]}>
+    <View style={[styles.itemThumb, styles.itemThumbFallback, heroBorderStyle]}>
       <Ionicons name="shirt-outline" size={18} color={Colors.secondary} />
     </View>
   );
@@ -172,14 +175,20 @@ export default function WearLogScreen() {
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={styles.thumbsRow}
                       >
-                        {items.map(item => (
-                          <View key={item.id} style={styles.thumbWrap}>
-                            <ItemThumb item={item} />
-                            <Text style={styles.thumbLabel} numberOfLines={1}>
-                              {item.subType.replace(/-/g, ' ')}
-                            </Text>
-                          </View>
-                        ))}
+                        {items.map(item => {
+                          const isHero = !!entry.heroId && item.id === entry.heroId;
+                          return (
+                            <View key={item.id} style={styles.thumbWrap}>
+                              <ItemThumb item={item} isHero={isHero} />
+                              <Text style={styles.thumbLabel} numberOfLines={1}>
+                                {item.subType.replace(/-/g, ' ')}
+                              </Text>
+                              {isHero && (
+                                <Text style={styles.heroPieceLabel}>Focal piece</Text>
+                              )}
+                            </View>
+                          );
+                        })}
                       </ScrollView>
                     )}
 
@@ -258,6 +267,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.textSecondary,
     textTransform: 'capitalize', textAlign: 'center',
   },
+
+  heroPieceLabel: { fontFamily: 'Inter_500Medium', fontSize: 9, color: Colors.secondary, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 3, textAlign: 'center' },
 
   noItemsText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, fontStyle: 'italic' },
 

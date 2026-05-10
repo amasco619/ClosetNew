@@ -498,6 +498,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       outfitFingerprint: fp,
       itemIds,
       loggedAt: new Date().toISOString(),
+      heroId: outfit.heroId,
     };
     setWearHistory(prev => {
       const updated = [entry, ...prev];
