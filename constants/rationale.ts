@@ -157,11 +157,13 @@ export function generateRationale(
     }
   }
 
-  // Undertone note — only when the outfit is fully in the user's flattering tone
-  if (undertoneScore !== undefined && undertoneScore >= 2 && profile.undertone &&
-      profile.undertone !== 'neutral') {
-    parts.push('in tones that work with your complexion');
-  }
+  // Undertone note — kept as a dedicated coda (not a part) so it is always
+  // appended when the score warrants it, regardless of how many parts exist.
+  const undertoneCoda =
+    undertoneScore !== undefined && undertoneScore >= 2 &&
+    profile.undertone && profile.undertone !== 'neutral'
+      ? 'in tones that work with your complexion'
+      : '';
 
   let body: string;
   if (parts.length === 1) {
@@ -178,6 +180,13 @@ export function generateRationale(
       ? `${cap(parts[0])} that ${parts[1]} and ${parts[2]}, ${heroCoda}.`
       : `${cap(parts[0])} that ${parts[1]} and ${parts[2]}.`;
   }
+
+  // Splice the undertone coda in before the final period so it is always
+  // present when warranted, even when palette/body/mood fill all three slots.
+  if (undertoneCoda) {
+    body = `${body.slice(0, -1)}, ${undertoneCoda}.`;
+  }
+
   return body;
 }
 

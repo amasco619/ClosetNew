@@ -13,6 +13,7 @@
  */
 
 import { scoreOutfitCombo } from '../constants/outfitScoring';
+import { generateRationale } from '../constants/rationale';
 import type { OutfitComponent, WardrobeItem, UserProfile } from '../constants/types';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
@@ -792,6 +793,86 @@ console.log('\ntotal aggregation (with undertoneHarmony):');
     br.temperatureHarmony + br.valueSpread + br.saturationDominance + br.textureHarmony +
     br.bodyTypeProportion + br.hemlineShoeHarmony + br.undertoneHarmony;
   assert(br.total === expectedTotal, `total equals sum of all breakdown dimensions including undertoneHarmony (got total=${br.total}, sum=${expectedTotal})`);
+}
+
+// ── 11. generateRationale — undertone phrase presence ─────────────────────────
+
+console.log('\ngenerateRationale undertone phrase:');
+
+// Helper: build a minimal item list + component list from the makeItem factory
+function makeRationaleFixture(colorFamily: string): { items: WardrobeItem[]; comps: OutfitComponent[] } {
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'x', category: 'top',    subType: 'blouse',   colorFamily }),
+    makeItem({ id: 'y', category: 'bottom', subType: 'trousers', colorFamily: 'black' }),
+  ];
+  const comps: OutfitComponent[] = [
+    makeComponent('x', 'top',    colorFamily),
+    makeComponent('y', 'bottom', 'black'),
+  ];
+  return { items, comps };
+}
+
+// (a) undertoneScore >= 2 with warm undertone → phrase present (low-parts scenario)
+{
+  const { items, comps } = makeRationaleFixture('camel');
+  const prof = baseProfile({ undertone: 'warm' });
+  const rationale = generateRationale(comps, items, prof, null, undefined, 2);
+  assert(
+    rationale.includes('in tones that work with your complexion'),
+    `undertoneScore=2 + warm undertone → undertone phrase present (got: "${rationale}")`,
+  );
+}
+
+// (b) undertoneScore >= 2 with cool undertone + body/mood parts (high-parts scenario — 3 parts already)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'p', category: 'dress', subType: 'midi-skirt', colorFamily: 'navy' }),
+    makeItem({ id: 'q', category: 'shoes', subType: 'heels',      colorFamily: 'black' }),
+  ];
+  const comps: OutfitComponent[] = [
+    makeComponent('p', 'dress', 'navy'),
+    makeComponent('q', 'shoes', 'black'),
+  ];
+  const prof = baseProfile({ undertone: 'cool', bodyType: 'hourglass' });
+  // Pass mood to ensure at least 3 parts (palette + body + mood) before undertone
+  const rationale = generateRationale(comps, items, prof, 'confident', undefined, 2);
+  assert(
+    rationale.includes('in tones that work with your complexion'),
+    `undertoneScore=2 + 3 existing parts → undertone phrase still present (got: "${rationale}")`,
+  );
+}
+
+// (c) undertoneScore < 2 → phrase absent
+{
+  const { items, comps } = makeRationaleFixture('camel');
+  const prof = baseProfile({ undertone: 'warm' });
+  const rationale = generateRationale(comps, items, prof, null, undefined, 1);
+  assert(
+    !rationale.includes('in tones that work with your complexion'),
+    `undertoneScore=1 → undertone phrase absent (got: "${rationale}")`,
+  );
+}
+
+// (d) undertoneScore >= 2 but neutral undertone → phrase absent
+{
+  const { items, comps } = makeRationaleFixture('camel');
+  const prof = baseProfile({ undertone: 'neutral' });
+  const rationale = generateRationale(comps, items, prof, null, undefined, 2);
+  assert(
+    !rationale.includes('in tones that work with your complexion'),
+    `neutral undertone → undertone phrase absent (got: "${rationale}")`,
+  );
+}
+
+// (e) undertoneScore undefined (caller did not pass it) → phrase absent, no crash
+{
+  const { items, comps } = makeRationaleFixture('camel');
+  const prof = baseProfile({ undertone: 'warm' });
+  const rationale = generateRationale(comps, items, prof);
+  assert(
+    !rationale.includes('in tones that work with your complexion'),
+    `undertoneScore omitted → phrase absent, no crash (got: "${rationale}")`,
+  );
 }
 
 // ── Summary ───────────────────────────────────────────────────────────────────
