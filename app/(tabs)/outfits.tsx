@@ -79,18 +79,22 @@ const categoryIcons: Record<string, string> = {
   bag: 'bag-handle-outline', jewelry: 'diamond-outline',
 };
 
-function OutfitItemPhoto({ component, size = 72 }: { component: OutfitComponent; size?: number }) {
+function OutfitItemPhoto({ component, size = 72, isHero = false }: { component: OutfitComponent; size?: number; isHero?: boolean }) {
+  const heroBorderStyle = isHero
+    ? { borderWidth: 2, borderColor: Colors.secondary, borderRadius: 13 }
+    : {};
+
   if (component.photoUri) {
     return (
       <Image
         source={{ uri: component.photoUri }}
-        style={[styles.itemPhoto, { width: size, height: size * 1.2, borderRadius: 12 }]}
+        style={[styles.itemPhoto, { width: size, height: size * 1.2, borderRadius: 12 }, heroBorderStyle]}
         resizeMode="cover"
       />
     );
   }
   return (
-    <View style={[styles.itemPhotoFallback, { width: size, height: size * 1.2, borderRadius: 12 }]}>
+    <View style={[styles.itemPhotoFallback, { width: size, height: size * 1.2, borderRadius: 12 }, heroBorderStyle]}>
       <Ionicons
         name={categoryIcons[component.category] as any || 'ellipse-outline'}
         size={size * 0.36}
@@ -181,27 +185,39 @@ function OutfitCard({
         )}
 
         <View style={styles.photosRow}>
-          {coreItems.map((comp, i) => (
-            <View key={`core-${i}`} style={styles.photoWrap}>
-              <OutfitItemPhoto component={comp} size={80} />
-              <Text style={styles.itemLabel} numberOfLines={1}>
-                {categoryLabels[comp.category] || comp.category}
-              </Text>
-              <Text style={styles.itemColor} numberOfLines={1}>{comp.colorFamily}</Text>
-            </View>
-          ))}
+          {coreItems.map((comp, i) => {
+            const isHero = !!outfit.heroId && comp.matchedItemId === outfit.heroId;
+            return (
+              <View key={`core-${i}`} style={styles.photoWrap}>
+                <OutfitItemPhoto component={comp} size={80} isHero={isHero} />
+                <Text style={styles.itemLabel} numberOfLines={1}>
+                  {categoryLabels[comp.category] || comp.category}
+                </Text>
+                <Text style={styles.itemColor} numberOfLines={1}>{comp.colorFamily}</Text>
+                {isHero && (
+                  <Text style={styles.heroPieceLabel}>Focal piece</Text>
+                )}
+              </View>
+            );
+          })}
         </View>
 
         {accessories.length > 0 && (
           <View style={styles.accessoriesRow}>
-            {accessories.map((comp, i) => (
-              <View key={`acc-${i}`} style={styles.accessoryWrap}>
-                <OutfitItemPhoto component={comp} size={52} />
-                <Text style={styles.accessoryLabel} numberOfLines={1}>
-                  {categoryLabels[comp.category] || comp.category}
-                </Text>
-              </View>
-            ))}
+            {accessories.map((comp, i) => {
+              const isHero = !!outfit.heroId && comp.matchedItemId === outfit.heroId;
+              return (
+                <View key={`acc-${i}`} style={styles.accessoryWrap}>
+                  <OutfitItemPhoto component={comp} size={52} isHero={isHero} />
+                  <Text style={styles.accessoryLabel} numberOfLines={1}>
+                    {categoryLabels[comp.category] || comp.category}
+                  </Text>
+                  {isHero && (
+                    <Text style={styles.heroPieceLabel}>Focal piece</Text>
+                  )}
+                </View>
+              );
+            })}
           </View>
         )}
 
@@ -303,11 +319,17 @@ function JustAddedBanner({
               </Text>
             </View>
             <View style={styles.bannerPhotos}>
-              {outfit.components.slice(0, 4).map((comp, j) => (
-                <View key={j} style={styles.bannerPhotoWrap}>
-                  <OutfitItemPhoto component={comp} size={56} />
-                </View>
-              ))}
+              {outfit.components.slice(0, 4).map((comp, j) => {
+                const isHero = !!outfit.heroId && comp.matchedItemId === outfit.heroId;
+                return (
+                  <View key={j} style={styles.bannerPhotoWrap}>
+                    <OutfitItemPhoto component={comp} size={56} isHero={isHero} />
+                    {isHero && (
+                      <Text style={styles.heroPieceLabelBanner}>Focal</Text>
+                    )}
+                  </View>
+                );
+              })}
             </View>
             <Text style={styles.bannerItemCount}>
               {outfit.components.length} piece look
@@ -778,6 +800,8 @@ const styles = StyleSheet.create({
   },
   itemLabel: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.primary, textTransform: 'capitalize', textAlign: 'center' },
   itemColor: { fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.textSecondary, textTransform: 'capitalize', marginTop: 2 },
+  heroPieceLabel: { fontFamily: 'Inter_500Medium', fontSize: 9, color: Colors.secondary, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 3, textAlign: 'center' },
+  heroPieceLabelBanner: { fontFamily: 'Inter_500Medium', fontSize: 9, color: Colors.secondary, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 3, textAlign: 'center' },
 
   accessoriesRow: {
     flexDirection: 'row', gap: 10, paddingTop: 12,
