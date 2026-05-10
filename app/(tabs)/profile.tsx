@@ -77,6 +77,7 @@ export default function ProfileScreen() {
   const {
     profile, updateProfile, wardrobeItems, isPremium, togglePremium, wearHistory,
     affinityActive, affinitySignalCount, topAffinityItems, topAffinityPairs,
+    weather, setWeatherEnabled,
   } = useApp();
   const [showAffinityDebug, setShowAffinityDebug] = useState(false);
   const itemById = (id: string) => wardrobeItems.find(w => w.id === id);
@@ -312,6 +313,28 @@ export default function ProfileScreen() {
                   </Pressable>
                 ))}
               </View>
+            </View>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(440).duration(500)}>
+          <Text style={styles.sectionTitle}>Weather</Text>
+          <View style={styles.card}>
+            <View style={styles.constraintRow}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={styles.constraintLabel}>Weather-aware outfits</Text>
+                <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }}>
+                  {weather
+                    ? `Today: ${Math.round(weather.currentTempC)}° · L${Math.round(weather.lowC)}/H${Math.round(weather.highC)}${weather.precipProbability >= 0.6 ? ' · Rain likely' : ''}`
+                    : 'Tailor outerwear to today\u2019s forecast.'}
+                </Text>
+              </View>
+              <Switch
+                value={profile.weatherEnabled !== false}
+                onValueChange={setWeatherEnabled}
+                trackColor={{ true: Colors.secondary, false: Colors.border }}
+                thumbColor={Colors.white}
+              />
             </View>
           </View>
         </Animated.View>

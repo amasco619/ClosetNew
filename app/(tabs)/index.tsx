@@ -36,7 +36,21 @@ export default function HomeScreen() {
     profile, wardrobeItems, activeWardrobeItems, outfitSets, isPremium, canAddItem,
     starterRecommendations, recommendationSlots, todaysWear, wearHistory, backfillProgress,
     reactToOutfit, getOutfitReaction, logWear, undoWear, isWornToday,
+    weather, weatherLoading,
   } = useApp();
+  // Compact summary for the weather chip — only shown when the user hasn't
+  // opted out and we actually have a snapshot. Tapping the chip opens
+  // Profile so they can disable weather-aware outfits in one place.
+  const weatherSummary = (() => {
+    if (profile.weatherEnabled === false) return null;
+    if (!weather) return weatherLoading ? 'Reading weather…' : null;
+    const t = Math.round(weather.currentTempC);
+    const lo = Math.round(weather.lowC);
+    const hi = Math.round(weather.highC);
+    const wet = weather.precipProbability >= 0.6 ? ' · Rain likely' : '';
+    const loc = weather.locationLabel ? ` · ${weather.locationLabel}` : '';
+    return `${t}° · L${lo}/H${hi}${wet}${loc}`;
+  })();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const categoryCounts: Record<string, number> = {};
@@ -94,6 +108,16 @@ export default function HomeScreen() {
             </View>
           )}
         </Animated.View>
+
+        {weatherSummary && (
+          <Pressable
+            onPress={() => router.push('/(tabs)/profile')}
+            style={styles.weatherChip}
+          >
+            <Ionicons name="partly-sunny-outline" size={14} color={Colors.primary} />
+            <Text style={styles.weatherChipText}>{weatherSummary}</Text>
+          </Pressable>
+        )}
 
         {backfillProgress && backfillProgress.total > 0 && (
           <View style={styles.backfillBanner}>
@@ -357,6 +381,15 @@ const styles = StyleSheet.create({
   appName: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.primary, letterSpacing: -0.5 },
   premiumBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.secondary + '15', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   premiumText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.secondary },
+  weatherChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    alignSelf: 'flex-start',
+    marginHorizontal: 24, marginTop: 4, marginBottom: 8,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: Colors.sage + '20',
+  },
+  weatherChipText: { fontSize: 12, color: Colors.primary, fontWeight: '500' },
   backfillBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 24, marginTop: 4, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: Colors.secondary + '12' },
   backfillText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, flexShrink: 1 },
   backfillTrack: { flex: 1, height: 4, borderRadius: 2, backgroundColor: Colors.secondary + '20', overflow: 'hidden', marginLeft: 4 },

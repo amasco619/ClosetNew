@@ -42,6 +42,13 @@
           "photosPermission": "Allow AuraCloset to access your photos to add items to your wardrobe.",
           "cameraPermission": "Allow AuraCloset to use your camera to photograph wardrobe items."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "AuraCloset uses your location to tailor outfit suggestions to today's weather. You can turn this off anytime in Profile.",
+          "locationWhenInUsePermission": "AuraCloset uses your location to tailor outfit suggestions to today's weather. You can turn this off anytime in Profile."
+        }
       ]
     ],
     "experiments": {

@@ -5,9 +5,10 @@ import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCat
 import {
   BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag,
   Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet, WearEntry,
-  MoodGoal, OutfitReaction, ReactionType, MoodOfDay, SavedLook,
+  MoodGoal, OutfitReaction, ReactionType, MoodOfDay, SavedLook, WeatherSnapshot,
 } from '@/constants/types';
 import { generateOutfitsForItem } from '@/constants/outfitGenerator';
+import { loadWeather, getCachedWeather, clearCachedWeather } from '@/constants/weather';
 import { inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
 import { centroidHsl, hslToLab } from '@/constants/colorPerceptual';
 import { apiRequest } from '@/lib/query-client';
@@ -74,6 +75,11 @@ interface AppContextValue {
   affinitySignalCount: number;    // for "X reactions logged" UI copy
   topAffinityItems: ReturnType<typeof topAffinityItems>;
   topAffinityPairs: ReturnType<typeof topAffinityPairs>;
+  // Weather-aware outerwear (Open-Meteo, no API key)
+  weather: WeatherSnapshot | null;
+  weatherLoading: boolean;
+  refreshWeather: () => Promise<void>;
+  setWeatherEnabled: (enabled: boolean) => void;
 }
 
 const defaultProfile: UserProfile = {
@@ -187,6 +193,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [moodOfDay, setMoodOfDay] = useState<MoodOfDay | null>(null);
   const [savedLooks, setSavedLooks] = useState<SavedLook[]>([]);
   const [backfillProgress, setBackfillProgress] = useState<{ done: number; total: number } | null>(null);
+  const [weather, setWeather] = useState<WeatherSnapshot | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
@@ -422,6 +430,58 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const clearLastAddedSuggestions = useCallback(() => setLastAddedSuggestions([]), []);
 
+  // ── Weather (Open-Meteo, no API key) ─────────────────────────────────────
+  // Cached snapshot loads instantly on mount; a fresh fetch runs in the
+  // background. When the user disables the toggle we drop the cache so we
+  // never silently keep a stale forecast in memory.
+  const refreshWeather = useCallback(async () => {
+    setWeatherLoading(true);
+    try {
+      const fresh = await loadWeather(true);
+      if (fresh) setWeather(fresh);
+    } finally {
+      setWeatherLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Wait until persisted profile has hydrated — otherwise an opted-out user
+    // could still get a permission prompt / network fetch on cold boot
+    // because `defaultProfile.weatherEnabled` reads as undefined → "on".
+    if (isLoading) return;
+    if (profile.weatherEnabled === false) return;
+    let cancelled = false;
+    (async () => {
+      const cached = await getCachedWeather();
+      if (!cancelled && cached) setWeather(cached);
+      // Show "Reading weather…" on the Home chip until the first forecast
+      // resolves on cold boot, not just when the user manually refreshes.
+      if (!cached) setWeatherLoading(true);
+      try {
+        const fresh = await loadWeather(false);
+        if (!cancelled && fresh) setWeather(fresh);
+      } finally {
+        if (!cancelled) setWeatherLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isLoading, profile.weatherEnabled]);
+
+  const setWeatherEnabled = useCallback((enabled: boolean) => {
+    setProfile(prev => {
+      const updated = { ...prev, weatherEnabled: enabled };
+      AsyncStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(updated));
+      return updated;
+    });
+    if (!enabled) {
+      setWeather(null);
+      clearCachedWeather();
+    } else {
+      // Kick off a fresh fetch so the chip lights up right away.
+      refreshWeather();
+    }
+  }, [refreshWeather]);
+
   // ── Wear tracking ─────────────────────────────────────────────────────────────
 
   function outfitFingerprintOf(outfit: OutfitSet): string {
@@ -547,7 +607,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWardrobeItems(prev => {
       const updated = [...prev, newItem];
       AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
-      const suggestions = generateOutfitsForItem(newItem, updated, profile);
+      const suggestions = generateOutfitsForItem(newItem, updated, profile, weather);
       setLastAddedSuggestions(suggestions);
       return updated;
     });
@@ -558,7 +618,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ));
       return updated;
     });
-  }, [profile]);
+  }, [profile, weather]);
 
   const removeWardrobeItem = useCallback((id: string) => {
     setWardrobeItems(prev => {
@@ -642,9 +702,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const outfitPool = useMemo(
     () => generateOutfitPool(
-      activeWardrobeItems, profile, todayMood, reactions, todayString(), wearHistory, affinityState,
+      activeWardrobeItems, profile, todayMood, reactions, todayString(), wearHistory, affinityState, weather,
     ),
-    [activeWardrobeItems, profile, todayMood, reactions, wearHistory, affinityState],
+    [activeWardrobeItems, profile, todayMood, reactions, wearHistory, affinityState, weather],
   );
 
   const recentWornFingerprints = useMemo(() => {
@@ -666,7 +726,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoading || activeWardrobeItems.length === 0) return;
     const today = todayString();
-    const newHash = computePoolHash(activeWardrobeItems, profile, todayMood);
+    const newHash = computePoolHash(activeWardrobeItems, profile, todayMood, weather);
     const hashChanged = newHash !== rotationState.poolHash;
     const dateChanged = today !== rotationState.lastDate;
     if (!hashChanged && !dateChanged) return;
@@ -684,7 +744,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRotationState(stateToSave);
     AsyncStorage.setItem(STORAGE_KEYS.rotation, JSON.stringify(stateToSave));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeWardrobeItems, profile, todayMood, outfitPool, rotationState.poolHash, rotationState.lastDate, isLoading, recentWornFingerprints]);
+  }, [activeWardrobeItems, profile, todayMood, outfitPool, rotationState.poolHash, rotationState.lastDate, isLoading, recentWornFingerprints, weather]);
 
   const canAddItem = isPremium || wardrobeItems.length < FREE_ITEM_CAP;
   const starterRecommendations = useMemo(() => getFirstNeededByCategory(recommendationSlots), [recommendationSlots]);
@@ -764,6 +824,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     affinityState, affinityActive,
     affinitySignalCount: affinityState.signalCount,
     topAffinityItems: topItems, topAffinityPairs: topPairs,
+    weather, weatherLoading, refreshWeather, setWeatherEnabled,
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
        isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, canAddItem, recommendationSlots, starterRecommendations,
@@ -771,7 +832,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
        todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
        profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,
        savedLooks, toggleSavedLook, isLookSaved, renameSavedLook, getSavedLookName,
-       backfillProgress, affinityState, affinityActive, topItems, topPairs]);
+       backfillProgress, affinityState, affinityActive, topItems, topPairs,
+       weather, weatherLoading, refreshWeather, setWeatherEnabled]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

@@ -61,6 +61,19 @@ export interface UserProfile {
   defaultMood?: MoodGoal | null;
   industry?: Industry | null;
   dismissedProfileNudge?: string; // YYYY-MM-DD
+  weatherEnabled?: boolean;       // weather-aware outerwear (defaults true)
+}
+
+export interface WeatherSnapshot {
+  fetchedAt: number;            // ms epoch when snapshot was taken
+  lat: number;
+  lon: number;
+  currentTempC: number;
+  highC: number;
+  lowC: number;
+  precipProbability: number;    // 0..1, daily max
+  source: 'gps' | 'ip';
+  locationLabel?: string;
 }
 
 export interface WardrobeItem {

@@ -6,8 +6,12 @@
 
 import {
   WardrobeItem, OutfitSet, OutfitComponent, OccasionTag, UserProfile,
-  MoodGoal, OutfitReaction, WearEntry,
+  MoodGoal, OutfitReaction, WearEntry, WeatherSnapshot,
 } from './types';
+import {
+  outerwearRule, outerwearWeatherScore, weatherSignature, isRainy, isRainFriendly,
+  effectiveWarmth, neededWarmth,
+} from './weather';
 import {
   colorsHarmonize, passesConstraints, toComponent,
   scoreItemForProfile, scoreOutfitCombo, adjustScoreForReactions,
@@ -94,6 +98,7 @@ export function computePoolHash(
   items: WardrobeItem[],
   profile: UserProfile,
   mood?: MoodGoal | null,
+  weather?: WeatherSnapshot | null,
 ): string {
   const itemSig = items
     .map(i => `${i.id}:${i.category}:${i.subType}:${i.colorFamily}:${effectiveFormality(i)}:${i.pattern ?? ''}:${i.fabric ?? ''}:${i.fit ?? ''}:${i.metalTone ?? ''}`)
@@ -117,7 +122,9 @@ export function computePoolHash(
     String(profile.constraints.noShortSkirts),
     profile.constraints.maxHeelHeight,
   ].join(':');
-  return `${itemSig}|${profileSig}|${mood ?? ''}|${currentSeason()}`;
+  const weatherEnabled = profile.weatherEnabled !== false;
+  const weatherSig = weatherEnabled ? weatherSignature(weather ?? null) : 'off';
+  return `${itemSig}|${profileSig}|${mood ?? ''}|${currentSeason()}|w:${weatherSig}`;
 }
 
 export function generateOutfitPool(
@@ -128,7 +135,11 @@ export function generateOutfitPool(
   today: string = todayString(),
   wearHistory: WearEntry[] = [],
   affinity: AffinityState = EMPTY_AFFINITY,
+  weather: WeatherSnapshot | null = null,
 ): Record<OccasionTag, OutfitSet[]> {
+  const weatherActive = profile.weatherEnabled !== false && !!weather;
+  const wxRule = weatherActive ? outerwearRule(weather) : 'optional';
+  const wxRainy = weatherActive && isRainy(weather);
   const result = {} as Record<OccasionTag, OutfitSet[]>;
   // Hard seasonal gate: respect user-supplied season tags. Untagged items and
   // items tagged 'all-season' always pass. A top stylist would never serve
@@ -155,12 +166,44 @@ export function generateOutfitPool(
       );
     }
 
-    const tops     = byCategory['top']      ?? [];
-    const bottoms  = byCategory['bottom']   ?? [];
-    const dresses  = byCategory['dress']    ?? [];
-    const shoesAll = byCategory['shoes']    ?? [];
-    const bagsAll  = byCategory['bag']      ?? [];
-    const jewelAll = byCategory['jewelry']  ?? [];
+    const tops      = byCategory['top']       ?? [];
+    const bottoms   = byCategory['bottom']    ?? [];
+    const dresses   = byCategory['dress']     ?? [];
+    const shoesAll  = byCategory['shoes']     ?? [];
+    const bagsAll   = byCategory['bag']       ?? [];
+    const jewelAll  = byCategory['jewelry']   ?? [];
+    const outerAll  = byCategory['outerwear'] ?? [];
+
+    // Weather-aware outerwear picker (used when wxRule === 'required'). Picks
+    // the best harmonising coat by warmth + rain-fitness + colour harmony.
+    const pickWeatherCoat = (
+      baseColor: string,
+      hero: WardrobeItem,
+      excludeIds: Set<string>,
+    ): WardrobeItem | null => {
+      if (!weather) return null;
+      const need = neededWarmth(weather.lowC);
+      const ORDER = { cold: 0, cool: 1, mild: 2, warm: 3, hot: 4 } as const;
+      // Hard filter: only allow coats whose effective warmth is within ±1
+      // band of what the day actually needs. A summer blazer must not be
+      // injected on a 2°C morning just because nothing better harmonises.
+      const acceptable = outerAll.filter(o => {
+        if (excludeIds.has(o.id)) return false;
+        const diff = Math.abs(ORDER[effectiveWarmth(o)] - ORDER[need]);
+        if (diff > 1) return false;
+        if (wxRainy && !isRainFriendly(o)) return false;
+        return true;
+      });
+      if (acceptable.length === 0) return null;
+      const scored = acceptable.map(o => {
+        let s = outerwearWeatherScore(o, weather);
+        if (colorsHarmonize(baseColor, o.colorFamily)) s += 2;
+        s += 0.3 * recedeScore(o, hero);
+        return { item: o, s };
+      });
+      scored.sort((a, b) => b.s - a.s);
+      return scored[0]?.item ?? null;
+    };
 
     // Hard scenario gate: drop any core whose average formality falls outside
     // the scenario's expected band. Strict — a top-tier stylist would never
@@ -191,7 +234,27 @@ export function generateOutfitPool(
     type Core = { coreItems: WardrobeItem[]; baseColor: string; hero: WardrobeItem };
     const cores: Core[] = [];
 
-    const heroes = pickHeroCandidates(eligible, scenario, profile, 6);
+    let heroes = pickHeroCandidates(eligible, scenario, profile, 6);
+    // Weather gate for outerwear heroes:
+    //  • suppressed (hot day) → no outerwear heroes
+    //  • rainy → no rain-averse outerwear heroes (don't lead with suede)
+    //  • required (cold day) → hero coat's warmth band must be within ±1 of
+    //    what the day actually needs, so we never spotlight a summer blazer
+    //    on a freezing morning when the user owns a real coat.
+    if (weatherActive && weather) {
+      const need = neededWarmth(weather.lowC);
+      const ORDER = { cold: 0, cool: 1, mild: 2, warm: 3, hot: 4 } as const;
+      heroes = heroes.filter(h => {
+        if (h.category !== 'outerwear') return true;
+        if (wxRule === 'suppressed') return false;
+        if (wxRainy && !isRainFriendly(h)) return false;
+        if (wxRule === 'required') {
+          const diff = Math.abs(ORDER[effectiveWarmth(h)] - ORDER[need]);
+          if (diff > 1) return false;
+        }
+        return true;
+      });
+    }
 
     // Helper: best supporting partner for a hero, by recede + harmony + score.
     const pickSupport = (
@@ -324,13 +387,22 @@ export function generateOutfitPool(
 
         outfit.push(toComponent(shoe)); usedIds.add(shoe.id);
 
-        // Outerwear — only added when the hero IS outerwear (otherwise we
-        // keep the existing "no coat" default to avoid over-stacking layers).
+        // Outerwear — added when the hero IS outerwear, OR when the day's
+        // forecast demands a coat (weather rule = 'required'). Suppressed on
+        // genuinely warm days so we never layer in heat. When the day
+        // requires outerwear and we cannot satisfy it (no acceptable coat
+        // available), drop the outfit candidate rather than serve a cold-day
+        // look without a coat.
         let coat: WardrobeItem | null = null;
-        if (hero.category === 'outerwear' && !usedIds.has(hero.id)) {
-          coat = hero;
-          outfit.push(toComponent(coat)); usedIds.add(coat.id);
+        if (wxRule !== 'suppressed') {
+          if (hero.category === 'outerwear' && !usedIds.has(hero.id)) {
+            coat = hero;
+          } else if (wxRule === 'required') {
+            coat = pickWeatherCoat(core.baseColor, hero, usedIds);
+          }
+          if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
         }
+        if (wxRule === 'required' && !coat) continue;
 
         // Bag — recede-aware. No bag-as-hero today (out of scope), so bag
         // always plays a supporting role.

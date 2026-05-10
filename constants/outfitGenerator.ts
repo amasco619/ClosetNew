@@ -6,7 +6,7 @@
  * user immediately sees how their new piece slots into their wardrobe.
  */
 
-import { WardrobeItem, OutfitComponent, OutfitSet, OccasionTag, UserProfile, MoodGoal } from '@/constants/types';
+import { WardrobeItem, OutfitComponent, OutfitSet, OccasionTag, UserProfile, MoodGoal, WeatherSnapshot } from '@/constants/types';
 import {
   passesConstraints, colorsHarmonize, toComponent,
   scoreItemForProfile, effectiveFormality, getScenarioFormality,
@@ -14,6 +14,7 @@ import {
   currentSeason, itemFitsSeason,
   recedeScore,
 } from '@/constants/outfitScoring';
+import { outerwearRule, isRainy, isRainFriendly, effectiveWarmth, neededWarmth } from '@/constants/weather';
 
 function fitsScenarioFormality(items: WardrobeItem[], scenario: OccasionTag, profile?: UserProfile): boolean {
   if (items.length === 0) return false;
@@ -181,8 +182,25 @@ export function generateOutfitsForItem(
   newItem: WardrobeItem,
   allItems: WardrobeItem[],
   profile: UserProfile,
+  weather: WeatherSnapshot | null = null,
 ): OutfitSet[] {
   if (!passesConstraints(newItem, profile)) return [];
+  // Weather gate: if the user just added a coat on a hot day, don't pretend
+  // it's wearable today. Same when adding a rain-averse coat in a downpour.
+  const wxActive = profile.weatherEnabled !== false && !!weather;
+  const wxRule = wxActive ? outerwearRule(weather) : 'optional';
+  const wxRainy = wxActive && isRainy(weather);
+  if (newItem.category === 'outerwear' && wxActive && weather) {
+    if (wxRule === 'suppressed') return [];
+    if (wxRainy && !isRainFriendly(newItem)) return [];
+    if (wxRule === 'required') {
+      // Mirror the rotation engine's hard ±1 warmth-band guard so a "Just
+      // Added" preview never spotlights a summer blazer on a freezing day.
+      const ORDER = { cold: 0, cool: 1, mild: 2, warm: 3, hot: 4 } as const;
+      const diff = Math.abs(ORDER[effectiveWarmth(newItem)] - ORDER[neededWarmth(weather.lowC)]);
+      if (diff > 1) return [];
+    }
+  }
   // Honour seasonal tagging on the just-added preview as well — pairing a new
   // sundress with a wool peacoat in July would undermine the whole pitch.
   const season = currentSeason();
@@ -193,6 +211,27 @@ export function generateOutfitsForItem(
   if (otherItems.length === 0) return [];
 
   const byCategory = groupByCategory(otherItems);
+
+  // Apply the weather gate to the outerwear supply for non-outerwear heroes:
+  //   • suppressed (hot day) → no coat at all
+  //   • rainy → only rain-friendly outerwear
+  if (wxActive && weather) {
+    if (wxRule === 'suppressed') {
+      byCategory['outerwear'] = [];
+    } else {
+      let pool = byCategory['outerwear'] ?? [];
+      if (wxRainy) pool = pool.filter(isRainFriendly);
+      if (wxRule === 'required') {
+        // Mirror the rotation engine's hard ±1 warmth-band guard so a
+        // "Just Added" preview never pairs the new item with a coat that
+        // is meaningfully under- or over-warm for today's actual low.
+        const ORDER = { cold: 0, cool: 1, mild: 2, warm: 3, hot: 4 } as const;
+        const need = neededWarmth(weather.lowC);
+        pool = pool.filter(o => Math.abs(ORDER[effectiveWarmth(o)] - ORDER[need]) <= 1);
+      }
+      byCategory['outerwear'] = pool;
+    }
+  }
 
   const ALL_SCENARIOS: OccasionTag[] = [
     'casual', 'work', 'date-casual', 'date-dressy', 'event', 'interview', 'wedding', 'travel',
@@ -306,6 +345,15 @@ export function generateOutfitsForItem(
       const coreCategories = groupByCategory(
         otherItems.filter(i => i.category !== newItem.category),
       );
+      // Apply the same weather gate to the fallback (bag/jewelry hero) branch
+      // — without this, a hot/rainy day still leaks an unsuitable coat in.
+      if (wxActive) {
+        if (wxRule === 'suppressed') {
+          coreCategories['outerwear'] = [];
+        } else if (wxRainy) {
+          coreCategories['outerwear'] = (coreCategories['outerwear'] ?? []).filter(isRainFriendly);
+        }
+      }
       const components = buildOutfit(coreCategories, scenario, profile, usedIds);
       if (components) outfit.push(...components);
     }
@@ -317,6 +365,12 @@ export function generateOutfitsForItem(
     const hasBottom = outfit.some(c => c.category === 'bottom');
     const hasShoes  = outfit.some(c => c.category === 'shoes');
     const hasCompleteCore = (hasDress || (hasTop && hasBottom)) && hasShoes;
+
+    // Cold-day requirement: when the forecast demands outerwear, only
+    // publish a preview that actually contains a coat — anything less would
+    // contradict the explicit "required below threshold" rule.
+    const hasCoat = outfit.some(c => c.category === 'outerwear');
+    if (wxActive && wxRule === 'required' && !hasCoat) continue;
 
     if (hasCompleteCore && outfit.length >= 2) {
       sets.push({
