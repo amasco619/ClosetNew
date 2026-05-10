@@ -162,6 +162,14 @@ export default function ItemDetailScreen() {
             </View>
           )}
 
+          {(item.category === 'top' || item.category === 'dress' || item.category === 'outerwear') && item.neckline && (
+            <View style={styles.tagsRow}>
+              <View style={[styles.tag, styles.necklinePill]}>
+                <Text style={[styles.tagText, styles.necklinePillText]}>{item.neckline.replace('-', ' ')}</Text>
+              </View>
+            </View>
+          )}
+
           {(item.category === 'top' || item.category === 'dress' || item.category === 'outerwear') && (
             <View style={styles.necklineSection}>
               <Pressable style={styles.necklineRow} onPress={() => setEditingNeckline(v => !v)} hitSlop={6}>
@@ -347,6 +355,8 @@ const styles = StyleSheet.create({
   },
   cpwInsightText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary, flex: 1, lineHeight: 18 },
 
+  necklinePill: { backgroundColor: Colors.secondary + '20' },
+  necklinePillText: { color: Colors.primary, textTransform: 'capitalize' },
   necklineSection: { marginTop: 20 },
   necklineRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   necklineSectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.6 },
