@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, FlatList, Pressable, Platform, Alert } from 'react-native';
+import { StyleSheet, Text, View, FlatList, Pressable, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -7,7 +7,12 @@ import { useApp, WardrobeItem } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+type ViewMode = 'list' | 'grid';
+
+const STORAGE_KEY = '@auracloset_wardrobe_view';
 
 const categoryFilters = ['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes', 'bag', 'jewelry'] as const;
 const categoryLabels: Record<string, string> = {
@@ -26,61 +31,114 @@ const colorDots: Record<string, string> = {
   lavender: '#B57EDC', purple: '#7D3C98', pink: '#E8A0BF',
 };
 
+const categoryInitial: Record<string, string> = {
+  top: 'T', bottom: 'B', dress: 'D', outerwear: 'O', shoes: 'S', bag: 'G', jewelry: 'J',
+};
+
+const formatSeasonTag = (tag: string) =>
+  tag === 'all-season' ? 'All season' : tag.charAt(0).toUpperCase() + tag.slice(1);
+
 export default function WardrobeScreen() {
   const insets = useSafeAreaInsets();
-  const { wardrobeItems, activeWardrobeItems, removeWardrobeItem, canAddItem, isPremium } = useApp();
+  const { wardrobeItems, activeWardrobeItems, canAddItem, isPremium } = useApp();
   const [filter, setFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY).then(val => {
+      if (val === 'grid' || val === 'list') setViewMode(val);
+    });
+  }, []);
+
+  const switchView = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    AsyncStorage.setItem(STORAGE_KEY, mode);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
 
   const hiddenCount = wardrobeItems.length - activeWardrobeItems.length;
   const filteredItems = filter === 'all'
     ? activeWardrobeItems
     : activeWardrobeItems.filter(item => item.category === filter);
 
-  const handleDelete = (item: WardrobeItem) => {
-    if (Platform.OS === 'web') {
-      removeWardrobeItem(item.id);
+  const handleAdd = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (canAddItem) {
+      router.push('/add-item');
     } else {
-      Alert.alert('Remove Item', `Remove this ${item.subType}?`, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => removeWardrobeItem(item.id) },
-      ]);
+      router.push('/premium');
     }
   };
 
-  const renderItem = ({ item, index }: { item: WardrobeItem; index: number }) => (
-    <Animated.View entering={FadeInDown.delay(index * 50).duration(400)} style={styles.itemCard}>
+  const renderListItem = ({ item, index }: { item: WardrobeItem; index: number }) => (
+    <Animated.View entering={FadeInDown.delay(index * 40).duration(400)}>
       <Pressable
-        style={({ pressed }) => [styles.itemPressable, pressed && { opacity: 0.8 }]}
+        style={({ pressed }) => [styles.listCard, pressed && { opacity: 0.72 }]}
         onPress={() => router.push(`/item-detail?id=${item.id}`)}
-        onLongPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          handleDelete(item);
-        }}
       >
-        <Image source={{ uri: item.photoUri }} style={styles.itemImage} contentFit="cover" />
-        <View style={styles.itemInfo}>
-          <Text style={styles.itemType} numberOfLines={1}>{item.subType.replace('-', ' ')}</Text>
-          <View style={styles.itemMeta}>
+        <Image
+          source={{ uri: item.photoUri }}
+          style={[styles.listThumb, { backgroundColor: colorDots[item.colorFamily] || Colors.border }]}
+          contentFit="cover"
+        />
+        <View style={styles.listMeta}>
+          <Text style={styles.listItemType} numberOfLines={1}>
+            {item.subType.replace(/-/g, ' ')}
+          </Text>
+          <View style={styles.listColorRow}>
             <View style={[styles.colorDot, { backgroundColor: colorDots[item.colorFamily] || '#ccc' }]} />
-            <Text style={styles.itemCategory}>{item.category}</Text>
+            <Text style={styles.listColorText}>{item.colorFamily}</Text>
           </View>
-        </View>
-        {item.occasionTags.length > 0 && (
-          <View style={styles.tagRow}>
-            {item.occasionTags.slice(0, 2).map(tag => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
+          <View style={styles.pillRow}>
+            {item.seasonTags.slice(0, 1).map(s => (
+              <View key={s} style={styles.sagePill}>
+                <Text style={styles.sagePillText}>{formatSeasonTag(s)}</Text>
+              </View>
+            ))}
+            {item.occasionTags.slice(0, 1).map(t => (
+              <View key={t} style={styles.blushPill}>
+                <Text style={styles.blushPillText}>{t.replace(/-/g, ' ')}</Text>
               </View>
             ))}
           </View>
-        )}
+        </View>
+        <Ionicons name="chevron-forward" size={14} color={Colors.border} style={styles.listChevron} />
       </Pressable>
     </Animated.View>
   );
 
+  const renderGridItem = ({ item, index }: { item: WardrobeItem; index: number }) => {
+    const initial = categoryInitial[item.category] || item.category[0].toUpperCase();
+    return (
+      <Animated.View entering={FadeInDown.delay(index * 30).duration(350)} style={styles.gridCell}>
+        <Pressable
+          style={({ pressed }) => [styles.gridPressable, pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] }]}
+          onPress={() => router.push(`/item-detail?id=${item.id}`)}
+        >
+          <Image
+            source={{ uri: item.photoUri }}
+            style={[styles.gridImage, { backgroundColor: colorDots[item.colorFamily] || Colors.border }]}
+            contentFit="cover"
+          />
+          <View style={styles.gridBadge}>
+            <Text style={styles.gridBadgeText}>{initial}</Text>
+          </View>
+          <View style={styles.gridLabel}>
+            <Text style={styles.gridLabelText} numberOfLines={1}>
+              {item.subType.replace(/-/g, ' ')}
+            </Text>
+          </View>
+        </Pressable>
+      </Animated.View>
+    );
+  };
+
+  const isEmpty = filteredItems.length === 0;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Wardrobe</Text>
@@ -88,21 +146,41 @@ export default function WardrobeScreen() {
             {activeWardrobeItems.length} items{!isPremium ? ` / 10 max` : ''}
           </Text>
         </View>
-        <Pressable
-          style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.8 }]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            if (canAddItem) {
-              router.push('/add-item');
-            } else {
-              router.push('/premium');
-            }
-          }}
-        >
-          <Ionicons name="add" size={24} color={Colors.white} />
-        </Pressable>
+        <View style={styles.headerRight}>
+          <View style={styles.viewToggle}>
+            <Pressable
+              style={[styles.toggleBtn, viewMode === 'list' && styles.toggleBtnActive]}
+              onPress={() => switchView('list')}
+              hitSlop={4}
+            >
+              <Ionicons
+                name="list-outline"
+                size={18}
+                color={viewMode === 'list' ? Colors.white : Colors.textSecondary}
+              />
+            </Pressable>
+            <Pressable
+              style={[styles.toggleBtn, viewMode === 'grid' && styles.toggleBtnActive]}
+              onPress={() => switchView('grid')}
+              hitSlop={4}
+            >
+              <Ionicons
+                name="grid-outline"
+                size={16}
+                color={viewMode === 'grid' ? Colors.white : Colors.textSecondary}
+              />
+            </Pressable>
+          </View>
+          <Pressable
+            style={({ pressed }) => [styles.addButton, pressed && { opacity: 0.8 }]}
+            onPress={handleAdd}
+          >
+            <Ionicons name="add" size={24} color={Colors.white} />
+          </Pressable>
+        </View>
       </View>
 
+      {/* Category filter chips */}
       <View style={styles.filterRow}>
         <FlatList
           horizontal
@@ -123,6 +201,7 @@ export default function WardrobeScreen() {
         />
       </View>
 
+      {/* Hidden items banner */}
       {hiddenCount > 0 && (
         <Pressable style={styles.hiddenBanner} onPress={() => router.push('/premium')}>
           <Ionicons name="lock-closed" size={13} color={Colors.secondary} />
@@ -133,26 +212,38 @@ export default function WardrobeScreen() {
         </Pressable>
       )}
 
-      {filteredItems.length === 0 ? (
+      {/* Empty state */}
+      {isEmpty ? (
         <View style={styles.emptyState}>
           <Ionicons name="shirt-outline" size={48} color={Colors.textLight} />
           <Text style={styles.emptyTitle}>
             {activeWardrobeItems.length === 0 ? 'Start your closet' : 'No items in this category'}
           </Text>
           <Text style={styles.emptySubtitle}>
-            {activeWardrobeItems.length === 0 ? 'Add your first item to begin building your wardrobe' : 'Try adding items to this category'}
+            {activeWardrobeItems.length === 0
+              ? 'Add your first item to begin building your wardrobe'
+              : 'Try adding items to this category'}
           </Text>
         </View>
-      ) : (
+      ) : viewMode === 'list' ? (
         <FlatList
+          key="list"
           data={filteredItems}
-          renderItem={renderItem}
+          renderItem={renderListItem}
           keyExtractor={item => item.id}
-          numColumns={2}
-          columnWrapperStyle={styles.row}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          scrollEnabled={!!filteredItems.length}
+        />
+      ) : (
+        <FlatList
+          key="grid"
+          data={filteredItems}
+          renderItem={renderGridItem}
+          keyExtractor={item => item.id}
+          numColumns={3}
+          columnWrapperStyle={styles.gridRow}
+          contentContainerStyle={styles.gridContent}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </View>
@@ -161,38 +252,123 @@ export default function WardrobeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: 8, marginBottom: 16 },
+
+  // Header
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, marginTop: 8, marginBottom: 16,
+  },
   title: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.primary, letterSpacing: -0.5 },
   subtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
-  addButton: { width: 44, height: 44, borderRadius: 14, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+
+  // View toggle
+  viewToggle: {
+    flexDirection: 'row', borderRadius: 10, overflow: 'hidden',
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  toggleBtn: {
+    width: 34, height: 34, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.white,
+  },
+  toggleBtnActive: { backgroundColor: Colors.primary },
+
+  // Add button
+  addButton: {
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
+  },
+
+  // Filters
   filterRow: { marginBottom: 16 },
-  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: Colors.white, marginRight: 8, borderWidth: 1, borderColor: Colors.border },
+  filterChip: {
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: Colors.white, marginRight: 8,
+    borderWidth: 1, borderColor: Colors.border,
+  },
   filterChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   filterText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
   filterTextActive: { color: Colors.white },
-  row: { paddingHorizontal: 20, gap: 12 },
-  listContent: { paddingBottom: 120, gap: 12 },
-  itemCard: { flex: 1, backgroundColor: Colors.white, borderRadius: 16, overflow: 'hidden' },
-  itemPressable: { flex: 1 },
-  itemImage: { width: '100%', aspectRatio: 0.85, backgroundColor: Colors.border },
-  itemInfo: { padding: 12 },
-  itemType: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, textTransform: 'capitalize' },
-  itemMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  colorDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 0.5, borderColor: Colors.border },
-  itemCategory: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, textTransform: 'capitalize' },
-  tagRow: { flexDirection: 'row', gap: 4, paddingHorizontal: 12, paddingBottom: 12 },
-  tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: Colors.sage + '20' },
-  tagText: { fontFamily: 'Inter_500Medium', fontSize: 10, color: Colors.sage, textTransform: 'capitalize' },
-  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
-  emptyTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary, marginTop: 16, textAlign: 'center' },
-  emptySubtitle: { fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary, marginTop: 8, textAlign: 'center', lineHeight: 20 },
+
+  // Hidden banner
   hiddenBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginHorizontal: 20, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 10,
     backgroundColor: Colors.secondary + '10', borderRadius: 12,
     borderWidth: 1, borderColor: Colors.secondary + '25',
   },
-  hiddenBannerText: {
-    fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.secondary, flex: 1,
+  hiddenBannerText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.secondary, flex: 1 },
+
+  // Empty state
+  emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  emptyTitle: {
+    fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary,
+    marginTop: 16, textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary,
+    marginTop: 8, textAlign: 'center', lineHeight: 20,
+  },
+
+  // ─── List view ───────────────────────────────────────────
+  listContent: { paddingHorizontal: 20, paddingBottom: 120, gap: 10 },
+  listCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white,
+    borderRadius: 14, overflow: 'hidden',
+    borderWidth: 1, borderColor: Colors.border,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  listThumb: { width: 72, height: 88 },
+  listMeta: { flex: 1, paddingHorizontal: 14, paddingVertical: 10, gap: 4 },
+  listItemType: {
+    fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary,
+    textTransform: 'capitalize',
+  },
+  listColorRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  colorDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 0.5, borderColor: Colors.border },
+  listColorText: {
+    fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, textTransform: 'capitalize',
+  },
+  pillRow: { flexDirection: 'row', gap: 6, marginTop: 2, flexWrap: 'wrap' },
+  sagePill: {
+    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20,
+    backgroundColor: Colors.sage + '22',
+  },
+  sagePillText: {
+    fontFamily: 'Inter_500Medium', fontSize: 10, color: Colors.sage, textTransform: 'capitalize',
+  },
+  blushPill: {
+    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20,
+    backgroundColor: Colors.blush + '50',
+  },
+  blushPillText: {
+    fontFamily: 'Inter_500Medium', fontSize: 10, color: '#A67B82', textTransform: 'capitalize',
+  },
+  listChevron: { paddingHorizontal: 14 },
+
+  // ─── Grid view ───────────────────────────────────────────
+  gridContent: { paddingHorizontal: 16, paddingBottom: 120 },
+  gridRow: { gap: 6, marginBottom: 6 },
+  gridCell: { flex: 1 },
+  gridPressable: { flex: 1, borderRadius: 10, overflow: 'hidden', aspectRatio: 1 },
+  gridImage: { width: '100%', height: '100%' },
+  gridBadge: {
+    position: 'absolute', top: 6, left: 6,
+    width: 20, height: 20, borderRadius: 5,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  gridBadgeText: {
+    fontFamily: 'Inter_700Bold', fontSize: 9, color: Colors.white,
+  },
+  gridLabel: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    paddingVertical: 5, paddingHorizontal: 4,
+    backgroundColor: 'rgba(255,255,255,0.20)',
+  },
+  gridLabelText: {
+    fontFamily: 'Inter_600SemiBold', fontSize: 9, color: Colors.white,
+    textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5,
   },
 });
