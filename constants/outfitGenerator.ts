@@ -12,6 +12,7 @@ import {
   scoreItemForProfile, effectiveFormality, getScenarioFormality,
   itemMatchesMood, itemContradictsMood,
   currentSeason, itemFitsSeason,
+  recedeScore,
 } from '@/constants/outfitScoring';
 
 function fitsScenarioFormality(items: WardrobeItem[], scenario: OccasionTag, profile?: UserProfile): boolean {
@@ -68,6 +69,31 @@ function pickHarmonious(
     scoreItemForProfile(b, scenario, profile) -
     scoreItemForProfile(a, scenario, profile),
   )[0] ?? null;
+}
+
+/**
+ * Hero-aware variant of pickHarmonious. When a hero is provided (the "Just
+ * Added" item is always the hero of its preview outfits), supporting pieces
+ * are sorted by a blend of recede-score and profile-fit so quieter items beat
+ * visually louder ones, matching the strategy used in the main rotation pool.
+ */
+function pickSupporting(
+  items: WardrobeItem[],
+  baseColor: string,
+  scenario: OccasionTag,
+  profile: UserProfile,
+  usedIds: Set<string>,
+  hero: WardrobeItem,
+): WardrobeItem | null {
+  const harmonious = items.filter(
+    i => !usedIds.has(i.id) && colorsHarmonize(baseColor, i.colorFamily),
+  );
+  const pool = harmonious.length > 0 ? harmonious : items.filter(i => !usedIds.has(i.id));
+  return pool.sort((a, b) => {
+    const ra = recedeScore(a, hero) + 0.15 * scoreItemForProfile(a, scenario, profile);
+    const rb = recedeScore(b, hero) + 0.15 * scoreItemForProfile(b, scenario, profile);
+    return rb - ra;
+  })[0] ?? null;
 }
 
 function buildOutfit(
@@ -199,60 +225,66 @@ export function generateOutfitsForItem(
     const outfit: OutfitComponent[] = [toComponent(newItem)];
     let baseColor = newItem.colorFamily;
 
+    // newItem is the hero — all supporting pickers use recedeScore blending.
+    const hero = newItem;
+
     if (newItem.category === 'top') {
-      const bottom = pickHarmonious(byCategory['bottom'] ?? [], baseColor, scenario, profile, usedIds);
+      const bottom = pickSupporting(byCategory['bottom'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (bottom) { outfit.push(toComponent(bottom)); usedIds.add(bottom.id); }
-      const shoe = pickHarmonious(byCategory['shoes'] ?? [], baseColor, scenario, profile, usedIds);
+      const shoe = pickSupporting(byCategory['shoes'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
-      const coat = pickHarmonious(byCategory['outerwear'] ?? [], baseColor, scenario, profile, usedIds);
+      const coat = pickSupporting(byCategory['outerwear'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
-      const bag = pickHarmonious(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds);
+      const bag = pickSupporting(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
       const jewel = pickBest(byCategory['jewelry'] ?? [], scenario, profile, usedIds);
       if (jewel) { outfit.push(toComponent(jewel)); }
 
     } else if (newItem.category === 'bottom') {
-      const top = pickHarmonious(byCategory['top'] ?? [], baseColor, scenario, profile, usedIds);
+      const top = pickSupporting(byCategory['top'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (top) { outfit.push(toComponent(top)); usedIds.add(top.id); baseColor = top.colorFamily; }
-      const shoe = pickHarmonious(byCategory['shoes'] ?? [], baseColor, scenario, profile, usedIds);
+      const shoe = pickSupporting(byCategory['shoes'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
-      const coat = pickHarmonious(byCategory['outerwear'] ?? [], baseColor, scenario, profile, usedIds);
+      const coat = pickSupporting(byCategory['outerwear'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
-      const bag = pickHarmonious(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds);
+      const bag = pickSupporting(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
       const jewel = pickBest(byCategory['jewelry'] ?? [], scenario, profile, usedIds);
       if (jewel) { outfit.push(toComponent(jewel)); }
 
     } else if (newItem.category === 'dress') {
-      const shoe = pickHarmonious(byCategory['shoes'] ?? [], baseColor, scenario, profile, usedIds);
+      const shoe = pickSupporting(byCategory['shoes'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
-      const coat = pickHarmonious(byCategory['outerwear'] ?? [], baseColor, scenario, profile, usedIds);
+      const coat = pickSupporting(byCategory['outerwear'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
-      const bag = pickHarmonious(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds);
+      const bag = pickSupporting(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
       const jewel = pickBest(byCategory['jewelry'] ?? [], scenario, profile, usedIds);
       if (jewel) { outfit.push(toComponent(jewel)); }
 
     } else if (newItem.category === 'outerwear') {
-      const top = pickBest(byCategory['top'] ?? [], scenario, profile, usedIds);
+      // Core pieces recede beneath the outerwear hero.
+      const top = pickSupporting(byCategory['top'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (top) { outfit.push(toComponent(top)); usedIds.add(top.id); }
-      const bottom = pickHarmonious(byCategory['bottom'] ?? [], baseColor, scenario, profile, usedIds);
+      const bottom = pickSupporting(byCategory['bottom'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (bottom) { outfit.push(toComponent(bottom)); usedIds.add(bottom.id); }
-      const shoe = pickHarmonious(byCategory['shoes'] ?? [], baseColor, scenario, profile, usedIds);
+      const shoe = pickSupporting(byCategory['shoes'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
-      const bag = pickHarmonious(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds);
+      const bag = pickSupporting(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
 
     } else if (newItem.category === 'shoes') {
-      const dress = pickBest(byCategory['dress'] ?? [], scenario, profile, usedIds);
-      const top   = pickBest(byCategory['top'] ?? [], scenario, profile, usedIds);
+      // Choose the quietest-possible base so the shoe hero reads first.
+      const dress = pickSupporting(byCategory['dress'] ?? [], baseColor, scenario, profile, usedIds, hero);
+      const top   = pickSupporting(byCategory['top'] ?? [], baseColor, scenario, profile, usedIds, hero);
       const bottom = top
-        ? pickHarmonious(
+        ? pickSupporting(
             byCategory['bottom'] ?? [],
             top.colorFamily,
             scenario,
             profile,
             new Set([...usedIds, top.id]),
+            hero,
           )
         : null;
       const dressScore = dress ? scoreItemForProfile(dress, scenario, profile) : -1;
@@ -263,9 +295,9 @@ export function generateOutfitsForItem(
         outfit.push(toComponent(top)); usedIds.add(top.id);
         if (bottom) { outfit.push(toComponent(bottom)); usedIds.add(bottom.id); }
       }
-      const coat = pickHarmonious(byCategory['outerwear'] ?? [], baseColor, scenario, profile, usedIds);
+      const coat = pickSupporting(byCategory['outerwear'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
-      const bag = pickHarmonious(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds);
+      const bag = pickSupporting(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
       const jewel = pickBest(byCategory['jewelry'] ?? [], scenario, profile, usedIds);
       if (jewel) { outfit.push(toComponent(jewel)); }
