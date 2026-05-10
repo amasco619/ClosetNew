@@ -62,6 +62,7 @@ export interface UserProfile {
   industry?: Industry | null;
   dismissedProfileNudge?: string; // YYYY-MM-DD
   weatherEnabled?: boolean;       // weather-aware outerwear (defaults true)
+  tempUnit?: 'C' | 'F';           // temperature unit override (auto-detected from locale when unset)
 }
 
 export interface WeatherSnapshot {

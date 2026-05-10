@@ -7,6 +7,7 @@ import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal, LifePhase, Industry } from '@/constants/types';
 import { useEffect, useRef, useState } from 'react';
+import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 
 const HAIR_OPTS: { id: HairColor; label: string }[] = [
   { id: 'black', label: 'Black' }, { id: 'dark-brown', label: 'Dark Brown' },
@@ -90,6 +91,7 @@ export default function ProfileScreen() {
   const { focus } = useLocalSearchParams<{ focus?: string }>();
   const scrollRef = useRef<ScrollView>(null);
   const [refinementsY, setRefinementsY] = useState<number | null>(null);
+  const effectiveTempUnit = profile.tempUnit ?? defaultTempUnit();
 
   useEffect(() => {
     if (focus === 'refinements' && refinementsY != null) {
@@ -325,7 +327,7 @@ export default function ProfileScreen() {
                 <Text style={styles.constraintLabel}>Weather-aware outfits</Text>
                 <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }}>
                   {weather
-                    ? `Today: ${Math.round(weather.currentTempC)}° · L${Math.round(weather.lowC)}/H${Math.round(weather.highC)}${weather.precipProbability >= 0.6 ? ' · Rain likely' : ''}`
+                    ? `Today: ${formatTemp(weather.currentTempC, effectiveTempUnit)} · L${formatTempValue(weather.lowC, effectiveTempUnit)}/H${formatTempValue(weather.highC, effectiveTempUnit)}${effectiveTempUnit === 'F' ? '\u00b0F' : '\u00b0'}${weather.precipProbability >= 0.6 ? ' · Rain likely' : ''}`
                     : 'Tailor outerwear to today\u2019s forecast.'}
                 </Text>
               </View>
@@ -335,6 +337,25 @@ export default function ProfileScreen() {
                 trackColor={{ true: Colors.secondary, false: Colors.border }}
                 thumbColor={Colors.white}
               />
+            </View>
+            <View style={[styles.constraintRow, { marginTop: 12 }]}>
+              <Text style={styles.constraintLabel}>Temperature unit</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {(['C', 'F'] as const).map(u => {
+                  const active = effectiveTempUnit === u;
+                  return (
+                    <Pressable
+                      key={u}
+                      onPress={() => updateProfile({ tempUnit: u })}
+                      style={[styles.heelChip, active && styles.heelChipActive]}
+                    >
+                      <Text style={[styles.heelChipText, active && styles.heelChipTextActive]}>
+                        {`\u00b0${u}`}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           </View>
         </Animated.View>

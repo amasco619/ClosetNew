@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { useMemo } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { countRecommendedOutfits } from '@/constants/wardrobeBlueprint';
+import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -38,18 +39,22 @@ export default function HomeScreen() {
     reactToOutfit, getOutfitReaction, logWear, undoWear, isWornToday,
     weather, weatherLoading,
   } = useApp();
+  // Resolve the temperature unit: user override, or auto-detect from locale.
+  const effectiveTempUnit = profile.tempUnit ?? defaultTempUnit();
+
   // Compact summary for the weather chip — only shown when the user hasn't
   // opted out and we actually have a snapshot. Tapping the chip opens
   // Profile so they can disable weather-aware outfits in one place.
   const weatherSummary = (() => {
     if (profile.weatherEnabled === false) return null;
     if (!weather) return weatherLoading ? 'Reading weather…' : null;
-    const t = Math.round(weather.currentTempC);
-    const lo = Math.round(weather.lowC);
-    const hi = Math.round(weather.highC);
+    const t = formatTemp(weather.currentTempC, effectiveTempUnit);
+    const lo = formatTempValue(weather.lowC, effectiveTempUnit);
+    const hi = formatTempValue(weather.highC, effectiveTempUnit);
+    const unitSuffix = effectiveTempUnit === 'F' ? '°F' : '°';
     const wet = weather.precipProbability >= 0.6 ? ' · Rain likely' : '';
     const loc = weather.locationLabel ? ` · ${weather.locationLabel}` : '';
-    return `${t}° · L${lo}/H${hi}${wet}${loc}`;
+    return `${t} · L${lo}/H${hi}${unitSuffix}${wet}${loc}`;
   })();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 

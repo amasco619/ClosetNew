@@ -15,6 +15,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
+import * as Localization from 'expo-localization';
 import type { WardrobeItem, WarmthBand, WeatherSnapshot } from '@/constants/types';
 
 const CACHE_KEY = '@auracloset_weather_v1';
@@ -233,6 +234,58 @@ export function outerwearWeatherScore(
     else if (item.fabric && RAIN_AVERSE_FABRICS.has(item.fabric)) s -= 4;
   }
   return s;
+}
+
+// ── Temperature unit helpers ──────────────────────────────────────────────────
+
+export type TempUnit = 'C' | 'F';
+
+/**
+ * Detect whether the device locale defaults to Fahrenheit.
+ * Fahrenheit countries: US, UK (GB), Belize, Cayman Islands, Palau,
+ * Bahamas, Micronesia, Marshall Islands, Liberia.
+ * Uses expo-localization for reliable region detection, with an Intl fallback.
+ * Falls back to Celsius for any locale that can't be resolved.
+ */
+export function defaultTempUnit(): TempUnit {
+  const fahrenheitRegions = new Set(['US', 'GB', 'BZ', 'KY', 'PW', 'BS', 'FM', 'MH', 'LR']);
+  try {
+    // expo-localization returns e.g. [{languageTag: 'en-US', regionCode: 'US', ...}]
+    const locales = Localization.getLocales();
+    for (const loc of locales) {
+      const region = loc.regionCode?.toUpperCase();
+      if (region && fahrenheitRegions.has(region)) return 'F';
+    }
+  } catch { /* noop — fall through to Intl */ }
+  try {
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
+    const region = locale.split('-')[1]?.toUpperCase();
+    if (region && fahrenheitRegions.has(region)) return 'F';
+  } catch { /* noop */ }
+  return 'C';
+}
+
+/** Convert Celsius to Fahrenheit. */
+export function toFahrenheit(c: number): number {
+  return c * 9 / 5 + 32;
+}
+
+/**
+ * Format a temperature (given in °C) for display.
+ * Returns e.g. "23°C" or "73°F".
+ */
+export function formatTemp(tempC: number, unit: TempUnit): string {
+  if (unit === 'F') return `${Math.round(toFahrenheit(tempC))}°F`;
+  return `${Math.round(tempC)}°C`;
+}
+
+/**
+ * Format a temperature value only (no unit suffix), for compact displays
+ * like "L18/H27" where the unit is shown once elsewhere.
+ */
+export function formatTempValue(tempC: number, unit: TempUnit): string {
+  if (unit === 'F') return `${Math.round(toFahrenheit(tempC))}`;
+  return `${Math.round(tempC)}`;
 }
 
 /** Stable signature for cache invalidation (changes when forecast meaningfully shifts). */
