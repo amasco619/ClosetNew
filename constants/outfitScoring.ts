@@ -249,12 +249,14 @@ function effectiveWeight(item: WardrobeItem): FabricWeight {
 // slip, a satin skirt) and let the rest of the look stay flat. Two statement
 // textures fight for attention; zero statement textures (all flat cotton +
 // denim) reads underdeveloped.
-const STATEMENT_FABRICS: Set<Fabric> = new Set(['leather', 'silk', 'satin', 'cashmere']);
+const STATEMENT_FABRICS: Set<Fabric> = new Set(['leather', 'silk', 'satin', 'cashmere', 'velvet']);
 // "Flat" textures read as plain background — every look needs at least some,
 // but a pure-flat outfit has no tactile interest. Denim counts as flat in this
 // taxonomy because while it has visible weave, paired with cotton/synthetic it
-// still reads tactile-monotone (jeans + tee + cotton jacket).
-const FLAT_FABRICS: Set<Fabric> = new Set(['cotton', 'synthetic', 'denim']);
+// still reads tactile-monotone (jeans + tee + cotton jacket). Jersey and
+// corduroy are similarly flat in a stylist's eye — jersey is a stretch knit
+// that reads plain, corduroy has subtle ridges but no strong visual weight.
+const FLAT_FABRICS: Set<Fabric> = new Set(['cotton', 'synthetic', 'denim', 'jersey', 'corduroy']);
 // "Shiny" subset of statement textures — two shinies side-by-side reads
 // over-the-top (silk top + satin skirt = bridal/costume).
 const SHINY_FABRICS: Set<Fabric> = new Set(['silk', 'satin', 'leather']);
