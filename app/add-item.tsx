@@ -116,7 +116,7 @@ export default function AddItemScreen() {
   const [warmthBand, setWarmthBand] = useState<string | undefined>(undefined);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
-  const classifyWithServer = async (base64: string, cat: ItemCategory): Promise<{ category: ItemCategory; subType: string; colorFamily: string; accentColor?: string; description: string; occasionTags: OccasionTag[]; pattern?: string; patternScale?: string; fabric?: string; weight?: string; dominantHsl?: { h: number; s: number; l: number }; dominantLab?: { L: number; a: number; b: number } }> => {
+  const classifyWithServer = async (base64: string, cat: ItemCategory): Promise<{ category: ItemCategory; subType: string; colorFamily: string; accentColor?: string; description: string; occasionTags: OccasionTag[]; seasonTags: SeasonTag[]; pattern?: string; patternScale?: string; fabric?: string; weight?: string; dominantHsl?: { h: number; s: number; l: number }; dominantLab?: { L: number; a: number; b: number } }> => {
     try {
       const res = await apiRequest('POST', '/api/classify-garment', { imageBase64: base64 });
       const data = await res.json();
@@ -128,6 +128,7 @@ export default function AddItemScreen() {
         accentColor: data.accentColor,
         description: data.description || '',
         occasionTags: Array.isArray(data.occasionTags) ? data.occasionTags : [],
+        seasonTags: Array.isArray(data.seasonTags) ? data.seasonTags as SeasonTag[] : [],
         pattern: data.pattern,
         patternScale: data.patternScale,
         fabric: data.fabric,
@@ -137,7 +138,7 @@ export default function AddItemScreen() {
       };
     } catch {
       const fallback = localClassifyFallback(cat);
-      return { category: cat, subType: fallback.subType, colorFamily: fallback.colorFamily, description: '', occasionTags: [] };
+      return { category: cat, subType: fallback.subType, colorFamily: fallback.colorFamily, description: '', occasionTags: [], seasonTags: [] };
     }
   };
 
@@ -191,6 +192,9 @@ export default function AddItemScreen() {
           setDescription(classified.description);
           if (classified.occasionTags.length > 0) {
             setOccasions(classified.occasionTags);
+          }
+          if (classified.seasonTags.length > 0) {
+            setSeasons(classified.seasonTags);
           }
           if (classified.pattern) setPattern(classified.pattern);
           if (classified.patternScale) setPatternScale(classified.patternScale);

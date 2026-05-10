@@ -122,6 +122,63 @@ function inferOccasions(subType: string | null, displayName: string): OccasionTa
   return ["casual"];
 }
 
+type SeasonTag = "spring" | "summer" | "fall" | "winter" | "all-season";
+
+// Fabric is the strongest seasonal signal — fibre choice drives temperature
+// appropriateness more reliably than silhouette. Only fabrics with unambiguous
+// seasonality are listed; neutral fabrics (cotton, denim, jersey, synthetic)
+// fall through to subType inference so a cotton shorts still gets summer.
+const FABRIC_SEASONS: Partial<Record<string, SeasonTag[]>> = {
+  linen:     ["spring", "summer"],
+  silk:      ["spring", "summer"],
+  chiffon:   ["spring", "summer"],
+  wool:      ["fall", "winter"],
+  cashmere:  ["fall", "winter"],
+  tweed:     ["fall", "winter"],
+  corduroy:  ["fall", "winter"],
+  velvet:    ["fall", "winter"],
+  leather:   ["fall", "winter"],
+  suede:     ["fall", "winter"],
+  knit:      ["fall", "winter"],
+  satin:     ["fall", "winter"],
+};
+
+// SubType fallback — only items a professional stylist would unambiguously
+// place in specific seasons. Anything debatable defaults to all-season.
+const SUBTYPE_SEASONS: Partial<Record<string, SeasonTag[]>> = {
+  "tank-top":   ["spring", "summer"],
+  "crop-top":   ["spring", "summer"],
+  "shorts":     ["spring", "summer"],
+  "sandals":    ["spring", "summer"],
+  "mini-dress": ["spring", "summer"],
+  "mini-skirt": ["spring", "summer"],
+  "sweater":    ["fall", "winter"],
+  "turtleneck": ["fall", "winter"],
+  "cardigan":   ["fall", "winter"],
+  "hoodie":     ["fall", "winter"],
+  "puffer":     ["fall", "winter"],
+  "peacoat":    ["fall", "winter"],
+  "coat":       ["fall", "winter"],
+  "boots":      ["fall", "winter"],
+};
+
+/**
+ * Infer season tags from fabric (primary) and subType (fallback).
+ * Fabric takes priority when available and seasonally unambiguous.
+ * Returns all-season when neither provides a clear signal.
+ */
+function inferSeasonTags(subType: string | null, fabric: string | null): SeasonTag[] {
+  if (fabric) {
+    const fromFabric = FABRIC_SEASONS[fabric];
+    if (fromFabric) return fromFabric;
+  }
+  if (subType) {
+    const fromSubType = SUBTYPE_SEASONS[subType];
+    if (fromSubType) return fromSubType;
+  }
+  return ["all-season"];
+}
+
 interface GarmentMapping {
   category: ItemCategory;
   subType: string;
@@ -853,6 +910,8 @@ export async function classifyGarment(req: Request, res: Response) {
              fabric === "chiffon") weight = "light";
     else if (fabric) weight = "mid";
 
+    const seasonTags = inferSeasonTags(subType, fabric ?? null);
+
     // Perceptual colour signals — derive HSL + Lab from the actual garment
     // pixel that won the family vote. Lets the outfit scorer reason about
     // undertone temperature, value spread, and saturation dominance — the
@@ -874,6 +933,7 @@ export async function classifyGarment(req: Request, res: Response) {
       accentColor,
       description,
       occasionTags,
+      seasonTags,
       pattern,
       patternScale,
       fabric,
