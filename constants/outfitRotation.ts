@@ -449,11 +449,14 @@ export function generateOutfitPool(
         const formalitySpread = Math.max(...formalities) - Math.min(...formalities);
         if (formalitySpread > 3) continue;
 
-        const bold = allItems.filter(i =>
+        // Scale-contrast pattern pairs (one large + one small of different types)
+        // are allowed — the scorer rewards them. Only hard-drop when 3+ items
+        // are all large-scale patterned, which is always too visually noisy.
+        const largePatterned = allItems.filter(i =>
           i.pattern && i.pattern !== 'solid' &&
           (i.patternScale === 'large' || i.pattern === 'animal' || i.pattern === 'floral')
         );
-        if (bold.length >= 2) continue;
+        if (largePatterned.length >= 3) continue;
 
         const topI = allItems.find(i => i.category === 'top');
         const bottomI = allItems.find(i => i.category === 'bottom');

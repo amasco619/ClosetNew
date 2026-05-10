@@ -201,7 +201,9 @@ console.log('\npatternSafety:');
     makeComponent('b', 'bottom', 'navy'),
   ];
   const result = scoreOutfitCombo(components, items);
-  assert(result.patternSafety === 2, `two small-scale patterns → patternSafety +2 (not bold) (got ${result.patternSafety})`);
+  // Under the scale-contrast model, two small-scale different-type patterns score 0
+  // (acceptable but not ideal — neither a clash nor a hero pattern moment).
+  assert(result.patternSafety === 0, `two small-scale patterns (stripe+check) → patternSafety 0 under scale-contrast model (got ${result.patternSafety})`);
 }
 
 // ── 3. textureHarmony ─────────────────────────────────────────────────────────
@@ -444,8 +446,216 @@ console.log('\ntotal aggregation:');
   const expectedTotal =
     br.completeness + br.palette + br.formalityCohesion + br.patternSafety +
     br.contrastMatch + br.pieces + br.proportionBalance + br.metalCohesion +
-    br.temperatureHarmony + br.valueSpread + br.saturationDominance + br.textureHarmony;
+    br.temperatureHarmony + br.valueSpread + br.saturationDominance + br.textureHarmony +
+    br.bodyTypeProportion + br.hemlineShoeHarmony;
   assert(br.total === expectedTotal, `total equals sum of all breakdown dimensions (got total=${br.total}, sum=${expectedTotal})`);
+}
+
+// ── 7. bodyTypeProportion ─────────────────────────────────────────────────────
+
+console.log('\nbodyTypeProportion:');
+
+// Pear + wide-leg bottom + loose top → −2 (volume on volume, wrong for this body type)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'white', fit: 'loose'   }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'wide-leg', colorFamily: 'black', fit: 'regular' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'white'),
+    makeComponent('b', 'bottom', 'black'),
+  ];
+  const prof = baseProfile({ bodyType: 'pear' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.bodyTypeProportion === -2, `pear + wide-leg + loose top → bodyTypeProportion -2 (got ${result.bodyTypeProportion})`);
+}
+
+// Pear + wide-leg bottom + slim top → +2 (correct: slim top balances wide hip)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'white', fit: 'slim'    }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'wide-leg', colorFamily: 'black', fit: 'regular' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'white'),
+    makeComponent('b', 'bottom', 'black'),
+  ];
+  const prof = baseProfile({ bodyType: 'pear' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.bodyTypeProportion === 2, `pear + wide-leg + slim top → bodyTypeProportion +2 (got ${result.bodyTypeProportion})`);
+}
+
+// Apple + maxi-skirt + tailored top → +2 (correct pairing for apple body)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',     colorFamily: 'cream', fit: 'tailored' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'maxi-skirt', colorFamily: 'black', fit: 'regular'  }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'cream'),
+    makeComponent('b', 'bottom', 'black'),
+  ];
+  const prof = baseProfile({ bodyType: 'apple' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.bodyTypeProportion === 2, `apple + maxi-skirt + tailored top → bodyTypeProportion +2 (got ${result.bodyTypeProportion})`);
+}
+
+// Inverted-triangle + A-line skirt → +1 (balances broad shoulders with volume below)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',       colorFamily: 'navy'  }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'flared-skirt', colorFamily: 'black' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'navy'),
+    makeComponent('b', 'bottom', 'black'),
+  ];
+  const prof = baseProfile({ bodyType: 'inverted-triangle' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.bodyTypeProportion === 1, `inverted-triangle + A-line skirt → bodyTypeProportion +1 (got ${result.bodyTypeProportion})`);
+}
+
+// No body type set → 0 (scorer is a no-op when bodyType is null)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'white', fit: 'loose' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'wide-leg', colorFamily: 'black'               }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'white'),
+    makeComponent('b', 'bottom', 'black'),
+  ];
+  const prof = baseProfile({ bodyType: null });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.bodyTypeProportion === 0, `null bodyType → bodyTypeProportion 0 (got ${result.bodyTypeProportion})`);
+}
+
+// ── 8. hemlineShoeHarmony ─────────────────────────────────────────────────────
+
+console.log('\nhemlineShoeHarmony:');
+
+// Ankle boots + midi skirt → −2 (classic leg-shortener)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',      colorFamily: 'white' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'midi-skirt',  colorFamily: 'black' }),
+    makeItem({ id: 'c', category: 'shoes',  subType: 'ankle-boots', colorFamily: 'black' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'white'),
+    makeComponent('b', 'bottom', 'black'),
+    makeComponent('c', 'shoes',  'black'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.hemlineShoeHarmony === -2, `ankle-boots + midi-skirt → hemlineShoeHarmony -2 (got ${result.hemlineShoeHarmony})`);
+}
+
+// Ankle boots + mini skirt → +1 (gap shows leg, reads intentional)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',      colorFamily: 'white' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'mini-skirt',  colorFamily: 'black' }),
+    makeItem({ id: 'c', category: 'shoes',  subType: 'ankle-boots', colorFamily: 'black' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'white'),
+    makeComponent('b', 'bottom', 'black'),
+    makeComponent('c', 'shoes',  'black'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.hemlineShoeHarmony === 1, `ankle-boots + mini-skirt → hemlineShoeHarmony +1 (got ${result.hemlineShoeHarmony})`);
+}
+
+// Heels + midi skirt → +1 (classic proportion harmony)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',     colorFamily: 'white' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'midi-skirt', colorFamily: 'black' }),
+    makeItem({ id: 'c', category: 'shoes',  subType: 'heels',      colorFamily: 'nude'  }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'white'),
+    makeComponent('b', 'bottom', 'black'),
+    makeComponent('c', 'shoes',  'nude'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.hemlineShoeHarmony === 1, `heels + midi-skirt → hemlineShoeHarmony +1 (got ${result.hemlineShoeHarmony})`);
+}
+
+// Sneakers + midi skirt → 0 (flat shoe, no hemline rule applies)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',     colorFamily: 'white' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'midi-skirt', colorFamily: 'black' }),
+    makeItem({ id: 'c', category: 'shoes',  subType: 'sneakers',   colorFamily: 'white' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'white'),
+    makeComponent('b', 'bottom', 'black'),
+    makeComponent('c', 'shoes',  'white'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.hemlineShoeHarmony === 0, `sneakers + midi-skirt → hemlineShoeHarmony 0 (got ${result.hemlineShoeHarmony})`);
+}
+
+// Ankle boots + midi dress → −2 (same leg-shortener, via dress category)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'dress', subType: 'midi-dress',  colorFamily: 'navy'  }),
+    makeItem({ id: 'b', category: 'shoes', subType: 'ankle-boots', colorFamily: 'black' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'dress', 'navy'),
+    makeComponent('b', 'shoes', 'black'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.hemlineShoeHarmony === -2, `ankle-boots + midi-dress → hemlineShoeHarmony -2 (got ${result.hemlineShoeHarmony})`);
+}
+
+// ── 9. Pattern scale contrast (extended cases) ────────────────────────────────
+
+console.log('\npattern scale contrast (new rules):');
+
+// One large + one small, different types → +1 (intentional scale contrast)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'white', pattern: 'floral', patternScale: 'large' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'navy',  pattern: 'stripe', patternScale: 'small' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'white'),
+    makeComponent('b', 'bottom', 'navy'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.patternSafety === 1, `large floral + small stripe → patternSafety +1 (scale contrast) (got ${result.patternSafety})`);
+}
+
+// Two items same pattern type → −3 (two florals — reads costume regardless of scale)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',     colorFamily: 'pink', pattern: 'floral', patternScale: 'large' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'midi-skirt', colorFamily: 'blue', pattern: 'floral', patternScale: 'small' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'pink'),
+    makeComponent('b', 'bottom', 'blue'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.patternSafety === -3, `two florals (large + small) → patternSafety -3 (same type) (got ${result.patternSafety})`);
+}
+
+// Small accent pattern (single) → +1 (not bold enough to be a hero, but fine)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'shirt',    colorFamily: 'white', pattern: 'stripe', patternScale: 'small' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'navy',  pattern: 'solid'                         }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'white'),
+    makeComponent('b', 'bottom', 'navy'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.patternSafety === 1, `one small-scale pattern + solid → patternSafety +1 (got ${result.patternSafety})`);
 }
 
 // ── Summary ───────────────────────────────────────────────────────────────────

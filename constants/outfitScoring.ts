@@ -814,6 +814,9 @@ export interface OutfitScoreBreakdown {
   saturationDominance: number;
   // Texture pairing (v4) — fabric weight + statement-texture interaction
   textureHarmony: number;
+  // Silhouette & proportion (v5) — body-type-specific pairings and hemline rules
+  bodyTypeProportion: number;
+  hemlineShoeHarmony: number;
 }
 
 export function scoreOutfitCombo(
@@ -852,16 +855,31 @@ export function scoreOutfitCombo(
     else formalityCohesion = -2;
   }
 
-  // Pattern safety — at most ONE bold/large pattern. Small/subtle patterns or
-  // solids can mix freely.
+  // ─── Pattern scale scoring ─────────────────────────────────────────────────
+  // Replaces the binary "≤1 bold pattern" rule with a scale-contrast model.
+  // A trained stylist can mix patterns when scale contrast is intentional:
+  // a large floral top over small-check trousers reads editorial, not chaotic.
   let patternSafety = 2;
   if (resolved.length > 0) {
-    const bold = resolved.filter(i =>
-      i.pattern && i.pattern !== 'solid' &&
-      (i.patternScale === 'large' || i.pattern === 'animal' || i.pattern === 'floral')
-    );
-    if (bold.length >= 2) patternSafety = -3;
-    else if (bold.length === 1) patternSafety = 2;
+    const isBoldPattern = (i: WardrobeItem) =>
+      i.patternScale === 'large' || i.pattern === 'animal' || i.pattern === 'floral';
+    const patterned = resolved.filter(i => i.pattern && i.pattern !== 'solid');
+    if (patterned.length === 0) {
+      patternSafety = 2;                                   // clean, all solid
+    } else if (patterned.length === 1) {
+      patternSafety = isBoldPattern(patterned[0]) ? 2 : 1; // hero vs small accent
+    } else if (patterned.length === 2) {
+      const [a, b] = patterned;
+      const aLarge = isBoldPattern(a);
+      const bLarge = isBoldPattern(b);
+      const sameType = a.pattern === b.pattern;
+      if (sameType)              patternSafety = -3; // two florals / two stripes — reads costume
+      else if (aLarge && bLarge) patternSafety = -3; // two large-scale different patterns
+      else if (aLarge !== bLarge) patternSafety = 1; // intentional scale contrast
+      else                        patternSafety = 0; // two small-scale different types — acceptable
+    } else {
+      patternSafety = -4;                              // 3+ patterned items — always too busy
+    }
   }
 
   // Personal contrast match — bright/dark contrast outfits suit high-contrast
@@ -892,7 +910,15 @@ export function scoreOutfitCombo(
     const dress = resolved.find(i => i.category === 'dress');
     const isVolume = (f?: string) => f === 'loose' || f === 'oversized';
     const isSleek  = (f?: string) => f === 'slim' || f === 'tailored';
-    if (top?.fit && bottom?.fit) {
+    // Skip fit-volume check for pear/apple + wide-volume bottoms — the
+    // bodyTypeProportion scorer below handles that pairing more precisely.
+    // Applying both would double-count the same silhouette signal.
+    const WIDE_BTP_SUBTYPES = new Set([
+      'wide-leg', 'barrel-leg', 'maxi-skirt', 'palazzo', 'flared-trousers', 'culottes',
+    ]);
+    const btpHandled = ['pear', 'apple'].includes(profile?.bodyType ?? '')
+      && !!bottom && WIDE_BTP_SUBTYPES.has(bottom.subType);
+    if (top?.fit && bottom?.fit && !btpHandled) {
       if (isVolume(top.fit) && isSleek(bottom.fit)) proportionBalance += 2;
       else if (isSleek(top.fit) && isVolume(bottom.fit)) proportionBalance += 2;
       else if (isVolume(top.fit) && isVolume(bottom.fit)) proportionBalance -= 2;
@@ -911,6 +937,73 @@ export function scoreOutfitCombo(
       const hasMaxi = resolved.some(i => i.subType === 'maxi-dress' || i.subType === 'maxi-skirt');
       const hasFlats = resolved.some(i => i.subType === 'flats' || i.subType === 'sneakers');
       if (hasMaxi && hasFlats) proportionBalance -= 1;
+    }
+  }
+
+  // ─── Body-type-aware proportion constraints ───────────────────────────────
+  // Goes beyond generic fit-volume balance: enforces silhouette rules that
+  // depend on the user's specific body shape. A wide-leg hero works on a pear
+  // *only* when the top is slim/tailored — the engine now enforces that pairing
+  // rather than merely rewarding the presence of a flattering sub-type.
+  let bodyTypeProportion = 0;
+  if (profile?.bodyType && resolved.length >= 2) {
+    const btpTop    = resolved.find(i => i.category === 'top');
+    const btpBottom = resolved.find(i => i.category === 'bottom');
+    const btpDress  = resolved.find(i => i.category === 'dress');
+    const isSlimFit   = (f?: string) => f === 'slim'  || f === 'tailored';
+    const isVolumeFit = (f?: string) => f === 'loose' || f === 'oversized';
+
+    const WIDE_BOTTOM = new Set([
+      'wide-leg', 'barrel-leg', 'maxi-skirt', 'palazzo', 'flared-trousers', 'culottes', 'flared',
+    ]);
+    const A_LINE_SUBTYPES = new Set([
+      'midi-skirt', 'maxi-skirt', 'flared', 'flared-trousers',
+      'wide-leg', 'a-line-skirt', 'flared-skirt',
+    ]);
+    const CURVE_SUBTYPES = new Set([
+      'flared', 'a-line-skirt', 'flared-skirt', 'peplum',
+      'wrap-dress', 'midi-skirt', 'flared-trousers',
+    ]);
+    const FITTED_DRESS_SUBTYPES = new Set([
+      'bodycon', 'pencil-skirt', 'wrap-dress', 'slip-dress', 'fitted-dress',
+    ]);
+
+    switch (profile.bodyType) {
+      case 'pear':
+      case 'apple': {
+        // Wide-volume bottom must be anchored by a slim/tailored top.
+        if (btpTop && btpBottom && WIDE_BOTTOM.has(btpBottom.subType)) {
+          if (isSlimFit(btpTop.fit))    bodyTypeProportion += 2;  // correct: slim top balances wide hip
+          else if (isVolumeFit(btpTop.fit)) bodyTypeProportion -= 2; // wrong: two volumes overwhelm
+        }
+        break;
+      }
+      case 'inverted-triangle': {
+        // Balance broad shoulders with volume below: A-line / flared / wide-leg.
+        if (btpBottom) {
+          if (A_LINE_SUBTYPES.has(btpBottom.subType)) bodyTypeProportion += 1;
+          // Pencil skirt + slim top emphasises the width disparity.
+          if (btpBottom.subType === 'pencil-skirt' && btpTop && isSlimFit(btpTop.fit)) {
+            bodyTypeProportion -= 1;
+          }
+        }
+        break;
+      }
+      case 'rectangle': {
+        // Create perceived curve with flared / A-line / peplum silhouettes.
+        const garment = btpBottom ?? btpDress;
+        if (garment && CURVE_SUBTYPES.has(garment.subType)) bodyTypeProportion += 1;
+        break;
+      }
+      case 'hourglass':
+      case 'athletic': {
+        // Tailored and fitted silhouettes honour the natural waist definition.
+        if (btpDress && FITTED_DRESS_SUBTYPES.has(btpDress.subType)) bodyTypeProportion += 1;
+        if (btpTop && btpBottom && isSlimFit(btpTop.fit) && isSlimFit(btpBottom.fit)) {
+          bodyTypeProportion += 1; // fully tailored combo reads polished
+        }
+        break;
+      }
     }
   }
 
@@ -933,6 +1026,47 @@ export function scoreOutfitCombo(
     } else {
       // Wrong single metal vs user preference — small negative.
       metalCohesion = -1;
+    }
+  }
+
+  // ─── Hemline × shoe-height coordination ──────────────────────────────────
+  // A stylist knows that where a hemline meets the shoe shaft defines the
+  // apparent length of the leg. Ankle boots under a midi hemline is the classic
+  // leg-shortener — the engine penalises it so better alternatives rank higher.
+  // Heels under a mini or midi earn a small bonus for classic proportion harmony.
+  let hemlineShoeHarmony = 0;
+  if (resolved.length >= 2) {
+    const hshShoe    = resolved.find(i => i.category === 'shoes');
+    const hshGarment = resolved.find(i => i.category === 'bottom')
+                    ?? resolved.find(i => i.category === 'dress');
+    if (hshShoe && hshGarment) {
+      const gSub = hshGarment.subType;
+      const MINI_HEM       = new Set(['mini-skirt', 'mini-dress', 'shorts']);
+      const MIDI_ANKLE_HEM = new Set(['midi-skirt', 'midi-dress', 'culottes']);
+      const MAXI_HEM       = new Set(['maxi-skirt', 'maxi-dress', 'wide-leg', 'palazzo', 'flared-trousers']);
+      const CROPPED_HEM    = new Set(['cropped-trousers']);
+      const hemCat =
+        MINI_HEM.has(gSub)       ? 'mini'       :
+        MIDI_ANKLE_HEM.has(gSub) ? 'midi-ankle'  :
+        MAXI_HEM.has(gSub)       ? 'maxi'        :
+        CROPPED_HEM.has(gSub)    ? 'cropped'     : 'neutral';
+
+      const sSub = hshShoe.subType;
+      const isAnkleBoot = sSub === 'ankle-boots';
+      const isHeeled    = ['heels', 'stilettos', 'block-heels', 'kitten-heels'].includes(sSub);
+
+      if (isAnkleBoot) {
+        // Midi/ankle hemline: boot shaft cuts across the widest point of the calf — avoidable
+        if (hemCat === 'midi-ankle') hemlineShoeHarmony = -2;
+        // Mini or cropped: gap of skin between boot top and hem reads intentional
+        else if (hemCat === 'mini' || hemCat === 'cropped') hemlineShoeHarmony = 1;
+        // Maxi/full-length/neutral: hem covers the shaft — harmless (0)
+      } else if (isHeeled) {
+        // Heels lengthen the leg; mini and midi hemlines let that read clearly
+        if (hemCat === 'mini' || hemCat === 'midi-ankle') hemlineShoeHarmony = 1;
+      }
+      // Flat shoes + petite + maxi is already penalised in proportionBalance — skip.
+      // Mules/sandals/slides are open-toe, leg-lengthening by default — neutral (0).
     }
   }
 
@@ -959,7 +1093,7 @@ export function scoreOutfitCombo(
   const total = completeness + palette + formalityCohesion + patternSafety
     + contrastMatch + pieces + proportionBalance + metalCohesion
     + tempHarmonyScore + valueSpreadScore + saturationDomScore
-    + textureScore;
+    + textureScore + bodyTypeProportion + hemlineShoeHarmony;
 
   return {
     total, completeness, palette, paletteType,
@@ -969,6 +1103,7 @@ export function scoreOutfitCombo(
     valueSpread: valueSpreadScore,
     saturationDominance: saturationDomScore,
     textureHarmony: textureScore,
+    bodyTypeProportion, hemlineShoeHarmony,
   };
 }
 
