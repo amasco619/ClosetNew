@@ -1042,9 +1042,11 @@ export function scoreOutfitCombo(
     if (hshShoe && hshGarment) {
       const gSub = hshGarment.subType;
       const MINI_HEM       = new Set(['mini-skirt', 'mini-dress', 'shorts']);
+      // Culottes sit at ankle/calf — they create the same shaft-intersection problem as midi
       const MIDI_ANKLE_HEM = new Set(['midi-skirt', 'midi-dress', 'culottes']);
       const MAXI_HEM       = new Set(['maxi-skirt', 'maxi-dress', 'wide-leg', 'palazzo', 'flared-trousers']);
-      const CROPPED_HEM    = new Set(['cropped-trousers']);
+      // Cropped and ankle-length trousers — gap above the ankle reads intentional with boots
+      const CROPPED_HEM    = new Set(['cropped-trousers', 'ankle-trousers', 'ankle-length-trousers', 'capri']);
       const hemCat =
         MINI_HEM.has(gSub)       ? 'mini'       :
         MIDI_ANKLE_HEM.has(gSub) ? 'midi-ankle'  :

@@ -449,9 +449,11 @@ export function generateOutfitPool(
         const formalitySpread = Math.max(...formalities) - Math.min(...formalities);
         if (formalitySpread > 3) continue;
 
-        // Scale-contrast pattern pairs (one large + one small of different types)
-        // are allowed — the scorer rewards them. Only hard-drop when 3+ items
-        // are all large-scale patterned, which is always too visually noisy.
+        // Scale-contrast pattern pairs (one large + one small, different types)
+        // are valid and rewarded by the scorer — the old "≥2 bold" gate was too
+        // aggressive. We only hard-drop when 3 or more items independently qualify
+        // as large-scale patterned (animal/floral/large-scale), which is always
+        // too visually noisy regardless of any smaller-scale pieces in the outfit.
         const largePatterned = allItems.filter(i =>
           i.pattern && i.pattern !== 'solid' &&
           (i.patternScale === 'large' || i.pattern === 'animal' || i.pattern === 'floral')
