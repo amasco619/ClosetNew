@@ -18,7 +18,7 @@ export type MetalPreference = 'gold' | 'silver' | 'rose-gold' | 'mixed';
 
 export type Pattern = 'solid' | 'stripe' | 'floral' | 'check' | 'print' | 'color-block' | 'geometric' | 'animal';
 export type PatternScale = 'small' | 'medium' | 'large';
-export type Fabric = 'cotton' | 'silk' | 'denim' | 'wool' | 'linen' | 'synthetic' | 'leather' | 'knit' | 'satin' | 'cashmere';
+export type Fabric = 'cotton' | 'silk' | 'denim' | 'wool' | 'linen' | 'synthetic' | 'leather' | 'knit' | 'satin' | 'cashmere' | 'suede';
 // Perceived fabric weight. Drives texture-pairing logic ("lighter top + heavier
 // bottom in cool seasons reads layered, not lumpy"). Captured at upload, or
 // inferred from sub-type for legacy items via `inferFabricWeight()`.
