@@ -802,6 +802,13 @@ export function scoreItemForProfile(
     if (item.fit === 'loose' || item.fit === 'oversized' || item.fit === 'regular') score += 1;
   }
 
+  // 13. Petite horizontal-stripe penalty — reduces how often wide-stripe items
+  //     surface in petite looks before the combo scorer can penalise the outfit.
+  if (profile.heightBand === 'petite' &&
+      item.pattern === 'stripe' && item.patternScale !== 'small') {
+    score -= 1;
+  }
+
   return score;
 }
 
@@ -827,6 +834,8 @@ export interface OutfitScoreBreakdown {
   // Silhouette & proportion (v5) — body-type-specific pairings and hemline rules
   bodyTypeProportion: number;
   hemlineShoeHarmony: number;
+  // Height-proportionate dressing (v7) — petite and tall silhouette rules
+  heightProportion: number;
   // Personal colorimetry (v6) — full-outfit undertone palette harmony
   undertoneHarmony: number;
 }
@@ -985,12 +994,6 @@ export function scoreOutfitCombo(
     const hasShort = resolved.some(i =>
       i.subType === 'mini-skirt' || i.subType === 'shorts' || i.subType === 'mini-dress');
     if (hasCrop && hasShort) proportionBalance -= 2;
-    // Height-awareness: petite + maxi + flat shoes can overwhelm proportions.
-    if (profile?.heightBand === 'petite') {
-      const hasMaxi = resolved.some(i => i.subType === 'maxi-dress' || i.subType === 'maxi-skirt');
-      const hasFlats = resolved.some(i => i.subType === 'flats' || i.subType === 'sneakers');
-      if (hasMaxi && hasFlats) proportionBalance -= 1;
-    }
   }
 
   // ─── Body-type-aware proportion constraints ───────────────────────────────
@@ -1057,6 +1060,71 @@ export function scoreOutfitCombo(
         }
         break;
       }
+    }
+  }
+
+  // ─── Height-proportionate dressing ──────────────────────────────────────
+  // Petite and tall users have distinct silhouette playbooks. Average height
+  // users are unaffected — scorer is a no-op unless heightBand is set.
+  let heightProportion = 0;
+  if (profile?.heightBand && profile.heightBand !== 'average' && resolved.length >= 2) {
+    const hpTop      = resolved.find(i => i.category === 'top');
+    const hpBottom   = resolved.find(i => i.category === 'bottom');
+    const hpOuterwear = resolved.find(i => i.category === 'outerwear');
+    const hpShoes    = resolved.find(i => i.category === 'shoes');
+
+    // Colour families shared by top and bottom (or dress alone) — used to
+    // detect the monochromatic-column elongation technique.
+    const hpTopColor    = hpTop?.colorFamily;
+    const hpBottomColor = hpBottom?.colorFamily;
+    const isMono = hpTopColor && hpBottomColor && hpTopColor === hpBottomColor;
+
+    const MAXI_LENGTHS = new Set(['maxi-dress', 'maxi-skirt', 'wide-leg', 'palazzo']);
+    const FLAT_SHOES   = new Set(['flats', 'sneakers']);
+    const CROPPED_OUTERWEAR = new Set(['cropped-jacket', 'bolero', 'denim-jacket']);
+    const LONG_OUTERWEAR    = new Set(['blazer', 'coat', 'trench']);
+    const WIDE_LEG_BOTTOMS  = new Set(['wide-leg', 'palazzo', 'flared-trousers', 'culottes']);
+
+    if (profile.heightBand === 'petite') {
+      // Monochromatic column — the single most powerful elongation technique.
+      if (isMono) heightProportion += 2;
+
+      // Cropped outerwear creates the waist-break at the right spot.
+      if (hpOuterwear && CROPPED_OUTERWEAR.has(hpOuterwear.subType) && hpBottom &&
+          (hpBottom.fit === 'slim' || hpBottom.fit === 'tailored' || hpBottom.subType === 'high-rise')) {
+        heightProportion += 1;
+      }
+
+      // Long/oversized outerwear + wide-leg bottom — two large volumes overwhelm.
+      if (hpOuterwear && LONG_OUTERWEAR.has(hpOuterwear.subType) &&
+          (hpOuterwear.fit === 'loose' || hpOuterwear.fit === 'oversized') &&
+          hpBottom && WIDE_LEG_BOTTOMS.has(hpBottom.subType)) {
+        heightProportion -= 1;
+      }
+
+      // Maxi length + flat shoes swamp a petite frame (migrated from proportionBalance).
+      const hasMaxi  = resolved.some(i => MAXI_LENGTHS.has(i.subType));
+      const hasFlats = hpShoes && FLAT_SHOES.has(hpShoes.subType);
+      if (hasMaxi && hasFlats) heightProportion -= 1;
+
+      // Horizontal wide stripes shorten perceived height.
+      const hasHorizStripe = resolved.some(i =>
+        i.pattern === 'stripe' && i.patternScale !== 'small' &&
+        (i.category === 'top' || i.category === 'bottom' || i.category === 'dress'),
+      );
+      if (hasHorizStripe) heightProportion -= 1;
+
+    } else if (profile.heightBand === 'tall') {
+      // Maxi lengths that tall frames can carry effortlessly.
+      if (resolved.some(i => MAXI_LENGTHS.has(i.subType))) heightProportion += 1;
+
+      // Monochromatic column — elegant on any height but less urgent than petite.
+      if (isMono) heightProportion += 1;
+
+      // Crop top + low-rise bottom exposes midriff; can read disproportionate.
+      const hasCropTop = hpTop?.subType === 'crop-top';
+      const hasLowRise = hpBottom?.subType === 'low-rise';
+      if (hasCropTop && hasLowRise) heightProportion -= 1;
     }
   }
 
@@ -1148,7 +1216,8 @@ export function scoreOutfitCombo(
   const total = completeness + palette + formalityCohesion + patternSafety
     + contrastMatch + pieces + proportionBalance + metalCohesion
     + tempHarmonyScore + valueSpreadScore + saturationDomScore
-    + textureScore + bodyTypeProportion + hemlineShoeHarmony + undertoneHarmony;
+    + textureScore + bodyTypeProportion + hemlineShoeHarmony
+    + heightProportion + undertoneHarmony;
 
   return {
     total, completeness, palette, paletteType,
@@ -1159,7 +1228,7 @@ export function scoreOutfitCombo(
     saturationDominance: saturationDomScore,
     textureHarmony: textureScore,
     bodyTypeProportion, hemlineShoeHarmony,
-    undertoneHarmony,
+    heightProportion, undertoneHarmony,
   };
 }
 

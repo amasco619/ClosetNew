@@ -795,7 +795,130 @@ console.log('\ntotal aggregation (with undertoneHarmony):');
   assert(br.total === expectedTotal, `total equals sum of all breakdown dimensions including undertoneHarmony (got total=${br.total}, sum=${expectedTotal})`);
 }
 
-// ── 11. generateRationale — undertone phrase presence ─────────────────────────
+// ── 11. heightProportion ──────────────────────────────────────────────────────
+
+console.log('\nheightProportion:');
+
+// (a) Petite + monochromatic top/bottom → +2
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'black' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'black' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'black'),
+    makeComponent('b', 'bottom', 'black'),
+  ];
+  const prof = baseProfile({ heightBand: 'petite' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.heightProportion === 2, `petite + monochromatic (black/black) → heightProportion +2 (got ${result.heightProportion})`);
+}
+
+// (b) Petite + long loose blazer + wide-leg bottom → −1
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'outerwear', subType: 'blazer',   colorFamily: 'black', fit: 'loose' }),
+    makeItem({ id: 'b', category: 'bottom',    subType: 'wide-leg', colorFamily: 'navy'               }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'outerwear', 'black'),
+    makeComponent('b', 'bottom',    'navy'),
+  ];
+  const prof = baseProfile({ heightBand: 'petite' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.heightProportion === -1, `petite + loose blazer + wide-leg → heightProportion -1 (got ${result.heightProportion})`);
+}
+
+// (c) Petite + maxi skirt + flats → −1
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',     colorFamily: 'white' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'maxi-skirt', colorFamily: 'black' }),
+    makeItem({ id: 'c', category: 'shoes',  subType: 'flats',      colorFamily: 'black' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'white'),
+    makeComponent('b', 'bottom', 'black'),
+    makeComponent('c', 'shoes',  'black'),
+  ];
+  const prof = baseProfile({ heightBand: 'petite' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.heightProportion === -1, `petite + maxi-skirt + flats → heightProportion -1 (got ${result.heightProportion})`);
+}
+
+// (d) Petite + horizontal wide stripe on top → −1
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'white', pattern: 'stripe', patternScale: 'large' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'navy'                                            }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'white'),
+    makeComponent('b', 'bottom', 'navy'),
+  ];
+  const prof = baseProfile({ heightBand: 'petite' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.heightProportion === -1, `petite + wide-stripe top → heightProportion -1 (got ${result.heightProportion})`);
+}
+
+// (e) Tall + maxi dress → +1
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'dress', subType: 'maxi-dress', colorFamily: 'navy' }),
+    makeItem({ id: 'b', category: 'shoes', subType: 'heels',      colorFamily: 'black' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'dress', 'navy'),
+    makeComponent('b', 'shoes', 'black'),
+  ];
+  const prof = baseProfile({ heightBand: 'tall' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.heightProportion === 1, `tall + maxi-dress → heightProportion +1 (got ${result.heightProportion})`);
+}
+
+// (f) null heightBand → 0 (no-op)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',     colorFamily: 'white' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'maxi-skirt', colorFamily: 'black' }),
+    makeItem({ id: 'c', category: 'shoes',  subType: 'flats',      colorFamily: 'black' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'white'),
+    makeComponent('b', 'bottom', 'black'),
+    makeComponent('c', 'shoes',  'black'),
+  ];
+  const prof = baseProfile({ heightBand: null } as Partial<UserProfile>);
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.heightProportion === 0, `null heightBand → heightProportion 0 (got ${result.heightProportion})`);
+}
+
+// ── 11b. Aggregation test (includes heightProportion) ─────────────────────────
+
+console.log('\ntotal aggregation (with heightProportion):');
+
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'black', fabric: 'silk',   pattern: 'solid' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'white', fabric: 'wool',   pattern: 'solid' }),
+    makeItem({ id: 'c', category: 'shoes',  subType: 'heels',    colorFamily: 'black', fabric: undefined, pattern: 'solid' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'black'),
+    makeComponent('b', 'bottom', 'white'),
+    makeComponent('c', 'shoes',  'black'),
+  ];
+  const prof = baseProfile({ contrastLevel: 'high', undertone: 'cool', heightBand: 'petite' });
+  const br = scoreOutfitCombo(components, items, prof);
+  const expectedTotal =
+    br.completeness + br.palette + br.formalityCohesion + br.patternSafety +
+    br.contrastMatch + br.pieces + br.proportionBalance + br.metalCohesion +
+    br.temperatureHarmony + br.valueSpread + br.saturationDominance + br.textureHarmony +
+    br.bodyTypeProportion + br.hemlineShoeHarmony + br.heightProportion + br.undertoneHarmony;
+  assert(br.total === expectedTotal, `total equals sum including heightProportion (got total=${br.total}, sum=${expectedTotal})`);
+}
+
+// ── 12. generateRationale — undertone phrase presence ─────────────────────────
 
 console.log('\ngenerateRationale undertone phrase:');
 
