@@ -5,8 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useApp, subTypes, colorFamilies } from '@/contexts/AppContext';
+import type { Neckline } from '@/constants/types';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
+
+const NECKLINES: readonly Neckline[] = ['crew', 'v-neck', 'scoop', 'turtleneck', 'boat', 'square', 'halter', 'off-shoulder', 'collared'] as const;
 
 const colorDots: Record<string, string> = {
   black: '#1a1a1a', white: '#f5f5f5', grey: '#8B8B8B', cream: '#FFFDD0',
@@ -35,6 +38,7 @@ export default function ItemDetailScreen() {
   const [priceInput, setPriceInput] = useState('');
   const [editingType, setEditingType] = useState(false);
   const [editingColor, setEditingColor] = useState(false);
+  const [editingNeckline, setEditingNeckline] = useState(false);
 
   if (!item) {
     return (
@@ -155,6 +159,37 @@ export default function ItemDetailScreen() {
                   <Text style={[styles.editChipText, item.colorFamily === cf && styles.editChipTextActive]}>{cf}</Text>
                 </Pressable>
               ))}
+            </View>
+          )}
+
+          {(item.category === 'top' || item.category === 'dress' || item.category === 'outerwear') && (
+            <View style={styles.necklineSection}>
+              <Pressable style={styles.necklineRow} onPress={() => setEditingNeckline(v => !v)} hitSlop={6}>
+                <Text style={styles.necklineSectionLabel}>Neckline</Text>
+                <View style={styles.necklineValueRow}>
+                  <Text style={styles.necklineValue}>
+                    {item.neckline ? item.neckline.replace('-', ' ') : 'Tap to add'}
+                  </Text>
+                  <Ionicons name={editingNeckline ? 'chevron-up' : 'pencil-outline'} size={13} color={Colors.textSecondary} />
+                </View>
+              </Pressable>
+              {editingNeckline && (
+                <View style={styles.editChipsWrap}>
+                  {NECKLINES.map(n => (
+                    <Pressable
+                      key={n}
+                      style={[styles.editChip, item.neckline === n && styles.editChipActive]}
+                      onPress={() => {
+                        updateWardrobeItem(item.id, { neckline: item.neckline === n ? undefined : n });
+                        Haptics.selectionAsync();
+                        setEditingNeckline(false);
+                      }}
+                    >
+                      <Text style={[styles.editChipText, item.neckline === n && styles.editChipTextActive]}>{n.replace('-', ' ')}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
             </View>
           )}
 
@@ -312,6 +347,11 @@ const styles = StyleSheet.create({
   },
   cpwInsightText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary, flex: 1, lineHeight: 18 },
 
+  necklineSection: { marginTop: 20 },
+  necklineRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  necklineSectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.6 },
+  necklineValueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  necklineValue: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.primary, textTransform: 'capitalize' },
   priceSection: { marginTop: 24 },
   priceSectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.6 },
   priceDisplayRow: {
