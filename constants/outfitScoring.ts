@@ -567,8 +567,8 @@ const UNDERTONE_FLATTERING: Record<string, Set<string>> = {
 // "clearly off-tone" are included; borderline-versatile neutrals are omitted.
 //   COOL_CLASHING: warm/brassy hues that read muddy against cool-undertone skin.
 //   WARM_CLASHING: icy/cool hues that read washed-out against warm-undertone skin.
-const COOL_CLASHING = new Set(['camel', 'coral', 'terracotta', 'orange', 'mustard', 'gold', 'brown']);
-const WARM_CLASHING = new Set(['lavender', 'rose', 'purple', 'blue']);
+const COOL_CLASHING = new Set(['camel', 'coral', 'terracotta', 'olive', 'orange', 'mustard', 'gold', 'brown']);
+const WARM_CLASHING = new Set(['lavender', 'rose', 'grey', 'purple', 'blue', 'pink', 'burgundy', 'emerald']);
 
 const HIGH_CONTRAST_COLORS = new Set(['black', 'white', 'navy', 'red', 'emerald', 'blue', 'burgundy', 'coral']);
 const HIGH_CONTRAST_SKIN_TONES = new Set(['very-light', 'very-dark', 'dark']);
@@ -918,9 +918,10 @@ export function scoreOutfitCombo(
     if (garments.length > 0) {
       const flattering  = UNDERTONE_FLATTERING[profile.undertone];
       const clashMap    = profile.undertone === 'cool' ? COOL_CLASHING : WARM_CLASHING;
-      // True neutrals (black / white / grey) work for every undertone and
-      // never count against the palette-harmony check below.
-      const TRUE_NEUTRALS = new Set(['black', 'white', 'grey']);
+      // True neutrals work for every undertone and never count against the
+      // palette-harmony check below. Cream and navy are universally wearable
+      // bridging tones included alongside the chromatic neutrals.
+      const TRUE_NEUTRALS = new Set(['black', 'white', 'grey', 'cream', 'navy']);
 
       const inPalette  = garments.filter(i => flattering.has(i.colorFamily));
       const inNeutral  = garments.filter(i =>

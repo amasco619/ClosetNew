@@ -482,7 +482,7 @@ export function generateOutfitPool(
         const reactionAdjusted = adjustScoreForReactions(rawTotal, fp, reactions, today, itemIds);
         const totalScore = reactionAdjusted + wornHistoryBoost(fp, wearHistory, today);
 
-        const rationale = generateRationale(outfit, items, profile, mood, hero.id);
+        const rationale = generateRationale(outfit, items, profile, mood, hero.id, combo.undertoneHarmony);
 
         scoredPool.push({
           score: totalScore,
