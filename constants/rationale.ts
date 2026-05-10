@@ -97,6 +97,7 @@ export function generateRationale(
   profile: UserProfile,
   mood?: MoodGoal | null,
   heroId?: string,
+  undertoneScore?: number,
 ): string {
   const resolved = components
     .map(c => items.find(i => i.id === c.matchedItemId))
@@ -156,8 +157,11 @@ export function generateRationale(
     }
   }
 
-  // Undertone note — only if outfit is strongly in undertone palette
-  // (handled implicitly by selection, so we keep the sentence short)
+  // Undertone note — only when the outfit is fully in the user's flattering tone
+  if (undertoneScore !== undefined && undertoneScore >= 2 && profile.undertone &&
+      profile.undertone !== 'neutral') {
+    parts.push('in tones that work with your complexion');
+  }
 
   let body: string;
   if (parts.length === 1) {

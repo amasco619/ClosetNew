@@ -562,6 +562,14 @@ const UNDERTONE_FLATTERING: Record<string, Set<string>> = {
   neutral: new Set(['black', 'navy', 'beige', 'white', 'grey', 'camel', 'pink', 'blue', 'lavender', 'cream', 'burgundy']),
 };
 
+// Colours that visibly clash with a given undertone — deliberately narrower than
+// UNDERTONE_FLATTERING. Only colours a professional colour analyst would call
+// "clearly off-tone" are included; borderline-versatile neutrals are omitted.
+//   COOL_CLASHING: warm/brassy hues that read muddy against cool-undertone skin.
+//   WARM_CLASHING: icy/cool hues that read washed-out against warm-undertone skin.
+const COOL_CLASHING = new Set(['camel', 'coral', 'terracotta', 'orange', 'mustard', 'gold', 'brown']);
+const WARM_CLASHING = new Set(['lavender', 'rose', 'purple', 'blue']);
+
 const HIGH_CONTRAST_COLORS = new Set(['black', 'white', 'navy', 'red', 'emerald', 'blue', 'burgundy', 'coral']);
 const HIGH_CONTRAST_SKIN_TONES = new Set(['very-light', 'very-dark', 'dark']);
 
@@ -819,6 +827,8 @@ export interface OutfitScoreBreakdown {
   // Silhouette & proportion (v5) — body-type-specific pairings and hemline rules
   bodyTypeProportion: number;
   hemlineShoeHarmony: number;
+  // Personal colorimetry (v6) — full-outfit undertone palette harmony
+  undertoneHarmony: number;
 }
 
 export function scoreOutfitCombo(
@@ -894,6 +904,46 @@ export function scoreOutfitCombo(
     if (profile.contrastLevel === 'high' && outfitHighContrast) contrastMatch = 2;
     else if (profile.contrastLevel === 'low' && !outfitHighContrast) contrastMatch = 1;
     else if (profile.contrastLevel === 'medium') contrastMatch = 1;
+  }
+
+  // ─── Undertone palette harmony ───────────────────────────────────────────
+  // Rewards outfits where all visible garments sit within the user's undertone
+  // palette and softly penalises pieces from the opposite undertone family.
+  // Neutral users (cool/warm blend) are never penalised — scorer is a no-op.
+  let undertoneHarmony = 0;
+  if (profile?.undertone && profile.undertone !== 'neutral' && resolved.length >= 2) {
+    const garments = resolved.filter(i =>
+      i.category === 'top' || i.category === 'bottom' || i.category === 'dress',
+    );
+    if (garments.length > 0) {
+      const flattering  = UNDERTONE_FLATTERING[profile.undertone];
+      const clashMap    = profile.undertone === 'cool' ? COOL_CLASHING : WARM_CLASHING;
+      // True neutrals (black / white / grey) work for every undertone and
+      // never count against the palette-harmony check below.
+      const TRUE_NEUTRALS = new Set(['black', 'white', 'grey']);
+
+      const inPalette  = garments.filter(i => flattering.has(i.colorFamily));
+      const inNeutral  = garments.filter(i =>
+        TRUE_NEUTRALS.has(i.colorFamily) && !flattering.has(i.colorFamily),
+      );
+      const clashing   = garments.filter(i => clashMap.has(i.colorFamily));
+
+      // Soft penalty for each off-tone piece (cap at −2 so one clash doesn't
+      // overwhelm the rest of the combo score).
+      undertoneHarmony -= Math.min(2, clashing.length);
+
+      // Palette bonuses only fire when there are no outright clashing pieces.
+      if (clashing.length === 0) {
+        if (inPalette.length === garments.length) {
+          // All garments in the flattering palette — "fully in your tone".
+          undertoneHarmony += 2;
+        } else if (inPalette.length === 1 &&
+                   inPalette.length + inNeutral.length === garments.length) {
+          // Exactly one flattering-palette accent anchored by true neutrals.
+          undertoneHarmony += 1;
+        }
+      }
+    }
   }
 
   let pieces = 0;
@@ -1097,7 +1147,7 @@ export function scoreOutfitCombo(
   const total = completeness + palette + formalityCohesion + patternSafety
     + contrastMatch + pieces + proportionBalance + metalCohesion
     + tempHarmonyScore + valueSpreadScore + saturationDomScore
-    + textureScore + bodyTypeProportion + hemlineShoeHarmony;
+    + textureScore + bodyTypeProportion + hemlineShoeHarmony + undertoneHarmony;
 
   return {
     total, completeness, palette, paletteType,
@@ -1108,6 +1158,7 @@ export function scoreOutfitCombo(
     saturationDominance: saturationDomScore,
     textureHarmony: textureScore,
     bodyTypeProportion, hemlineShoeHarmony,
+    undertoneHarmony,
   };
 }
 

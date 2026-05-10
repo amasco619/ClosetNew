@@ -658,6 +658,142 @@ console.log('\npattern scale contrast (new rules):');
   assert(result.patternSafety === 1, `one small-scale pattern + solid → patternSafety +1 (got ${result.patternSafety})`);
 }
 
+// ── 10. undertoneHarmony ──────────────────────────────────────────────────────
+
+console.log('\nundertoneHarmony:');
+
+// (a) Full warm palette — top + bottom both in warm UNDERTONE_FLATTERING → +2
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'camel'     }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'terracotta' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'camel'),
+    makeComponent('b', 'bottom', 'terracotta'),
+  ];
+  const prof = baseProfile({ undertone: 'warm' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.undertoneHarmony === 2, `warm undertone + all-warm palette (camel + terracotta) → undertoneHarmony +2 (got ${result.undertoneHarmony})`);
+}
+
+// (b) Neutral-anchored warm — one warm piece + black (true neutral) → +1
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'coral' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'black' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'coral'),
+    makeComponent('b', 'bottom', 'black'),
+  ];
+  const prof = baseProfile({ undertone: 'warm' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.undertoneHarmony === 1, `warm undertone + coral top + black trousers → undertoneHarmony +1 (got ${result.undertoneHarmony})`);
+}
+
+// (c) Clashing cool piece on warm undertone → −1
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'camel'  }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'lavender' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'camel'),
+    makeComponent('b', 'bottom', 'lavender'),
+  ];
+  const prof = baseProfile({ undertone: 'warm' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.undertoneHarmony === -1, `warm undertone + lavender bottom → undertoneHarmony -1 (got ${result.undertoneHarmony})`);
+}
+
+// (d) null undertone → 0 (no-op)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'camel'     }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'terracotta' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'camel'),
+    makeComponent('b', 'bottom', 'terracotta'),
+  ];
+  const prof = baseProfile({ undertone: null });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.undertoneHarmony === 0, `null undertone → undertoneHarmony 0 (got ${result.undertoneHarmony})`);
+}
+
+// (e) neutral undertone → 0 (no-op — neutral users are never penalised)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'coral'    }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'lavender' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'coral'),
+    makeComponent('b', 'bottom', 'lavender'),
+  ];
+  const prof = baseProfile({ undertone: 'neutral' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.undertoneHarmony === 0, `neutral undertone → undertoneHarmony 0 (got ${result.undertoneHarmony})`);
+}
+
+// (f) Full cool palette → +2
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'lavender' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'navy'     }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'lavender'),
+    makeComponent('b', 'bottom', 'navy'),
+  ];
+  const prof = baseProfile({ undertone: 'cool' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.undertoneHarmony === 2, `cool undertone + all-cool palette (lavender + navy) → undertoneHarmony +2 (got ${result.undertoneHarmony})`);
+}
+
+// (g) Clash cap — two clashing pieces on cool undertone → −2 (capped, not −3)
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'camel'     }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'terracotta' }),
+    makeItem({ id: 'c', category: 'dress',  subType: 'midi-dress', colorFamily: 'orange'  }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'camel'),
+    makeComponent('b', 'bottom', 'terracotta'),
+    makeComponent('c', 'dress',  'orange'),
+  ];
+  const prof = baseProfile({ undertone: 'cool' });
+  const result = scoreOutfitCombo(components, items, prof);
+  assert(result.undertoneHarmony === -2, `cool undertone + 3 clashing warm pieces → undertoneHarmony −2 (capped) (got ${result.undertoneHarmony})`);
+}
+
+// ── 10b. Updated aggregation test (includes undertoneHarmony) ─────────────────
+
+console.log('\ntotal aggregation (with undertoneHarmony):');
+
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'black', fabric: 'silk',   pattern: 'solid' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'white', fabric: 'wool',   pattern: 'solid' }),
+    makeItem({ id: 'c', category: 'shoes',  subType: 'heels',    colorFamily: 'black', fabric: undefined, pattern: 'solid' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'black'),
+    makeComponent('b', 'bottom', 'white'),
+    makeComponent('c', 'shoes',  'black'),
+  ];
+  const prof = baseProfile({ contrastLevel: 'high', undertone: 'cool' });
+  const br = scoreOutfitCombo(components, items, prof);
+  const expectedTotal =
+    br.completeness + br.palette + br.formalityCohesion + br.patternSafety +
+    br.contrastMatch + br.pieces + br.proportionBalance + br.metalCohesion +
+    br.temperatureHarmony + br.valueSpread + br.saturationDominance + br.textureHarmony +
+    br.bodyTypeProportion + br.hemlineShoeHarmony + br.undertoneHarmony;
+  assert(br.total === expectedTotal, `total equals sum of all breakdown dimensions including undertoneHarmony (got total=${br.total}, sum=${expectedTotal})`);
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 if (failed > 0) {
