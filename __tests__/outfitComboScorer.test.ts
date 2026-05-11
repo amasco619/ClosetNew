@@ -341,6 +341,51 @@ console.log('\ntextureHarmony:');
   assert(result.textureHarmony === 0, `chiffon top + tweed skirt (neither statement nor flat) → textureHarmony 0 (got ${result.textureHarmony})`);
 }
 
+// linen + cotton → linen is neutral (not statement, not flat); cotton IS flat;
+// not all-flat (linen breaks it); statementCount=0 → textureHarmony 0
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'cream', fabric: 'linen'  }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'tan',   fabric: 'cotton' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'cream'),
+    makeComponent('b', 'bottom', 'tan'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.textureHarmony === 0, `linen top + cotton trousers (linen neutral, cotton flat, not all-flat) → textureHarmony 0 (got ${result.textureHarmony})`);
+}
+
+// suede + flat fabric (cotton) → suede is neutral (not statement, not flat);
+// not all-flat → statementCount=0 → textureHarmony 0
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 't-shirt',  colorFamily: 'white', fabric: 'cotton' }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'tan',   fabric: 'suede'  }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'white'),
+    makeComponent('b', 'bottom', 'tan'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.textureHarmony === 0, `cotton top + suede trousers (suede neutral, not all-flat) → textureHarmony 0 (got ${result.textureHarmony})`);
+}
+
+// suede + silk → silk is the one statement fabric (statementCount=1 → +3);
+// suede is neutral; shinyCount=1 (silk only) → no shiny penalty → textureHarmony +3
+{
+  const items: WardrobeItem[] = [
+    makeItem({ id: 'a', category: 'top',    subType: 'blouse',     colorFamily: 'ivory', fabric: 'silk'  }),
+    makeItem({ id: 'b', category: 'bottom', subType: 'midi-skirt', colorFamily: 'camel', fabric: 'suede' }),
+  ];
+  const components: OutfitComponent[] = [
+    makeComponent('a', 'top',    'ivory'),
+    makeComponent('b', 'bottom', 'camel'),
+  ];
+  const result = scoreOutfitCombo(components, items);
+  assert(result.textureHarmony === 3, `silk top + suede skirt (silk is the one statement, suede neutral) → textureHarmony +3 (got ${result.textureHarmony})`);
+}
+
 // ── 4. contrastMatch ──────────────────────────────────────────────────────────
 
 console.log('\ncontrastMatch:');
