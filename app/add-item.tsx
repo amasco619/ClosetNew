@@ -11,7 +11,14 @@ import { SUBTYPE_FORMALITY } from '@/constants/outfitScoring';
 
 const PATTERNS: readonly Pattern[] = ['solid','stripe','floral','check','print','color-block','geometric','animal'] as const;
 const PATTERN_SCALES: readonly PatternScale[] = ['small','medium','large'] as const;
-const FABRICS: readonly Fabric[] = ['cotton','silk','chiffon','jersey','denim','linen','knit','synthetic','wool','tweed','cashmere','satin','leather','suede','velvet','corduroy'] as const;
+const FABRICS: readonly Fabric[] = [
+  // lightweight
+  'chiffon','silk','satin','linen','cotton','jersey','synthetic',
+  // midweight
+  'knit','denim','tweed','wool','cashmere','suede',
+  // heavyweight
+  'leather','velvet','corduroy',
+] as const;
 const FABRIC_WEIGHTS: readonly FabricWeight[] = ['light','mid','heavy'] as const;
 const WEIGHT_LABELS: Record<FabricWeight, string> = {
   light: 'light',
