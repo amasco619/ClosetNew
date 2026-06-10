@@ -1,0 +1,1467 @@
+You are an elite full-stack mobile engineer with deep expertise in Expo React
+Native, Express, Supabase, and UI/UX craft. Your task is to fully integrate
+Supabase into AuraCloset as the primary database, storage, and authentication
+provider — covering every feature the application currently has and every
+feature planned.
+
+Authentication method: email/password as the primary credential method,
+with Google and Apple OAuth as social sign-in options. There is no magic
+link in this implementation.
+
+Do not hallucinate any API details, library methods, or configuration
+values. Use only the verified specifications written in this prompt.
+
+═══════════════════════════════════════════════════════════════════
+EXISTING STACK — DO NOT CHANGE OR BREAK ANY OF THIS
+═══════════════════════════════════════════════════════════════════
+
+Frontend:         Expo Router (file-based routing) with React Native
+Backend:          Express server on port 5000
+State:            React Context (contexts/AppContext.tsx) + AsyncStorage
+Language:         TypeScript throughout — no .js files
+Font:             Inter family — no other fonts
+Color palette:
+  Primary (Deep Navy):    #101826
+  Secondary (Champagne):  #D0B892
+  Sage:                   #8AA39B
+  Blush:                  #EACFD3
+  Background:             #F5F3F0
+No emojis anywhere in the app
+Already installed: axios, @supabase/supabase-js,
+  @react-native-async-storage/async-storage,
+  react-native-url-polyfill, expo-web-browser,
+  expo-auth-session, expo-linking, base64-arraybuffer
+
+═══════════════════════════════════════════════════════════════════
+ENVIRONMENT VARIABLES — ALREADY SET IN REPLIT SECRETS
+═══════════════════════════════════════════════════════════════════
+
+EXPO_PUBLIC_SUPABASE_URL              (client Supabase project URL)
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY  (client sb_publishable_xxx)
+SUPABASE_URL                          (server same project URL)
+SUPABASE_SECRET_KEY                   (server sb_secret_xxx —
+                                       NEVER expose client-side)
+
+Do not rename, reassign, or recreate any of these variables.
+
+═══════════════════════════════════════════════════════════════════
+DATABASE SCHEMA — ALREADY CREATED IN SUPABASE (DO NOT RECREATE)
+═══════════════════════════════════════════════════════════════════
+
+These tables already exist with RLS enabled. Reference exactly
+as named. Do not attempt to create or alter them:
+
+  user_profiles          — id (uuid PK = auth.users.id),
+                           body_type, eye_color, skin_tone,
+                           undertone, style_goals (text[]),
+                           secondary_goal, lifestyle (jsonb),
+                           constraints (jsonb), location_lat,
+                           location_lon, premium (bool),
+                           premium_expires_at,
+                           onboarding_complete (bool),
+                           is_guest (bool),
+                           created_at, updated_at
+
+  wardrobe_items         — id, user_id, garment_type, sub_type,
+                           color_family, description,
+                           occasion (text[]), image_url,
+                           cleaned_image_url,
+                           item_affinity (float 0.7–1.3),
+                           wear_count, last_worn_at,
+                           created_at, updated_at
+
+  slot_statuses          — id, user_id, slot_id,
+                           status ('needed'|'owned'),
+                           matched_item_id, updated_at
+                           unique(user_id, slot_id)
+
+  wear_logs              — id, user_id, outfit_fingerprint,
+                           item_ids (uuid[]), occasion, logged_at
+
+  affinity_signals       — id, user_id, item_id,
+                           signal_type ('love'|'not_today'|'worn'),
+                           weight, logged_at
+
+  pair_affinity_signals  — id, user_id, item_id_a, item_id_b,
+                           signal_type, weight, logged_at
+
+  rotation_cursors       — id, user_id, scenario, cursor_index,
+                           seed_date, updated_at
+                           unique(user_id, scenario)
+
+  tryon_profiles         — id, user_id, photo_url,
+                           is_active, created_at
+                           unique(user_id)
+
+Storage buckets already created:
+  wardrobe-images   (private, RLS enabled)
+  tryon-photos      (private, RLS enabled)
+
+═══════════════════════════════════════════════════════════════════
+DESIGN STANDARDS — APPLY TO EVERY NEW SCREEN AND COMPONENT
+═══════════════════════════════════════════════════════════════════
+
+ANIMATION:
+  - Only animate transform and opacity
+  - Never start from scale(0) — minimum scale(0.95) + opacity:0
+  - Duration: buttons 100–160ms, standard UI 150–300ms
+  - Exit faster than enter (60–70% of enter duration)
+  - Never animate keyboard actions or tab switching
+  - Check AccessibilityInfo.isReduceMotionEnabled() on every
+    component that animates
+  - Stagger lists: 30–50ms per item
+
+BUTTONS AND TOUCH:
+  - All TouchableOpacity: activeOpacity={0.82}
+  - All interactive elements: minimum 44×44pt hit area
+  - Use hitSlop when visual element is smaller than 44pt
+  - Disabled state: opacity 0.5, disabled prop set
+
+LOADING:
+  - Any async over 300ms must show ActivityIndicator or skeleton
+
+EMPTY STATES:
+  - Every list view must have a helpful empty state with a CTA
+
+FORMS — CRITICAL FOR AUTH SCREENS:
+  - Every input must have a visible Text label above it
+  - Never use placeholder text as the label substitute
+  - Validate on blur (onBlur), never on keystroke (onChange)
+  - Show error message as Text below the specific input that
+    failed — never at the top of the form
+  - Error text color: #101826 on #EACFD3 background
+  - Mark required fields with an asterisk in the label
+  - Password fields must have a show/hide toggle button
+  - The show/hide toggle must be inside the input row on the
+    right side — minimum 44×44pt touch target
+  - All inputs: height 52, borderRadius 10, borderWidth 1,
+    borderColor #D0B892, padding 16, fontFamily Inter,
+    fontSize 15, color #101826
+  - Input focus state: borderColor #101826, borderWidth 1.5
+  - Input error state: borderColor #EACFD3, borderWidth 1.5
+
+SPACING: 4/8pt scale only — 4, 8, 12, 16, 24, 32, 48
+TYPOGRAPHY: fontFamily 'Inter' on every Text element
+CONTRAST: #101826 on #F5F3F0 minimum 4.5:1
+NO EMOJIS: zero emojis — use @expo/vector-icons if icons needed
+
+═══════════════════════════════════════════════════════════════════
+STEP 1 — CREATE lib/supabase.ts (CLIENT)
+═══════════════════════════════════════════════════════════════════
+
+Create lib/supabase.ts. This is the only Supabase client used
+in the Expo app. Never import it in any file inside /server.
+
+  import { AppState, Platform } from 'react-native'
+  import 'react-native-url-polyfill/auto'
+  import AsyncStorage
+    from '@react-native-async-storage/async-storage'
+  import { createClient, processLock }
+    from '@supabase/supabase-js'
+
+  const supabaseUrl =
+    process.env.EXPO_PUBLIC_SUPABASE_URL!
+  const supabasePublishableKey =
+    process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+
+  if (!supabaseUrl || !supabasePublishableKey) {
+    throw new Error(
+      '[lib/supabase] Missing EXPO_PUBLIC_SUPABASE_URL or ' +
+      'EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY'
+    )
+  }
+
+  export const supabase = createClient(
+    supabaseUrl,
+    supabasePublishableKey,
+    {
+      auth: {
+        ...(Platform.OS !== 'web'
+          ? { storage: AsyncStorage }
+          : {}),
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+        lock: processLock,
+      },
+    }
+  )
+
+  // Refresh session when app returns to foreground
+  if (Platform.OS !== 'web') {
+    AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        supabase.auth.startAutoRefresh()
+      } else {
+        supabase.auth.stopAutoRefresh()
+      }
+    })
+  }
+
+═══════════════════════════════════════════════════════════════════
+STEP 2 — CREATE server/supabase.ts (ADMIN)
+═══════════════════════════════════════════════════════════════════
+
+Create server/supabase.ts. Only import inside /server files.
+Never import into any frontend file under any circumstance.
+
+  import { createClient } from '@supabase/supabase-js'
+
+  const supabaseUrl = process.env.SUPABASE_URL!
+  const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY!
+
+  if (!supabaseUrl || !supabaseSecretKey) {
+    throw new Error(
+      '[server/supabase] Missing SUPABASE_URL or ' +
+      'SUPABASE_SECRET_KEY'
+    )
+  }
+
+  export const supabaseAdmin = createClient(
+    supabaseUrl,
+    supabaseSecretKey
+  )
+
+═══════════════════════════════════════════════════════════════════
+STEP 3 — REGISTER APP DEEP LINK SCHEME
+═══════════════════════════════════════════════════════════════════
+
+Open app.json and add the scheme key inside the expo object
+if it does not already exist. Do not remove any existing keys:
+
+  {
+    "expo": {
+      "scheme": "auracloset"
+    }
+  }
+
+═══════════════════════════════════════════════════════════════════
+STEP 4 — CREATE lib/auth.ts
+═══════════════════════════════════════════════════════════════════
+
+Create lib/auth.ts with all authentication methods required
+by AuraCloset. Primary method is email/password. Social sign-in
+is Google and Apple via OAuth. There is NO magic link method.
+
+The OAuth flow uses expo-web-browser and expo-auth-session,
+which is the verified correct approach for Expo React Native.
+
+  import { makeRedirectUri } from 'expo-auth-session'
+  import * as WebBrowser from 'expo-web-browser'
+  import * as QueryParams
+    from 'expo-auth-session/build/QueryParams'
+  import { supabase } from './supabase'
+
+  WebBrowser.maybeCompleteAuthSession()
+
+  const redirectTo = makeRedirectUri({ scheme: 'auracloset' })
+
+  // ── Create session from OAuth deep link URL ───────────────
+  export async function createSessionFromUrl(
+    url: string
+  ) {
+    const { params, errorCode } =
+      QueryParams.getQueryParams(url)
+    if (errorCode) throw new Error(errorCode)
+
+    const { access_token, refresh_token } = params
+    if (!access_token) return null
+
+    const { data, error } = await supabase.auth.setSession({
+      access_token,
+      refresh_token,
+    })
+    if (error) throw new Error(
+      `[createSessionFromUrl] ${error.message}`
+    )
+    return data.session
+  }
+
+  // ── Email Sign-Up (primary account creation) ─────────────
+  export async function signUpWithEmail(
+    email: string,
+    password: string
+  ): Promise<{ needsConfirmation: boolean }> {
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
+      options: {
+        emailRedirectTo: redirectTo,
+      },
+    })
+    if (error) throw new Error(
+      `[signUpWithEmail] ${error.message}`
+    )
+    // If session is null, email confirmation is required
+    return { needsConfirmation: !data.session }
+  }
+
+  // ── Email Sign-In (returning users) ──────────────────────
+  export async function signInWithEmail(
+    email: string,
+    password: string
+  ): Promise<void> {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    })
+    if (error) throw new Error(
+      `[signInWithEmail] ${error.message}`
+    )
+  }
+
+  // ── Request Password Reset Email ──────────────────────────
+  export async function requestPasswordReset(
+    email: string
+  ): Promise<void> {
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+      { redirectTo }
+    )
+    if (error) throw new Error(
+      `[requestPasswordReset] ${error.message}`
+    )
+  }
+
+  // ── Update Password (after reset or in-app change) ───────
+  export async function updatePassword(
+    newPassword: string
+  ): Promise<void> {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    })
+    if (error) throw new Error(
+      `[updatePassword] ${error.message}`
+    )
+  }
+
+  // ── Google OAuth Sign-In ──────────────────────────────────
+  export async function signInWithGoogle(): Promise<void> {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        skipBrowserRedirect: true,
+      },
+    })
+    if (error) throw new Error(
+      `[signInWithGoogle] ${error.message}`
+    )
+    const result = await WebBrowser.openAuthSessionAsync(
+      data?.url ?? '',
+      redirectTo
+    )
+    if (result.type === 'success') {
+      await createSessionFromUrl(result.url)
+    }
+  }
+
+  // ── Apple OAuth Sign-In ───────────────────────────────────
+  export async function signInWithApple(): Promise<void> {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo,
+        skipBrowserRedirect: true,
+      },
+    })
+    if (error) throw new Error(
+      `[signInWithApple] ${error.message}`
+    )
+    const result = await WebBrowser.openAuthSessionAsync(
+      data?.url ?? '',
+      redirectTo
+    )
+    if (result.type === 'success') {
+      await createSessionFromUrl(result.url)
+    }
+  }
+
+  // ── Sign Out ──────────────────────────────────────────────
+  export async function signOut(): Promise<void> {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw new Error(
+      `[signOut] ${error.message}`
+    )
+  }
+
+  // ── Get current session claims ────────────────────────────
+  export async function getSession() {
+    const { data: { claims } } =
+      await supabase.auth.getClaims()
+    return claims
+  }
+
+  // ── Get current user ──────────────────────────────────────
+  export async function getCurrentUser() {
+    const { data: { user }, error } =
+      await supabase.auth.getUser()
+    if (error) throw new Error(
+      `[getCurrentUser] ${error.message}`
+    )
+    return user
+  }
+
+  // ── Validate email format ─────────────────────────────────
+  export function isValidEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+  }
+
+  // ── Validate password strength ────────────────────────────
+  export function validatePassword(password: string): string | null {
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters.'
+    }
+    if (!/[A-Z]/.test(password)) {
+      return 'Password must contain at least one uppercase letter.'
+    }
+    if (!/[0-9]/.test(password)) {
+      return 'Password must contain at least one number.'
+    }
+    return null // null means valid
+  }
+
+═══════════════════════════════════════════════════════════════════
+STEP 5 — CREATE lib/database.ts (ALL DATABASE OPERATIONS)
+═══════════════════════════════════════════════════════════════════
+
+Create lib/database.ts. This is the single source of truth for
+all Supabase database operations. Every write mirrors to
+AsyncStorage first for offline fallback, then writes to
+Supabase. Every function throws errors explicitly.
+
+  import AsyncStorage
+    from '@react-native-async-storage/async-storage'
+  import { supabase } from './supabase'
+
+  // ══ USER PROFILE ════════════════════════════════════════
+
+  export async function upsertUserProfile(profile: {
+    id: string
+    body_type?: string
+    eye_color?: string
+    skin_tone?: string
+    undertone?: string
+    style_goals?: string[]
+    secondary_goal?: string
+    lifestyle?: Record<string, any>
+    constraints?: Record<string, any>
+    location_lat?: number
+    location_lon?: number
+    premium?: boolean
+    onboarding_complete?: boolean
+    is_guest?: boolean
+  }): Promise<void> {
+    await AsyncStorage.setItem(
+      '@auracloset_profile',
+      JSON.stringify(profile)
+    )
+    const { error } = await supabase
+      .from('user_profiles')
+      .upsert(profile, { onConflict: 'id' })
+    if (error) throw new Error(
+      `[upsertUserProfile] ${error.message}`
+    )
+  }
+
+  export async function getUserProfile(
+    userId: string
+  ): Promise<any | null> {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+    if (error && error.code !== 'PGRST116') {
+      throw new Error(`[getUserProfile] ${error.message}`)
+    }
+    return data ?? null
+  }
+
+  // ══ WARDROBE ITEMS ═══════════════════════════════════════
+
+  export async function insertWardrobeItem(item: {
+    user_id: string
+    garment_type: string
+    sub_type?: string
+    color_family?: string
+    description?: string
+    occasion?: string[]
+    image_url?: string
+    cleaned_image_url?: string
+  }): Promise<{ id: string }> {
+    const { data, error } = await supabase
+      .from('wardrobe_items')
+      .insert(item)
+      .select('id')
+      .single()
+    if (error) throw new Error(
+      `[insertWardrobeItem] ${error.message}`
+    )
+    const raw = await AsyncStorage.getItem(
+      '@auracloset_item_ids'
+    )
+    const ids: string[] = raw ? JSON.parse(raw) : []
+    ids.push(data.id)
+    await AsyncStorage.setItem(
+      '@auracloset_item_ids',
+      JSON.stringify(ids)
+    )
+    return { id: data.id }
+  }
+
+  export async function getWardrobeItems(
+    userId: string
+  ): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('wardrobe_items')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    if (error) throw new Error(
+      `[getWardrobeItems] ${error.message}`
+    )
+    return data ?? []
+  }
+
+  export async function deleteWardrobeItem(
+    itemId: string
+  ): Promise<void> {
+    const { error } = await supabase
+      .from('wardrobe_items')
+      .delete()
+      .eq('id', itemId)
+    if (error) throw new Error(
+      `[deleteWardrobeItem] ${error.message}`
+    )
+  }
+
+  export async function updateWardrobeItemAffinity(
+    itemId: string,
+    affinity: number
+  ): Promise<void> {
+    const clamped = Math.min(1.3, Math.max(0.7, affinity))
+    const { error } = await supabase
+      .from('wardrobe_items')
+      .update({ item_affinity: clamped,
+                updated_at: new Date() })
+      .eq('id', itemId)
+    if (error) throw new Error(
+      `[updateWardrobeItemAffinity] ${error.message}`
+    )
+  }
+
+  // ══ SLOT STATUSES ════════════════════════════════════════
+
+  export async function upsertSlotStatus(slot: {
+    user_id: string
+    slot_id: string
+    status: 'needed' | 'owned'
+    matched_item_id?: string | null
+  }): Promise<void> {
+    const { error } = await supabase
+      .from('slot_statuses')
+      .upsert(slot, { onConflict: 'user_id,slot_id' })
+    if (error) throw new Error(
+      `[upsertSlotStatus] ${error.message}`
+    )
+  }
+
+  export async function getSlotStatuses(
+    userId: string
+  ): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('slot_statuses')
+      .select('*')
+      .eq('user_id', userId)
+    if (error) throw new Error(
+      `[getSlotStatuses] ${error.message}`
+    )
+    return data ?? []
+  }
+
+  export async function bulkUpsertSlotStatuses(
+    slots: Array<{
+      user_id: string
+      slot_id: string
+      status: 'needed' | 'owned'
+      matched_item_id?: string | null
+    }>
+  ): Promise<void> {
+    if (slots.length === 0) return
+    const { error } = await supabase
+      .from('slot_statuses')
+      .upsert(slots, { onConflict: 'user_id,slot_id' })
+    if (error) throw new Error(
+      `[bulkUpsertSlotStatuses] ${error.message}`
+    )
+  }
+
+  // ══ WEAR LOGS ════════════════════════════════════════════
+
+  export async function insertWearLog(entry: {
+    user_id: string
+    outfit_fingerprint: string
+    item_ids: string[]
+    occasion?: string
+  }): Promise<void> {
+    const raw = await AsyncStorage.getItem(
+      '@auracloset_wear_log'
+    )
+    const logs = raw ? JSON.parse(raw) : []
+    logs.push({ ...entry,
+                logged_at: new Date().toISOString() })
+    await AsyncStorage.setItem(
+      '@auracloset_wear_log',
+      JSON.stringify(logs)
+    )
+    const { error } = await supabase
+      .from('wear_logs')
+      .insert(entry)
+    if (error) throw new Error(
+      `[insertWearLog] ${error.message}`
+    )
+  }
+
+  export async function getWearLogs(
+    userId: string
+  ): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('wear_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .order('logged_at', { ascending: false })
+    if (error) throw new Error(
+      `[getWearLogs] ${error.message}`
+    )
+    return data ?? []
+  }
+
+  export async function deleteWearLog(
+    logId: string
+  ): Promise<void> {
+    const { error } = await supabase
+      .from('wear_logs')
+      .delete()
+      .eq('id', logId)
+    if (error) throw new Error(
+      `[deleteWearLog] ${error.message}`
+    )
+  }
+
+  // ══ AFFINITY SIGNALS ═════════════════════════════════════
+
+  export async function insertAffinitySignal(signal: {
+    user_id: string
+    item_id: string
+    signal_type: 'love' | 'not_today' | 'worn'
+    weight?: number
+  }): Promise<void> {
+    const { error } = await supabase
+      .from('affinity_signals')
+      .insert(signal)
+    if (error) throw new Error(
+      `[insertAffinitySignal] ${error.message}`
+    )
+  }
+
+  export async function getAffinitySignals(
+    userId: string
+  ): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('affinity_signals')
+      .select('*')
+      .eq('user_id', userId)
+      .order('logged_at', { ascending: false })
+    if (error) throw new Error(
+      `[getAffinitySignals] ${error.message}`
+    )
+    return data ?? []
+  }
+
+  // ══ PAIR AFFINITY SIGNALS ════════════════════════════════
+
+  export async function insertPairAffinitySignal(
+    signal: {
+      user_id: string
+      item_id_a: string
+      item_id_b: string
+      signal_type: 'love' | 'not_today' | 'worn'
+      weight?: number
+    }
+  ): Promise<void> {
+    const { error } = await supabase
+      .from('pair_affinity_signals')
+      .insert(signal)
+    if (error) throw new Error(
+      `[insertPairAffinitySignal] ${error.message}`
+    )
+  }
+
+  export async function getPairAffinitySignals(
+    userId: string
+  ): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('pair_affinity_signals')
+      .select('*')
+      .eq('user_id', userId)
+    if (error) throw new Error(
+      `[getPairAffinitySignals] ${error.message}`
+    )
+    return data ?? []
+  }
+
+  // ══ ROTATION CURSORS ═════════════════════════════════════
+
+  export async function upsertRotationCursor(cursor: {
+    user_id: string
+    scenario: string
+    cursor_index: number
+    seed_date: string
+  }): Promise<void> {
+    const { error } = await supabase
+      .from('rotation_cursors')
+      .upsert(cursor, { onConflict: 'user_id,scenario' })
+    if (error) throw new Error(
+      `[upsertRotationCursor] ${error.message}`
+    )
+  }
+
+  export async function getRotationCursors(
+    userId: string
+  ): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('rotation_cursors')
+      .select('*')
+      .eq('user_id', userId)
+    if (error) throw new Error(
+      `[getRotationCursors] ${error.message}`
+    )
+    return data ?? []
+  }
+
+  // ══ TRYON PROFILES ═══════════════════════════════════════
+
+  export async function upsertTryonProfile(profile: {
+    user_id: string
+    photo_url: string
+    is_active?: boolean
+  }): Promise<void> {
+    const { error } = await supabase
+      .from('tryon_profiles')
+      .upsert(profile, { onConflict: 'user_id' })
+    if (error) throw new Error(
+      `[upsertTryonProfile] ${error.message}`
+    )
+  }
+
+  export async function getTryonProfile(
+    userId: string
+  ): Promise<any | null> {
+    const { data, error } = await supabase
+      .from('tryon_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .single()
+    if (error && error.code !== 'PGRST116') {
+      throw new Error(`[getTryonProfile] ${error.message}`)
+    }
+    return data ?? null
+  }
+
+═══════════════════════════════════════════════════════════════════
+STEP 6 — CREATE lib/storage.ts (IMAGE UPLOADS)
+═══════════════════════════════════════════════════════════════════
+
+Create lib/storage.ts. All image uploads and deletes go through
+this file. Never call Supabase Storage directly from components.
+
+  import { supabase } from './supabase'
+  import { decode } from 'base64-arraybuffer'
+
+  export async function uploadWardrobeImage(
+    userId: string,
+    imageBase64: string,
+    itemId: string
+  ): Promise<string> {
+    const fileName = `${userId}/${itemId}.png`
+    const { error } = await supabase.storage
+      .from('wardrobe-images')
+      .upload(fileName, decode(imageBase64), {
+        contentType: 'image/png',
+        upsert: true,
+      })
+    if (error) throw new Error(
+      `[uploadWardrobeImage] ${error.message}`
+    )
+    const { data } = supabase.storage
+      .from('wardrobe-images')
+      .getPublicUrl(fileName)
+    return data.publicUrl
+  }
+
+  export async function uploadTryonPhoto(
+    userId: string,
+    imageBase64: string
+  ): Promise<string> {
+    const fileName = `${userId}/reference.jpg`
+    const { error } = await supabase.storage
+      .from('tryon-photos')
+      .upload(fileName, decode(imageBase64), {
+        contentType: 'image/jpeg',
+        upsert: true,
+      })
+    if (error) throw new Error(
+      `[uploadTryonPhoto] ${error.message}`
+    )
+    const { data } = supabase.storage
+      .from('tryon-photos')
+      .getPublicUrl(fileName)
+    return data.publicUrl
+  }
+
+  export async function deleteWardrobeImage(
+    userId: string,
+    itemId: string
+  ): Promise<void> {
+    const { error } = await supabase.storage
+      .from('wardrobe-images')
+      .remove([`${userId}/${itemId}.png`])
+    if (error) throw new Error(
+      `[deleteWardrobeImage] ${error.message}`
+    )
+  }
+
+═══════════════════════════════════════════════════════════════════
+STEP 7 — UPDATE app/index.tsx (AUTH GATE)
+═══════════════════════════════════════════════════════════════════
+
+Update app/index.tsx to check for an active Supabase session
+before routing. Make only targeted additions — do not rewrite.
+
+  import { useEffect, useState } from 'react'
+  import {
+    View, ActivityIndicator, StyleSheet,
+  } from 'react-native'
+  import { router } from 'expo-router'
+  import { supabase } from '../lib/supabase'
+
+  export default function Index() {
+    const [checking, setChecking] = useState(true)
+
+    useEffect(() => {
+      supabase.auth.getClaims().then(
+        ({ data: { claims } }) => {
+          router.replace(claims ? '/(tabs)' : '/sign-in')
+          setChecking(false)
+        }
+      )
+
+      const { data: { subscription } } =
+        supabase.auth.onAuthStateChange((_event, session) => {
+          router.replace(
+            session ? '/(tabs)' : '/sign-in'
+          )
+        })
+
+      return () => subscription.unsubscribe()
+    }, [])
+
+    if (checking) {
+      return (
+        <View style={styles.container}>
+          <ActivityIndicator color="#D0B892" size="large" />
+        </View>
+      )
+    }
+    return null
+  }
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: '#F5F3F0',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  })
+
+═══════════════════════════════════════════════════════════════════
+STEP 8 — CREATE app/sign-in.tsx
+═══════════════════════════════════════════════════════════════════
+
+Create app/sign-in.tsx. This screen handles both sign-in and
+sign-up via a mode toggle. Email/password is the primary method.
+Google and Apple are social sign-in options above the form.
+There is NO magic link in this screen.
+
+SCREEN STRUCTURE (top to bottom):
+  1. AuraCloset wordmark + tagline (animated entry)
+  2. Google Sign-In button
+  3. Apple Sign-In button
+  4. Divider with "or" centred
+  5. Mode toggle: "Sign in" | "Create account" (text links)
+  6. Email input with label
+  7. Password input with label and show/hide toggle
+  8. [Sign-up mode only] Confirm password input + password
+     requirements hint below it
+  9. Submit button ("Sign in" or "Create account")
+  10. [Sign-in mode only] "Forgot password?" text link
+  11. Error box (shown below submit button when error exists)
+
+ENTRY ANIMATION:
+  Wordmark and tagline: translateY(10) + opacity:0 → rest
+  over 280ms ease-out. Buttons stagger in at 50ms intervals
+  after wordmark settles at 300ms total. Check reducedMotion
+  via AccessibilityInfo — if enabled, use opacity fade only
+  at 200ms, no transform.
+
+FORM VALIDATION RULES (validate on blur only):
+  Email: must pass isValidEmail() from lib/auth.ts
+  Password (sign-in): must not be empty
+  Password (sign-up): must pass validatePassword() from lib/auth.ts
+  Confirm password: must match password field exactly
+
+ERROR DISPLAY RULES:
+  - Each input has its own error state variable
+  - Error Text appears directly below the input it belongs to
+  - fontFamily Inter, fontSize 13, color #101826
+  - Wrapped in View with backgroundColor #EACFD3,
+    borderRadius 6, paddingHorizontal 12, paddingVertical 8,
+    marginTop 6
+  - A general auth error (wrong password, user not found)
+    appears below the submit button in the same error style
+
+LOADING STATE:
+  - Disable only the button currently being used
+  - Show ActivityIndicator inside the active button
+  - Never disable all buttons simultaneously
+  - All other buttons remain enabled during loading
+
+SIGN-UP CONFIRMATION STATE:
+  If signUpWithEmail returns { needsConfirmation: true },
+  replace the form with this message (no form, no buttons):
+
+    "Check your email to confirm your account.
+     Once confirmed, you can sign in above."
+
+  With a "Back to sign in" text link below it that resets
+  the screen to sign-in mode.
+
+  If needsConfirmation is false (email confirmation disabled),
+  the user is signed in automatically — no message needed.
+
+PASSWORD REQUIREMENTS HINT (sign-up mode only):
+  Show below the password input at all times (not just on error):
+    "At least 8 characters, one uppercase letter, one number."
+  fontFamily Inter, fontSize 12, color #8AA39B, marginTop 6
+
+SHOW/HIDE PASSWORD TOGGLE:
+  Position inside the right side of the password input row.
+  Use @expo/vector-icons Ionicons:
+    icon "eye-outline" when password is hidden
+    icon "eye-off-outline" when password is visible
+  Size: 20, color: #8AA39B
+  Touch target: minimum 44×44pt using hitSlop or padding
+
+GOOGLE AND APPLE BUTTONS:
+  Google: backgroundColor #101826, text color #D0B892
+  Apple:  backgroundColor #D0B892, text color #101826
+  Both: height 52, borderRadius 10, Inter font, fontSize 15,
+  fontWeight '500', activeOpacity={0.82}
+
+DIVIDER:
+  Two lines with "or" centred, color #D0B892 opacity 0.35
+  Label: Inter, fontSize 13, color #8AA39B
+
+MODE TOGGLE:
+  Two text options side by side: "Sign in" and "Create account"
+  Active mode: fontWeight '600', color #101826,
+               borderBottomWidth 1.5, borderColor #101826
+  Inactive mode: fontWeight '400', color #8AA39B
+  marginBottom 24
+
+SUBMIT BUTTON:
+  backgroundColor #101826, text color #D0B892
+  height 52, borderRadius 10, Inter, fontSize 15,
+  fontWeight '500', activeOpacity={0.82}
+  Disabled state: opacity 0.5
+
+FORGOT PASSWORD LINK:
+  Shown only in sign-in mode, below the submit button
+  Text: "Forgot password?"
+  Inter, fontSize 13, fontWeight '400', color #8AA39B
+  Navigates to: router.push('/forgot-password')
+  Minimum touch target 44pt via paddingVertical 12
+
+Handle OAuth deep link URL on this screen:
+  import * as Linking from 'expo-linking'
+  import { createSessionFromUrl } from '../lib/auth'
+
+  const url = Linking.useLinkingURL()
+  useEffect(() => {
+    if (url) {
+      createSessionFromUrl(url).catch(console.error)
+    }
+  }, [url])
+
+All spacing between sections must use the 4/8pt scale.
+Wrap entire screen in KeyboardAvoidingView (behavior 'padding'
+on iOS, 'height' on Android) → ScrollView with
+keyboardShouldPersistTaps="handled".
+
+═══════════════════════════════════════════════════════════════════
+STEP 9 — CREATE app/forgot-password.tsx
+═══════════════════════════════════════════════════════════════════
+
+Create app/forgot-password.tsx. This screen collects the user's
+email and calls requestPasswordReset from lib/auth.ts.
+
+SCREEN STRUCTURE:
+  1. Back navigation arrow (top left, router.back())
+  2. Heading: "Reset your password" (Inter, fontSize 24,
+     fontWeight '600', color #101826)
+  3. Subheading: "Enter your email and we will send you a
+     link to reset your password." (Inter, fontSize 15,
+     fontWeight '400', color #8AA39B, lineHeight 24)
+  4. Email input with label "Email address *"
+  5. Submit button: "Send reset link"
+  6. Error display below button (same style as sign-in errors)
+  7. Success state: replace form with confirmation message
+
+SUCCESS STATE (after reset email sent):
+  "We have sent a password reset link to [email].
+   Check your inbox and follow the link to set a new password."
+  Inter, fontSize 15, color #8AA39B, lineHeight 24
+  With a "Back to sign in" link: router.replace('/sign-in')
+
+VALIDATION:
+  Email: validate on blur using isValidEmail() from lib/auth.ts
+  Show error below input if invalid
+
+LOADING: ActivityIndicator inside submit button while request
+  is in progress, button disabled, opacity 0.5
+
+All design standards apply: 4/8pt spacing, Inter font,
+AuraCloset palette, no emojis, 44pt touch targets,
+activeOpacity={0.82} on all pressables.
+
+═══════════════════════════════════════════════════════════════════
+STEP 10 — CREATE app/auth/update-password.tsx
+═══════════════════════════════════════════════════════════════════
+
+Create app/auth/update-password.tsx. This screen is reached
+via the password reset email deep link. It collects a new
+password and calls updatePassword from lib/auth.ts.
+
+This screen must only be accessible when a session is active.
+On mount, check supabase.auth.getClaims() — if no session,
+redirect to /sign-in immediately.
+
+SCREEN STRUCTURE:
+  1. Heading: "Set a new password" (Inter, fontSize 24,
+     fontWeight '600', color #101826)
+  2. New password input with label "New password *"
+     and show/hide toggle
+  3. Password requirements hint below input:
+     "At least 8 characters, one uppercase letter, one number."
+  4. Confirm password input with label "Confirm password *"
+     and show/hide toggle
+  5. Submit button: "Update password"
+  6. Error display below button
+
+SUCCESS STATE:
+  Replace form with:
+  "Your password has been updated. You can now use your
+   new password to sign in."
+  With button: "Go to my wardrobe" → router.replace('/(tabs)')
+
+VALIDATION:
+  New password: validate on blur using validatePassword()
+  Confirm: must match new password, validate on blur
+  Show each error below its own input
+
+LOADING: ActivityIndicator inside submit button, disable during
+  request, opacity 0.5
+
+All design standards apply.
+
+═══════════════════════════════════════════════════════════════════
+STEP 11 — CREATE app/auth/callback.tsx
+═══════════════════════════════════════════════════════════════════
+
+Create app/auth/callback.tsx. Handles OAuth deep link redirect.
+
+  import { useEffect } from 'react'
+  import {
+    View, Text, StyleSheet, ActivityIndicator,
+  } from 'react-native'
+  import { router } from 'expo-router'
+  import { supabase } from '../../lib/supabase'
+
+  export default function AuthCallback() {
+    useEffect(() => {
+      supabase.auth.getClaims().then(
+        ({ data: { claims } }) => {
+          router.replace(claims ? '/(tabs)' : '/sign-in')
+        }
+      )
+    }, [])
+
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator color="#D0B892" size="large" />
+        <Text style={styles.label}>Signing you in...</Text>
+      </View>
+    )
+  }
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: '#F5F3F0',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 20,
+    },
+    label: {
+      fontFamily: 'Inter',
+      fontSize: 15,
+      fontWeight: '400',
+      color: '#101826',
+      letterSpacing: 0.3,
+    },
+  })
+
+═══════════════════════════════════════════════════════════════════
+STEP 12 — UPDATE contexts/AppContext.tsx
+═══════════════════════════════════════════════════════════════════
+
+Make these targeted additions to AppContext.tsx. Do not rewrite
+the file. Do not remove any existing state or functions.
+
+A. Add a Supabase auth listener on mount that:
+   1. On SIGNED_IN: creates user_profiles row via upsert with
+      ignoreDuplicates true, then loads all user data from
+      Supabase into existing Context state via Promise.all
+   2. On SIGNED_OUT: clears all in-memory state to defaults
+   3. Unsubscribes on unmount
+
+  import {
+    upsertUserProfile, getUserProfile, getWardrobeItems,
+    getSlotStatuses, getWearLogs, getRotationCursors,
+    getAffinitySignals, getPairAffinitySignals,
+  } from '../lib/database'
+  import { supabase } from '../lib/supabase'
+
+  const { data: { subscription } } =
+    supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          const userId = session.user.id
+
+          await upsertUserProfile({ id: userId })
+            .catch(console.error)
+
+          try {
+            const [
+              profile, items, slots, logs,
+              cursors, affinitySignals, pairSignals,
+            ] = await Promise.all([
+              getUserProfile(userId),
+              getWardrobeItems(userId),
+              getSlotStatuses(userId),
+              getWearLogs(userId),
+              getRotationCursors(userId),
+              getAffinitySignals(userId),
+              getPairAffinitySignals(userId),
+            ])
+
+            // Map each result to the matching existing Context
+            // state setter. Use the same variable names and
+            // setter names that already exist in the file.
+            // Do NOT rename or restructure existing state.
+            // If a setter does not exist, create one alongside
+            // existing state without altering other state.
+
+          } catch (err: any) {
+            console.error(
+              '[AppContext] Data load error:',
+              err.message
+            )
+          }
+        }
+
+        if (event === 'SIGNED_OUT') {
+          // Call each existing state setter with its default
+          // value to fully clear in-memory state on sign-out
+        }
+      }
+    )
+
+  return () => subscription.unsubscribe()
+
+B. For every mutation that currently uses AsyncStorage.setItem,
+   add a mirrored Supabase write immediately after using the
+   appropriate function from lib/database.ts:
+
+   // 1. AsyncStorage (immediate, offline-safe)
+   await AsyncStorage.setItem(key, JSON.stringify(value))
+   // 2. Supabase (source of truth)
+   await supabase_function(value).catch(console.error)
+
+   Apply to: profile saves, wardrobe item adds/removes, slot
+   status updates, wear log entries, affinity signal writes,
+   and rotation cursor updates.
+
+C. Update add-item.tsx to call uploadWardrobeImage from
+   lib/storage.ts after receiving cleaned image from
+   /api/process-garment, storing the returned URL as
+   cleaned_image_url on the item before inserting.
+
+D. Update the wardrobe item deletion handler to also call
+   deleteWardrobeImage from lib/storage.ts.
+
+═══════════════════════════════════════════════════════════════════
+STEP 13 — UPDATE app/(tabs)/profile.tsx (SIGN OUT)
+═══════════════════════════════════════════════════════════════════
+
+Add sign-out button at the very bottom of the profile screen.
+Targeted addition only — do not rewrite the file.
+
+  import { signOut } from '../../lib/auth'
+  import { router } from 'expo-router'
+
+  async function handleSignOut() {
+    try {
+      await signOut()
+      router.replace('/sign-in')
+    } catch (err: any) {
+      console.error('[profile] Sign out:', err.message)
+    }
+  }
+
+  // Add at bottom of screen JSX before closing View:
+  <TouchableOpacity
+    style={signOutStyles.button}
+    onPress={handleSignOut}
+    activeOpacity={0.82}
+    accessibilityLabel="Sign out of AuraCloset"
+    accessibilityRole="button"
+  >
+    <Text style={signOutStyles.label}>Sign out</Text>
+  </TouchableOpacity>
+
+  const signOutStyles = StyleSheet.create({
+    button: {
+      marginHorizontal: 24,
+      marginTop: 32,
+      marginBottom: 48,
+      height: 52,
+      borderRadius: 10,
+      borderWidth: 1.5,
+      borderColor: '#101826',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    label: {
+      fontFamily: 'Inter',
+      fontSize: 15,
+      fontWeight: '400',
+      color: '#101826',
+      letterSpacing: 0.3,
+    },
+  })
+
+═══════════════════════════════════════════════════════════════════
+STEP 14 — UPDATE server/routes.ts (SERVER-SIDE OPERATIONS)
+═══════════════════════════════════════════════════════════════════
+
+Add these routes to server/routes.ts using the admin client.
+Do NOT modify any existing routes.
+
+  import { supabaseAdmin } from './supabase'
+
+  // Upgrade user to premium
+  app.post('/api/user/upgrade-premium', async (req, res) => {
+    const { userId } = req.body
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'userId is required.',
+      })
+    }
+    try {
+      const { error } = await supabaseAdmin
+        .from('user_profiles')
+        .update({
+          premium: true,
+          premium_expires_at: new Date(
+            Date.now() + 365 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+        })
+        .eq('id', userId)
+      if (error) throw new Error(error.message)
+      return res.json({ success: true })
+    } catch (err: any) {
+      console.error('[upgrade-premium]', err.message)
+      return res.status(500).json({
+        success: false,
+        error: err.message,
+      })
+    }
+  })
+
+  // Delete user account and all data
+  app.delete('/api/user/delete-account', async (req, res) => {
+    const { userId } = req.body
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'userId is required.',
+      })
+    }
+    try {
+      const { error } = await supabaseAdmin.auth.admin
+        .deleteUser(userId)
+      if (error) throw new Error(error.message)
+      return res.json({ success: true })
+    } catch (err: any) {
+      console.error('[delete-account]', err.message)
+      return res.status(500).json({
+        success: false,
+        error: err.message,
+      })
+    }
+  })
+
+═══════════════════════════════════════════════════════════════════
+STEP 15 — CREATE .env FILE
+═══════════════════════════════════════════════════════════════════
+
+Create .env in the project root if it does not exist.
+Do NOT put SUPABASE_SECRET_KEY in this file.
+
+  EXPO_PUBLIC_SUPABASE_URL=<value from secret>
+  EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<value from secret>
+
+Add .env to .gitignore if not already present.
+
+═══════════════════════════════════════════════════════════════════
+STEP 16 — FINAL VERIFICATION CHECKLIST
+═══════════════════════════════════════════════════════════════════
+
+Confirm every item before marking complete:
+
+AUTH — CORE
+  [ ] lib/supabase.ts uses AsyncStorage on native, localStorage
+      on web, processLock, detectSessionInUrl: false,
+      AppState foreground refresh listener
+  [ ] server/supabase.ts not imported anywhere outside /server
+  [ ] lib/auth.ts exports: signUpWithEmail, signInWithEmail,
+      requestPasswordReset, updatePassword, signInWithGoogle,
+      signInWithApple, signOut, getSession, getCurrentUser,
+      createSessionFromUrl, isValidEmail, validatePassword
+  [ ] There is NO magic link method anywhere in the codebase
+  [ ] signUpWithEmail calls supabase.auth.signUp with
+      email and password
+  [ ] signInWithEmail calls supabase.auth.signInWithPassword
+      with email and password
+  [ ] requestPasswordReset calls supabase.auth.resetPasswordForEmail
+      with email and redirectTo
+  [ ] updatePassword calls supabase.auth.updateUser
+      with new password
+  [ ] OAuth uses expo-web-browser openAuthSessionAsync with
+      skipBrowserRedirect: true
+
+AUTH — SCREENS
+  [ ] app/sign-in.tsx exists with Google, Apple, and
+      email/password — NO magic link present
+  [ ] Sign-in screen has mode toggle: "Sign in" / "Create account"
+  [ ] Sign-in screen validates email and password on blur only
+  [ ] Sign-in screen shows errors below the specific input
+      that failed — never at the top of the form
+  [ ] Sign-in screen shows password requirements hint
+      in sign-up mode at all times
+  [ ] Password inputs have show/hide toggle with 44pt touch target
+  [ ] "Forgot password?" link navigates to /forgot-password
+  [ ] Sign-up mode shows confirm password field
+  [ ] needsConfirmation: true shows email check message
+  [ ] app/forgot-password.tsx exists with email input,
+      submit button, success confirmation state, back link
+  [ ] app/auth/update-password.tsx exists, checks session
+      on mount, has new + confirm password fields with
+      show/hide toggles, success state with CTA
+  [ ] app/auth/callback.tsx exists and routes on session
+  [ ] app/index.tsx checks session via getClaims() before
+      routing and subscribes to onAuthStateChange
+  [ ] app/(tabs)/profile.tsx has sign-out button
+
+AUTH — DESIGN STANDARDS
+  [ ] Every input has a visible Text label above it
+  [ ] No placeholder text used as a label substitute
+  [ ] All inputs: height 52, borderRadius 10, Inter font
+  [ ] Error messages use #EACFD3 background, #101826 text
+  [ ] No emojis on any auth screen
+  [ ] Inter font on every Text element
+  [ ] All buttons: activeOpacity={0.82}, height 52
+  [ ] All touch targets minimum 44×44pt
+  [ ] Entry animation checks AccessibilityInfo.isReduceMotionEnabled
+  [ ] Entry animation uses transform + opacity only
+  [ ] All spacing values use 4/8pt scale only
+
+DATABASE
+  [ ] lib/database.ts exports all CRUD functions for all 8 tables
+  [ ] Every write mirrors to AsyncStorage before Supabase
+  [ ] Every function throws with function name in error message
+  [ ] upsertUserProfile uses ignoreDuplicates for safety
+  [ ] AppContext loads all data on SIGNED_IN via Promise.all
+  [ ] AppContext clears state on SIGNED_OUT
+  [ ] AppContext auth listener unsubscribes on unmount
+
+STORAGE
+  [ ] lib/storage.ts exports uploadWardrobeImage,
+      uploadTryonPhoto, deleteWardrobeImage
+  [ ] add-item.tsx calls uploadWardrobeImage after processing
+  [ ] Item deletion calls deleteWardrobeImage
+
+SERVER
+  [ ] POST /api/user/upgrade-premium registered
+  [ ] DELETE /api/user/delete-account registered
+  [ ] No existing routes were modified
+
+SECURITY
+  [ ] SUPABASE_SECRET_KEY not in any frontend file
+  [ ] SUPABASE_SECRET_KEY not in .env
+  [ ] No API keys hardcoded anywhere in the codebase
+
+QUALITY
+  [ ] No TypeScript errors: npm run tsc --noEmit
+  [ ] All existing tests pass: npm test
+  [ ] No existing functionality removed or broken
+
+═══════════════════════════════════════════════════════════════════
+GLOBAL CONSTRAINTS — NEVER VIOLATE ANY OF THESE
+═══════════════════════════════════════════════════════════════════
+
+  - Never implement magic link — it has been deliberately
+    removed from this integration
+  - Never expose SUPABASE_SECRET_KEY client-side under any
+    circumstance
+  - Never remove or replace AsyncStorage — keep as offline cache
+    alongside every Supabase write
+  - Never rewrite existing files from scratch — surgical edits
+  - Never change the colour palette, font family, or add emojis
+  - Never validate forms on keystroke — only on blur
+  - Never show form errors at the top of the form — always
+    inline below the specific field that failed
+  - Never use placeholder text as a label substitute
+  - Never break the existing pre-commit test hook
+  - Always use TypeScript — no .js files
+  - Always handle every Supabase error explicitly with the
+    function name in the error message
+  - Always unsubscribe from every Supabase listener on unmount
+  - Always check prefers-reduced-motion on every animation
+  - Always use the 4/8pt spacing scale — no arbitrary values
+  - Always give password inputs a show/hide toggle
