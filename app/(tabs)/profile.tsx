@@ -9,6 +9,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal, LifePhase, Industry, FaceShape } from '@/constants/types';
 import { useEffect, useRef, useState } from 'react';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
+import CollapsibleSection from '@/components/CollapsibleSection';
 
 const HAIR_OPTS: { id: HairColor; label: string }[] = [
   { id: 'black', label: 'Black' }, { id: 'dark-brown', label: 'Dark Brown' },
@@ -106,6 +107,27 @@ export default function ProfileScreen() {
   const [refinementsY, setRefinementsY] = useState<number | null>(null);
   const effectiveTempUnit = profile.tempUnit ?? defaultTempUnit();
 
+  const colorAversions = profile.constraints.colorAversions ?? [];
+  const physicalSet = [profile.hairColor, profile.heightBand, profile.faceShape].filter(Boolean).length;
+  const physicalTotal = 3;
+
+  const styleSetCount = [
+    profile.contrastLevel,
+    profile.metalPreference,
+    colorAversions.length > 0 ? 'yes' : null,
+    profile.constraints.noSleeveless ? 'yes' : null,
+    profile.constraints.noShortSkirts ? 'yes' : null,
+    profile.constraints.maxHeelHeight !== 'any' ? 'yes' : null,
+  ].filter(Boolean).length;
+  const styleTotal = 6;
+
+  const lifestyleSetCount = [
+    profile.defaultMood,
+    (profile.industry && profile.industry !== 'unspecified') ? profile.industry : null,
+    profile.lifePhase,
+  ].filter(Boolean).length;
+  const lifestyleTotal = 3;
+
   useEffect(() => {
     if (focus === 'refinements' && refinementsY != null) {
       const t = setTimeout(() => {
@@ -169,181 +191,196 @@ export default function ProfileScreen() {
           <View style={styles.card}>
             <Text style={styles.refineHelp}>Optional — sharpen every recommendation.</Text>
 
-            <Text style={styles.refineLabel}>Hair</Text>
-            <View style={styles.refineChipRow}>
-              {HAIR_OPTS.map(h => {
-                const active = profile.hairColor === h.id;
-                return (
-                  <Pressable key={h.id} onPress={() => updateProfile({ hairColor: active ? null : h.id })}
-                    style={[styles.refineChip, active && styles.refineChipActive]}>
-                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>{h.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.refineLabel}>Height</Text>
-            <View style={styles.refineChipRow}>
-              {HEIGHT_OPTS.map(h => {
-                const active = profile.heightBand === h;
-                return (
-                  <Pressable key={h} onPress={() => updateProfile({ heightBand: active ? null : h })}
-                    style={[styles.refineChip, active && styles.refineChipActive]}>
-                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                      {h.charAt(0).toUpperCase() + h.slice(1)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.refineLabel}>Contrast</Text>
-            <View style={styles.refineChipRow}>
-              {CONTRAST_OPTS.map(c => {
-                const active = profile.contrastLevel === c;
-                return (
-                  <Pressable key={c} onPress={() => updateProfile({ contrastLevel: active ? null : c })}
-                    style={[styles.refineChip, active && styles.refineChipActive]}>
-                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                      {c.charAt(0).toUpperCase() + c.slice(1)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.refineLabel}>Metal preference</Text>
-            <View style={styles.refineChipRow}>
-              {METAL_OPTS.map(m => {
-                const active = profile.metalPreference === m;
-                return (
-                  <Pressable key={m} onPress={() => updateProfile({ metalPreference: active ? null : m })}
-                    style={[styles.refineChip, active && styles.refineChipActive]}>
-                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                      {m === 'rose-gold' ? 'Rose gold' : m.charAt(0).toUpperCase() + m.slice(1)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.refineLabel}>Default mood</Text>
-            <View style={styles.refineChipRow}>
-              {MOOD_OPTS.map(m => {
-                const active = profile.defaultMood === m;
-                return (
-                  <Pressable key={m} onPress={() => updateProfile({ defaultMood: active ? null : m })}
-                    style={[styles.refineChip, active && styles.refineChipActive]}>
-                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                      {m.charAt(0).toUpperCase() + m.slice(1)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.refineLabel}>Industry</Text>
-            <View style={styles.refineChipRow}>
-              {INDUSTRY_OPTS.map(i => {
-                const active = (profile.industry ?? 'unspecified') === i.id;
-                return (
-                  <Pressable key={i.id} onPress={() => updateProfile({ industry: i.id })}
-                    style={[styles.refineChip, active && styles.refineChipActive]}>
-                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                      {i.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.refineLabel}>Life phase</Text>
-            <View style={styles.refineChipRow}>
-              {LIFE_PHASE_OPTS.map(l => {
-                const active = profile.lifePhase === l.id;
-                return (
-                  <Pressable key={l.id} onPress={() => updateProfile({ lifePhase: active ? null : l.id })}
-                    style={[styles.refineChip, active && styles.refineChipActive]}>
-                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                      {l.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.refineLabel}>Face shape</Text>
-            <Text style={[{ fontSize: 12, color: Colors.textSecondary, marginBottom: 8 }]}>Shapes neckline recommendations for your features.</Text>
-            <View style={styles.refineChipRow}>
-              {FACE_SHAPE_OPTS.map(f => {
-                const active = profile.faceShape === f.id;
-                return (
-                  <Pressable key={f.id} onPress={() => updateProfile({ faceShape: active ? null : f.id })}
-                    style={[styles.refineChip, active && styles.refineChipActive]}>
-                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>{f.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={styles.refineLabel}>Colors to avoid</Text>
-            <View style={styles.refineChipRow}>
-              {AVERSION_OPTS.map(c => {
-                const current = profile.constraints.colorAversions ?? [];
-                const active = current.includes(c);
-                return (
-                  <Pressable key={c} onPress={() => {
-                    const next = active ? current.filter((x: string) => x !== c) : [...current, c];
-                    updateProfile({ constraints: { ...profile.constraints, colorAversions: next } });
-                  }}
-                    style={[styles.refineChip, active && styles.refineChipActive]}>
-                    <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                      {c.charAt(0).toUpperCase() + c.slice(1)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(280).duration(280)}>
-          <Text style={styles.sectionTitle}>Constraints</Text>
-          <View style={styles.card}>
-            <View style={styles.constraintRow}>
-              <Text style={styles.constraintLabel}>No sleeveless</Text>
-              <Switch
-                value={profile.constraints.noSleeveless}
-                onValueChange={(v) => updateProfile({ constraints: { ...profile.constraints, noSleeveless: v } })}
-                trackColor={{ true: Colors.secondary, false: Colors.border }}
-                thumbColor={Colors.white}
-              />
-            </View>
-            <View style={styles.constraintRow}>
-              <Text style={styles.constraintLabel}>No short skirts</Text>
-              <Switch
-                value={profile.constraints.noShortSkirts}
-                onValueChange={(v) => updateProfile({ constraints: { ...profile.constraints, noShortSkirts: v } })}
-                trackColor={{ true: Colors.secondary, false: Colors.border }}
-                thumbColor={Colors.white}
-              />
-            </View>
-            <View style={styles.constraintRow}>
-              <Text style={styles.constraintLabel}>Max heel height</Text>
-              <View style={styles.heelOptions}>
-                {(['any', 'medium', 'low', 'flat'] as const).map(h => (
-                  <Pressable
-                    key={h}
-                    style={[styles.heelChip, profile.constraints.maxHeelHeight === h && styles.heelChipActive]}
-                    onPress={() => updateProfile({ constraints: { ...profile.constraints, maxHeelHeight: h } })}
-                  >
-                    <Text style={[styles.heelChipText, profile.constraints.maxHeelHeight === h && styles.heelChipTextActive]}>
-                      {h.charAt(0).toUpperCase() + h.slice(1)}
-                    </Text>
-                  </Pressable>
-                ))}
+            <CollapsibleSection
+              title="Physical"
+              count={`${physicalSet} / ${physicalTotal} set`}
+              initiallyOpen={physicalSet > 0}
+            >
+              <Text style={styles.refineLabel}>Hair</Text>
+              <View style={styles.refineChipRow}>
+                {HAIR_OPTS.map(h => {
+                  const active = profile.hairColor === h.id;
+                  return (
+                    <Pressable key={h.id} onPress={() => updateProfile({ hairColor: active ? null : h.id })}
+                      style={[styles.refineChip, active && styles.refineChipActive]}>
+                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>{h.label}</Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-            </View>
+
+              <Text style={styles.refineLabel}>Height</Text>
+              <View style={styles.refineChipRow}>
+                {HEIGHT_OPTS.map(h => {
+                  const active = profile.heightBand === h;
+                  return (
+                    <Pressable key={h} onPress={() => updateProfile({ heightBand: active ? null : h })}
+                      style={[styles.refineChip, active && styles.refineChipActive]}>
+                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                        {h.charAt(0).toUpperCase() + h.slice(1)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.refineLabel}>Face shape</Text>
+              <Text style={styles.refineSubLabel}>Shapes neckline recommendations for your features.</Text>
+              <View style={styles.refineChipRow}>
+                {FACE_SHAPE_OPTS.map(f => {
+                  const active = profile.faceShape === f.id;
+                  return (
+                    <Pressable key={f.id} onPress={() => updateProfile({ faceShape: active ? null : f.id })}
+                      style={[styles.refineChip, active && styles.refineChipActive]}>
+                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>{f.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Style"
+              count={`${styleSetCount} / ${styleTotal} set`}
+              initiallyOpen={styleSetCount > 0}
+              hasBorderTop
+            >
+              <Text style={styles.refineLabel}>Contrast</Text>
+              <View style={styles.refineChipRow}>
+                {CONTRAST_OPTS.map(c => {
+                  const active = profile.contrastLevel === c;
+                  return (
+                    <Pressable key={c} onPress={() => updateProfile({ contrastLevel: active ? null : c })}
+                      style={[styles.refineChip, active && styles.refineChipActive]}>
+                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                        {c.charAt(0).toUpperCase() + c.slice(1)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.refineLabel}>Metal preference</Text>
+              <View style={styles.refineChipRow}>
+                {METAL_OPTS.map(m => {
+                  const active = profile.metalPreference === m;
+                  return (
+                    <Pressable key={m} onPress={() => updateProfile({ metalPreference: active ? null : m })}
+                      style={[styles.refineChip, active && styles.refineChipActive]}>
+                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                        {m === 'rose-gold' ? 'Rose gold' : m.charAt(0).toUpperCase() + m.slice(1)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.refineLabel}>Colors to avoid</Text>
+              <View style={styles.refineChipRow}>
+                {AVERSION_OPTS.map(c => {
+                  const current = profile.constraints.colorAversions ?? [];
+                  const active = current.includes(c);
+                  return (
+                    <Pressable key={c} onPress={() => {
+                      const next = active ? current.filter((x: string) => x !== c) : [...current, c];
+                      updateProfile({ constraints: { ...profile.constraints, colorAversions: next } });
+                    }}
+                      style={[styles.refineChip, active && styles.refineChipActive]}>
+                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                        {c.charAt(0).toUpperCase() + c.slice(1)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View style={styles.constraintRow}>
+                <Text style={styles.constraintLabel}>No sleeveless</Text>
+                <Switch
+                  value={profile.constraints.noSleeveless}
+                  onValueChange={(v) => updateProfile({ constraints: { ...profile.constraints, noSleeveless: v } })}
+                  trackColor={{ true: Colors.secondary, false: Colors.border }}
+                  thumbColor={Colors.white}
+                />
+              </View>
+              <View style={styles.constraintRow}>
+                <Text style={styles.constraintLabel}>No short skirts</Text>
+                <Switch
+                  value={profile.constraints.noShortSkirts}
+                  onValueChange={(v) => updateProfile({ constraints: { ...profile.constraints, noShortSkirts: v } })}
+                  trackColor={{ true: Colors.secondary, false: Colors.border }}
+                  thumbColor={Colors.white}
+                />
+              </View>
+              <View style={styles.constraintRow}>
+                <Text style={styles.constraintLabel}>Max heel height</Text>
+                <View style={styles.heelOptions}>
+                  {(['any', 'medium', 'low', 'flat'] as const).map(h => (
+                    <Pressable
+                      key={h}
+                      style={[styles.heelChip, profile.constraints.maxHeelHeight === h && styles.heelChipActive]}
+                      onPress={() => updateProfile({ constraints: { ...profile.constraints, maxHeelHeight: h } })}
+                    >
+                      <Text style={[styles.heelChipText, profile.constraints.maxHeelHeight === h && styles.heelChipTextActive]}>
+                        {h.charAt(0).toUpperCase() + h.slice(1)}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            </CollapsibleSection>
+
+            <CollapsibleSection
+              title="Lifestyle"
+              count={`${lifestyleSetCount} / ${lifestyleTotal} set`}
+              initiallyOpen={lifestyleSetCount > 0}
+              hasBorderTop
+            >
+              <Text style={styles.refineLabel}>Default mood</Text>
+              <View style={styles.refineChipRow}>
+                {MOOD_OPTS.map(m => {
+                  const active = profile.defaultMood === m;
+                  return (
+                    <Pressable key={m} onPress={() => updateProfile({ defaultMood: active ? null : m })}
+                      style={[styles.refineChip, active && styles.refineChipActive]}>
+                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                        {m.charAt(0).toUpperCase() + m.slice(1)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.refineLabel}>Industry</Text>
+              <View style={styles.refineChipRow}>
+                {INDUSTRY_OPTS.map(i => {
+                  const active = (profile.industry ?? 'unspecified') === i.id;
+                  return (
+                    <Pressable key={i.id} onPress={() => updateProfile({ industry: i.id })}
+                      style={[styles.refineChip, active && styles.refineChipActive]}>
+                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                        {i.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.refineLabel}>Life phase</Text>
+              <View style={styles.refineChipRow}>
+                {LIFE_PHASE_OPTS.map(l => {
+                  const active = profile.lifePhase === l.id;
+                  return (
+                    <Pressable key={l.id} onPress={() => updateProfile({ lifePhase: active ? null : l.id })}
+                      style={[styles.refineChip, active && styles.refineChipActive]}>
+                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
+                        {l.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </CollapsibleSection>
           </View>
         </Animated.View>
 
@@ -632,9 +669,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
   },
 
-  refineHelp: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, marginBottom: 10, fontStyle: 'italic', paddingHorizontal: 10, paddingTop: 6 },
-  refineLabel: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary, marginTop: 10, marginBottom: 6, paddingHorizontal: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
-  refineChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 10, paddingBottom: 4 },
+  refineHelp: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, marginBottom: 4, fontStyle: 'italic', paddingHorizontal: 14, paddingTop: 6 },
+  refineLabel: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary, marginTop: 10, marginBottom: 6, paddingHorizontal: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
+  refineSubLabel: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginBottom: 8, paddingHorizontal: 14 },
+  refineChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14, paddingBottom: 4 },
   refineChip: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 10, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
   refineChipActive: { backgroundColor: Colors.secondary, borderColor: Colors.secondary },
   refineChipText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary },
