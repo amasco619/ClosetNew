@@ -188,6 +188,40 @@ function buildDescription(displayName: string, colorFamily: string | null): stri
   return displayName;
 }
 
+// ─── Perceptual colour helpers (sRGB → HSL / CIE Lab) ────────────────────────
+// Restored for computing dominantHsl / dominantLab from Gemini's dominant RGB.
+
+function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+  const rn = r / 255, gn = g / 255, bn = b / 255;
+  const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  let h = 0, s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case rn: h = (gn - bn) / d + (gn < bn ? 6 : 0); break;
+      case gn: h = (bn - rn) / d + 2; break;
+      case bn: h = (rn - gn) / d + 4; break;
+    }
+    h *= 60;
+  }
+  return { h, s, l };
+}
+
+function rgbToLab(r: number, g: number, b: number): { L: number; a: number; b: number } {
+  const lin = [r, g, b].map(v => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  const X = (lin[0] * 0.4124564 + lin[1] * 0.3575761 + lin[2] * 0.1804375) / 0.95047;
+  const Y = (lin[0] * 0.2126729 + lin[1] * 0.7151522 + lin[2] * 0.0721750);
+  const Z = (lin[0] * 0.0193339 + lin[1] * 0.1191920 + lin[2] * 0.9503041) / 1.08883;
+  const f = (t: number) => t > 0.008856 ? Math.cbrt(t) : (7.787 * t + 16 / 116);
+  const fx = f(X), fy = f(Y), fz = f(Z);
+  return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+}
+
 // ─── Valid value sets (used for validation after Gemini response) ─────────────
 
 const VALID_CATEGORIES = new Set<string>(["top", "bottom", "dress", "outerwear", "shoes", "bag", "jewelry"]);
@@ -262,6 +296,8 @@ pattern (optional): One of: "solid" | "stripe" | "floral" | "check" | "print" | 
 
 patternScale (optional): Only include when pattern is NOT solid. One of: "small" | "medium" | "large"
 
+dominantRgb (required): The representative sRGB colour of the garment's primary colour family as a 3-element array [R, G, B] where each value is an integer 0–255. This must correspond to the chosen colorFamily (e.g. a navy item → approximately [26, 42, 74]). Used for perceptual colour scoring.
+
 modelConfidence (required): Your confidence in the classification as a decimal between 0.0 and 1.0.
 
 Return ONLY valid JSON. No markdown, no code fences, no commentary.`;
@@ -277,6 +313,7 @@ interface GeminiResult {
   fabric?: string;
   pattern?: string;
   patternScale?: string;
+  dominantRgb?: [number, number, number];
   modelConfidence?: number;
 }
 
@@ -398,6 +435,23 @@ export async function classifyGarment(req: Request, res: Response) {
     const weight = inferWeight(fabric);
     const seasonTags = inferSeasonTags(subType, fabric ?? null);
 
+    // ── Perceptual colour signals ─────────────────────────────────────────────
+    // Derive HSL + Lab from the Gemini-supplied representative RGB so downstream
+    // outfit scoring can reason about undertone, value spread, and saturation —
+    // the same perceptual signals the old GCV pixel pipeline provided.
+    let dominantHsl: { h: number; s: number; l: number } | undefined;
+    let dominantLab: { L: number; a: number; b: number } | undefined;
+
+    if (
+      Array.isArray(parsed.dominantRgb) &&
+      parsed.dominantRgb.length === 3 &&
+      parsed.dominantRgb.every((v: unknown) => typeof v === "number" && v >= 0 && v <= 255)
+    ) {
+      const [r, g, b] = parsed.dominantRgb as [number, number, number];
+      dominantHsl = rgbToHsl(r, g, b);
+      dominantLab = rgbToLab(r, g, b);
+    }
+
     if (userId) {
       console.log(`[classify] user=${userId} → ${subType ?? "unknown"} (${colorFamily}) conf=${modelConfidence.toFixed(2)}`);
     } else {
@@ -416,8 +470,8 @@ export async function classifyGarment(req: Request, res: Response) {
       patternScale,
       fabric,
       weight,
-      dominantHsl: undefined,
-      dominantLab: undefined,
+      dominantHsl,
+      dominantLab,
       modelConfidence,
       source: "gemini",
     });
