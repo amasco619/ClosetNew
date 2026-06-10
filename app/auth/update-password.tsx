@@ -22,8 +22,8 @@ export default function UpdatePasswordScreen() {
   const [confirmFocused, setConfirmFocused] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getClaims().then(({ data: { claims } }) => {
-      if (!claims) {
+    supabase.auth.getClaims().then(({ data }) => {
+      if (!data?.claims) {
         router.replace('/sign-in')
       }
     })

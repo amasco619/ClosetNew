@@ -20,7 +20,8 @@ export default function IndexScreen() {
   }, [url]);
 
   useEffect(() => {
-    supabase.auth.getClaims().then(({ data: { claims } }) => {
+    supabase.auth.getClaims().then(({ data }) => {
+      const claims = data?.claims;
       if (!claims) {
         router.replace('/sign-in');
       } else {

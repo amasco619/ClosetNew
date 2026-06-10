@@ -5,11 +5,9 @@ import { supabase } from '../../lib/supabase'
 
 export default function AuthCallback() {
   useEffect(() => {
-    supabase.auth.getClaims().then(
-      ({ data: { claims } }) => {
-        router.replace(claims ? '/(tabs)' : '/sign-in')
-      }
-    )
+    supabase.auth.getClaims().then(({ data }) => {
+      router.replace(data?.claims ? '/(tabs)' : '/sign-in')
+    })
   }, [])
 
   return (
