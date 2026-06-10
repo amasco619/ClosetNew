@@ -151,6 +151,12 @@ function localClassifyFallback(category: ItemCategory): { subType: string; color
   };
 }
 
+class ContentGuardrailError extends Error {
+  constructor(public reason: string) {
+    super('content_guardrail');
+  }
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AddItemScreen() {
@@ -262,7 +268,20 @@ export default function AddItemScreen() {
         dominantHsl:  data.dominantHsl,
         dominantLab:  data.dominantLab,
       };
-    } catch {
+    } catch (err: any) {
+      // Detect content guardrail: apiRequest throws "422: {json}" for non-2xx responses
+      if (err?.message?.startsWith('422:')) {
+        try {
+          const body = JSON.parse(err.message.slice(4).trim());
+          if (body?.error === 'content_guardrail') {
+            throw new ContentGuardrailError(
+              body.reason ?? 'This image could not be classified as a clothing item.'
+            );
+          }
+        } catch (parseErr) {
+          if (parseErr instanceof ContentGuardrailError) throw parseErr;
+        }
+      }
       const fallback = localClassifyFallback(cat);
       return { category: cat, subType: fallback.subType, colorFamily: fallback.colorFamily, description: '', occasionTags: [], seasonTags: [] };
     }
@@ -315,7 +334,18 @@ export default function AddItemScreen() {
 
         if (asset.base64) {
           setClassifying(true);
-          const classified = await classifyWithServer(asset.base64, category);
+          let classified;
+          try {
+            classified = await classifyWithServer(asset.base64, category);
+          } catch (classifyErr) {
+            setClassifying(false);
+            if (classifyErr instanceof ContentGuardrailError) {
+              setPhotoUri(null);
+              setStep(0);
+              Alert.alert('Photo not accepted', classifyErr.reason);
+            }
+            return;
+          }
           setCategory(classified.category);
 
           const validSub = subTypes[classified.category]?.includes(classified.subType) ? classified.subType : '';
