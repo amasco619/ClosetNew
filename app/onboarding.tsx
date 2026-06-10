@@ -534,7 +534,13 @@ export default function OnboardingScreen() {
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <View style={styles.topBar}>
         {(step > 0 || params.guest === 'true') ? (
-          <Pressable onPress={step > 0 ? handleBack : () => router.back()} style={styles.backBtn}>
+          <Pressable
+            onPress={step > 0 ? handleBack : () => {
+              if (router.canGoBack()) router.back();
+              else router.replace('/welcome');
+            }}
+            style={styles.backBtn}
+          >
             <Ionicons name="chevron-back" size={24} color={Colors.primary} />
           </Pressable>
         ) : <View style={{ width: 40 }} />}

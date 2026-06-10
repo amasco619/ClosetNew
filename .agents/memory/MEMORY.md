@@ -3,3 +3,4 @@
 - [Supabase getClaims null safety](supabase-getclaims-null.md) — getClaims() returns data:null when no session; always use data?.claims not destructuring
 - [Guest mode pattern](guest-mode.md) — isGuest on UserProfile; GUEST_ITEM_CAP=5 vs FREE_ITEM_CAP=10; SIGNED_IN always clears isGuest in AppContext.
 - [Gemini extended clothing fields](gemini-clothing-fields.md) — Gemini prompt returns fit/neckline/sleeveLength/rise/warmthBand; applied before subtype inference in add-item.tsx.
+- [Supabase RLS bypass via Express proxy](supabase-rls-proxy.md) — anon key is RLS-blocked; all DB ops route through Express /api/db/* with admin client + JWT verification.

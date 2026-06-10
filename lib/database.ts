@@ -1,5 +1,35 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { fetch } from 'expo/fetch'
 import { supabase } from './supabase'
+import { getApiUrl } from './query-client'
+
+// ── AUTHENTICATED API HELPER ──────────────────────────────
+// All DB operations route through the Express backend with the
+// admin Supabase client so RLS is never an obstacle.
+
+async function dbApi(method: string, path: string, body?: unknown): Promise<any> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  if (!token) throw new Error('Not authenticated')
+
+  const baseUrl = getApiUrl()
+  const url = new URL(`/api/db/${path}`, baseUrl)
+
+  const isGet = method === 'GET'
+  const res = await (fetch as any)(url.toString(), {
+    method,
+    headers: {
+      ...(!isGet ? { 'Content-Type': 'application/json' } : {}),
+      'Authorization': `Bearer ${token}`,
+    },
+    body: !isGet && body !== undefined ? JSON.stringify(body) : undefined,
+    credentials: 'include',
+  })
+
+  const json = await res.json()
+  if (!res.ok) throw new Error(json?.error ?? String(res.status))
+  return json
+}
 
 // ══ USER PROFILE ════════════════════════════════════════
 
@@ -23,22 +53,12 @@ export async function upsertUserProfile(profile: {
     '@auracloset_profile',
     JSON.stringify(profile)
   )
-  const { error } = await supabase
-    .from('user_profiles')
-    .upsert(profile, { onConflict: 'id' })
-  if (error) throw new Error(`[upsertUserProfile] ${error.message}`)
+  await dbApi('POST', 'profile', profile)
 }
 
-export async function getUserProfile(userId: string): Promise<any | null> {
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .select('*')
-    .eq('id', userId)
-    .single()
-  if (error && error.code !== 'PGRST116') {
-    throw new Error(`[getUserProfile] ${error.message}`)
-  }
-  return data ?? null
+export async function getUserProfile(_userId: string): Promise<any | null> {
+  const res = await dbApi('GET', 'profile')
+  return res.data ?? null
 }
 
 // ══ WARDROBE ITEMS ═══════════════════════════════════════
@@ -54,47 +74,28 @@ export async function insertWardrobeItem(item: {
   image_url?: string
   cleaned_image_url?: string
 }): Promise<{ id: string }> {
-  const { data, error } = await supabase
-    .from('wardrobe_items')
-    .insert(item)
-    .select('id')
-    .single()
-  if (error) throw new Error(`[insertWardrobeItem] ${error.message}`)
+  const res = await dbApi('POST', 'wardrobe', item)
   const raw = await AsyncStorage.getItem('@auracloset_item_ids')
   const ids: string[] = raw ? JSON.parse(raw) : []
-  ids.push(data.id)
+  ids.push(res.id)
   await AsyncStorage.setItem('@auracloset_item_ids', JSON.stringify(ids))
-  return { id: data.id }
+  return { id: res.id }
 }
 
-export async function getWardrobeItems(userId: string): Promise<any[]> {
-  const { data, error } = await supabase
-    .from('wardrobe_items')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-  if (error) throw new Error(`[getWardrobeItems] ${error.message}`)
-  return data ?? []
+export async function getWardrobeItems(_userId: string): Promise<any[]> {
+  const res = await dbApi('GET', 'wardrobe')
+  return res.data ?? []
 }
 
 export async function deleteWardrobeItem(itemId: string): Promise<void> {
-  const { error } = await supabase
-    .from('wardrobe_items')
-    .delete()
-    .eq('id', itemId)
-  if (error) throw new Error(`[deleteWardrobeItem] ${error.message}`)
+  await dbApi('DELETE', `wardrobe/${itemId}`)
 }
 
 export async function updateWardrobeItemAffinity(
   itemId: string,
   affinity: number
 ): Promise<void> {
-  const clamped = Math.min(1.3, Math.max(0.7, affinity))
-  const { error } = await supabase
-    .from('wardrobe_items')
-    .update({ item_affinity: clamped, updated_at: new Date() })
-    .eq('id', itemId)
-  if (error) throw new Error(`[updateWardrobeItemAffinity] ${error.message}`)
+  await dbApi('PATCH', `wardrobe/${itemId}/affinity`, { affinity })
 }
 
 // ══ SLOT STATUSES ════════════════════════════════════════
@@ -105,19 +106,12 @@ export async function upsertSlotStatus(slot: {
   status: 'needed' | 'owned'
   matched_item_id?: string | null
 }): Promise<void> {
-  const { error } = await supabase
-    .from('slot_statuses')
-    .upsert(slot, { onConflict: 'user_id,slot_id' })
-  if (error) throw new Error(`[upsertSlotStatus] ${error.message}`)
+  await dbApi('POST', 'slot-statuses', slot)
 }
 
-export async function getSlotStatuses(userId: string): Promise<any[]> {
-  const { data, error } = await supabase
-    .from('slot_statuses')
-    .select('*')
-    .eq('user_id', userId)
-  if (error) throw new Error(`[getSlotStatuses] ${error.message}`)
-  return data ?? []
+export async function getSlotStatuses(_userId: string): Promise<any[]> {
+  const res = await dbApi('GET', 'slot-statuses')
+  return res.data ?? []
 }
 
 export async function bulkUpsertSlotStatuses(
@@ -129,10 +123,7 @@ export async function bulkUpsertSlotStatuses(
   }>
 ): Promise<void> {
   if (slots.length === 0) return
-  const { error } = await supabase
-    .from('slot_statuses')
-    .upsert(slots, { onConflict: 'user_id,slot_id' })
-  if (error) throw new Error(`[bulkUpsertSlotStatuses] ${error.message}`)
+  await dbApi('POST', 'slot-statuses/bulk', { slots })
 }
 
 // ══ WEAR LOGS ════════════════════════════════════════════
@@ -147,26 +138,16 @@ export async function insertWearLog(entry: {
   const logs = raw ? JSON.parse(raw) : []
   logs.push({ ...entry, logged_at: new Date().toISOString() })
   await AsyncStorage.setItem('@auracloset_wear_log', JSON.stringify(logs))
-  const { error } = await supabase.from('wear_logs').insert(entry)
-  if (error) throw new Error(`[insertWearLog] ${error.message}`)
+  await dbApi('POST', 'wear-logs', entry)
 }
 
-export async function getWearLogs(userId: string): Promise<any[]> {
-  const { data, error } = await supabase
-    .from('wear_logs')
-    .select('*')
-    .eq('user_id', userId)
-    .order('logged_at', { ascending: false })
-  if (error) throw new Error(`[getWearLogs] ${error.message}`)
-  return data ?? []
+export async function getWearLogs(_userId: string): Promise<any[]> {
+  const res = await dbApi('GET', 'wear-logs')
+  return res.data ?? []
 }
 
 export async function deleteWearLog(logId: string): Promise<void> {
-  const { error } = await supabase
-    .from('wear_logs')
-    .delete()
-    .eq('id', logId)
-  if (error) throw new Error(`[deleteWearLog] ${error.message}`)
+  await dbApi('DELETE', `wear-logs/${logId}`)
 }
 
 // ══ AFFINITY SIGNALS ═════════════════════════════════════
@@ -177,18 +158,12 @@ export async function insertAffinitySignal(signal: {
   signal_type: 'love' | 'not_today' | 'worn'
   weight?: number
 }): Promise<void> {
-  const { error } = await supabase.from('affinity_signals').insert(signal)
-  if (error) throw new Error(`[insertAffinitySignal] ${error.message}`)
+  await dbApi('POST', 'affinity', signal)
 }
 
-export async function getAffinitySignals(userId: string): Promise<any[]> {
-  const { data, error } = await supabase
-    .from('affinity_signals')
-    .select('*')
-    .eq('user_id', userId)
-    .order('logged_at', { ascending: false })
-  if (error) throw new Error(`[getAffinitySignals] ${error.message}`)
-  return data ?? []
+export async function getAffinitySignals(_userId: string): Promise<any[]> {
+  const res = await dbApi('GET', 'affinity')
+  return res.data ?? []
 }
 
 // ══ PAIR AFFINITY SIGNALS ════════════════════════════════
@@ -200,17 +175,12 @@ export async function insertPairAffinitySignal(signal: {
   signal_type: 'love' | 'not_today' | 'worn'
   weight?: number
 }): Promise<void> {
-  const { error } = await supabase.from('pair_affinity_signals').insert(signal)
-  if (error) throw new Error(`[insertPairAffinitySignal] ${error.message}`)
+  await dbApi('POST', 'pair-affinity', signal)
 }
 
-export async function getPairAffinitySignals(userId: string): Promise<any[]> {
-  const { data, error } = await supabase
-    .from('pair_affinity_signals')
-    .select('*')
-    .eq('user_id', userId)
-  if (error) throw new Error(`[getPairAffinitySignals] ${error.message}`)
-  return data ?? []
+export async function getPairAffinitySignals(_userId: string): Promise<any[]> {
+  const res = await dbApi('GET', 'pair-affinity')
+  return res.data ?? []
 }
 
 // ══ ROTATION CURSORS ═════════════════════════════════════
@@ -221,19 +191,12 @@ export async function upsertRotationCursor(cursor: {
   cursor_index: number
   seed_date: string
 }): Promise<void> {
-  const { error } = await supabase
-    .from('rotation_cursors')
-    .upsert(cursor, { onConflict: 'user_id,scenario' })
-  if (error) throw new Error(`[upsertRotationCursor] ${error.message}`)
+  await dbApi('POST', 'rotation', cursor)
 }
 
-export async function getRotationCursors(userId: string): Promise<any[]> {
-  const { data, error } = await supabase
-    .from('rotation_cursors')
-    .select('*')
-    .eq('user_id', userId)
-  if (error) throw new Error(`[getRotationCursors] ${error.message}`)
-  return data ?? []
+export async function getRotationCursors(_userId: string): Promise<any[]> {
+  const res = await dbApi('GET', 'rotation')
+  return res.data ?? []
 }
 
 // ══ TRYON PROFILES ═══════════════════════════════════════
@@ -243,21 +206,10 @@ export async function upsertTryonProfile(profile: {
   photo_url: string
   is_active?: boolean
 }): Promise<void> {
-  const { error } = await supabase
-    .from('tryon_profiles')
-    .upsert(profile, { onConflict: 'user_id' })
-  if (error) throw new Error(`[upsertTryonProfile] ${error.message}`)
+  await dbApi('POST', 'tryon-profile', profile)
 }
 
-export async function getTryonProfile(userId: string): Promise<any | null> {
-  const { data, error } = await supabase
-    .from('tryon_profiles')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('is_active', true)
-    .single()
-  if (error && error.code !== 'PGRST116') {
-    throw new Error(`[getTryonProfile] ${error.message}`)
-  }
-  return data ?? null
+export async function getTryonProfile(_userId: string): Promise<any | null> {
+  const res = await dbApi('GET', 'tryon-profile')
+  return res.data ?? null
 }
