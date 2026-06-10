@@ -117,7 +117,7 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.header}>
+        <Animated.View entering={FadeInDown.delay(60).duration(280)} style={styles.header}>
           <View style={styles.avatarCircle}>
             <MaterialCommunityIcons name="hanger" size={32} color={Colors.secondary} />
           </View>
@@ -125,7 +125,7 @@ export default function ProfileScreen() {
           <Text style={styles.tierLabel}>{isPremium ? 'Premium Member' : 'Free Plan'}</Text>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.statsBar}>
+        <Animated.View entering={FadeInDown.delay(120).duration(280)} style={styles.statsBar}>
           <View style={styles.miniStat}>
             <Text style={styles.miniStatNum}>{wardrobeItems.length}</Text>
             <Text style={styles.miniStatLabel}>Items</Text>
@@ -142,7 +142,7 @@ export default function ProfileScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(300).duration(500)}>
+        <Animated.View entering={FadeInDown.delay(180).duration(280)}>
           <Text style={styles.sectionTitle}>Style Profile</Text>
           <View style={styles.card}>
             {profile.bodyType && <ProfileRow icon="body-outline" label="Body Type" value={bodyTypeLabels[profile.bodyType] || ''} />}
@@ -161,7 +161,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         <Animated.View
-          entering={FadeInDown.delay(350).duration(500)}
+          entering={FadeInDown.delay(230).duration(280)}
           onLayout={(e) => setRefinementsY(e.nativeEvent.layout.y)}
         >
           <Text style={styles.sectionTitle}>Refinements</Text>
@@ -306,7 +306,7 @@ export default function ProfileScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(400).duration(500)}>
+        <Animated.View entering={FadeInDown.delay(280).duration(280)}>
           <Text style={styles.sectionTitle}>Constraints</Text>
           <View style={styles.card}>
             <View style={styles.constraintRow}>
@@ -346,7 +346,7 @@ export default function ProfileScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(440).duration(500)}>
+        <Animated.View entering={FadeInDown.delay(320).duration(280)}>
           <Text style={styles.sectionTitle}>Weather</Text>
           <View style={styles.card}>
             <View style={styles.constraintRow}>
@@ -387,7 +387,7 @@ export default function ProfileScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(460).duration(500)}>
+        <Animated.View entering={FadeInDown.delay(355).duration(280)}>
           <Text style={styles.sectionTitle}>Track & History</Text>
           <View style={styles.card}>
             <Pressable style={styles.premiumFeatureRow} onPress={() => router.push('/wear-log')}>
@@ -407,7 +407,7 @@ export default function ProfileScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(480).duration(500)}>
+        <Animated.View entering={FadeInDown.delay(390).duration(280)}>
           <Pressable
             onPress={() => setShowAffinityDebug(s => !s)}
             style={styles.affinityHeaderRow}
@@ -496,7 +496,7 @@ export default function ProfileScreen() {
           )}
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(500).duration(500)}>
+        <Animated.View entering={FadeInDown.delay(420).duration(280)}>
           <Text style={styles.sectionTitle}>Subscription</Text>
           <View style={styles.card}>
             <View style={styles.premiumRow}>
@@ -524,7 +524,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {isPremium && (
-          <Animated.View entering={FadeInDown.delay(560).duration(500)}>
+          <Animated.View entering={FadeInDown.delay(450).duration(280)}>
             <Text style={styles.sectionTitle}>Premium Features</Text>
             <View style={styles.card}>
               <Pressable style={styles.premiumFeatureRow} onPress={() => router.push('/diagnostics')}>
@@ -552,7 +552,7 @@ export default function ProfileScreen() {
           </Animated.View>
         )}
 
-        <Animated.View entering={FadeInDown.delay(600).duration(500)}>
+        <Animated.View entering={FadeInDown.delay(480).duration(280)}>
           <Pressable
             style={styles.redoOnboarding}
             onPress={() => {
@@ -574,53 +574,95 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scrollContent: { paddingHorizontal: 20 },
-  header: { alignItems: 'center', marginTop: 8, marginBottom: 20 },
-  avatarCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.secondary + '15', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  name: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary },
-  tierLabel: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, marginTop: 4 },
-  statsBar: { flexDirection: 'row', backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 24 },
+
+  header: { alignItems: 'center', marginTop: 12, marginBottom: 20 },
+  avatarCircle: {
+    width: 76, height: 76, borderRadius: 38,
+    backgroundColor: Colors.secondary + '15', alignItems: 'center', justifyContent: 'center',
+    marginBottom: 12, borderWidth: 1, borderColor: Colors.secondary + '25',
+  },
+  name: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary, letterSpacing: -0.3 },
+  tierLabel: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 4 },
+
+  statsBar: {
+    flexDirection: 'row', backgroundColor: Colors.white, borderRadius: 18, padding: 16, marginBottom: 24,
+    shadowColor: Colors.primary, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
+    elevation: 1, borderWidth: 1, borderColor: Colors.border,
+  },
   miniStat: { flex: 1, alignItems: 'center' },
-  miniStatNum: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary },
-  miniStatLabel: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  miniStatNum: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary, letterSpacing: -0.3 },
+  miniStatLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
   statDivider: { width: 1, backgroundColor: Colors.border, marginVertical: 4 },
-  sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.primary, marginBottom: 10, letterSpacing: -0.3 },
-  card: { backgroundColor: Colors.white, borderRadius: 16, padding: 4, marginBottom: 20 },
+
+  sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary, marginBottom: 10, letterSpacing: -0.2 },
+  card: {
+    backgroundColor: Colors.white, borderRadius: 16, padding: 4, marginBottom: 20,
+    shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+
   profileRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   profileIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  profileLabel: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary },
+  profileLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary },
   profileValue: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, marginTop: 2 },
+
   constraintRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14 },
   constraintLabel: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.primary },
   heelOptions: { flexDirection: 'row', gap: 6 },
-  heelChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
-  refineHelp: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, marginBottom: 10, fontStyle: 'italic' },
-  refineLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, marginTop: 10, marginBottom: 6 },
-  refineChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  refineChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
+  heelChip: {
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
+    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
+  },
+
+  refineHelp: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, marginBottom: 10, fontStyle: 'italic', paddingHorizontal: 10, paddingTop: 6 },
+  refineLabel: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary, marginTop: 10, marginBottom: 6, paddingHorizontal: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
+  refineChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 10, paddingBottom: 4 },
+  refineChip: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 10, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
   refineChipActive: { backgroundColor: Colors.secondary, borderColor: Colors.secondary },
   refineChipText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary },
   refineChipTextActive: { color: Colors.white },
+
   heelChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   heelChipText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary },
   heelChipTextActive: { color: Colors.white },
+
   premiumRow: { flexDirection: 'row', alignItems: 'center', padding: 14 },
   premiumDesc: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
-  manageBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.border },
+  manageBtn: {
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10,
+    borderWidth: 1, borderColor: Colors.border,
+  },
   manageBtnText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
-  upgradeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: Colors.secondary },
+  upgradeBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 16, paddingVertical: 9, borderRadius: 12,
+    backgroundColor: Colors.secondary,
+    shadowColor: Colors.secondary, shadowOpacity: 0.3, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
   upgradeBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.white },
-  premiumFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  premiumFeatureIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+
+  premiumFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, minHeight: 44 },
+  premiumFeatureIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   premiumFeatureLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary },
   premiumFeatureDesc: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
   featureDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 14 },
-  redoOnboarding: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14 },
+
+  redoOnboarding: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 14, minHeight: 44,
+  },
   redoText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.textSecondary },
-  affinityHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+
+  affinityHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, minHeight: 44 },
   affinityStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 },
   affinityStatusText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary },
-  affinityHelp: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, paddingHorizontal: 14, paddingBottom: 10, lineHeight: 17 },
-  affinityListTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.primary, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4, letterSpacing: 0.2, textTransform: 'uppercase' },
+  affinityHelp: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, paddingHorizontal: 14, paddingBottom: 10, lineHeight: 17, fontStyle: 'italic' },
+  affinityListTitle: {
+    fontFamily: 'Inter_600SemiBold', fontSize: 10, color: Colors.textLight,
+    paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4,
+    letterSpacing: 0.8, textTransform: 'uppercase',
+  },
   affinityRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 6 },
   affinityDot: { width: 6, height: 6, borderRadius: 3 },
   affinityRowLabel: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.primary, textTransform: 'capitalize' },

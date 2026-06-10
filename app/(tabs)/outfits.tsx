@@ -288,7 +288,7 @@ function JustAddedBanner({
     : 'new item';
 
   return (
-    <Animated.View entering={FadeInUp.duration(500)} style={styles.bannerWrap}>
+    <Animated.View entering={FadeInUp.duration(280)} style={styles.bannerWrap}>
       <View style={styles.bannerHeader}>
         <View style={styles.bannerTitleRow}>
           <Ionicons name="sparkles" size={16} color={Colors.secondary} />
@@ -619,9 +619,9 @@ export default function OutfitsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
 
-  header: { paddingHorizontal: 20, marginTop: 8, marginBottom: 14 },
-  title: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.primary, letterSpacing: -0.5 },
-  subtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, marginTop: 3, lineHeight: 18 },
+  header: { paddingHorizontal: 20, marginTop: 12, marginBottom: 14 },
+  title: { fontFamily: 'Inter_700Bold', fontSize: 30, color: Colors.primary, letterSpacing: -0.8 },
+  subtitle: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, marginTop: 2, lineHeight: 17 },
 
   scenarioScroll: { flexGrow: 0, marginBottom: 14 },
   scenarioScrollContent: { paddingHorizontal: 20, gap: 8, alignItems: 'center' },
@@ -667,28 +667,45 @@ const styles = StyleSheet.create({
 
   outfitCard: {
     backgroundColor: Colors.white,
-    borderRadius: 18,
+    borderRadius: 20,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: Colors.border,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.055,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
-  outfitCardHighlight: { borderColor: Colors.secondary + '50', backgroundColor: Colors.secondary + '05' },
-  outfitCardWorn: { borderColor: Colors.success + '50', backgroundColor: Colors.success + '06' },
+  outfitCardHighlight: {
+    borderColor: Colors.secondary + '45',
+    shadowColor: Colors.secondary,
+    shadowOpacity: 0.1,
+  },
+  outfitCardWorn: {
+    borderColor: Colors.success + '40',
+    shadowColor: Colors.success,
+    shadowOpacity: 0.08,
+  },
 
-  outfitCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  outfitCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   scenarioPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: Colors.background, borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 4,
+    backgroundColor: Colors.background, borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderWidth: 1, borderColor: Colors.border,
   },
-  scenarioPillText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.primary },
+  scenarioPillText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: Colors.primary, letterSpacing: 0.1 },
 
   readyBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  readyText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.success },
+  readyText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.success },
 
-  wornBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  wornBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.success },
+  wornBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.success + '12', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
+  },
+  wornBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: Colors.success },
 
   wearButtonRow: {
     marginTop: 14,
@@ -698,18 +715,22 @@ const styles = StyleSheet.create({
   },
   logWearButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: Colors.primary, borderRadius: 10,
-    paddingVertical: 9, paddingHorizontal: 16,
+    backgroundColor: Colors.primary, borderRadius: 12,
+    paddingVertical: 10, paddingHorizontal: 16,
   },
   logWearText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.white },
   undoWearButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: Colors.background, borderRadius: 10, borderWidth: 1,
-    borderColor: Colors.border, paddingVertical: 8, paddingHorizontal: 16,
+    backgroundColor: Colors.background, borderRadius: 12, borderWidth: 1,
+    borderColor: Colors.border, paddingVertical: 9, paddingHorizontal: 16,
   },
   undoWearText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
 
-  moodText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginBottom: 8, fontStyle: 'italic', lineHeight: 17 },
+  moodText: {
+    fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary,
+    marginBottom: 10, fontStyle: 'italic', lineHeight: 17,
+    paddingHorizontal: 2,
+  },
 
   moodScroll: { flexGrow: 0, marginBottom: 10 },
   moodScrollContent: { paddingHorizontal: 20, gap: 8, alignItems: 'center' },

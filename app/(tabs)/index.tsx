@@ -8,7 +8,7 @@ import { useApp } from '@/contexts/AppContext';
 import { countRecommendedOutfits } from '@/constants/wardrobeBlueprint';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 import Colors from '@/constants/colors';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
 const styleGoalLabels: Record<string, string> = {
   youthful: 'Youthful', elevated: 'Elevated', minimal: 'Minimal',
@@ -101,7 +101,7 @@ export default function HomeScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.header}>
+        <Animated.View entering={FadeInDown.delay(60).duration(280)} style={styles.header}>
           <View>
             <Text style={styles.greeting}>Welcome back</Text>
             <Text style={styles.appName}>AuraCloset</Text>
@@ -141,23 +141,32 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.statsRow}>
-          <Pressable style={styles.statCard} onPress={() => router.push('/(tabs)/wardrobe')}>
+        <Animated.View entering={FadeInDown.delay(120).duration(280)} style={styles.statsRow}>
+          <Pressable
+            style={({ pressed }) => [styles.statCard, pressed && styles.cardPressed]}
+            onPress={() => { Haptics.selectionAsync(); router.push('/(tabs)/wardrobe'); }}
+          >
             <Text style={styles.statNumber}>{activeWardrobeItems.length}</Text>
             <Text style={styles.statLabel}>Items</Text>
           </Pressable>
-          <Pressable style={styles.statCard} onPress={() => router.push('/(tabs)/outfits')}>
+          <Pressable
+            style={({ pressed }) => [styles.statCard, pressed && styles.cardPressed]}
+            onPress={() => { Haptics.selectionAsync(); router.push('/(tabs)/outfits'); }}
+          >
             <Text style={styles.statNumber}>{readyOutfits}</Text>
             <Text style={styles.statLabel}>Ready Outfits</Text>
           </Pressable>
-          <Pressable style={styles.statCard} onPress={() => router.push('/outfit-ideas')}>
+          <Pressable
+            style={({ pressed }) => [styles.statCard, pressed && styles.cardPressed]}
+            onPress={() => { Haptics.selectionAsync(); router.push('/outfit-ideas'); }}
+          >
             <Text style={styles.statNumber}>{outfitIdeas}</Text>
             <Text style={styles.statLabel}>Outfit Ideas</Text>
           </Pressable>
         </Animated.View>
 
         {todaysPick && (
-          <Animated.View entering={FadeInDown.delay(280).duration(500)} style={styles.pickCard}>
+          <Animated.View entering={FadeInDown.delay(180).duration(280)} style={styles.pickCard}>
             <View style={styles.pickHeader}>
               <Ionicons name="sparkles" size={16} color={Colors.secondary} />
               <Text style={styles.pickTitle}>Today's Pick</Text>
@@ -229,7 +238,7 @@ export default function HomeScreen() {
         )}
 
         {profile.styleGoalPrimary && (
-          <Animated.View entering={FadeInDown.delay(300).duration(500)} style={styles.styleCard}>
+          <Animated.View entering={FadeInDown.delay(220).duration(280)} style={styles.styleCard}>
             <View style={styles.styleCardHeader}>
               <MaterialCommunityIcons name="hanger" size={20} color={Colors.secondary} />
               <Text style={styles.styleCardTitle}>Your Style</Text>
@@ -242,7 +251,7 @@ export default function HomeScreen() {
         )}
 
         {todaysWear.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(350).duration(500)} style={styles.todayCard}>
+          <Animated.View entering={FadeInDown.delay(250).duration(280)} style={styles.todayCard}>
             <View style={styles.todayCardHeader}>
               <Ionicons name="calendar" size={18} color={Colors.secondary} />
               <Text style={styles.todayCardTitle}>Today's Looks</Text>
@@ -262,7 +271,7 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        <Animated.View entering={FadeInDown.delay(400).duration(500)}>
+        <Animated.View entering={FadeInDown.delay(290).duration(280)}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsRow}>
             <Pressable
@@ -311,7 +320,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {Object.values(starterRecommendations).some(Boolean) && (
-          <Animated.View entering={FadeInDown.delay(450).duration(500)}>
+          <Animated.View entering={FadeInDown.delay(340).duration(280)}>
             <Text style={styles.sectionTitle}>Starter Recommendations</Text>
             <Text style={styles.recSubtitle}>
               {profile.styleGoalPrimary
@@ -341,7 +350,7 @@ export default function HomeScreen() {
         )}
 
         {activeWardrobeItems.length > 0 && (
-          <Animated.View entering={FadeInDown.delay(500).duration(500)}>
+          <Animated.View entering={FadeInDown.delay(380).duration(280)}>
             <Text style={styles.sectionTitle}>Wardrobe Breakdown</Text>
             <View style={styles.breakdownCard}>
               {Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]).map(([cat, count]) => (
@@ -362,7 +371,7 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        <Animated.View entering={FadeInDown.delay(600).duration(500)}>
+        <Animated.View entering={FadeInDown.delay(420).duration(280)}>
           <Text style={styles.sectionTitle}>Style Tips</Text>
           {quickTips.map((tip, i) => (
             <View key={i} style={styles.tipCard}>
@@ -381,53 +390,97 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scrollContent: { paddingHorizontal: 20 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, marginBottom: 24 },
-  greeting: { fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary, letterSpacing: 0.5 },
-  appName: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.primary, letterSpacing: -0.5 },
-  premiumBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.secondary + '15', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  premiumText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.secondary },
+
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 20 },
+  greeting: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, letterSpacing: 0.8, textTransform: 'uppercase' },
+  appName: { fontFamily: 'Inter_700Bold', fontSize: 30, color: Colors.primary, letterSpacing: -0.8, marginTop: 2 },
+  premiumBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.secondary + '18', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+    borderWidth: 1, borderColor: Colors.secondary + '30',
+  },
+  premiumText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: Colors.secondary, letterSpacing: 0.3 },
+
   weatherChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     alignSelf: 'flex-start',
-    marginHorizontal: 24, marginTop: 4, marginBottom: 8,
-    paddingHorizontal: 12, paddingVertical: 6,
+    marginTop: 0, marginBottom: 16,
+    paddingHorizontal: 12, paddingVertical: 7,
     borderRadius: 20,
     backgroundColor: Colors.sage + '20',
+    borderWidth: 1, borderColor: Colors.sage + '30',
   },
-  weatherChipText: { fontSize: 12, color: Colors.primary, fontWeight: '500' },
-  backfillBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 24, marginTop: 4, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, backgroundColor: Colors.secondary + '12' },
+  weatherChipText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.primary },
+
+  backfillBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginBottom: 16, paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: 12, backgroundColor: Colors.secondary + '10',
+    borderWidth: 1, borderColor: Colors.secondary + '20',
+  },
   backfillText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, flexShrink: 1 },
-  backfillTrack: { flex: 1, height: 4, borderRadius: 2, backgroundColor: Colors.secondary + '20', overflow: 'hidden', marginLeft: 4 },
+  backfillTrack: { flex: 1, height: 3, borderRadius: 2, backgroundColor: Colors.secondary + '20', overflow: 'hidden', marginLeft: 4 },
   backfillFill: { height: '100%', backgroundColor: Colors.secondary, borderRadius: 2 },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-  statCard: { flex: 1, backgroundColor: Colors.white, borderRadius: 16, padding: 16, alignItems: 'center' },
-  statNumber: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.primary },
-  statLabel: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 4 },
-  styleCard: { backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 24 },
-  styleCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  styleCardTitle: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary, letterSpacing: 0.5, textTransform: 'uppercase' },
-  styleCardValue: { fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary },
-  sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary, marginBottom: 14, letterSpacing: -0.3 },
-  actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 28 },
-  actionButton: { flex: 1, backgroundColor: Colors.white, borderRadius: 16, padding: 16, alignItems: 'center' },
-  actionPressed: { opacity: 0.7, transform: [{ scale: 0.97 }] },
-  actionIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  actionLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary },
+
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  statCard: {
+    flex: 1, backgroundColor: Colors.white, borderRadius: 18, padding: 16, alignItems: 'center',
+    shadowColor: Colors.primary, shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    elevation: 2, borderWidth: 1, borderColor: Colors.border,
+  },
+  cardPressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
+  statNumber: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.primary, letterSpacing: -0.5 },
+  statLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 4, textAlign: 'center' },
+
+  styleCard: {
+    backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 20,
+    shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  styleCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  styleCardTitle: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textLight, letterSpacing: 1, textTransform: 'uppercase' },
+  styleCardValue: { fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary, letterSpacing: -0.2 },
+
+  sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.primary, marginBottom: 12, letterSpacing: -0.2 },
+
+  actionsRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  actionButton: {
+    flex: 1, backgroundColor: Colors.white, borderRadius: 16, padding: 16, alignItems: 'center',
+    shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 1, borderWidth: 1, borderColor: Colors.border,
+  },
+  actionPressed: { opacity: 0.82, transform: [{ scale: 0.97 }] },
+  actionIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  actionLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.primary },
   lockBadge: { position: 'absolute', bottom: -3, right: -5, width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.secondary, alignItems: 'center', justifyContent: 'center' },
-  breakdownCard: { backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 28 },
-  breakdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 },
+
+  breakdownCard: {
+    backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 24,
+    shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  breakdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 9 },
   breakdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  breakdownLabel: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.primary },
+  breakdownLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary },
   breakdownRight: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1.5 },
-  breakdownBarBg: { flex: 1, height: 6, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden' },
+  breakdownBarBg: { flex: 1, height: 5, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden' },
   breakdownBarFill: { height: '100%', backgroundColor: Colors.secondary, borderRadius: 3 },
-  breakdownCount: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.textSecondary, width: 24, textAlign: 'right' },
-  tipCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.white, borderRadius: 12, padding: 14, marginBottom: 8 },
-  tipText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, flex: 1, lineHeight: 18 },
+  breakdownCount: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.textSecondary, width: 24, textAlign: 'right', fontVariant: ['tabular-nums'] },
+
+  tipCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: Colors.white, borderRadius: 14, padding: 14, marginBottom: 8,
+    borderLeftWidth: 3, borderLeftColor: Colors.secondary + '60',
+    shadowColor: Colors.primary, shadowOpacity: 0.03, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  tipText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, flex: 1, lineHeight: 19 },
 
   todayCard: {
-    backgroundColor: Colors.white, borderRadius: 16, padding: 16,
-    marginBottom: 24, borderWidth: 1, borderColor: Colors.success + '40',
+    backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 20,
+    borderWidth: 1, borderColor: Colors.success + '35',
+    shadowColor: Colors.success, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   todayCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   todayCardTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, flex: 1 },
@@ -436,43 +489,56 @@ const styles = StyleSheet.create({
   todayPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   todayPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: Colors.success + '12', borderRadius: 20,
+    backgroundColor: Colors.success + '10', borderRadius: 20,
     paddingHorizontal: 12, paddingVertical: 6,
-    borderWidth: 1, borderColor: Colors.success + '30',
+    borderWidth: 1, borderColor: Colors.success + '28',
   },
   todayPillText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.primary },
-  recSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, marginBottom: 14, marginTop: -8 },
+
+  recSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, marginBottom: 12, marginTop: -6 },
   recScroll: { marginBottom: 24, marginHorizontal: -20 },
-  recScrollContent: { paddingHorizontal: 20, gap: 12 },
-  recCard: { width: 160, backgroundColor: Colors.white, borderRadius: 14, overflow: 'hidden' },
-  recImage: { width: 160, height: 130, backgroundColor: Colors.border },
-  recCategoryBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: Colors.overlay, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  recCategoryText: { fontFamily: 'Inter_500Medium', fontSize: 10, color: Colors.white, textTransform: 'uppercase', letterSpacing: 0.5 },
-  recLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary, paddingHorizontal: 10, paddingTop: 10 },
-  recDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, paddingHorizontal: 10, marginTop: 2, lineHeight: 15 },
+  recScrollContent: { paddingHorizontal: 20, gap: 12, paddingRight: 20 },
+  recCard: {
+    width: 156, backgroundColor: Colors.white, borderRadius: 16, overflow: 'hidden',
+    shadowColor: Colors.primary, shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
+    elevation: 2, borderWidth: 1, borderColor: Colors.border,
+  },
+  recImage: { width: 156, height: 126, backgroundColor: Colors.border },
+  recCategoryBadge: {
+    position: 'absolute', top: 8, left: 8,
+    backgroundColor: 'rgba(16,24,38,0.65)',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+  },
+  recCategoryText: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: Colors.white, textTransform: 'uppercase', letterSpacing: 0.8 },
+  recLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary, paddingHorizontal: 10, paddingTop: 10, letterSpacing: -0.1 },
+  recDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, paddingHorizontal: 10, marginTop: 3, lineHeight: 15 },
   recNeededBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 8 },
   recNeededText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.warning },
+
   pickCard: {
-    backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 24,
-    borderWidth: 1, borderColor: Colors.secondary + '30',
+    backgroundColor: Colors.white, borderRadius: 18, padding: 16, marginBottom: 20,
+    borderWidth: 1, borderColor: Colors.secondary + '28',
+    shadowColor: Colors.secondary, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+    elevation: 2, overflow: 'hidden',
   },
   pickHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   pickTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, flex: 1 },
   pickSeeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   pickSeeAllText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.secondary },
-  pickPhotosRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  pickPhotoWrap: { flex: 1, aspectRatio: 1, maxWidth: 70 },
+  pickPhotosRow: { flexDirection: 'row', gap: 6, marginBottom: 12 },
+  pickPhotoWrap: { flex: 1, aspectRatio: 0.85, maxWidth: 72 },
   pickPhoto: { width: '100%', height: '100%', borderRadius: 10, backgroundColor: Colors.background },
-  pickPhotoFallback: { alignItems: 'center', justifyContent: 'center' },
+  pickPhotoFallback: { alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
   pickActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   pickWearBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: Colors.primary, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 18,
+    backgroundColor: Colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
   },
   pickWearText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.white },
   pickUndoBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: Colors.success + '18', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 18,
+    backgroundColor: Colors.success + '15', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
+    borderWidth: 1, borderColor: Colors.success + '25',
   },
   pickUndoText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary },
   pickReactionRow: { flexDirection: 'row', gap: 6 },

@@ -1,0 +1,1 @@
+- [AuraCloset UI/UX Design System](auracloset-design-system.md) — animation <300ms, scale(0.97) press, subtle shadows, HIG type scale; all rules codified in replit.md

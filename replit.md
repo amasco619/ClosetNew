@@ -97,6 +97,101 @@ assets/
 - Blush: #EACFD3
 - Background: #F5F3F0
 
+## UI/UX Design System
+
+### Design Principles (applied across all four tab screens)
+Derived from three reference repos: emilkowalski/skill (design engineering), redf0x1/ui-ux-pro-mcp (React Native HIG), and nextlevelbuilder/ui-ux-pro-max-skill (design tokens).
+
+#### Animation
+- All animation durations: **< 300 ms** (FadeInDown uses 280 ms; never 400–500 ms)
+- Stagger delays: 60 ms → 480 ms maximum across a screen's enter sequence, incremented by ~40–60 ms per layer
+- Spring physics: use `withSpring` / `useSharedValue` from Reanimated 3 for interactive press feedback
+- Entering animations start from `opacity: 0` + slight Y offset — never scale-from-zero
+- Exit animations are asymmetrically fast (ease-in, shorter than enter)
+- `FadeInUp` for banners that pop in after content is already visible
+
+#### Press Feedback
+- Every interactive card uses `({ pressed }) => [base, pressed && cardPressed]`
+- `cardPressed`: `{ opacity: 0.85, transform: [{ scale: 0.97 }] }` — scale 0.97, opacity 0.82–0.85
+- Primary CTA buttons (add item, upgrade, empty state action) use `opacity: 0.82, scale: 0.97` on press
+- Haptic feedback (`Haptics.selectionAsync()`) on: stat card taps, filter chip selections, action button taps
+
+#### Touch Targets
+- Minimum 44 × 44 pt for all interactive elements (enforced via `minHeight: 44` or `hitSlop`)
+- Icon-only controls (dismiss, toggle) use `hitSlop={8}` to expand tap area without changing layout
+
+#### Typography Scale (iOS HIG — Inter font family)
+| Role | Font | Size | Letter-spacing |
+|---|---|---|---|
+| Screen title | Inter_700Bold | 30 | -0.8 |
+| Section label above title | Inter_400Regular | 11–12 | +0.8, uppercase |
+| Section heading | Inter_600SemiBold | 15–16 | -0.2 |
+| Card title / label | Inter_600SemiBold | 13–14 | -0.1 |
+| Body / description | Inter_400Regular | 12–13 | 0 |
+| Caption / meta | Inter_400Regular | 11–12 | 0 |
+| Stat number (large) | Inter_700Bold | 22–28 | -0.3 to -0.5 |
+| Uppercase micro-label | Inter_500Medium | 10–11 | +0.8–1.0 |
+
+- Section headers follow the pattern: small uppercase label (Inter_400Regular 11–12 px) **above** the bold 30 px title — visible on Home and Wardrobe screens
+- Tabular numerals (`fontVariant: ['tabular-nums']`) on any number that changes (counts, scores)
+
+#### Spacing Grid (4 pt base)
+4 · 6 · 8 · 10 · 12 · 14 · 16 · 20 · 24 · 32 · 48
+
+- Screen horizontal padding: **20 pt**
+- Card internal padding: **14–16 pt**
+- Gap between cards: **10–14 pt**
+- Gap between chips/pills: **6–8 pt**
+- Section title bottom margin: **10–12 pt**
+
+#### Card Shadows (quiet luxury — very subtle)
+- Standard card: `shadowColor: Colors.primary, shadowOpacity: 0.04–0.06, shadowRadius: 8–12, shadowOffset: { width: 0, height: 2–4 }, elevation: 1–2`
+- Accent cards (pick, worn): `shadowColor: Colors.secondary | Colors.success, shadowOpacity: 0.08–0.1`
+- Primary CTA button shadow: `shadowColor: Colors.primary | Colors.secondary, shadowOpacity: 0.25–0.3, shadowRadius: 6–8`
+- All cards also carry `borderWidth: 1, borderColor: Colors.border` for hairline separation on light backgrounds
+
+#### Border Radius
+- Large cards / stat cards: 16–18 pt
+- Small chips / pills: 8–12 pt (pill-shaped: 20 pt)
+- Icon containers: 10–14 pt (square-ish)
+- Image thumbnails: 10–12 pt
+
+#### Empty States
+Every list/grid empty state must include:
+1. Rounded icon container (80 × 80, borderRadius 24, `Colors.secondary + '12'` background, `Colors.secondary + '20'` border)
+2. Bold title (Inter_600SemiBold 18)
+3. Subtitle body text (lineHeight 21)
+4. Primary CTA `Pressable` button with navy background + shadow (shown when the wardrobe is completely empty)
+
+#### Accent Details
+- Style tips card: `borderLeftWidth: 3, borderLeftColor: Colors.secondary + '60'` for a quiet-luxury left accent
+- Worn outfit badge: filled background `Colors.success + '12'` instead of plain text
+- Weather chip: `borderWidth: 1, borderColor: Colors.sage + '30'`
+- Premium badge: `borderWidth: 1, borderColor: Colors.secondary + '30'`
+
+### Component Patterns
+
+#### Screen Header (Home, Wardrobe, Outfits, Profile)
+- Wardrobe / Home: small uppercase subtitle ABOVE the 30 px bold title
+- Outfits / Profile: title only (no subtitle label above)
+- Profile: centered header with 76 × 76 avatar circle and name below
+
+#### Filter / Scenario Chips
+- Inactive: white background, `Colors.border` border
+- Active: `Colors.primary` fill, white text
+- Premium variant: `Colors.secondary + '60'` border, locked state at `opacity: 0.6`
+- Haptic selection feedback on every chip press
+
+#### Stat Bar (Profile)
+- Three columns separated by 1 px divider lines
+- Card shadow + border for separation from background
+- Numbers at 22 px Inter_700Bold with tabular numerals
+
+#### Upgrade Button
+- `Colors.secondary` background
+- Shadow: `shadowColor: Colors.secondary, shadowOpacity: 0.3`
+- `Inter_600SemiBold` label + star icon
+
 ## Testing & Quality Automation
 
 ### Running tests

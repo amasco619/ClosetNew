@@ -141,10 +141,10 @@ export default function WardrobeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Wardrobe</Text>
           <Text style={styles.subtitle}>
-            {activeWardrobeItems.length} items{!isPremium ? ` / 10 max` : ''}
+            {activeWardrobeItems.length} items{!isPremium ? ` · 10 max` : ''}
           </Text>
+          <Text style={styles.title}>Wardrobe</Text>
         </View>
         <View style={styles.headerRight}>
           <View style={styles.viewToggle}>
@@ -191,7 +191,7 @@ export default function WardrobeScreen() {
           renderItem={({ item: cat }) => (
             <Pressable
               style={[styles.filterChip, filter === cat && styles.filterChipActive]}
-              onPress={() => setFilter(cat)}
+              onPress={() => { setFilter(cat); Haptics.selectionAsync(); }}
             >
               <Text style={[styles.filterText, filter === cat && styles.filterTextActive]}>
                 {categoryLabels[cat]}
@@ -215,15 +215,26 @@ export default function WardrobeScreen() {
       {/* Empty state */}
       {isEmpty ? (
         <View style={styles.emptyState}>
-          <Ionicons name="shirt-outline" size={48} color={Colors.textLight} />
+          <View style={styles.emptyIconWrap}>
+            <Ionicons name="shirt-outline" size={40} color={Colors.secondary} />
+          </View>
           <Text style={styles.emptyTitle}>
-            {activeWardrobeItems.length === 0 ? 'Start your closet' : 'No items in this category'}
+            {activeWardrobeItems.length === 0 ? 'Start your closet' : 'No items here yet'}
           </Text>
           <Text style={styles.emptySubtitle}>
             {activeWardrobeItems.length === 0
-              ? 'Add your first item to begin building your wardrobe'
-              : 'Try adding items to this category'}
+              ? 'Add your first piece to begin building your wardrobe'
+              : 'Try a different category, or add an item here'}
           </Text>
+          {activeWardrobeItems.length === 0 && (
+            <Pressable
+              style={({ pressed }) => [styles.emptyAction, pressed && { opacity: 0.82, transform: [{ scale: 0.97 }] }]}
+              onPress={handleAdd}
+            >
+              <Ionicons name="add" size={16} color={Colors.white} />
+              <Text style={styles.emptyActionText}>Add First Item</Text>
+            </Pressable>
+          )}
         </View>
       ) : viewMode === 'list' ? (
         <FlatList
@@ -256,20 +267,21 @@ const styles = StyleSheet.create({
   // Header
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, marginTop: 8, marginBottom: 16,
+    paddingHorizontal: 20, marginTop: 12, marginBottom: 14,
   },
-  title: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.primary, letterSpacing: -0.5 },
-  subtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
+  subtitle: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textLight, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 },
+  title: { fontFamily: 'Inter_700Bold', fontSize: 30, color: Colors.primary, letterSpacing: -0.8 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   // View toggle
   viewToggle: {
     flexDirection: 'row', borderRadius: 10, overflow: 'hidden',
     borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.white,
   },
   toggleBtn: {
-    width: 34, height: 34, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.white,
+    width: 36, height: 36, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   toggleBtnActive: { backgroundColor: Colors.primary },
 
@@ -277,10 +289,12 @@ const styles = StyleSheet.create({
   addButton: {
     width: 44, height: 44, borderRadius: 14,
     backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center',
+    shadowColor: Colors.primary, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
 
   // Filters
-  filterRow: { marginBottom: 16 },
+  filterRow: { marginBottom: 14 },
   filterChip: {
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
     backgroundColor: Colors.white, marginRight: 8,
@@ -301,46 +315,59 @@ const styles = StyleSheet.create({
 
   // Empty state
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  emptyIconWrap: {
+    width: 80, height: 80, borderRadius: 24,
+    backgroundColor: Colors.secondary + '12', alignItems: 'center', justifyContent: 'center',
+    marginBottom: 4, borderWidth: 1, borderColor: Colors.secondary + '20',
+  },
   emptyTitle: {
     fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary,
-    marginTop: 16, textAlign: 'center',
+    marginTop: 16, textAlign: 'center', letterSpacing: -0.2,
   },
   emptySubtitle: {
     fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary,
-    marginTop: 8, textAlign: 'center', lineHeight: 20,
+    marginTop: 8, textAlign: 'center', lineHeight: 21,
   },
+  emptyAction: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.primary, borderRadius: 14,
+    paddingHorizontal: 24, paddingVertical: 13, marginTop: 24,
+    shadowColor: Colors.primary, shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  emptyActionText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.white },
 
   // ─── List view ───────────────────────────────────────────
   listContent: { paddingHorizontal: 20, paddingBottom: 120, gap: 10 },
   listCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white,
-    borderRadius: 14, overflow: 'hidden',
+    borderRadius: 16, overflow: 'hidden',
     borderWidth: 1, borderColor: Colors.border,
-    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    shadowColor: Colors.primary, shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
     elevation: 1,
   },
-  listThumb: { width: 72, height: 88 },
-  listMeta: { flex: 1, paddingHorizontal: 14, paddingVertical: 10, gap: 4 },
+  listThumb: { width: 76, height: 92 },
+  listMeta: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, gap: 4 },
   listItemType: {
     fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary,
-    textTransform: 'capitalize',
+    textTransform: 'capitalize', letterSpacing: -0.1,
   },
   listColorRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   colorDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 0.5, borderColor: Colors.border },
   listColorText: {
     fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, textTransform: 'capitalize',
   },
-  pillRow: { flexDirection: 'row', gap: 6, marginTop: 2, flexWrap: 'wrap' },
+  pillRow: { flexDirection: 'row', gap: 6, marginTop: 3, flexWrap: 'wrap' },
   sagePill: {
     paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20,
-    backgroundColor: Colors.sage + '22',
+    backgroundColor: Colors.sage + '20',
   },
   sagePillText: {
     fontFamily: 'Inter_500Medium', fontSize: 10, color: Colors.sage, textTransform: 'capitalize',
   },
   blushPill: {
     paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20,
-    backgroundColor: Colors.blush + '50',
+    backgroundColor: Colors.blush + '45',
   },
   blushPillText: {
     fontFamily: 'Inter_500Medium', fontSize: 10, color: '#A67B82', textTransform: 'capitalize',
@@ -348,15 +375,15 @@ const styles = StyleSheet.create({
   listChevron: { paddingHorizontal: 14 },
 
   // ─── Grid view ───────────────────────────────────────────
-  gridContent: { paddingHorizontal: 16, paddingBottom: 120 },
+  gridContent: { paddingHorizontal: 14, paddingBottom: 120 },
   gridRow: { gap: 6, marginBottom: 6 },
   gridCell: { flex: 1 },
-  gridPressable: { flex: 1, borderRadius: 10, overflow: 'hidden', aspectRatio: 1 },
+  gridPressable: { flex: 1, borderRadius: 12, overflow: 'hidden', aspectRatio: 0.9 },
   gridImage: { width: '100%', height: '100%' },
   gridBadge: {
     position: 'absolute', top: 6, left: 6,
-    width: 20, height: 20, borderRadius: 5,
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    width: 22, height: 22, borderRadius: 6,
+    backgroundColor: 'rgba(16,24,38,0.55)',
     alignItems: 'center', justifyContent: 'center',
   },
   gridBadgeText: {
@@ -364,11 +391,11 @@ const styles = StyleSheet.create({
   },
   gridLabel: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    paddingVertical: 5, paddingHorizontal: 4,
-    backgroundColor: 'rgba(255,255,255,0.20)',
+    paddingVertical: 6, paddingHorizontal: 6,
+    backgroundColor: 'rgba(16,24,38,0.45)',
   },
   gridLabelText: {
     fontFamily: 'Inter_600SemiBold', fontSize: 9, color: Colors.white,
-    textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5,
+    textAlign: 'center', textTransform: 'capitalize', letterSpacing: 0.2,
   },
 });
