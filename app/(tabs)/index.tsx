@@ -112,8 +112,8 @@ export default function HomeScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Animated.View entering={FadeInDown.delay(60).duration(280)} style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Welcome back</Text>
-            <Text style={styles.appName}>AuraCloset</Text>
+            <Text style={styles.greeting}>{profile.name ? 'Welcome back,' : 'Welcome back'}</Text>
+            <Text style={styles.appName}>{profile.name || 'AuraCloset'}</Text>
           </View>
           {isPremium && (
             <View style={styles.premiumBadge}>

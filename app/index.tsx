@@ -20,10 +20,10 @@ export default function IndexScreen() {
   }, [url]);
 
   useEffect(() => {
-    supabase.auth.getClaims().then(({ data }) => {
-      setHasSession(!!(data?.claims));
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setHasSession(!!session);
       setChecking(false);
-    });
+    }).catch(() => setChecking(false));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setHasSession(!!session);

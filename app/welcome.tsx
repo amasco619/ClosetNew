@@ -6,7 +6,6 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
-import { useApp } from '@/contexts/AppContext';
 import { supabase } from '../lib/supabase';
 
 const FEATURES = [
@@ -17,19 +16,17 @@ const FEATURES = [
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
-  const { updateProfile } = useApp();
   const webTop = Platform.OS === 'web' ? 67 : 0;
 
   useEffect(() => {
-    supabase.auth.getClaims().then(({ data }) => {
-      if (data?.claims) router.replace('/(tabs)');
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.replace('/(tabs)');
+    }).catch(() => {});
   }, []);
 
   const handleGetStarted = () => {
     Haptics.selectionAsync();
-    updateProfile({ isGuest: true });
-    router.replace('/onboarding?guest=true');
+    router.push('/onboarding?guest=true');
   };
 
   const handleSignIn = () => {

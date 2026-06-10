@@ -103,8 +103,8 @@ export async function signOut(): Promise<void> {
 }
 
 export async function getSession() {
-  const { data } = await supabase.auth.getClaims()
-  return data?.claims ?? null
+  const { data: { session } } = await supabase.auth.getSession()
+  return session
 }
 
 export async function getCurrentUser() {
