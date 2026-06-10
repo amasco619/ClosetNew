@@ -124,7 +124,7 @@ export default function ProfileScreen() {
   const lifestyleSetCount = [
     profile.defaultMood,
     (profile.industry && profile.industry !== 'unspecified') ? profile.industry : null,
-    profile.lifePhase,
+    (profile.lifePhase && profile.lifePhase !== 'none') ? profile.lifePhase : null,
   ].filter(Boolean).length;
   const lifestyleTotal = 3;
 
