@@ -2,10 +2,49 @@ import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import { classifyGarment } from "./classify-garment";
 import { extractColor } from "./extract-color";
+import { supabaseAdmin } from "./supabase";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/classify-garment", classifyGarment);
   app.post("/api/extract-color", extractColor);
+
+  app.post("/api/user/upgrade-premium", async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "userId is required." });
+    }
+    try {
+      const { error } = await supabaseAdmin
+        .from("user_profiles")
+        .update({
+          premium: true,
+          premium_expires_at: new Date(
+            Date.now() + 365 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+        })
+        .eq("id", userId);
+      if (error) throw new Error(error.message);
+      return res.json({ success: true });
+    } catch (err: any) {
+      console.error("[upgrade-premium]", err.message);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.delete("/api/user/delete-account", async (req, res) => {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "userId is required." });
+    }
+    try {
+      const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+      if (error) throw new Error(error.message);
+      return res.json({ success: true });
+    } catch (err: any) {
+      console.error("[delete-account]", err.message);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
   const httpServer = createServer(app);
 

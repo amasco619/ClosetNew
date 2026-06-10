@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory, getProfileBlueprint, BLUEPRINT_SUBTYPES_BY_CATEGORY } from '@/constants/wardrobeBlueprint';
@@ -12,6 +12,14 @@ import { loadWeather, getCachedWeather, clearCachedWeather } from '@/constants/w
 import { inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
 import { centroidHsl, hslToLab } from '@/constants/colorPerceptual';
 import { apiRequest } from '@/lib/query-client';
+import {
+  upsertUserProfile, getUserProfile, getWardrobeItems,
+  getSlotStatuses, getWearLogs, getRotationCursors,
+  getAffinitySignals, getPairAffinitySignals,
+  insertWardrobeItem, deleteWardrobeItem, insertWearLog, deleteWearLog,
+  insertAffinitySignal, insertPairAffinitySignal,
+} from '../lib/database';
+import { supabase } from '../lib/supabase';
 import {
   RotationState, INITIAL_ROTATION_STATE,
   generateOutfitPool, applyDailyRotation, computePoolHash, todayString,
@@ -196,7 +204,100 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
 
+  const currentUserIdRef = useRef<string | null>(null);
+
   useEffect(() => { loadData(); }, []);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          const userId = session.user.id;
+          currentUserIdRef.current = userId;
+
+          await upsertUserProfile({ id: userId }).catch(console.error);
+
+          try {
+            const [
+              dbProfile, items, _slots, logs,
+              _cursors, _affinitySignals, _pairSignals,
+            ] = await Promise.all([
+              getUserProfile(userId),
+              getWardrobeItems(userId),
+              getSlotStatuses(userId),
+              getWearLogs(userId),
+              getRotationCursors(userId),
+              getAffinitySignals(userId),
+              getPairAffinitySignals(userId),
+            ]);
+
+            if (dbProfile) {
+              setProfile(prev => mergeProfile({
+                ...prev,
+                bodyType: dbProfile.body_type ?? prev.bodyType,
+                eyeColor: dbProfile.eye_color ?? prev.eyeColor,
+                skinTone: dbProfile.skin_tone ?? prev.skinTone,
+                undertone: dbProfile.undertone ?? prev.undertone,
+                styleGoalPrimary: dbProfile.style_goals?.[0] ?? prev.styleGoalPrimary,
+                styleGoalSecondary: dbProfile.secondary_goal ?? prev.styleGoalSecondary,
+                lifestyleWork: dbProfile.lifestyle?.work ?? prev.lifestyleWork,
+                lifestyleCasual: dbProfile.lifestyle?.casual ?? prev.lifestyleCasual,
+                lifestyleEvents: dbProfile.lifestyle?.events ?? prev.lifestyleEvents,
+                constraints: dbProfile.constraints ?? prev.constraints,
+                onboardingComplete: dbProfile.onboarding_complete ?? prev.onboardingComplete,
+              }));
+              if (dbProfile.premium) setIsPremium(true);
+            }
+
+            if (items && items.length > 0) {
+              const mapped: WardrobeItem[] = items.map((it: any) => ({
+                id: it.id,
+                photoUri: it.cleaned_image_url || it.image_url || '',
+                category: it.garment_type as ItemCategory,
+                subType: it.sub_type || '',
+                colorFamily: it.color_family || '',
+                description: it.description,
+                occasionTags: it.occasion || [],
+                seasonTags: [],
+                createdAt: it.created_at,
+                formalityLevel: 5,
+              }));
+              setWardrobeItems(mapped);
+            }
+
+            if (logs && logs.length > 0) {
+              const mappedLogs: WearEntry[] = logs.map((l: any) => ({
+                id: l.id,
+                date: l.logged_at?.slice(0, 10) ?? '',
+                occasion: l.occasion ?? 'casual',
+                outfitFingerprint: l.outfit_fingerprint ?? '',
+                itemIds: l.item_ids ?? [],
+                loggedAt: l.logged_at ?? new Date().toISOString(),
+              }));
+              setWearHistory(mappedLogs);
+            }
+          } catch (err: any) {
+            console.error('[AppContext] Data load error:', err.message);
+          }
+        }
+
+        if (event === 'SIGNED_OUT') {
+          currentUserIdRef.current = null;
+          setProfile(defaultProfile);
+          setWardrobeItems([]);
+          setIsPremium(false);
+          setRotationState(INITIAL_ROTATION_STATE);
+          setWearHistory([]);
+          setReactions([]);
+          setMoodOfDay(null);
+          setSavedLooks([]);
+          setRecommendationSlots([]);
+          setSlotsInitialized(false);
+        }
+      }
+    );
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Merge stored profile with defaults so fields added in later versions exist
   const mergeProfile = (stored: Partial<UserProfile>): UserProfile => ({
@@ -424,6 +525,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setProfile(prev => {
       const updated = { ...prev, ...updates, constraints: { ...prev.constraints, ...(updates.constraints ?? {}) } };
       AsyncStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(updated));
+      if (currentUserIdRef.current) {
+        upsertUserProfile({
+          id: currentUserIdRef.current,
+          body_type: updated.bodyType ?? undefined,
+          eye_color: updated.eyeColor ?? undefined,
+          skin_tone: updated.skinTone ?? undefined,
+          undertone: updated.undertone ?? undefined,
+          style_goals: [updated.styleGoalPrimary, updated.styleGoalSecondary].filter(Boolean) as string[],
+          secondary_goal: updated.styleGoalSecondary ?? undefined,
+          lifestyle: { work: updated.lifestyleWork, casual: updated.lifestyleCasual, events: updated.lifestyleEvents },
+          constraints: updated.constraints,
+          onboarding_complete: updated.onboardingComplete,
+        }).catch(console.error);
+      }
       return updated;
     });
   }, []);
@@ -503,6 +618,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWearHistory(prev => {
       const updated = [entry, ...prev];
       AsyncStorage.setItem(STORAGE_KEYS.wearHistory, JSON.stringify(updated));
+      if (currentUserIdRef.current) {
+        insertWearLog({
+          user_id: currentUserIdRef.current,
+          outfit_fingerprint: fp,
+          item_ids: itemIds,
+          occasion: outfit.scenario,
+        }).catch(console.error);
+        itemIds.forEach(itemId => {
+          insertAffinitySignal({
+            user_id: currentUserIdRef.current!,
+            item_id: itemId,
+            signal_type: 'worn',
+            weight: 1,
+          }).catch(console.error);
+        });
+      }
       return updated;
     });
   }, []);
@@ -511,6 +642,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWearHistory(prev => {
       const updated = prev.filter(e => e.id !== entryId);
       AsyncStorage.setItem(STORAGE_KEYS.wearHistory, JSON.stringify(updated));
+      if (currentUserIdRef.current) {
+        deleteWearLog(entryId).catch(console.error);
+      }
       return updated;
     });
   }, []);
@@ -562,6 +696,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
       const updated = [entry, ...cleaned];
       AsyncStorage.setItem(STORAGE_KEYS.reactions, JSON.stringify(updated));
+      if (currentUserIdRef.current) {
+        const itemIds = outfit.components.map(c => c.matchedItemId).filter((id): id is string => Boolean(id));
+        const signalType = type === 'love' ? 'love' : 'not_today';
+        const weight = type === 'love' ? 1 : -0.5;
+        itemIds.forEach(itemId => {
+          insertAffinitySignal({
+            user_id: currentUserIdRef.current!,
+            item_id: itemId,
+            signal_type: signalType,
+            weight,
+          }).catch(console.error);
+        });
+        for (let i = 0; i < itemIds.length; i++) {
+          for (let j = i + 1; j < itemIds.length; j++) {
+            insertPairAffinitySignal({
+              user_id: currentUserIdRef.current!,
+              item_id_a: itemIds[i],
+              item_id_b: itemIds[j],
+              signal_type: signalType,
+              weight,
+            }).catch(console.error);
+          }
+        }
+      }
       return updated;
     });
   }, []);
@@ -608,6 +766,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWardrobeItems(prev => {
       const updated = [...prev, newItem];
       AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
+      if (currentUserIdRef.current) {
+        insertWardrobeItem({
+          id: newItem.id,
+          user_id: currentUserIdRef.current,
+          garment_type: newItem.category,
+          sub_type: newItem.subType,
+          color_family: newItem.colorFamily,
+          description: newItem.description,
+          occasion: newItem.occasionTags,
+          image_url: newItem.photoUri,
+          cleaned_image_url: (newItem as any).cleanedImageUrl,
+        }).catch(console.error);
+      }
       const suggestions = generateOutfitsForItem(newItem, updated, profile, weather);
       setLastAddedSuggestions(suggestions);
       return updated;
@@ -622,6 +793,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [profile, weather]);
 
   const removeWardrobeItem = useCallback((id: string) => {
+    if (currentUserIdRef.current) {
+      deleteWardrobeItem(id).catch(console.error);
+    }
     setWardrobeItems(prev => {
       const updated = prev.filter(item => item.id !== id);
       AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));

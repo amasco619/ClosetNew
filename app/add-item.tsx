@@ -12,6 +12,8 @@ import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { apiRequest } from '@/lib/query-client';
+import { uploadWardrobeImage } from '../lib/storage';
+import { supabase } from '../lib/supabase';
 
 // ─── Option lists ─────────────────────────────────────────────────────────────
 

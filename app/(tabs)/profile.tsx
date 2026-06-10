@@ -1,7 +1,8 @@
-import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Platform, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import { signOut } from '../../lib/auth';
 import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -565,7 +566,24 @@ export default function ProfileScreen() {
           </Pressable>
         </Animated.View>
 
-        <View style={{ height: 120 }} />
+        <TouchableOpacity
+          style={signOutStyles.button}
+          onPress={async () => {
+            try {
+              await signOut();
+              router.replace('/sign-in');
+            } catch (err: any) {
+              console.error('[profile] Sign out:', err.message);
+            }
+          }}
+          activeOpacity={0.82}
+          accessibilityLabel="Sign out of AuraCloset"
+          accessibilityRole="button"
+        >
+          <Text style={signOutStyles.label}>Sign out</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 48 }} />
       </ScrollView>
     </View>
   );
@@ -668,4 +686,25 @@ const styles = StyleSheet.create({
   affinityRowLabel: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.primary, textTransform: 'capitalize' },
   affinityRowScore: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
   affinityEmpty: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, paddingHorizontal: 14, paddingVertical: 6, fontStyle: 'italic' },
+});
+
+const signOutStyles = StyleSheet.create({
+  button: {
+    marginHorizontal: 24,
+    marginTop: 32,
+    marginBottom: 48,
+    height: 52,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#101826',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  label: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    fontWeight: '400',
+    color: '#101826',
+    letterSpacing: 0.3,
+  },
 });
