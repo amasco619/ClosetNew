@@ -3,12 +3,13 @@ import { createServer, type Server } from "node:http";
 import { classifyGarment } from "./classify-garment";
 import { extractColor } from "./extract-color";
 import { supabaseAdmin } from "./supabase";
+import { aiLimiter, colorLimiter, accountLimiter } from "./middleware/rateLimiter";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  app.post("/api/classify-garment", classifyGarment);
-  app.post("/api/extract-color", extractColor);
+  app.post("/api/classify-garment", aiLimiter, classifyGarment);
+  app.post("/api/extract-color", colorLimiter, extractColor);
 
-  app.post("/api/user/upgrade-premium", async (req, res) => {
+  app.post("/api/user/upgrade-premium", accountLimiter, async (req, res) => {
     const { userId } = req.body;
     if (!userId) {
       return res.status(400).json({ success: false, error: "userId is required." });
@@ -31,7 +32,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/user/delete-account", async (req, res) => {
+  app.delete("/api/user/delete-account", accountLimiter, async (req, res) => {
     const { userId } = req.body;
     if (!userId) {
       return res.status(400).json({ success: false, error: "userId is required." });

@@ -269,10 +269,17 @@ export default function AddItemScreen() {
         dominantLab:  data.dominantLab,
       };
     } catch (err: any) {
-      // Detect content guardrail: apiRequest throws "422: {json}" for non-2xx responses
-      if (err?.message?.startsWith('422:')) {
+      // apiRequest throws "<status>: {json body}" for non-2xx responses
+      const msg: string = err?.message ?? '';
+
+      if (msg.startsWith('429:')) {
+        // Rate limited — surface a friendly message and let the caller reset UI
+        throw new Error('rate_limit');
+      }
+
+      if (msg.startsWith('422:')) {
         try {
-          const body = JSON.parse(err.message.slice(4).trim());
+          const body = JSON.parse(msg.slice(4).trim());
           if (body?.error === 'content_guardrail') {
             throw new ContentGuardrailError(
               body.reason ?? 'This image could not be classified as a clothing item.'
@@ -282,6 +289,7 @@ export default function AddItemScreen() {
           if (parseErr instanceof ContentGuardrailError) throw parseErr;
         }
       }
+
       const fallback = localClassifyFallback(cat);
       return { category: cat, subType: fallback.subType, colorFamily: fallback.colorFamily, description: '', occasionTags: [], seasonTags: [] };
     }
@@ -337,12 +345,14 @@ export default function AddItemScreen() {
           let classified;
           try {
             classified = await classifyWithServer(asset.base64, category);
-          } catch (classifyErr) {
+          } catch (classifyErr: any) {
             setClassifying(false);
+            setPhotoUri(null);
+            setStep(0);
             if (classifyErr instanceof ContentGuardrailError) {
-              setPhotoUri(null);
-              setStep(0);
               Alert.alert('Photo not accepted', classifyErr.reason);
+            } else if (classifyErr?.message === 'rate_limit') {
+              Alert.alert('Too many uploads', 'You\'ve uploaded too many items at once. Please wait a minute and try again.');
             }
             return;
           }
