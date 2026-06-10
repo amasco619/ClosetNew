@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { StyleSheet, Text, View, Pressable, TextInput, ScrollView, Dimensions, Platform, Image, ImageSourcePropType } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useApp, BodyType, EyeColor, SkinTone, Undertone, StyleGoal } from '@/contexts/AppContext';
 import type { HairColor, HeightBand, ContrastLevel, MoodGoal, LifePhase, MetalPreference, Industry, FaceShape } from '@/constants/types';
 import Colors from '@/constants/colors';
@@ -121,6 +121,7 @@ const TOTAL_STEPS = 8;
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { updateProfile, profile } = useApp();
+  const params = useLocalSearchParams<{ guest?: string }>();
   const [step, setStep] = useState(0);
   const [name, setName] = useState(profile.name || '');
   const [bodyType, setBodyType] = useState<BodyType | null>(profile.bodyType);
@@ -189,6 +190,7 @@ export default function OnboardingScreen() {
         industry,
         constraints: { ...profile.constraints, colorAversions },
         onboardingComplete: true,
+        ...(params.guest === 'true' && { isGuest: true }),
       });
       router.replace('/(tabs)');
     }

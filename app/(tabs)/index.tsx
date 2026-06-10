@@ -1,14 +1,14 @@
-import { StyleSheet, Text, View, ScrollView, Pressable, Platform, Image } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, Platform, Image, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useApp } from '@/contexts/AppContext';
 import { countRecommendedOutfits } from '@/constants/wardrobeBlueprint';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 import Colors from '@/constants/colors';
-import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp, useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
 const styleGoalLabels: Record<string, string> = {
   youthful: 'Youthful', elevated: 'Elevated', minimal: 'Minimal',
@@ -37,7 +37,7 @@ export default function HomeScreen() {
     profile, wardrobeItems, activeWardrobeItems, outfitSets, isPremium, canAddItem,
     starterRecommendations, recommendationSlots, todaysWear, wearHistory, backfillProgress,
     reactToOutfit, getOutfitReaction, logWear, undoWear, isWornToday,
-    weather, weatherLoading,
+    weather, weatherLoading, isGuest,
   } = useApp();
   // Resolve the temperature unit: user override, or auto-detect from locale.
   const effectiveTempUnit = profile.tempUnit ?? defaultTempUnit();
@@ -98,6 +98,15 @@ export default function HomeScreen() {
     { icon: 'diamond-outline' as const, text: 'Minimal gold jewelry elevates any casual outfit.' },
   ];
 
+  const [showAccountPrompt, setShowAccountPrompt] = useState(false);
+  const [promptDismissed, setPromptDismissed] = useState(false);
+  useEffect(() => {
+    if (!isGuest || promptDismissed) return;
+    if (wardrobeItems.length === 0) return;
+    const t = setTimeout(() => setShowAccountPrompt(true), 4000);
+    return () => clearTimeout(t);
+  }, [isGuest, promptDismissed, wardrobeItems.length]);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -113,6 +122,17 @@ export default function HomeScreen() {
             </View>
           )}
         </Animated.View>
+
+        {isGuest && (
+          <Pressable
+            style={({ pressed }) => [styles.guestBanner, pressed && { opacity: 0.82 }]}
+            onPress={() => { Haptics.selectionAsync(); router.push('/sign-in'); }}
+          >
+            <Ionicons name="cloud-upload-outline" size={14} color={Colors.secondary} />
+            <Text style={styles.guestBannerText}>Saved on device — create an account to sync</Text>
+            <Ionicons name="chevron-forward" size={13} color={Colors.secondary} />
+          </Pressable>
+        )}
 
         {weatherSummary && (
           <Pressable
@@ -383,6 +403,38 @@ export default function HomeScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      <Modal
+        visible={showAccountPrompt}
+        transparent
+        animationType="fade"
+        onRequestClose={() => { setShowAccountPrompt(false); setPromptDismissed(true); }}
+      >
+        <Pressable
+          style={styles.promptOverlay}
+          onPress={() => { setShowAccountPrompt(false); setPromptDismissed(true); }}
+        >
+          <Animated.View entering={FadeInUp.duration(280)} style={styles.promptSheet}>
+            <View style={styles.promptDrag} />
+            <Text style={styles.promptTitle}>Save your wardrobe</Text>
+            <Text style={styles.promptBody}>
+              Your wardrobe is saved on this device. Create a free account to back it up and access it from any device.
+            </Text>
+            <Pressable
+              style={({ pressed }) => [styles.promptPrimary, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+              onPress={() => { setShowAccountPrompt(false); router.push('/sign-in'); }}
+            >
+              <Text style={styles.promptPrimaryText}>Create Free Account</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.promptSecondary, pressed && { opacity: 0.7 }]}
+              onPress={() => { setShowAccountPrompt(false); setPromptDismissed(true); }}
+            >
+              <Text style={styles.promptSecondaryText}>Maybe later</Text>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -548,4 +600,50 @@ const styles = StyleSheet.create({
   },
   pickReactBtnLove: { backgroundColor: '#FEE2E2', borderColor: '#FECACA' },
   pickReactBtnSkip: { backgroundColor: Colors.background, borderColor: Colors.textLight },
+
+  guestBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.secondary + '12',
+    borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14,
+    marginBottom: 12, borderWidth: 1, borderColor: Colors.secondary + '25',
+  },
+  guestBannerText: {
+    fontFamily: 'Inter_400Regular', fontSize: 12,
+    color: Colors.textSecondary, flex: 1,
+  },
+
+  promptOverlay: {
+    flex: 1, backgroundColor: 'rgba(16,24,38,0.45)', justifyContent: 'flex-end',
+  },
+  promptSheet: {
+    backgroundColor: Colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, paddingBottom: 44,
+    shadowColor: Colors.primary, shadowOpacity: 0.15, shadowRadius: 20,
+    shadowOffset: { width: 0, height: -4 }, elevation: 8,
+  },
+  promptDrag: {
+    width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.border,
+    alignSelf: 'center', marginBottom: 20,
+  },
+  promptTitle: {
+    fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary,
+    letterSpacing: -0.5, marginBottom: 10,
+  },
+  promptBody: {
+    fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary,
+    lineHeight: 21, marginBottom: 24,
+  },
+  promptPrimary: {
+    backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 15,
+    alignItems: 'center', marginBottom: 10,
+    shadowColor: Colors.primary, shadowOpacity: 0.25, shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 }, elevation: 3,
+  },
+  promptPrimaryText: {
+    fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.white,
+  },
+  promptSecondary: { paddingVertical: 13, alignItems: 'center' },
+  promptSecondaryText: {
+    fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.textSecondary,
+  },
 });

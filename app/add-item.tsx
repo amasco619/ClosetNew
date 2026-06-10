@@ -248,6 +248,11 @@ export default function AddItemScreen() {
     fabric?: string; weight?: string;
     dominantHsl?: { h: number; s: number; l: number };
     dominantLab?: { L: number; a: number; b: number };
+    fit?: string;
+    neckline?: string;
+    sleeveLength?: string;
+    rise?: string;
+    warmthBand?: string;
   }> => {
     try {
       const res  = await apiRequest('POST', '/api/classify-garment', { imageBase64: base64 });
@@ -267,6 +272,11 @@ export default function AddItemScreen() {
         weight:       data.weight,
         dominantHsl:  data.dominantHsl,
         dominantLab:  data.dominantLab,
+        fit:          data.fit,
+        neckline:     data.neckline,
+        sleeveLength: data.sleeveLength,
+        rise:         data.rise,
+        warmthBand:   data.warmthBand,
       };
     } catch (err: any) {
       // apiRequest throws "<status>: {json body}" for non-2xx responses
@@ -375,18 +385,22 @@ export default function AddItemScreen() {
           if (classified.dominantHsl)  setDominantHsl(classified.dominantHsl);
           if (classified.dominantLab)  setDominantLab(classified.dominantLab);
 
+          // Apply Gemini-returned detail fields (fit/neckline/sleeveLength/rise/warmthBand)
+          if (classified.fit)          setFit(classified.fit);
+          if (classified.neckline)     setNeckline(classified.neckline);
+          if (classified.sleeveLength) setSleeveLength(classified.sleeveLength);
+          if (classified.rise)         setRise(classified.rise);
+          if (classified.warmthBand)   setWarmthBand(classified.warmthBand);
+
           // Fill any gaps from sub-type inference (only fires when classifier
           // didn't return a value — fabric/weight are checked inside the setter)
           if (validSub) {
             if (!classified.fabric)       { const f = inferFabric(validSub);       if (f) setFabric(f); }
             if (!classified.weight)       { setWeight(inferFabricWeight(validSub)); }
             if (!classified.pattern)      setPattern('solid');
-            const inferredNeckline = SUBTYPE_NECKLINE[validSub];
-            if (inferredNeckline)         setNeckline(inferredNeckline);
-            const inferredRise = SUBTYPE_RISE[validSub];
-            if (inferredRise)             setRise(inferredRise);
-            const inferredWarmth = SUBTYPE_WARMTH[validSub];
-            if (inferredWarmth)           setWarmthBand(inferredWarmth);
+            if (!classified.neckline)   { const inf = SUBTYPE_NECKLINE[validSub]; if (inf) setNeckline(inf); }
+            if (!classified.rise)       { const inf = SUBTYPE_RISE[validSub];     if (inf) setRise(inf);     }
+            if (!classified.warmthBand) { const inf = SUBTYPE_WARMTH[validSub];   if (inf) setWarmthBand(inf); }
           }
 
           setClassifying(false);

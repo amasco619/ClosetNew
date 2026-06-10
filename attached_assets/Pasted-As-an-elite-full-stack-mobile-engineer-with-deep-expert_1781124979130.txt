@@ -1,0 +1,300 @@
+As an elite full-stack mobile engineer with deep expertise in Expo React
+Native, Express, Supabase, and UI/UX craft implement the below User Flow into AuraCloset
+
+---
+
+## Screen 1 — Splash Screen
+
+**Purpose:** Brand first impression. No decisions required from the user.
+
+**Content:**
+- AuraCloset wordmark centred on `#F5F3F0` background
+- Champagne gold (`#D0B892`) logo mark or monogram above the wordmark
+- Tagline beneath: "Your quiet-luxury stylist in your pocket."
+- No buttons, no navigation, no login prompt
+
+**Behaviour:**
+- Wordmark fades in from `opacity:0` over 400ms ease-out
+- Tagline fades in 150ms after wordmark settles
+- Auto-advances to Welcome Screen after 2 seconds maximum
+- No user interaction required or accepted
+- Does not check for existing session — that happens on Welcome Screen mount
+
+---
+
+## Screen 2 — Welcome Screen
+
+**Purpose:** Single, clear value proposition. Two paths forward.
+
+**Content:**
+- AuraCloset wordmark at top
+- One outcome-oriented headline: "Outfits from what you already own, styled for you."
+- Two actions:
+  - Primary button: **Get Started** (Deep Navy background, Champagne text)
+  - Secondary link below it: **I already have an account** (small, no border, no fill, Sage colour)
+
+**Behaviour:**
+- On mount, silently check for an existing Supabase session in the background
+- If a session exists, skip the welcome screen entirely and route directly to the tabs
+- If a guest profile exists locally in AsyncStorage, skip the welcome screen and route to the first value screen
+- **Get Started** → begins guest onboarding
+- **I already have an account** → navigates to the sign-in screen
+
+---
+
+## Screen 3 — Guest Onboarding (8 Steps)
+
+**Purpose:** Build the personalisation profile before the user has any account. Every answer increases their investment and the quality of their first recommendations.
+
+**Step order:**
+1. Body type (illustrated images — hourglass, pear, apple, rectangle, inverted triangle, athletic)
+2. Eye colour (visual colour swatches)
+3. Skin tone (visual skin tone range)
+4. Undertone (warm, cool, neutral — with brief visual guide)
+5. Style goal (primary — minimal, elevated, bold, romantic, classic, youthful)
+6. Secondary style goal (optional — skip available)
+7. Lifestyle context (sliders: work / casual / events percentage split)
+8. Constraints (no sleeveless, no short skirts, max heel height, flat-only toggle)
+9. Location (optional — "For weather-aware outfit suggestions. You can enable this later." — skip available)
+
+**Design standards:**
+- Progress indicator at top showing current step of total (e.g. "3 of 9")
+- Back navigation available on every step — tapping back returns to the previous step without losing answers
+- Step transitions: current step slides out left, next step slides in from right (forward); reverse on back
+- All transitions respect `prefers-reduced-motion` — use opacity fade only if enabled
+- Transition duration: 280ms ease-out
+- Each step has a clear single-line heading, brief descriptive subtext, and a **Continue** button
+- Skip option on optional steps (step 6, 9) as a secondary text link below Continue
+- No account creation, no email address, no password at any point in this flow
+
+**On completion:**
+- Save all answers to AsyncStorage under `@auracloset_guest_profile`
+- Create a local guest profile object with a device-generated UUID
+- Set `is_guest: true` flag
+- Route immediately to the First Value Screen — no delay, no loading screen
+
+---
+
+## Screen 4 — First Value Screen
+
+**Purpose:** This is the most important screen in the app. The user must experience genuine, personalised value before being asked for anything. This is the moment that earns the sign-up.
+
+**Content:**
+- Personalised greeting: "Curated for your [Style Goal] style"
+- 2–3 starter outfit recommendations built from the WardrobeSlot blueprint using their stated style goal, body type, and constraints
+- Each recommendation shown as a lookbook-style card with:
+  - Sample flat-lay images for each item in the look
+  - A mood descriptor matching the scenario (e.g. "Polished and considered")
+  - A "What you need to build this look" section showing the specific WardrobeSlot items required
+- Starter Recommendations section below: first needed slot per category, shown as visual cards with sample images
+- Wardrobe health summary: blueprint completion percentage, number of needed items
+- A subtle "Saved on this device" indicator in the header — a small icon with text in Sage colour, always visible in guest mode
+
+**Behaviour:**
+- All recommendations are generated entirely from the local guest profile — no API call, no account required
+- The wardrobe is empty at this point so all outfits show as "what you need to build this look" — this is intentional and creates pull
+- After 3–5 seconds of browsing, the Soft Account Prompt appears as a bottom sheet — not a full-screen interruption
+
+---
+
+## Screen 5 — Soft Account Prompt (Bottom Sheet)
+
+**Purpose:** A single, non-blocking invitation to save progress. Appears after the user has had time to see their recommendations. Never a hard gate.
+
+**Trigger:** 4 seconds after the First Value Screen loads, OR when the user taps any save or bookmark action.
+
+**Content:**
+- Drag handle at top of sheet
+- Heading: "Save your wardrobe and keep your style profile."
+- Subtext: "Create a free account to access your wardrobe from any device."
+- Two actions:
+  - Primary button: **Create account** → navigates to sign-up screen
+  - Secondary text link: **Continue as guest** → dismisses the sheet
+
+**Behaviour:**
+- Sheet slides up from bottom with `cubic-bezier(0.32, 0.72, 0, 1)` over 320ms (drawer easing from Emil Kowalski's standard)
+- Swipe down to dismiss — treated identically to tapping "Continue as guest"
+- After dismissal, does not reappear on this session unless triggered again by a save action
+- If the user taps **Continue as guest**, they remain in guest mode with full access to the First Value Screen and exploration features
+
+---
+
+## Screen 6 — Guest Mode
+
+**Purpose:** Allow the user to experience the core product loop before committing. Generous enough to feel real, limited enough to motivate sign-up.
+
+**Capabilities in guest mode:**
+
+| Feature | Guest |
+|---|---|
+| Onboarding profile | Full |
+| Outfit recommendations | Full |
+| Starter recommendations | Full |
+| Weather-aware outfits | Full (uses device location if granted) |
+| Wardrobe items | 5 maximum |
+| Personal Calibration Loop | Local only (love / not today taps stored in AsyncStorage) |
+| WardrobeSlot blueprint | View only |
+| Save / bookmark outfits | No |
+| Wear log | No |
+| Cross-device sync | No |
+| Deep Diagnostics | No |
+| Virtual try-on | No |
+| Premium features | No |
+
+**Persistent guest indicator:**
+- A small **"Saved on this device"** label with a device icon appears in the top area of the Home tab at all times in guest mode
+- Tapping it opens a small tooltip: "Your style profile is only on this device. Create an account to save it permanently and access it anywhere."
+- This is informative, never alarming or pressure-based
+
+**At the 5-item limit:**
+When a guest attempts to add a 6th wardrobe item, show a contextual bottom sheet:
+
+```
+Your wardrobe is taking shape.
+
+Create a free account to keep adding — and 
+access everything from any device.
+
+[ Create free account ]    [ Not now ]
+```
+
+- **Create free account** → navigates to sign-up screen, pre-filling nothing
+- **Not now** → dismisses the sheet, the item is not added
+- The sheet reappears the next time they attempt to add another item — it does not reappear on every browse
+
+---
+
+## Screen 7 — Account Creation Trigger Points
+
+In addition to the soft prompt and the item cap, the sign-up screen is triggered contextually at these specific moments:
+
+| User action | Trigger copy |
+|---|---|
+| Taps "Wearing this today" on an outfit | "Track what you wear — create an account to start your wear history." |
+| Tries to save / bookmark an outfit | "Save this look to wear again — create a free account." |
+| Tries to access Deep Diagnostics | Routes to Premium screen — requires account first |
+| Tries virtual try-on | Premium feature — requires account and premium upgrade |
+| Tries to upgrade to premium | "Create an account first — then unlock every feature." |
+
+Each trigger shows a contextual bottom sheet with the relevant copy, a **Create account** primary button, and a **Not now** secondary link.
+
+---
+
+## Screen 8 — Sign-In / Sign-Up Screen
+
+**Purpose:** Account creation and returning user sign-in. Reached from the soft prompt, trigger points, or the "I already have an account" link on the Welcome Screen.
+
+**Authentication stack in order of visual prominence:**
+
+1. **Continue with Google** — primary button, Deep Navy background, Champagne text
+2. **Continue with Apple** — primary button, Champagne background, Deep Navy text
+3. Divider: "or"
+4. Mode toggle: **Sign in** | **Create account**
+5. Email input with visible label
+6. Password input with visible label and show/hide toggle
+7. [Create account mode] Confirm password input + password requirements hint
+8. Submit button
+9. [Sign in mode] "Forgot password?" text link
+
+**Validation:** On blur only — never on keystroke. Errors appear inline below the specific field that failed, never at the top of the form.
+
+**Password reset flow:**
+- Forgot password → dedicated screen → reset email sent → deep link back into app → update password screen → confirmed → routed to tabs
+
+**On successful sign-up:**
+- Seamlessly migrate all guest data to the new account:
+  - Guest profile → `user_profiles` table
+  - 5 local wardrobe items → `wardrobe_items` table with images uploaded to Supabase Storage
+  - Local affinity signals (love / not today taps) → `affinity_signals` table
+  - Slot statuses → `slot_statuses` table
+- User lands on the tabs screen and sees everything exactly as they left it
+- A single brief confirmation: "Your wardrobe is saved." shown as a non-blocking toast
+
+---
+
+## Screen 9 — Authenticated Free Tier
+
+Everything the guest had, plus:
+
+| Feature | Free Account |
+|---|---|
+| Wardrobe items | 30 maximum |
+| Save / bookmark outfits | Yes |
+| Wear log | Full |
+| Cross-device sync | Yes |
+| Personal Calibration Loop | Fully synced to Supabase |
+| WardrobeSlot blueprint | Full |
+| Weather-aware outfits | Full |
+| Deep Diagnostics | No (premium) |
+| Virtual try-on | No (premium) |
+
+**At the 30-item limit:**
+Show a contextual prompt when attempting to add item 31:
+
+```
+Your wardrobe is complete for the free tier.
+
+Upgrade to AuraCloset Premium for unlimited items 
+and every feature unlocked.
+
+[ Upgrade to Premium ]    [ Not now ]
+```
+
+---
+
+## Screen 10 — Premium Upgrade
+
+**Trigger points:**
+- Tapping Deep Diagnostics from the Profile or Home tab
+- Tapping virtual try-on on an outfit card
+- Hitting the 30-item free tier cap
+- Tapping the Premium page directly from Profile
+
+**Premium unlocks:**
+- Unlimited wardrobe items
+- Deep Diagnostics (health score, gap analysis, colour palette analysis)
+- Virtual try-on (FASHN AI integration)
+- Advanced scenario filters beyond work / casual / date / event
+- Priority support
+
+**Flow:** Premium screen → payment → `POST /api/user/upgrade-premium` on the Express server → `premium: true` written to `user_profiles` → user returned to tabs with premium features immediately active
+
+---
+
+## Returning User Flows
+
+**Returning authenticated user:**
+- App opens → splash → session check on Welcome Screen → session found → routed directly to tabs
+
+**Returning guest (same device):**
+- App opens → splash → AsyncStorage check → guest profile found → routed directly to First Value Screen with all previously entered data intact
+
+**Returning guest (new device or reinstall):**
+- App opens → splash → no session, no local profile → Welcome Screen
+- A subtle note on the Welcome Screen: "Used AuraCloset before? Sign in to restore your wardrobe."
+- This appears only when the app detects a fresh install with no local data
+
+**Session expiry:**
+- User opens the app, session has expired
+- Routed to sign-in screen
+- Email + password sign-in completes entirely in-app in under 10 seconds
+- Returned to tabs with all data intact
+
+---
+
+## Complete Tier Summary
+
+| Feature | Guest | Free Account | Premium |
+|---|---|---|---|
+| Onboarding | Full | Full | Full |
+| Outfit recommendations | Full | Full | Full |
+| Weather-aware outfits | Full | Full | Full |
+| Calibration Loop | Local only | Synced | Synced |
+| Wardrobe items | 5 | 30 | Unlimited |
+| Save outfits | No | Yes | Yes |
+| Wear log | No | Yes | Yes |
+| WardrobeSlot blueprint | View | Full | Full |
+| Cross-device sync | No | Yes | Yes |
+| Deep Diagnostics | No | No | Yes |
+| Virtual try-on | No | No | Yes |
+| Advanced scenario filters | No | No | Yes |

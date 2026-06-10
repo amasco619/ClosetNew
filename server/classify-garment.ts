@@ -249,6 +249,11 @@ const VALID_FABRICS = new Set<string>([
 
 const VALID_PATTERNS = new Set<string>(["solid","stripe","floral","check","print","color-block","geometric","animal"]);
 const VALID_PATTERN_SCALES = new Set<string>(["small","medium","large"]);
+const VALID_FITS = new Set<string>(["slim","regular","loose","oversized","tailored"]);
+const VALID_NECKLINES = new Set<string>(["crew","v-neck","scoop","turtleneck","boat","square","halter","off-shoulder","collared"]);
+const VALID_SLEEVE_LENGTHS = new Set<string>(["sleeveless","short","three-quarter","long"]);
+const VALID_RISES = new Set<string>(["low","mid","high"]);
+const VALID_WARMTH_BANDS = new Set<string>(["cold","cool","mild","warm","hot"]);
 
 // ─── Gemini classifier ────────────────────────────────────────────────────────
 
@@ -296,6 +301,21 @@ pattern (optional): One of: "solid" | "stripe" | "floral" | "check" | "print" | 
 
 patternScale (optional): Only include when pattern is NOT solid. One of: "small" | "medium" | "large"
 
+fit (optional): Overall silhouette/cut of the garment. One of: "slim" | "regular" | "loose" | "oversized" | "tailored"
+  Include for tops, bottoms, dresses, outerwear. Omit for shoes, bags, jewelry.
+
+neckline (optional): For tops and dresses only. One of: "crew" | "v-neck" | "scoop" | "turtleneck" | "boat" | "square" | "halter" | "off-shoulder" | "collared"
+  Omit for all other categories.
+
+sleeveLength (optional): For tops and dresses only. One of: "sleeveless" | "short" | "three-quarter" | "long"
+  Omit for all other categories.
+
+rise (optional): For bottoms only (jeans, trousers, skirts, etc.). One of: "low" | "mid" | "high"
+  Omit for all other categories.
+
+warmthBand (optional): For outerwear only — the warmth level of the layer. One of: "cold" | "cool" | "mild" | "warm" | "hot"
+  (cold = heavy winter coat; hot = very lightweight summer layer/vest). Omit for all other categories.
+
 dominantRgb (required): The representative sRGB colour of the garment's primary colour family as a 3-element array [R, G, B] where each value is an integer 0–255. This must correspond to the chosen colorFamily (e.g. a navy item → approximately [26, 42, 74]). Used for perceptual colour scoring.
 
 modelConfidence (required): Your confidence in the classification as a decimal between 0.0 and 1.0.
@@ -313,6 +333,11 @@ interface GeminiResult {
   fabric?: string;
   pattern?: string;
   patternScale?: string;
+  fit?: string;
+  neckline?: string;
+  sleeveLength?: string;
+  rise?: string;
+  warmthBand?: string;
   dominantRgb?: [number, number, number];
   modelConfidence?: number;
 }
@@ -424,6 +449,31 @@ export async function classifyGarment(req: Request, res: Response) {
         ? parsed.patternScale
         : undefined;
 
+    const fit =
+      parsed.fit && VALID_FITS.has(parsed.fit)
+        ? parsed.fit
+        : undefined;
+
+    const neckline =
+      parsed.neckline && VALID_NECKLINES.has(parsed.neckline)
+        ? parsed.neckline
+        : undefined;
+
+    const sleeveLength =
+      parsed.sleeveLength && VALID_SLEEVE_LENGTHS.has(parsed.sleeveLength)
+        ? parsed.sleeveLength
+        : undefined;
+
+    const rise =
+      parsed.rise && VALID_RISES.has(parsed.rise)
+        ? parsed.rise
+        : undefined;
+
+    const warmthBand =
+      parsed.warmthBand && VALID_WARMTH_BANDS.has(parsed.warmthBand)
+        ? parsed.warmthBand
+        : undefined;
+
     const modelConfidence =
       typeof parsed.modelConfidence === "number"
         ? Math.min(1, Math.max(0, parsed.modelConfidence))
@@ -468,6 +518,11 @@ export async function classifyGarment(req: Request, res: Response) {
       seasonTags,
       pattern,
       patternScale,
+      fit,
+      neckline,
+      sleeveLength,
+      rise,
+      warmthBand,
       fabric,
       weight,
       dominantHsl,

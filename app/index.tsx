@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import { supabase } from '../lib/supabase';
@@ -21,49 +21,40 @@ export default function IndexScreen() {
 
   useEffect(() => {
     supabase.auth.getClaims().then(({ data }) => {
-      const claims = data?.claims;
-      if (!claims) {
-        router.replace('/sign-in');
-      } else {
-        setHasSession(true);
-      }
+      setHasSession(!!(data?.claims));
       setChecking(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        setHasSession(false);
-        router.replace('/sign-in');
-      } else {
-        setHasSession(true);
-      }
+      setHasSession(!!session);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (!checking && hasSession && !isLoading) {
+    if (checking || isLoading) return;
+
+    if (hasSession) {
       if (profile.onboardingComplete) {
         router.replace('/(tabs)');
       } else {
         router.replace('/onboarding');
       }
+      return;
     }
-  }, [checking, hasSession, isLoading, profile.onboardingComplete]);
 
-  return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color={Colors.secondary} />
-    </View>
-  );
+    if (profile.isGuest && profile.onboardingComplete) {
+      router.replace('/(tabs)');
+      return;
+    }
+
+    router.replace('/welcome');
+  }, [checking, hasSession, isLoading, profile.onboardingComplete, profile.isGuest]);
+
+  return <View style={styles.container} />;
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
 });

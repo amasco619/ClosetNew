@@ -88,6 +88,7 @@ interface AppContextValue {
   weatherLoading: boolean;
   refreshWeather: () => Promise<void>;
   setWeatherEnabled: (enabled: boolean) => void;
+  isGuest: boolean;
 }
 
 const defaultProfile: UserProfile = {
@@ -119,6 +120,7 @@ const defaultProfile: UserProfile = {
 };
 
 const FREE_ITEM_CAP = 10;
+const GUEST_ITEM_CAP = 5;
 
 const AppContext = createContext<AppContextValue | null>(null);
 
@@ -214,6 +216,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (event === 'SIGNED_IN' && session?.user) {
           const userId = session.user.id;
           currentUserIdRef.current = userId;
+
+          // Clear guest mode on any sign-in so local data is preserved
+          // but the user transitions to an authenticated account.
+          setProfile(prev => {
+            if (prev.isGuest) {
+              const updated = { ...prev, isGuest: false };
+              AsyncStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(updated));
+              return updated;
+            }
+            return prev;
+          });
 
           await upsertUserProfile({ id: userId }).catch(console.error);
 
@@ -866,8 +879,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // computation. Free users see only the first FREE_ITEM_CAP items; all
   // items are still persisted so upgrading restores the full wardrobe.
   const activeWardrobeItems = useMemo(
-    () => (isPremium ? wardrobeItems : wardrobeItems.slice(0, FREE_ITEM_CAP)),
-    [isPremium, wardrobeItems],
+    () => isPremium
+      ? wardrobeItems
+      : wardrobeItems.slice(0, profile.isGuest ? GUEST_ITEM_CAP : FREE_ITEM_CAP),
+    [isPremium, profile.isGuest, wardrobeItems],
   );
 
   const affinityState = useMemo(
@@ -921,7 +936,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeWardrobeItems, profile, todayMood, outfitPool, rotationState.poolHash, rotationState.lastDate, isLoading, recentWornFingerprints, weather]);
 
-  const canAddItem = isPremium || wardrobeItems.length < FREE_ITEM_CAP;
+  const itemCap = isPremium ? Infinity : profile.isGuest ? GUEST_ITEM_CAP : FREE_ITEM_CAP;
+  const canAddItem = wardrobeItems.length < itemCap;
   const starterRecommendations = useMemo(() => getFirstNeededByCategory(recommendationSlots), [recommendationSlots]);
 
   // ── Profile completeness / nudge ─────────────────────────────────────────────
@@ -1000,6 +1016,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     affinitySignalCount: affinityState.signalCount,
     topAffinityItems: topItems, topAffinityPairs: topPairs,
     weather, weatherLoading, refreshWeather, setWeatherEnabled,
+    isGuest: profile.isGuest === true,
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
        isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, canAddItem, recommendationSlots, starterRecommendations,

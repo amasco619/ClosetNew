@@ -1,3 +1,5 @@
 - [AuraCloset UI/UX Design System](auracloset-design-system.md) — animation <300ms, scale(0.97) press, subtle shadows, HIG type scale; all rules codified in replit.md
 - [Expo EXPO_PUBLIC_ env vars](expo-public-env-vars.md) — never create a .env file with placeholder values; it overrides Replit secrets and breaks Supabase init
 - [Supabase getClaims null safety](supabase-getclaims-null.md) — getClaims() returns data:null when no session; always use data?.claims not destructuring
+- [Guest mode pattern](guest-mode.md) — isGuest on UserProfile; GUEST_ITEM_CAP=5 vs FREE_ITEM_CAP=10; SIGNED_IN always clears isGuest in AppContext.
+- [Gemini extended clothing fields](gemini-clothing-fields.md) — Gemini prompt returns fit/neckline/sleeveLength/rise/warmthBand; applied before subtype inference in add-item.tsx.
