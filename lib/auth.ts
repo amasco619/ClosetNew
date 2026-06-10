@@ -103,8 +103,8 @@ export async function signOut(): Promise<void> {
 }
 
 export async function getSession() {
-  const { data: { claims } } = await supabase.auth.getClaims()
-  return claims
+  const { data } = await supabase.auth.getClaims()
+  return data?.claims ?? null
 }
 
 export async function getCurrentUser() {
@@ -118,14 +118,8 @@ export function isValidEmail(email: string): boolean {
 }
 
 export function validatePassword(password: string): string | null {
-  if (password.length < 8) {
-    return 'Password must be at least 8 characters.'
-  }
-  if (!/[A-Z]/.test(password)) {
-    return 'Password must contain at least one uppercase letter.'
-  }
-  if (!/[0-9]/.test(password)) {
-    return 'Password must contain at least one number.'
+  if (password.length < 6) {
+    return 'Password must be at least 6 characters.'
   }
   return null
 }

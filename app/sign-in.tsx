@@ -336,7 +336,7 @@ export default function SignInScreen() {
             </View>
             {mode === 'sign-up' && (
               <Text style={styles.passwordHint}>
-                At least 8 characters, one uppercase letter, one number.
+                At least 6 characters.
               </Text>
             )}
             {passwordError && (

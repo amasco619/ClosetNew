@@ -125,7 +125,7 @@ export default function UpdatePasswordScreen() {
             </TouchableOpacity>
           </View>
           <Text style={styles.hint}>
-            At least 8 characters, one uppercase letter, one number.
+            At least 6 characters.
           </Text>
           {newPasswordError && (
             <View style={styles.errorBox}>
