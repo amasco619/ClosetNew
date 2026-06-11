@@ -534,6 +534,10 @@ export async function classifyGarment(req: Request, res: Response) {
     const status = err?.response?.status;
     const detail = err?.response?.data?.error?.message ?? err.message;
     console.error("[classify] Gemini error", status, detail);
+    // Forward rate-limit / quota errors so the client can surface a clear message
+    if (status === 429) {
+      return res.status(429).json({ error: "rate_limited", detail });
+    }
     return res.status(500).json({ error: "classification_failed" });
   }
 }

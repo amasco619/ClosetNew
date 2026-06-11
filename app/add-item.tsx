@@ -285,11 +285,6 @@ export default function AddItemScreen() {
       // apiRequest throws "<status>: {json body}" for non-2xx responses
       const msg: string = err?.message ?? '';
 
-      if (msg.startsWith('429:')) {
-        // Rate limited — surface a friendly message and let the caller reset UI
-        throw new Error('rate_limit');
-      }
-
       if (msg.startsWith('422:')) {
         try {
           const body = JSON.parse(msg.slice(4).trim());
@@ -303,8 +298,8 @@ export default function AddItemScreen() {
         }
       }
 
-      const fallback = localClassifyFallback(cat);
-      return { category: cat, subType: fallback.subType, colorFamily: fallback.colorFamily, description: '', occasionTags: [], seasonTags: [] };
+      // 429 (rate-limited / quota) or any other server error — signal caller
+      throw new Error('classification_unavailable');
     }
   };
 
@@ -362,12 +357,18 @@ export default function AddItemScreen() {
             classified = await classifyWithServer(asset.base64, category);
           } catch (classifyErr: any) {
             setClassifying(false);
-            setPhotoUri(null);
-            setStep(0);
             if (classifyErr instanceof ContentGuardrailError) {
+              setPhotoUri(null);
+              setStep(0);
               Alert.alert('Photo not accepted', classifyErr.reason);
-            } else if (classifyErr?.message === 'rate_limit') {
-              Alert.alert('Too many uploads', 'You\'ve uploaded too many items at once. Please wait a minute and try again.');
+            } else {
+              // API unavailable (quota, rate-limit, or server error) —
+              // keep the photo and stay on step 1 so the user can fill in manually.
+              Alert.alert(
+                'Auto-fill unavailable',
+                'We couldn\'t identify this item automatically. Please fill in the details below.',
+                [{ text: 'Got it' }],
+              );
             }
             return;
           }
