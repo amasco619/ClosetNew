@@ -1,8 +1,9 @@
-import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Platform, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Platform, TouchableOpacity, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { signOut } from '../../lib/auth';
+import { supabase } from '../../lib/supabase';
 import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -95,6 +96,22 @@ export default function ProfileScreen() {
     weather, setWeatherEnabled,
   } = useApp();
   const [showAffinityDebug, setShowAffinityDebug] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(profile.name || '');
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.email) setUserEmail(data.user.email);
+    }).catch(() => {});
+  }, []);
+
+  const saveName = () => {
+    const trimmed = nameInput.trim();
+    if (trimmed) updateProfile({ name: trimmed });
+    setEditingName(false);
+  };
+
   const itemById = (id: string) => wardrobeItems.find(w => w.id === id);
   const itemLabel = (id: string) => {
     const it = itemById(id);
@@ -144,8 +161,39 @@ export default function ProfileScreen() {
           <View style={styles.avatarCircle}>
             <MaterialCommunityIcons name="hanger" size={32} color={Colors.secondary} />
           </View>
-          <Text style={styles.name}>{profile.name || 'Style Explorer'}</Text>
+          {editingName ? (
+            <View style={styles.nameEditRow}>
+              <TextInput
+                style={styles.nameInput}
+                value={nameInput}
+                onChangeText={setNameInput}
+                autoFocus
+                autoCapitalize="words"
+                returnKeyType="done"
+                onSubmitEditing={saveName}
+                placeholder="Your name"
+                placeholderTextColor={Colors.textLight}
+              />
+              <TouchableOpacity onPress={saveName} hitSlop={8} accessibilityLabel="Save name">
+                <Ionicons name="checkmark-circle" size={24} color={Colors.secondary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setEditingName(false)} hitSlop={8} accessibilityLabel="Cancel editing">
+                <Ionicons name="close-circle-outline" size={24} color={Colors.textLight} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.nameRow}
+              onPress={() => { setNameInput(profile.name || ''); setEditingName(true); }}
+              activeOpacity={0.75}
+              accessibilityLabel="Edit your name"
+            >
+              <Text style={styles.name}>{profile.name || 'Style Explorer'}</Text>
+              <Ionicons name="pencil-outline" size={14} color={Colors.textLight} style={{ marginLeft: 6 }} />
+            </TouchableOpacity>
+          )}
           <Text style={styles.tierLabel}>{isPremium ? 'Premium Member' : 'Free Plan'}</Text>
+          {userEmail ? <Text style={styles.emailLabel}>{userEmail}</Text> : null}
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(120).duration(280)} style={styles.statsBar}>
@@ -637,7 +685,15 @@ const styles = StyleSheet.create({
     marginBottom: 12, borderWidth: 1, borderColor: Colors.secondary + '25',
   },
   name: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary, letterSpacing: -0.3 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  nameEditRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 4 },
+  nameInput: {
+    fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary,
+    borderBottomWidth: 1.5, borderBottomColor: Colors.secondary,
+    paddingVertical: 4, paddingHorizontal: 8, minWidth: 120, textAlign: 'center',
+  },
   tierLabel: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 4 },
+  emailLabel: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, marginTop: 3, letterSpacing: 0.1 },
 
   statsBar: {
     flexDirection: 'row', backgroundColor: Colors.white, borderRadius: 18, padding: 16, marginBottom: 24,

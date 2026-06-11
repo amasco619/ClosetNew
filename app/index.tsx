@@ -2,10 +2,22 @@ import { useEffect, useState } from 'react';
 import { router } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 import { useApp } from '@/contexts/AppContext';
+import type { UserProfile } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import { supabase } from '../lib/supabase';
 import * as Linking from 'expo-linking';
 import { createSessionFromUrl } from '../lib/auth';
+
+function hasRequiredOnboardingFields(p: UserProfile): boolean {
+  return !!(
+    p.name?.trim() &&
+    p.bodyType &&
+    p.eyeColor &&
+    p.skinTone &&
+    p.undertone &&
+    p.styleGoalPrimary
+  );
+}
 
 export default function IndexScreen() {
   const { profile, isLoading } = useApp();
@@ -36,7 +48,7 @@ export default function IndexScreen() {
     if (checking || isLoading) return;
 
     if (hasSession) {
-      if (profile.onboardingComplete) {
+      if (profile.onboardingComplete && hasRequiredOnboardingFields(profile)) {
         router.replace('/(tabs)');
       } else {
         router.replace('/onboarding');
@@ -44,7 +56,7 @@ export default function IndexScreen() {
       return;
     }
 
-    if (profile.isGuest && profile.onboardingComplete) {
+    if (profile.isGuest && profile.onboardingComplete && hasRequiredOnboardingFields(profile)) {
       router.replace('/(tabs)');
       return;
     }

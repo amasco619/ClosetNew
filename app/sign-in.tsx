@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator,
   AccessibilityInfo, Animated,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import * as Linking from 'expo-linking'
 import { Ionicons } from '@expo/vector-icons'
@@ -17,6 +18,8 @@ type Mode = 'sign-in' | 'sign-up'
 type LoadingAction = null | 'google' | 'apple' | 'email'
 
 export default function SignInScreen() {
+  const insets = useSafeAreaInsets()
+  const webTop = Platform.OS === 'web' ? 67 : 0
   const [mode, setMode] = useState<Mode>('sign-in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -182,20 +185,31 @@ export default function SignInScreen() {
 
   if (confirmed) {
     return (
-      <View style={styles.confirmedContainer}>
-        <Text style={styles.confirmedTitle}>Check your email</Text>
-        <Text style={styles.confirmedBody}>
-          Check your email to confirm your account.{'\n'}
-          Once confirmed, you can sign in above.
-        </Text>
+      <View style={[styles.confirmedContainer, { paddingTop: insets.top + webTop }]}>
         <TouchableOpacity
-          onPress={() => switchMode('sign-in')}
-          activeOpacity={0.82}
-          style={styles.backLink}
+          onPress={() => router.replace('/welcome')}
+          style={styles.navBackBtn}
+          hitSlop={8}
           accessibilityRole="button"
+          accessibilityLabel="Back"
         >
-          <Text style={styles.backLinkText}>Back to sign in</Text>
+          <Ionicons name="chevron-back" size={24} color="#101826" />
         </TouchableOpacity>
+        <View style={{ paddingTop: 48 }}>
+          <Text style={styles.confirmedTitle}>Check your email</Text>
+          <Text style={styles.confirmedBody}>
+            Check your email to confirm your account.{'\n'}
+            Once confirmed, you can sign in above.
+          </Text>
+          <TouchableOpacity
+            onPress={() => switchMode('sign-in')}
+            activeOpacity={0.82}
+            style={styles.backLink}
+            accessibilityRole="button"
+          >
+            <Text style={styles.backLinkText}>Back to sign in</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     )
   }
@@ -205,6 +219,17 @@ export default function SignInScreen() {
       style={styles.flex}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <View style={[styles.navRow, { paddingTop: insets.top + webTop }]}>
+        <TouchableOpacity
+          onPress={() => router.replace('/welcome')}
+          style={styles.navBackBtn}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <Ionicons name="chevron-back" size={24} color="#101826" />
+        </TouchableOpacity>
+      </View>
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
@@ -428,16 +453,18 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: '#F5F3F0' },
+  navRow: { paddingHorizontal: 12, paddingBottom: 4 },
+  navBackBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   confirmedContainer: {
     flex: 1,
     backgroundColor: '#F5F3F0',
     paddingHorizontal: 24,
-    paddingTop: 120,
+    paddingTop: 16,
   },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 80,
+    paddingTop: 20,
     paddingBottom: 48,
   },
   wordmarkBlock: { alignItems: 'center', marginBottom: 48 },

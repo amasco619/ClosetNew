@@ -234,6 +234,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return prev;
           });
 
+          // Snapshot local (potentially guest) profile before any DB operations
+          const localRaw = await AsyncStorage.getItem(STORAGE_KEYS.profile).catch(() => null);
+          const localSnap: UserProfile | null = localRaw ? mergeProfile(JSON.parse(localRaw)) : null;
+
           await upsertUserProfile({
             id: userId,
             ...(authName ? { name: authName } : {}),
@@ -256,7 +260,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
             // Load saved looks separately — table may not exist yet for some users
             const dbSavedLooks = await getSavedLooks(userId).catch(() => []);
 
-            if (dbProfile) {
+            // A "blank" account has never completed onboarding on this or any device
+            const isNewBlankAccount = !dbProfile || (
+              !dbProfile.body_type && !dbProfile.eye_color && !dbProfile.skin_tone &&
+              !dbProfile.onboarding_complete
+            );
+            // The local snapshot has onboarding data if the guest completed the quiz
+            const guestHasData = !!(
+              localSnap?.bodyType && localSnap?.eyeColor && localSnap?.styleGoalPrimary
+            );
+
+            if (isNewBlankAccount && guestHasData && localSnap) {
+              // Guest created a new account — carry their onboarding preferences forward
+              await upsertUserProfile({
+                id: userId,
+                name: localSnap.name || authName || undefined,
+                body_type: localSnap.bodyType ?? undefined,
+                eye_color: localSnap.eyeColor ?? undefined,
+                skin_tone: localSnap.skinTone ?? undefined,
+                undertone: localSnap.undertone ?? undefined,
+                style_goals: [localSnap.styleGoalPrimary, localSnap.styleGoalSecondary].filter(Boolean) as string[],
+                secondary_goal: localSnap.styleGoalSecondary ?? undefined,
+                lifestyle: {
+                  work: localSnap.lifestyleWork,
+                  casual: localSnap.lifestyleCasual,
+                  events: localSnap.lifestyleEvents,
+                },
+                constraints: localSnap.constraints,
+                onboarding_complete: localSnap.onboardingComplete ?? false,
+              }).catch(console.error);
+              setProfile(mergeProfile({ ...localSnap, isGuest: false, name: localSnap.name || authName || '' }));
+            } else if (dbProfile) {
               setProfile(prev => mergeProfile({
                 ...prev,
                 name: dbProfile.name || authName || prev.name,
@@ -274,7 +308,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               }));
               if (dbProfile.premium) setIsPremium(true);
             } else if (authName) {
-              setProfile(prev => ({ ...prev, name: prev.name || authName }));
+              setProfile(prev => ({ ...prev, name: prev.name || authName, isGuest: false }));
             }
 
             if (items && items.length > 0) {
