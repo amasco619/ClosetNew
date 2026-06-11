@@ -12,6 +12,7 @@ import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { apiRequest } from '@/lib/query-client';
+import * as Crypto from 'expo-crypto';
 import { uploadWardrobeImage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
 
@@ -186,6 +187,8 @@ export default function AddItemScreen() {
   const [sleeveLength,    setSleeveLength]    = useState<string | undefined>(undefined);
   const [rise,            setRise]            = useState<string | undefined>(undefined);
   const [warmthBand,      setWarmthBand]      = useState<string | undefined>(undefined);
+  const [photoBase64,     setPhotoBase64]     = useState<string | null>(null);
+  const [saving,          setSaving]          = useState(false);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -320,6 +323,7 @@ export default function AddItemScreen() {
     setWarmthBand(undefined);
     setDominantHsl(undefined);
     setDominantLab(undefined);
+    setPhotoBase64(null);
   };
 
   const pickImage = async (useCamera: boolean) => {
@@ -348,6 +352,7 @@ export default function AddItemScreen() {
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         setPhotoUri(asset.uri);
+        if (asset.base64) setPhotoBase64(asset.base64);
         setStep(1);
 
         if (asset.base64) {
@@ -419,7 +424,7 @@ export default function AddItemScreen() {
 
   // ─── Save ─────────────────────────────────────────────────────────────────
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!photoUri) return;
 
     if (!subType) {
@@ -469,32 +474,49 @@ export default function AddItemScreen() {
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const parsedPrice = parseFloat(purchasePrice.replace(/[^0-9.]/g, ''));
-    addWardrobeItem({
-      photoUri,
-      category,
-      subType,
-      colorFamily,
-      description: description || undefined,
-      occasionTags: occasions,
-      seasonTags: seasons,
-      formalityLevel: SUBTYPE_FORMALITY[subType] ?? 5,
-      purchasePrice: isNaN(parsedPrice) || parsedPrice <= 0 ? undefined : parsedPrice,
-      pattern:      asPattern(pattern),
-      patternScale: asPatternScale(patternScale),
-      fabric:       asFabric(fabric),
-      weight:       asWeight(weight),
-      fit:          asFit(fit),
-      accentColor:  accentColor && colorFamilies.includes(accentColor) ? accentColor : undefined,
-      metalTone:    (metalTone === 'gold' || metalTone === 'silver' || metalTone === 'rose-gold' || metalTone === 'mixed' || metalTone === 'none') ? metalTone : undefined,
-      neckline:     asNeckline(neckline),
-      sleeveLength: asSleeve(sleeveLength),
-      rise:         asRise(rise),
-      warmthBand:   asWarmth(warmthBand),
-      dominantHsl,
-      dominantLab,
-    });
-    router.back();
+    setSaving(true);
+    try {
+      const parsedPrice = parseFloat(purchasePrice.replace(/[^0-9.]/g, ''));
+      const itemId = Crypto.randomUUID();
+      let finalUri = photoUri;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user && photoBase64) {
+        try {
+          finalUri = await uploadWardrobeImage(session.user.id, photoBase64, itemId);
+        } catch (uploadErr) {
+          console.warn('[add-item] Storage upload failed, using local URI:', uploadErr);
+        }
+      }
+      addWardrobeItem({
+        id: itemId,
+        photoUri: finalUri,
+        category,
+        subType,
+        colorFamily,
+        description: description || undefined,
+        occasionTags: occasions,
+        seasonTags: seasons,
+        formalityLevel: SUBTYPE_FORMALITY[subType] ?? 5,
+        purchasePrice: isNaN(parsedPrice) || parsedPrice <= 0 ? undefined : parsedPrice,
+        pattern:      asPattern(pattern),
+        patternScale: asPatternScale(patternScale),
+        fabric:       asFabric(fabric),
+        weight:       asWeight(weight),
+        fit:          asFit(fit),
+        accentColor:  accentColor && colorFamilies.includes(accentColor) ? accentColor : undefined,
+        metalTone:    (metalTone === 'gold' || metalTone === 'silver' || metalTone === 'rose-gold' || metalTone === 'mixed' || metalTone === 'none') ? metalTone : undefined,
+        neckline:     asNeckline(neckline),
+        sleeveLength: asSleeve(sleeveLength),
+        rise:         asRise(rise),
+        warmthBand:   asWarmth(warmthBand),
+        dominantHsl,
+        dominantLab,
+      });
+      router.back();
+    } catch (e) {
+      console.error('[add-item] Save failed:', e);
+      setSaving(false);
+    }
   };
 
   const toggleOccasion = (tag: OccasionTag) =>
@@ -506,7 +528,7 @@ export default function AddItemScreen() {
   // ─── Whether the form is complete enough to save ──────────────────────────
 
   const canSave =
-    !!photoUri && !classifying && !!subType && !!colorFamily &&
+    !!photoUri && !classifying && !saving && !!subType && !!colorFamily &&
     (!needsFit      || !!fit) &&
     (!needsPattern  || !!pattern) &&
     (!needsFabric   || !!fabric) &&
@@ -1019,8 +1041,12 @@ export default function AddItemScreen() {
             onPress={handleSave}
             disabled={!canSave}
           >
-            <Ionicons name="checkmark" size={22} color={Colors.white} />
-            <Text style={styles.saveButtonText}>Save to Wardrobe</Text>
+            {saving ? (
+              <ActivityIndicator size="small" color={Colors.white} />
+            ) : (
+              <Ionicons name="checkmark" size={22} color={Colors.white} />
+            )}
+            <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save to Wardrobe'}</Text>
           </Pressable>
         </View>
       )}

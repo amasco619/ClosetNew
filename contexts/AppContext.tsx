@@ -18,8 +18,10 @@ import {
   getAffinitySignals, getPairAffinitySignals,
   insertWardrobeItem, deleteWardrobeItem, insertWearLog, deleteWearLog,
   insertAffinitySignal, insertPairAffinitySignal,
+  getSavedLooks, upsertSavedLook, deleteSavedLook,
 } from '../lib/database';
 import { supabase } from '../lib/supabase';
+import { deleteWardrobeImage } from '../lib/storage';
 import {
   RotationState, INITIAL_ROTATION_STATE,
   generateOutfitPool, applyDailyRotation, computePoolHash, todayString,
@@ -40,7 +42,7 @@ interface AppContextValue {
   updateProfile: (updates: Partial<UserProfile>) => void;
   wardrobeItems: WardrobeItem[];
   activeWardrobeItems: WardrobeItem[];
-  addWardrobeItem: (item: Omit<WardrobeItem, 'id' | 'createdAt'>) => void;
+  addWardrobeItem: (item: Omit<WardrobeItem, 'createdAt'> & { id?: string }) => void;
   removeWardrobeItem: (id: string) => void;
   updateWardrobeItem: (id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => void;
   isPremium: boolean;
@@ -216,6 +218,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (event === 'SIGNED_IN' && session?.user) {
           const userId = session.user.id;
           currentUserIdRef.current = userId;
+          const authName: string =
+            session.user.user_metadata?.full_name ||
+            session.user.user_metadata?.name ||
+            '';
 
           // Clear guest mode on any sign-in so local data is preserved
           // but the user transitions to an authenticated account.
@@ -228,7 +234,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return prev;
           });
 
-          await upsertUserProfile({ id: userId }).catch(console.error);
+          await upsertUserProfile({
+            id: userId,
+            ...(authName ? { name: authName } : {}),
+          }).catch(console.error);
 
           try {
             const [
@@ -244,9 +253,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
               getPairAffinitySignals(userId),
             ]);
 
+            // Load saved looks separately — table may not exist yet for some users
+            const dbSavedLooks = await getSavedLooks(userId).catch(() => []);
+
             if (dbProfile) {
               setProfile(prev => mergeProfile({
                 ...prev,
+                name: dbProfile.name || authName || prev.name,
                 bodyType: dbProfile.body_type ?? prev.bodyType,
                 eyeColor: dbProfile.eye_color ?? prev.eyeColor,
                 skinTone: dbProfile.skin_tone ?? prev.skinTone,
@@ -260,6 +273,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 onboardingComplete: dbProfile.onboarding_complete ?? prev.onboardingComplete,
               }));
               if (dbProfile.premium) setIsPremium(true);
+            } else if (authName) {
+              setProfile(prev => ({ ...prev, name: prev.name || authName }));
             }
 
             if (items && items.length > 0) {
@@ -276,6 +291,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 formalityLevel: 5,
               }));
               setWardrobeItems(mapped);
+              AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(mapped));
             }
 
             if (logs && logs.length > 0) {
@@ -288,6 +304,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 loggedAt: l.logged_at ?? new Date().toISOString(),
               }));
               setWearHistory(mappedLogs);
+              AsyncStorage.setItem(STORAGE_KEYS.wearHistory, JSON.stringify(mappedLogs));
+            }
+
+            if (dbSavedLooks.length > 0) {
+              const mappedLooks: SavedLook[] = dbSavedLooks.map((l: any) => ({
+                id: l.id,
+                customName: l.custom_name || undefined,
+                savedAt: l.saved_at,
+              }));
+              setSavedLooks(mappedLooks);
+              AsyncStorage.setItem(STORAGE_KEYS.savedLooks, JSON.stringify(mappedLooks));
             }
           } catch (err: any) {
             console.error('[AppContext] Data load error:', err.message);
@@ -541,6 +568,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (currentUserIdRef.current) {
         upsertUserProfile({
           id: currentUserIdRef.current,
+          name: updated.name || undefined,
           body_type: updated.bodyType ?? undefined,
           eye_color: updated.eyeColor ?? undefined,
           skin_tone: updated.skinTone ?? undefined,
@@ -770,10 +798,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Wardrobe mutations ───────────────────────────────────────────────────────
 
-  const addWardrobeItem = useCallback((item: Omit<WardrobeItem, 'id' | 'createdAt'>) => {
+  const addWardrobeItem = useCallback((item: Omit<WardrobeItem, 'createdAt'> & { id?: string }) => {
     const newItem: WardrobeItem = {
       ...item,
-      id: Crypto.randomUUID(),
+      id: item.id ?? Crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     };
     setWardrobeItems(prev => {
@@ -808,6 +836,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const removeWardrobeItem = useCallback((id: string) => {
     if (currentUserIdRef.current) {
       deleteWardrobeItem(id).catch(console.error);
+      const item = wardrobeItems.find(i => i.id === id);
+      if (item?.photoUri) {
+        deleteWardrobeImage(currentUserIdRef.current!, id).catch(console.warn);
+      }
     }
     setWardrobeItems(prev => {
       const updated = prev.filter(item => item.id !== id);
@@ -821,7 +853,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ));
       return updated;
     });
-  }, [profile, isPremium]);
+  }, [profile, isPremium, wardrobeItems]);
 
   const updateWardrobeItem = useCallback((id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => {
     setWardrobeItems(prev => {
@@ -959,10 +991,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const toggleSavedLook = useCallback((lookId: string) => {
     setSavedLooks(prev => {
       const exists = prev.some(l => l.id === lookId);
+      const savedAt = new Date().toISOString();
       const updated = exists
         ? prev.filter(l => l.id !== lookId)
-        : [{ id: lookId, savedAt: new Date().toISOString() }, ...prev];
+        : [{ id: lookId, savedAt }, ...prev];
       persistSavedLooks(updated);
+      if (currentUserIdRef.current) {
+        if (exists) {
+          deleteSavedLook(currentUserIdRef.current, lookId).catch(console.warn);
+        } else {
+          upsertSavedLook({
+            user_id: currentUserIdRef.current,
+            id: lookId,
+            saved_at: savedAt,
+          }).catch(console.warn);
+        }
+      }
       return updated;
     });
   }, []);
@@ -975,10 +1019,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const renameSavedLook = useCallback((lookId: string, name: string) => {
     setSavedLooks(prev => {
       const trimmed = name.trim();
+      const existing = prev.find(l => l.id === lookId);
       const updated = prev.map(l =>
         l.id === lookId ? { ...l, customName: trimmed.length > 0 ? trimmed : undefined } : l,
       );
       persistSavedLooks(updated);
+      if (currentUserIdRef.current && existing) {
+        upsertSavedLook({
+          user_id: currentUserIdRef.current,
+          id: lookId,
+          custom_name: trimmed.length > 0 ? trimmed : null,
+          saved_at: existing.savedAt,
+        }).catch(console.warn);
+      }
       return updated;
     });
   }, []);

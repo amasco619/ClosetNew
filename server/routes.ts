@@ -4,11 +4,8 @@ import { classifyGarment } from "./classify-garment";
 import { extractColor } from "./extract-color";
 import { supabaseAdmin } from "./supabase";
 import { aiLimiter, colorLimiter, accountLimiter } from "./middleware/rateLimiter";
-import { registerDbRoutes } from "./db-routes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  registerDbRoutes(app);
-
   app.post("/api/classify-garment", aiLimiter, classifyGarment);
   app.post("/api/extract-color", colorLimiter, extractColor);
 

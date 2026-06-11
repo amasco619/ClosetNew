@@ -3,4 +3,5 @@
 - [Supabase getClaims null safety](supabase-getclaims-null.md) — getClaims() returns data:null when no session; always use data?.claims not destructuring
 - [Guest mode pattern](guest-mode.md) — isGuest on UserProfile; GUEST_ITEM_CAP=5 vs FREE_ITEM_CAP=10; SIGNED_IN always clears isGuest in AppContext.
 - [Gemini extended clothing fields](gemini-clothing-fields.md) — Gemini prompt returns fit/neckline/sleeveLength/rise/warmthBand; applied before subtype inference in add-item.tsx.
-- [Supabase RLS bypass via Express proxy](supabase-rls-proxy.md) — anon key is RLS-blocked; all DB ops route through Express /api/db/* with admin client + JWT verification.
+- [Supabase direct client pattern](supabase-direct-client.md) — anon client + RLS is the correct pattern; the old Express /api/db/* proxy was a temporary workaround and has been removed.
+- [Image upload + item ID sync](image-upload-flow.md) — addWardrobeItem accepts optional id so add-item pre-generates UUID, uploads to Storage under that id, then passes it to context keeping Storage path and DB row aligned.
