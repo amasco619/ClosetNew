@@ -1,8 +1,9 @@
-import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Platform, TouchableOpacity, TextInput } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Platform, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { signOut } from '../../lib/auth';
+import { apiRequest } from '@/lib/query-client';
 import { supabase } from '../../lib/supabase';
 import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
@@ -639,31 +640,72 @@ export default function ProfileScreen() {
           )}
         </Animated.View>
 
-        <View style={{ height: 120 }} />
-      </ScrollView>
-
-      {/* ── Floating Sign Out ────────────────────────────────────────────── */}
-      <Animated.View
-        entering={FadeInUp.delay(500).duration(280)}
-        style={[styles.floatingSignOutWrap, { bottom: insets.bottom + 12 }]}
-      >
-        <TouchableOpacity
-          style={styles.floatingSignOutBtn}
-          onPress={async () => {
-            try { await signOut(); router.replace('/sign-in'); }
-            catch (err: any) { console.error('[profile] Sign out:', err.message); }
-          }}
-          activeOpacity={0.82}
-          accessibilityLabel="Sign out of AuraCloset"
-        >
-          <View style={styles.floatingSignOutInner}>
-            <View style={styles.floatingSignOutIconWrap}>
-              <Ionicons name="log-out-outline" size={18} color={Colors.warning} />
-            </View>
-            <Text style={styles.floatingSignOutText}>Sign out</Text>
+        {/* ── Account ──────────────────────────────────────────────────── */}
+        <Animated.View entering={FadeInDown.delay(400).duration(280)}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionLabel}>ACCOUNT</Text>
+            <Text style={styles.sectionTitle}>Account</Text>
           </View>
-        </TouchableOpacity>
-      </Animated.View>
+          <View style={styles.card}>
+            {/* Sign out */}
+            <Pressable
+              style={({ pressed }) => [styles.accountRow, pressed && { opacity: 0.7 }]}
+              onPress={async () => {
+                try { await signOut(); router.replace('/sign-in'); }
+                catch (err: any) { console.error('[profile] Sign out:', err.message); }
+              }}
+              accessibilityLabel="Sign out of AuraCloset"
+            >
+              <View style={[styles.accountRowIcon, { backgroundColor: Colors.warning + '14' }]}>
+                <Ionicons name="log-out-outline" size={18} color={Colors.warning} />
+              </View>
+              <Text style={[styles.accountRowLabel, { color: Colors.warning }]}>Sign out</Text>
+              <Ionicons name="chevron-forward" size={15} color={Colors.warning + '80'} />
+            </Pressable>
+
+            <View style={styles.accountRowDivider} />
+
+            {/* Delete account */}
+            <Pressable
+              style={({ pressed }) => [styles.accountRow, pressed && { opacity: 0.7 }]}
+              onPress={() => {
+                Alert.alert(
+                  'Delete account',
+                  'This will permanently delete your account and all wardrobe data. This cannot be undone.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          const { data: { user } } = await supabase.auth.getUser();
+                          if (!user?.id) throw new Error('Not signed in');
+                          await apiRequest('DELETE', '/api/user/delete-account', { userId: user.id });
+                          await signOut();
+                          router.replace('/sign-in');
+                        } catch (err: any) {
+                          console.error('[profile] Delete account:', err.message);
+                          Alert.alert('Error', 'Could not delete account. Please try again.');
+                        }
+                      },
+                    },
+                  ],
+                );
+              }}
+              accessibilityLabel="Delete your AuraCloset account"
+            >
+              <View style={[styles.accountRowIcon, { backgroundColor: '#FEE2E2' }]}>
+                <Ionicons name="trash-outline" size={18} color="#DC2626" />
+              </View>
+              <Text style={[styles.accountRowLabel, { color: '#DC2626' }]}>Delete account</Text>
+              <Ionicons name="chevron-forward" size={15} color="#DC262680" />
+            </Pressable>
+          </View>
+        </Animated.View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
     </View>
   );
 }
@@ -878,25 +920,20 @@ const styles = StyleSheet.create({
   upgradeFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   upgradeFeatureText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary },
 
-  // ── Floating Sign Out ─────────────────────────────────────────────────────
-  floatingSignOutWrap: {
-    position: 'absolute', left: 20, right: 20,
+  // ── Account section ────────────────────────────────────────────────────────
+  accountRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingVertical: 14, paddingHorizontal: 16,
+    minHeight: 52,
   },
-  floatingSignOutBtn: {
-    borderRadius: 20, overflow: 'hidden',
-    backgroundColor: Colors.white,
-    shadowColor: Colors.primary, shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  floatingSignOutInner: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 16, paddingHorizontal: 24,
-  },
-  floatingSignOutIconWrap: {
-    width: 34, height: 34, borderRadius: 17,
-    backgroundColor: Colors.warning + '12',
+  accountRowIcon: {
+    width: 36, height: 36, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
   },
-  floatingSignOutText: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.warning, letterSpacing: -0.1 },
+  accountRowLabel: {
+    flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 15, letterSpacing: -0.1,
+  },
+  accountRowDivider: {
+    height: 1, backgroundColor: Colors.border, marginHorizontal: 16,
+  },
 });
