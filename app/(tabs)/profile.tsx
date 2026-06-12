@@ -639,24 +639,31 @@ export default function ProfileScreen() {
           )}
         </Animated.View>
 
-        {/* ── Sign Out ──────────────────────────────────────────────────────── */}
-        <Animated.View entering={FadeInDown.delay(415).duration(280)} style={styles.footerSection}>
-          <TouchableOpacity
-            style={styles.signOutBtn}
-            onPress={async () => {
-              try { await signOut(); router.replace('/sign-in'); }
-              catch (err: any) { console.error('[profile] Sign out:', err.message); }
-            }}
-            activeOpacity={0.8}
-            accessibilityLabel="Sign out of AuraCloset"
-          >
-            <Ionicons name="log-out-outline" size={17} color={Colors.warning} />
-            <Text style={styles.signOutText}>Sign out</Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        <View style={{ height: 56 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
+
+      {/* ── Floating Sign Out ────────────────────────────────────────────── */}
+      <Animated.View
+        entering={FadeInUp.delay(500).duration(280)}
+        style={[styles.floatingSignOutWrap, { bottom: insets.bottom + 12 }]}
+      >
+        <TouchableOpacity
+          style={styles.floatingSignOutBtn}
+          onPress={async () => {
+            try { await signOut(); router.replace('/sign-in'); }
+            catch (err: any) { console.error('[profile] Sign out:', err.message); }
+          }}
+          activeOpacity={0.82}
+          accessibilityLabel="Sign out of AuraCloset"
+        >
+          <View style={styles.floatingSignOutInner}>
+            <View style={styles.floatingSignOutIconWrap}>
+              <Ionicons name="log-out-outline" size={18} color={Colors.warning} />
+            </View>
+            <Text style={styles.floatingSignOutText}>Sign out</Text>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 }
@@ -871,13 +878,25 @@ const styles = StyleSheet.create({
   upgradeFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   upgradeFeatureText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary },
 
-  // ── Footer ────────────────────────────────────────────────────────────────
-  footerSection: { gap: 0 },
-  signOutBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 16, borderRadius: 14,
-    backgroundColor: Colors.warning + '10',
-    borderWidth: 1, borderColor: Colors.warning + '20',
+  // ── Floating Sign Out ─────────────────────────────────────────────────────
+  floatingSignOutWrap: {
+    position: 'absolute', left: 20, right: 20,
   },
-  signOutText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.warning },
+  floatingSignOutBtn: {
+    borderRadius: 20, overflow: 'hidden',
+    backgroundColor: Colors.white,
+    shadowColor: Colors.primary, shadowOpacity: 0.14, shadowRadius: 20, shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  floatingSignOutInner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 16, paddingHorizontal: 24,
+  },
+  floatingSignOutIconWrap: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: Colors.warning + '12',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  floatingSignOutText: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.warning, letterSpacing: -0.1 },
 });

@@ -215,8 +215,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
+        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
           const userId = session.user.id;
+          // Dedup: if we already loaded for this user ID this session, skip a second fetch
+          if (currentUserIdRef.current === userId) return;
           currentUserIdRef.current = userId;
           const authName: string =
             session.user.user_metadata?.full_name ||
