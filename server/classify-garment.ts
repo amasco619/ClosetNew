@@ -183,7 +183,13 @@ function inferWeight(fabric: string | null | undefined): "light" | "mid" | "heav
 function buildDescription(displayName: string, colorFamily: string | null): string {
   if (colorFamily) {
     const capitalizedColor = colorFamily.charAt(0).toUpperCase() + colorFamily.slice(1);
-    return `${capitalizedColor} ${displayName.toLowerCase()}`;
+    const lower = displayName.toLowerCase();
+    // Avoid doubling the colour if Gemini already started the displayName with it
+    // e.g. "Green rugby shirt" + colorFamily "green" → don't produce "Green green rugby shirt"
+    if (lower.startsWith(colorFamily.toLowerCase())) {
+      return displayName.charAt(0).toUpperCase() + displayName.slice(1);
+    }
+    return `${capitalizedColor} ${lower}`;
   }
   return displayName;
 }
@@ -389,11 +395,28 @@ export async function classifyGarment(req: Request, res: Response) {
       },
     };
 
-    const geminiRes = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-      geminiReq,
-      { timeout: 20000 }
-    );
+    // Try gemini-flash-lite-latest first (separate quota bucket), fall back to gemini-2.5-flash
+    const MODELS = ['gemini-flash-lite-latest', 'gemini-2.5-flash'];
+    let geminiRes: any;
+    let lastErr: any;
+    for (const model of MODELS) {
+      try {
+        geminiRes = await axios.post(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          geminiReq,
+          { timeout: 20000 }
+        );
+        break; // success — stop trying
+      } catch (err: any) {
+        lastErr = err;
+        if (err?.response?.status === 429) {
+          console.warn(`[classify] ${model} quota exhausted, trying next model`);
+          continue;
+        }
+        throw err; // non-429 error — surface immediately
+      }
+    }
+    if (!geminiRes) throw lastErr;
 
     const rawText: string =
       geminiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
