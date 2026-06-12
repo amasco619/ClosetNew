@@ -291,6 +291,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               }).catch(console.error);
               setProfile(mergeProfile({ ...localSnap, isGuest: false, name: localSnap.name || authName || '' }));
             } else if (dbProfile) {
+              const ext = (dbProfile.constraints?._profile as any) ?? {};
               setProfile(prev => mergeProfile({
                 ...prev,
                 name: dbProfile.name || authName || prev.name,
@@ -303,7 +304,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 lifestyleWork: dbProfile.lifestyle?.work ?? prev.lifestyleWork,
                 lifestyleCasual: dbProfile.lifestyle?.casual ?? prev.lifestyleCasual,
                 lifestyleEvents: dbProfile.lifestyle?.events ?? prev.lifestyleEvents,
-                constraints: dbProfile.constraints ?? prev.constraints,
+                constraints: {
+                  noSleeveless: dbProfile.constraints?.noSleeveless ?? prev.constraints?.noSleeveless ?? false,
+                  noShortSkirts: dbProfile.constraints?.noShortSkirts ?? prev.constraints?.noShortSkirts ?? false,
+                  maxHeelHeight: dbProfile.constraints?.maxHeelHeight ?? prev.constraints?.maxHeelHeight ?? 'any',
+                  colorAversions: dbProfile.constraints?.colorAversions ?? prev.constraints?.colorAversions ?? [],
+                },
+                hairColor: ext.hairColor !== undefined ? ext.hairColor : (prev.hairColor ?? null),
+                heightBand: ext.heightBand !== undefined ? ext.heightBand : (prev.heightBand ?? null),
+                faceShape: ext.faceShape !== undefined ? ext.faceShape : (prev.faceShape ?? null),
+                contrastLevel: ext.contrastLevel !== undefined ? ext.contrastLevel : (prev.contrastLevel ?? null),
+                metalPreference: ext.metalPreference !== undefined ? ext.metalPreference : (prev.metalPreference ?? null),
+                defaultMood: ext.defaultMood !== undefined ? ext.defaultMood : (prev.defaultMood ?? null),
+                industry: ext.industry ?? prev.industry ?? 'unspecified',
+                lifePhase: ext.lifePhase !== undefined ? ext.lifePhase : (prev.lifePhase ?? null),
+                tempUnit: ext.tempUnit ?? prev.tempUnit ?? null,
+                weatherEnabled: (ext.weatherEnabled !== undefined && ext.weatherEnabled !== null)
+                  ? ext.weatherEnabled
+                  : prev.weatherEnabled,
                 onboardingComplete: dbProfile.onboarding_complete ?? prev.onboardingComplete,
               }));
               if (dbProfile.premium) setIsPremium(true);
@@ -610,7 +628,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
           style_goals: [updated.styleGoalPrimary, updated.styleGoalSecondary].filter(Boolean) as string[],
           secondary_goal: updated.styleGoalSecondary ?? undefined,
           lifestyle: { work: updated.lifestyleWork, casual: updated.lifestyleCasual, events: updated.lifestyleEvents },
-          constraints: updated.constraints,
+          constraints: {
+            noSleeveless: updated.constraints?.noSleeveless ?? false,
+            noShortSkirts: updated.constraints?.noShortSkirts ?? false,
+            maxHeelHeight: updated.constraints?.maxHeelHeight ?? 'any',
+            colorAversions: updated.constraints?.colorAversions ?? [],
+            _profile: {
+              hairColor: updated.hairColor ?? null,
+              heightBand: updated.heightBand ?? null,
+              faceShape: updated.faceShape ?? null,
+              contrastLevel: updated.contrastLevel ?? null,
+              metalPreference: updated.metalPreference ?? null,
+              defaultMood: updated.defaultMood ?? null,
+              industry: updated.industry ?? null,
+              lifePhase: updated.lifePhase ?? null,
+              tempUnit: updated.tempUnit ?? null,
+              weatherEnabled: updated.weatherEnabled ?? null,
+            },
+          },
           onboarding_complete: updated.onboardingComplete,
         }).catch(console.error);
       }
@@ -935,6 +970,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setIsPremium(prev => {
       const updated = !prev;
       AsyncStorage.setItem(STORAGE_KEYS.premium, JSON.stringify(updated));
+      if (currentUserIdRef.current) {
+        upsertUserProfile({ id: currentUserIdRef.current, premium: updated }).catch(console.error);
+      }
       return updated;
     });
   }, []);

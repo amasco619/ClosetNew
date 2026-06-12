@@ -6,11 +6,12 @@ import { signOut } from '../../lib/auth';
 import { supabase } from '../../lib/supabase';
 import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal, LifePhase, Industry, FaceShape } from '@/constants/types';
 import { useEffect, useRef, useState } from 'react';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 import CollapsibleSection from '@/components/CollapsibleSection';
+import * as Haptics from 'expo-haptics';
 
 const HAIR_OPTS: { id: HairColor; label: string }[] = [
   { id: 'black', label: 'Black' }, { id: 'dark-brown', label: 'Dark Brown' },
@@ -18,72 +19,102 @@ const HAIR_OPTS: { id: HairColor; label: string }[] = [
   { id: 'blonde', label: 'Blonde' }, { id: 'red', label: 'Red' },
   { id: 'grey', label: 'Grey' }, { id: 'silver', label: 'Silver' },
 ];
-const HEIGHT_OPTS: HeightBand[] = ['petite', 'average', 'tall'];
-const CONTRAST_OPTS: ContrastLevel[] = ['low', 'medium', 'high'];
-const METAL_OPTS: MetalPreference[] = ['gold', 'silver', 'rose-gold', 'mixed'];
-const MOOD_OPTS: MoodGoal[] = ['confident', 'soft', 'joyful', 'grounded', 'romantic', 'powerful'];
+const HEIGHT_OPTS: { id: HeightBand; label: string }[] = [
+  { id: 'petite', label: 'Petite' }, { id: 'average', label: 'Average' }, { id: 'tall', label: 'Tall' },
+];
+const CONTRAST_OPTS: { id: ContrastLevel; label: string }[] = [
+  { id: 'low', label: 'Low' }, { id: 'medium', label: 'Medium' }, { id: 'high', label: 'High' },
+];
+const METAL_OPTS: { id: MetalPreference; label: string }[] = [
+  { id: 'gold', label: 'Gold' }, { id: 'silver', label: 'Silver' },
+  { id: 'rose-gold', label: 'Rose Gold' }, { id: 'mixed', label: 'Mixed' },
+];
+const MOOD_OPTS: { id: MoodGoal; label: string }[] = [
+  { id: 'confident', label: 'Confident' }, { id: 'soft', label: 'Soft' },
+  { id: 'joyful', label: 'Joyful' }, { id: 'grounded', label: 'Grounded' },
+  { id: 'romantic', label: 'Romantic' }, { id: 'powerful', label: 'Powerful' },
+];
 const INDUSTRY_OPTS: { id: Industry; label: string }[] = [
-  { id: 'creative',    label: 'Creative' },
-  { id: 'tech',        label: 'Tech' },
-  { id: 'corporate',   label: 'Corporate' },
-  { id: 'unspecified', label: 'Other' },
+  { id: 'creative', label: 'Creative' }, { id: 'tech', label: 'Tech' },
+  { id: 'corporate', label: 'Corporate' }, { id: 'unspecified', label: 'Other' },
 ];
 const LIFE_PHASE_OPTS: { id: LifePhase; label: string }[] = [
-  { id: 'none', label: 'None' },
-  { id: 'pregnancy', label: 'Pregnancy' },
-  { id: 'postpartum', label: 'Postpartum' },
-  { id: 'weight-flux', label: 'Weight flux' },
+  { id: 'none', label: 'None' }, { id: 'pregnancy', label: 'Pregnancy' },
+  { id: 'postpartum', label: 'Postpartum' }, { id: 'weight-flux', label: 'Weight flux' },
   { id: 'feeling-off', label: 'Feeling off' },
 ];
 const AVERSION_OPTS: string[] = ['yellow', 'orange', 'neon', 'pink', 'red', 'green', 'brown', 'purple'];
-
 const FACE_SHAPE_OPTS: { id: FaceShape; label: string }[] = [
-  { id: 'oval',   label: 'Oval' },
-  { id: 'round',  label: 'Round' },
-  { id: 'square', label: 'Square' },
-  { id: 'heart',  label: 'Heart' },
-  { id: 'oblong', label: 'Oblong' },
+  { id: 'oval', label: 'Oval' }, { id: 'round', label: 'Round' },
+  { id: 'square', label: 'Square' }, { id: 'heart', label: 'Heart' }, { id: 'oblong', label: 'Oblong' },
 ];
-
-const faceShapeLabels: Record<FaceShape, string> = {
-  oval: 'Oval', round: 'Round', square: 'Square', heart: 'Heart', oblong: 'Oblong',
-};
 
 const bodyTypeLabels: Record<string, string> = {
   hourglass: 'Hourglass', pear: 'Pear', apple: 'Apple',
-  rectangle: 'Rectangle', 'inverted-triangle': 'Inverted Triangle', athletic: 'Athletic',
+  rectangle: 'Rectangle', 'inverted-triangle': 'Inv. Triangle', athletic: 'Athletic',
 };
-
 const eyeColorLabels: Record<string, string> = {
   'dark-brown': 'Dark Brown', 'light-brown': 'Light Brown', hazel: 'Hazel',
   green: 'Green', blue: 'Blue', grey: 'Grey',
 };
-
 const skinToneLabels: Record<string, string> = {
-  'very-light': 'Very Light', light: 'Light', 'medium-light': 'Medium Light',
-  medium: 'Medium', 'medium-dark': 'Medium Dark', dark: 'Dark', 'very-dark': 'Very Dark',
+  'very-light': 'Very Light', light: 'Light', 'medium-light': 'Med Light',
+  medium: 'Medium', 'medium-dark': 'Med Dark', dark: 'Dark', 'very-dark': 'Very Dark',
 };
-
-const undertoneLabels: Record<string, string> = {
-  cool: 'Cool', neutral: 'Neutral', warm: 'Warm',
-};
-
+const undertoneLabels: Record<string, string> = { cool: 'Cool', neutral: 'Neutral', warm: 'Warm' };
 const styleGoalLabels: Record<string, string> = {
   youthful: 'Youthful', elevated: 'Elevated', minimal: 'Minimal',
   romantic: 'Romantic', bold: 'Bold', classic: 'Classic',
 };
 
-function ProfileRow({ icon, iconColor, label, value, onPress }: { icon: string; iconColor?: string; label: string; value: string; onPress?: () => void }) {
+function Chip({ label, active, onPress, accent }: {
+  label: string; active: boolean; onPress: () => void; accent?: 'sage' | 'blush';
+}) {
+  const bg = active
+    ? (accent === 'sage' ? Colors.sage : accent === 'blush' ? Colors.blush : Colors.primary)
+    : Colors.background;
+  const border = active
+    ? (accent === 'sage' ? Colors.sage : accent === 'blush' ? Colors.blush : Colors.primary)
+    : Colors.border;
+  const color = active ? Colors.white : Colors.textSecondary;
   return (
-    <Pressable style={({ pressed }) => [styles.profileRow, pressed && onPress && { opacity: 0.7 }]} onPress={onPress}>
-      <View style={[styles.profileIcon, { backgroundColor: (iconColor || Colors.secondary) + '15' }]}>
-        <Ionicons name={icon as any} size={18} color={iconColor || Colors.secondary} />
+    <Pressable
+      onPress={() => { Haptics.selectionAsync(); onPress(); }}
+      style={({ pressed }) => [
+        styles.chip, { backgroundColor: bg, borderColor: border },
+        pressed && { opacity: 0.75, transform: [{ scale: 0.97 }] },
+      ]}
+    >
+      <Text style={[styles.chipText, { color }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function SectionHeader({ label, title }: { label: string; title: string }) {
+  return (
+    <View style={styles.sectionHeaderBlock}>
+      <Text style={styles.sectionLabel}>{label}</Text>
+      <Text style={styles.sectionTitle}>{title}</Text>
+    </View>
+  );
+}
+
+function SettingRow({ icon, label, value, tint, onPress, last }: {
+  icon: string; label: string; value: string; tint?: string; onPress?: () => void; last?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.settingRow, !last && styles.settingRowBorder, pressed && onPress && { opacity: 0.7 }]}
+    >
+      <View style={[styles.settingIcon, { backgroundColor: (tint || Colors.secondary) + '18' }]}>
+        <Ionicons name={icon as any} size={17} color={tint || Colors.secondary} />
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.profileLabel}>{label}</Text>
-        <Text style={styles.profileValue}>{value}</Text>
+      <View style={styles.settingBody}>
+        <Text style={styles.settingLabel}>{label}</Text>
+        <Text style={styles.settingValue} numberOfLines={1}>{value}</Text>
       </View>
-      {onPress && <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />}
+      {onPress && <Ionicons name="chevron-forward" size={14} color={Colors.border} />}
     </Pressable>
   );
 }
@@ -91,7 +122,7 @@ function ProfileRow({ icon, iconColor, label, value, onPress }: { icon: string; 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const {
-    profile, updateProfile, wardrobeItems, isPremium, togglePremium, wearHistory,
+    profile, updateProfile, wardrobeItems, isPremium, wearHistory,
     affinityActive, affinitySignalCount, topAffinityItems, topAffinityPairs,
     weather, setWeatherEnabled,
   } = useApp();
@@ -102,7 +133,8 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data?.user?.email) setUserEmail(data.user.email);
+      const email = data?.user?.email || data?.user?.user_metadata?.email || null;
+      if (email) setUserEmail(email);
     }).catch(() => {});
   }, []);
 
@@ -123,27 +155,21 @@ export default function ProfileScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const [refinementsY, setRefinementsY] = useState<number | null>(null);
   const effectiveTempUnit = profile.tempUnit ?? defaultTempUnit();
-
   const colorAversions = profile.constraints.colorAversions ?? [];
-  const physicalSet = [profile.hairColor, profile.heightBand, profile.faceShape].filter(Boolean).length;
-  const physicalTotal = 3;
 
+  const physicalSet = [profile.hairColor, profile.heightBand, profile.faceShape].filter(Boolean).length;
   const styleSetCount = [
-    profile.contrastLevel,
-    profile.metalPreference,
+    profile.contrastLevel, profile.metalPreference,
     colorAversions.length > 0 ? 'yes' : null,
     profile.constraints.noSleeveless ? 'yes' : null,
     profile.constraints.noShortSkirts ? 'yes' : null,
     profile.constraints.maxHeelHeight !== 'any' ? 'yes' : null,
   ].filter(Boolean).length;
-  const styleTotal = 6;
-
   const lifestyleSetCount = [
     profile.defaultMood,
     (profile.industry && profile.industry !== 'unspecified') ? profile.industry : null,
     (profile.lifePhase && profile.lifePhase !== 'none') ? profile.lifePhase : null,
   ].filter(Boolean).length;
-  const lifestyleTotal = 3;
 
   useEffect(() => {
     if (focus === 'refinements' && refinementsY != null) {
@@ -154,13 +180,24 @@ export default function ProfileScreen() {
     }
   }, [focus, refinementsY]);
 
+  const initials = profile.name?.trim()
+    ? profile.name.trim().split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
+    : null;
+
+  const dnaItems = [
+    profile.bodyType ? { label: bodyTypeLabels[profile.bodyType], color: Colors.secondary + '30', text: Colors.secondary } : null,
+    profile.eyeColor ? { label: eyeColorLabels[profile.eyeColor], color: Colors.sage + '25', text: Colors.sage } : null,
+    profile.skinTone ? { label: `${skinToneLabels[profile.skinTone]} · ${undertoneLabels[profile.undertone || ''] || ''}`, color: Colors.blush + '50', text: '#b07a80' } : null,
+    profile.styleGoalPrimary ? { label: styleGoalLabels[profile.styleGoalPrimary], color: Colors.primary + '12', text: Colors.primary } : null,
+    profile.styleGoalSecondary ? { label: styleGoalLabels[profile.styleGoalSecondary], color: Colors.primary + '08', text: Colors.textSecondary } : null,
+  ].filter(Boolean) as { label: string; color: string; text: string }[];
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <Animated.View entering={FadeInDown.delay(60).duration(280)} style={styles.header}>
-          <View style={styles.avatarCircle}>
-            <MaterialCommunityIcons name="hanger" size={32} color={Colors.secondary} />
-          </View>
+
+        {/* ── Hero Header ─────────────────────────────────────────────────── */}
+        <Animated.View entering={FadeInDown.delay(40).duration(280)} style={styles.hero}>
           {editingName ? (
             <View style={styles.nameEditRow}>
               <TextInput
@@ -174,271 +211,241 @@ export default function ProfileScreen() {
                 placeholder="Your name"
                 placeholderTextColor={Colors.textLight}
               />
-              <TouchableOpacity onPress={saveName} hitSlop={8} accessibilityLabel="Save name">
-                <Ionicons name="checkmark-circle" size={24} color={Colors.secondary} />
+              <TouchableOpacity onPress={saveName} hitSlop={8}>
+                <Ionicons name="checkmark-circle" size={26} color={Colors.secondary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setEditingName(false)} hitSlop={8} accessibilityLabel="Cancel editing">
-                <Ionicons name="close-circle-outline" size={24} color={Colors.textLight} />
+              <TouchableOpacity onPress={() => setEditingName(false)} hitSlop={8}>
+                <Ionicons name="close-circle-outline" size={26} color={Colors.textLight} />
               </TouchableOpacity>
             </View>
           ) : (
-            <TouchableOpacity
-              style={styles.nameRow}
-              onPress={() => { setNameInput(profile.name || ''); setEditingName(true); }}
-              activeOpacity={0.75}
-              accessibilityLabel="Edit your name"
-            >
-              <Text style={styles.name}>{profile.name || 'Style Explorer'}</Text>
-              <Ionicons name="pencil-outline" size={14} color={Colors.textLight} style={{ marginLeft: 6 }} />
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                onPress={() => { setNameInput(profile.name || ''); setEditingName(true); }}
+                activeOpacity={0.8}
+                style={styles.avatarWrap}
+              >
+                <View style={styles.avatarCircle}>
+                  {initials
+                    ? <Text style={styles.avatarInitials}>{initials}</Text>
+                    : <MaterialCommunityIcons name="hanger" size={30} color={Colors.secondary} />}
+                </View>
+                <View style={styles.avatarEditBadge}>
+                  <Ionicons name="pencil" size={10} color={Colors.white} />
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => { setNameInput(profile.name || ''); setEditingName(true); }}
+                activeOpacity={0.8}
+                style={styles.nameRow}
+              >
+                <Text style={styles.heroName}>{profile.name || 'Style Explorer'}</Text>
+                <Ionicons name="pencil-outline" size={13} color={Colors.textLight} style={{ marginLeft: 5 }} />
+              </TouchableOpacity>
+            </>
           )}
-          <Text style={styles.tierLabel}>{isPremium ? 'Premium Member' : 'Free Plan'}</Text>
-          {userEmail ? <Text style={styles.emailLabel}>{userEmail}</Text> : null}
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(120).duration(280)} style={styles.statsBar}>
-          <View style={styles.miniStat}>
-            <Text style={styles.miniStatNum}>{wardrobeItems.length}</Text>
-            <Text style={styles.miniStatLabel}>Items</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.miniStat}>
-            <Text style={styles.miniStatNum}>{new Set(wardrobeItems.map(i => i.category)).size}</Text>
-            <Text style={styles.miniStatLabel}>Categories</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.miniStat}>
-            <Text style={styles.miniStatNum}>{new Set(wardrobeItems.map(i => i.colorFamily)).size}</Text>
-            <Text style={styles.miniStatLabel}>Colors</Text>
+          {userEmail ? <Text style={styles.heroEmail}>{userEmail}</Text> : null}
+          <View style={[styles.tierBadge, isPremium && styles.tierBadgePremium]}>
+            {isPremium && <Ionicons name="star" size={11} color={Colors.secondary} style={{ marginRight: 4 }} />}
+            <Text style={[styles.tierBadgeText, isPremium && styles.tierBadgeTextPremium]}>
+              {isPremium ? 'Premium Member' : 'Free Plan'}
+            </Text>
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(180).duration(280)}>
-          <Text style={styles.sectionTitle}>Style Profile</Text>
+        {/* ── Stats ───────────────────────────────────────────────────────── */}
+        <Animated.View entering={FadeInDown.delay(100).duration(280)} style={styles.statsRow}>
+          <View style={styles.statCell}>
+            <Text style={styles.statNum}>{wardrobeItems.length}</Text>
+            <Text style={styles.statLabel}>Items</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statCell}>
+            <Text style={styles.statNum}>{new Set(wardrobeItems.map(i => i.category)).size}</Text>
+            <Text style={styles.statLabel}>Categories</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statCell}>
+            <Text style={styles.statNum}>{wearHistory.length}</Text>
+            <Text style={styles.statLabel}>Looks worn</Text>
+          </View>
+        </Animated.View>
+
+        {/* ── Style DNA ───────────────────────────────────────────────────── */}
+        <Animated.View entering={FadeInDown.delay(155).duration(280)}>
+          <SectionHeader label="YOUR PROFILE" title="Style DNA" />
           <View style={styles.card}>
-            {profile.bodyType && <ProfileRow icon="body-outline" label="Body Type" value={bodyTypeLabels[profile.bodyType] || ''} />}
-            {profile.faceShape && <ProfileRow icon="happy-outline" iconColor={Colors.sage} label="Face Shape" value={faceShapeLabels[profile.faceShape] || ''} />}
-            {profile.eyeColor && <ProfileRow icon="eye-outline" iconColor={Colors.sage} label="Eye Color" value={eyeColorLabels[profile.eyeColor] || ''} />}
-            {profile.skinTone && <ProfileRow icon="color-palette-outline" iconColor={Colors.blush.replace('#', '#')} label="Skin Tone" value={`${skinToneLabels[profile.skinTone] || ''} - ${undertoneLabels[profile.undertone || ''] || ''}`} />}
-            {profile.styleGoalPrimary && (
-              <ProfileRow
-                icon="sparkles-outline"
-                iconColor={Colors.secondary}
-                label="Style Goal"
-                value={`${styleGoalLabels[profile.styleGoalPrimary]}${profile.styleGoalSecondary ? ` + ${styleGoalLabels[profile.styleGoalSecondary]}` : ''}`}
-              />
+            {dnaItems.length > 0 ? (
+              <View style={styles.dnaRow}>
+                {dnaItems.map((item, i) => (
+                  <View key={i} style={[styles.dnaPill, { backgroundColor: item.color }]}>
+                    <Text style={[styles.dnaPillText, { color: item.text }]}>{item.label}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.dnaEmpty}>
+                <Text style={styles.dnaEmptyText}>Complete your style quiz to populate this.</Text>
+              </View>
             )}
+            <Pressable
+              style={({ pressed }) => [styles.dnaQuizLink, pressed && { opacity: 0.65 }]}
+              onPress={() => router.push('/onboarding')}
+            >
+              <Ionicons name="refresh-outline" size={14} color={Colors.textSecondary} />
+              <Text style={styles.dnaQuizLinkText}>Redo Style Quiz</Text>
+            </Pressable>
           </View>
         </Animated.View>
 
+        {/* ── Refinements ─────────────────────────────────────────────────── */}
         <Animated.View
-          entering={FadeInDown.delay(230).duration(280)}
+          entering={FadeInDown.delay(200).duration(280)}
           onLayout={(e) => setRefinementsY(e.nativeEvent.layout.y)}
         >
-          <Text style={styles.sectionTitle}>Refinements</Text>
+          <SectionHeader label="PERSONALISATION" title="Refinements" />
           <View style={styles.card}>
-            <Text style={styles.refineHelp}>Optional — sharpen every recommendation.</Text>
+            <Text style={styles.refineHelp}>Optional — sharpen every recommendation across your wardrobe.</Text>
 
             <CollapsibleSection
               title="Physical"
-              count={`${physicalSet} / ${physicalTotal} set`}
+              count={`${physicalSet} / 3`}
               initiallyOpen={physicalSet > 0}
             >
-              <Text style={styles.refineLabel}>Hair</Text>
-              <View style={styles.refineChipRow}>
-                {HAIR_OPTS.map(h => {
-                  const active = profile.hairColor === h.id;
-                  return (
-                    <Pressable key={h.id} onPress={() => updateProfile({ hairColor: active ? null : h.id })}
-                      style={[styles.refineChip, active && styles.refineChipActive]}>
-                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>{h.label}</Text>
-                    </Pressable>
-                  );
-                })}
+              <Text style={styles.chipGroupLabel}>Hair colour</Text>
+              <View style={styles.chipRow}>
+                {HAIR_OPTS.map(h => (
+                  <Chip key={h.id} label={h.label} active={profile.hairColor === h.id}
+                    onPress={() => updateProfile({ hairColor: profile.hairColor === h.id ? null : h.id })} />
+                ))}
               </View>
 
-              <Text style={styles.refineLabel}>Height</Text>
-              <View style={styles.refineChipRow}>
-                {HEIGHT_OPTS.map(h => {
-                  const active = profile.heightBand === h;
-                  return (
-                    <Pressable key={h} onPress={() => updateProfile({ heightBand: active ? null : h })}
-                      style={[styles.refineChip, active && styles.refineChipActive]}>
-                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                        {h.charAt(0).toUpperCase() + h.slice(1)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              <Text style={styles.chipGroupLabel}>Height</Text>
+              <View style={styles.chipRow}>
+                {HEIGHT_OPTS.map(h => (
+                  <Chip key={h.id} label={h.label} active={profile.heightBand === h.id}
+                    onPress={() => updateProfile({ heightBand: profile.heightBand === h.id ? null : h.id })} />
+                ))}
               </View>
 
-              <Text style={styles.refineLabel}>Face shape</Text>
-              <Text style={styles.refineSubLabel}>Shapes neckline recommendations for your features.</Text>
-              <View style={styles.refineChipRow}>
-                {FACE_SHAPE_OPTS.map(f => {
-                  const active = profile.faceShape === f.id;
-                  return (
-                    <Pressable key={f.id} onPress={() => updateProfile({ faceShape: active ? null : f.id })}
-                      style={[styles.refineChip, active && styles.refineChipActive]}>
-                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>{f.label}</Text>
-                    </Pressable>
-                  );
-                })}
+              <Text style={styles.chipGroupLabel}>Face shape</Text>
+              <Text style={styles.chipGroupSub}>Influences neckline recommendations.</Text>
+              <View style={styles.chipRow}>
+                {FACE_SHAPE_OPTS.map(f => (
+                  <Chip key={f.id} label={f.label} active={profile.faceShape === f.id}
+                    onPress={() => updateProfile({ faceShape: profile.faceShape === f.id ? null : f.id })} />
+                ))}
               </View>
             </CollapsibleSection>
 
             <CollapsibleSection
               title="Style"
-              count={`${styleSetCount} / ${styleTotal} set`}
+              count={`${styleSetCount} / 6`}
               initiallyOpen={styleSetCount > 0}
               hasBorderTop
             >
-              <Text style={styles.refineLabel}>Contrast</Text>
-              <View style={styles.refineChipRow}>
-                {CONTRAST_OPTS.map(c => {
-                  const active = profile.contrastLevel === c;
-                  return (
-                    <Pressable key={c} onPress={() => updateProfile({ contrastLevel: active ? null : c })}
-                      style={[styles.refineChip, active && styles.refineChipActive]}>
-                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                        {c.charAt(0).toUpperCase() + c.slice(1)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              <Text style={styles.chipGroupLabel}>Contrast level</Text>
+              <View style={styles.chipRow}>
+                {CONTRAST_OPTS.map(c => (
+                  <Chip key={c.id} label={c.label} active={profile.contrastLevel === c.id}
+                    onPress={() => updateProfile({ contrastLevel: profile.contrastLevel === c.id ? null : c.id })} />
+                ))}
               </View>
 
-              <Text style={styles.refineLabel}>Metal preference</Text>
-              <View style={styles.refineChipRow}>
-                {METAL_OPTS.map(m => {
-                  const active = profile.metalPreference === m;
-                  return (
-                    <Pressable key={m} onPress={() => updateProfile({ metalPreference: active ? null : m })}
-                      style={[styles.refineChip, active && styles.refineChipActive]}>
-                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                        {m === 'rose-gold' ? 'Rose gold' : m.charAt(0).toUpperCase() + m.slice(1)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              <Text style={styles.chipGroupLabel}>Metal preference</Text>
+              <View style={styles.chipRow}>
+                {METAL_OPTS.map(m => (
+                  <Chip key={m.id} label={m.label} active={profile.metalPreference === m.id}
+                    onPress={() => updateProfile({ metalPreference: profile.metalPreference === m.id ? null : m.id })} />
+                ))}
               </View>
 
-              <Text style={styles.refineLabel}>Colors to avoid</Text>
-              <View style={styles.refineChipRow}>
+              <Text style={styles.chipGroupLabel}>Colours to avoid</Text>
+              <View style={styles.chipRow}>
                 {AVERSION_OPTS.map(c => {
                   const current = profile.constraints.colorAversions ?? [];
                   const active = current.includes(c);
                   return (
-                    <Pressable key={c} onPress={() => {
-                      const next = active ? current.filter((x: string) => x !== c) : [...current, c];
-                      updateProfile({ constraints: { ...profile.constraints, colorAversions: next } });
-                    }}
-                      style={[styles.refineChip, active && styles.refineChipActive]}>
-                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                        {c.charAt(0).toUpperCase() + c.slice(1)}
-                      </Text>
-                    </Pressable>
+                    <Chip key={c} label={c.charAt(0).toUpperCase() + c.slice(1)} active={active}
+                      onPress={() => {
+                        const next = active ? current.filter((x: string) => x !== c) : [...current, c];
+                        updateProfile({ constraints: { ...profile.constraints, colorAversions: next } });
+                      }} />
                   );
                 })}
               </View>
 
-              <View style={styles.constraintRow}>
-                <Text style={styles.constraintLabel}>No sleeveless</Text>
+              <View style={styles.toggleRow}>
+                <Text style={styles.toggleLabel}>No sleeveless</Text>
                 <Switch
                   value={profile.constraints.noSleeveless}
-                  onValueChange={(v) => updateProfile({ constraints: { ...profile.constraints, noSleeveless: v } })}
-                  trackColor={{ true: Colors.secondary, false: Colors.border }}
+                  onValueChange={(v) => { Haptics.selectionAsync(); updateProfile({ constraints: { ...profile.constraints, noSleeveless: v } }); }}
+                  trackColor={{ true: Colors.primary, false: Colors.border }}
                   thumbColor={Colors.white}
                 />
               </View>
-              <View style={styles.constraintRow}>
-                <Text style={styles.constraintLabel}>No short skirts</Text>
+              <View style={[styles.toggleRow, styles.toggleRowBorder]}>
+                <Text style={styles.toggleLabel}>No short skirts</Text>
                 <Switch
                   value={profile.constraints.noShortSkirts}
-                  onValueChange={(v) => updateProfile({ constraints: { ...profile.constraints, noShortSkirts: v } })}
-                  trackColor={{ true: Colors.secondary, false: Colors.border }}
+                  onValueChange={(v) => { Haptics.selectionAsync(); updateProfile({ constraints: { ...profile.constraints, noShortSkirts: v } }); }}
+                  trackColor={{ true: Colors.primary, false: Colors.border }}
                   thumbColor={Colors.white}
                 />
               </View>
-              <View style={styles.constraintRow}>
-                <Text style={styles.constraintLabel}>Max heel height</Text>
-                <View style={styles.heelOptions}>
-                  {(['any', 'medium', 'low', 'flat'] as const).map(h => (
-                    <Pressable
-                      key={h}
-                      style={[styles.heelChip, profile.constraints.maxHeelHeight === h && styles.heelChipActive]}
-                      onPress={() => updateProfile({ constraints: { ...profile.constraints, maxHeelHeight: h } })}
-                    >
-                      <Text style={[styles.heelChipText, profile.constraints.maxHeelHeight === h && styles.heelChipTextActive]}>
-                        {h.charAt(0).toUpperCase() + h.slice(1)}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
+
+              <Text style={styles.chipGroupLabel}>Max heel height</Text>
+              <View style={styles.chipRow}>
+                {(['any', 'medium', 'low', 'flat'] as const).map(h => (
+                  <Chip key={h} label={h.charAt(0).toUpperCase() + h.slice(1)}
+                    active={profile.constraints.maxHeelHeight === h}
+                    onPress={() => updateProfile({ constraints: { ...profile.constraints, maxHeelHeight: h } })} />
+                ))}
               </View>
             </CollapsibleSection>
 
             <CollapsibleSection
               title="Lifestyle"
-              count={`${lifestyleSetCount} / ${lifestyleTotal} set`}
+              count={`${lifestyleSetCount} / 3`}
               initiallyOpen={lifestyleSetCount > 0}
               hasBorderTop
             >
-              <Text style={styles.refineLabel}>Default mood</Text>
-              <View style={styles.refineChipRow}>
-                {MOOD_OPTS.map(m => {
-                  const active = profile.defaultMood === m;
-                  return (
-                    <Pressable key={m} onPress={() => updateProfile({ defaultMood: active ? null : m })}
-                      style={[styles.refineChip, active && styles.refineChipActive]}>
-                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                        {m.charAt(0).toUpperCase() + m.slice(1)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              <Text style={styles.chipGroupLabel}>Default mood</Text>
+              <View style={styles.chipRow}>
+                {MOOD_OPTS.map(m => (
+                  <Chip key={m.id} label={m.label} active={profile.defaultMood === m.id}
+                    onPress={() => updateProfile({ defaultMood: profile.defaultMood === m.id ? null : m.id })} />
+                ))}
               </View>
 
-              <Text style={styles.refineLabel}>Industry</Text>
-              <View style={styles.refineChipRow}>
-                {INDUSTRY_OPTS.map(i => {
-                  const active = (profile.industry ?? 'unspecified') === i.id;
-                  return (
-                    <Pressable key={i.id} onPress={() => updateProfile({ industry: i.id })}
-                      style={[styles.refineChip, active && styles.refineChipActive]}>
-                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                        {i.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              <Text style={styles.chipGroupLabel}>Industry</Text>
+              <View style={styles.chipRow}>
+                {INDUSTRY_OPTS.map(i => (
+                  <Chip key={i.id} label={i.label}
+                    active={(profile.industry ?? 'unspecified') === i.id}
+                    onPress={() => updateProfile({ industry: i.id })} />
+                ))}
               </View>
 
-              <Text style={styles.refineLabel}>Life phase</Text>
-              <View style={styles.refineChipRow}>
-                {LIFE_PHASE_OPTS.map(l => {
-                  const active = profile.lifePhase === l.id;
-                  return (
-                    <Pressable key={l.id} onPress={() => updateProfile({ lifePhase: active ? null : l.id })}
-                      style={[styles.refineChip, active && styles.refineChipActive]}>
-                      <Text style={[styles.refineChipText, active && styles.refineChipTextActive]}>
-                        {l.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+              <Text style={styles.chipGroupLabel}>Life phase</Text>
+              <View style={styles.chipRow}>
+                {LIFE_PHASE_OPTS.map(l => (
+                  <Chip key={l.id} label={l.label} active={profile.lifePhase === l.id}
+                    onPress={() => updateProfile({ lifePhase: profile.lifePhase === l.id ? null : l.id })} />
+                ))}
               </View>
             </CollapsibleSection>
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(320).duration(280)}>
-          <Text style={styles.sectionTitle}>Weather</Text>
+        {/* ── Weather ─────────────────────────────────────────────────────── */}
+        <Animated.View entering={FadeInDown.delay(250).duration(280)}>
+          <SectionHeader label="SMART STYLING" title="Weather" />
           <View style={styles.card}>
-            <View style={styles.constraintRow}>
-              <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text style={styles.constraintLabel}>Weather-aware outfits</Text>
-                <Text style={{ fontSize: 12, color: Colors.textSecondary, marginTop: 2 }}>
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1, paddingRight: 16 }}>
+                <Text style={styles.toggleLabel}>Weather-aware outfits</Text>
+                <Text style={styles.toggleSub}>
                   {weather
                     ? `Today: ${formatTemp(weather.currentTempC, effectiveTempUnit)} · L${formatTempValue(weather.lowC, effectiveTempUnit)}/H${formatTempValue(weather.highC, effectiveTempUnit)}${effectiveTempUnit === 'F' ? '\u00b0F' : '\u00b0'}${weather.precipProbability >= 0.6 ? ' · Rain likely' : ''}`
                     : 'Tailor outerwear to today\u2019s forecast.'}
@@ -446,229 +453,209 @@ export default function ProfileScreen() {
               </View>
               <Switch
                 value={profile.weatherEnabled !== false}
-                onValueChange={setWeatherEnabled}
-                trackColor={{ true: Colors.secondary, false: Colors.border }}
+                onValueChange={(v) => { Haptics.selectionAsync(); setWeatherEnabled(v); }}
+                trackColor={{ true: Colors.primary, false: Colors.border }}
                 thumbColor={Colors.white}
               />
             </View>
-            <View style={[styles.constraintRow, { marginTop: 12 }]}>
-              <Text style={styles.constraintLabel}>Temperature unit</Text>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {(['C', 'F'] as const).map(u => {
-                  const active = effectiveTempUnit === u;
-                  return (
-                    <Pressable
-                      key={u}
-                      onPress={() => updateProfile({ tempUnit: u })}
-                      style={[styles.heelChip, active && styles.heelChipActive]}
-                    >
-                      <Text style={[styles.heelChipText, active && styles.heelChipTextActive]}>
-                        {`\u00b0${u}`}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+            <View style={[styles.toggleRow, styles.toggleRowBorder, { alignItems: 'center' }]}>
+              <Text style={styles.toggleLabel}>Temperature unit</Text>
+              <View style={styles.chipRow}>
+                {(['C', 'F'] as const).map(u => (
+                  <Chip key={u} label={`\u00b0${u}`}
+                    active={effectiveTempUnit === u}
+                    onPress={() => updateProfile({ tempUnit: u })} />
+                ))}
               </View>
             </View>
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(355).duration(280)}>
-          <Text style={styles.sectionTitle}>Track & History</Text>
+        {/* ── Track & History ──────────────────────────────────────────────── */}
+        <Animated.View entering={FadeInDown.delay(295).duration(280)}>
+          <SectionHeader label="ACTIVITY" title="Track & History" />
           <View style={styles.card}>
-            <Pressable style={styles.premiumFeatureRow} onPress={() => router.push('/wear-log')}>
-              <View style={[styles.premiumFeatureIcon, { backgroundColor: Colors.blush + '30' }]}>
-                <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+            <Pressable
+              style={({ pressed }) => [styles.featureRow, pressed && { opacity: 0.75 }]}
+              onPress={() => router.push('/wear-log')}
+            >
+              <View style={[styles.featureIcon, { backgroundColor: Colors.sage + '22' }]}>
+                <Ionicons name="calendar-outline" size={18} color={Colors.sage} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.premiumFeatureLabel}>Wear Log</Text>
-                <Text style={styles.premiumFeatureDesc}>
+                <Text style={styles.featureLabel}>Wear Log</Text>
+                <Text style={styles.featureSub}>
                   {wearHistory.length === 0
                     ? 'Track outfits you wear each day'
                     : `${wearHistory.length} outfit${wearHistory.length === 1 ? '' : 's'} logged`}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
+              <Ionicons name="chevron-forward" size={15} color={Colors.border} />
             </Pressable>
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(390).duration(280)}>
+        {/* ── Personal Intelligence ────────────────────────────────────────── */}
+        <Animated.View entering={FadeInDown.delay(335).duration(280)}>
           <Pressable
             onPress={() => setShowAffinityDebug(s => !s)}
-            style={styles.affinityHeaderRow}
+            style={styles.collapseHeader}
           >
-            <Text style={styles.sectionTitle}>Why this changed</Text>
-            <Ionicons
-              name={showAffinityDebug ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={Colors.textSecondary}
-            />
+            <View>
+              <Text style={styles.sectionLabel}>LEARNING</Text>
+              <Text style={styles.sectionTitle}>Personal Intelligence</Text>
+            </View>
+            <View style={styles.collapseChevron}>
+              <Ionicons name={showAffinityDebug ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textSecondary} />
+            </View>
           </Pressable>
           {showAffinityDebug && (
-            <View style={styles.card}>
+            <Animated.View entering={FadeInUp.duration(200)} style={styles.card}>
               <View style={styles.affinityStatusRow}>
                 <Ionicons
                   name={affinityActive ? 'sparkles' : 'time-outline'}
                   size={14}
                   color={affinityActive ? Colors.secondary : Colors.textLight}
                 />
-                <Text style={styles.affinityStatusText}>
+                <Text style={styles.affinityStatus}>
                   {affinityActive
-                    ? `Calibrating from ${Math.round(affinitySignalCount)} signal${Math.round(affinitySignalCount) === 1 ? '' : 's'}`
+                    ? `Active · ${Math.round(affinitySignalCount)} signal${Math.round(affinitySignalCount) === 1 ? '' : 's'}`
                     : `Learning… ${Math.round(affinitySignalCount)}/5 signals before tuning kicks in`}
                 </Text>
               </View>
               <Text style={styles.affinityHelp}>
-                Loves, "not today" taps, and outfits you actually wear quietly
-                shape what surfaces next. Nothing is ever fully banned.
+                Loves, "not today" taps, and outfits you wear quietly shape what surfaces next. Nothing is ever fully banned.
               </Text>
 
-              <Text style={styles.affinityListTitle}>Pieces you reach for</Text>
-              {topAffinityItems.liked.length === 0 ? (
-                <Text style={styles.affinityEmpty}>None yet — log a few outfits to start.</Text>
-              ) : (
-                topAffinityItems.liked.map(({ id, score }) => (
-                  <View key={`liked-${id}`} style={styles.affinityRow}>
+              <Text style={styles.affinityGroupTitle}>Pieces you reach for</Text>
+              {topAffinityItems.liked.length === 0
+                ? <Text style={styles.affinityEmpty}>None yet — log a few outfits to start.</Text>
+                : topAffinityItems.liked.map(({ id, score }) => (
+                  <View key={`liked-${id}`} style={styles.affinityItem}>
                     <View style={[styles.affinityDot, { backgroundColor: Colors.success }]} />
-                    <Text style={styles.affinityRowLabel} numberOfLines={1}>{itemLabel(id)}</Text>
-                    <Text style={styles.affinityRowScore}>+{score.toFixed(1)}</Text>
+                    <Text style={styles.affinityItemLabel} numberOfLines={1}>{itemLabel(id)}</Text>
+                    <Text style={styles.affinityItemScore}>+{score.toFixed(1)}</Text>
                   </View>
-                ))
-              )}
+                ))}
 
-              <Text style={styles.affinityListTitle}>Pieces you skip</Text>
-              {topAffinityItems.disliked.length === 0 ? (
-                <Text style={styles.affinityEmpty}>None — keep tapping "not today" to teach me.</Text>
-              ) : (
-                topAffinityItems.disliked.map(({ id, score }) => (
-                  <View key={`disliked-${id}`} style={styles.affinityRow}>
+              <Text style={styles.affinityGroupTitle}>Pieces you skip</Text>
+              {topAffinityItems.disliked.length === 0
+                ? <Text style={styles.affinityEmpty}>None — keep tapping "not today" to teach me.</Text>
+                : topAffinityItems.disliked.map(({ id, score }) => (
+                  <View key={`disliked-${id}`} style={styles.affinityItem}>
                     <View style={[styles.affinityDot, { backgroundColor: Colors.warning }]} />
-                    <Text style={styles.affinityRowLabel} numberOfLines={1}>{itemLabel(id)}</Text>
-                    <Text style={styles.affinityRowScore}>{score.toFixed(1)}</Text>
+                    <Text style={styles.affinityItemLabel} numberOfLines={1}>{itemLabel(id)}</Text>
+                    <Text style={styles.affinityItemScore}>{score.toFixed(1)}</Text>
                   </View>
-                ))
-              )}
+                ))}
 
               {topAffinityPairs.liked.length > 0 && (
                 <>
-                  <Text style={styles.affinityListTitle}>Combinations that work</Text>
+                  <Text style={styles.affinityGroupTitle}>Combinations that work</Text>
                   {topAffinityPairs.liked.map(({ ids, score }) => (
-                    <View key={`pair-liked-${ids[0]}-${ids[1]}`} style={styles.affinityRow}>
+                    <View key={`pair-liked-${ids[0]}-${ids[1]}`} style={styles.affinityItem}>
                       <View style={[styles.affinityDot, { backgroundColor: Colors.success }]} />
-                      <Text style={styles.affinityRowLabel} numberOfLines={1}>
-                        {itemLabel(ids[0])} + {itemLabel(ids[1])}
-                      </Text>
-                      <Text style={styles.affinityRowScore}>+{score.toFixed(1)}</Text>
+                      <Text style={styles.affinityItemLabel} numberOfLines={1}>{itemLabel(ids[0])} + {itemLabel(ids[1])}</Text>
+                      <Text style={styles.affinityItemScore}>+{score.toFixed(1)}</Text>
                     </View>
                   ))}
                 </>
               )}
-              {topAffinityPairs.disliked.length > 0 && (
-                <>
-                  <Text style={styles.affinityListTitle}>Combinations that don't</Text>
-                  {topAffinityPairs.disliked.map(({ ids, score }) => (
-                    <View key={`pair-disliked-${ids[0]}-${ids[1]}`} style={styles.affinityRow}>
-                      <View style={[styles.affinityDot, { backgroundColor: Colors.warning }]} />
-                      <Text style={styles.affinityRowLabel} numberOfLines={1}>
-                        {itemLabel(ids[0])} + {itemLabel(ids[1])}
-                      </Text>
-                      <Text style={styles.affinityRowScore}>{score.toFixed(1)}</Text>
-                    </View>
-                  ))}
-                </>
-              )}
+            </Animated.View>
+          )}
+        </Animated.View>
+
+        {/* ── Subscription ─────────────────────────────────────────────────── */}
+        <Animated.View entering={FadeInDown.delay(375).duration(280)}>
+          <SectionHeader label="YOUR PLAN" title="Subscription" />
+          {isPremium ? (
+            <View style={styles.card}>
+              <View style={styles.featureRow}>
+                <View style={[styles.featureIcon, { backgroundColor: Colors.secondary + '20' }]}>
+                  <Ionicons name="star" size={18} color={Colors.secondary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.featureLabel}>Premium Active</Text>
+                  <Text style={styles.featureSub}>Unlimited items · Blueprint · Diagnostics</Text>
+                </View>
+                <Pressable
+                  style={({ pressed }) => [styles.manageBtn, pressed && { opacity: 0.75 }]}
+                  onPress={() => router.push('/premium')}
+                >
+                  <Text style={styles.manageBtnText}>Manage</Text>
+                </Pressable>
+              </View>
+              <View style={styles.featureDivider} />
+              <Pressable style={({ pressed }) => [styles.featureRow, pressed && { opacity: 0.75 }]} onPress={() => router.push('/diagnostics')}>
+                <View style={[styles.featureIcon, { backgroundColor: Colors.secondary + '15' }]}>
+                  <Ionicons name="analytics-outline" size={18} color={Colors.secondary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.featureLabel}>Deep Diagnostics</Text>
+                  <Text style={styles.featureSub}>Wardrobe health score & gap analysis</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={15} color={Colors.border} />
+              </Pressable>
+              <View style={styles.featureDivider} />
+              <Pressable style={({ pressed }) => [styles.featureRow, pressed && { opacity: 0.75 }]} onPress={() => router.push('/blueprint')}>
+                <View style={[styles.featureIcon, { backgroundColor: Colors.sage + '20' }]}>
+                  <Ionicons name="map-outline" size={18} color={Colors.sage} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.featureLabel}>Wardrobe Blueprint</Text>
+                  <Text style={styles.featureSub}>Essential pieces for your style goal</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={15} color={Colors.border} />
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.upgradeCard}>
+              <View style={styles.upgradeCardTop}>
+                <View>
+                  <Text style={styles.upgradeCardTitle}>Unlock AuraCloset Premium</Text>
+                  <Text style={styles.upgradeCardSub}>Everything you need for a complete wardrobe</Text>
+                </View>
+                <Pressable
+                  style={({ pressed }) => [styles.upgradeBtn, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                  onPress={() => router.push('/premium')}
+                >
+                  <Ionicons name="star" size={14} color={Colors.white} />
+                  <Text style={styles.upgradeBtnText}>Upgrade</Text>
+                </Pressable>
+              </View>
+              <View style={styles.upgradeFeatures}>
+                {[
+                  { icon: 'infinite-outline', text: 'Unlimited wardrobe items' },
+                  { icon: 'analytics-outline', text: 'Deep Diagnostics & health score' },
+                  { icon: 'map-outline', text: 'Personalized wardrobe blueprint' },
+                ].map((f, i) => (
+                  <View key={i} style={styles.upgradeFeatureRow}>
+                    <Ionicons name={f.icon as any} size={15} color={Colors.secondary} />
+                    <Text style={styles.upgradeFeatureText}>{f.text}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           )}
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(420).duration(280)}>
-          <Text style={styles.sectionTitle}>Subscription</Text>
-          <View style={styles.card}>
-            <View style={styles.premiumRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.constraintLabel}>{isPremium ? 'Premium Active' : 'Free Plan'}</Text>
-                <Text style={styles.premiumDesc}>
-                  {isPremium ? 'Unlimited items, blueprint, season-smart styling' : 'Upgrade for unlimited features'}
-                </Text>
-              </View>
-              <Pressable
-                style={isPremium ? styles.manageBtn : styles.upgradeBtn}
-                onPress={() => router.push('/premium')}
-              >
-                {isPremium ? (
-                  <Text style={styles.manageBtnText}>Manage</Text>
-                ) : (
-                  <>
-                    <Ionicons name="star" size={16} color={Colors.white} />
-                    <Text style={styles.upgradeBtnText}>Upgrade</Text>
-                  </>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </Animated.View>
-
-        {isPremium && (
-          <Animated.View entering={FadeInDown.delay(450).duration(280)}>
-            <Text style={styles.sectionTitle}>Premium Features</Text>
-            <View style={styles.card}>
-              <Pressable style={styles.premiumFeatureRow} onPress={() => router.push('/diagnostics')}>
-                <View style={[styles.premiumFeatureIcon, { backgroundColor: Colors.secondary + '15' }]}>
-                  <Ionicons name="analytics-outline" size={18} color={Colors.secondary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.premiumFeatureLabel}>Deep Diagnostics</Text>
-                  <Text style={styles.premiumFeatureDesc}>Wardrobe health score & gap analysis</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
-              </Pressable>
-              <View style={styles.featureDivider} />
-              <Pressable style={styles.premiumFeatureRow} onPress={() => router.push('/blueprint')}>
-                <View style={[styles.premiumFeatureIcon, { backgroundColor: Colors.sage + '20' }]}>
-                  <Ionicons name="map-outline" size={18} color={Colors.sage} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.premiumFeatureLabel}>Wardrobe Blueprint</Text>
-                  <Text style={styles.premiumFeatureDesc}>Essential pieces for your style goal</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={Colors.textLight} />
-              </Pressable>
-            </View>
-          </Animated.View>
-        )}
-
-        <Animated.View entering={FadeInDown.delay(480).duration(280)}>
-          <Pressable
-            style={styles.redoOnboarding}
-            onPress={() => {
-              updateProfile({ onboardingComplete: false });
-              router.replace('/onboarding');
+        {/* ── Sign Out ──────────────────────────────────────────────────────── */}
+        <Animated.View entering={FadeInDown.delay(415).duration(280)} style={styles.footerSection}>
+          <TouchableOpacity
+            style={styles.signOutBtn}
+            onPress={async () => {
+              try { await signOut(); router.replace('/sign-in'); }
+              catch (err: any) { console.error('[profile] Sign out:', err.message); }
             }}
+            activeOpacity={0.8}
+            accessibilityLabel="Sign out of AuraCloset"
           >
-            <Ionicons name="refresh-outline" size={18} color={Colors.textSecondary} />
-            <Text style={styles.redoText}>Redo Style Quiz</Text>
-          </Pressable>
+            <Ionicons name="log-out-outline" size={17} color={Colors.warning} />
+            <Text style={styles.signOutText}>Sign out</Text>
+          </TouchableOpacity>
         </Animated.View>
 
-        <TouchableOpacity
-          style={signOutStyles.button}
-          onPress={async () => {
-            try {
-              await signOut();
-              router.replace('/sign-in');
-            } catch (err: any) {
-              console.error('[profile] Sign out:', err.message);
-            }
-          }}
-          activeOpacity={0.82}
-          accessibilityLabel="Sign out of AuraCloset"
-          accessibilityRole="button"
-        >
-          <Text style={signOutStyles.label}>Sign out</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 48 }} />
+        <View style={{ height: 56 }} />
       </ScrollView>
     </View>
   );
@@ -678,127 +665,219 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scrollContent: { paddingHorizontal: 20 },
 
-  header: { alignItems: 'center', marginTop: 12, marginBottom: 20 },
-  avatarCircle: {
-    width: 76, height: 76, borderRadius: 38,
-    backgroundColor: Colors.secondary + '15', alignItems: 'center', justifyContent: 'center',
-    marginBottom: 12, borderWidth: 1, borderColor: Colors.secondary + '25',
+  // ── Hero ─────────────────────────────────────────────────────────────────
+  hero: {
+    alignItems: 'center', paddingTop: 16, paddingBottom: 24,
   },
-  name: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary, letterSpacing: -0.3 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  nameEditRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 4 },
+  avatarWrap: { position: 'relative', marginBottom: 14 },
+  avatarCircle: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: Colors.secondary + '20',
+    borderWidth: 1.5, borderColor: Colors.secondary + '35',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarInitials: {
+    fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.secondary, letterSpacing: -0.5,
+  },
+  avatarEditBadge: {
+    position: 'absolute', bottom: 1, right: 1,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: Colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: Colors.background,
+  },
+  nameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  heroName: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary, letterSpacing: -0.4 },
+  heroEmail: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, marginBottom: 10, letterSpacing: 0.1 },
+  tierBadge: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20,
+    backgroundColor: Colors.background,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  tierBadgePremium: { borderColor: Colors.secondary + '50', backgroundColor: Colors.secondary + '10' },
+  tierBadgeText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary, letterSpacing: 0.3 },
+  tierBadgeTextPremium: { color: Colors.secondary },
+  nameEditRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 8 },
   nameInput: {
     fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary,
     borderBottomWidth: 1.5, borderBottomColor: Colors.secondary,
-    paddingVertical: 4, paddingHorizontal: 8, minWidth: 120, textAlign: 'center',
+    paddingVertical: 4, paddingHorizontal: 8, minWidth: 130, textAlign: 'center',
   },
-  tierLabel: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 4 },
-  emailLabel: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, marginTop: 3, letterSpacing: 0.1 },
 
-  statsBar: {
-    flexDirection: 'row', backgroundColor: Colors.white, borderRadius: 18, padding: 16, marginBottom: 24,
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  statsRow: {
+    flexDirection: 'row', backgroundColor: Colors.white,
+    borderRadius: 18, paddingVertical: 18, paddingHorizontal: 8, marginBottom: 28,
     shadowColor: Colors.primary, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
     elevation: 1, borderWidth: 1, borderColor: Colors.border,
   },
-  miniStat: { flex: 1, alignItems: 'center' },
-  miniStatNum: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary, letterSpacing: -0.3 },
-  miniStatLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
-  statDivider: { width: 1, backgroundColor: Colors.border, marginVertical: 4 },
+  statCell: { flex: 1, alignItems: 'center' },
+  statNum: {
+    fontFamily: 'Inter_700Bold', fontSize: 26, color: Colors.primary,
+    letterSpacing: -0.5, fontVariant: ['tabular-nums'],
+  },
+  statLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 3 },
+  statDivider: { width: 1, backgroundColor: Colors.border, marginVertical: 6 },
 
-  sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary, marginBottom: 10, letterSpacing: -0.2 },
+  // ── Section headers ───────────────────────────────────────────────────────
+  sectionHeaderBlock: { marginBottom: 10 },
+  sectionLabel: {
+    fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textLight,
+    letterSpacing: 0.9, textTransform: 'uppercase', marginBottom: 3,
+  },
+  sectionTitle: {
+    fontFamily: 'Inter_700Bold', fontSize: 20, color: Colors.primary, letterSpacing: -0.4,
+  },
+
+  // ── Card ─────────────────────────────────────────────────────────────────
   card: {
-    backgroundColor: Colors.white, borderRadius: 16, padding: 4, marginBottom: 20,
-    shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+    backgroundColor: Colors.white, borderRadius: 18, marginBottom: 28, overflow: 'hidden',
+    shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 10, shadowOffset: { width: 0, height: 2 },
+    elevation: 1, borderWidth: 1, borderColor: Colors.border,
   },
 
-  profileRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  profileIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  profileLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary },
-  profileValue: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, marginTop: 2 },
+  // ── DNA Pills ─────────────────────────────────────────────────────────────
+  dnaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 16 },
+  dnaPill: {
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
+  },
+  dnaPillText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, letterSpacing: -0.1 },
+  dnaEmpty: { padding: 16 },
+  dnaEmptyText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textLight, fontStyle: 'italic' },
+  dnaQuizLink: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  dnaQuizLinkText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary },
 
-  constraintRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14 },
-  constraintLabel: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.primary },
-  heelOptions: { flexDirection: 'row', gap: 6 },
-  heelChip: {
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
-    backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border,
+  // ── Chip system ───────────────────────────────────────────────────────────
+  chip: {
+    paddingHorizontal: 14, paddingVertical: 9,
+    borderRadius: 12, borderWidth: 1,
+    minHeight: 36,
+  },
+  chipText: { fontFamily: 'Inter_500Medium', fontSize: 13 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
+  chipGroupLabel: {
+    fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.7,
+    paddingHorizontal: 16, marginTop: 16, marginBottom: 8,
+  },
+  chipGroupSub: {
+    fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight,
+    paddingHorizontal: 16, marginTop: -4, marginBottom: 8,
   },
 
-  refineHelp: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, marginBottom: 4, fontStyle: 'italic', paddingHorizontal: 14, paddingTop: 6 },
-  refineLabel: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary, marginTop: 10, marginBottom: 6, paddingHorizontal: 14, textTransform: 'uppercase', letterSpacing: 0.5 },
-  refineSubLabel: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginBottom: 8, paddingHorizontal: 14 },
-  refineChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14, paddingBottom: 4 },
-  refineChip: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 10, backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border },
-  refineChipActive: { backgroundColor: Colors.secondary, borderColor: Colors.secondary },
-  refineChipText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary },
-  refineChipTextActive: { color: Colors.white },
+  // ── Refinement help text ──────────────────────────────────────────────────
+  refineHelp: {
+    fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textLight,
+    paddingHorizontal: 16, paddingVertical: 14, lineHeight: 19,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
 
-  heelChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  heelChipText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary },
-  heelChipTextActive: { color: Colors.white },
+  // ── Toggle rows ───────────────────────────────────────────────────────────
+  toggleRow: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14,
+  },
+  toggleRowBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
+  toggleLabel: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.primary },
+  toggleSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2, lineHeight: 17 },
 
-  premiumRow: { flexDirection: 'row', alignItems: 'center', padding: 14 },
-  premiumDesc: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  // ── Setting rows (unused, kept for future) ────────────────────────────────
+  settingRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  settingRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
+  settingIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  settingBody: { flex: 1 },
+  settingLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary },
+  settingValue: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, marginTop: 1 },
+
+  // ── Feature rows (Wear Log, Premium features) ─────────────────────────────
+  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
+  featureIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  featureLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, letterSpacing: -0.1 },
+  featureSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  featureDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 16 },
+
+  // ── Collapse header (for affinity section) ────────────────────────────────
+  collapseHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  collapseChevron: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+  },
+
+  // ── Affinity / Intelligence ───────────────────────────────────────────────
+  affinityStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  affinityStatus: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
+  affinityHelp: {
+    fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight,
+    paddingHorizontal: 16, paddingVertical: 12, lineHeight: 18,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  affinityGroupTitle: {
+    fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.6,
+    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6,
+  },
+  affinityItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 16, paddingVertical: 6,
+  },
+  affinityDot: { width: 7, height: 7, borderRadius: 4 },
+  affinityItemLabel: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.primary },
+  affinityItemScore: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
+  affinityEmpty: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textLight, paddingHorizontal: 16, paddingBottom: 10, fontStyle: 'italic' },
+
+  // ── Manage button ─────────────────────────────────────────────────────────
   manageBtn: {
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10,
     borderWidth: 1, borderColor: Colors.border,
   },
   manageBtnText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
+
+  // ── Upgrade card (when not premium) ──────────────────────────────────────
+  upgradeCard: {
+    backgroundColor: Colors.white, borderRadius: 18, marginBottom: 28,
+    borderWidth: 1, borderColor: Colors.secondary + '30',
+    shadowColor: Colors.secondary, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 3 },
+    elevation: 2, overflow: 'hidden',
+  },
+  upgradeCardTop: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: 16, gap: 12,
+  },
+  upgradeCardTitle: { fontFamily: 'Inter_700Bold', fontSize: 15, color: Colors.primary, letterSpacing: -0.2 },
+  upgradeCardSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 3 },
   upgradeBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, paddingVertical: 9, borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12,
     backgroundColor: Colors.secondary,
     shadowColor: Colors.secondary, shadowOpacity: 0.3, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   upgradeBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.white },
+  upgradeFeatures: {
+    paddingHorizontal: 16, paddingBottom: 16, gap: 10,
+    borderTopWidth: 1, borderTopColor: Colors.secondary + '15',
+    paddingTop: 14,
+  },
+  upgradeFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  upgradeFeatureText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary },
 
-  premiumFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, minHeight: 44 },
-  premiumFeatureIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  premiumFeatureLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary },
-  premiumFeatureDesc: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
-  featureDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 14 },
-
-  redoOnboarding: {
+  // ── Footer ────────────────────────────────────────────────────────────────
+  footerSection: { gap: 0 },
+  signOutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 14, minHeight: 44,
+    paddingVertical: 16, borderRadius: 14,
+    backgroundColor: Colors.warning + '10',
+    borderWidth: 1, borderColor: Colors.warning + '20',
   },
-  redoText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.textSecondary },
-
-  affinityHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, minHeight: 44 },
-  affinityStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 },
-  affinityStatusText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary },
-  affinityHelp: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, paddingHorizontal: 14, paddingBottom: 10, lineHeight: 17, fontStyle: 'italic' },
-  affinityListTitle: {
-    fontFamily: 'Inter_600SemiBold', fontSize: 10, color: Colors.textLight,
-    paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4,
-    letterSpacing: 0.8, textTransform: 'uppercase',
-  },
-  affinityRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 6 },
-  affinityDot: { width: 6, height: 6, borderRadius: 3 },
-  affinityRowLabel: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.primary, textTransform: 'capitalize' },
-  affinityRowScore: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
-  affinityEmpty: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, paddingHorizontal: 14, paddingVertical: 6, fontStyle: 'italic' },
-});
-
-const signOutStyles = StyleSheet.create({
-  button: {
-    marginHorizontal: 24,
-    marginTop: 32,
-    marginBottom: 48,
-    height: 52,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#101826',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  label: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-    fontWeight: '400',
-    color: '#101826',
-    letterSpacing: 0.3,
-  },
+  signOutText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.warning },
 });
