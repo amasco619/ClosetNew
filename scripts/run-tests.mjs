@@ -19,7 +19,7 @@ for (const file of files) {
   const filePath = join(testDir, file);
   console.log(`\nRunning ${filePath} ...`);
   try {
-    execSync(`npx tsx ${filePath}`, { stdio: 'inherit' });
+    execSync(`node_modules/.bin/tsx ${filePath}`, { stdio: 'inherit' });
     passed++;
   } catch {
     failed++;
