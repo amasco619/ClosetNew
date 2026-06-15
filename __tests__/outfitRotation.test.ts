@@ -684,6 +684,37 @@ describe('5b. Wear-history freshness: worn outfit IS served when it is the only 
   );
 });
 
+// ── 6. Weekend cursor nudge ───────────────────────────────────────────────────
+
+describe('6. Weekend cursor nudge: work scenario advances by 1 extra on weekends only', () => {
+  const SATURDAY = '2026-06-13';
+  const MONDAY = '2026-06-15';
+
+  const pool = buildPool();
+  const state = { ...INITIAL_ROTATION_STATE, shuffleSeed: 42 };
+
+  const { newState: weekendState } = applyDailyRotation(pool, state, SATURDAY, undefined, false);
+  const { newState: weekdayState } = applyDailyRotation(pool, state, MONDAY, undefined, false);
+
+  const weekendWorkCursor = weekendState.todayCursors['work'] ?? 0;
+  const weekdayWorkCursor = weekdayState.todayCursors['work'] ?? 0;
+
+  assert(
+    weekendWorkCursor - weekdayWorkCursor === 1,
+    'work cursor is exactly 1 ahead on Saturday vs a weekday (same seed/state)',
+  );
+
+  const NON_WORK_SCENARIOS: OccasionTag[] = ['casual', 'date', 'event'];
+  for (const scenario of NON_WORK_SCENARIOS) {
+    const weekendCursor = weekendState.todayCursors[scenario] ?? 0;
+    const weekdayCursor = weekdayState.todayCursors[scenario] ?? 0;
+    assert(
+      weekendCursor === weekdayCursor,
+      `${scenario} cursor is unaffected by the weekend nudge`,
+    );
+  }
+});
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 console.log('\n─────────────────────────────────────────────');
