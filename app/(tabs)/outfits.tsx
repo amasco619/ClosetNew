@@ -97,6 +97,16 @@ const categoryLabels: Record<string, string> = {
   outerwear: 'Layer', shoes: 'Shoes', bag: 'Bag', jewelry: 'Jewelry',
 };
 
+const SCENARIO_EMPTY_HINT: Partial<Record<OccasionTag, string>> = {
+  active:        'Add leggings, a sports top, or training shoes and we\'ll build your active looks.',
+  brunch:        'Add a relaxed blouse, midi skirt, or casual dress and we\'ll style your weekend brunch looks.',
+  work:          'Add tailored trousers, blazers, or office-ready tops and we\'ll style polished work looks.',
+  casual:        'Add everyday tops, denim, or casual dresses and we\'ll style relaxed everyday looks.',
+  'date-casual': 'Add a casual dress or a flattering top-and-jeans combo and we\'ll style your day date looks.',
+  'date-dressy': 'Add a statement dress or dressy separates and we\'ll style your evening date looks.',
+  event:         'Add a dress or occasion-ready separates and we\'ll style standout event looks.',
+};
+
 const categoryIcons: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
   top: 'shirt-outline', bottom: 'resize-outline', dress: 'body-outline',
   outerwear: 'cloudy-outline', shoes: 'footsteps-outline',
@@ -645,7 +655,7 @@ export default function OutfitsScreen() {
             </Text>
             <Text style={styles.emptySub}>
               {hasWardrobe
-                ? `Add more items suited to ${scenarioLabels[selectedScenario]?.label.toLowerCase()} occasions and we'll style complete looks for you.`
+                ? (SCENARIO_EMPTY_HINT[selectedScenario] ?? `Add more items suited to ${scenarioLabels[selectedScenario]?.label.toLowerCase()} occasions and we'll style complete looks for you.`)
                 : 'Start adding clothing and the app will build complete outfit suggestions from your wardrobe.'}
             </Text>
             <Pressable
