@@ -578,6 +578,112 @@ describe('5. Integration: new-day state transition advances cursors correctly', 
   );
 });
 
+// ── 5. Wear-history freshness ordering ───────────────────────────────────────
+
+describe('5. Wear-history freshness: recently worn outfits deprioritised when fresh alternatives exist', () => {
+  // Build a scenario pool where the worn outfit is listed first (position 0) so
+  // it would naturally surface if freshness ordering were not applied, then four
+  // fresh alternatives follow.
+  //
+  // Pool size = 5 (> 3) is deliberate: tieredShuffle splits into thirds
+  //   top  = [freshA, freshB]   (indices 0–1, shuffled within tier)
+  //   mid  = [freshC, freshD]   (indices 2–3, shuffled within tier)
+  //   low  = [wornOutfit]       (index 4)
+  // Free-tier quota n=2 at cursor=0 slices indices 0–1, which are always
+  // from the fresh top-tier — the worn outfit sits in the unreachable low tier.
+  const SCENARIO: OccasionTag = 'casual';
+
+  const wornOutfit = makeOutfit('worn-outfit', SCENARIO, [
+    makeComponent('top', 'worn-top'),
+    makeComponent('bottom', 'worn-bottom'),
+    makeComponent('shoes', 'worn-shoes'),
+  ]);
+
+  const freshA = makeOutfit('fresh-a', SCENARIO, [
+    makeComponent('top', 'fresh-top-a'),
+    makeComponent('bottom', 'fresh-bottom-a'),
+    makeComponent('shoes', 'fresh-shoes-a'),
+  ]);
+
+  const freshB = makeOutfit('fresh-b', SCENARIO, [
+    makeComponent('top', 'fresh-top-b'),
+    makeComponent('bottom', 'fresh-bottom-b'),
+    makeComponent('shoes', 'fresh-shoes-b'),
+  ]);
+
+  const freshC = makeOutfit('fresh-c', SCENARIO, [
+    makeComponent('top', 'fresh-top-c'),
+    makeComponent('bottom', 'fresh-bottom-c'),
+    makeComponent('shoes', 'fresh-shoes-c'),
+  ]);
+
+  const freshD = makeOutfit('fresh-d', SCENARIO, [
+    makeComponent('top', 'fresh-top-d'),
+    makeComponent('bottom', 'fresh-bottom-d'),
+    makeComponent('shoes', 'fresh-shoes-d'),
+  ]);
+
+  const wornFp = fingerprint(wornOutfit.components);
+  const recentWornFingerprints = new Set([wornFp]);
+
+  // Worn outfit placed first so without freshness ordering it would win.
+  // After freshness ordering: [freshA, freshB, freshC, freshD, wornOutfit].
+  const pool = buildPool({
+    [SCENARIO]: [wornOutfit, freshA, freshB, freshC, freshD],
+  });
+
+  // Use a fixed seed and a fresh state so the cursor starts at 0.
+  const state = { ...INITIAL_ROTATION_STATE, shuffleSeed: 42 };
+
+  const { outfits } = applyDailyRotation(pool, state, TODAY, recentWornFingerprints, false);
+
+  const casualOutfits = outfits.filter(o => o.scenario === SCENARIO);
+  const servedFingerprints = casualOutfits.map(o => fingerprint(o.components));
+
+  assert(
+    servedFingerprints.length > 0,
+    'At least one outfit is still served after freshness filtering',
+  );
+
+  // Verify none of the served casual outfits carry the worn fingerprint.
+  const wornAppears = servedFingerprints.some(fp => fp === wornFp);
+  assert(
+    !wornAppears,
+    'Worn outfit is NOT served when 4 fresh alternatives fill the free-tier quota',
+  );
+});
+
+describe('5b. Wear-history freshness: worn outfit IS served when it is the only option', () => {
+  const SCENARIO: OccasionTag = 'casual';
+
+  const wornOutfit = makeOutfit('only-outfit', SCENARIO, [
+    makeComponent('top', 'only-top'),
+    makeComponent('bottom', 'only-bottom'),
+    makeComponent('shoes', 'only-shoes'),
+  ]);
+
+  const wornFp = fingerprint(wornOutfit.components);
+  const recentWornFingerprints = new Set([wornFp]);
+
+  const pool = buildPool({ [SCENARIO]: [wornOutfit] });
+  const state = { ...INITIAL_ROTATION_STATE, shuffleSeed: 42 };
+
+  const { outfits } = applyDailyRotation(pool, state, TODAY, recentWornFingerprints, false);
+
+  const casualOutfits = outfits.filter(o => o.scenario === SCENARIO);
+  const servedFingerprints = casualOutfits.map(o => fingerprint(o.components));
+
+  assert(
+    servedFingerprints.includes(wornFp),
+    'Worn outfit IS served when it is the only available outfit in the scenario',
+  );
+
+  assert(
+    casualOutfits.length === 1,
+    'Exactly one outfit is served when the pool has a single (worn) outfit',
+  );
+});
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 console.log('\n─────────────────────────────────────────────');
