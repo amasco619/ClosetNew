@@ -57,7 +57,7 @@ export const SCENARIO_AFFINITY: Record<OccasionTag, string[]> = {
   wedding:       ['midi-dress', 'maxi-dress', 'cocktail-dress', 'wrap-dress', 'midi-skirt', 'blouse', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
   travel:        ['t-shirt', 'long-sleeve', 'sweater', 'shirt', 'jeans', 'chinos', 'trousers', 'sneakers', 'flats', 'boots', 'crossbody', 'backpack', 'tote', 'blazer', 'cardigan', 'denim-jacket', 'wide-leg'],
   // Weekend morning / cafe-terrace meal — relaxed but considered.
-  brunch:        ['blouse', 'camisole', 'linen-set', 'midi-dress', 'wrap-dress', 'sundress', 'wide-leg', 'midi-skirt', 'jeans', 'mules', 'sandals', 'flats', 'crossbody', 'wicker-bag', 'mini-bag', 'earrings', 'sunglasses'],
+  brunch:        ['blouse', 'camisole', 'linen-set', 'midi-dress', 'wrap-dress', 'sundress', 'wide-leg', 'midi-skirt', 'jeans', 'mules', 'sandals', 'block-heels', 'loafers', 'flats', 'crossbody', 'wicker-bag', 'mini-bag', 'earrings', 'sunglasses'],
   // Gym, studio, run, sport — performance first, still considered.
   active:        ['sports-bra', 'leggings', 'joggers', 'shorts', 'training-shoes', 'sneakers', 'gym-bag', 'backpack', 'windbreaker', 'sports-hoodie', 'hoodie', 'crop-top', 'tank-top'],
   // Pool, beach, villa holiday — relaxed glamour.
@@ -171,7 +171,7 @@ export const SUBTYPE_FORMALITY: Record<string, number> = {
   // shoes
   'sneakers': 1, 'training-shoes': 1, 'sandals': 3, 'espadrilles': 3,
   'boots': 4, 'ankle-boots': 4, 'flats': 4,
-  'mules': 5, 'loafers': 5, 'heels': 6, 'pumps': 6, 'stilettos': 7,
+  'mules': 5, 'loafers': 5, 'block-heels': 4, 'heels': 6, 'pumps': 6, 'stilettos': 7,
   'strappy-heels': 6,
   // bags
   'backpack': 1, 'gym-bag': 1, 'crossbody': 3, 'wicker-bag': 3,

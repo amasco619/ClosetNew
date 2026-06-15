@@ -689,6 +689,62 @@ const jeansBrunchScore2 = scoreItemForProfile(jeansNoTag, 'brunch', baseProf);
 const jeansWorkScore    = scoreItemForProfile(jeansNoTag, 'work',   baseProf);
 assert(jeansBrunchScore2 >= jeansWorkScore, 'jeans scores at least as high for brunch as for work (affinity match)');
 
+// ── Active subtype coverage ───────────────────────────────────────────────────
+// Each active-scenario subtype explicitly listed in SCENARIO_AFFINITY must
+// score > 0 for the active scenario so it surfaces in the score-based fallback.
+
+const trainingShoes  = item({ category: 'shoes',    subType: 'training-shoes', colorFamily: 'white', formalityLevel: 1, occasionTags: [] });
+const windbreaker    = item({ category: 'outerwear', subType: 'windbreaker',   colorFamily: 'black', formalityLevel: 2, occasionTags: [] });
+const sportsHoodie   = item({ category: 'top',       subType: 'sports-hoodie', colorFamily: 'grey',  formalityLevel: 1, occasionTags: [] });
+
+assert(scoreItemForProfile(trainingShoes, 'active', baseProf) > 0,  'training-shoes scores > 0 for active');
+assert(scoreItemForProfile(windbreaker,   'active', baseProf) > 0,  'windbreaker scores > 0 for active');
+assert(scoreItemForProfile(sportsHoodie,  'active', baseProf) > 0,  'sports-hoodie scores > 0 for active');
+
+// Active items should score higher in active than in a clearly mismatched scenario (date-dressy).
+assert(
+  scoreItemForProfile(trainingShoes, 'active', baseProf) > scoreItemForProfile(trainingShoes, 'date-dressy', baseProf),
+  'training-shoes scores higher in active than date-dressy',
+);
+assert(
+  scoreItemForProfile(windbreaker, 'active', baseProf) > scoreItemForProfile(windbreaker, 'date-dressy', baseProf),
+  'windbreaker scores higher in active than date-dressy',
+);
+
+// ── Brunch subtype coverage ───────────────────────────────────────────────────
+// Each brunch-scenario subtype explicitly listed in SCENARIO_AFFINITY must
+// score > 0 for the brunch scenario so it surfaces in the score-based fallback.
+
+const midiDress   = item({ category: 'dress',   subType: 'midi-dress',  colorFamily: 'cream', formalityLevel: 5, occasionTags: [] });
+const sandals     = item({ category: 'shoes',   subType: 'sandals',     colorFamily: 'tan',   formalityLevel: 3, occasionTags: [] });
+const blockHeels  = item({ category: 'shoes',   subType: 'block-heels', colorFamily: 'tan',   formalityLevel: 4, occasionTags: [] });
+const loafers     = item({ category: 'shoes',   subType: 'loafers',     colorFamily: 'black', formalityLevel: 5, occasionTags: [] });
+const wickerBag   = item({ category: 'bag',     subType: 'wicker-bag',  colorFamily: 'beige', formalityLevel: 3, occasionTags: [] });
+
+assert(scoreItemForProfile(midiDress,  'brunch', baseProf) > 0,  'midi-dress scores > 0 for brunch');
+assert(scoreItemForProfile(sandals,    'brunch', baseProf) > 0,  'sandals score > 0 for brunch');
+assert(scoreItemForProfile(blockHeels, 'brunch', baseProf) > 0,  'block-heels score > 0 for brunch');
+assert(scoreItemForProfile(loafers,    'brunch', baseProf) > 0,  'loafers score > 0 for brunch');
+assert(scoreItemForProfile(wickerBag,  'brunch', baseProf) > 0,  'wicker-bag scores > 0 for brunch');
+
+// Brunch items should score higher in brunch than in a clearly mismatched scenario (active).
+assert(
+  scoreItemForProfile(midiDress, 'brunch', baseProf) > scoreItemForProfile(midiDress, 'active', baseProf),
+  'midi-dress scores higher in brunch than active',
+);
+assert(
+  scoreItemForProfile(blockHeels, 'brunch', baseProf) > scoreItemForProfile(blockHeels, 'active', baseProf),
+  'block-heels score higher in brunch than active',
+);
+assert(
+  scoreItemForProfile(loafers, 'brunch', baseProf) > scoreItemForProfile(loafers, 'active', baseProf),
+  'loafers score higher in brunch than active',
+);
+assert(
+  scoreItemForProfile(wickerBag, 'brunch', baseProf) > scoreItemForProfile(wickerBag, 'active', baseProf),
+  'wicker-bag scores higher in brunch than active',
+);
+
 // ── Step 3: formality gate for brunch [3,5] and active [1,2] ──────────────────
 // brunch band: [3, 5]
 assert(passesFormality(item({ subType: 'jeans',    colorFamily: 'navy'  }), 'brunch', profile()), 'jeans passes brunch formality gate [3,5]');
