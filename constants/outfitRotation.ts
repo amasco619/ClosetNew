@@ -11,7 +11,7 @@ import {
 import {
   outerwearRule, outerwearWeatherScore, weatherSignature, isRainy, isRainFriendly,
   effectiveWarmth, neededWarmth,
-} from './weather';
+} from './weatherPure';
 import {
   colorsHarmonize, passesConstraints, toComponent,
   scoreItemForProfile, scoreOutfitCombo, adjustScoreForReactions,
