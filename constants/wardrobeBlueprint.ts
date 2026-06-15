@@ -140,6 +140,29 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   chunky_gold_chain:       require('@/assets/recommendations/chunky_gold_chain.png'),
   pearl_gold_pendant:      require('@/assets/recommendations/pearl_gold_pendant.png'),
   gold_dress_watch:        require('@/assets/recommendations/gold_dress_watch.png'),
+  // ── Active / Gym ─────────────────────────────────────────────────────────────
+  activewear_leggings:     require('@/assets/recommendations/activewear_leggings.png'),
+  sports_bra:              require('@/assets/recommendations/sports_bra.png'),
+  training_shoes:          require('@/assets/recommendations/training_shoes.png'),
+  gym_bag:                 require('@/assets/recommendations/gym_bag.png'),
+  sports_hoodie:           require('@/assets/recommendations/sports_hoodie.png'),
+  windbreaker:             require('@/assets/recommendations/windbreaker.png'),
+  // ── Brunch ───────────────────────────────────────────────────────────────────
+  linen_co_ord_set:        require('@/assets/recommendations/linen_co_ord_set.png'),
+  wicker_bag:              require('@/assets/recommendations/wicker_bag.png'),
+  brunch_sandals:          require('@/assets/recommendations/brunch_sandals.png'),
+  // ── Resort ───────────────────────────────────────────────────────────────────
+  swimsuit_one_piece:      require('@/assets/recommendations/swimsuit_one_piece.png'),
+  beach_coverup:           require('@/assets/recommendations/beach_coverup.png'),
+  espadrilles:             require('@/assets/recommendations/espadrilles.png'),
+  beach_bag:               require('@/assets/recommendations/beach_bag.png'),
+  resort_dress:            require('@/assets/recommendations/resort_dress.png'),
+  // ── Night Out ────────────────────────────────────────────────────────────────
+  mini_dress_black:        require('@/assets/recommendations/mini_dress_black.png'),
+  sequin_top:              require('@/assets/recommendations/sequin_top.png'),
+  strappy_heels:           require('@/assets/recommendations/strappy_heels.png'),
+  evening_clutch_gold:     require('@/assets/recommendations/evening_clutch_gold.png'),
+  statement_earrings:      require('@/assets/recommendations/statement_earrings.png'),
 };
 
 const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
@@ -176,6 +199,12 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'min-jew-1', category: 'jewelry',   subType: 'ring',          colorFamily: 'gold',   priority: 1, label: 'Thin Gold Stacking Rings',          description: 'A quiet glimmer — barely there but perfectly placed',          sampleImage: SAMPLE_IMAGES.gold_stacking_rings },
     { id: 'min-jew-2', category: 'jewelry',   subType: 'necklace',      colorFamily: 'gold',   priority: 2, label: 'Gold Delicate Chain Necklace',      description: 'One fine chain, close to the collarbone — nothing more needed', sampleImage: SAMPLE_IMAGES.gold_necklace },
     { id: 'min-jew-3', category: 'jewelry',   subType: 'earrings',      colorFamily: 'gold',   priority: 3, label: 'Small Gold Stud Earrings',          description: 'A single, quiet dot of gold — the only finish you need',      sampleImage: SAMPLE_IMAGES.gold_stud_earrings },
+    // Active / Brunch / Resort / Night Out additions
+    { id: 'min-act-1', category: 'bottom',    subType: 'leggings',      colorFamily: 'black',  priority: 4, label: 'Black Seamless Leggings',           description: 'A tonal activewear base — clean, minimal, functional',        sampleImage: SAMPLE_IMAGES.activewear_leggings },
+    { id: 'min-act-2', category: 'outerwear', subType: 'windbreaker',   colorFamily: 'black',  priority: 5, label: 'Black Lightweight Windbreaker',     description: 'Clean outerwear for active days — minimal, not fussy',        sampleImage: SAMPLE_IMAGES.windbreaker },
+    { id: 'min-brn-1', category: 'shoes',     subType: 'sandals',       colorFamily: 'tan',    priority: 6, label: 'Tan Minimalist Strappy Sandals',    description: 'Clean lines and a neutral strap — the brunch shoe done right', sampleImage: SAMPLE_IMAGES.brunch_sandals },
+    { id: 'min-rsr-1', category: 'dress',     subType: 'resort-dress',  colorFamily: 'white',  priority: 7, label: 'White Minimal Resort Dress',        description: 'Pared-back resort dressing — simple, effortless, unbothered', sampleImage: SAMPLE_IMAGES.resort_dress },
+    { id: 'min-ngt-1', category: 'dress',     subType: 'mini-dress',    colorFamily: 'black',  priority: 8, label: 'Black Mini Dress',                  description: 'One sleek black mini — your nighttime minimal uniform',        sampleImage: SAMPLE_IMAGES.mini_dress_black },
   ],
 
   // ────────────────────────────────────────────────────────────────────────
@@ -210,6 +239,12 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'elv-jew-1', category: 'jewelry',   subType: 'earrings',      colorFamily: 'gold',   priority: 1, label: 'Gold Statement Drop Earrings',      description: 'A refined finishing touch that elevates every look',           sampleImage: SAMPLE_IMAGES.gold_drop_earrings },
     { id: 'elv-jew-2', category: 'jewelry',   subType: 'bracelet',      colorFamily: 'gold',   priority: 2, label: 'Gold Chain Bracelet',               description: 'Linked gold at the wrist — understated elegance in motion',    sampleImage: SAMPLE_IMAGES.gold_bracelet },
     { id: 'elv-jew-3', category: 'jewelry',   subType: 'earrings',      colorFamily: 'pearl',  priority: 3, label: 'Pearl Stud Earrings',               description: 'The most timeless jewel — soft luminescence, always right',   sampleImage: SAMPLE_IMAGES.pearl_studs },
+    // Active / Brunch / Resort / Night Out additions
+    { id: 'elv-act-1', category: 'bag',       subType: 'gym-bag',       colorFamily: 'black',  priority: 4, label: 'Black Structured Gym Bag',          description: 'Elevated even at the gym — a sleek carryall with minimal detail', sampleImage: SAMPLE_IMAGES.gym_bag },
+    { id: 'elv-rsr-1', category: 'dress',     subType: 'cover-up',      colorFamily: 'ivory',  priority: 5, label: 'Ivory Kaftan Cover-Up',             description: 'Resort-worthy elegance — luxe fabric that flows poolside',    sampleImage: SAMPLE_IMAGES.beach_coverup },
+    { id: 'elv-rsr-2', category: 'shoes',     subType: 'espadrilles',   colorFamily: 'camel',  priority: 6, label: 'Camel Espadrille Wedges',           description: 'European-summer dressing — a raised heel with holiday ease',  sampleImage: SAMPLE_IMAGES.espadrilles },
+    { id: 'elv-ngt-1', category: 'shoes',     subType: 'strappy-heels', colorFamily: 'black',  priority: 7, label: 'Black Strappy Evening Heels',       description: 'A bare, elegant strap — the most refined way to dress up a look', sampleImage: SAMPLE_IMAGES.strappy_heels },
+    { id: 'elv-ngt-2', category: 'bag',       subType: 'evening-bag',   colorFamily: 'gold',   priority: 8, label: 'Gold Evening Clutch',               description: 'A slim gold clutch — one piece that turns any look into an occasion', sampleImage: SAMPLE_IMAGES.evening_clutch_gold },
   ],
 
   // ────────────────────────────────────────────────────────────────────────
@@ -244,6 +279,11 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'bld-jew-1', category: 'jewelry',   subType: 'necklace',      colorFamily: 'gold',   priority: 1, label: 'Chunky Gold Statement Chain',       description: 'Go big — a neck piece that declares you\'ve arrived',         sampleImage: SAMPLE_IMAGES.chunky_gold_chain },
     { id: 'bld-jew-2', category: 'jewelry',   subType: 'earrings',      colorFamily: 'gold',   priority: 2, label: 'Bold Geometric Drop Earrings',      description: 'Architectural shapes that frame the face with intention',      sampleImage: SAMPLE_IMAGES.geometric_earrings },
     { id: 'bld-jew-3', category: 'jewelry',   subType: 'bracelet',      colorFamily: 'gold',   priority: 3, label: 'Layered Gold Bangles',              description: 'Stack them all — cascading gold that makes noise when you move', sampleImage: SAMPLE_IMAGES.gold_bangles },
+    // Active / Brunch / Resort / Night Out additions
+    { id: 'bld-act-1', category: 'outerwear', subType: 'windbreaker',   colorFamily: 'red',    priority: 4, label: 'Red Colour-Block Windbreaker',      description: 'Bold activewear energy — vivid colour and a strong silhouette', sampleImage: SAMPLE_IMAGES.windbreaker },
+    { id: 'bld-act-2', category: 'bag',       subType: 'gym-bag',       colorFamily: 'black',  priority: 5, label: 'Bold Printed Sports Bag',           description: 'Make a statement at the gym — no rules, just commitment',     sampleImage: SAMPLE_IMAGES.gym_bag },
+    { id: 'bld-ngt-1', category: 'top',       subType: 'sequin-top',    colorFamily: 'gold',   priority: 6, label: 'Gold Sequin Statement Top',         description: 'All that glitters — sequins at night are your boldest move',  sampleImage: SAMPLE_IMAGES.sequin_top },
+    { id: 'bld-ngt-2', category: 'jewelry',   subType: 'statement-earrings', colorFamily: 'gold', priority: 7, label: 'Oversized Statement Drop Earrings', description: 'Large, loud, and unforgettable — the bold finale to any night look', sampleImage: SAMPLE_IMAGES.statement_earrings },
   ],
 
   // ────────────────────────────────────────────────────────────────────────
@@ -278,6 +318,11 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'rom-jew-1', category: 'jewelry',   subType: 'necklace',      colorFamily: 'gold',   priority: 1, label: 'Dainty Pearl & Gold Pendant',       description: 'A whisper of gold close to the heart — delicate and sweet',   sampleImage: SAMPLE_IMAGES.pearl_gold_pendant },
     { id: 'rom-jew-2', category: 'jewelry',   subType: 'bracelet',      colorFamily: 'rose-gold', priority: 2, label: 'Rose Gold Chain Bracelet',      description: 'Blush-toned gold that glows softly at the wrist',             sampleImage: SAMPLE_IMAGES.rose_gold_bracelet },
     { id: 'rom-jew-3', category: 'jewelry',   subType: 'earrings',      colorFamily: 'pink',   priority: 3, label: 'Pink Crystal Drop Earrings',        description: 'Glittering pink crystals — light-catching and utterly pretty', sampleImage: SAMPLE_IMAGES.pink_crystal_earrings },
+    // Active / Brunch / Resort / Night Out additions
+    { id: 'rom-brn-1', category: 'top',       subType: 'linen-set',     colorFamily: 'white',  priority: 4, label: 'White Linen Co-ord Set',            description: 'An effortlessly matched set — brunch dressing that looks planned', sampleImage: SAMPLE_IMAGES.linen_co_ord_set },
+    { id: 'rom-brn-2', category: 'bag',       subType: 'wicker-bag',    colorFamily: 'tan',    priority: 5, label: 'Tan Wicker Shoulder Bag',           description: 'Natural raffia with romance — the most charming summer carry', sampleImage: SAMPLE_IMAGES.wicker_bag },
+    { id: 'rom-rsr-1', category: 'dress',     subType: 'cover-up',      colorFamily: 'pink',   priority: 6, label: 'Pink Floral Kaftan Cover-Up',       description: 'Dreamy florals at the resort — a cover-up that looks like a look', sampleImage: SAMPLE_IMAGES.beach_coverup },
+    { id: 'rom-ngt-1', category: 'jewelry',   subType: 'statement-earrings', colorFamily: 'gold', priority: 7, label: 'Romantic Gold Drop Earrings',   description: 'Delicate yet dramatic — the golden focal point for romantic evenings', sampleImage: SAMPLE_IMAGES.statement_earrings },
   ],
 
   // ────────────────────────────────────────────────────────────────────────
@@ -312,6 +357,12 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'cls-jew-1', category: 'jewelry',   subType: 'watch',         colorFamily: 'gold',   priority: 1, label: 'Gold Classic Dress Watch',          description: 'The refined finishing touch — elegance measured in time',     sampleImage: SAMPLE_IMAGES.gold_dress_watch },
     { id: 'cls-jew-2', category: 'jewelry',   subType: 'earrings',      colorFamily: 'pearl',  priority: 2, label: 'Pearl Drop Earrings',               description: 'Heritage elegance at the ear — softly luminous and timeless', sampleImage: SAMPLE_IMAGES.pearl_drop_earrings },
     { id: 'cls-jew-3', category: 'jewelry',   subType: 'bracelet',      colorFamily: 'gold',   priority: 3, label: 'Simple Gold Bangle',                description: 'One smooth arc of gold — the most enduring arm statement',    sampleImage: SAMPLE_IMAGES.gold_bangle },
+    // Active / Brunch / Resort / Night Out additions
+    { id: 'cls-act-1', category: 'outerwear', subType: 'sports-hoodie', colorFamily: 'grey',   priority: 4, label: 'Grey Sports Hoodie',                description: 'A classic grey hoodie for active days — understated and easy', sampleImage: SAMPLE_IMAGES.sports_hoodie },
+    { id: 'cls-brn-1', category: 'shoes',     subType: 'sandals',       colorFamily: 'tan',    priority: 5, label: 'Tan Classic Strappy Sandals',       description: 'Heritage sandal shape — the timeless warm-weather go-to',     sampleImage: SAMPLE_IMAGES.brunch_sandals },
+    { id: 'cls-rsr-1', category: 'dress',     subType: 'resort-dress',  colorFamily: 'navy',   priority: 6, label: 'Navy Resort Dress',                 description: 'Nautical-inspired resort dressing — classic through and through', sampleImage: SAMPLE_IMAGES.resort_dress },
+    { id: 'cls-ngt-1', category: 'dress',     subType: 'mini-dress',    colorFamily: 'black',  priority: 7, label: 'Classic Black Mini Dress',          description: 'The little black dress, mini-length — perpetually the right choice', sampleImage: SAMPLE_IMAGES.mini_dress_black },
+    { id: 'cls-ngt-2', category: 'shoes',     subType: 'strappy-heels', colorFamily: 'nude',   priority: 8, label: 'Nude Strappy Evening Heels',        description: 'An invisible strap in nude — timeless, polished, always right', sampleImage: SAMPLE_IMAGES.strappy_heels },
   ],
 
   // ────────────────────────────────────────────────────────────────────────
@@ -351,6 +402,13 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = {
     { id: 'yth-jew-1', category: 'jewelry',   subType: 'earrings',      colorFamily: 'gold',   priority: 1, label: 'Gold Huggie Hoop Earrings',         description: 'Stack a few, wear one — playful gold that works every day',   sampleImage: SAMPLE_IMAGES.gold_hoops },
     { id: 'yth-jew-2', category: 'jewelry',   subType: 'necklace',      colorFamily: 'gold',   priority: 2, label: 'Layered Dainty Chain Necklaces',    description: 'Two or three delicate chains — effortless layered cool',      sampleImage: SAMPLE_IMAGES.layered_necklaces },
     { id: 'yth-jew-3', category: 'jewelry',   subType: 'bracelet',      colorFamily: 'multi',  priority: 3, label: 'Colorful Resin Bangles',            description: 'Fun, bright stacked bangles — wear your mood on your wrist',  sampleImage: SAMPLE_IMAGES.colorful_bangles },
+    // Active / Brunch / Resort / Night Out additions
+    { id: 'yth-act-1', category: 'top',       subType: 'sports-bra',    colorFamily: 'black',  priority: 5, label: 'Black Sports Bra',                  description: 'Your active-wear anchor — cool, confident and versatile',     sampleImage: SAMPLE_IMAGES.sports_bra },
+    { id: 'yth-act-2', category: 'bottom',    subType: 'leggings',      colorFamily: 'black',  priority: 6, label: 'Black High-Waist Leggings',         description: 'The movement essential — high-waist with a sleek, clean fit', sampleImage: SAMPLE_IMAGES.activewear_leggings },
+    { id: 'yth-act-3', category: 'shoes',     subType: 'training-shoes',colorFamily: 'white',  priority: 7, label: 'White Training Shoes',              description: 'Fresh white kicks that go from the gym to the street',        sampleImage: SAMPLE_IMAGES.training_shoes },
+    { id: 'yth-rsr-1', category: 'dress',     subType: 'resort-dress',  colorFamily: 'floral', priority: 8, label: 'Floral Resort Dress',               description: 'Bright florals and vacation energy — holiday dressing done young', sampleImage: SAMPLE_IMAGES.resort_dress },
+    { id: 'yth-ngt-1', category: 'top',       subType: 'sequin-top',    colorFamily: 'silver', priority: 9, label: 'Silver Sequin Party Top',           description: 'Sequins and youth energy — wear this and the night opens up',  sampleImage: SAMPLE_IMAGES.sequin_top },
+    { id: 'yth-ngt-2', category: 'jewelry',   subType: 'statement-earrings', colorFamily: 'gold', priority: 10, label: 'Fun Statement Drop Earrings',  description: 'Bold, playful earrings that say you dressed for the night',    sampleImage: SAMPLE_IMAGES.statement_earrings },
   ],
 };
 

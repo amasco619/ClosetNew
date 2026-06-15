@@ -27,10 +27,12 @@ import {
 } from './affinity';
 
 export const SCENARIOS: OccasionTag[] = [
-  'work', 'casual', 'date-casual', 'date-dressy', 'event', 'interview', 'wedding', 'travel',
+  // Free tier scenarios
+  'work', 'casual', 'date-casual', 'date-dressy', 'event', 'brunch', 'active',
+  // Premium scenarios
+  'interview', 'wedding', 'travel', 'resort', 'night-out',
 ];
 
-const OUTFITS_PER_SCENARIO_PER_DAY = 2;
 const MAX_PER_SCENARIO = 30;
 
 // ─── Seeded PRNG (Mulberry32) ─────────────────────────────────────────────────
@@ -83,6 +85,8 @@ export interface RotationState {
   nextCursors: Partial<Record<OccasionTag, number>>;
   lastDate: string;
   cycleCount: number;
+  /** Hero IDs served the previous day per scenario — used for diversity enforcement. */
+  prevDayHeroIds?: Partial<Record<OccasionTag, string[]>>;
 }
 
 export const INITIAL_ROTATION_STATE: RotationState = {
@@ -541,53 +545,104 @@ export function applyDailyRotation(
   state: RotationState,
   today: string,
   recentWornFingerprints?: Set<string>,
+  isPremium?: boolean,
 ): { outfits: OutfitSet[]; newState: RotationState } {
   const isNewDay = today !== state.lastDate;
-  const n = OUTFITS_PER_SCENARIO_PER_DAY;
+  // Free tier: 2 outfits per scenario per day. Premium: 4.
+  const n = isPremium ? 4 : 2;
+
+  // Day-of-week context: 0 = Sunday, 6 = Saturday.
+  const dayOfWeek = new Date(today + 'T12:00:00').getDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
   const todayCursors: Partial<Record<OccasionTag, number>> = {};
   const nextCursors: Partial<Record<OccasionTag, number>> = {};
-  const outfits: OutfitSet[] = [];
+  const todayHeroIds: Partial<Record<OccasionTag, string[]>> = {};
+  const outfitsPerScenario: Partial<Record<OccasionTag, OutfitSet[]>> = {};
   let cycleCount = state.cycleCount;
+
+  const prevDayHeroIds = state.prevDayHeroIds ?? {};
 
   SCENARIOS.forEach((scenario, si) => {
     const scenarioPool = pool[scenario] ?? [];
     if (scenarioPool.length === 0) return;
 
     let orderedPool = scenarioPool;
+
+    // ── Worn-fingerprint freshness ordering ─────────────────────────────────
     if (recentWornFingerprints && recentWornFingerprints.size > 0) {
-      const fresh = scenarioPool.filter(o => {
-        const fp = fingerprint(o.components);
-        return !recentWornFingerprints.has(fp);
-      });
-      const stale = scenarioPool.filter(o => {
-        const fp = fingerprint(o.components);
-        return recentWornFingerprints.has(fp);
-      });
+      const fresh = scenarioPool.filter(o => !recentWornFingerprints.has(fingerprint(o.components)));
+      const stale = scenarioPool.filter(o => recentWornFingerprints.has(fingerprint(o.components)));
       orderedPool = [...fresh, ...stale];
     }
 
-    const shuffled = tieredShuffle(orderedPool, state.shuffleSeed + si * 7919);
+    // ── Hero diversity: deprioritise yesterday's heroes ─────────────────────
+    // Outfits whose hero featured in yesterday's daily batch for this scenario
+    // are pushed to the lower segment so the user sees a fresh focal piece.
+    const prevHeroes = new Set(prevDayHeroIds[scenario] ?? []);
+    if (prevHeroes.size > 0) {
+      const freshHeroes = orderedPool.filter(o => !o.heroId || !prevHeroes.has(o.heroId));
+      const repeatedHeroes = orderedPool.filter(o => !!o.heroId && prevHeroes.has(o.heroId));
+      orderedPool = [...freshHeroes, ...repeatedHeroes];
+    }
 
-    const startCursor = isNewDay
+    // ── Completeness bias: full accessory stack earns +1 confidence ─────────
+    // An outfit with shoes + bag + jewelry feels more styled than one that is
+    // missing any of those layers. We nudge it up before the tiered shuffle so
+    // it reliably lands in the top tier and surfaces first.
+    const biased = orderedPool.map(o => {
+      const cats = new Set(o.components.map(c => c.category));
+      const complete = cats.has('shoes') && cats.has('bag') && cats.has('jewelry');
+      return complete ? { ...o, confidenceScore: (o.confidenceScore ?? 0) + 1 } : o;
+    });
+    biased.sort((a, b) => (b.confidenceScore ?? 0) - (a.confidenceScore ?? 0));
+
+    const shuffled = tieredShuffle(biased, state.shuffleSeed + si * 7919);
+
+    let startCursor = isNewDay
       ? (state.nextCursors[scenario] ?? 0)
       : (state.todayCursors[scenario] ?? 0);
+
+    // ── Day-of-week cursor nudge ─────────────────────────────────────────────
+    // On weekends the work scenario is less relevant — advance its cursor by
+    // one extra step so weekend users see a fresher look when they do check it,
+    // rather than Monday's leftover top-of-pool outfit.
+    if (isNewDay && isWeekend && scenario === 'work' && shuffled.length > 1) {
+      startCursor = (startCursor + 1) % shuffled.length;
+    }
 
     todayCursors[scenario] = startCursor;
 
     const count = Math.min(n, shuffled.length);
+    const slice: OutfitSet[] = [];
     for (let i = 0; i < count; i++) {
       const idx = (startCursor + i) % shuffled.length;
-      outfits.push({
-        ...shuffled[idx],
-        id: `daily-${scenario}-${i}`,
-      });
+      slice.push({ ...shuffled[idx], id: `daily-${scenario}-${i}` });
     }
+
+    // Record hero IDs for tomorrow's diversity pass.
+    todayHeroIds[scenario] = slice.map(o => o.heroId).filter((h): h is string => !!h);
+    outfitsPerScenario[scenario] = slice;
 
     const next = (startCursor + count) % shuffled.length;
     if (next < startCursor) cycleCount = cycleCount + 1;
     nextCursors[scenario] = next;
   });
+
+  // ── Cross-scenario fingerprint dedup ────────────────────────────────────────
+  // The same exact outfit (same item IDs) should not appear twice on one day
+  // even if it scored highly for two different scenarios. First occurrence wins.
+  const seenToday = new Set<string>();
+  const outfits: OutfitSet[] = [];
+  for (const scenario of SCENARIOS) {
+    for (const outfit of outfitsPerScenario[scenario] ?? []) {
+      const fp = fingerprint(outfit.components);
+      if (fp && !seenToday.has(fp)) {
+        seenToday.add(fp);
+        outfits.push(outfit);
+      }
+    }
+  }
 
   const newState: RotationState = {
     poolHash: state.poolHash,
@@ -596,6 +651,7 @@ export function applyDailyRotation(
     nextCursors,
     lastDate: today,
     cycleCount,
+    prevDayHeroIds: isNewDay ? todayHeroIds : (state.prevDayHeroIds ?? {}),
   };
 
   return { outfits, newState };

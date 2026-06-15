@@ -56,6 +56,14 @@ export const SCENARIO_AFFINITY: Record<OccasionTag, string[]> = {
   interview:     ['blouse', 'shirt', 'blazer', 'trousers', 'midi-skirt', 'midi-dress', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch', 'turtleneck'],
   wedding:       ['midi-dress', 'maxi-dress', 'cocktail-dress', 'wrap-dress', 'midi-skirt', 'blouse', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
   travel:        ['t-shirt', 'long-sleeve', 'sweater', 'shirt', 'jeans', 'chinos', 'trousers', 'sneakers', 'flats', 'boots', 'crossbody', 'backpack', 'tote', 'blazer', 'cardigan', 'denim-jacket', 'wide-leg'],
+  // Weekend morning / cafe-terrace meal — relaxed but considered.
+  brunch:        ['blouse', 'camisole', 'linen-set', 'midi-dress', 'wrap-dress', 'sundress', 'wide-leg', 'midi-skirt', 'jeans', 'mules', 'sandals', 'flats', 'crossbody', 'wicker-bag', 'mini-bag', 'earrings', 'sunglasses'],
+  // Gym, studio, run, sport — performance first, still considered.
+  active:        ['sports-bra', 'leggings', 'joggers', 'shorts', 'training-shoes', 'sneakers', 'gym-bag', 'backpack', 'windbreaker', 'sports-hoodie', 'hoodie', 'crop-top', 'tank-top'],
+  // Pool, beach, villa holiday — relaxed glamour.
+  resort:        ['swimsuit', 'cover-up', 'kaftan', 'resort-dress', 'sundress', 'maxi-dress', 'linen-set', 'espadrilles', 'sandals', 'mules', 'beach-bag', 'wicker-bag', 'crossbody', 'sunhat', 'earrings', 'necklace'],
+  // Club, cocktail bar, late-night dinner — dressed-up and confident.
+  'night-out':   ['mini-dress', 'bodycon-dress', 'cocktail-dress', 'sequin-top', 'camisole', 'blouse', 'midi-skirt', 'strappy-heels', 'heels', 'stilettos', 'evening-bag', 'clutch', 'mini-bag', 'statement-earrings', 'earrings', 'necklace', 'blazer'],
 };
 
 export const STYLE_PREFERRED_COLORS: Record<string, string[]> = {
@@ -107,6 +115,11 @@ export const SCENARIO_FORMALITY: Record<OccasionTag, [number, number]> = {
   event:         [5, 8],
   interview:     [6, 9],
   wedding:       [6, 9],
+  // New scenarios:
+  brunch:        [3, 5],  // relaxed-smart — a considered casual that reads polished
+  active:        [1, 2],  // athleisure / gym — performance formality only
+  resort:        [1, 4],  // beach-to-bar: pure holiday ease through sundress-smart
+  'night-out':   [5, 8],  // cocktail bar to late-night dinner
 };
 
 /**
@@ -138,25 +151,36 @@ export const SUBTYPE_FORMALITY: Record<string, number> = {
   'polo-shirt': 3, 'rugby-shirt': 3, 'hoodie': 1, 'sweatshirt': 1,
   'sweater': 4, 'knit-top': 4, 'cardigan': 4, 'turtleneck': 5,
   'shirt': 5, 'button-down': 5, 'blouse': 6, 'camisole': 5, 'crop-top': 3,
+  // activewear tops
+  'sports-bra': 1, 'sports-hoodie': 1, 'windbreaker': 2, 'rashguard': 1,
+  // holiday tops
+  'sequin-top': 6, 'linen-set': 3,
   // bottoms
   'joggers': 1, 'leggings': 2, 'shorts': 2, 'jeans': 3, 'chinos': 4,
   'wide-leg': 5, 'trousers': 6, 'pencil-skirt': 6,
   'mini-skirt': 4, 'midi-skirt': 5, 'maxi-skirt': 5,
   // dresses
-  'shirt-dress': 4, 'knit-dress': 4, 'mini-dress': 4,
+  'shirt-dress': 4, 'knit-dress': 4, 'mini-dress': 4, 'bodycon-dress': 5,
   'midi-dress': 5, 'wrap-dress': 6, 'maxi-dress': 6,
   'slip-dress': 6, 'cocktail-dress': 7, 'gown': 9,
+  // resort / holiday dresses
+  'sundress': 3, 'resort-dress': 3, 'cover-up': 2, 'kaftan': 2,
   // outerwear
   'denim-jacket': 3, 'jacket': 4, 'leather-jacket': 4,
   'trench': 5, 'blazer': 6, 'coat': 6,
   // shoes
-  'sneakers': 1, 'sandals': 3, 'boots': 4, 'ankle-boots': 4, 'flats': 4,
+  'sneakers': 1, 'training-shoes': 1, 'sandals': 3, 'espadrilles': 3,
+  'boots': 4, 'ankle-boots': 4, 'flats': 4,
   'mules': 5, 'loafers': 5, 'heels': 6, 'pumps': 6, 'stilettos': 7,
+  'strappy-heels': 6,
   // bags
-  'backpack': 1, 'crossbody': 3, 'tote': 4, 'shoulder-bag': 5,
-  'mini-bag': 5, 'clutch': 6,
-  // jewelry — neutral
-  'earrings': 4, 'necklace': 4, 'bracelet': 4, 'watch': 4, 'ring': 4,
+  'backpack': 1, 'gym-bag': 1, 'crossbody': 3, 'wicker-bag': 3,
+  'tote': 4, 'shoulder-bag': 5, 'mini-bag': 5, 'clutch': 6, 'evening-bag': 6,
+  // jewelry
+  'earrings': 4, 'statement-earrings': 5, 'necklace': 4, 'bracelet': 4,
+  'watch': 4, 'ring': 4,
+  // accessories (formality-neutral)
+  'sunglasses': 3, 'sunhat': 2, 'swimsuit': 1,
 };
 
 /**

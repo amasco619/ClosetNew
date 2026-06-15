@@ -121,8 +121,8 @@ const defaultProfile: UserProfile = {
   dismissedProfileNudge: undefined,
 };
 
-const FREE_ITEM_CAP = 10;
-const GUEST_ITEM_CAP = 5;
+const FREE_ITEM_CAP = 15;
+const GUEST_ITEM_CAP = 8;
 
 const AppContext = createContext<AppContextValue | null>(null);
 
@@ -1015,9 +1015,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const outfitSets = useMemo(() => {
     if (activeWardrobeItems.length === 0) return [];
     const today = todayString();
-    const { outfits } = applyDailyRotation(outfitPool, rotationState, today, recentWornFingerprints);
+    const { outfits } = applyDailyRotation(outfitPool, rotationState, today, recentWornFingerprints, isPremium);
     return outfits;
-  }, [outfitPool, rotationState, activeWardrobeItems.length, recentWornFingerprints]);
+  }, [outfitPool, rotationState, activeWardrobeItems.length, recentWornFingerprints, isPremium]);
 
   useEffect(() => {
     if (isLoading || activeWardrobeItems.length === 0) return;
@@ -1035,7 +1035,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         shuffleSeed: Math.floor(Math.random() * 9_000_000) + 1_000_000,
       };
     }
-    const { newState } = applyDailyRotation(outfitPool, baseState, today, recentWornFingerprints);
+    const { newState } = applyDailyRotation(outfitPool, baseState, today, recentWornFingerprints, isPremium);
     const stateToSave: RotationState = { ...newState, poolHash: newHash };
     setRotationState(stateToSave);
     AsyncStorage.setItem(STORAGE_KEYS.rotation, JSON.stringify(stateToSave));

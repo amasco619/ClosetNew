@@ -4,9 +4,9 @@
 AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo (React Native) and Express backend. The tagline is "Your quiet-luxury stylist in your pocket."
 
 ## Current State
-- **Version**: 1.2.0
-- **Last Updated**: 2026-02-23
-- **Status**: Dynamic style-aware recommendations
+- **Version**: 1.3.0
+- **Last Updated**: 2026-06-15
+- **Status**: Expanded scenario engine + intelligent agentic rotation
 
 ## Architecture
 - **Frontend**: Expo Router (file-based routing) with React Native
@@ -16,11 +16,11 @@ AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo 
 
 ## Key Features
 - Multi-step onboarding (body type with illustrated images, eye color, skin tone, style goals)
-- Wardrobe digitization with camera/gallery (10-item free cap)
+- Wardrobe digitization with camera/gallery (Guest: 8-item cap, Free: 15-item cap, Premium: unlimited)
 - Garment classification via Google Cloud Vision (POST /api/classify-garment)
 - **Personalized outfit generation** — dynamic outfit combinations built exclusively from the user's actual wardrobe items. Algorithm uses occasion tags, color harmony (neutral + anything, monochromatic), style goal color preferences, and profile constraints (noSleeveless, noShortSkirts, maxHeelHeight). Each component is always "owned" (real items only).
 - **"Just Added" outfit suggestions** — when a user uploads a new clothing item, `generateOutfitsForItem` builds complete looks centered on that new item using existing wardrobe pieces. These appear as a dismissable "Styled for your new item" banner in the Outfits tab and contribute to the "Ready Outfits" count on the dashboard.
-- **Outfits tab redesign** — shows only real, wearable looks from the user's wardrobe (no "need" items). Features: scenario filter (work/casual/date/event + premium tiers), lookbook-style cards with item photos, mood descriptor per scenario, and a "Ready to wear" badge on every outfit.
+- **Outfits tab redesign** — shows only real, wearable looks from the user's wardrobe (no "need" items). Features: scenario filter (work/casual/date/event/brunch/active + premium tiers for resort/night-out), lookbook-style cards with item photos, mood descriptor per scenario, and a "Ready to wear" badge on every outfit.
 - Wardrobe analytics (category & color distribution)
 - WardrobeSlot blueprint system (19 essential items across tops, bottoms, outerwear, shoes, jewelry, dress, bag)
 - Starter Recommendations on Home screen (first needed slot per category)
@@ -29,7 +29,7 @@ AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo 
 - **Personal Calibration Loop** — taste learns from every signal: love taps, "not today" taps, and outfits actually worn aggregate (with 60-day half-life recency decay) into per-item `affinity` and per-pair `pairAffinity` multipliers (clamped to [0.7, 1.3] for items, [0.8, 1.2] for pairs — never a blacklist). Cold-start safe: multipliers stay at 1.0 until ≥5 signals have accumulated. Multipliers compose on top of existing additive reaction adjustments inside `generateOutfitPool`. Profile screen has a "Why this changed" expandable card showing top liked/disliked items + pairs and current calibration status. Engine: `constants/affinity.ts`.
 - **Weather-Aware Outerwear** — uses Open-Meteo (free, no API key) plus device location (`expo-location`) with an IP-geolocation fallback (`ipapi.co`) so the feature works without the user granting location. Snapshots cached for 6 hours under `@auracloset_weather_v1`. The outfit engine gates outerwear by daily forecast: required when daily low <12°C, suppressed when low >18°C and high >24°C, and biased toward rain-friendly subtypes (trench / raincoat / parka / mac / jacket / bomber-jacket) when rain probability ≥60% — wool / cashmere / suede coats are deprioritised in the rain. A small weather chip on the Home tab and a "Weather-aware outfits" toggle in Profile give the user explicit control. Disabling the toggle clears the cache and reverts to the season + style-only outerwear logic. Engine: `constants/weather.ts`.
 - **Wear Tracking** — full outfit wear log system: "Wearing this today" button on each OutfitCard (only shown when outfit has owned items), tapping logs a WearEntry (id, date, occasion, outfitFingerprint, itemIds, loggedAt) to AsyncStorage. Worn cards show green "Worn today" badge + "Undo" button. Wear Log screen (`/wear-log`) shows all entries grouped by date with item thumbnails. Home tab shows "Today's Looks" pill card when anything is logged. Profile tab has a "Track & History" section with Wear Log shortcut showing total log count.
-- Daily rotation engine — seeded Mulberry32 shuffle with per-scenario cursors, 2 outfits/scenario/day, persisted to AsyncStorage
+- **Daily rotation engine** — seeded Mulberry32 shuffle with per-scenario cursors, persisted to AsyncStorage. Free: 2 outfits/scenario/day; Premium: 4 outfits/scenario/day. Intelligent engine features: hero-diversity enforcement (yesterday's hero pieces deprioritised), cross-scenario fingerprint dedup (same exact outfit cannot appear twice in one day), completeness bias (full shoe+bag+jewelry stack earns +1 confidence to surface first), day-of-week cursor nudge (work scenario advances on weekends). Engine: `constants/outfitRotation.ts`.
 - Premium tier toggle (unlimited items, blueprint, advanced features)
 - Profile management with style constraints
 
