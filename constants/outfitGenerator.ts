@@ -13,6 +13,7 @@ import {
   itemMatchesMood, itemContradictsMood,
   currentSeason, itemFitsSeason,
   recedeScore,
+  SCENARIO_HERO_SUBTYPES, ACTIVE_HERO_COMPANION_BAGS,
 } from '@/constants/outfitScoring';
 import { outerwearRule, isRainy, isRainFriendly, effectiveWarmth, neededWarmth } from '@/constants/weatherPure';
 
@@ -95,6 +96,24 @@ function pickSupporting(
     const rb = recedeScore(b, hero) + 0.15 * scoreItemForProfile(b, scenario, profile);
     return rb - ra;
   })[0] ?? null;
+}
+
+/**
+ * When the hero is a signature active-scenario piece (windbreaker,
+ * training-shoes, sports-hoodie), narrow the available bag pool to
+ * gym-bag / backpack first so the look reads sport-complete.
+ * Falls back to the full bag pool when no companion bag is in the wardrobe.
+ */
+function resolveActiveBagPool(
+  bags: WardrobeItem[],
+  heroSubType: string,
+  scenario: OccasionTag,
+): WardrobeItem[] {
+  if (scenario === 'active' && SCENARIO_HERO_SUBTYPES.active?.has(heroSubType)) {
+    const companions = bags.filter(b => ACTIVE_HERO_COMPANION_BAGS.has(b.subType));
+    return companions.length > 0 ? companions : bags;
+  }
+  return bags;
 }
 
 function buildOutfit(
@@ -275,7 +294,10 @@ export function generateOutfitsForItem(
       if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
       const coat = pickSupporting(byCategory['outerwear'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
-      const bag = pickSupporting(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds, hero);
+      const bag = pickSupporting(
+        resolveActiveBagPool(byCategory['bag'] ?? [], newItem.subType, scenario),
+        baseColor, scenario, profile, usedIds, hero,
+      );
       if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
       const jewel = pickBest(byCategory['jewelry'] ?? [], scenario, profile, usedIds);
       if (jewel) { outfit.push(toComponent(jewel)); }
@@ -287,7 +309,10 @@ export function generateOutfitsForItem(
       if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
       const coat = pickSupporting(byCategory['outerwear'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
-      const bag = pickSupporting(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds, hero);
+      const bag = pickSupporting(
+        resolveActiveBagPool(byCategory['bag'] ?? [], newItem.subType, scenario),
+        baseColor, scenario, profile, usedIds, hero,
+      );
       if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
       const jewel = pickBest(byCategory['jewelry'] ?? [], scenario, profile, usedIds);
       if (jewel) { outfit.push(toComponent(jewel)); }
@@ -297,7 +322,10 @@ export function generateOutfitsForItem(
       if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
       const coat = pickSupporting(byCategory['outerwear'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
-      const bag = pickSupporting(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds, hero);
+      const bag = pickSupporting(
+        resolveActiveBagPool(byCategory['bag'] ?? [], newItem.subType, scenario),
+        baseColor, scenario, profile, usedIds, hero,
+      );
       if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
       const jewel = pickBest(byCategory['jewelry'] ?? [], scenario, profile, usedIds);
       if (jewel) { outfit.push(toComponent(jewel)); }
@@ -310,7 +338,10 @@ export function generateOutfitsForItem(
       if (bottom) { outfit.push(toComponent(bottom)); usedIds.add(bottom.id); }
       const shoe = pickSupporting(byCategory['shoes'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (shoe) { outfit.push(toComponent(shoe)); usedIds.add(shoe.id); }
-      const bag = pickSupporting(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds, hero);
+      const bag = pickSupporting(
+        resolveActiveBagPool(byCategory['bag'] ?? [], newItem.subType, scenario),
+        baseColor, scenario, profile, usedIds, hero,
+      );
       if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
 
     } else if (newItem.category === 'shoes') {
@@ -337,7 +368,10 @@ export function generateOutfitsForItem(
       }
       const coat = pickSupporting(byCategory['outerwear'] ?? [], baseColor, scenario, profile, usedIds, hero);
       if (coat) { outfit.push(toComponent(coat)); usedIds.add(coat.id); }
-      const bag = pickSupporting(byCategory['bag'] ?? [], baseColor, scenario, profile, usedIds, hero);
+      const bag = pickSupporting(
+        resolveActiveBagPool(byCategory['bag'] ?? [], newItem.subType, scenario),
+        baseColor, scenario, profile, usedIds, hero,
+      );
       if (bag) { outfit.push(toComponent(bag)); usedIds.add(bag.id); }
       const jewel = pickBest(byCategory['jewelry'] ?? [], scenario, profile, usedIds);
       if (jewel) { outfit.push(toComponent(jewel)); }

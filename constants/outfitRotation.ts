@@ -19,6 +19,7 @@ import {
   itemMatchesMood, itemContradictsMood,
   currentSeason, itemFitsSeason,
   pickHeroCandidates, recedeScore,
+  SCENARIO_HERO_SUBTYPES, ACTIVE_HERO_COMPANION_BAGS,
 } from './outfitScoring';
 import { generateRationale } from './rationale';
 import {
@@ -410,7 +411,16 @@ export function generateOutfitPool(
 
         // Bag — recede-aware. No bag-as-hero today (out of scope), so bag
         // always plays a supporting role.
-        const bagPool = bagsAll.filter(b => !usedIds.has(b.id));
+        const allBags = bagsAll.filter(b => !usedIds.has(b.id));
+        // When the outfit is anchored by a signature active piece
+        // (windbreaker / training-shoes / sports-hoodie), prefer gym-bag or
+        // backpack so the complete kit reads sport-appropriate. Falls back to
+        // the full bag supply when no companion bag is available.
+        const activeBagCompanions =
+          scenario === 'active' && SCENARIO_HERO_SUBTYPES.active?.has(hero.subType)
+            ? allBags.filter(b => ACTIVE_HERO_COMPANION_BAGS.has(b.subType))
+            : [];
+        const bagPool = activeBagCompanions.length > 0 ? activeBagCompanions : allBags;
         const bagHarm = bagPool.filter(b => colorsHarmonize(core.baseColor, b.colorFamily));
         const bagSorted = (bagHarm.length > 0 ? bagHarm : bagPool)
           .sort((a, b) => recedeScore(b, hero) - recedeScore(a, hero));

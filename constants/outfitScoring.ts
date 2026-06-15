@@ -388,8 +388,25 @@ const HERO_SIGNATURE_SUBTYPES: Set<string> = new Set([
  * is already operating inside the matching scenario.
  */
 export const SCENARIO_HERO_SUBTYPES: Partial<Record<OccasionTag, Set<string>>> = {
-  active: new Set(['windbreaker', 'training-shoes', 'sports-hoodie']),
+  // Gym / studio / sport — activewear anchors that score low on general
+  // distinctiveness (neutral palette, flat synthetic fabric) but are
+  // exactly the pieces a stylist builds an active look *around*.
+  active:      new Set(['windbreaker', 'training-shoes', 'sports-hoodie']),
+  // Pool / beach / villa holiday — relaxed-glamour signature pieces that
+  // a resort stylist leads with (swimwear, coverups, kaftans).
+  resort:      new Set(['swimsuit', 'resort-dress', 'cover-up', 'kaftan']),
+  // Club / cocktail bar / late-night dinner — dressed-up anchors that
+  // carry the evening look (bodycon, mini, sequin, statement heels).
+  'night-out': new Set(['mini-dress', 'bodycon-dress', 'sequin-top', 'strappy-heels']),
 };
+
+/**
+ * Bags that complete an active-hero look — gym-bag and backpack are the
+ * natural sport-kit companions for windbreaker / training-shoes / sports-hoodie
+ * anchors. Exported so both the "Just Added" generator and the daily rotation
+ * pool can apply the same preference logic.
+ */
+export const ACTIVE_HERO_COMPANION_BAGS = new Set(['gym-bag', 'backpack']);
 
 const NEUTRAL_HERO_DAMPENERS = new Set([
   'black', 'white', 'grey', 'cream', 'beige', 'navy',

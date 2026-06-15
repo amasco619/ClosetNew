@@ -932,6 +932,262 @@ assert(
   'untagged leggings: score-based fallback includes active scenario',
 );
 
+// ── #107: Resort and night-out hero subtypes ──────────────────────────────────
+// Verify SCENARIO_HERO_SUBTYPES declarations for the two new scenarios, then
+// confirm those subtypes surface as hero candidates inside their matching
+// scenario and are blocked by the formality gate in mismatched scenarios.
+
+console.log('\nSCENARIO_HERO_SUBTYPES — resort declarations:');
+
+assert(
+  SCENARIO_HERO_SUBTYPES['resort']?.has('swimsuit'),
+  'SCENARIO_HERO_SUBTYPES.resort declares swimsuit',
+);
+assert(
+  SCENARIO_HERO_SUBTYPES['resort']?.has('resort-dress'),
+  'SCENARIO_HERO_SUBTYPES.resort declares resort-dress',
+);
+assert(
+  SCENARIO_HERO_SUBTYPES['resort']?.has('cover-up'),
+  'SCENARIO_HERO_SUBTYPES.resort declares cover-up',
+);
+assert(
+  SCENARIO_HERO_SUBTYPES['resort']?.has('kaftan'),
+  'SCENARIO_HERO_SUBTYPES.resort declares kaftan',
+);
+
+console.log('\nSCENARIO_HERO_SUBTYPES — night-out declarations:');
+
+assert(
+  SCENARIO_HERO_SUBTYPES['night-out']?.has('mini-dress'),
+  'SCENARIO_HERO_SUBTYPES[night-out] declares mini-dress',
+);
+assert(
+  SCENARIO_HERO_SUBTYPES['night-out']?.has('bodycon-dress'),
+  'SCENARIO_HERO_SUBTYPES[night-out] declares bodycon-dress',
+);
+assert(
+  SCENARIO_HERO_SUBTYPES['night-out']?.has('sequin-top'),
+  'SCENARIO_HERO_SUBTYPES[night-out] declares sequin-top',
+);
+assert(
+  SCENARIO_HERO_SUBTYPES['night-out']?.has('strappy-heels'),
+  'SCENARIO_HERO_SUBTYPES[night-out] declares strappy-heels',
+);
+
+// ── Resort hero candidacy ─────────────────────────────────────────────────────
+// resort-dress (f=3) and kaftan (f=2) sit inside resort band [1,4].
+// Their hero bonus (+8) overrides the low general distinctiveness score
+// (neutral palette, no statement fabric) and pushes them above the ≥4 gate.
+// espadrilles and beach-bag are in the wardrobe but are NOT in HERO_CATEGORIES
+// (bag is excluded); espadrilles (shoes) may or may not pass — don't assert it.
+
+console.log('\npickHeroCandidates — resort hero candidacy:');
+
+const resortWardrobe: WardrobeItem[] = [
+  // Vivid resort-dress: saturation boost + hero bonus → well above gate.
+  item({ id: 'r-dress',  category: 'dress',    subType: 'resort-dress', colorFamily: 'coral',  formalityLevel: 3, occasionTags: [] }),
+  // Neutral kaftan: hero bonus alone (+8) is enough to pass the ≥4 gate.
+  item({ id: 'r-kaftan', category: 'outerwear', subType: 'kaftan',      colorFamily: 'beige',  formalityLevel: 2, occasionTags: [] }),
+  // Non-SCENARIO_HERO subtype in resort: sundress. May or may not qualify.
+  item({ id: 'r-sdress', category: 'dress',    subType: 'sundress',     colorFamily: 'white',  formalityLevel: 3, occasionTags: [] }),
+  item({ id: 'r-shoe',   category: 'shoes',    subType: 'espadrilles',  colorFamily: 'beige',  formalityLevel: 3, occasionTags: [] }),
+];
+
+const resortHeroes       = pickHeroCandidates(resortWardrobe, 'resort', baseProf, 6);
+const resortHeroSubtypes = resortHeroes.map(h => h.subType);
+
+assert(
+  resortHeroSubtypes.includes('resort-dress'),
+  'pickHeroCandidates for resort: resort-dress surfaces as hero candidate',
+);
+assert(
+  resortHeroSubtypes.includes('kaftan'),
+  'pickHeroCandidates for resort: kaftan surfaces as hero candidate (hero bonus overrides low distinctiveness)',
+);
+
+// Resort signature pieces are gated from work by formality.
+// Work band [4,7], stretch [3,8].
+// kaftan (f=2) is below the stretch floor → blocked.
+// resort-dress (f=3) sits exactly on the stretch floor — eligible as a
+// stretch candidate but without a work hero bonus it scores too low to pass
+// the ≥4 distinctiveness gate. We do NOT assert it's absent from work heroes
+// because, with enough saturation, it could legitimately stretch in.
+// Instead verify that swimsuit (f=1) — clearly below the stretch floor — is
+// never surfaced as a work hero regardless of its hero bonus.
+const workResortWardrobe: WardrobeItem[] = [
+  item({ id: 'wr-swim',  category: 'dress',    subType: 'swimsuit',    colorFamily: 'white', formalityLevel: 1, occasionTags: [] }),
+  item({ id: 'wr-kaftn', category: 'outerwear', subType: 'kaftan',     colorFamily: 'beige', formalityLevel: 2, occasionTags: [] }),
+  item({ id: 'wr-rdres', category: 'dress',    subType: 'resort-dress', colorFamily: 'coral', formalityLevel: 3, occasionTags: [] }),
+];
+const workHeroesFromResort = pickHeroCandidates(workResortWardrobe, 'work', baseProf, 6);
+const workHeroSubtypesR    = workHeroesFromResort.map(h => h.subType);
+assert(
+  !workHeroSubtypesR.includes('kaftan'),
+  'kaftan does NOT appear as work hero (f=2 < work stretch floor 3)',
+);
+assert(
+  !workHeroSubtypesR.includes('swimsuit'),
+  'swimsuit does NOT appear as work hero (f=1 clearly below work stretch floor 3)',
+);
+
+// ── Night-out hero candidacy ──────────────────────────────────────────────────
+// Night-out band is [5,8], stretch [4,9].
+// mini-dress (f=4): on the edge of the stretch — eligible.
+// strappy-heels (f=6): inside band, hero bonus pushes it past the ≥4 gate
+//   even with the neutral-colour dampener applied (−2 + 8 = +6 ≥ 4).
+// sequin-top with vivid colorFamily: saturation boost + hero bonus, easily ≥4.
+
+console.log('\npickHeroCandidates — night-out hero candidacy:');
+
+const nightOutWardrobe: WardrobeItem[] = [
+  // Vivid sequin-top: saturation boost (colorFamily 'red' → high sat) + hero bonus.
+  item({ id: 'n-seq',    category: 'top',    subType: 'sequin-top',    colorFamily: 'red',    formalityLevel: 6, occasionTags: [] }),
+  // Neutral strappy-heels: hero bonus (8) outweighs neutral dampener (−2) → +6.
+  item({ id: 'n-heels',  category: 'shoes',  subType: 'strappy-heels', colorFamily: 'black',  formalityLevel: 6, occasionTags: [] }),
+  // mini-dress on the stretch boundary.
+  item({ id: 'n-mini',   category: 'dress',  subType: 'mini-dress',    colorFamily: 'black',  formalityLevel: 4, occasionTags: [] }),
+  // bodycon-dress inside band.
+  item({ id: 'n-body',   category: 'dress',  subType: 'bodycon-dress', colorFamily: 'navy',   formalityLevel: 5, occasionTags: [] }),
+  item({ id: 'n-skirt',  category: 'bottom', subType: 'midi-skirt',    colorFamily: 'black',  formalityLevel: 5, occasionTags: [] }),
+  item({ id: 'n-clutch', category: 'bag',    subType: 'clutch',        colorFamily: 'black',  formalityLevel: 6, occasionTags: [] }),
+];
+
+const nightOutHeroes       = pickHeroCandidates(nightOutWardrobe, 'night-out', baseProf, 6);
+const nightOutHeroSubtypes = nightOutHeroes.map(h => h.subType);
+
+assert(
+  nightOutHeroSubtypes.includes('sequin-top'),
+  'pickHeroCandidates for night-out: sequin-top surfaces as hero (saturation + hero bonus)',
+);
+assert(
+  nightOutHeroSubtypes.includes('strappy-heels'),
+  'pickHeroCandidates for night-out: strappy-heels surfaces as hero (hero bonus overrides neutral dampener)',
+);
+assert(
+  nightOutHeroSubtypes.includes('bodycon-dress'),
+  'pickHeroCandidates for night-out: bodycon-dress surfaces as hero',
+);
+
+// strappy-heels (f=6) is blocked in casual (band [1,5], stretch [0,6] — f=6 is
+// within stretch). Without the night-out hero bonus, its distinctiveness is too
+// low (neutral black, no statement fabric → approx −2 < 4) to pass the gate.
+const casualHeroesFromNightOut = pickHeroCandidates(nightOutWardrobe, 'casual', baseProf, 6);
+const casualSubtypes           = casualHeroesFromNightOut.map(h => h.subType);
+assert(
+  !casualSubtypes.includes('strappy-heels'),
+  'strappy-heels does NOT appear as casual hero (low distinctiveness without night-out bonus)',
+);
+
+// ── #108: Active hero companion bag preference ────────────────────────────────
+// When the outfit is anchored by windbreaker, training-shoes, or sports-hoodie,
+// the outfit generator must prefer gym-bag / backpack over other bag types so
+// the active kit reads sport-complete.
+
+console.log('\ngenerateOutfitsForItem — active hero companion bag preference:');
+
+// Test 1: windbreaker hero (outerwear branch) + gym-bag + crossbody
+// Expected: gym-bag is chosen over crossbody in the active scenario outfit.
+const windbreaker108 = wardrobeItem('h108-wb',    'outerwear', 'windbreaker', 'black', ['active'], 2);
+const wbWardrobe: WardrobeItem[] = [
+  windbreaker108,
+  wardrobeItem('wb-top',   'top',    'sports-bra', 'black', [], 1),
+  wardrobeItem('wb-bot',   'bottom', 'leggings',   'black', [], 2),
+  wardrobeItem('wb-shoe',  'shoes',  'sneakers',   'white', [], 1),
+  wardrobeItem('wb-gym',   'bag',    'gym-bag',    'black', [], 1),
+  wardrobeItem('wb-cross', 'bag',    'crossbody',  'beige', [], 3),
+];
+
+const wbSets      = generateOutfitsForItem(windbreaker108, wbWardrobe, integrationProfile, null);
+const wbActiveSet = wbSets.find(s => s.scenario === 'active');
+
+assert(
+  !!wbActiveSet,
+  'windbreaker hero: generateOutfitsForItem produces at least one active set',
+);
+if (wbActiveSet) {
+  const bagComponent = wbActiveSet.components.find(c => c.category === 'bag');
+  assert(
+    bagComponent?.matchedItemId === 'wb-gym',
+    'windbreaker hero in active: gym-bag preferred over crossbody',
+  );
+}
+
+// Test 2: training-shoes hero (shoes branch) + backpack + tote
+// Expected: backpack is chosen over tote in the active scenario outfit.
+const trainingShoes108 = wardrobeItem('h108-ts', 'shoes', 'training-shoes', 'white', ['active'], 1);
+const tsWardrobe: WardrobeItem[] = [
+  trainingShoes108,
+  wardrobeItem('ts-top',      'top',    'sports-bra', 'black', [], 1),
+  wardrobeItem('ts-bot',      'bottom', 'leggings',   'black', [], 2),
+  wardrobeItem('ts-backpack', 'bag',    'backpack',   'black', [], 1),
+  wardrobeItem('ts-tote',     'bag',    'tote',       'beige', [], 4),
+];
+
+const tsSets      = generateOutfitsForItem(trainingShoes108, tsWardrobe, integrationProfile, null);
+const tsActiveSet = tsSets.find(s => s.scenario === 'active');
+
+assert(
+  !!tsActiveSet,
+  'training-shoes hero: generateOutfitsForItem produces at least one active set',
+);
+if (tsActiveSet) {
+  const bagComponent = tsActiveSet.components.find(c => c.category === 'bag');
+  assert(
+    bagComponent?.matchedItemId === 'ts-backpack',
+    'training-shoes hero in active: backpack preferred over tote',
+  );
+}
+
+// Test 3: sports-hoodie hero (top branch) + gym-bag + shoulder-bag
+// Expected: gym-bag is chosen over shoulder-bag (higher formality, lower active fit).
+const sportsHoodie108 = wardrobeItem('h108-sh', 'top', 'sports-hoodie', 'grey', ['active'], 1);
+const shWardrobe: WardrobeItem[] = [
+  sportsHoodie108,
+  wardrobeItem('sh-bot',      'bottom', 'leggings',      'black', [], 2),
+  wardrobeItem('sh-shoe',     'shoes',  'sneakers',      'white', [], 1),
+  wardrobeItem('sh-gym',      'bag',    'gym-bag',       'black', [], 1),
+  wardrobeItem('sh-shoulder', 'bag',    'shoulder-bag',  'beige', [], 5),
+];
+
+const shSets      = generateOutfitsForItem(sportsHoodie108, shWardrobe, integrationProfile, null);
+const shActiveSet = shSets.find(s => s.scenario === 'active');
+
+assert(
+  !!shActiveSet,
+  'sports-hoodie hero: generateOutfitsForItem produces at least one active set',
+);
+if (shActiveSet) {
+  const bagComponent = shActiveSet.components.find(c => c.category === 'bag');
+  assert(
+    bagComponent?.matchedItemId === 'sh-gym',
+    'sports-hoodie hero in active: gym-bag preferred over shoulder-bag',
+  );
+}
+
+// Test 4: regression — non-active hero (blouse) should NOT apply active bag
+// preference even when both active and non-active bags are available.
+const blouse108 = wardrobeItem('h108-bl', 'top', 'blouse', 'white', ['work'], 6);
+const blouseWardrobe: WardrobeItem[] = [
+  blouse108,
+  wardrobeItem('bl-bot',   'bottom', 'trousers',  'black', [], 6),
+  wardrobeItem('bl-shoe',  'shoes',  'heels',     'black', [], 6),
+  wardrobeItem('bl-gym',   'bag',    'gym-bag',   'black', [], 1),
+  wardrobeItem('bl-tote',  'bag',    'tote',      'black', [], 4),
+];
+
+const blouseSets     = generateOutfitsForItem(blouse108, blouseWardrobe, integrationProfile, null);
+const blouseWorkSet  = blouseSets.find(s => s.scenario === 'work');
+if (blouseWorkSet) {
+  const bagComponent = blouseWorkSet.components.find(c => c.category === 'bag');
+  // In work scenario, tote scores higher than gym-bag — the companion pool
+  // preference must NOT be applied for a non-active hero.
+  assert(
+    bagComponent?.matchedItemId !== 'bl-gym',
+    'blouse work hero: gym-bag companion preference NOT applied (non-active hero)',
+  );
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 if (failed > 0) {
