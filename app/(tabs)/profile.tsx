@@ -124,7 +124,7 @@ function SettingRow({ icon, label, value, tint, onPress, last }: {
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const {
-    profile, updateProfile, wardrobeItems, isPremium, wearHistory,
+    profile, updateProfile, wardrobeItems, isPremium, isGuest, wearHistory,
     affinityActive, affinitySignalCount, topAffinityItems, topAffinityPairs,
     weather, setWeatherEnabled,
   } = useApp();
@@ -656,7 +656,20 @@ export default function ProfileScreen() {
                 </View>
                 <Pressable
                   style={({ pressed }) => [styles.upgradeBtn, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-                  onPress={() => router.push('/premium')}
+                  onPress={() => {
+                    if (isGuest) {
+                      Alert.alert(
+                        'Sign in to access Premium',
+                        'Create a free account or sign in to unlock Premium features and save your wardrobe.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Sign in', onPress: () => router.replace('/sign-in') },
+                        ],
+                      );
+                      return;
+                    }
+                    router.push('/premium');
+                  }}
                 >
                   <Ionicons name="star" size={14} color={Colors.white} />
                   <Text style={styles.upgradeBtnText}>Upgrade</Text>
@@ -701,44 +714,48 @@ export default function ProfileScreen() {
               <Ionicons name="chevron-forward" size={15} color={Colors.warning + '80'} />
             </Pressable>
 
-            <View style={styles.accountRowDivider} />
+            {!isGuest && (
+              <>
+                <View style={styles.accountRowDivider} />
 
-            {/* Delete account */}
-            <Pressable
-              style={({ pressed }) => [styles.accountRow, pressed && { opacity: 0.7 }]}
-              onPress={() => {
-                Alert.alert(
-                  'Delete account',
-                  'This will permanently delete your account and all wardrobe data. This cannot be undone.',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Delete',
-                      style: 'destructive',
-                      onPress: async () => {
-                        try {
-                          const { data: { user } } = await supabase.auth.getUser();
-                          if (!user?.id) throw new Error('Not signed in');
-                          await apiRequest('DELETE', '/api/user/delete-account', { userId: user.id });
-                          await signOut();
-                          router.replace('/sign-in');
-                        } catch (err: any) {
-                          console.error('[profile] Delete account:', err.message);
-                          Alert.alert('Error', 'Could not delete account. Please try again.');
-                        }
-                      },
-                    },
-                  ],
-                );
-              }}
-              accessibilityLabel="Delete your AuraCloset account"
-            >
-              <View style={[styles.accountRowIcon, { backgroundColor: '#FEE2E2' }]}>
-                <Ionicons name="trash-outline" size={18} color="#DC2626" />
-              </View>
-              <Text style={[styles.accountRowLabel, { color: '#DC2626' }]}>Delete account</Text>
-              <Ionicons name="chevron-forward" size={15} color="#DC262680" />
-            </Pressable>
+                {/* Delete account — hidden for guests (no database record exists) */}
+                <Pressable
+                  style={({ pressed }) => [styles.accountRow, pressed && { opacity: 0.7 }]}
+                  onPress={() => {
+                    Alert.alert(
+                      'Delete account',
+                      'This will permanently delete your account and all wardrobe data. This cannot be undone.',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Delete',
+                          style: 'destructive',
+                          onPress: async () => {
+                            try {
+                              const { data: { user } } = await supabase.auth.getUser();
+                              if (!user?.id) throw new Error('Not signed in');
+                              await apiRequest('DELETE', '/api/user/delete-account', { userId: user.id });
+                              await signOut();
+                              router.replace('/sign-in');
+                            } catch (err: any) {
+                              console.error('[profile] Delete account:', err.message);
+                              Alert.alert('Error', 'Could not delete account. Please try again.');
+                            }
+                          },
+                        },
+                      ],
+                    );
+                  }}
+                  accessibilityLabel="Delete your AuraCloset account"
+                >
+                  <View style={[styles.accountRowIcon, { backgroundColor: '#FEE2E2' }]}>
+                    <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                  </View>
+                  <Text style={[styles.accountRowLabel, { color: '#DC2626' }]}>Delete account</Text>
+                  <Ionicons name="chevron-forward" size={15} color="#DC262680" />
+                </Pressable>
+              </>
+            )}
           </View>
         </Animated.View>
 
