@@ -38,6 +38,7 @@ import {
   MIN_SIGNALS_TO_APPLY,
 } from '../constants/affinity';
 import { outerwearRule } from '../constants/weatherPure';
+import { generateOutfitsForItem } from '../constants/outfitGenerator';
 import type {
   WardrobeItem,
   UserProfile,
@@ -556,6 +557,7 @@ console.log('\nOccasion-tag scenario selection (pure-function pipeline):');
 // The canonical scenario list used inside generateOutfitsForItem
 const ALL_SCENARIOS_REF: OccasionTag[] = [
   'casual', 'work', 'date-casual', 'date-dressy', 'event', 'interview', 'wedding', 'travel',
+  'brunch', 'active', 'resort', 'night-out',
 ];
 
 // ── Step 1: tag filtering ────────────────────────────────────────────────────
@@ -637,6 +639,180 @@ const step1 = heroItem.occasionTags.filter(t => ALL_SCENARIOS_REF.includes(t));
 const step3 = step1.filter(s => passesFormality(heroItem, s, profile()));
 assert(step3.includes('casual'),   'full pipeline: casual survives (formality in band)');
 assert(!step3.includes('wedding'), 'full pipeline: wedding dropped (t-shirt formality too low)');
+
+// ── 10. Brunch and active scenario coverage ───────────────────────────────────
+//
+// Regression guard: brunch, active, resort, and night-out were previously
+// absent from ALL_SCENARIOS, so items tagged for those occasions produced zero
+// Just Added suggestions. This section verifies the full pipeline handles them.
+
+console.log('\nBrunch and active scenario coverage:');
+
+// ALL_SCENARIOS_REF must include the extended scenarios
+assert(ALL_SCENARIOS_REF.includes('brunch'),    'ALL_SCENARIOS includes brunch');
+assert(ALL_SCENARIOS_REF.includes('active'),    'ALL_SCENARIOS includes active');
+assert(ALL_SCENARIOS_REF.includes('resort'),    'ALL_SCENARIOS includes resort');
+assert(ALL_SCENARIOS_REF.includes('night-out'), 'ALL_SCENARIOS includes night-out');
+
+// ── Step 1: brunch/active tags survive the ALL_SCENARIOS filter ──────────────
+// An item tagged ['brunch'] should pass straight through to targetScenarios.
+const brunchTaggedItem = item({ subType: 'jeans', colorFamily: 'navy', occasionTags: ['brunch'] });
+const brunchStep1 = brunchTaggedItem.occasionTags.filter(t => ALL_SCENARIOS_REF.includes(t));
+assert(brunchStep1.includes('brunch'), 'brunch-tagged item: brunch tag survives ALL_SCENARIOS filter');
+assert(brunchStep1.length === 1,       'brunch-tagged item: only one scenario extracted');
+
+const activeTaggedItem = item({ subType: 'leggings', colorFamily: 'black', formalityLevel: 1, occasionTags: ['active'] });
+const activeStep1 = activeTaggedItem.occasionTags.filter(t => ALL_SCENARIOS_REF.includes(t));
+assert(activeStep1.includes('active'), 'active-tagged item: active tag survives ALL_SCENARIOS filter');
+assert(activeStep1.length === 1,       'active-tagged item: only one scenario extracted');
+
+// ── Step 2: score-based fallback includes brunch / active for matching items ──
+// jeans (formality 3) is in the brunch SCENARIO_AFFINITY list → score > 0
+// leggings (formality 1) is in the active SCENARIO_AFFINITY list → score > 0
+const jeansNoTag    = item({ subType: 'jeans',    colorFamily: 'navy',  formalityLevel: 3, occasionTags: [] });
+const leggingsNoTag = item({ subType: 'leggings', colorFamily: 'black', formalityLevel: 1, occasionTags: [] });
+const baseProf = profile();
+
+const jeansBrunchScore   = scoreItemForProfile(jeansNoTag,    'brunch', baseProf);
+const leggingsActiveScore = scoreItemForProfile(leggingsNoTag, 'active', baseProf);
+assert(jeansBrunchScore   > 0, 'jeans/navy scores > 0 for brunch → included in score-based fallback');
+assert(leggingsActiveScore > 0, 'leggings/black scores > 0 for active → included in score-based fallback');
+
+// Scenario-affinity subtypes score higher in their home scenario than a mis-matched one.
+// leggings (active-affinity) should score higher in active than in night-out
+const leggingsActiveScore2 = scoreItemForProfile(leggingsNoTag, 'active',    baseProf);
+const leggingsNightOut     = scoreItemForProfile(leggingsNoTag, 'night-out', baseProf);
+assert(leggingsActiveScore2 > leggingsNightOut, 'leggings scores higher for active than for night-out (affinity match)');
+
+// jeans (brunch-affinity) should score higher in brunch than in work
+const jeansBrunchScore2 = scoreItemForProfile(jeansNoTag, 'brunch', baseProf);
+const jeansWorkScore    = scoreItemForProfile(jeansNoTag, 'work',   baseProf);
+assert(jeansBrunchScore2 >= jeansWorkScore, 'jeans scores at least as high for brunch as for work (affinity match)');
+
+// ── Step 3: formality gate for brunch [3,5] and active [1,2] ──────────────────
+// brunch band: [3, 5]
+assert(passesFormality(item({ subType: 'jeans',    colorFamily: 'navy'  }), 'brunch', profile()), 'jeans passes brunch formality gate [3,5]');
+assert(!passesFormality(item({ subType: 'blouse',  colorFamily: 'white' }), 'brunch', profile()), 'blouse (formality 6) blocked by brunch formality gate [3,5]');
+assert(!passesFormality(item({ subType: 't-shirt', colorFamily: 'white' }), 'brunch', profile()), 't-shirt (formality 2) blocked by brunch formality gate [3,5]');
+
+// active band: [1, 2]
+assert(
+  passesFormality(item({ subType: 'sneakers', colorFamily: 'white' }), 'active', profile()),
+  'sneakers (formality 1) passes active formality gate [1,2]',
+);
+assert(
+  !passesFormality(item({ subType: 'blouse', colorFamily: 'white' }), 'active', profile()),
+  'blouse (formality 6) blocked by active formality gate [1,2]',
+);
+
+// ── Full pipeline for brunch: tagged item with formality-gate enforcement ──────
+// Hero tagged ['brunch', 'wedding']: jeans formality 3 → brunch [3,5] ✓, wedding [6,9] ✗
+const brunchHero = item({ subType: 'jeans', colorFamily: 'navy', occasionTags: ['brunch', 'wedding'] });
+const brunchPipeline1 = brunchHero.occasionTags.filter(t => ALL_SCENARIOS_REF.includes(t));
+const brunchPipeline3 = brunchPipeline1.filter(s => passesFormality(brunchHero, s, profile()));
+assert(brunchPipeline3.includes('brunch'),   'brunch pipeline: brunch survives formality gate (jeans formality 3 in [3,5])');
+assert(!brunchPipeline3.includes('wedding'), 'brunch pipeline: wedding dropped by formality gate (jeans formality 3 outside [6,9])');
+
+// ── Full pipeline for active: tagged item with formality-gate enforcement ───────
+// Hero tagged ['active', 'work']: sneakers formality 1 → active [1,2] ✓, work [4,7] ✗
+const activeHero = item({ subType: 'sneakers', colorFamily: 'white', occasionTags: ['active', 'work'] });
+const activePipeline1 = activeHero.occasionTags.filter(t => ALL_SCENARIOS_REF.includes(t));
+const activePipeline3 = activePipeline1.filter(s => passesFormality(activeHero, s, profile()));
+assert(activePipeline3.includes('active'), 'active pipeline: active survives formality gate (sneakers formality 1 in [1,2])');
+assert(!activePipeline3.includes('work'),  'active pipeline: work dropped by formality gate (sneakers formality 1 outside [4,7])');
+
+// ── Integration: real generateOutfitsForItem calls ────────────────────────────
+// These tests call the actual function with deterministic fixtures and assert
+// on the returned OutfitSet[] — if the production scenario list or formality
+// gate wiring regresses, these tests will catch it.
+//
+// Wardrobe design: items have no seasonTags (→ fits all seasons) and no
+// formalityLevel override beyond what effectiveFormality infers from subType,
+// so the test behaves identically regardless of when it runs.
+
+console.log('\ngenerateOutfitsForItem — integration:');
+
+// Helper: make a deterministic WardrobeItem with a unique id
+function wardrobeItem(
+  id: string,
+  category: WardrobeItem['category'],
+  subType: string,
+  colorFamily: string,
+  occasionTags: OccasionTag[] = [],
+  formalityLevel = 3,
+): WardrobeItem {
+  return {
+    id,
+    photoUri: '',
+    category,
+    subType,
+    colorFamily,
+    occasionTags,
+    seasonTags: [],
+    formalityLevel,
+    createdAt: '2026-01-01',
+  };
+}
+
+const integrationProfile = profile();
+
+// ── Brunch integration ────────────────────────────────────────────────────────
+// Hero: navy jeans tagged ['brunch'] (formality 3 — inside brunch band [3,5])
+// Supporting wardrobe provides a top + shoes so the completeness gate is met.
+const brunchJeans = wardrobeItem('hero-brunch', 'bottom', 'jeans', 'navy', ['brunch'], 3);
+const brunchWardrobe: WardrobeItem[] = [
+  brunchJeans,
+  wardrobeItem('s-top-1',  'top',   'blouse',  'white', [],  6),
+  wardrobeItem('s-shoe-1', 'shoes', 'sandals', 'tan',   [],  3),
+];
+
+const brunchSets = generateOutfitsForItem(brunchJeans, brunchWardrobe, integrationProfile, null);
+assert(brunchSets.length > 0, 'brunch hero: generateOutfitsForItem returns at least one set');
+assert(
+  brunchSets.some(s => s.scenario === 'brunch'),
+  'brunch hero: at least one returned OutfitSet has scenario === "brunch"',
+);
+assert(
+  brunchSets.every(s => s.components.some(c => c.matchedItemId === brunchJeans.id)),
+  'brunch hero: hero item appears in every returned set',
+);
+
+// ── Active integration ────────────────────────────────────────────────────────
+// Hero: black leggings tagged ['active'] (formality 1 — inside active band [1,2])
+// Supporting wardrobe: tank-top + sneakers so completeness gate is met.
+const activeLeggings = wardrobeItem('hero-active', 'bottom', 'leggings', 'black', ['active'], 1);
+const activeWardrobe: WardrobeItem[] = [
+  activeLeggings,
+  wardrobeItem('a-top-1',  'top',   'tank-top', 'black', [], 2),
+  wardrobeItem('a-shoe-1', 'shoes', 'sneakers', 'white', [], 1),
+];
+
+const activeSets = generateOutfitsForItem(activeLeggings, activeWardrobe, integrationProfile, null);
+assert(activeSets.length > 0, 'active hero: generateOutfitsForItem returns at least one set');
+assert(
+  activeSets.some(s => s.scenario === 'active'),
+  'active hero: at least one returned OutfitSet has scenario === "active"',
+);
+assert(
+  activeSets.every(s => s.components.some(c => c.matchedItemId === activeLeggings.id)),
+  'active hero: hero item appears in every returned set',
+);
+
+// ── Regression guard: un-tagged item falls back to brunch/active via scoring ──
+// A leggings item with no occasion tags should still produce an active set when
+// the score-based fallback selects active as a qualifying scenario.
+const untaggedLeggings = wardrobeItem('hero-untagged', 'bottom', 'leggings', 'black', [], 1);
+const fallbackWardrobe: WardrobeItem[] = [
+  untaggedLeggings,
+  wardrobeItem('f-top-1',  'top',   'tank-top', 'black', [], 2),
+  wardrobeItem('f-shoe-1', 'shoes', 'sneakers', 'white', [], 1),
+];
+
+const fallbackSets = generateOutfitsForItem(untaggedLeggings, fallbackWardrobe, integrationProfile, null);
+assert(
+  fallbackSets.some(s => s.scenario === 'active'),
+  'untagged leggings: score-based fallback includes active scenario',
+);
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 

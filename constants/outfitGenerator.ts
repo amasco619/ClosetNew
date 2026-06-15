@@ -14,7 +14,7 @@ import {
   currentSeason, itemFitsSeason,
   recedeScore,
 } from '@/constants/outfitScoring';
-import { outerwearRule, isRainy, isRainFriendly, effectiveWarmth, neededWarmth } from '@/constants/weather';
+import { outerwearRule, isRainy, isRainFriendly, effectiveWarmth, neededWarmth } from '@/constants/weatherPure';
 
 function fitsScenarioFormality(items: WardrobeItem[], scenario: OccasionTag, profile?: UserProfile): boolean {
   if (items.length === 0) return false;
