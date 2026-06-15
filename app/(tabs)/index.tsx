@@ -35,7 +35,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const {
     profile, wardrobeItems, activeWardrobeItems, outfitSets, isPremium, canAddItem,
-    starterRecommendations, recommendationSlots, todaysWear, wearHistory, backfillProgress,
+    starterRecommendations, lifestyleSlotGroups, recommendationSlots, todaysWear, wearHistory, backfillProgress,
     reactToOutfit, getOutfitReaction, logWear, undoWear, isWornToday,
     weather, weatherLoading, isGuest,
   } = useApp();
@@ -369,6 +369,35 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
+        {lifestyleSlotGroups.map((group, gi) => (
+          <Animated.View key={group.lifestyle} entering={FadeInDown.delay(360 + gi * 40).duration(280)}>
+            <View style={styles.lifestyleGroupHeader}>
+              <Ionicons
+                name={group.lifestyle === 'active' ? 'fitness-outline' : 'cafe-outline'}
+                size={15}
+                color={Colors.sage}
+              />
+              <Text style={styles.lifestyleGroupLabel}>{group.label}</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.recScroll} contentContainerStyle={styles.recScrollContent}>
+              {group.slots.map(slot => (
+                <View key={slot.id} style={styles.recCard}>
+                  <Image source={slot.sampleImage} style={styles.recImage} resizeMode="cover" />
+                  <View style={styles.recCategoryBadge}>
+                    <Text style={styles.recCategoryText}>{categoryLabels[slot.category] || slot.category}</Text>
+                  </View>
+                  <Text style={styles.recLabel} numberOfLines={1}>{slot.label}</Text>
+                  <Text style={styles.recDesc} numberOfLines={2}>{slot.description}</Text>
+                  <View style={styles.recNeededBadge}>
+                    <Ionicons name="add-circle-outline" size={12} color={Colors.warning} />
+                    <Text style={styles.recNeededText}>Needed</Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        ))}
+
         {activeWardrobeItems.length > 0 && (
           <Animated.View entering={FadeInDown.delay(380).duration(280)}>
             <Text style={styles.sectionTitle}>Wardrobe Breakdown</Text>
@@ -548,6 +577,8 @@ const styles = StyleSheet.create({
   todayPillText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.primary },
 
   recSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, marginBottom: 12, marginTop: -6 },
+  lifestyleGroupHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  lifestyleGroupLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary, letterSpacing: -0.2 },
   recScroll: { marginBottom: 24, marginHorizontal: -20 },
   recScrollContent: { paddingHorizontal: 20, gap: 12, paddingRight: 20 },
   recCard: {

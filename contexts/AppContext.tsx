@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory, getProfileBlueprint, BLUEPRINT_SUBTYPES_BY_CATEGORY } from '@/constants/wardrobeBlueprint';
+import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory, getProfileBlueprint, BLUEPRINT_SUBTYPES_BY_CATEGORY, getLifestyleGatedSlots, LifestyleSlotGroup } from '@/constants/wardrobeBlueprint';
 import {
   BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag,
   Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet, WearEntry,
@@ -54,6 +54,7 @@ interface AppContextValue {
   canAddItem: boolean;
   recommendationSlots: WardrobeSlot[];
   starterRecommendations: Record<string, WardrobeSlot | undefined>;
+  lifestyleSlotGroups: LifestyleSlotGroup[];
   wearHistory: WearEntry[];
   todaysWear: WearEntry[];
   logWear: (outfit: OutfitSet) => void;
@@ -1050,6 +1051,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const itemCap = isPremium ? Infinity : profile.isGuest ? GUEST_ITEM_CAP : FREE_ITEM_CAP;
   const canAddItem = wardrobeItems.length < itemCap;
   const starterRecommendations = useMemo(() => getFirstNeededByCategory(recommendationSlots), [recommendationSlots]);
+  const lifestyleSlotGroups = useMemo(
+    () => getLifestyleGatedSlots(recommendationSlots, profile.lifestyleActive ?? 0, profile.lifestyleBrunch ?? 0),
+    [recommendationSlots, profile.lifestyleActive, profile.lifestyleBrunch],
+  );
 
   // ── Profile completeness / nudge ─────────────────────────────────────────────
 
@@ -1138,7 +1143,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({
     profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
     isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
-    isLoading, canAddItem, recommendationSlots, starterRecommendations,
+    isLoading, canAddItem, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
     wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
     todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
     profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,
@@ -1151,7 +1156,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isGuest: profile.isGuest === true,
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
        isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
-       isLoading, canAddItem, recommendationSlots, starterRecommendations,
+       isLoading, canAddItem, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
        todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
        profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,

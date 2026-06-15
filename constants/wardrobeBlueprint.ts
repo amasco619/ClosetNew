@@ -1093,3 +1093,35 @@ export function getFirstNeededByCategory(slots: WardrobeSlot[]): Record<string, 
   }
   return result;
 }
+
+export interface LifestyleSlotGroup {
+  lifestyle: 'active' | 'brunch';
+  label: string;
+  slots: WardrobeSlot[];
+}
+
+const LIFESTYLE_THRESHOLD = 30;
+
+export function getLifestyleGatedSlots(
+  slots: WardrobeSlot[],
+  lifestyleActive: number,
+  lifestyleBrunch: number,
+): LifestyleSlotGroup[] {
+  const groups: LifestyleSlotGroup[] = [];
+
+  if (lifestyleActive >= LIFESTYLE_THRESHOLD) {
+    const activeSlots = slots.filter(s => s.status === 'needed' && s.id.includes('-act-'));
+    if (activeSlots.length > 0) {
+      groups.push({ lifestyle: 'active', label: 'Active essentials', slots: activeSlots.slice(0, 3) });
+    }
+  }
+
+  if (lifestyleBrunch >= LIFESTYLE_THRESHOLD) {
+    const brunchSlots = slots.filter(s => s.status === 'needed' && s.id.includes('-brn-'));
+    if (brunchSlots.length > 0) {
+      groups.push({ lifestyle: 'brunch', label: 'Brunch essentials', slots: brunchSlots.slice(0, 3) });
+    }
+  }
+
+  return groups;
+}
