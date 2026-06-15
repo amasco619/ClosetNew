@@ -612,8 +612,8 @@ export default function OutfitsScreen() {
                 <Ionicons name="star" size={14} color={Colors.secondary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.premiumStripTitle}>Unlock Interview, Wedding & Travel</Text>
-                <Text style={styles.premiumStripSub}>Curated looks for every occasion</Text>
+                <Text style={styles.premiumStripTitle}>Unlock Resort, Night Out & more</Text>
+                <Text style={styles.premiumStripSub}>Interview, Wedding, Travel — curated for every occasion</Text>
               </View>
               <Ionicons name="chevron-forward" size={15} color={Colors.secondary} />
             </Pressable>

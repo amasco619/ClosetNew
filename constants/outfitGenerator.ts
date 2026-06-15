@@ -235,6 +235,7 @@ export function generateOutfitsForItem(
 
   const ALL_SCENARIOS: OccasionTag[] = [
     'casual', 'work', 'date-casual', 'date-dressy', 'event', 'interview', 'wedding', 'travel',
+    'brunch', 'active', 'resort', 'night-out',
   ];
 
   // Prefer scenarios the new item is tagged for; fall back to best-scoring ones
