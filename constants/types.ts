@@ -52,6 +52,8 @@ export interface UserProfile {
   lifestyleWork: number;
   lifestyleCasual: number;
   lifestyleEvents: number;
+  lifestyleActive: number;
+  lifestyleBrunch: number;
   constraints: Constraints;
   onboardingComplete: boolean;
   // Sophisticated stylist fields (optional)

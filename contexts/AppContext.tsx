@@ -104,6 +104,8 @@ const defaultProfile: UserProfile = {
   lifestyleWork: 40,
   lifestyleCasual: 40,
   lifestyleEvents: 20,
+  lifestyleActive: 0,
+  lifestyleBrunch: 0,
   constraints: {
     noSleeveless: false,
     noShortSkirts: false,
@@ -287,6 +289,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   work: localSnap.lifestyleWork,
                   casual: localSnap.lifestyleCasual,
                   events: localSnap.lifestyleEvents,
+                  active: localSnap.lifestyleActive ?? 0,
+                  brunch: localSnap.lifestyleBrunch ?? 0,
                 },
                 constraints: localSnap.constraints,
                 onboarding_complete: localSnap.onboardingComplete ?? false,
@@ -306,6 +310,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 lifestyleWork: dbProfile.lifestyle?.work ?? prev.lifestyleWork,
                 lifestyleCasual: dbProfile.lifestyle?.casual ?? prev.lifestyleCasual,
                 lifestyleEvents: dbProfile.lifestyle?.events ?? prev.lifestyleEvents,
+                lifestyleActive: dbProfile.lifestyle?.active ?? prev.lifestyleActive ?? 0,
+                lifestyleBrunch: dbProfile.lifestyle?.brunch ?? prev.lifestyleBrunch ?? 0,
                 constraints: {
                   noSleeveless: dbProfile.constraints?.noSleeveless ?? prev.constraints?.noSleeveless ?? false,
                   noShortSkirts: dbProfile.constraints?.noShortSkirts ?? prev.constraints?.noShortSkirts ?? false,
@@ -404,7 +410,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  const profileBlueprintKey = `${profile.styleGoalPrimary || ''}-${profile.styleGoalSecondary || ''}-${profile.bodyType || ''}-${profile.lifestyleWork}-${profile.lifestyleCasual}-${profile.lifestyleEvents}-${profile.constraints.noSleeveless}-${profile.constraints.noShortSkirts}-${profile.constraints.maxHeelHeight}`;
+  const profileBlueprintKey = `${profile.styleGoalPrimary || ''}-${profile.styleGoalSecondary || ''}-${profile.bodyType || ''}-${profile.lifestyleWork}-${profile.lifestyleCasual}-${profile.lifestyleEvents}-${profile.lifestyleActive ?? 0}-${profile.lifestyleBrunch ?? 0}-${profile.constraints.noSleeveless}-${profile.constraints.noShortSkirts}-${profile.constraints.maxHeelHeight}`;
 
   useEffect(() => {
     if (!isLoading && !slotsInitialized) {
@@ -629,7 +635,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           undertone: updated.undertone ?? undefined,
           style_goals: [updated.styleGoalPrimary, updated.styleGoalSecondary].filter(Boolean) as string[],
           secondary_goal: updated.styleGoalSecondary ?? undefined,
-          lifestyle: { work: updated.lifestyleWork, casual: updated.lifestyleCasual, events: updated.lifestyleEvents },
+          lifestyle: { work: updated.lifestyleWork, casual: updated.lifestyleCasual, events: updated.lifestyleEvents, active: updated.lifestyleActive ?? 0, brunch: updated.lifestyleBrunch ?? 0 },
           constraints: {
             noSleeveless: updated.constraints?.noSleeveless ?? false,
             noShortSkirts: updated.constraints?.noShortSkirts ?? false,

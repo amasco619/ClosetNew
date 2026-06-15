@@ -116,7 +116,24 @@ function deriveContrast(skin: SkinTone | null, hair: HairColor | null): Contrast
   return 'medium';
 }
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 9;
+
+const LIFESTYLE_OPTIONS: { label: string; value: number }[] = [
+  { label: 'None', value: 0 },
+  { label: 'Some', value: 20 },
+  { label: 'Often', value: 40 },
+  { label: 'Mostly', value: 60 },
+];
+
+type LifestyleKey = 'work' | 'casual' | 'events' | 'active' | 'brunch';
+
+const LIFESTYLE_SCENARIOS: { key: LifestyleKey; label: string; desc: string }[] = [
+  { key: 'work',   label: 'Work & Office',      desc: 'Professional and business settings' },
+  { key: 'casual', label: 'Everyday Casual',    desc: 'Day-to-day errands and relaxed outings' },
+  { key: 'events', label: 'Events & Nights Out', desc: 'Celebrations, dinners, and formal occasions' },
+  { key: 'active', label: 'Active & Gym',        desc: 'Workouts, sport, and active days' },
+  { key: 'brunch', label: 'Brunch & Social',     desc: 'Weekend brunches and social gatherings' },
+];
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
@@ -140,6 +157,13 @@ export default function OnboardingScreen() {
   const [lifePhase, setLifePhase] = useState<LifePhase | null>(profile.lifePhase ?? null);
   const [metalPreference, setMetalPreference] = useState<MetalPreference | null>(profile.metalPreference ?? null);
   const [colorAversions, setColorAversions] = useState<string[]>(profile.constraints.colorAversions ?? []);
+  const [lifestyleAlloc, setLifestyleAlloc] = useState<Record<LifestyleKey, number>>({
+    work:   profile.lifestyleWork   ?? 40,
+    casual: profile.lifestyleCasual ?? 40,
+    events: profile.lifestyleEvents ?? 20,
+    active: profile.lifestyleActive ?? 0,
+    brunch: profile.lifestyleBrunch ?? 0,
+  });
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   const derivedContrast = deriveContrast(skinTone, hairColor);
@@ -153,8 +177,9 @@ export default function OnboardingScreen() {
       case 3: return !!eyeColor;
       case 4: return !!skinTone && !!undertone;
       case 5: return !!styleGoalPrimary;
-      case 6: return true;
+      case 6: return true;        // lifestyle — all optional
       case 7: return true;
+      case 8: return true;
       default: return true;
     }
   };
@@ -181,6 +206,11 @@ export default function OnboardingScreen() {
         undertone,
         styleGoalPrimary,
         styleGoalSecondary,
+        lifestyleWork:   lifestyleAlloc.work,
+        lifestyleCasual: lifestyleAlloc.casual,
+        lifestyleEvents: lifestyleAlloc.events,
+        lifestyleActive: lifestyleAlloc.active,
+        lifestyleBrunch: lifestyleAlloc.brunch,
         hairColor,
         heightBand,
         contrastLevel: effectiveContrast,
@@ -383,6 +413,41 @@ export default function OnboardingScreen() {
       case 6:
         return (
           <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
+            <Text style={styles.stepTitle}>Your Lifestyle</Text>
+            <Text style={styles.stepSubtitle}>How often do you dress for each occasion? We'll tailor your wardrobe blueprint accordingly.</Text>
+            {LIFESTYLE_SCENARIOS.map(scenario => (
+              <View key={scenario.key} style={styles.lifestyleRow}>
+                <View style={styles.lifestyleRowHeader}>
+                  <Text style={styles.lifestyleLabel}>{scenario.label}</Text>
+                  <Text style={styles.lifestyleDesc}>{scenario.desc}</Text>
+                </View>
+                <View style={styles.lifestyleChips}>
+                  {LIFESTYLE_OPTIONS.map(opt => {
+                    const active = lifestyleAlloc[scenario.key] === opt.value;
+                    return (
+                      <Pressable
+                        key={opt.value}
+                        style={[styles.chip, active && styles.chipActive]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          setLifestyleAlloc(prev => ({ ...prev, [scenario.key]: opt.value }));
+                        }}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{opt.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            ))}
+            <Pressable style={styles.skipRow} onPress={skipStep}>
+              <Text style={styles.skipText}>Skip — use defaults</Text>
+            </Pressable>
+          </Animated.View>
+        );
+      case 7:
+        return (
+          <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>A few finishing touches</Text>
             <Text style={styles.stepSubtitle}>Optional — each one sharpens your recommendations. You can skip anything.</Text>
 
@@ -512,7 +577,7 @@ export default function OnboardingScreen() {
             </Pressable>
           </Animated.View>
         );
-      case 7:
+      case 8:
         return (
           <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
             <View style={styles.finishIcon}>
@@ -623,6 +688,11 @@ const styles = StyleSheet.create({
   chipActive: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '15' },
   chipText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
   chipTextActive: { color: Colors.secondary },
+  lifestyleRow: { marginBottom: 16, backgroundColor: Colors.white, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Colors.border },
+  lifestyleRowHeader: { marginBottom: 10 },
+  lifestyleLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, marginBottom: 2 },
+  lifestyleDesc: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },
+  lifestyleChips: { flexDirection: 'row' as const, gap: 8, flexWrap: 'wrap' as const },
   skipRow: { marginTop: 24, marginBottom: 8, alignItems: 'center' as const },
   skipText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textLight, textDecorationLine: 'underline' as const },
   finishIcon: { alignSelf: 'center', marginBottom: 20, marginTop: 40 },

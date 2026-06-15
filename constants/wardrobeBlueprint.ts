@@ -425,6 +425,8 @@ const LIFESTYLE_CATEGORY_WEIGHTS: Record<string, Record<ItemCategory, number>> =
   work:   { top: 1, bottom: 1, outerwear: 2, shoes: 1, jewelry: 1, dress: 1, bag: 1 },
   casual: { top: 1, bottom: 1, outerwear: 0, shoes: 2, jewelry: 0, dress: 0, bag: 1 },
   events: { top: 0, bottom: 0, outerwear: 0, shoes: 1, jewelry: 2, dress: 2, bag: 1 },
+  active: { top: 0, bottom: 2, outerwear: 1, shoes: 2, jewelry: 0, dress: 0, bag: 0 },
+  brunch: { top: 1, bottom: 0, outerwear: 0, shoes: 1, jewelry: 1, dress: 2, bag: 2 },
 };
 
 export const WARDROBE_BLUEPRINT: BlueprintItem[] = STYLE_BLUEPRINTS.classic;
@@ -492,14 +494,17 @@ export function getProfileBlueprint(profile: UserProfile): BlueprintItem[] {
     top: 0, bottom: 0, outerwear: 0, shoes: 0, jewelry: 0, dress: 0, bag: 0,
   };
 
-  const totalLifestyle = (profile.lifestyleWork || 0) + (profile.lifestyleCasual || 0) + (profile.lifestyleEvents || 0);
+  const lifestyleValues: Record<string, number> = {
+    work:   profile.lifestyleWork   || 0,
+    casual: profile.lifestyleCasual || 0,
+    events: profile.lifestyleEvents || 0,
+    active: profile.lifestyleActive || 0,
+    brunch: profile.lifestyleBrunch || 0,
+  };
+  const totalLifestyle = Object.values(lifestyleValues).reduce((s, v) => s + v, 0);
   if (totalLifestyle > 0) {
     for (const [scenario, weights] of Object.entries(LIFESTYLE_CATEGORY_WEIGHTS)) {
-      const scenarioKey = scenario as 'work' | 'casual' | 'events';
-      const proportion =
-        scenarioKey === 'work'   ? (profile.lifestyleWork   || 0) / totalLifestyle :
-        scenarioKey === 'casual' ? (profile.lifestyleCasual || 0) / totalLifestyle :
-                                   (profile.lifestyleEvents || 0) / totalLifestyle;
+      const proportion = (lifestyleValues[scenario] || 0) / totalLifestyle;
       for (const [cat, weight] of Object.entries(weights)) {
         lifestyleWeights[cat as ItemCategory] += weight * proportion;
       }
