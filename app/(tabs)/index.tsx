@@ -379,22 +379,31 @@ export default function HomeScreen() {
               />
               <Text style={styles.lifestyleGroupLabel}>{group.label}</Text>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.recScroll} contentContainerStyle={styles.recScrollContent}>
-              {group.slots.map(slot => (
-                <View key={slot.id} style={styles.recCard}>
-                  <Image source={slot.sampleImage} style={styles.recImage} resizeMode="cover" />
-                  <View style={styles.recCategoryBadge}>
-                    <Text style={styles.recCategoryText}>{categoryLabels[slot.category] || slot.category}</Text>
+            {group.isComplete ? (
+              <View style={styles.lifestyleCompletePill}>
+                <Ionicons name="checkmark-circle" size={14} color={Colors.sage} />
+                <Text style={styles.lifestyleCompleteText}>
+                  Your {group.lifestyle === 'active' ? 'active' : 'brunch'} wardrobe is set
+                </Text>
+              </View>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.recScroll} contentContainerStyle={styles.recScrollContent}>
+                {group.slots.map(slot => (
+                  <View key={slot.id} style={styles.recCard}>
+                    <Image source={slot.sampleImage} style={styles.recImage} resizeMode="cover" />
+                    <View style={styles.recCategoryBadge}>
+                      <Text style={styles.recCategoryText}>{categoryLabels[slot.category] || slot.category}</Text>
+                    </View>
+                    <Text style={styles.recLabel} numberOfLines={1}>{slot.label}</Text>
+                    <Text style={styles.recDesc} numberOfLines={2}>{slot.description}</Text>
+                    <View style={styles.recNeededBadge}>
+                      <Ionicons name="add-circle-outline" size={12} color={Colors.warning} />
+                      <Text style={styles.recNeededText}>Needed</Text>
+                    </View>
                   </View>
-                  <Text style={styles.recLabel} numberOfLines={1}>{slot.label}</Text>
-                  <Text style={styles.recDesc} numberOfLines={2}>{slot.description}</Text>
-                  <View style={styles.recNeededBadge}>
-                    <Ionicons name="add-circle-outline" size={12} color={Colors.warning} />
-                    <Text style={styles.recNeededText}>Needed</Text>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
+                ))}
+              </ScrollView>
+            )}
           </Animated.View>
         ))}
 
@@ -579,6 +588,15 @@ const styles = StyleSheet.create({
   recSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, marginBottom: 12, marginTop: -6 },
   lifestyleGroupHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
   lifestyleGroupLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary, letterSpacing: -0.2 },
+  lifestyleCompletePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.sage + '14',
+    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1, borderColor: Colors.sage + '30',
+    marginBottom: 24,
+  },
+  lifestyleCompleteText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary },
   recScroll: { marginBottom: 24, marginHorizontal: -20 },
   recScrollContent: { paddingHorizontal: 20, gap: 12, paddingRight: 20 },
   recCard: {

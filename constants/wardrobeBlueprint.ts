@@ -848,6 +848,7 @@ export interface LifestyleSlotGroup {
   lifestyle: 'active' | 'brunch';
   label: string;
   slots: WardrobeSlot[];
+  isComplete: boolean;
 }
 
 const LIFESTYLE_THRESHOLD = 30;
@@ -860,16 +861,26 @@ export function getLifestyleGatedSlots(
   const groups: LifestyleSlotGroup[] = [];
 
   if (lifestyleActive >= LIFESTYLE_THRESHOLD) {
-    const activeSlots = slots.filter(s => s.status === 'needed' && s.id.includes('-act-'));
-    if (activeSlots.length > 0) {
-      groups.push({ lifestyle: 'active', label: 'Active essentials', slots: activeSlots.slice(0, 3) });
+    const allActiveSlots = slots.filter(s => s.id.includes('-act-'));
+    const neededSlots = allActiveSlots.filter(s => s.status === 'needed');
+    if (allActiveSlots.length > 0) {
+      if (neededSlots.length > 0) {
+        groups.push({ lifestyle: 'active', label: 'Active essentials', slots: neededSlots.slice(0, 3), isComplete: false });
+      } else {
+        groups.push({ lifestyle: 'active', label: 'Active essentials', slots: [], isComplete: true });
+      }
     }
   }
 
   if (lifestyleBrunch >= LIFESTYLE_THRESHOLD) {
-    const brunchSlots = slots.filter(s => s.status === 'needed' && s.id.includes('-brn-'));
-    if (brunchSlots.length > 0) {
-      groups.push({ lifestyle: 'brunch', label: 'Brunch essentials', slots: brunchSlots.slice(0, 3) });
+    const allBrunchSlots = slots.filter(s => s.id.includes('-brn-'));
+    const neededSlots = allBrunchSlots.filter(s => s.status === 'needed');
+    if (allBrunchSlots.length > 0) {
+      if (neededSlots.length > 0) {
+        groups.push({ lifestyle: 'brunch', label: 'Brunch essentials', slots: neededSlots.slice(0, 3), isComplete: false });
+      } else {
+        groups.push({ lifestyle: 'brunch', label: 'Brunch essentials', slots: [], isComplete: true });
+      }
     }
   }
 
