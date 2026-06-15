@@ -12,6 +12,7 @@ import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal, L
 import { useEffect, useRef, useState } from 'react';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 import CollapsibleSection from '@/components/CollapsibleSection';
+import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/constants/lifestyle';
 import * as Haptics from 'expo-haptics';
 
 const HAIR_OPTS: { id: HairColor; label: string }[] = [
@@ -166,11 +167,16 @@ export default function ProfileScreen() {
     profile.constraints.noShortSkirts ? 'yes' : null,
     profile.constraints.maxHeelHeight !== 'any' ? 'yes' : null,
   ].filter(Boolean).length;
+  const lifestyleAllocSet = LIFESTYLE_SCENARIOS.filter(s => {
+    const val = profile[`lifestyle${s.key.charAt(0).toUpperCase() + s.key.slice(1)}` as keyof typeof profile] as number | undefined;
+    const defaults: Record<LifestyleKey, number> = { work: 40, casual: 40, events: 20, active: 0, brunch: 0 };
+    return (val ?? defaults[s.key]) !== defaults[s.key];
+  }).length;
   const lifestyleSetCount = [
     profile.defaultMood,
     (profile.industry && profile.industry !== 'unspecified') ? profile.industry : null,
     (profile.lifePhase && profile.lifePhase !== 'none') ? profile.lifePhase : null,
-  ].filter(Boolean).length;
+  ].filter(Boolean).length + (lifestyleAllocSet > 0 ? 1 : 0);
 
   useEffect(() => {
     if (focus === 'refinements' && refinementsY != null) {
@@ -407,10 +413,33 @@ export default function ProfileScreen() {
 
             <CollapsibleSection
               title="Lifestyle"
-              count={`${lifestyleSetCount} / 3`}
+              count={`${lifestyleSetCount} / 4`}
               initiallyOpen={lifestyleSetCount > 0}
               hasBorderTop
             >
+              <Text style={styles.chipGroupLabel}>Lifestyle mix</Text>
+              <Text style={styles.chipGroupSub}>How often do you dress for each occasion?</Text>
+              {LIFESTYLE_SCENARIOS.map(scenario => {
+                const profileKey = `lifestyle${scenario.key.charAt(0).toUpperCase() + scenario.key.slice(1)}` as keyof typeof profile;
+                const defaults: Record<LifestyleKey, number> = { work: 40, casual: 40, events: 20, active: 0, brunch: 0 };
+                const current = (profile[profileKey] as number | undefined) ?? defaults[scenario.key];
+                return (
+                  <View key={scenario.key} style={styles.lifestyleScenarioRow}>
+                    <Text style={styles.lifestyleScenarioLabel}>{scenario.label}</Text>
+                    <View style={styles.lifestyleChipRow}>
+                      {LIFESTYLE_OPTIONS.map(opt => (
+                        <Chip
+                          key={opt.value}
+                          label={opt.label}
+                          active={current === opt.value}
+                          onPress={() => updateProfile({ [`lifestyle${scenario.key.charAt(0).toUpperCase() + scenario.key.slice(1)}`]: opt.value })}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                );
+              })}
+
               <Text style={styles.chipGroupLabel}>Default mood</Text>
               <View style={styles.chipRow}>
                 {MOOD_OPTS.map(m => (
@@ -817,6 +846,19 @@ const styles = StyleSheet.create({
   chipGroupSub: {
     fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight,
     paddingHorizontal: 16, marginTop: -4, marginBottom: 8,
+  },
+
+  // ── Lifestyle mix rows ────────────────────────────────────────────────────
+  lifestyleScenarioRow: {
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4,
+    borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  lifestyleScenarioLabel: {
+    fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary,
+    letterSpacing: -0.1, marginBottom: 8,
+  },
+  lifestyleChipRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 4,
   },
 
   // ── Refinement help text ──────────────────────────────────────────────────

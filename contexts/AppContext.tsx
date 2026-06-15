@@ -435,8 +435,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         slots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
       ));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profileBlueprintKey, isPremium]);
+  }, [profileBlueprintKey, isPremium, wardrobeItems, slotsInitialized]);
 
   const loadData = async () => {
     try {
