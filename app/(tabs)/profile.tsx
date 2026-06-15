@@ -172,6 +172,10 @@ export default function ProfileScreen() {
     const defaults: Record<LifestyleKey, number> = { work: 40, casual: 40, events: 20, active: 0, brunch: 0 };
     return (val ?? defaults[s.key]) !== defaults[s.key];
   }).length;
+  const allLifestyleZero = LIFESTYLE_SCENARIOS.every(s => {
+    const val = profile[`lifestyle${s.key.charAt(0).toUpperCase() + s.key.slice(1)}` as keyof typeof profile] as number | undefined;
+    return (val ?? 0) === 0;
+  });
   const lifestyleSetCount = [
     profile.defaultMood,
     (profile.industry && profile.industry !== 'unspecified') ? profile.industry : null,
@@ -439,6 +443,11 @@ export default function ProfileScreen() {
                   </View>
                 );
               })}
+              {allLifestyleZero && (
+                <Text style={styles.lifestyleZeroWarning}>
+                  At least one scenario needs a value to personalise your outfits.
+                </Text>
+              )}
 
               <Text style={styles.chipGroupLabel}>Default mood</Text>
               <View style={styles.chipRow}>
@@ -859,6 +868,10 @@ const styles = StyleSheet.create({
   },
   lifestyleChipRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 4,
+  },
+  lifestyleZeroWarning: {
+    fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary,
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, lineHeight: 18,
   },
 
   // ── Refinement help text ──────────────────────────────────────────────────
