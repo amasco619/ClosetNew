@@ -379,6 +379,18 @@ const HERO_SIGNATURE_SUBTYPES: Set<string> = new Set([
   'clutch',                            // jewel-toned clutch as the spark
 ]);
 
+/**
+ * Scenario-specific hero subtypes — items that anchor outfits in their home
+ * scenario even though they don't qualify as universally "distinctive" pieces.
+ * For example, a windbreaker or training shoe reads as the focal piece of an
+ * active look, but its neutral colour and synthetic fabric give it a low
+ * general distinctiveness score. This map lifts those items when the picker
+ * is already operating inside the matching scenario.
+ */
+export const SCENARIO_HERO_SUBTYPES: Partial<Record<OccasionTag, Set<string>>> = {
+  active: new Set(['windbreaker', 'training-shoes', 'sports-hoodie']),
+};
+
 const NEUTRAL_HERO_DAMPENERS = new Set([
   'black', 'white', 'grey', 'cream', 'beige', 'navy',
 ]);
@@ -461,10 +473,18 @@ export function pickHeroCandidates(
     // with jeans for a date-casual brief).
     return f >= minF - 1 && f <= maxF + 1;
   });
+  // Scenario-specific hero bonus — lifts activewear anchors (windbreaker,
+  // training-shoes, sports-hoodie) past the threshold when we are already
+  // scoring inside the active scenario. These items score low on the general
+  // distinctiveness axis (neutral colour, flat synthetic fabric) but they are
+  // exactly the piece a stylist would build an active look *around*.
+  const scenarioHeroBonus = (i: WardrobeItem): number =>
+    SCENARIO_HERO_SUBTYPES[scenario]?.has(i.subType) ? 8 : 0;
+
   const scored = eligible
     .map(i => ({
       item: i,
-      score: distinctivenessScore(i, profile) + 0.1 * scoreItemForProfile(i, scenario, profile),
+      score: distinctivenessScore(i, profile) + 0.1 * scoreItemForProfile(i, scenario, profile) + scenarioHeroBonus(i),
     }))
     .filter(s => s.score >= 4)               // weed out clearly-supporting pieces
     .sort((a, b) => b.score - a.score);

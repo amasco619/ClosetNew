@@ -28,6 +28,8 @@ import {
   itemFitsSeason,
   currentSeason,
   scoreItemForProfile,
+  pickHeroCandidates,
+  SCENARIO_HERO_SUBTYPES,
 } from '../constants/outfitScoring';
 import {
   computeAffinity,
@@ -709,6 +711,66 @@ assert(
 assert(
   scoreItemForProfile(windbreaker, 'active', baseProf) > scoreItemForProfile(windbreaker, 'date-dressy', baseProf),
   'windbreaker scores higher in active than date-dressy',
+);
+
+// ── Active hero candidacy: windbreaker / training-shoes / sports-hoodie ────────
+// These subtypes have low general distinctiveness (neutral colour, flat fabric)
+// but must surface as hero candidates in the active scenario so the rotation
+// engine can build looks *around* them rather than treating them as accessories.
+console.log('\npickHeroCandidates — active hero candidacy:');
+
+// Verify the SCENARIO_HERO_SUBTYPES map declares the expected subtypes.
+assert(
+  SCENARIO_HERO_SUBTYPES['active']?.has('windbreaker'),
+  'SCENARIO_HERO_SUBTYPES.active includes windbreaker',
+);
+assert(
+  SCENARIO_HERO_SUBTYPES['active']?.has('training-shoes'),
+  'SCENARIO_HERO_SUBTYPES.active includes training-shoes',
+);
+assert(
+  SCENARIO_HERO_SUBTYPES['active']?.has('sports-hoodie'),
+  'SCENARIO_HERO_SUBTYPES.active includes sports-hoodie',
+);
+
+// Build a small wardrobe where the windbreaker / training-shoes are the most
+// "active-appropriate" pieces but would otherwise fail the distinctiveness
+// threshold (white/grey/black neutrals, synthetic fabric).
+const activeHeroWardrobe: WardrobeItem[] = [
+  item({ category: 'outerwear', subType: 'windbreaker',    colorFamily: 'white', formalityLevel: 2, occasionTags: [] }),
+  item({ category: 'shoes',    subType: 'training-shoes',  colorFamily: 'white', formalityLevel: 1, occasionTags: [] }),
+  item({ category: 'top',      subType: 'sports-hoodie',   colorFamily: 'grey',  formalityLevel: 1, occasionTags: [] }),
+  item({ category: 'top',      subType: 'tank-top',        colorFamily: 'black', formalityLevel: 2, occasionTags: [] }),
+  item({ category: 'bottom',   subType: 'leggings',        colorFamily: 'black', formalityLevel: 2, occasionTags: [] }),
+];
+
+const activeHeroes = pickHeroCandidates(activeHeroWardrobe, 'active', baseProf, 6);
+const activeHeroSubtypes = activeHeroes.map(h => h.subType);
+
+assert(
+  activeHeroSubtypes.includes('windbreaker'),
+  'pickHeroCandidates for active includes windbreaker as a hero candidate',
+);
+assert(
+  activeHeroSubtypes.includes('training-shoes'),
+  'pickHeroCandidates for active includes training-shoes as a hero candidate',
+);
+assert(
+  activeHeroSubtypes.includes('sports-hoodie'),
+  'pickHeroCandidates for active includes sports-hoodie as a hero candidate',
+);
+
+// These items must NOT be hero candidates for a non-active scenario like date-dressy.
+// (They fail the formality gate for [5,8] — date-dressy — so they won't qualify.)
+const dateDressyHeroes = pickHeroCandidates(activeHeroWardrobe, 'date-dressy', baseProf, 6);
+const dateDressySubtypes = dateDressyHeroes.map(h => h.subType);
+assert(
+  !dateDressySubtypes.includes('windbreaker'),
+  'pickHeroCandidates for date-dressy does NOT include windbreaker (formality gate + no scenario bonus)',
+);
+assert(
+  !dateDressySubtypes.includes('training-shoes'),
+  'pickHeroCandidates for date-dressy does NOT include training-shoes (formality gate + no scenario bonus)',
 );
 
 // ── Brunch subtype coverage ───────────────────────────────────────────────────
