@@ -6,7 +6,9 @@ import { supabase } from '../../lib/supabase'
 export default function AuthCallback() {
   useEffect(() => {
     supabase.auth.getClaims().then(({ data }) => {
-      router.replace(data?.claims ? '/(tabs)' : '/sign-in')
+      // Route through index.tsx so it can run the onboarding-complete check
+      // before deciding whether to land on /(tabs) or /onboarding.
+      router.replace(data?.claims ? '/' : '/sign-in')
     })
   }, [])
 

@@ -649,11 +649,33 @@ export default function ProfileScreen() {
             </View>
           ) : (
             <View style={styles.upgradeCard}>
-              <View style={styles.upgradeCardTop}>
-                <View>
+              {/* Header: icon + title/sub in a flex row — text shrinks, never overflows */}
+              <View style={styles.upgradeCardHeader}>
+                <View style={styles.upgradeCardIconWrap}>
+                  <Ionicons name="star" size={18} color={Colors.secondary} />
+                </View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.upgradeCardTitle}>Unlock AuraCloset Premium</Text>
                   <Text style={styles.upgradeCardSub}>Everything you need for a complete wardrobe</Text>
                 </View>
+              </View>
+
+              {/* Feature list */}
+              <View style={styles.upgradeFeatures}>
+                {[
+                  { icon: 'infinite-outline', text: 'Unlimited wardrobe items' },
+                  { icon: 'analytics-outline', text: 'Deep Diagnostics & health score' },
+                  { icon: 'map-outline', text: 'Personalized wardrobe blueprint' },
+                ].map((f, i) => (
+                  <View key={i} style={styles.upgradeFeatureRow}>
+                    <Ionicons name={f.icon as any} size={15} color={Colors.secondary} />
+                    <Text style={styles.upgradeFeatureText}>{f.text}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* Full-width CTA — always fully visible, never clipped */}
+              <View style={styles.upgradeBtnWrap}>
                 <Pressable
                   style={({ pressed }) => [styles.upgradeBtn, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                   onPress={() => {
@@ -672,20 +694,8 @@ export default function ProfileScreen() {
                   }}
                 >
                   <Ionicons name="star" size={14} color={Colors.white} />
-                  <Text style={styles.upgradeBtnText}>Upgrade</Text>
+                  <Text style={styles.upgradeBtnText}>Upgrade to Premium</Text>
                 </Pressable>
-              </View>
-              <View style={styles.upgradeFeatures}>
-                {[
-                  { icon: 'infinite-outline', text: 'Unlimited wardrobe items' },
-                  { icon: 'analytics-outline', text: 'Deep Diagnostics & health score' },
-                  { icon: 'map-outline', text: 'Personalized wardrobe blueprint' },
-                ].map((f, i) => (
-                  <View key={i} style={styles.upgradeFeatureRow}>
-                    <Ionicons name={f.icon as any} size={15} color={Colors.secondary} />
-                    <Text style={styles.upgradeFeatureText}>{f.text}</Text>
-                  </View>
-                ))}
               </View>
             </View>
           )}
@@ -970,20 +980,19 @@ const styles = StyleSheet.create({
     shadowColor: Colors.secondary, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 3 },
     elevation: 2, overflow: 'hidden',
   },
-  upgradeCardTop: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  // Header row: star icon + shrinkable text block — text never pushes button off-screen
+  upgradeCardHeader: {
+    flexDirection: 'row', alignItems: 'center',
     padding: 16, gap: 12,
+  },
+  upgradeCardIconWrap: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: Colors.secondary + '18',
+    alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
   },
   upgradeCardTitle: { fontFamily: 'Inter_700Bold', fontSize: 15, color: Colors.primary, letterSpacing: -0.2 },
   upgradeCardSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 3 },
-  upgradeBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12,
-    backgroundColor: Colors.secondary,
-    shadowColor: Colors.secondary, shadowOpacity: 0.3, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  upgradeBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.white },
   upgradeFeatures: {
     paddingHorizontal: 16, paddingBottom: 16, gap: 10,
     borderTopWidth: 1, borderTopColor: Colors.secondary + '15',
@@ -991,6 +1000,18 @@ const styles = StyleSheet.create({
   },
   upgradeFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   upgradeFeatureText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary },
+  // Full-width CTA button container — sits below features, always fully in frame
+  upgradeBtnWrap: {
+    paddingHorizontal: 16, paddingBottom: 16,
+  },
+  upgradeBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 13, borderRadius: 12,
+    backgroundColor: Colors.secondary,
+    shadowColor: Colors.secondary, shadowOpacity: 0.3, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  upgradeBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.white },
 
   // ── Account section ────────────────────────────────────────────────────────
   accountRow: {

@@ -140,13 +140,16 @@ export default function SignInScreen() {
     try {
       if (mode === 'sign-in') {
         await signInWithEmail(email, password)
-        router.replace('/(tabs)')
+        // Let index.tsx decide: it checks profile.onboardingComplete and
+        // routes to /(tabs) or /onboarding accordingly.
+        router.replace('/')
       } else {
         const { needsConfirmation } = await signUpWithEmail(email, password)
         if (needsConfirmation) {
           setConfirmed(true)
         } else {
-          router.replace('/(tabs)')
+          // Brand-new account — always send through onboarding.
+          router.replace('/onboarding')
         }
       }
     } catch (err: any) {
