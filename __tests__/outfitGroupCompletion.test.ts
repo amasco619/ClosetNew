@@ -33,6 +33,10 @@
  *      a. Every style-goal has at least one recipe pair that shares a slotId
  *         (ensures 3c is always exercisable and never silently skipped)
  *
+ *   5. Recipe slot ID cross-check against blueprint algorithm output
+ *      a. Every slotId in every recipe resolves to a real slot produced by
+ *         buildProfileBlueprintSlots for that style goal (no dangling IDs)
+ *
  * Run: `npx tsx __tests__/outfitGroupCompletion.test.ts`
  * Exits non-zero on any failed assertion.
  */
@@ -43,6 +47,7 @@ import {
   OUTFIT_RECIPES,
 } from '../constants/outfitGroupsCore';
 import type { CoreWardrobeSlot } from '../constants/outfitGroupsCore';
+import { buildProfileBlueprintSlots } from '../constants/blueprintCore';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
 
@@ -419,6 +424,32 @@ console.log('\n4a. Every style-goal has at least one recipe pair sharing a slotI
       found,
       `"${goal}" has at least one recipe pair sharing a slotId (required for smart-buy overlap test)`,
     );
+  }
+}
+
+// =============================================================================
+// 5. Recipe slot ID cross-check against blueprint algorithm output
+// =============================================================================
+
+console.log('\n5a. Every recipe slotId resolves to a real slot in the blueprint');
+{
+  const goals = Object.keys(OUTFIT_RECIPES) as Array<keyof typeof OUTFIT_RECIPES>;
+  for (const goal of goals) {
+    // Use a minimal profile with no constraints so no slots are filtered out.
+    // The profile only sets the primary style goal — all other fields default
+    // to undefined/0 which means no body-type boosts, no lifestyle adjustments,
+    // and no constraint exclusions. This gives the full slot set for the goal.
+    const blueprintSlots = buildProfileBlueprintSlots({ styleGoalPrimary: goal });
+    const blueprintSlotIds = new Set(blueprintSlots.map(s => s.id));
+
+    for (const recipe of OUTFIT_RECIPES[goal]) {
+      for (const slotId of recipe.slotIds) {
+        assert(
+          blueprintSlotIds.has(slotId),
+          `"${goal}" recipe "${recipe.id}": slotId "${slotId}" exists in blueprint output`,
+        );
+      }
+    }
   }
 }
 
