@@ -24,7 +24,7 @@ function runTests() {
   running = true;
   console.log('\n[watch] Change detected — running tests...\n');
   try {
-    execSync('node scripts/run-tests.mjs', { stdio: 'inherit' });
+    execSync('node_modules/.bin/tsx scripts/run-tests.mjs', { stdio: 'inherit' });
   } catch {
     // non-zero exit already printed by child process
   }

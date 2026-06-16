@@ -14,18 +14,18 @@ const hookBody = `#!/bin/sh
 ${MARKER} — blocks commits when any test or lint check fails.
 # Re-install at any time with: npm run hooks:install
 
-echo "[pre-commit] Running tests + lint..."
-node scripts/run-tests.mjs
+echo "[pre-commit] Running tests..."
+node_modules/.bin/tsx scripts/run-tests.mjs
 status=$?
 
 if [ $status -ne 0 ]; then
   echo ""
-  echo "[pre-commit] Tests or lint failed. Commit blocked."
+  echo "[pre-commit] Tests failed. Commit blocked."
   echo "[pre-commit] Fix the failures above, then try again."
   exit 1
 fi
 
-echo "[pre-commit] Tests and lint passed."
+echo "[pre-commit] Tests passed."
 `;
 
 if (existsSync(hookPath)) {

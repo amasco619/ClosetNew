@@ -15,7 +15,7 @@
     "start": "npx expo start",
     "lint": "npx expo lint",
     "lint:fix": "npx expo lint --fix",
-    "test": "node scripts/run-tests.mjs",
+    "test": "node_modules/.bin/tsx scripts/run-tests.mjs",
     "test:watch": "node scripts/watch-tests.mjs"
   },
   "dependencies": {
