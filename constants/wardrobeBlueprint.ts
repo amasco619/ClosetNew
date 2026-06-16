@@ -3,6 +3,12 @@ import { ItemCategory, UserProfile } from '@/constants/types';
 import { LIFESTYLE_CATEGORY_WEIGHTS } from '@/constants/blueprintPriority';
 import { STYLE_BLUEPRINT_SLOTS, STYLE_GOALS } from '@/constants/blueprintSlots';
 import { buildProfileBlueprintSlots } from '@/constants/blueprintCore';
+import {
+  getLifestyleGatedSlots as _getLifestyleGatedSlots,
+  LIFESTYLE_THRESHOLD,
+} from '@/constants/lifestyleSlotGroups';
+
+export { LIFESTYLE_THRESHOLD };
 
 export interface WardrobeSlot {
   id: string;
@@ -815,21 +821,14 @@ export interface LifestyleSlotGroup {
   isComplete: boolean;
 }
 
-const LIFESTYLE_THRESHOLD = 30;
-
 /**
  * Returns the lifestyle slot groups that should be surfaced in the UI based on
  * the user's lifestyle proportions.  A group is included when the relevant
  * lifestyle proportion meets or exceeds LIFESTYLE_THRESHOLD (30 %).
  *
- * Group → profile field mapping
- *   active    → lifestyleActive  (slots with ID pattern *-act-*)
- *   brunch    → lifestyleBrunch  (slots with ID pattern *-brn-*)
- *   resort    → lifestyleEvents  (slots with ID pattern *-rsr-*)
- *   night-out → lifestyleEvents  (slots with ID pattern *-ngt-*)
- *
- * Resort and night-out are social/events occasions and therefore share the
- * lifestyleEvents threshold — there are no separate profile fields for them.
+ * Implementation lives in constants/lifestyleSlotGroups.ts (asset-free) so
+ * it can be tested directly in Node/tsx without triggering PNG require() calls.
+ * This wrapper re-applies the full WardrobeSlot type for use in the app.
  */
 export function getLifestyleGatedSlots(
   slots: WardrobeSlot[],
@@ -837,35 +836,5 @@ export function getLifestyleGatedSlots(
   lifestyleBrunch: number,
   lifestyleEvents: number,
 ): LifestyleSlotGroup[] {
-  const groups: LifestyleSlotGroup[] = [];
-
-  function addGroup(
-    idFragment: string,
-    lifestyle: LifestyleSlotGroup['lifestyle'],
-    label: string,
-  ): void {
-    const all    = slots.filter(s => s.id.includes(idFragment));
-    const needed = all.filter(s => s.status === 'needed');
-    if (all.length === 0) return;
-    if (needed.length > 0) {
-      groups.push({ lifestyle, label, slots: needed.slice(0, 3), isComplete: false });
-    } else {
-      groups.push({ lifestyle, label, slots: [], isComplete: true });
-    }
-  }
-
-  if (lifestyleActive >= LIFESTYLE_THRESHOLD) {
-    addGroup('-act-', 'active', 'Active essentials');
-  }
-
-  if (lifestyleBrunch >= LIFESTYLE_THRESHOLD) {
-    addGroup('-brn-', 'brunch', 'Brunch essentials');
-  }
-
-  if (lifestyleEvents >= LIFESTYLE_THRESHOLD) {
-    addGroup('-rsr-', 'resort',    'Resort essentials');
-    addGroup('-ngt-', 'night-out', 'Night-out essentials');
-  }
-
-  return groups;
+  return _getLifestyleGatedSlots(slots, lifestyleActive, lifestyleBrunch, lifestyleEvents) as LifestyleSlotGroup[];
 }
