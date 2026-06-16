@@ -29,6 +29,10 @@
  *      e. Tie on unlock count → lower priority number wins
  *      f. Tie on both unlock count and priority → lexicographically smaller id wins
  *
+ *   4. OUTFIT_RECIPES structural invariants
+ *      a. Every style-goal has at least one recipe pair that shares a slotId
+ *         (ensures 3c is always exercisable and never silently skipped)
+ *
  * Run: `npx tsx __tests__/outfitGroupCompletion.test.ts`
  * Exits non-zero on any failed assertion.
  */
@@ -307,18 +311,27 @@ console.log('\n3b. One slot missing from one group → direct unlock detected');
 
 console.log('\n3c. Same slot missing from multiple groups → highest unlock count wins');
 {
-  const cls0 = OUTFIT_RECIPES.classic[0];
-  const cls1 = OUTFIT_RECIPES.classic[1];
+  const clsRecipes = OUTFIT_RECIPES.classic;
 
-  const sharedMissingId = (() => {
-    for (const id of cls0.slotIds) {
-      if (cls1.slotIds.includes(id)) return id;
+  // Dynamically locate the first overlapping pair in the classic style-goal.
+  // If no pair exists the test fails loudly — 4a should have caught it first.
+  let overlappingPair: [typeof clsRecipes[0], typeof clsRecipes[0], string] | null = null;
+  outer3c: for (let i = 0; i < clsRecipes.length; i++) {
+    const setA = new Set(clsRecipes[i].slotIds);
+    for (let j = i + 1; j < clsRecipes.length; j++) {
+      const shared = clsRecipes[j].slotIds.find(id => setA.has(id));
+      if (shared) {
+        overlappingPair = [clsRecipes[i], clsRecipes[j], shared];
+        break outer3c;
+      }
     }
-    return null;
-  })();
+  }
 
-  if (sharedMissingId) {
-    const allIds = [...new Set([...cls0.slotIds, ...cls1.slotIds])];
+  assert(overlappingPair !== null, 'classic style-goal has at least one overlapping recipe pair');
+
+  if (overlappingPair) {
+    const [recipeA, recipeB, sharedMissingId] = overlappingPair;
+    const allIds = [...new Set([...recipeA.slotIds, ...recipeB.slotIds])];
     const slots = allIds.map((id, i) => makeSlot({
       id,
       status: id === sharedMissingId ? 'needed' : 'owned',
@@ -327,11 +340,9 @@ console.log('\n3c. Same slot missing from multiple groups → highest unlock cou
     }));
 
     const result = computeNextSmartBuy(slots);
-    assert(result?.slot.id === sharedMissingId, 'slot that unlocks both groups is picked');
+    assert(result?.slot.id === sharedMissingId, `slot "${sharedMissingId}" that unlocks both groups is picked`);
     assert((result?.unlocks ?? 0) === 2, 'unlocks === 2');
     assert(result?.isDirectUnlock === true, 'isDirectUnlock is true');
-  } else {
-    console.log('  (no shared slotId between cls-look-1 and cls-look-2 — test skipped)');
   }
 }
 
@@ -383,6 +394,32 @@ console.log('\n3f. Tie on unlock count AND priority → lexicographically smalle
   ];
   const result = computeNextSmartBuy(slots);
   assert(result?.slot.id === 'cust-sho-A', 'lexicographically smaller id "cust-sho-A" wins over "cust-sho-Z"');
+}
+
+// =============================================================================
+// 4. OUTFIT_RECIPES structural invariants
+// =============================================================================
+
+console.log('\n4a. Every style-goal has at least one recipe pair sharing a slotId');
+{
+  const goals = Object.keys(OUTFIT_RECIPES) as Array<keyof typeof OUTFIT_RECIPES>;
+  for (const goal of goals) {
+    const recipes = OUTFIT_RECIPES[goal];
+    let found = false;
+    outer: for (let i = 0; i < recipes.length; i++) {
+      const setA = new Set(recipes[i].slotIds);
+      for (let j = i + 1; j < recipes.length; j++) {
+        if (recipes[j].slotIds.some(id => setA.has(id))) {
+          found = true;
+          break outer;
+        }
+      }
+    }
+    assert(
+      found,
+      `"${goal}" has at least one recipe pair sharing a slotId (required for smart-buy overlap test)`,
+    );
+  }
 }
 
 // =============================================================================
