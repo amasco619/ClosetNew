@@ -809,7 +809,7 @@ export function getFirstNeededByCategory(slots: WardrobeSlot[]): Record<string, 
 }
 
 export interface LifestyleSlotGroup {
-  lifestyle: 'active' | 'brunch';
+  lifestyle: 'active' | 'brunch' | 'resort' | 'night-out';
   label: string;
   slots: WardrobeSlot[];
   isComplete: boolean;
@@ -817,35 +817,54 @@ export interface LifestyleSlotGroup {
 
 const LIFESTYLE_THRESHOLD = 30;
 
+/**
+ * Returns the lifestyle slot groups that should be surfaced in the UI based on
+ * the user's lifestyle proportions.  A group is included when the relevant
+ * lifestyle proportion meets or exceeds LIFESTYLE_THRESHOLD (30 %).
+ *
+ * Group → profile field mapping
+ *   active    → lifestyleActive  (slots with ID pattern *-act-*)
+ *   brunch    → lifestyleBrunch  (slots with ID pattern *-brn-*)
+ *   resort    → lifestyleEvents  (slots with ID pattern *-rsr-*)
+ *   night-out → lifestyleEvents  (slots with ID pattern *-ngt-*)
+ *
+ * Resort and night-out are social/events occasions and therefore share the
+ * lifestyleEvents threshold — there are no separate profile fields for them.
+ */
 export function getLifestyleGatedSlots(
   slots: WardrobeSlot[],
   lifestyleActive: number,
   lifestyleBrunch: number,
+  lifestyleEvents: number,
 ): LifestyleSlotGroup[] {
   const groups: LifestyleSlotGroup[] = [];
 
-  if (lifestyleActive >= LIFESTYLE_THRESHOLD) {
-    const allActiveSlots = slots.filter(s => s.id.includes('-act-'));
-    const neededSlots = allActiveSlots.filter(s => s.status === 'needed');
-    if (allActiveSlots.length > 0) {
-      if (neededSlots.length > 0) {
-        groups.push({ lifestyle: 'active', label: 'Active essentials', slots: neededSlots.slice(0, 3), isComplete: false });
-      } else {
-        groups.push({ lifestyle: 'active', label: 'Active essentials', slots: [], isComplete: true });
-      }
+  function addGroup(
+    idFragment: string,
+    lifestyle: LifestyleSlotGroup['lifestyle'],
+    label: string,
+  ): void {
+    const all    = slots.filter(s => s.id.includes(idFragment));
+    const needed = all.filter(s => s.status === 'needed');
+    if (all.length === 0) return;
+    if (needed.length > 0) {
+      groups.push({ lifestyle, label, slots: needed.slice(0, 3), isComplete: false });
+    } else {
+      groups.push({ lifestyle, label, slots: [], isComplete: true });
     }
   }
 
+  if (lifestyleActive >= LIFESTYLE_THRESHOLD) {
+    addGroup('-act-', 'active', 'Active essentials');
+  }
+
   if (lifestyleBrunch >= LIFESTYLE_THRESHOLD) {
-    const allBrunchSlots = slots.filter(s => s.id.includes('-brn-'));
-    const neededSlots = allBrunchSlots.filter(s => s.status === 'needed');
-    if (allBrunchSlots.length > 0) {
-      if (neededSlots.length > 0) {
-        groups.push({ lifestyle: 'brunch', label: 'Brunch essentials', slots: neededSlots.slice(0, 3), isComplete: false });
-      } else {
-        groups.push({ lifestyle: 'brunch', label: 'Brunch essentials', slots: [], isComplete: true });
-      }
-    }
+    addGroup('-brn-', 'brunch', 'Brunch essentials');
+  }
+
+  if (lifestyleEvents >= LIFESTYLE_THRESHOLD) {
+    addGroup('-rsr-', 'resort',    'Resort essentials');
+    addGroup('-ngt-', 'night-out', 'Night-out essentials');
   }
 
   return groups;

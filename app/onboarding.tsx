@@ -224,7 +224,7 @@ export default function OnboardingScreen() {
               <MaterialCommunityIcons name="hanger" size={48} color={Colors.secondary} />
             </View>
             <Text style={styles.stepTitle}>Welcome to AuraCloset</Text>
-            <Text style={styles.stepSubtitle}>Your quiet-luxury stylist in your pocket. Let's learn about your style in a few quick steps.</Text>
+            <Text style={styles.stepSubtitle}>{"Your quiet-luxury stylist in your pocket. Let's learn about your style in a few quick steps."}</Text>
             <View style={styles.inputWrap}>
               <Text style={styles.inputLabel}>What should we call you?</Text>
               <TextInput
@@ -294,7 +294,7 @@ export default function OnboardingScreen() {
               })}
             </View>
             <Pressable style={styles.skipRow} onPress={skipStep}>
-              <Text style={styles.skipText}>Skip — I'll decide later</Text>
+              <Text style={styles.skipText}>{"Skip — I'll decide later"}</Text>
             </Pressable>
           </Animated.View>
         );
@@ -302,7 +302,7 @@ export default function OnboardingScreen() {
         return (
           <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Eye Color</Text>
-            <Text style={styles.stepSubtitle}>We'll suggest jewelry and colours that complement your eyes</Text>
+            <Text style={styles.stepSubtitle}>{"We'll suggest jewelry and colours that complement your eyes"}</Text>
             <View style={styles.eyeGrid}>
               {EYE_COLORS.map(ec => (
                 <Pressable
@@ -399,7 +399,7 @@ export default function OnboardingScreen() {
         return (
           <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Your Lifestyle</Text>
-            <Text style={styles.stepSubtitle}>How often do you dress for each occasion? We'll tailor your wardrobe blueprint accordingly.</Text>
+            <Text style={styles.stepSubtitle}>{"How often do you dress for each occasion? We'll tailor your wardrobe blueprint accordingly."}</Text>
             {LIFESTYLE_SCENARIOS.map(scenario => (
               <View key={scenario.key} style={styles.lifestyleRow}>
                 <View style={styles.lifestyleRowHeader}>
@@ -558,7 +558,7 @@ export default function OnboardingScreen() {
             </View>
 
             <Pressable style={styles.skipRow} onPress={skipStep}>
-              <Text style={styles.skipText}>Skip for now — I'll add these later</Text>
+              <Text style={styles.skipText}>{"Skip for now — I'll add these later"}</Text>
             </Pressable>
           </Animated.View>
         );
@@ -568,9 +568,9 @@ export default function OnboardingScreen() {
             <View style={styles.finishIcon}>
               <Ionicons name="checkmark-circle" size={56} color={Colors.success} />
             </View>
-            <Text style={styles.stepTitle}>You're all set!</Text>
+            <Text style={styles.stepTitle}>{"You're all set!"}</Text>
             <Text style={styles.stepSubtitle}>
-              We've personalised AuraCloset for your {bodyType ? BODY_TYPES.find(b => b.id === bodyType)?.label : ''} shape
+              We{"'"}ve personalised AuraCloset for your {bodyType ? BODY_TYPES.find(b => b.id === bodyType)?.label : ''} shape
               {styleGoalPrimary ? ` with a ${STYLE_GOALS.find(s => s.id === styleGoalPrimary)?.label} aesthetic` : ''}.
               Start adding items to your wardrobe to see outfit recommendations.
             </Text>

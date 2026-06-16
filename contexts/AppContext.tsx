@@ -1052,8 +1052,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const canAddItem = wardrobeItems.length < itemCap;
   const starterRecommendations = useMemo(() => getFirstNeededByCategory(recommendationSlots), [recommendationSlots]);
   const lifestyleSlotGroups = useMemo(
-    () => getLifestyleGatedSlots(recommendationSlots, profile.lifestyleActive ?? 0, profile.lifestyleBrunch ?? 0),
-    [recommendationSlots, profile.lifestyleActive, profile.lifestyleBrunch],
+    () => getLifestyleGatedSlots(
+      recommendationSlots,
+      profile.lifestyleActive ?? 0,
+      profile.lifestyleBrunch ?? 0,
+      profile.lifestyleEvents ?? 0,
+    ),
+    [recommendationSlots, profile.lifestyleActive, profile.lifestyleBrunch, profile.lifestyleEvents],
   );
 
   // ── Profile completeness / nudge ─────────────────────────────────────────────

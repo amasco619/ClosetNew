@@ -941,7 +941,7 @@ export default function AddItemScreen() {
             </Text>
             {needsWarmth && !warmthBand && (
               <Text style={styles.requiredHint}>
-                Warmth level lets the engine match this layer to today's forecast.
+                {"Warmth level lets the engine match this layer to today's forecast."}
               </Text>
             )}
             <View style={styles.chipRowWrap}>

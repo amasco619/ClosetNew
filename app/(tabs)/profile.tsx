@@ -563,12 +563,12 @@ export default function ProfileScreen() {
                 </Text>
               </View>
               <Text style={styles.affinityHelp}>
-                Loves, "not today" taps, and outfits you wear quietly shape what surfaces next. Nothing is ever fully banned.
+                {`Loves, "not today" taps, and outfits you wear quietly shape what surfaces next. Nothing is ever fully banned.`}
               </Text>
 
               <Text style={styles.affinityGroupTitle}>Pieces you reach for</Text>
               {topAffinityItems.liked.length === 0
-                ? <Text style={styles.affinityEmpty}>None yet — log a few outfits to start.</Text>
+                ? <Text style={styles.affinityEmpty}>{"None yet — log a few outfits to start."}</Text>
                 : topAffinityItems.liked.map(({ id, score }) => (
                   <View key={`liked-${id}`} style={styles.affinityItem}>
                     <View style={[styles.affinityDot, { backgroundColor: Colors.success }]} />
@@ -579,7 +579,7 @@ export default function ProfileScreen() {
 
               <Text style={styles.affinityGroupTitle}>Pieces you skip</Text>
               {topAffinityItems.disliked.length === 0
-                ? <Text style={styles.affinityEmpty}>None — keep tapping "not today" to teach me.</Text>
+                ? <Text style={styles.affinityEmpty}>{`None — keep tapping "not today" to teach me.`}</Text>
                 : topAffinityItems.disliked.map(({ id, score }) => (
                   <View key={`disliked-${id}`} style={styles.affinityItem}>
                     <View style={[styles.affinityDot, { backgroundColor: Colors.warning }]} />

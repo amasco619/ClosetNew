@@ -189,7 +189,7 @@ export default function HomeScreen() {
           <Animated.View entering={FadeInDown.delay(180).duration(280)} style={styles.pickCard}>
             <View style={styles.pickHeader}>
               <Ionicons name="sparkles" size={16} color={Colors.secondary} />
-              <Text style={styles.pickTitle}>Today's Pick</Text>
+              <Text style={styles.pickTitle}>{"Today's Pick"}</Text>
               <Pressable onPress={() => router.push('/(tabs)/outfits')} style={styles.pickSeeAll}>
                 <Text style={styles.pickSeeAllText}>More</Text>
                 <Ionicons name="chevron-forward" size={13} color={Colors.secondary} />
@@ -274,7 +274,7 @@ export default function HomeScreen() {
           <Animated.View entering={FadeInDown.delay(250).duration(280)} style={styles.todayCard}>
             <View style={styles.todayCardHeader}>
               <Ionicons name="calendar" size={18} color={Colors.secondary} />
-              <Text style={styles.todayCardTitle}>Today's Looks</Text>
+              <Text style={styles.todayCardTitle}>{"Today's Looks"}</Text>
               <Pressable onPress={() => router.push(isPremium ? '/wear-log' : '/premium')} style={styles.todaySeeAll}>
                 <Text style={styles.todaySeeAllText}>See all</Text>
                 <Ionicons name="chevron-forward" size={13} color={Colors.secondary} />

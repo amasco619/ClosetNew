@@ -131,7 +131,7 @@ export default function WearLogScreen() {
           </View>
           <Text style={styles.emptyTitle}>No outfits logged yet</Text>
           <Text style={styles.emptySubtitle}>
-            Tap "Wearing this today" on any outfit card in the Outfits tab to start tracking what you wear.
+            {`Tap "Wearing this today" on any outfit card in the Outfits tab to start tracking what you wear.`}
           </Text>
           <Pressable style={styles.emptyAction} onPress={() => router.push('/(tabs)/outfits')}>
             <Ionicons name="sparkles-outline" size={16} color={Colors.white} />
