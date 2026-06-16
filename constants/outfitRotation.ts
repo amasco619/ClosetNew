@@ -79,6 +79,21 @@ function fingerprint(components: OutfitComponent[]): string {
     .join('|');
 }
 
+/**
+ * Pure freshness-ordering step: moves recently-worn outfits to the end of the
+ * pool so fresh alternatives surface first.  Exported for direct unit testing
+ * so the guarantee can be verified independently of tieredShuffle or quota.
+ */
+export function applyFreshnessOrder(
+  pool: OutfitSet[],
+  recentWornFingerprints: Set<string>,
+): OutfitSet[] {
+  if (!recentWornFingerprints || recentWornFingerprints.size === 0) return pool;
+  const fresh = pool.filter(o => !recentWornFingerprints.has(fingerprint(o.components)));
+  const stale = pool.filter(o => recentWornFingerprints.has(fingerprint(o.components)));
+  return [...fresh, ...stale];
+}
+
 export interface RotationState {
   poolHash: string;
   shuffleSeed: number;
@@ -581,9 +596,7 @@ export function applyDailyRotation(
 
     // ── Worn-fingerprint freshness ordering ─────────────────────────────────
     if (recentWornFingerprints && recentWornFingerprints.size > 0) {
-      const fresh = scenarioPool.filter(o => !recentWornFingerprints.has(fingerprint(o.components)));
-      const stale = scenarioPool.filter(o => recentWornFingerprints.has(fingerprint(o.components)));
-      orderedPool = [...fresh, ...stale];
+      orderedPool = applyFreshnessOrder(scenarioPool, recentWornFingerprints);
     }
 
     // ── Hero diversity: deprioritise yesterday's heroes ─────────────────────

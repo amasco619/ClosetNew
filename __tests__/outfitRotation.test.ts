@@ -13,6 +13,7 @@
 
 import {
   applyDailyRotation,
+  applyFreshnessOrder,
   INITIAL_ROTATION_STATE,
   SCENARIOS,
 } from '../constants/outfitRotation';
@@ -681,6 +682,56 @@ describe('5b. Wear-history freshness: worn outfit IS served when it is the only 
   assert(
     casualOutfits.length === 1,
     'Exactly one outfit is served when the pool has a single (worn) outfit',
+  );
+});
+
+describe('5c. Freshness ordering boundary: worn outfit lands at index len-1 regardless of pool size or quota', () => {
+  // This test calls applyFreshnessOrder directly — no tieredShuffle, no quota —
+  // so the ordering guarantee cannot silently pass for the wrong reason if either
+  // of those two variables changes in the future.
+  //
+  // Pool layout (worn outfit first, so it would surface without ordering):
+  //   [wornOutfit, freshA, freshB, freshC, freshD, freshE, freshF, freshG]
+  // After applyFreshnessOrder:
+  //   [freshA, freshB, freshC, freshD, freshE, freshF, freshG, wornOutfit]
+  // Invariant: wornOutfit must be at position len-1 (last).
+
+  const SCENARIO: OccasionTag = 'work';
+
+  const wornOutfit = makeOutfit('boundary-worn', SCENARIO, [
+    makeComponent('top', 'bw-top'),
+    makeComponent('bottom', 'bw-bottom'),
+    makeComponent('shoes', 'bw-shoes'),
+  ]);
+
+  const freshItems: OutfitSet[] = Array.from({ length: 7 }, (_, i) =>
+    makeOutfit(`boundary-fresh-${i}`, SCENARIO, [
+      makeComponent('top', `bf-top-${i}`),
+      makeComponent('bottom', `bf-bottom-${i}`),
+      makeComponent('shoes', `bf-shoes-${i}`),
+    ]),
+  );
+
+  const wornFp = fingerprint(wornOutfit.components);
+  const pool = [wornOutfit, ...freshItems];
+
+  const ordered = applyFreshnessOrder(pool, new Set([wornFp]));
+
+  assert(
+    ordered.length === pool.length,
+    'applyFreshnessOrder preserves pool length',
+  );
+
+  assert(
+    fingerprint(ordered[ordered.length - 1].components) === wornFp,
+    'Worn outfit is at index len-1 after freshness ordering (independent of tieredShuffle or quota)',
+  );
+
+  const nonWornPositions = ordered.slice(0, ordered.length - 1);
+  const wornInFront = nonWornPositions.some(o => fingerprint(o.components) === wornFp);
+  assert(
+    !wornInFront,
+    'Worn outfit does not appear anywhere before the last position',
   );
 });
 
