@@ -18,6 +18,10 @@ const scenarioLabels: Record<OccasionTag, { label: string; icon: string }> = {
   interview:     { label: 'Interview',  icon: 'mic-outline' },
   wedding:       { label: 'Wedding',    icon: 'rose-outline' },
   travel:        { label: 'Travel',     icon: 'airplane-outline' },
+  brunch:        { label: 'Brunch',     icon: 'cafe-outline' },
+  active:        { label: 'Active',     icon: 'fitness-outline' },
+  resort:        { label: 'Resort',     icon: 'sunny-outline' },
+  'night-out':   { label: 'Night Out',  icon: 'moon-outline' },
 };
 
 function formatDate(dateStr: string): string {

@@ -92,6 +92,8 @@ function profile(overrides: Partial<UserProfile> = {}): UserProfile {
     lifestyleWork: 40,
     lifestyleCasual: 40,
     lifestyleEvents: 20,
+    lifestyleActive: 0,
+    lifestyleBrunch: 0,
     constraints: {
       noSleeveless: false,
       noShortSkirts: false,
@@ -721,15 +723,15 @@ console.log('\npickHeroCandidates — active hero candidacy:');
 
 // Verify the SCENARIO_HERO_SUBTYPES map declares the expected subtypes.
 assert(
-  SCENARIO_HERO_SUBTYPES['active']?.has('windbreaker'),
+  SCENARIO_HERO_SUBTYPES['active']?.has('windbreaker') === true,
   'SCENARIO_HERO_SUBTYPES.active includes windbreaker',
 );
 assert(
-  SCENARIO_HERO_SUBTYPES['active']?.has('training-shoes'),
+  SCENARIO_HERO_SUBTYPES['active']?.has('training-shoes') === true,
   'SCENARIO_HERO_SUBTYPES.active includes training-shoes',
 );
 assert(
-  SCENARIO_HERO_SUBTYPES['active']?.has('sports-hoodie'),
+  SCENARIO_HERO_SUBTYPES['active']?.has('sports-hoodie') === true,
   'SCENARIO_HERO_SUBTYPES.active includes sports-hoodie',
 );
 
@@ -940,38 +942,38 @@ assert(
 console.log('\nSCENARIO_HERO_SUBTYPES — resort declarations:');
 
 assert(
-  SCENARIO_HERO_SUBTYPES['resort']?.has('swimsuit'),
+  SCENARIO_HERO_SUBTYPES['resort']?.has('swimsuit') === true,
   'SCENARIO_HERO_SUBTYPES.resort declares swimsuit',
 );
 assert(
-  SCENARIO_HERO_SUBTYPES['resort']?.has('resort-dress'),
+  SCENARIO_HERO_SUBTYPES['resort']?.has('resort-dress') === true,
   'SCENARIO_HERO_SUBTYPES.resort declares resort-dress',
 );
 assert(
-  SCENARIO_HERO_SUBTYPES['resort']?.has('cover-up'),
+  SCENARIO_HERO_SUBTYPES['resort']?.has('cover-up') === true,
   'SCENARIO_HERO_SUBTYPES.resort declares cover-up',
 );
 assert(
-  SCENARIO_HERO_SUBTYPES['resort']?.has('kaftan'),
+  SCENARIO_HERO_SUBTYPES['resort']?.has('kaftan') === true,
   'SCENARIO_HERO_SUBTYPES.resort declares kaftan',
 );
 
 console.log('\nSCENARIO_HERO_SUBTYPES — night-out declarations:');
 
 assert(
-  SCENARIO_HERO_SUBTYPES['night-out']?.has('mini-dress'),
+  SCENARIO_HERO_SUBTYPES['night-out']?.has('mini-dress') === true,
   'SCENARIO_HERO_SUBTYPES[night-out] declares mini-dress',
 );
 assert(
-  SCENARIO_HERO_SUBTYPES['night-out']?.has('bodycon-dress'),
+  SCENARIO_HERO_SUBTYPES['night-out']?.has('bodycon-dress') === true,
   'SCENARIO_HERO_SUBTYPES[night-out] declares bodycon-dress',
 );
 assert(
-  SCENARIO_HERO_SUBTYPES['night-out']?.has('sequin-top'),
+  SCENARIO_HERO_SUBTYPES['night-out']?.has('sequin-top') === true,
   'SCENARIO_HERO_SUBTYPES[night-out] declares sequin-top',
 );
 assert(
-  SCENARIO_HERO_SUBTYPES['night-out']?.has('strappy-heels'),
+  SCENARIO_HERO_SUBTYPES['night-out']?.has('strappy-heels') === true,
   'SCENARIO_HERO_SUBTYPES[night-out] declares strappy-heels',
 );
 

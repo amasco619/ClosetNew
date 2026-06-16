@@ -71,6 +71,8 @@ function baseProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     lifestyleWork: 40,
     lifestyleCasual: 40,
     lifestyleEvents: 20,
+    lifestyleActive: 0,
+    lifestyleBrunch: 0,
     constraints: {
       noSleeveless: false,
       noShortSkirts: false,

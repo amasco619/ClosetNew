@@ -703,7 +703,7 @@ export default function ProfileScreen() {
 
         {/* ── Account ──────────────────────────────────────────────────── */}
         <Animated.View entering={FadeInDown.delay(400).duration(280)}>
-          <View style={styles.sectionHeader}>
+          <View style={styles.sectionHeaderBlock}>
             <Text style={styles.sectionLabel}>ACCOUNT</Text>
             <Text style={styles.sectionTitle}>Account</Text>
           </View>

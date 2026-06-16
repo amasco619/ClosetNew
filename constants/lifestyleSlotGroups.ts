@@ -36,7 +36,7 @@ export function getLifestyleGatedSlots(
   slots: SlotLike[],
   lifestyleActive: number,
   lifestyleBrunch: number,
-  lifestyleEvents: number,
+  lifestyleEvents: number = 0,
 ): LifestyleSlotGroupBase[] {
   const groups: LifestyleSlotGroupBase[] = [];
 

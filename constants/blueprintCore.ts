@@ -14,8 +14,8 @@
 
 import { STYLE_BLUEPRINT_SLOTS } from './blueprintSlots';
 import { applyLifestyleWeights } from './blueprintPriority';
-import type { ItemCategory, BodyType } from './types';
-import type { SlotMeta, StyleGoal } from './blueprintSlots';
+import type { ItemCategory, BodyType, StyleGoal } from './types';
+import type { SlotMeta } from './blueprintSlots';
 
 export const BODY_TYPE_PRIORITY_BOOSTS: Record<BodyType, Partial<Record<ItemCategory, number>>> = {
   hourglass:           { dress: -1 },

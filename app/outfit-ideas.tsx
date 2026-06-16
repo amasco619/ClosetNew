@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useApp } from '@/contexts/AppContext';
 import { computeNextSmartBuy, generateRecommendedOutfitGroups, RecommendedOutfitGroup, WardrobeSlot } from '@/constants/wardrobeBlueprint';
+import { ImageSourcePropType } from 'react-native';
 import { OutfitSet, ReactionType, OccasionTag } from '@/constants/types';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -173,7 +174,7 @@ function OutfitGroupCard({
         contentContainerStyle={styles.slotsRow}
       >
         {group.slots.map(slot => (
-          <SlotChip key={slot.id} slot={slot} />
+          <SlotChip key={slot.id} slot={slot as WardrobeSlot} />
         ))}
       </ScrollView>
 
@@ -368,7 +369,7 @@ export default function OutfitIdeasScreen() {
                 <Text style={styles.smartBuyKicker}>Your next smart buy</Text>
               </View>
               <View style={styles.smartBuyBody}>
-                <Image source={nextBuy.slot.sampleImage} style={styles.smartBuyImage} resizeMode="cover" />
+                <Image source={nextBuy.slot.sampleImage as ImageSourcePropType} style={styles.smartBuyImage} resizeMode="cover" />
                 <View style={styles.smartBuyTextCol}>
                   <Text style={styles.smartBuyTitle} numberOfLines={2}>
                     Add a {nextBuy.slot.label}

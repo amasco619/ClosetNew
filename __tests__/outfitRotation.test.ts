@@ -755,7 +755,7 @@ describe('6. Weekend cursor nudge: work scenario advances by 1 extra on weekends
     'work cursor is exactly 1 ahead on Saturday vs a weekday (same seed/state)',
   );
 
-  const NON_WORK_SCENARIOS: OccasionTag[] = ['casual', 'date', 'event'];
+  const NON_WORK_SCENARIOS: OccasionTag[] = ['casual', 'date-casual', 'event'];
   for (const scenario of NON_WORK_SCENARIOS) {
     const weekendCursor = weekendState.todayCursors[scenario] ?? 0;
     const weekdayCursor = weekdayState.todayCursors[scenario] ?? 0;

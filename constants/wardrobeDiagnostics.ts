@@ -14,6 +14,10 @@ const SCENARIO_AFFINITY: Record<OccasionTag, string[]> = {
   interview:     ['blouse', 'shirt', 'blazer', 'trousers', 'midi-skirt', 'midi-dress', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch'],
   wedding:       ['midi-dress', 'maxi-dress', 'cocktail-dress', 'wrap-dress', 'midi-skirt', 'blouse', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
   travel:        ['t-shirt', 'long-sleeve', 'sweater', 'shirt', 'jeans', 'chinos', 'trousers', 'sneakers', 'flats', 'boots', 'crossbody', 'backpack', 'tote', 'blazer', 'cardigan', 'denim-jacket'],
+  brunch:        ['blouse', 'camisole', 'midi-dress', 'wrap-dress', 'sundress', 'midi-skirt', 'wide-leg', 'flats', 'mules', 'loafers', 'crossbody', 'mini-bag', 'earrings', 'necklace'],
+  active:        ['sports-hoodie', 'tank-top', 'leggings', 'shorts', 'windbreaker', 'training-shoes', 'sports-bra', 'joggers', 'zip-up', 'athletic-top'],
+  resort:        ['swimsuit', 'resort-dress', 'cover-up', 'kaftan', 'sundress', 'espadrilles', 'sandals', 'shorts', 'linen-shirt', 'sarong'],
+  'night-out':   ['mini-dress', 'bodycon-dress', 'sequin-top', 'strappy-heels', 'midi-dress', 'camisole', 'wide-leg', 'clutch', 'mini-bag', 'earrings', 'necklace'],
 };
 
 function scoreForScenario(item: WardrobeItem, scenario: OccasionTag): number {
@@ -123,6 +127,10 @@ const SCENARIO_META: Record<OccasionTag, { label: string; icon: string }> = {
   interview:     { label: 'Interview',  icon: 'mic-outline' },
   wedding:       { label: 'Wedding',    icon: 'rose-outline' },
   travel:        { label: 'Travel',     icon: 'airplane-outline' },
+  brunch:        { label: 'Brunch',     icon: 'cafe-outline' },
+  active:        { label: 'Active',     icon: 'fitness-outline' },
+  resort:        { label: 'Resort',     icon: 'sunny-outline' },
+  'night-out':   { label: 'Night Out',  icon: 'moon-outline' },
 };
 
 function gradeScore(score: number): WardrobeDiagnostics['grade'] {

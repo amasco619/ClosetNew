@@ -1,5 +1,5 @@
 import { ImageSourcePropType } from 'react-native';
-import { ItemCategory, UserProfile } from '@/constants/types';
+import { ItemCategory, UserProfile, StyleGoal } from '@/constants/types';
 import { LIFESTYLE_CATEGORY_WEIGHTS } from '@/constants/blueprintPriority';
 import { STYLE_BLUEPRINT_SLOTS, STYLE_GOALS } from '@/constants/blueprintSlots';
 import { buildProfileBlueprintSlots } from '@/constants/blueprintCore';
@@ -12,6 +12,8 @@ import {
   computeNextSmartBuy as _computeNextSmartBuy,
   countRecommendedOutfits as _countRecommendedOutfits,
   inferStyleGoal,
+  type RecommendedOutfitGroup,
+  type NextSmartBuy,
 } from '@/constants/outfitGroupsCore';
 export type {
   RecommendedOutfitGroup,
