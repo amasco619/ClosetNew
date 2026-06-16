@@ -1,7 +1,8 @@
 import { ImageSourcePropType } from 'react-native';
-import { ItemCategory, StyleGoal, BodyType, UserProfile } from '@/constants/types';
-import { LIFESTYLE_CATEGORY_WEIGHTS, applyLifestyleWeights } from '@/constants/blueprintPriority';
+import { ItemCategory, UserProfile } from '@/constants/types';
+import { LIFESTYLE_CATEGORY_WEIGHTS } from '@/constants/blueprintPriority';
 import { STYLE_BLUEPRINT_SLOTS, STYLE_GOALS } from '@/constants/blueprintSlots';
+import { buildProfileBlueprintSlots } from '@/constants/blueprintCore';
 
 export interface WardrobeSlot {
   id: string;
@@ -190,17 +191,9 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = Object.fromEntries(
 // STYLE_BLUEPRINTS via the mapping above.
 
 
-const BODY_TYPE_PRIORITY_BOOSTS: Record<BodyType, Record<string, number>> = {
-  hourglass:           { 'dress': -1, 'bottom': 0, 'top': 0 },
-  pear:                { 'top': -1, 'jewelry': -1, 'outerwear': -1 },
-  apple:               { 'outerwear': -1, 'bottom': -1, 'dress': 1 },
-  rectangle:           { 'outerwear': -1, 'dress': -1, 'jewelry': -1 },
-  'inverted-triangle': { 'bottom': -1, 'shoes': -1, 'dress': 0 },
-  athletic:            { 'dress': -1, 'outerwear': -1, 'jewelry': -1 },
-};
-
-// LIFESTYLE_CATEGORY_WEIGHTS is exported from constants/blueprintPriority.ts
-// and imported above — no local copy needed.
+// BODY_TYPE_PRIORITY_BOOSTS has moved to constants/blueprintCore.ts so tests
+// can import it directly without triggering PNG asset require() calls.
+// LIFESTYLE_CATEGORY_WEIGHTS is exported from constants/blueprintPriority.ts.
 
 export const WARDROBE_BLUEPRINT: BlueprintItem[] = STYLE_BLUEPRINTS.classic;
 
@@ -240,52 +233,20 @@ export const BLUEPRINT_SUBTYPES_BY_CATEGORY: Record<ItemCategory, string[]> = ((
   return out;
 })();
 
+/**
+ * Returns the personalised wardrobe blueprint for a given user profile.
+ *
+ * Delegates the pure algorithm to buildProfileBlueprintSlots (blueprintCore.ts)
+ * which is asset-free and directly testable, then attaches sampleImage from
+ * SAMPLE_IMAGES before returning the full BlueprintItem array.
+ */
 export function getProfileBlueprint(profile: UserProfile): BlueprintItem[] {
-  const primaryGoal = profile.styleGoalPrimary;
-  if (!primaryGoal) return WARDROBE_BLUEPRINT;
+  if (!profile.styleGoalPrimary) return WARDROBE_BLUEPRINT;
 
-  let items = [...STYLE_BLUEPRINTS[primaryGoal]];
-
-  if (profile.styleGoalSecondary) {
-    const secondaryItems = STYLE_BLUEPRINTS[profile.styleGoalSecondary];
-    const existingIds = new Set(items.map(i => `${i.category}-${i.subType}-${i.colorFamily}`));
-    for (const sItem of secondaryItems) {
-      const key = `${sItem.category}-${sItem.subType}-${sItem.colorFamily}`;
-      if (!existingIds.has(key)) {
-        items.push({ ...sItem, priority: sItem.priority + 10 });
-        existingIds.add(key);
-      }
-    }
-  }
-
-  if (profile.bodyType) {
-    const boosts = BODY_TYPE_PRIORITY_BOOSTS[profile.bodyType];
-    items = items.map(item => ({
-      ...item,
-      priority: item.priority + (boosts[item.category] ?? 0),
-    }));
-  }
-
-  items = applyLifestyleWeights(items, {
-    work:   profile.lifestyleWork   || 0,
-    casual: profile.lifestyleCasual || 0,
-    events: profile.lifestyleEvents || 0,
-    active: profile.lifestyleActive || 0,
-    brunch: profile.lifestyleBrunch || 0,
-  });
-
-  if (profile.constraints?.maxHeelHeight === 'flat') {
-    items = items.filter(item => !(item.category === 'shoes' && item.subType === 'heels'));
-  }
-  if (profile.constraints?.noSleeveless) {
-    items = items.filter(item => !(item.category === 'top' && item.subType === 'tank-top'));
-  }
-  if (profile.constraints?.noShortSkirts) {
-    items = items.filter(item => !(item.subType === 'mini-skirt' || item.subType === 'mini-dress'));
-  }
-
-  items.sort((a, b) => a.priority - b.priority);
-  return items;
+  return buildProfileBlueprintSlots(profile).map(({ imageKey, ...rest }) => ({
+    ...rest,
+    sampleImage: SAMPLE_IMAGES[imageKey] ?? SAMPLE_IMAGES.white_tee,
+  }));
 }
 
 export function matchWardrobeItemToSlot(

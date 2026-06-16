@@ -4,9 +4,9 @@
 AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo (React Native) and Express backend. The tagline is "Your quiet-luxury stylist in your pocket."
 
 ## Current State
-- **Version**: 1.3.0
-- **Last Updated**: 2026-06-15
-- **Status**: Expanded scenario engine + intelligent agentic rotation
+- **Version**: 1.4.0
+- **Last Updated**: 2026-06-16
+- **Status**: Blueprint engine refactored for testability + full lifestyle-slot coverage
 
 ## Architecture
 - **Frontend**: Expo Router (file-based routing) with React Native
@@ -39,7 +39,7 @@ app/
   _layout.tsx          - Root layout with providers
   index.tsx            - Entry routing (onboarding vs tabs)
   onboarding.tsx       - Multi-step style quiz
-  add-item.tsx         - Add wardrobe item (camera/gallery)
+  add-item.tsx         - Add wardrobe item (camera/gallery); 12 OccasionTags, sleeveLength required for top/dress
   premium.tsx          - Premium upgrade screen
   item-detail.tsx      - Item detail view
   (tabs)/
@@ -53,17 +53,47 @@ contexts/
 constants/
   colors.ts            - Theme colors (navy/champagne gold palette)
   types.ts             - Shared type definitions (BodyType, StyleGoal, UserProfile, etc.)
-  wardrobeBlueprint.ts - WardrobeSlot model, per-style blueprints, getProfileBlueprint, slot matching
+  blueprintSlots.ts    - All 6 × slot arrays (asset-free); STYLE_BLUEPRINT_SLOTS, STYLE_GOALS, CORE_CATEGORIES
+  blueprintPriority.ts - applyLifestyleWeights, LIFESTYLE_CATEGORY_WEIGHTS (asset-free)
+  blueprintCore.ts     - Pure, asset-free blueprint algorithm: buildProfileBlueprintSlots(profile),
+                         BODY_TYPE_PRIORITY_BOOSTS, BlueprintProfile interface. Tested directly in Node/tsx
+                         without PNG asset require() calls. wardrobeBlueprint.ts delegates to this.
+  wardrobeBlueprint.ts - WardrobeSlot model, per-style BlueprintItem[] (adds sampleImage via SAMPLE_IMAGES),
+                         getProfileBlueprint (delegates to blueprintCore), slot matching
   outfitGenerator.ts   - Personalized outfit generator (generatePersonalizedOutfits). WardrobeItem/OutfitComponent/OutfitSet interfaces live in types.ts (moved from AppContext to avoid circular imports)
+server/
+  classify-garment.ts  - POST /api/classify-garment; Gemini + GCV; expanded VALID_SUBTYPES for all engine
+                         sub-types; GEMINI_PROMPT updated to return OccasionTags from the 12-tag taxonomy
 assets/
   body_types/          - Illustrated body shape images (hourglass, pear, apple, rectangle, inverted triangle, athletic)
   recommendations/     - Sample images for wardrobe slots (19 flat-lay fashion photos)
+__tests__/
+  blueprint-lifestyle-slots.test.ts - Active/brunch slot group threshold tests (10 sections,
+                                      all 6 blueprints): group existence, category avg rank improvement
+                                      at high lifestyle, category ordering at extreme proportions,
+                                      proportionality, spot-checks
+  blueprint-slots.test.ts           - Slot structure invariants
+  getProfileBlueprint.test.ts       - Algorithm tests calling buildProfileBlueprintSlots directly
+                                      (no local mirror; exercises real production code)
+  lifestyle-blueprint.test.ts       - Lifestyle weight ordering
+  outfitComboScorer.test.ts         - Color harmony + combo scoring
+  outfitGenerator.test.ts           - Outfit generation + scenario hero coverage
+  outfitRotation.test.ts            - Daily rotation engine
+  perceptualScoring.test.ts         - Perceptual color scoring
+  weather.test.ts                   - Weather-aware outerwear rules
 ```
 
 ## WardrobeSlot Blueprint System
-- Dynamic per-style-goal blueprints defined in `constants/wardrobeBlueprint.ts`
+- Dynamic per-style-goal blueprints defined in `constants/blueprintSlots.ts` (slot data) and
+  `constants/blueprintCore.ts` (pure algorithm). `wardrobeBlueprint.ts` wraps blueprintCore to
+  attach `sampleImage` and expose `getProfileBlueprint`.
 - 6 curated blueprint sets: minimal, elevated, bold, romantic, classic, youthful
-- `getProfileBlueprint(profile)` selects items based on:
+- `buildProfileBlueprintSlots(profile)` in `blueprintCore.ts` is the canonical algorithm —
+  asset-free, directly importable in Node/tsx, and exercised by `__tests__/getProfileBlueprint.test.ts`
+  without any mocking or local mirror.
+- `getProfileBlueprint(profile)` in `wardrobeBlueprint.ts` delegates to `buildProfileBlueprintSlots`
+  then maps each slot's `imageKey` to a `sampleImage` PNG via `SAMPLE_IMAGES`.
+- Algorithm selects items based on:
   - Primary style goal (selects base blueprint set)
   - Secondary style goal (adds lower-priority items from secondary set)
   - Body type (adjusts category priorities — e.g., pear boosts tops/jewelry)
@@ -195,7 +225,7 @@ Every list/grid empty state must include:
 ## Testing & Quality Automation
 
 ### Running tests
-- **Single run**: `npm test` — runs all `__tests__/*.test.ts` files via `scripts/run-tests.mjs`
+- **Single run**: `npm test` — runs all `__tests__/*.test.ts` files via `scripts/run-tests.mjs` (9 suites)
 - **Watch mode**: `npm run test:watch` — re-runs affected tests automatically whenever a `.ts`, `.tsx`, or `.mjs` file changes in `__tests__/`, `constants/`, `contexts/`, `app/`, `components/`, `lib/`, `server/`, or `shared/`. Uses a 400 ms debounce. Script: `scripts/watch-tests.mjs`
 
 ### Pre-commit hook
