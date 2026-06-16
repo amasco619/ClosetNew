@@ -41,7 +41,6 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   // ── Tops ────────────────────────────────────────────────────────────────
   white_tee:               require('@/assets/recommendations/white_tee.png'),
   white_shirt:             require('@/assets/recommendations/white_shirt.png'),
-  blue_shirt:              require('@/assets/recommendations/blue_shirt.png'),
   cream_sweater:           require('@/assets/recommendations/cream_sweater.png'),
   black_blouse:            require('@/assets/recommendations/black_blouse.png'),
   pink_blouse:             require('@/assets/recommendations/pink_blouse.png'),
@@ -75,7 +74,6 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   floral_blush_maxi_skirt: require('@/assets/recommendations/floral_blush_maxi_skirt.png'),
   // ── Dresses ─────────────────────────────────────────────────────────────
   black_dress:             require('@/assets/recommendations/black_dress.png'),
-  pink_dress:              require('@/assets/recommendations/pink_dress.png'),
   beige_slip_dress:        require('@/assets/recommendations/beige_slip_dress.png'),
   white_linen_dress:       require('@/assets/recommendations/white_linen_dress.png'),
   grey_knit_dress:         require('@/assets/recommendations/grey_knit_dress.png'),
@@ -116,7 +114,6 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   beige_heels:             require('@/assets/recommendations/beige_heels.png'),
   black_heels:             require('@/assets/recommendations/black_heels.png'),
   loafers:                 require('@/assets/recommendations/loafers.png'),
-  brown_boots:             require('@/assets/recommendations/brown_boots.png'),
   beige_mules:             require('@/assets/recommendations/beige_mules.png'),
   nude_heels:              require('@/assets/recommendations/nude_heels.png'),
   camel_slingbacks:        require('@/assets/recommendations/camel_slingbacks.png'),
@@ -144,7 +141,6 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   // ── Jewelry ──────────────────────────────────────────────────────────────
   gold_hoops:              require('@/assets/recommendations/gold_hoops.png'),
   gold_necklace:           require('@/assets/recommendations/gold_necklace.png'),
-  silver_watch:            require('@/assets/recommendations/silver_watch.png'),
   gold_stud_earrings:      require('@/assets/recommendations/gold_stud_earrings.png'),
   gold_bracelet:           require('@/assets/recommendations/gold_bracelet.png'),
   pearl_studs:             require('@/assets/recommendations/pearl_studs.png'),
@@ -173,10 +169,8 @@ const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   wicker_bag:              require('@/assets/recommendations/wicker_bag.png'),
   brunch_sandals:          require('@/assets/recommendations/brunch_sandals.png'),
   // ── Resort ───────────────────────────────────────────────────────────────────
-  swimsuit_one_piece:      require('@/assets/recommendations/swimsuit_one_piece.png'),
   beach_coverup:           require('@/assets/recommendations/beach_coverup.png'),
   espadrilles:             require('@/assets/recommendations/espadrilles.png'),
-  beach_bag:               require('@/assets/recommendations/beach_bag.png'),
   resort_dress:            require('@/assets/recommendations/resort_dress.png'),
   // ── Night Out ────────────────────────────────────────────────────────────────
   mini_dress_black:        require('@/assets/recommendations/mini_dress_black.png'),
