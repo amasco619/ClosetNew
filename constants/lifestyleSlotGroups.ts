@@ -25,6 +25,7 @@ export interface SlotLike {
 export interface LifestyleSlotGroupBase {
   lifestyle: 'active' | 'brunch' | 'resort' | 'night-out';
   label: string;
+  completionText: string;
   slots: SlotLike[];
   isComplete: boolean;
 }
@@ -43,28 +44,29 @@ export function getLifestyleGatedSlots(
     idFragment: string,
     lifestyle: LifestyleSlotGroupBase['lifestyle'],
     label: string,
+    completionText: string,
   ): void {
     const all    = slots.filter(s => s.id.includes(idFragment));
     const needed = all.filter(s => s.status === 'needed');
     if (all.length === 0) return;
     if (needed.length > 0) {
-      groups.push({ lifestyle, label, slots: needed.slice(0, 3), isComplete: false });
+      groups.push({ lifestyle, label, completionText, slots: needed.slice(0, 3), isComplete: false });
     } else {
-      groups.push({ lifestyle, label, slots: [], isComplete: true });
+      groups.push({ lifestyle, label, completionText, slots: [], isComplete: true });
     }
   }
 
   if (lifestyleActive >= LIFESTYLE_THRESHOLD) {
-    addGroup('-act-', 'active', 'Active essentials');
+    addGroup('-act-', 'active',    'Active essentials',    'Your active wardrobe is set');
   }
 
   if (lifestyleBrunch >= LIFESTYLE_THRESHOLD) {
-    addGroup('-brn-', 'brunch', 'Brunch essentials');
+    addGroup('-brn-', 'brunch',    'Brunch essentials',    'Your brunch wardrobe is set');
   }
 
   if (lifestyleEvents >= LIFESTYLE_THRESHOLD) {
-    addGroup('-rsr-', 'resort',    'Resort essentials');
-    addGroup('-ngt-', 'night-out', 'Night-out essentials');
+    addGroup('-rsr-', 'resort',    'Resort essentials',    'Your resort wardrobe is set');
+    addGroup('-ngt-', 'night-out', 'Night-out essentials', 'Your night-out wardrobe is set');
   }
 
   return groups;

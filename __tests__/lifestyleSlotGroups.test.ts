@@ -106,6 +106,7 @@ console.log('\nSection 3: needed slots → isComplete: false');
   assert(result[0].isComplete === false, 'isComplete = false when needed slots exist');
   assert(result[0].slots.length === 2, 'both needed active slots appear in group');
   assert(result[0].label === 'Active essentials', 'label = "Active essentials"');
+  assert(result[0].completionText === 'Your active wardrobe is set', 'active completionText is correct');
 }
 
 {
@@ -114,6 +115,7 @@ console.log('\nSection 3: needed slots → isComplete: false');
   assert(result.length === 1, 'one group returned when brunch slots are needed');
   assert(result[0].isComplete === false, 'isComplete = false when brunch needed slots exist');
   assert(result[0].label === 'Brunch essentials', 'label = "Brunch essentials"');
+  assert(result[0].completionText === 'Your brunch wardrobe is set', 'brunch completionText is correct');
 }
 
 // ── Section 4: All slots owned → isComplete: true ────────────────────────────
@@ -227,6 +229,88 @@ console.log('\nSection 8: mixed owned and needed slots');
     result[0].slots.every(s => s.status === 'needed'),
     'every slot in returned group has status "needed"',
   );
+}
+
+// ── Section 9: Resort and night-out (events lifestyle) ───────────────────────
+
+console.log('\nSection 9: resort and night-out (events lifestyle)');
+
+function resortSlot(n: number, status: 'needed' | 'owned' = 'needed'): SlotLike {
+  return { id: `cls-rsr-${n}`, status };
+}
+
+function nightOutSlot(n: number, status: 'needed' | 'owned' = 'needed'): SlotLike {
+  return { id: `cls-ngt-${n}`, status };
+}
+
+{
+  const slots = [resortSlot(1), resortSlot(2), nightOutSlot(1)];
+  const result = getLifestyleGatedSlots(slots, 0, 0, LIFESTYLE_THRESHOLD - 1);
+  assert(result.length === 0, `events = ${LIFESTYLE_THRESHOLD - 1} (below threshold) → no resort or night-out group`);
+}
+
+{
+  const slots = [resortSlot(1), resortSlot(2), nightOutSlot(1)];
+  const result = getLifestyleGatedSlots(slots, 0, 0, LIFESTYLE_THRESHOLD);
+  assert(result.length === 2, `events = ${LIFESTYLE_THRESHOLD} (at threshold) → both resort and night-out groups returned`);
+  assert(result[0].lifestyle === 'resort',    'first group lifestyle = "resort"');
+  assert(result[1].lifestyle === 'night-out', 'second group lifestyle = "night-out"');
+}
+
+{
+  const slots = [resortSlot(1, 'needed'), resortSlot(2, 'needed')];
+  const result = getLifestyleGatedSlots(slots, 0, 0, LIFESTYLE_THRESHOLD);
+  assert(result.length === 1, 'only resort group returned when no night-out slots exist');
+  assert(result[0].lifestyle === 'resort', 'group lifestyle = "resort"');
+  assert(result[0].isComplete === false, 'isComplete = false when resort slots needed');
+  assert(result[0].label === 'Resort essentials', 'resort label correct');
+  assert(result[0].completionText === 'Your resort wardrobe is set', 'resort completionText correct');
+}
+
+{
+  const slots = [nightOutSlot(1, 'needed'), nightOutSlot(2, 'needed')];
+  const result = getLifestyleGatedSlots(slots, 0, 0, LIFESTYLE_THRESHOLD);
+  assert(result.length === 1, 'only night-out group returned when no resort slots exist');
+  assert(result[0].lifestyle === 'night-out', 'group lifestyle = "night-out"');
+  assert(result[0].isComplete === false, 'isComplete = false when night-out slots needed');
+  assert(result[0].label === 'Night-out essentials', 'night-out label correct');
+  assert(result[0].completionText === 'Your night-out wardrobe is set', 'night-out completionText correct');
+}
+
+{
+  const slots = [resortSlot(1, 'owned'), resortSlot(2, 'owned'), nightOutSlot(1, 'owned')];
+  const result = getLifestyleGatedSlots(slots, 0, 0, LIFESTYLE_THRESHOLD);
+  assert(result.length === 2, 'both groups returned when all events slots are owned');
+  assert(result[0].isComplete === true, 'resort isComplete = true when all slots owned');
+  assert(result[1].isComplete === true, 'night-out isComplete = true when all slots owned');
+}
+
+// ── Section 10: completionText on all lifestyle types ─────────────────────────
+
+console.log('\nSection 10: completionText on all lifestyle types');
+
+{
+  const slots = [activeSlot(1, 'owned')];
+  const result = getLifestyleGatedSlots(slots, LIFESTYLE_THRESHOLD, 0, 0);
+  assert(result[0].completionText === 'Your active wardrobe is set', 'active completionText present on complete group');
+}
+
+{
+  const slots = [brunchSlot(1, 'owned')];
+  const result = getLifestyleGatedSlots(slots, 0, LIFESTYLE_THRESHOLD, 0);
+  assert(result[0].completionText === 'Your brunch wardrobe is set', 'brunch completionText present on complete group');
+}
+
+{
+  const slots = [resortSlot(1, 'owned')];
+  const result = getLifestyleGatedSlots(slots, 0, 0, LIFESTYLE_THRESHOLD);
+  assert(result[0].completionText === 'Your resort wardrobe is set', 'resort completionText present on complete group');
+}
+
+{
+  const slots = [nightOutSlot(1, 'owned')];
+  const result = getLifestyleGatedSlots(slots, 0, 0, LIFESTYLE_THRESHOLD);
+  assert(result[0].completionText === 'Your night-out wardrobe is set', 'night-out completionText present on complete group');
 }
 
 // ── Summary ───────────────────────────────────────────────────────────────────

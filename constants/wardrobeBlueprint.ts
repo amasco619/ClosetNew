@@ -474,6 +474,7 @@ export function getFirstNeededByCategory(slots: WardrobeSlot[]): Record<string, 
 export interface LifestyleSlotGroup {
   lifestyle: 'active' | 'brunch' | 'resort' | 'night-out';
   label: string;
+  completionText: string;
   slots: WardrobeSlot[];
   isComplete: boolean;
 }

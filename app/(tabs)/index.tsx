@@ -31,6 +31,13 @@ const occasionLabels: Record<string, string> = {
   event: 'Event', interview: 'Interview', wedding: 'Wedding', travel: 'Travel',
 };
 
+const LIFESTYLE_ICON: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
+  active:      'fitness-outline',
+  brunch:      'cafe-outline',
+  resort:      'umbrella-outline',
+  'night-out': 'moon-outline',
+};
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const {
@@ -373,7 +380,7 @@ export default function HomeScreen() {
           <Animated.View key={group.lifestyle} entering={FadeInDown.delay(360 + gi * 40).duration(280)}>
             <View style={styles.lifestyleGroupHeader}>
               <Ionicons
-                name={group.lifestyle === 'active' ? 'fitness-outline' : 'cafe-outline'}
+                name={LIFESTYLE_ICON[group.lifestyle]}
                 size={15}
                 color={Colors.sage}
               />
@@ -383,7 +390,7 @@ export default function HomeScreen() {
               <View style={styles.lifestyleCompletePill}>
                 <Ionicons name="checkmark-circle" size={14} color={Colors.sage} />
                 <Text style={styles.lifestyleCompleteText}>
-                  Your {group.lifestyle === 'active' ? 'active' : 'brunch'} wardrobe is set
+                  {group.completionText}
                 </Text>
               </View>
             ) : (
