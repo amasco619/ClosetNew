@@ -80,6 +80,25 @@ function fingerprint(components: OutfitComponent[]): string {
 }
 
 /**
+ * Pure hero-diversity ordering step: outfits whose hero piece appeared in
+ * yesterday's daily batch for this scenario are pushed to the end of the pool
+ * so the user sees a fresh focal piece first.  Exported for direct unit
+ * testing so the guarantee can be verified independently of tieredShuffle or
+ * quota — a pool-size or threshold change cannot silently break the invariant.
+ */
+export function applyHeroDiversityOrder(
+  pool: OutfitSet[],
+  prevDayHeroIds: Partial<Record<OccasionTag, string[]>>,
+  scenario: OccasionTag,
+): OutfitSet[] {
+  const prevHeroes = new Set(prevDayHeroIds[scenario] ?? []);
+  if (prevHeroes.size === 0) return pool;
+  const freshHeroes = pool.filter(o => !o.heroId || !prevHeroes.has(o.heroId));
+  const repeatedHeroes = pool.filter(o => !!o.heroId && prevHeroes.has(o.heroId));
+  return [...freshHeroes, ...repeatedHeroes];
+}
+
+/**
  * Pure freshness-ordering step: moves recently-worn outfits to the end of the
  * pool so fresh alternatives surface first.  Exported for direct unit testing
  * so the guarantee can be verified independently of tieredShuffle or quota.
@@ -602,12 +621,7 @@ export function applyDailyRotation(
     // ── Hero diversity: deprioritise yesterday's heroes ─────────────────────
     // Outfits whose hero featured in yesterday's daily batch for this scenario
     // are pushed to the lower segment so the user sees a fresh focal piece.
-    const prevHeroes = new Set(prevDayHeroIds[scenario] ?? []);
-    if (prevHeroes.size > 0) {
-      const freshHeroes = orderedPool.filter(o => !o.heroId || !prevHeroes.has(o.heroId));
-      const repeatedHeroes = orderedPool.filter(o => !!o.heroId && prevHeroes.has(o.heroId));
-      orderedPool = [...freshHeroes, ...repeatedHeroes];
-    }
+    orderedPool = applyHeroDiversityOrder(orderedPool, prevDayHeroIds, scenario);
 
     // ── Completeness bias: full accessory stack earns +1 confidence ─────────
     // An outfit with shoes + bag + jewelry feels more styled than one that is

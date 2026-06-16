@@ -14,6 +14,7 @@
 import {
   applyDailyRotation,
   applyFreshnessOrder,
+  applyHeroDiversityOrder,
   INITIAL_ROTATION_STATE,
   SCENARIOS,
 } from '../constants/outfitRotation';
@@ -732,6 +733,74 @@ describe('5c. Freshness ordering boundary: worn outfit lands at index len-1 rega
   assert(
     !wornInFront,
     'Worn outfit does not appear anywhere before the last position',
+  );
+});
+
+describe('5d. Hero-diversity ordering boundary: yesterday-hero outfit lands at index len-1 regardless of pool size or quota', () => {
+  // This test calls applyHeroDiversityOrder directly — no tieredShuffle, no
+  // quota — so the ordering guarantee cannot silently pass for the wrong reason
+  // if either of those variables changes in the future.
+  //
+  // Pool layout (old-hero outfit first, so it would surface without ordering):
+  //   [oldHeroOutfit, freshA, freshB, freshC, freshD, freshE, freshF, freshG]
+  // After applyHeroDiversityOrder:
+  //   [freshA, freshB, freshC, freshD, freshE, freshF, freshG, oldHeroOutfit]
+  // Invariant: oldHeroOutfit must be at position len-1 (last).
+
+  const SCENARIO: OccasionTag = 'work';
+  const OLD_HERO_ID = 'boundary-old-hero';
+
+  const oldHeroOutfit = makeOutfit('boundary-old-hero-outfit', SCENARIO, [
+    makeComponent('top', OLD_HERO_ID),
+    makeComponent('bottom', 'boh-bottom'),
+    makeComponent('shoes', 'boh-shoes'),
+  ], { heroId: OLD_HERO_ID });
+
+  const freshItems: OutfitSet[] = Array.from({ length: 7 }, (_, i) =>
+    makeOutfit(`boundary-fresh-hero-${i}`, SCENARIO, [
+      makeComponent('top', `bfh-top-${i}`),
+      makeComponent('bottom', `bfh-bottom-${i}`),
+      makeComponent('shoes', `bfh-shoes-${i}`),
+    ], { heroId: `fresh-hero-${i}` }),
+  );
+
+  // Old-hero outfit placed first so without ordering it would surface first.
+  const pool = [oldHeroOutfit, ...freshItems];
+  const prevDayHeroIds = { [SCENARIO]: [OLD_HERO_ID] };
+
+  const ordered = applyHeroDiversityOrder(pool, prevDayHeroIds, SCENARIO);
+
+  assert(
+    ordered.length === pool.length,
+    'applyHeroDiversityOrder preserves pool length',
+  );
+
+  assert(
+    ordered[ordered.length - 1].heroId === OLD_HERO_ID,
+    'Yesterday-hero outfit is at index len-1 after hero-diversity ordering (independent of tieredShuffle or quota)',
+  );
+
+  const nonOldPositions = ordered.slice(0, ordered.length - 1);
+  const oldHeroInFront = nonOldPositions.some(o => o.heroId === OLD_HERO_ID);
+  assert(
+    !oldHeroInFront,
+    'Yesterday-hero outfit does not appear anywhere before the last position',
+  );
+
+  // When no prevDayHeroIds exist the pool is returned unchanged.
+  const orderedNoPrev = applyHeroDiversityOrder(pool, {}, SCENARIO);
+  assert(
+    orderedNoPrev === pool,
+    'applyHeroDiversityOrder returns the original pool reference when no previous heroes exist',
+  );
+
+  // Only outfits matching the specific scenario's prevDayHeroIds are deprioritised;
+  // a different scenario's heroes must not affect this scenario's ordering.
+  const prevOtherScenario = { casual: [OLD_HERO_ID] };
+  const orderedOtherScen = applyHeroDiversityOrder(pool, prevOtherScenario, SCENARIO);
+  assert(
+    orderedOtherScen[0].heroId === OLD_HERO_ID,
+    'Hero from a different scenario\'s prevDayHeroIds does not affect the current scenario ordering',
   );
 });
 
