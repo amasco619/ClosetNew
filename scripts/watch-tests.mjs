@@ -175,10 +175,12 @@ async function runTests(changedPaths) {
     return;
   }
 
-  const scope = fullSuite
-    ? 'full suite'
-    : `${toRun.length} affected file${toRun.length === 1 ? '' : 's'}`;
-  console.log(`\n[watch] Running ${scope}...\n`);
+  if (fullSuite) {
+    console.log('\n[watch] Running full suite...\n');
+  } else {
+    console.log(`\n[watch] Affected: ${toRun.join(', ')}`);
+    console.log(`[watch] Running ${toRun.length} file${toRun.length === 1 ? '' : 's'}...\n`);
+  }
 
   const results = await runPool(toRun);
 
