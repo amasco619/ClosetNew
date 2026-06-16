@@ -1,27 +1,41 @@
 /**
  * run-tests.mjs
  *
- * Runs all __tests__/*.test.ts files concurrently using a bounded child-
- * process pool (capped at CPU count) to avoid resource contention while
- * still parallelising the work.  Each file is run in its own `tsx` child
- * process so TypeScript is compiled independently and test isolation is
- * guaranteed.
+ * Runs __tests__/*.test.ts files concurrently using a bounded child-process
+ * pool (capped at CPU count) to avoid resource contention while still
+ * parallelising the work.  Each file is run in its own `tsx` child process
+ * so TypeScript is compiled independently and test isolation is guaranteed.
  *
- * Lint is intentionally excluded from this script so `npm test` and the
- * pre-commit hook stay fast.  Run `npm run lint` separately when needed.
+ * Usage:
+ *   node scripts/run-tests.mjs                      # run all test files
+ *   node scripts/run-tests.mjs foo.test.ts bar.test.ts  # run subset (bare filenames)
+ *
+ * Lint is intentionally excluded so `npm test` and the pre-commit hook stay
+ * fast.  Run `npm run lint` separately when needed.
  */
 
 import { readdirSync } from 'fs';
 import { spawn } from 'child_process';
-import { join } from 'path';
+import { join, basename } from 'path';
 import { cpus } from 'os';
 
 // ── Test file discovery ────────────────────────────────────────────────────
 
 const testDir = '__tests__';
-const files = readdirSync(testDir)
-  .filter(f => f.endsWith('.test.ts'))
-  .sort();
+
+// Accept optional bare filenames as CLI args (e.g. "foo.test.ts").
+// When provided, run only those files; otherwise discover everything.
+const argFiles = process.argv.slice(2).filter(a => a.endsWith('.test.ts'));
+
+const allTestFiles = (() => {
+  try { return readdirSync(testDir).filter(f => f.endsWith('.test.ts')); }
+  catch { return []; }
+})();
+
+const files =
+  argFiles.length > 0
+    ? argFiles.map(f => basename(f)).filter(f => allTestFiles.includes(f))
+    : [...allTestFiles].sort();
 
 if (files.length === 0) {
   console.log('No test files found.');
@@ -52,7 +66,7 @@ function runFile(file) {
 // Run at most CONCURRENCY files in parallel so we don't saturate the
 // container; extra files are queued and start as a slot frees up.
 
-const CONCURRENCY = Math.max(1, cpus().length); // 4 on this container
+const CONCURRENCY = Math.max(1, cpus().length);
 
 const results = [];
 const queue = [...files];
@@ -92,6 +106,9 @@ for (const { file, ok, output } of results) {
 
 // ── Summary ────────────────────────────────────────────────────────────────
 
-console.log(`\n=== Summary: ${passed} test suite(s) passed, ${failed} failed ===`);
+const skipped = allTestFiles.length - files.length;
+const skipNote = skipped > 0 ? `, ${skipped} skipped (not affected)` : '';
+
+console.log(`\n=== Summary: ${passed} passed, ${failed} failed${skipNote} ===`);
 
 if (failed > 0) process.exit(1);
