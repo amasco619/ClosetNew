@@ -1021,7 +1021,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const outfitSets = useMemo(() => {
     if (activeWardrobeItems.length === 0) return [];
     const today = todayString();
-    const { outfits } = applyDailyRotation(outfitPool, rotationState, today, recentWornFingerprints, isPremium);
+    const { outfits } = applyDailyRotation(outfitPool, rotationState, today, recentWornFingerprints, isPremium, profile.isGuest);
     return outfits;
   }, [outfitPool, rotationState, activeWardrobeItems.length, recentWornFingerprints, isPremium]);
 
@@ -1041,7 +1041,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         shuffleSeed: Math.floor(Math.random() * 9_000_000) + 1_000_000,
       };
     }
-    const { newState } = applyDailyRotation(outfitPool, baseState, today, recentWornFingerprints, isPremium);
+    const { newState } = applyDailyRotation(outfitPool, baseState, today, recentWornFingerprints, isPremium, profile.isGuest);
     const stateToSave: RotationState = { ...newState, poolHash: newHash };
     setRotationState(stateToSave);
     AsyncStorage.setItem(STORAGE_KEYS.rotation, JSON.stringify(stateToSave));

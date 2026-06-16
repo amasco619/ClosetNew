@@ -590,10 +590,11 @@ export function applyDailyRotation(
   today: string,
   recentWornFingerprints?: Set<string>,
   isPremium?: boolean,
+  isGuest?: boolean,
 ): { outfits: OutfitSet[]; newState: RotationState } {
   const isNewDay = today !== state.lastDate;
-  // Free tier: 2 outfits per scenario per day. Premium: 4.
-  const n = isPremium ? 4 : 2;
+  // Guest: 1 outfit/scenario/day. Free: 2. Premium: 4.
+  const n = isPremium ? 4 : isGuest ? 1 : 2;
 
   // Day-of-week context: 0 = Sunday, 6 = Saturday.
   const dayOfWeek = new Date(today + 'T12:00:00').getDay();
