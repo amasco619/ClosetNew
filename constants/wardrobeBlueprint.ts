@@ -212,13 +212,16 @@ export const WARDROBE_BLUEPRINT: BlueprintItem[] = STYLE_BLUEPRINTS.classic;
  * fillable from the UI under the strict matcher.
  */
 const EXTRA_SUBTYPES: Record<ItemCategory, string[]> = {
-  top: ['t-shirt', 'long-sleeve', 'polo-shirt', 'henley', 'rugby-shirt', 'turtleneck'],
-  bottom: ['chinos', 'joggers', 'shorts', 'leggings'],
-  dress: ['cocktail-dress'],
-  outerwear: ['raincoat', 'puffer', 'vest'],
-  shoes: [],
-  bag: [],
-  jewelry: ['brooch'],
+  top: [
+    't-shirt', 'long-sleeve', 'polo-shirt', 'henley', 'rugby-shirt', 'turtleneck',
+    'button-down', 'knit-top', 'sweatshirt', 'rashguard', 'linen-set',
+  ],
+  bottom: ['chinos', 'joggers', 'shorts', 'leggings', 'pencil-skirt'],
+  dress: ['cocktail-dress', 'kaftan', 'sundress', 'bodycon-dress', 'slip-dress', 'gown'],
+  outerwear: ['raincoat', 'puffer', 'vest', 'windbreaker'],
+  shoes: ['ankle-boots', 'pumps', 'stilettos', 'block-heels', 'espadrilles', 'training-shoes'],
+  bag: ['gym-bag', 'wicker-bag', 'evening-bag', 'beach-bag'],
+  jewelry: ['brooch', 'statement-earrings', 'sunglasses', 'sunhat'],
 };
 
 export const BLUEPRINT_SUBTYPES_BY_CATEGORY: Record<ItemCategory, string[]> = (() => {

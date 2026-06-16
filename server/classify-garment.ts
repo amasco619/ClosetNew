@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import axios from "axios";
 
 type ItemCategory = "top" | "bottom" | "dress" | "outerwear" | "shoes" | "bag" | "jewelry";
-type OccasionTag = "work" | "casual" | "date-casual" | "date-dressy" | "event";
+type OccasionTag = "work" | "casual" | "date-casual" | "date-dressy" | "event" | "interview" | "wedding" | "travel" | "brunch" | "active" | "resort" | "night-out";
 type SeasonTag = "spring" | "summer" | "fall" | "winter" | "all-season";
 
 // ─── Deterministic occasion rules ────────────────────────────────────────────
@@ -16,101 +16,146 @@ const SUBTYPE_OCCASIONS: Record<string, OccasionTag[]> = {
   "polo-shirt":     ["casual", "work"],
   "henley":         ["casual"],
   "rugby-shirt":    ["casual"],
-  "tank-top":       ["casual"],
-  "crop-top":       ["casual", "date-casual"],
+  "tank-top":       ["casual", "active"],
+  "crop-top":       ["casual", "date-casual", "active"],
   "shirt":          ["work", "casual", "date-casual", "date-dressy"],
+  "button-down":    ["work", "casual", "date-casual"],
   "blouse":         ["work", "date-dressy", "event"],
-  "sweater":        ["casual", "date-casual"],
-  "cardigan":       ["work", "casual"],
+  "sweater":        ["casual", "date-casual", "brunch"],
+  "cardigan":       ["work", "casual", "brunch"],
   "turtleneck":     ["work", "casual", "date-dressy"],
+  "knit-top":       ["casual", "work", "date-casual"],
+  "camisole":       ["casual", "date-dressy", "night-out"],
+  "hoodie":         ["casual", "active"],
+  "sweatshirt":     ["casual", "active"],
+  "sports-bra":     ["active"],
+  "sports-hoodie":  ["active"],
+  "windbreaker":    ["casual", "active"],
+  "rashguard":      ["active", "resort"],
+  "sequin-top":     ["night-out", "event"],
+  "linen-set":      ["casual", "brunch", "resort"],
   // Outerwear
-  "blazer":         ["work", "event", "date-dressy"],
+  "blazer":         ["work", "event", "date-dressy", "interview"],
   "coat":           ["work", "casual"],
   "peacoat":        ["work", "casual", "date-dressy"],
-  "trench":         ["work", "casual"],
+  "trench":         ["work", "casual", "travel"],
   "jacket":         ["casual", "date-casual"],
-  "hoodie":         ["casual"],
   "bomber-jacket":  ["casual", "date-casual"],
-  "leather-jacket": ["casual", "date-dressy"],
-  "puffer":         ["casual"],
-  "raincoat":       ["casual"],
+  "leather-jacket": ["casual", "date-dressy", "night-out"],
+  "puffer":         ["casual", "travel"],
+  "raincoat":       ["casual", "travel"],
   "vest":           ["casual", "work"],
-  "denim-jacket":   ["casual", "date-casual"],
+  "denim-jacket":   ["casual", "date-casual", "brunch"],
   // Bottoms
-  "jeans":          ["casual", "date-casual"],
-  "trousers":       ["work", "date-dressy", "event"],
+  "jeans":          ["casual", "date-casual", "brunch"],
+  "trousers":       ["work", "date-dressy", "event", "interview"],
   "chinos":         ["work", "casual", "date-casual"],
-  "wide-leg":       ["casual", "date-casual"],
-  "joggers":        ["casual"],
-  "shorts":         ["casual"],
-  "leggings":       ["casual"],
-  "mini-skirt":     ["casual", "date-casual"],
-  "midi-skirt":     ["work", "date-dressy", "event"],
-  "maxi-skirt":     ["casual", "date-casual"],
+  "wide-leg":       ["casual", "date-casual", "work", "brunch"],
+  "joggers":        ["casual", "active"],
+  "shorts":         ["casual", "active"],
+  "leggings":       ["casual", "active"],
+  "mini-skirt":     ["casual", "date-casual", "night-out"],
+  "midi-skirt":     ["work", "date-dressy", "event", "brunch"],
+  "maxi-skirt":     ["casual", "date-casual", "resort"],
+  "pencil-skirt":   ["work", "date-dressy", "interview"],
   // Dresses
-  "midi-dress":     ["date-dressy", "event"],
-  "maxi-dress":     ["casual", "date-dressy", "event"],
-  "mini-dress":     ["date-dressy", "event"],
-  "wrap-dress":     ["date-dressy", "work"],
-  "shirt-dress":    ["work", "casual", "date-casual"],
-  "cocktail-dress": ["event", "date-dressy"],
+  "midi-dress":     ["date-dressy", "event", "brunch"],
+  "maxi-dress":     ["casual", "date-dressy", "event", "resort"],
+  "mini-dress":     ["date-dressy", "event", "night-out"],
+  "wrap-dress":     ["date-dressy", "work", "brunch"],
+  "shirt-dress":    ["work", "casual", "date-casual", "brunch"],
+  "cocktail-dress": ["event", "date-dressy", "night-out"],
+  "knit-dress":     ["casual", "date-casual", "work"],
+  "bodycon-dress":  ["night-out", "date-dressy"],
+  "slip-dress":     ["date-dressy", "night-out", "event"],
+  "gown":           ["wedding", "event"],
+  "sundress":       ["casual", "brunch", "resort"],
+  "resort-dress":   ["resort", "casual"],
+  "cover-up":       ["resort"],
+  "kaftan":         ["resort", "casual"],
   // Shoes
-  "sneakers":       ["casual"],
-  "heels":          ["date-dressy", "event", "work"],
-  "flats":          ["work", "casual"],
+  "sneakers":       ["casual", "active"],
+  "training-shoes": ["active"],
+  "heels":          ["date-dressy", "event", "work", "night-out"],
+  "pumps":          ["work", "event", "date-dressy", "interview"],
+  "stilettos":      ["night-out", "event", "date-dressy"],
+  "strappy-heels":  ["night-out", "event", "date-dressy"],
+  "block-heels":    ["work", "casual", "date-casual"],
+  "ankle-boots":    ["casual", "date-casual", "date-dressy"],
+  "flats":          ["work", "casual", "brunch"],
   "boots":          ["casual", "date-casual"],
-  "sandals":        ["casual", "date-casual"],
-  "loafers":        ["work", "casual"],
+  "sandals":        ["casual", "date-casual", "brunch", "resort"],
+  "espadrilles":    ["casual", "brunch", "resort"],
+  "loafers":        ["work", "casual", "brunch"],
   "mules":          ["casual", "date-casual", "date-dressy"],
   // Bags
-  "tote":           ["work", "casual"],
-  "crossbody":      ["casual", "date-casual"],
-  "clutch":         ["date-dressy", "event"],
-  "backpack":       ["casual"],
+  "tote":           ["work", "casual", "brunch"],
+  "crossbody":      ["casual", "date-casual", "brunch", "travel"],
+  "clutch":         ["date-dressy", "event", "night-out"],
+  "backpack":       ["casual", "active", "travel"],
   "shoulder-bag":   ["work", "casual", "date-dressy"],
-  "mini-bag":       ["date-dressy", "event"],
+  "mini-bag":       ["date-dressy", "event", "night-out"],
+  "gym-bag":        ["active"],
+  "wicker-bag":     ["casual", "brunch", "resort"],
+  "evening-bag":    ["night-out", "event"],
+  "beach-bag":      ["resort"],
   // Jewelry
-  "necklace":       ["date-dressy", "event", "casual"],
+  "necklace":       ["date-dressy", "event", "casual", "brunch"],
   "earrings":       ["date-dressy", "event", "work"],
   "bracelet":       ["casual", "date-casual"],
   "ring":           ["casual", "work"],
   "watch":          ["work", "casual"],
   "brooch":         ["work", "event"],
+  "statement-earrings": ["night-out", "event", "date-dressy"],
+  "sunglasses":     ["casual", "brunch", "resort"],
+  "sunhat":         ["resort", "casual"],
 };
 
 const DISPLAYNAME_OCCASION_OVERRIDES: Record<string, OccasionTag[]> = {
-  "Dress shirt":       ["work", "date-dressy", "event"],
-  "Oxford shirt":      ["work", "date-dressy"],
-  "Flannel shirt":     ["casual"],
-  "Chambray shirt":    ["casual"],
-  "Button-down shirt": ["work", "casual", "date-casual"],
-  "Polo shirt":        ["casual", "work"],
+  "Dress shirt":         ["work", "date-dressy", "event", "interview"],
+  "Oxford shirt":        ["work", "date-dressy", "interview"],
+  "Flannel shirt":       ["casual"],
+  "Chambray shirt":      ["casual"],
+  "Button-down shirt":   ["work", "casual", "date-casual"],
+  "Polo shirt":          ["casual", "work"],
   "Long-sleeve t-shirt": ["casual", "date-casual"],
-  "Hoodie":            ["casual"],
-  "Sweatshirt":        ["casual"],
-  "Pullover":          ["casual"],
-  "Jumper":            ["casual", "date-casual"],
-  "Bomber jacket":     ["casual", "date-casual"],
-  "Leather jacket":    ["casual", "date-dressy"],
-  "Denim jacket":      ["casual"],
-  "Windbreaker":       ["casual"],
-  "Parka":             ["casual"],
-  "Suit jacket":       ["work", "event"],
-  "Sport coat":        ["work", "date-dressy"],
-  "Peacoat":           ["work", "casual", "date-dressy"],
-  "Overcoat":          ["work", "casual"],
-  "Trench coat":       ["work", "casual", "date-dressy"],
-  "Pencil skirt":      ["work", "date-dressy"],
-  "Mini skirt":        ["casual", "date-casual"],
-  "Midi skirt":        ["work", "date-dressy", "event"],
-  "Maxi skirt":        ["casual", "date-casual"],
-  "A-line skirt":      ["casual", "date-casual"],
-  "Sundress":          ["casual", "date-casual"],
-  "Evening gown":      ["event"],
-  "Cocktail dress":    ["event", "date-dressy"],
-  "Shift dress":       ["work", "date-dressy"],
-  "Wrap dress":        ["date-dressy", "work"],
-  "Maxi dress":        ["casual", "date-dressy", "event"],
+  "Hoodie":              ["casual", "active"],
+  "Sweatshirt":          ["casual", "active"],
+  "Pullover":            ["casual"],
+  "Jumper":              ["casual", "date-casual"],
+  "Bomber jacket":       ["casual", "date-casual"],
+  "Leather jacket":      ["casual", "date-dressy", "night-out"],
+  "Denim jacket":        ["casual", "brunch"],
+  "Windbreaker":         ["casual", "active"],
+  "Parka":               ["casual", "travel"],
+  "Suit jacket":         ["work", "event", "interview"],
+  "Sport coat":          ["work", "date-dressy"],
+  "Peacoat":             ["work", "casual", "date-dressy"],
+  "Overcoat":            ["work", "casual"],
+  "Trench coat":         ["work", "casual", "travel"],
+  "Pencil skirt":        ["work", "date-dressy", "interview"],
+  "Mini skirt":          ["casual", "date-casual", "night-out"],
+  "Midi skirt":          ["work", "date-dressy", "event", "brunch"],
+  "Maxi skirt":          ["casual", "date-casual", "resort"],
+  "A-line skirt":        ["casual", "date-casual", "brunch"],
+  "Sundress":            ["casual", "brunch", "resort"],
+  "Evening gown":        ["event", "wedding"],
+  "Cocktail dress":      ["event", "date-dressy", "night-out"],
+  "Shift dress":         ["work", "date-dressy"],
+  "Wrap dress":          ["date-dressy", "work", "brunch"],
+  "Maxi dress":          ["casual", "date-dressy", "event", "resort"],
+  "Bodycon dress":       ["night-out", "date-dressy"],
+  "Slip dress":          ["date-dressy", "night-out", "event"],
+  "Sequin top":          ["night-out", "event"],
+  "Sports bra":          ["active"],
+  "Gym bag":             ["active"],
+  "Swimsuit":            ["resort"],
+  "Cover-up":            ["resort"],
+  "Kaftan":              ["resort", "casual"],
+  "Resort dress":        ["resort", "casual"],
+  "Espadrilles":         ["casual", "brunch", "resort"],
+  "Training shoes":      ["active"],
+  "Running shoes":       ["active"],
 };
 
 function inferOccasions(subType: string | null, displayName: string): OccasionTag[] {
@@ -141,20 +186,33 @@ const FABRIC_SEASONS: Partial<Record<string, SeasonTag[]>> = {
 };
 
 const SUBTYPE_SEASONS: Partial<Record<string, SeasonTag[]>> = {
-  "tank-top":   ["spring", "summer"],
-  "crop-top":   ["spring", "summer"],
-  "shorts":     ["spring", "summer"],
-  "sandals":    ["spring", "summer"],
-  "mini-dress": ["spring", "summer"],
-  "mini-skirt": ["spring", "summer"],
-  "sweater":    ["fall", "winter"],
-  "turtleneck": ["fall", "winter"],
-  "cardigan":   ["fall", "winter"],
-  "hoodie":     ["fall", "winter"],
-  "puffer":     ["fall", "winter"],
-  "peacoat":    ["fall", "winter"],
-  "coat":       ["fall", "winter"],
-  "boots":      ["fall", "winter"],
+  "tank-top":      ["spring", "summer"],
+  "crop-top":      ["spring", "summer"],
+  "camisole":      ["spring", "summer"],
+  "rashguard":     ["spring", "summer"],
+  "sports-bra":    ["spring", "summer"],
+  "shorts":        ["spring", "summer"],
+  "sandals":       ["spring", "summer"],
+  "espadrilles":   ["spring", "summer"],
+  "mini-dress":    ["spring", "summer"],
+  "mini-skirt":    ["spring", "summer"],
+  "sundress":      ["spring", "summer"],
+  "resort-dress":  ["spring", "summer"],
+  "cover-up":      ["spring", "summer"],
+  "kaftan":        ["spring", "summer"],
+  "swimsuit":      ["spring", "summer"],
+  "sweater":       ["fall", "winter"],
+  "turtleneck":    ["fall", "winter"],
+  "cardigan":      ["fall", "winter"],
+  "knit-top":      ["fall", "winter"],
+  "knit-dress":    ["fall", "winter"],
+  "hoodie":        ["fall", "winter"],
+  "sweatshirt":    ["fall", "winter"],
+  "puffer":        ["fall", "winter"],
+  "peacoat":       ["fall", "winter"],
+  "coat":          ["fall", "winter"],
+  "boots":         ["fall", "winter"],
+  "ankle-boots":   ["fall", "winter"],
 };
 
 function inferSeasonTags(subType: string | null, fabric: string | null): SeasonTag[] {
@@ -233,13 +291,38 @@ function rgbToLab(r: number, g: number, b: number): { L: number; a: number; b: n
 const VALID_CATEGORIES = new Set<string>(["top", "bottom", "dress", "outerwear", "shoes", "bag", "jewelry"]);
 
 const VALID_SUBTYPES_BY_CATEGORY: Record<string, string[]> = {
-  top:       ["t-shirt","long-sleeve","polo-shirt","henley","rugby-shirt","tank-top","crop-top","shirt","blouse","sweater","cardigan","turtleneck"],
-  bottom:    ["jeans","trousers","chinos","wide-leg","joggers","shorts","leggings","mini-skirt","midi-skirt","maxi-skirt"],
-  dress:     ["midi-dress","maxi-dress","mini-dress","wrap-dress","shirt-dress","cocktail-dress"],
-  outerwear: ["blazer","coat","peacoat","trench","jacket","hoodie","bomber-jacket","leather-jacket","puffer","raincoat","vest","denim-jacket"],
-  shoes:     ["sneakers","heels","flats","boots","sandals","loafers","mules"],
-  bag:       ["tote","crossbody","clutch","backpack","shoulder-bag","mini-bag"],
-  jewelry:   ["necklace","earrings","bracelet","ring","watch","brooch"],
+  top: [
+    "t-shirt","long-sleeve","polo-shirt","henley","rugby-shirt",
+    "tank-top","crop-top","shirt","button-down","blouse",
+    "sweater","cardigan","turtleneck","knit-top","camisole",
+    "hoodie","sweatshirt","sports-bra","sports-hoodie",
+    "rashguard","sequin-top","linen-set",
+  ],
+  bottom: [
+    "jeans","trousers","chinos","wide-leg","joggers",
+    "shorts","leggings","mini-skirt","midi-skirt","maxi-skirt","pencil-skirt",
+  ],
+  dress: [
+    "midi-dress","maxi-dress","mini-dress","wrap-dress","shirt-dress","cocktail-dress",
+    "knit-dress","bodycon-dress","slip-dress","gown","sundress",
+    "resort-dress","cover-up","kaftan",
+  ],
+  outerwear: [
+    "blazer","coat","peacoat","trench","jacket","hoodie",
+    "bomber-jacket","leather-jacket","puffer","raincoat","vest","denim-jacket","windbreaker",
+  ],
+  shoes: [
+    "sneakers","training-shoes","heels","pumps","stilettos","strappy-heels","block-heels",
+    "flats","boots","ankle-boots","sandals","espadrilles","loafers","mules",
+  ],
+  bag: [
+    "tote","crossbody","clutch","backpack","shoulder-bag","mini-bag",
+    "gym-bag","wicker-bag","evening-bag","beach-bag",
+  ],
+  jewelry: [
+    "necklace","earrings","bracelet","ring","watch","brooch",
+    "statement-earrings","sunglasses","sunhat",
+  ],
 };
 
 const VALID_COLOR_FAMILIES = new Set<string>([
@@ -283,13 +366,13 @@ Return a JSON object with these fields:
 category (required): Exactly one of: "top" | "bottom" | "dress" | "outerwear" | "shoes" | "bag" | "jewelry"
 
 subType (required): Exactly one value from the list for the chosen category:
-  top       → "t-shirt" | "long-sleeve" | "polo-shirt" | "henley" | "rugby-shirt" | "tank-top" | "crop-top" | "shirt" | "blouse" | "sweater" | "cardigan" | "turtleneck"
-  bottom    → "jeans" | "trousers" | "chinos" | "wide-leg" | "joggers" | "shorts" | "leggings" | "mini-skirt" | "midi-skirt" | "maxi-skirt"
-  dress     → "midi-dress" | "maxi-dress" | "mini-dress" | "wrap-dress" | "shirt-dress" | "cocktail-dress"
+  top       → "t-shirt" | "long-sleeve" | "polo-shirt" | "henley" | "rugby-shirt" | "tank-top" | "crop-top" | "shirt" | "button-down" | "blouse" | "sweater" | "cardigan" | "turtleneck" | "knit-top" | "camisole" | "hoodie" | "sweatshirt" | "sports-bra" | "sports-hoodie" | "windbreaker" | "rashguard" | "sequin-top" | "linen-set"
+  bottom    → "jeans" | "trousers" | "chinos" | "wide-leg" | "joggers" | "shorts" | "leggings" | "mini-skirt" | "midi-skirt" | "maxi-skirt" | "pencil-skirt"
+  dress     → "midi-dress" | "maxi-dress" | "mini-dress" | "wrap-dress" | "shirt-dress" | "cocktail-dress" | "knit-dress" | "bodycon-dress" | "slip-dress" | "gown" | "sundress" | "resort-dress" | "cover-up" | "kaftan"
   outerwear → "blazer" | "coat" | "peacoat" | "trench" | "jacket" | "hoodie" | "bomber-jacket" | "leather-jacket" | "puffer" | "raincoat" | "vest" | "denim-jacket"
-  shoes     → "sneakers" | "heels" | "flats" | "boots" | "sandals" | "loafers" | "mules"
-  bag       → "tote" | "crossbody" | "clutch" | "backpack" | "shoulder-bag" | "mini-bag"
-  jewelry   → "necklace" | "earrings" | "bracelet" | "ring" | "watch" | "brooch"
+  shoes     → "sneakers" | "training-shoes" | "heels" | "pumps" | "stilettos" | "strappy-heels" | "block-heels" | "flats" | "boots" | "ankle-boots" | "sandals" | "espadrilles" | "loafers" | "mules"
+  bag       → "tote" | "crossbody" | "clutch" | "backpack" | "shoulder-bag" | "mini-bag" | "gym-bag" | "wicker-bag" | "evening-bag" | "beach-bag"
+  jewelry   → "necklace" | "earrings" | "bracelet" | "ring" | "watch" | "brooch" | "statement-earrings" | "sunglasses" | "sunhat"
 
 displayName (required): A concise human-readable name for the specific item, e.g. "Trench coat", "Floral midi dress", "Leather ankle boots". Use title case.
 
@@ -310,11 +393,10 @@ patternScale (optional): Only include when pattern is NOT solid. One of: "small"
 fit (optional): Overall silhouette/cut of the garment. One of: "slim" | "regular" | "loose" | "oversized" | "tailored"
   Include for tops, bottoms, dresses, outerwear. Omit for shoes, bags, jewelry.
 
-neckline (optional): For tops and dresses only. One of: "crew" | "v-neck" | "scoop" | "turtleneck" | "boat" | "square" | "halter" | "off-shoulder" | "collared"
-  Omit for all other categories.
+neckline (required for top and dress, omit for all others): One of: "crew" | "v-neck" | "scoop" | "turtleneck" | "boat" | "square" | "halter" | "off-shoulder" | "collared"
 
-sleeveLength (optional): For tops and dresses only. One of: "sleeveless" | "short" | "three-quarter" | "long"
-  Omit for all other categories.
+sleeveLength (required for top and dress, omit for all others): One of: "sleeveless" | "short" | "three-quarter" | "long"
+  This field is critical — it powers the user's no-sleeveless preference. Always include it for tops and dresses.
 
 rise (optional): For bottoms only (jeans, trousers, skirts, etc.). One of: "low" | "mid" | "high"
   Omit for all other categories.

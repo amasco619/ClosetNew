@@ -52,11 +52,16 @@ const CATEGORIES: { id: ItemCategory; label: string; icon: string }[] = [
   { id: 'jewelry',  label: 'Jewelry',  icon: 'diamond-outline' },
 ];
 
-const OCCASIONS: OccasionTag[] = ['work','casual','date-casual','date-dressy','event'];
+const OCCASIONS: OccasionTag[] = [
+  'casual', 'work', 'brunch', 'active',
+  'date-casual', 'date-dressy', 'event',
+  'interview', 'travel', 'wedding', 'resort', 'night-out',
+];
 const OCCASION_LABELS: Record<OccasionTag, string> = {
   work: 'Work', casual: 'Casual', 'date-casual': 'Date · Day',
   'date-dressy': 'Date Night', event: 'Event',
   interview: 'Interview', wedding: 'Wedding', travel: 'Travel',
+  brunch: 'Brunch', active: 'Active', resort: 'Resort', 'night-out': 'Night Out',
 };
 const SEASONS: SeasonTag[] = ['all-season','spring','summer','fall','winter'];
 
@@ -199,9 +204,10 @@ export default function AddItemScreen() {
   const needsPattern = isCore;
   const needsFabric  = isCore;
   const needsWeight  = isCore;
-  const needsNeckline  = category === 'top'    || category === 'dress';
-  const needsRise      = category === 'bottom';
-  const needsWarmth    = category === 'outerwear';
+  const needsNeckline    = category === 'top'    || category === 'dress';
+  const needsSleeveLength = category === 'top'   || category === 'dress';
+  const needsRise        = category === 'bottom';
+  const needsWarmth      = category === 'outerwear';
 
   // ─── Smart defaults when sub-type is selected ─────────────────────────────
 
@@ -463,6 +469,11 @@ export default function AddItemScreen() {
       Alert.alert('Neckline required', 'Neckline is used to coordinate jewelry and flatter your face shape. Please pick one.');
       return;
     }
+    if (needsSleeveLength && !sleeveLength) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('Sleeve length required', 'Sleeve length lets the engine honour your no-sleeveless setting and balance proportions. Please pick one.');
+      return;
+    }
     if (needsRise && !rise) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       Alert.alert('Rise required', 'Rise (low / mid / high) affects proportion balance. Please pick one.');
@@ -530,13 +541,14 @@ export default function AddItemScreen() {
 
   const canSave =
     !!photoUri && !classifying && !saving && !!subType && !!colorFamily &&
-    (!needsFit      || !!fit) &&
-    (!needsPattern  || !!pattern) &&
-    (!needsFabric   || !!fabric) &&
-    (!needsWeight   || !!weight) &&
-    (!needsNeckline || !!neckline) &&
-    (!needsRise     || !!rise) &&
-    (!needsWarmth   || !!warmthBand);
+    (!needsFit          || !!fit) &&
+    (!needsPattern      || !!pattern) &&
+    (!needsFabric       || !!fabric) &&
+    (!needsWeight       || !!weight) &&
+    (!needsNeckline     || !!neckline) &&
+    (!needsSleeveLength || !!sleeveLength) &&
+    (!needsRise         || !!rise) &&
+    (!needsWarmth       || !!warmthBand);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -861,18 +873,31 @@ export default function AddItemScreen() {
               </>
             )}
 
-            {/* ── Sleeve (optional — top / dress / outerwear) ──────────────── */}
+            {/* ── Sleeve (required for top/dress; optional for outerwear) ──── */}
             {(category === 'top' || category === 'dress' || category === 'outerwear') && (
               <>
                 <Text style={styles.sectionTitle}>
-                  Sleeve <Text style={styles.optionalLabel}>(optional)</Text>
+                  Sleeve{' '}
+                  {needsSleeveLength
+                    ? <Text style={styles.requiredAsterisk}>*</Text>
+                    : <Text style={styles.optionalLabel}>(optional)</Text>
+                  }
                 </Text>
+                {needsSleeveLength && !sleeveLength && (
+                  <Text style={styles.requiredHint}>Needed to honour your no-sleeveless setting and balance proportions.</Text>
+                )}
                 <View style={styles.chipRow}>
                   {SLEEVES.map(s => (
                     <Pressable
                       key={s}
                       style={[styles.chipSmall, sleeveLength === s && styles.chipSmallActive]}
-                      onPress={() => setSleeveLength(sleeveLength === s ? undefined : s)}
+                      onPress={() => {
+                        if (needsSleeveLength) {
+                          setSleeveLength(s);
+                        } else {
+                          setSleeveLength(sleeveLength === s ? undefined : s);
+                        }
+                      }}
                     >
                       <Text style={[styles.chipSmallText, sleeveLength === s && styles.chipSmallTextActive]}>
                         {s.replace(/-/g, ' ')}
