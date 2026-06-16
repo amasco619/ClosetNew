@@ -24,7 +24,7 @@
  * Exits non-zero on any failed assertion.
  */
 
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { STYLE_BLUEPRINT_SLOTS, STYLE_GOALS } from '../constants/blueprintSlots';
 
@@ -191,6 +191,37 @@ for (const k of knownKeys) {
   assert(
     sampleImageKeys.has(k),
     `Parsed set contains known key "${k}" (parser is working correctly)`,
+  );
+}
+
+// ── 5. PNG ASSET FILES EXIST ON DISK ─────────────────────────────────────────
+
+console.log('\n5. Every imageKey has a matching PNG file in assets/recommendations/');
+
+const assetsDir = join(__dirname, '..', 'assets', 'recommendations');
+const missingFiles: string[] = [];
+
+for (const key of usedImageKeys) {
+  const filePath = join(assetsDir, `${key}.png`);
+  const exists = existsSync(filePath);
+
+  if (!exists) {
+    missingFiles.push(key);
+  }
+}
+
+assert(
+  missingFiles.length === 0,
+  `All ${usedImageKeys.size} imageKeys have a corresponding PNG file on disk` +
+  (missingFiles.length > 0
+    ? `\n    missing files: ${missingFiles.map(k => `${k}.png`).join(', ')}`
+    : ''),
+);
+
+if (missingFiles.length > 0) {
+  console.error(
+    `\n  PNG files missing from assets/recommendations/ (will crash at runtime):\n` +
+    missingFiles.map(k => `    assets/recommendations/${k}.png`).join('\n'),
   );
 }
 
