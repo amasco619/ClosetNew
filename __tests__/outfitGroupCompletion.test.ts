@@ -36,6 +36,11 @@
  *   5. Recipe slot ID cross-check against blueprint algorithm output
  *      a. Every slotId in every recipe resolves to a real slot produced by
  *         buildProfileBlueprintSlots for that style goal (no dangling IDs)
+ *      b. Constrained-profile cross-check: for each constraint combination
+ *         (noSleeveless, flat heels, noShortSkirts) identifies recipes with
+ *         dangling slot IDs and asserts the set matches the known-gaps snapshot.
+ *         Also verifies the runtime correctly skips those recipes via
+ *         generateRecommendedOutfitGroups (the existing fallback from section 1e).
  *
  * Run: `npx tsx __tests__/outfitGroupCompletion.test.ts`
  * Exits non-zero on any failed assertion.
@@ -450,6 +455,188 @@ console.log('\n5a. Every recipe slotId resolves to a real slot in the blueprint'
         );
       }
     }
+  }
+}
+
+// =============================================================================
+// 5b. Constrained-profile recipe cross-check
+// =============================================================================
+
+/**
+ * Helper: given a style goal and a set of constraints, returns the set of
+ * recipe IDs that would have at least one dangling slotId (i.e. a slot that
+ * the constraint filter removed from the blueprint output).
+ */
+function findDanglingRecipes(
+  goal: keyof typeof OUTFIT_RECIPES,
+  constraints: NonNullable<Parameters<typeof buildProfileBlueprintSlots>[0]['constraints']>,
+): Set<string> {
+  const slots = buildProfileBlueprintSlots({ styleGoalPrimary: goal, constraints });
+  const blueprintSlotIds = new Set(slots.map(s => s.id));
+  const dangling = new Set<string>();
+  for (const recipe of OUTFIT_RECIPES[goal]) {
+    if (recipe.slotIds.some(id => !blueprintSlotIds.has(id))) {
+      dangling.add(recipe.id);
+    }
+  }
+  return dangling;
+}
+
+/**
+ * Convert SlotMeta[] from buildProfileBlueprintSlots into CoreWardrobeSlot[]
+ * so we can pass them to generateRecommendedOutfitGroups. All slots start as
+ * 'needed' (worst-case ownership) so the runtime skip behaviour is observable
+ * independently of completion state.
+ */
+function toRuntimeSlots(
+  slots: ReturnType<typeof buildProfileBlueprintSlots>,
+): CoreWardrobeSlot[] {
+  return slots.map(s => ({
+    id: s.id,
+    category: s.category,
+    subType: s.subType,
+    colorFamily: s.colorFamily,
+    priority: s.priority,
+    label: s.label,
+    description: s.description,
+    sampleImage: null,
+    status: 'needed' as const,
+  }));
+}
+
+// ── Known-gap snapshots ────────────────────────────────────────────────────
+//
+// These sets represent the recipes that are currently known to be skipped when
+// a user has the specified constraint active. They are intentional design gaps:
+// the runtime already handles them correctly (generateRecommendedOutfitGroups
+// silently skips recipes whose slot IDs are not all present — see section 1e).
+//
+// HOW TO READ: if a future blueprint or recipe change produces a test failure
+// here it means a NEW gap has appeared. The developer must either:
+//   (a) Fix the recipe so it references only non-constrained slots, OR
+//   (b) Add the new recipe ID to the relevant snapshot below with a comment.
+//
+// noSleeveless filters: category=top && subType=tank-top
+// flatHeels    filters: category=shoes && subType=heels
+// noShortSkirts filters: subType=mini-skirt || subType=mini-dress
+
+const KNOWN_GAPS_NO_SLEEVELESS: Record<string, string[]> = {
+  minimal:  ['min-look-2'], // min-top-1 (white ribbed tank) is filtered
+  youthful: ['yth-look-2'], // yth-top-1 (white ribbed tank) is filtered
+};
+
+const KNOWN_GAPS_FLAT_HEELS: Record<string, string[]> = {
+  elevated: ['elv-look-1', 'elv-look-3', 'elv-look-4'], // elv-sho-1/-2 are heels
+  bold:     ['bld-look-1', 'bld-look-3', 'bld-look-4'], // bld-sho-1/-2 are heels
+  romantic: ['rom-look-2'],                              // rom-sho-1 is heels
+  classic:  ['cls-look-3'],                              // cls-sho-2 is heels
+};
+
+const KNOWN_GAPS_NO_SHORT_SKIRTS: Record<string, string[]> = {
+  bold:     ['bld-look-2'],                              // bld-bot-3 is mini-skirt
+  youthful: ['yth-look-2', 'yth-look-4', 'yth-look-5'], // yth-bot-3/-4 mini-skirt; yth-drs-4 mini-dress
+  romantic: ['rom-look-4'],                              // rom-bot-3 is mini-skirt
+};
+
+const goals = Object.keys(OUTFIT_RECIPES) as Array<keyof typeof OUTFIT_RECIPES>;
+
+console.log('\n5b-i. noSleeveless constraint: dangling recipe set matches known-gaps snapshot');
+{
+  for (const goal of goals) {
+    const dangling = findDanglingRecipes(goal, { noSleeveless: true });
+    const expected = new Set(KNOWN_GAPS_NO_SLEEVELESS[goal] ?? []);
+    assert(
+      dangling.size === expected.size && [...dangling].every(id => expected.has(id)),
+      `"${goal}" noSleeveless dangling recipes match snapshot (${
+        expected.size > 0 ? [...expected].join(', ') : 'none'
+      })`,
+    );
+  }
+}
+
+console.log('\n5b-ii. flatHeels constraint: dangling recipe set matches known-gaps snapshot');
+{
+  for (const goal of goals) {
+    const dangling = findDanglingRecipes(goal, { maxHeelHeight: 'flat' });
+    const expected = new Set(KNOWN_GAPS_FLAT_HEELS[goal] ?? []);
+    assert(
+      dangling.size === expected.size && [...dangling].every(id => expected.has(id)),
+      `"${goal}" flatHeels dangling recipes match snapshot (${
+        expected.size > 0 ? [...expected].join(', ') : 'none'
+      })`,
+    );
+  }
+}
+
+console.log('\n5b-iii. noShortSkirts constraint: dangling recipe set matches known-gaps snapshot');
+{
+  for (const goal of goals) {
+    const dangling = findDanglingRecipes(goal, { noShortSkirts: true });
+    const expected = new Set(KNOWN_GAPS_NO_SHORT_SKIRTS[goal] ?? []);
+    assert(
+      dangling.size === expected.size && [...dangling].every(id => expected.has(id)),
+      `"${goal}" noShortSkirts dangling recipes match snapshot (${
+        expected.size > 0 ? [...expected].join(', ') : 'none'
+      })`,
+    );
+  }
+}
+
+console.log('\n5b-iv. Runtime skips dangling recipes for constrained profiles');
+{
+  // Spot-check a representative case for each constraint: verify that
+  // generateRecommendedOutfitGroups produces a group list that excludes every
+  // recipe ID in the known-gaps set for that constraint.
+
+  const constraintCases: Array<{
+    label: string;
+    goal: keyof typeof OUTFIT_RECIPES;
+    constraints: NonNullable<Parameters<typeof buildProfileBlueprintSlots>[0]['constraints']>;
+    knownGaps: Record<string, string[]>;
+  }> = [
+    {
+      label: 'noSleeveless / minimal',
+      goal: 'minimal',
+      constraints: { noSleeveless: true },
+      knownGaps: KNOWN_GAPS_NO_SLEEVELESS,
+    },
+    {
+      label: 'flatHeels / elevated',
+      goal: 'elevated',
+      constraints: { maxHeelHeight: 'flat' },
+      knownGaps: KNOWN_GAPS_FLAT_HEELS,
+    },
+    {
+      label: 'noShortSkirts / youthful',
+      goal: 'youthful',
+      constraints: { noShortSkirts: true },
+      knownGaps: KNOWN_GAPS_NO_SHORT_SKIRTS,
+    },
+  ];
+
+  for (const { label, goal, constraints, knownGaps } of constraintCases) {
+    const blueprintSlots = buildProfileBlueprintSlots({ styleGoalPrimary: goal, constraints });
+    const runtimeSlots = toRuntimeSlots(blueprintSlots);
+    const groups = generateRecommendedOutfitGroups(runtimeSlots);
+    const groupIds = new Set(groups.map(g => g.id));
+
+    const gapIds = knownGaps[goal] ?? [];
+    for (const recipeId of gapIds) {
+      assert(
+        !groupIds.has(recipeId),
+        `[${label}] recipe "${recipeId}" is skipped at runtime (dangling slot removed by constraint)`,
+      );
+    }
+
+    // At least some non-gap recipes should still be surfaced (the constraint
+    // only removes a subset of recipes, not all of them).
+    const allGoalRecipeIds = OUTFIT_RECIPES[goal].map(r => r.id);
+    const nonGapRecipeIds = allGoalRecipeIds.filter(id => !gapIds.includes(id));
+    const survivingNonGap = nonGapRecipeIds.filter(id => groupIds.has(id));
+    assert(
+      survivingNonGap.length > 0,
+      `[${label}] at least one non-gap recipe is still surfaced after constraint filtering`,
+    );
   }
 }
 
