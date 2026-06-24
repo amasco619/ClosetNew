@@ -13,6 +13,7 @@
 
 import {
   applyDailyRotation,
+  applyCompletenessBias,
   applyFreshnessOrder,
   applyHeroDiversityOrder,
   INITIAL_ROTATION_STATE,
@@ -833,6 +834,101 @@ describe('6. Weekend cursor nudge: work scenario advances by 1 extra on weekends
       `${scenario} cursor is unaffected by the weekend nudge`,
     );
   }
+});
+
+// ── Direct applyCompletenessBias tests ────────────────────────────────────────
+
+describe('applyCompletenessBias: complete outfit rises to index 0', () => {
+  const BASE_SCORE = 5;
+
+  // Incomplete outfit placed first in pool — no shoes.
+  const incompleteFirst: OutfitSet = makeOutfit(
+    'acb-incomplete',
+    'casual',
+    [
+      makeComponent('top', 'acb-top-a'),
+      makeComponent('bottom', 'acb-btm-a'),
+      makeComponent('bag', 'acb-bag-a'),
+      makeComponent('jewelry', 'acb-jwl-a'),
+    ],
+    { confidenceScore: BASE_SCORE },
+  );
+
+  // Complete outfit placed second in pool — shoes + bag + jewelry all present.
+  const completeSecond: OutfitSet = makeOutfit(
+    'acb-complete',
+    'casual',
+    [
+      makeComponent('top', 'acb-top-b'),
+      makeComponent('bottom', 'acb-btm-b'),
+      makeComponent('shoes', 'acb-sh-b'),
+      makeComponent('bag', 'acb-bag-b'),
+      makeComponent('jewelry', 'acb-jwl-b'),
+    ],
+    { confidenceScore: BASE_SCORE },
+  );
+
+  const pool: OutfitSet[] = [incompleteFirst, completeSecond];
+  const result = applyCompletenessBias(pool);
+
+  assert(result.length === pool.length, 'applyCompletenessBias preserves pool length');
+
+  assert(
+    result[0].id === 'acb-complete',
+    'Complete outfit (shoes+bag+jewelry) rises to index 0 after applyCompletenessBias',
+  );
+
+  assert(
+    (result[0].confidenceScore ?? 0) === BASE_SCORE + 1,
+    `Complete outfit confidenceScore is bumped to ${BASE_SCORE + 1}`,
+  );
+
+  assert(
+    (result[1].confidenceScore ?? 0) === BASE_SCORE,
+    `Incomplete outfit confidenceScore remains ${BASE_SCORE} (no bias applied)`,
+  );
+
+  // An outfit missing only bag is also incomplete.
+  const noBag: OutfitSet = makeOutfit(
+    'acb-no-bag',
+    'casual',
+    [
+      makeComponent('top', 'acb-top-c'),
+      makeComponent('bottom', 'acb-btm-c'),
+      makeComponent('shoes', 'acb-sh-c'),
+      makeComponent('jewelry', 'acb-jwl-c'),
+    ],
+    { confidenceScore: BASE_SCORE },
+  );
+
+  const resultNoBag = applyCompletenessBias([completeSecond, noBag]);
+  assert(
+    resultNoBag[0].id === 'acb-complete',
+    'Outfit missing bag does not receive bias; complete outfit stays at index 0',
+  );
+
+  // An outfit missing only jewelry is also incomplete.
+  const noJewelry: OutfitSet = makeOutfit(
+    'acb-no-jwl',
+    'casual',
+    [
+      makeComponent('top', 'acb-top-d'),
+      makeComponent('bottom', 'acb-btm-d'),
+      makeComponent('shoes', 'acb-sh-d'),
+      makeComponent('bag', 'acb-bag-d'),
+    ],
+    { confidenceScore: BASE_SCORE },
+  );
+
+  const resultNoJwl = applyCompletenessBias([noJewelry, completeSecond]);
+  assert(
+    resultNoJwl[0].id === 'acb-complete',
+    'Outfit missing jewelry does not receive bias; complete outfit rises to index 0',
+  );
+
+  // Empty pool is returned unchanged.
+  const resultEmpty = applyCompletenessBias([]);
+  assert(resultEmpty.length === 0, 'applyCompletenessBias handles empty pool');
 });
 
 // ── Summary ───────────────────────────────────────────────────────────────────

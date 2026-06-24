@@ -113,6 +113,22 @@ export function applyFreshnessOrder(
   return [...fresh, ...stale];
 }
 
+/**
+ * Pure completeness-bias step: awards +1 confidenceScore to outfits that carry
+ * a full accessory stack (shoes + bag + jewelry) and re-sorts by score descending
+ * so the most-styled outfits rise to the top of the pool.  Exported for direct
+ * unit testing independently of tieredShuffle or quota behaviour.
+ */
+export function applyCompletenessBias(pool: OutfitSet[]): OutfitSet[] {
+  const biased = pool.map(o => {
+    const cats = new Set(o.components.map(c => c.category));
+    const complete = cats.has('shoes') && cats.has('bag') && cats.has('jewelry');
+    return complete ? { ...o, confidenceScore: (o.confidenceScore ?? 0) + 1 } : o;
+  });
+  biased.sort((a, b) => (b.confidenceScore ?? 0) - (a.confidenceScore ?? 0));
+  return biased;
+}
+
 export interface RotationState {
   poolHash: string;
   shuffleSeed: number;
@@ -628,12 +644,7 @@ export function applyDailyRotation(
     // An outfit with shoes + bag + jewelry feels more styled than one that is
     // missing any of those layers. We nudge it up before the tiered shuffle so
     // it reliably lands in the top tier and surfaces first.
-    const biased = orderedPool.map(o => {
-      const cats = new Set(o.components.map(c => c.category));
-      const complete = cats.has('shoes') && cats.has('bag') && cats.has('jewelry');
-      return complete ? { ...o, confidenceScore: (o.confidenceScore ?? 0) + 1 } : o;
-    });
-    biased.sort((a, b) => (b.confidenceScore ?? 0) - (a.confidenceScore ?? 0));
+    const biased = applyCompletenessBias(orderedPool);
 
     const shuffled = tieredShuffle(biased, state.shuffleSeed + si * 7919);
 
