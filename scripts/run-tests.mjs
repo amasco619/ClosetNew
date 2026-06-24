@@ -106,7 +106,12 @@ for (const { file, ok, output } of results) {
 
 // ── Summary ────────────────────────────────────────────────────────────────
 
-const skipped = allTestFiles.length - files.length;
+// Re-read the directory so the skipped count reflects any files added since startup.
+const currentTestFiles = (() => {
+  try { return readdirSync(testDir).filter(f => f.endsWith('.test.ts')); }
+  catch { return []; }
+})();
+const skipped = currentTestFiles.length - files.length;
 const skipNote = skipped > 0 ? `, ${skipped} skipped (not affected)` : '';
 
 console.log(`\n=== Summary: ${passed} passed, ${failed} failed${skipNote} ===`);
