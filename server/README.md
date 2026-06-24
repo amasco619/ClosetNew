@@ -74,7 +74,7 @@ Content-Type: application/json
 | `subType` | string or null | Specific garment subtype within the category (see Supported Subtypes below). `null` when Gemini cannot determine a valid subtype. |
 | `colorFamily` | string or null | Dominant colour bucket (see Supported Colour Families below), or `null` |
 | `accentColor` | string or omitted | Secondary accent colour from the same colour family list, when the item has a distinct two-tone palette. Field is omitted entirely when not detected. |
-| `description` | string | Server-derived summary combining colour and display name (e.g. `"Cream knit top"`) |
+| `description` | string | Server-derived summary combining colour and display name (e.g. `"Cream knit top"`). Note: Gemini also generates a `displayName` (e.g. `"Cream ribbed knit top"`) which is used server-side to build this field and to infer occasion tags, but `displayName` is not included in the response payload. |
 | `occasionTags` | string[] | Occasion suitability tags derived from subtype and display name: one or more of `casual`, `work`, `date-casual`, `date-dressy`, `event`, `brunch`, `active`, `resort`, `night-out`, `interview`, `wedding`, `travel`. Defaults to `["casual"]` when the subtype is unrecognised. |
 | `seasonTags` | string[] | Season suitability derived from subtype and fabric: one or more of `spring`, `summer`, `fall`, `winter`, `all-season`. Defaults to `["all-season"]` when neither subtype nor fabric has strong seasonal signal. |
 | `pattern` | string or omitted | Surface pattern: `solid`, `stripe`, `floral`, `check`, `print`, `color-block`, `geometric`, `animal`. Field is omitted when not confidently detected. |
@@ -120,7 +120,7 @@ The endpoint rejects images that are not suitable for classification (e.g. selfi
 | Status | Body | When |
 |---|---|---|
 | 400 | `{ "error": "imageBase64 or imageUrl required" }` | Both or neither image fields provided |
-| 422 | `{ "error": "content_guardrail" }` | Image rejected by Gemini content guardrails (selfie, blurry, non-clothing) |
+| 422 | `{ "error": "content_guardrail", "reason": "..." }` | Image rejected by Gemini content guardrails (selfie, blurry, non-clothing). `reason` is a human-readable string suitable for display to the user. |
 | 429 | `{ "error": "rate_limited", "detail": "..." }` | Quota exceeded on both primary and fallback Gemini models |
 | 500 | `{ "error": "missing_gemini_api_key" }` | `GEMINI_API_KEY` not set in environment |
 | 500 | `{ "error": "classification_failed" }` | Gemini API error or other server error |
