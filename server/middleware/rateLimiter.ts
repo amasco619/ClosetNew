@@ -227,7 +227,7 @@ export function clearLockout(email: string): void {
   }
 }
 
-function makeHandler() {
+export function makeLimiterHandler() {
   return (req: Request, res: Response) => {
     const info = (req as any).rateLimit;
     const resetMs =
@@ -238,42 +238,50 @@ function makeHandler() {
   };
 }
 
+/**
+ * Canonical configuration for each rate-limiter.
+ * Exported so tests can instantiate fresh limiter objects from the real
+ * production values — any drift here will fail the integration tests.
+ */
+export const LIMITER_CONFIGS = {
+  aiLimiter:      { windowMs: 60 * 1000,      max: 10 },
+  colorLimiter:   { windowMs: 60 * 1000,      max: 30 },
+  accountLimiter: { windowMs: 60 * 60 * 1000, max: 5  },
+  authLimiter:    { windowMs: 15 * 60 * 1000, max: 5  },
+  resetLimiter:   { windowMs: 60 * 60 * 1000, max: 3  },
+} as const;
+
 export const aiLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 10,
+  ...LIMITER_CONFIGS.aiLimiter,
   standardHeaders: true,
   legacyHeaders: true,
-  handler: makeHandler(),
+  handler: makeLimiterHandler(),
 });
 
 export const colorLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 30,
+  ...LIMITER_CONFIGS.colorLimiter,
   standardHeaders: true,
   legacyHeaders: true,
-  handler: makeHandler(),
+  handler: makeLimiterHandler(),
 });
 
 export const accountLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
+  ...LIMITER_CONFIGS.accountLimiter,
   standardHeaders: true,
   legacyHeaders: true,
-  handler: makeHandler(),
+  handler: makeLimiterHandler(),
 });
 
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+  ...LIMITER_CONFIGS.authLimiter,
   standardHeaders: true,
   legacyHeaders: true,
-  handler: makeHandler(),
+  handler: makeLimiterHandler(),
 });
 
 export const resetLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 3,
+  ...LIMITER_CONFIGS.resetLimiter,
   standardHeaders: true,
   legacyHeaders: true,
-  handler: makeHandler(),
+  handler: makeLimiterHandler(),
 });

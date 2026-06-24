@@ -81,11 +81,13 @@
     "@types/express": "^5.0.0",
     "@types/pg": "^8.20.0",
     "@types/react": "~19.1.10",
+    "@types/supertest": "^7.2.0",
     "babel-plugin-react-compiler": "^19.0.0-beta-e993439-20250117",
     "drizzle-kit": "^0.31.4",
     "eslint": "^9.31.0",
     "eslint-config-expo": "~10.0.0",
     "patch-package": "^8.0.0",
+    "supertest": "^7.2.2",
     "typescript": "~5.9.2"
   },
   "private": true
