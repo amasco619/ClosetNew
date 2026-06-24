@@ -153,18 +153,52 @@ export function __resetForTesting(): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Ensure the `lockout_store` table exists in Postgres.
+ * Runs an explicit CREATE TABLE IF NOT EXISTS so the table is always present
+ * before @keyv/postgres touches it, even on a fresh database or when the DB
+ * user lacks automatic-DDL privileges at runtime.
+ */
+async function ensureLockoutTable(pool: Pool): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lockout_store (
+      key     TEXT    PRIMARY KEY,
+      value   TEXT,
+      expires BIGINT
+    )
+  `);
+}
+
+/**
  * Load unexpired lockout records from the persistence layer into the in-memory
  * cache. Call once from server startup (before registerRoutes) so the sync
  * helpers serve accurate lockout state immediately after a restart.
  */
 export async function initLockoutStore(): Promise<void> {
-  const p = getPersistence();
-  if (!p) {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
     console.warn(
       "[rateLimiter] DATABASE_URL not set — lockout state will not survive restarts"
     );
     return;
   }
+
+  // Ensure the pool exists before we run DDL.
+  if (!_pool) {
+    _pool = new Pool({ connectionString: url });
+  }
+
+  try {
+    await ensureLockoutTable(_pool);
+    console.log("[rateLimiter] lockout_store table is present");
+  } catch (err) {
+    console.error("[rateLimiter] failed to ensure lockout_store table:", err);
+    // Continue — if the table was pre-created by a migration it will still be
+    // readable; we just won't be able to auto-create it here.
+  }
+
+  const p = getPersistence();
+  if (!p) return;
+
   try {
     const now = Date.now();
     const entries = await p.loadAll();
