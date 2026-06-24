@@ -62,7 +62,7 @@ const OCCASION_LABELS: Record<OccasionTag, string> = {
   'date-dressy': 'Date Night', event: 'Event',
   interview: 'Interview', wedding: 'Wedding', travel: 'Travel',
   brunch: 'Brunch', active: 'Active', resort: 'Resort', 'night-out': 'Night Out',
-};
+} satisfies Record<OccasionTag, string>;
 const SEASONS: SeasonTag[] = ['all-season','spring','summer','fall','winter'];
 
 const colorDots: Record<string, string> = {

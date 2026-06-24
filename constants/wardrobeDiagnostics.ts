@@ -18,7 +18,7 @@ const SCENARIO_AFFINITY: Record<OccasionTag, string[]> = {
   active:        ['sports-hoodie', 'tank-top', 'leggings', 'shorts', 'windbreaker', 'training-shoes', 'sports-bra', 'joggers', 'zip-up', 'athletic-top'],
   resort:        ['swimsuit', 'resort-dress', 'cover-up', 'kaftan', 'sundress', 'espadrilles', 'sandals', 'shorts', 'linen-shirt', 'sarong'],
   'night-out':   ['mini-dress', 'bodycon-dress', 'sequin-top', 'strappy-heels', 'midi-dress', 'camisole', 'wide-leg', 'clutch', 'mini-bag', 'earrings', 'necklace'],
-};
+} satisfies Record<OccasionTag, string[]>;
 
 function scoreForScenario(item: WardrobeItem, scenario: OccasionTag): number {
   let score = 0;
@@ -131,7 +131,7 @@ const SCENARIO_META: Record<OccasionTag, { label: string; icon: string }> = {
   active:        { label: 'Active',     icon: 'fitness-outline' },
   resort:        { label: 'Resort',     icon: 'sunny-outline' },
   'night-out':   { label: 'Night Out',  icon: 'moon-outline' },
-};
+} satisfies Record<OccasionTag, { label: string; icon: string }>;
 
 function gradeScore(score: number): WardrobeDiagnostics['grade'] {
   if (score >= 85) return 'A';

@@ -22,7 +22,7 @@ const scenarioLabels: Record<OccasionTag, { label: string; icon: string }> = {
   active:        { label: 'Active',     icon: 'fitness-outline' },
   resort:        { label: 'Resort',     icon: 'sunny-outline' },
   'night-out':   { label: 'Night Out',  icon: 'moon-outline' },
-};
+} satisfies Record<OccasionTag, { label: string; icon: string }>;
 
 function formatDate(dateStr: string): string {
   const today = new Date().toISOString().slice(0, 10);

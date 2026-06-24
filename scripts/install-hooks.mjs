@@ -11,14 +11,27 @@ if (!existsSync(hooksDir)) {
 }
 
 const hookBody = `#!/bin/sh
-${MARKER} — blocks commits when any test or lint check fails.
+${MARKER} — blocks commits when any test or type check fails.
 # Re-install at any time with: npm run hooks:install
+
+echo "[pre-commit] Running type check..."
+npm run typecheck
+tc_status=$?
+
+if [ $tc_status -ne 0 ]; then
+  echo ""
+  echo "[pre-commit] Type check failed. Commit blocked."
+  echo "[pre-commit] Fix the type errors above, then try again."
+  exit 1
+fi
+
+echo "[pre-commit] Type check passed."
 
 echo "[pre-commit] Running tests..."
 node_modules/.bin/tsx scripts/run-tests.mjs
-status=$?
+test_status=$?
 
-if [ $status -ne 0 ]; then
+if [ $test_status -ne 0 ]; then
   echo ""
   echo "[pre-commit] Tests failed. Commit blocked."
   echo "[pre-commit] Fix the failures above, then try again."

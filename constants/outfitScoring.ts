@@ -64,7 +64,7 @@ export const SCENARIO_AFFINITY: Record<OccasionTag, string[]> = {
   resort:        ['swimsuit', 'cover-up', 'kaftan', 'resort-dress', 'sundress', 'maxi-dress', 'linen-set', 'espadrilles', 'sandals', 'mules', 'beach-bag', 'wicker-bag', 'crossbody', 'sunhat', 'earrings', 'necklace'],
   // Club, cocktail bar, late-night dinner — dressed-up and confident.
   'night-out':   ['mini-dress', 'bodycon-dress', 'cocktail-dress', 'sequin-top', 'camisole', 'blouse', 'midi-skirt', 'strappy-heels', 'heels', 'stilettos', 'evening-bag', 'clutch', 'mini-bag', 'statement-earrings', 'earrings', 'necklace', 'blazer'],
-};
+} satisfies Record<OccasionTag, string[]>;
 
 export const STYLE_PREFERRED_COLORS: Record<string, string[]> = {
   minimal:  ['black', 'white', 'grey', 'beige', 'cream'],
@@ -120,7 +120,7 @@ export const SCENARIO_FORMALITY: Record<OccasionTag, [number, number]> = {
   active:        [1, 2],  // athleisure / gym — performance formality only
   resort:        [1, 4],  // beach-to-bar: pure holiday ease through sundress-smart
   'night-out':   [5, 8],  // cocktail bar to late-night dinner
-};
+} satisfies Record<OccasionTag, [number, number]>;
 
 /**
  * Industry-aware formality lookup. For most scenarios this just returns the

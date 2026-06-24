@@ -37,7 +37,7 @@ const REWEAR_THRESHOLDS: Record<OccasionTag, number> = {
   active:        3,
   resort:        14,
   'night-out':   7,
-};
+} satisfies Record<OccasionTag, number>;
 
 // Accent colours per scenario — drives the left card border + subtle tint
 const SCENARIO_ACCENT: Record<OccasionTag, string> = {
@@ -53,7 +53,7 @@ const SCENARIO_ACCENT: Record<OccasionTag, string> = {
   active:        '#5B8C5A',
   resort:        '#6BA3BE',
   'night-out':   '#7B5EA7',
-};
+} satisfies Record<OccasionTag, string>;
 
 function getLastWornInfo(
   outfit: OutfitSet,
@@ -90,7 +90,7 @@ const scenarioLabels: Record<OccasionTag, { label: string; icon: React.Component
   active:        { label: 'Active',     icon: 'fitness-outline',     mood: 'Moves with you' },
   resort:        { label: 'Resort',     icon: 'umbrella-outline',    mood: 'Holiday ease, elevated' },
   'night-out':   { label: 'Night Out',  icon: 'moon-outline',        mood: 'Dressed to be remembered' },
-};
+} satisfies Record<OccasionTag, { label: string; icon: React.ComponentProps<typeof Ionicons>['name']; mood: string }>;
 
 const categoryLabels: Record<string, string> = {
   top: 'Top', bottom: 'Bottom', dress: 'Dress',
