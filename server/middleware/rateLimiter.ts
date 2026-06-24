@@ -8,7 +8,7 @@ const LOCKOUT_MAX_ATTEMPTS = 5;
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 
-interface LockoutRecord {
+export interface LockoutRecord {
   attempts: number;
   windowStart: number;
   lockedUntil: number | null;
@@ -19,75 +19,143 @@ interface CacheEntry {
   expiresAt: number;
 }
 
+/**
+ * Persistence layer interface — decouples the lockout helpers from a specific
+ * backing store so tests can inject a lightweight in-memory implementation
+ * without needing a real Postgres connection.
+ */
+export interface LockoutPersistenceLayer {
+  set(key: string, record: LockoutRecord, ttlMs: number): Promise<void>;
+  delete(key: string): Promise<void>;
+  /**
+   * Called once at server startup. Returns all entries that have not yet
+   * expired so they can be loaded into the in-memory write-through cache.
+   */
+  loadAll(): Promise<Array<{ key: string; record: LockoutRecord; expiresAt: number }>>;
+}
+
 const memCache = new Map<string, CacheEntry>();
 
+let _persistence: LockoutPersistenceLayer | null = null;
 let _kv: Keyv<LockoutRecord> | null = null;
 let _pool: Pool | null = null;
 
-function getLockoutKv(): Keyv<LockoutRecord> | null {
-  if (_kv) return _kv;
+function buildPostgresPersistence(): LockoutPersistenceLayer | null {
   const url = process.env.DATABASE_URL;
   if (!url) return null;
+
   try {
-    const store = new KeyvPostgres({ uri: url, table: "lockout_store" });
-    _kv = new Keyv<LockoutRecord>({ store, namespace: "lockout" });
-    _kv.on("error", (err: unknown) => {
-      console.error("[rateLimiter] lockout store error:", err);
-    });
-    return _kv;
+    if (!_kv) {
+      const store = new KeyvPostgres({ uri: url, table: "lockout_store" });
+      _kv = new Keyv<LockoutRecord>({ store, namespace: "lockout" });
+      _kv.on("error", (err: unknown) => {
+        console.error("[rateLimiter] lockout store error:", err);
+      });
+    }
+    if (!_pool) {
+      _pool = new Pool({ connectionString: url });
+    }
+
+    const kv = _kv;
+    const pool = _pool;
+
+    return {
+      async set(key, record, ttlMs) {
+        await kv.set(key, record, ttlMs);
+      },
+      async delete(key) {
+        await kv.delete(key);
+      },
+      async loadAll() {
+        const now = Date.now();
+        const { rows } = await pool.query<{
+          key: string;
+          value: unknown;
+          expires: string | null;
+        }>(
+          `SELECT key, value, expires FROM lockout_store WHERE (expires IS NULL OR expires > $1)`,
+          [now]
+        );
+        return rows.map((row) => {
+          const rawKey = String(row.key);
+          const normalizedKey = rawKey.startsWith("lockout:")
+            ? rawKey.slice("lockout:".length)
+            : rawKey;
+          const record: LockoutRecord =
+            typeof row.value === "string"
+              ? JSON.parse(row.value).value ?? JSON.parse(row.value)
+              : (row.value as any)?.value ?? row.value;
+          const expiresAt = row.expires ? Number(row.expires) : Infinity;
+          return { key: normalizedKey, record, expiresAt };
+        });
+      },
+    };
   } catch (err) {
-    console.error("[rateLimiter] failed to create lockout KV:", err);
+    console.error("[rateLimiter] failed to create Postgres persistence layer:", err);
     return null;
   }
 }
 
-function getLockoutPool(): Pool | null {
-  if (_pool) return _pool;
-  const url = process.env.DATABASE_URL;
-  if (!url) return null;
-  try {
-    _pool = new Pool({ connectionString: url });
-    return _pool;
-  } catch (err) {
-    console.error("[rateLimiter] failed to create pool:", err);
-    return null;
-  }
+function getPersistence(): LockoutPersistenceLayer | null {
+  if (_persistence !== null) return _persistence;
+  const pg = buildPostgresPersistence();
+  _persistence = pg;
+  return pg;
 }
+
+// ── Test helpers ─────────────────────────────────────────────────────────────
+// These are intentionally exported so unit tests can inject a mock persistence
+// layer and verify restart-survival semantics without a real DB connection.
+
+/** Inject a custom persistence layer (pass null to revert to auto-detect). */
+export function __setPersistenceLayerForTesting(
+  layer: LockoutPersistenceLayer | null
+): void {
+  _persistence = layer;
+}
+
+/** Clear the in-memory write-through cache and reset module-level singletons. */
+export function __resetForTesting(): void {
+  memCache.clear();
+  _persistence = null;
+  _kv = null;
+  _pool = null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Load unexpired lockout records from Postgres into the in-memory cache.
- * Call once from server startup (before registerRoutes) so the sync helpers
- * can serve accurate lockout state immediately after a restart.
+ * Load unexpired lockout records from the persistence layer into the in-memory
+ * cache. Call once from server startup (before registerRoutes) so the sync
+ * helpers serve accurate lockout state immediately after a restart.
  */
 export async function initLockoutStore(): Promise<void> {
-  const pool = getLockoutPool();
-  if (!pool) {
-    console.warn("[rateLimiter] DATABASE_URL not set — lockout state will not survive restarts");
+  const p = getPersistence();
+  if (!p) {
+    console.warn(
+      "[rateLimiter] DATABASE_URL not set — lockout state will not survive restarts"
+    );
     return;
   }
   try {
     const now = Date.now();
-    const { rows } = await pool.query<{ key: string; value: unknown; expires: string | null }>(
-      `SELECT key, value, expires FROM lockout_store WHERE (expires IS NULL OR expires > $1)`,
-      [now]
-    );
-    for (const row of rows) {
-      const rawKey = String(row.key);
-      const normalizedKey = rawKey.startsWith("lockout:") ? rawKey.slice("lockout:".length) : rawKey;
-      const record: LockoutRecord =
-        typeof row.value === "string" ? JSON.parse(row.value).value ?? JSON.parse(row.value) : (row.value as any)?.value ?? row.value;
-      const expiresAt = row.expires ? Number(row.expires) : Infinity;
+    const entries = await p.loadAll();
+    let loaded = 0;
+    for (const { key, record, expiresAt } of entries) {
       if (expiresAt > now) {
-        memCache.set(normalizedKey, { record, expiresAt });
+        memCache.set(key, { record, expiresAt });
+        loaded++;
       }
     }
-    console.log(`[rateLimiter] loaded ${memCache.size} active lockout record(s) from DB`);
+    console.log(`[rateLimiter] loaded ${loaded} active lockout record(s) from DB`);
   } catch (err) {
     console.error("[rateLimiter] failed to load lockout records from DB:", err);
   }
 }
 
-export function checkAccountLockout(email: string): { locked: true; minutesLeft: number } | { locked: false } {
+export function checkAccountLockout(
+  email: string
+): { locked: true; minutesLeft: number } | { locked: false } {
   const key = email.trim().toLowerCase();
   const now = Date.now();
   const entry = memCache.get(key);
@@ -122,19 +190,27 @@ export function recordFailedAttempt(email: string): void {
     const prev = existing!.record;
     const updatedAttempts = prev.attempts + 1;
     if (updatedAttempts >= LOCKOUT_MAX_ATTEMPTS) {
-      record = { attempts: updatedAttempts, windowStart: prev.windowStart, lockedUntil: now + LOCKOUT_DURATION_MS };
+      record = {
+        attempts: updatedAttempts,
+        windowStart: prev.windowStart,
+        lockedUntil: now + LOCKOUT_DURATION_MS,
+      };
       ttlMs = LOCKOUT_DURATION_MS;
     } else {
-      record = { attempts: updatedAttempts, windowStart: prev.windowStart, lockedUntil: null };
+      record = {
+        attempts: updatedAttempts,
+        windowStart: prev.windowStart,
+        lockedUntil: null,
+      };
       ttlMs = Math.max(1, LOCKOUT_WINDOW_MS - (now - prev.windowStart));
     }
   }
 
   memCache.set(key, { record, expiresAt: now + ttlMs });
 
-  const kv = getLockoutKv();
-  if (kv) {
-    kv.set(key, record, ttlMs).catch((err: unknown) =>
+  const p = getPersistence();
+  if (p) {
+    p.set(key, record, ttlMs).catch((err: unknown) =>
       console.error("[rateLimiter] failed to persist failed attempt:", err)
     );
   }
@@ -143,9 +219,9 @@ export function recordFailedAttempt(email: string): void {
 export function clearLockout(email: string): void {
   const key = email.trim().toLowerCase();
   memCache.delete(key);
-  const kv = getLockoutKv();
-  if (kv) {
-    kv.delete(key).catch((err: unknown) =>
+  const p = getPersistence();
+  if (p) {
+    p.delete(key).catch((err: unknown) =>
       console.error("[rateLimiter] failed to clear lockout:", err)
     );
   }
@@ -154,9 +230,8 @@ export function clearLockout(email: string): void {
 function makeHandler() {
   return (req: Request, res: Response) => {
     const info = (req as any).rateLimit;
-    const resetMs = info?.resetTime instanceof Date
-      ? info.resetTime.getTime() - Date.now()
-      : 0;
+    const resetMs =
+      info?.resetTime instanceof Date ? info.resetTime.getTime() - Date.now() : 0;
     const retryAfter = Math.max(1, Math.ceil(resetMs / 1000));
     res.setHeader("Retry-After", retryAfter);
     res.status(429).json({ error: "rate_limit", retryAfter });
