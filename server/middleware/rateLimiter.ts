@@ -55,6 +55,12 @@ let _rlPool: Pool | null | undefined = undefined;
  */
 export let __rlPruneIntervalForTesting: ReturnType<typeof setInterval> | null = null;
 
+/**
+ * Handle for the periodic lockout-store prune interval.
+ * Exported so tests can call clearInterval() on it to avoid leaking timers.
+ */
+export let __lockoutPruneIntervalForTesting: ReturnType<typeof setInterval> | null = null;
+
 function buildPostgresPersistence(): LockoutPersistenceLayer | null {
   const url = process.env.DATABASE_URL;
   if (!url) return null;
@@ -158,6 +164,10 @@ export function __resetForTesting(): void {
     clearInterval(__rlPruneIntervalForTesting);
     __rlPruneIntervalForTesting = null;
   }
+  if (__lockoutPruneIntervalForTesting !== null) {
+    clearInterval(__lockoutPruneIntervalForTesting);
+    __lockoutPruneIntervalForTesting = null;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -232,6 +242,29 @@ export async function initLockoutStore(): Promise<void> {
     console.log(`[rateLimiter] loaded ${loaded} active lockout record(s) from DB`);
   } catch (err) {
     console.error("[rateLimiter] failed to load lockout records from DB:", err);
+  }
+
+  if (__lockoutPruneIntervalForTesting === null) {
+    const pool = _pool;
+    if (pool) {
+      __lockoutPruneIntervalForTesting = setInterval(() => {
+        pool.query(
+          `DELETE FROM lockout_store WHERE expires IS NOT NULL AND expires <= $1`,
+          [Date.now()]
+        ).then(
+          ({ rowCount }) => {
+            if ((rowCount ?? 0) > 0) {
+              console.log(
+                `[rateLimiter] periodic prune: removed ${rowCount} expired lockout row(s)`
+              );
+            }
+          },
+          (err: unknown) => {
+            console.error("[rateLimiter] periodic lockout prune error:", err);
+          }
+        );
+      }, 60 * 60 * 1000);
+    }
   }
 }
 
