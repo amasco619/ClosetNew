@@ -196,6 +196,16 @@ export async function initLockoutStore(): Promise<void> {
     // readable; we just won't be able to auto-create it here.
   }
 
+  try {
+    const { rowCount } = await _pool.query(
+      `DELETE FROM lockout_store WHERE expires IS NOT NULL AND expires <= $1`,
+      [Date.now()]
+    );
+    console.log(`[rateLimiter] pruned ${rowCount ?? 0} expired lockout row(s)`);
+  } catch (err) {
+    console.error("[rateLimiter] failed to prune expired lockout rows:", err);
+  }
+
   const p = getPersistence();
   if (!p) return;
 
