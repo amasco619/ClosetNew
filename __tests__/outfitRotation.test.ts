@@ -16,6 +16,7 @@ import {
   applyCompletenessBias,
   applyFreshnessOrder,
   applyHeroDiversityOrder,
+  tieredShuffle,
   INITIAL_ROTATION_STATE,
   SCENARIOS,
 } from '../constants/outfitRotation';
@@ -982,6 +983,124 @@ describe('applyCompletenessBias: equal-score outfits retain original pool order'
   assert(
     resultBA[1].id === 'acb-stable-a',
     'Equal-score complete outfits: second pool entry stays at index 1 (A after B)',
+  );
+});
+
+// ── 7. tieredShuffle: input-order tie-breaking ───────────────────────────────
+
+describe('7. tieredShuffle: identically-scored pool preserves input order across tier boundaries', () => {
+  // When all outfits share the same confidenceScore, the only key is the
+  // original pool index.  The pool-index tie-breaker ensures earlier entries
+  // always land in a higher-or-equal tier relative to later entries.
+  //
+  // Pool of 6 identically-scored outfits labelled by input position:
+  //   [P0, P1, P2, P3, P4, P5]
+  //
+  // After stable sort by (score desc, index asc): same order as input.
+  // Tier assignment (Math.ceil(6/3) = 2):
+  //   top = [P0, P1]   mid = [P2, P3]   low = [P4, P5]
+  //
+  // seededShuffle may reorder within each tier, but the tier boundaries are
+  // fixed — P0 and P1 can never appear after P2 or P3 in the output.
+
+  const SCENARIO: OccasionTag = 'casual';
+  const SCORE = 5;
+  const SEED = 31337;
+
+  const poolIds = ['p0', 'p1', 'p2', 'p3', 'p4', 'p5'];
+  const pool: OutfitSet[] = poolIds.map(id =>
+    makeOutfit(id, SCENARIO, [
+      makeComponent('top', `${id}-top`),
+      makeComponent('bottom', `${id}-btm`),
+      makeComponent('shoes', `${id}-sh`),
+    ], { confidenceScore: SCORE }),
+  );
+
+  const result = tieredShuffle(pool, SEED);
+
+  assert(result.length === pool.length, 'tieredShuffle preserves pool length');
+
+  // Verify tier boundaries: output positions 0-1 contain only top-tier ids,
+  // positions 2-3 contain only mid-tier ids, positions 4-5 contain only low-tier ids.
+  const topTierIds = new Set(['p0', 'p1']);
+  const midTierIds = new Set(['p2', 'p3']);
+  const lowTierIds = new Set(['p4', 'p5']);
+
+  const outputIds = result.map(o => o.id ?? '');
+
+  const topSlice = new Set(outputIds.slice(0, 2));
+  const midSlice = new Set(outputIds.slice(2, 4));
+  const lowSlice = new Set(outputIds.slice(4, 6));
+
+  assert(
+    [...topTierIds].every(id => topSlice.has(id)),
+    'Input-order top tier (p0, p1) occupies output positions 0-1 after tieredShuffle',
+  );
+  assert(
+    [...midTierIds].every(id => midSlice.has(id)),
+    'Input-order mid tier (p2, p3) occupies output positions 2-3 after tieredShuffle',
+  );
+  assert(
+    [...lowTierIds].every(id => lowSlice.has(id)),
+    'Input-order low tier (p4, p5) occupies output positions 4-5 after tieredShuffle',
+  );
+});
+
+describe('7b. tieredShuffle: freshness/hero-diversity ordering is not undone for tied scores', () => {
+  // Regression guard: the freshness and hero-diversity passes push certain
+  // outfits to the end of the pool *before* tieredShuffle runs.  With the
+  // pool-index tie-breaker those outfits must stay in the low tier even when
+  // all confidenceScores are equal.
+  //
+  // Scenario: 5 identically-scored outfits.  The worn outfit starts at
+  // input position 0 but applyFreshnessOrder moves it to the last position
+  // before the pool reaches tieredShuffle.  It must end up in the low tier.
+  //
+  // Pool after freshness ordering: [fresh1, fresh2, fresh3, fresh4, worn]
+  // third = Math.ceil(5/3) = 2
+  //   top = [fresh1, fresh2]   mid = [fresh3, fresh4]   low = [worn]
+
+  const SCENARIO: OccasionTag = 'casual';
+  const SCORE = 5;
+  const SEED = 7;
+
+  const worn = makeOutfit('worn-tie', SCENARIO, [
+    makeComponent('top', 'wt-top'),
+    makeComponent('bottom', 'wt-btm'),
+    makeComponent('shoes', 'wt-sh'),
+  ], { confidenceScore: SCORE });
+
+  const freshItems = Array.from({ length: 4 }, (_, i) =>
+    makeOutfit(`fresh-tie-${i}`, SCENARIO, [
+      makeComponent('top', `ft-top-${i}`),
+      makeComponent('bottom', `ft-btm-${i}`),
+      makeComponent('shoes', `ft-sh-${i}`),
+    ], { confidenceScore: SCORE }),
+  );
+
+  // Simulate what applyFreshnessOrder does: worn outfit pushed to end.
+  const poolAfterFreshness: OutfitSet[] = [...freshItems, worn];
+
+  const result = tieredShuffle(poolAfterFreshness, SEED);
+
+  assert(result.length === poolAfterFreshness.length, 'tieredShuffle preserves pool length (freshness guard)');
+
+  // The worn outfit was at index 4 (last) so it lands in the low tier.
+  // With Math.ceil(5/3)=2: top=[0,1], mid=[2,3], low=[4].
+  // Output positions 4 must be the worn outfit.
+  const wornInOutput = result[result.length - 1];
+  assert(
+    wornInOutput.id === 'worn-tie',
+    'Worn outfit (last after freshness ordering) stays in low tier after tieredShuffle — upstream ordering signal preserved',
+  );
+
+  // Verify none of the low-tier outfits appear in the top half of the output.
+  const freshIds = new Set(freshItems.map(o => o.id!));
+  const topHalf = result.slice(0, 4);
+  const onlyFreshInTopHalf = topHalf.every(o => freshIds.has(o.id ?? ''));
+  assert(
+    onlyFreshInTopHalf,
+    'All 4 output positions 0-3 are fresh outfits — worn outfit not promoted by tieredShuffle',
   );
 });
 

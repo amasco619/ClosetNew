@@ -58,12 +58,24 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
   return result;
 }
 
-function tieredShuffle(pool: OutfitSet[], seed: number): OutfitSet[] {
-  if (pool.length <= 3) return seededShuffle(pool, seed);
-  const third = Math.ceil(pool.length / 3);
-  const top = pool.slice(0, third);
-  const mid = pool.slice(third, third * 2);
-  const low = pool.slice(third * 2);
+export function tieredShuffle(pool: OutfitSet[], seed: number): OutfitSet[] {
+  // Stable sort by score descending, using the outfit's original pool index as
+  // the tie-breaker so equally-scored outfits always preserve the ordering that
+  // upstream passes (freshness, hero-diversity, completeness-bias) deliberately
+  // set up.  Without this a JS engine's unstable native sort could arbitrarily
+  // reorder tied entries and silently undo those signals.
+  const indexed = pool.map((outfit, idx) => ({ outfit, idx }));
+  indexed.sort((a, b) => {
+    const scoreDiff = (b.outfit.confidenceScore ?? 0) - (a.outfit.confidenceScore ?? 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    return a.idx - b.idx;
+  });
+  const sorted = indexed.map(({ outfit }) => outfit);
+  if (sorted.length <= 3) return seededShuffle(sorted, seed);
+  const third = Math.ceil(sorted.length / 3);
+  const top = sorted.slice(0, third);
+  const mid = sorted.slice(third, third * 2);
+  const low = sorted.slice(third * 2);
   return [
     ...seededShuffle(top, seed),
     ...seededShuffle(mid, seed + 1),
