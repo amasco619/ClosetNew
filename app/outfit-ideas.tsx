@@ -8,8 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useApp } from '@/contexts/AppContext';
-import { computeNextSmartBuy, generateRecommendedOutfitGroups, RecommendedOutfitGroup, WardrobeSlot } from '@/constants/wardrobeBlueprint';
-import { ImageSourcePropType } from 'react-native';
+import { computeNextSmartBuy, generateRecommendedOutfitGroups, UIRecommendedOutfitGroup, WardrobeSlot } from '@/constants/wardrobeBlueprint';
 import { OutfitSet, ReactionType, OccasionTag } from '@/constants/types';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -58,7 +57,7 @@ function SlotChip({ slot }: { slot: WardrobeSlot }) {
   );
 }
 
-function inferGroupScenario(group: RecommendedOutfitGroup): OccasionTag {
+function inferGroupScenario(group: UIRecommendedOutfitGroup): OccasionTag {
   const hay = `${group.label} ${group.vibe ?? ''}`.toLowerCase();
   if (/work|office|interview|meeting|board/.test(hay)) return 'work';
   if (/wedding/.test(hay)) return 'wedding';
@@ -72,7 +71,7 @@ function inferGroupScenario(group: RecommendedOutfitGroup): OccasionTag {
  *  shared reaction / wear-tracking handlers can consume it. Returns null
  *  when the group has fewer than two owned pieces — there's nothing
  *  meaningful to learn from a one-piece "outfit". */
-function groupAsOutfitSet(group: RecommendedOutfitGroup): OutfitSet | null {
+function groupAsOutfitSet(group: UIRecommendedOutfitGroup): OutfitSet | null {
   const ownedSlots = group.slots.filter(s => s.status === 'owned' && s.matchedItemId);
   if (ownedSlots.length < 2) return null;
   return {
@@ -89,7 +88,7 @@ function groupAsOutfitSet(group: RecommendedOutfitGroup): OutfitSet | null {
 }
 
 interface OutfitGroupCardProps {
-  group: RecommendedOutfitGroup;
+  group: UIRecommendedOutfitGroup;
   index: number;
   displayLabel: string;
   isSaved: boolean;
@@ -174,7 +173,7 @@ function OutfitGroupCard({
         contentContainerStyle={styles.slotsRow}
       >
         {group.slots.map(slot => (
-          <SlotChip key={slot.id} slot={slot as WardrobeSlot} />
+          <SlotChip key={slot.id} slot={slot} />
         ))}
       </ScrollView>
 
@@ -255,13 +254,13 @@ export default function OutfitIdeasScreen() {
     const byId = new Map(groups.map(g => [g.id, g]));
     return savedLooks
       .map(s => byId.get(s.id))
-      .filter((g): g is RecommendedOutfitGroup => !!g);
+      .filter((g): g is UIRecommendedOutfitGroup => !!g);
   }, [groups, savedLooks]);
 
-  const [renameTarget, setRenameTarget] = useState<RecommendedOutfitGroup | null>(null);
+  const [renameTarget, setRenameTarget] = useState<UIRecommendedOutfitGroup | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
-  const openRename = (group: RecommendedOutfitGroup) => {
+  const openRename = (group: UIRecommendedOutfitGroup) => {
     setRenameTarget(group);
     setRenameValue(getSavedLookName(group.id, group.label));
   };
@@ -369,7 +368,7 @@ export default function OutfitIdeasScreen() {
                 <Text style={styles.smartBuyKicker}>Your next smart buy</Text>
               </View>
               <View style={styles.smartBuyBody}>
-                <Image source={nextBuy.slot.sampleImage as ImageSourcePropType} style={styles.smartBuyImage} resizeMode="cover" />
+                <Image source={nextBuy.slot.sampleImage} style={styles.smartBuyImage} resizeMode="cover" />
                 <View style={styles.smartBuyTextCol}>
                   <Text style={styles.smartBuyTitle} numberOfLines={2}>
                     Add a {nextBuy.slot.label}

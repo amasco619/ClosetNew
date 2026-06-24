@@ -37,6 +37,24 @@ export interface WardrobeSlot {
   matchedItemId?: string;
 }
 
+/**
+ * UI-safe variant of RecommendedOutfitGroup — slots carry the full
+ * WardrobeSlot type (sampleImage: ImageSourcePropType) instead of the
+ * asset-free CoreWardrobeSlot (sampleImage: unknown). Use this type in
+ * all app/screen code so no casts are needed at the render site.
+ */
+export type UIRecommendedOutfitGroup = Omit<RecommendedOutfitGroup, 'slots'> & {
+  slots: WardrobeSlot[];
+};
+
+/**
+ * UI-safe variant of NextSmartBuy — slot carries the full WardrobeSlot
+ * type so sampleImage is correctly typed for <Image source={...} />.
+ */
+export type UINextSmartBuy = Omit<NextSmartBuy, 'slot'> & {
+  slot: WardrobeSlot;
+};
+
 type BlueprintItem = Omit<WardrobeSlot, 'status' | 'matchedItemId'>;
 
 const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
@@ -438,8 +456,8 @@ export function updateSlotsAfterAdd(
  *
  * Implementation lives in constants/outfitGroupsCore.ts (asset-free).
  */
-export function generateRecommendedOutfitGroups(slots: WardrobeSlot[]): RecommendedOutfitGroup[] {
-  return _generateRecommendedOutfitGroups(slots) as RecommendedOutfitGroup[];
+export function generateRecommendedOutfitGroups(slots: WardrobeSlot[]): UIRecommendedOutfitGroup[] {
+  return _generateRecommendedOutfitGroups(slots) as UIRecommendedOutfitGroup[];
 }
 
 /**
@@ -459,8 +477,8 @@ export function countRecommendedOutfits(slots: WardrobeSlot[]): number {
  *
  * Implementation lives in constants/outfitGroupsCore.ts (asset-free).
  */
-export function computeNextSmartBuy(slots: WardrobeSlot[]): NextSmartBuy | null {
-  return _computeNextSmartBuy(slots) as NextSmartBuy | null;
+export function computeNextSmartBuy(slots: WardrobeSlot[]): UINextSmartBuy | null {
+  return _computeNextSmartBuy(slots) as UINextSmartBuy | null;
 }
 
 export function getFirstNeededByCategory(slots: WardrobeSlot[]): Record<string, WardrobeSlot | undefined> {
