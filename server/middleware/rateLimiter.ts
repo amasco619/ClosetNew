@@ -367,39 +367,43 @@ export class PgRateLimitStore implements Store {
     const fk = this.fullKey(key);
 
     if (this.pool) {
-      /**
-       * Single atomic upsert:
-       * - On first hit for this key: insert with hits=1 and a fresh window.
-       * - On conflict: if the existing row's window has expired, reset to 1
-       *   with a fresh window; otherwise increment hits within the same window.
-       * RETURNING gives us the authoritative post-write values.
-       */
-      const { rows } = await this.pool.query<{
-        hits: number;
-        reset_time_ms: string;
-      }>(
-        `INSERT INTO ratelimit_store (key, hits, reset_time)
-         VALUES ($1, 1, NOW() + ($2::bigint * interval '1 ms'))
-         ON CONFLICT (key) DO UPDATE SET
-           hits = CASE
-             WHEN ratelimit_store.reset_time <= NOW() THEN 1
-             ELSE ratelimit_store.hits + 1
-           END,
-           reset_time = CASE
-             WHEN ratelimit_store.reset_time <= NOW()
-               THEN NOW() + ($2::bigint * interval '1 ms')
-             ELSE ratelimit_store.reset_time
-           END
-         RETURNING hits,
-           (extract(epoch from reset_time) * 1000)::bigint AS reset_time_ms`,
-        [fk, this.windowMs]
-      );
+      try {
+        /**
+         * Single atomic upsert:
+         * - On first hit for this key: insert with hits=1 and a fresh window.
+         * - On conflict: if the existing row's window has expired, reset to 1
+         *   with a fresh window; otherwise increment hits within the same window.
+         * RETURNING gives us the authoritative post-write values.
+         */
+        const { rows } = await this.pool.query<{
+          hits: number;
+          reset_time_ms: string;
+        }>(
+          `INSERT INTO ratelimit_store (key, hits, reset_time)
+           VALUES ($1, 1, NOW() + ($2::bigint * interval '1 ms'))
+           ON CONFLICT (key) DO UPDATE SET
+             hits = CASE
+               WHEN ratelimit_store.reset_time <= NOW() THEN 1
+               ELSE ratelimit_store.hits + 1
+             END,
+             reset_time = CASE
+               WHEN ratelimit_store.reset_time <= NOW()
+                 THEN NOW() + ($2::bigint * interval '1 ms')
+               ELSE ratelimit_store.reset_time
+             END
+           RETURNING hits,
+             (extract(epoch from reset_time) * 1000)::bigint AS reset_time_ms`,
+          [fk, this.windowMs]
+        );
 
-      const row = rows[0];
-      return {
-        totalHits: Number(row.hits),
-        resetTime: new Date(Number(row.reset_time_ms)),
-      };
+        const row = rows[0];
+        return {
+          totalHits: Number(row.hits),
+          resetTime: new Date(Number(row.reset_time_ms)),
+        };
+      } catch (err) {
+        console.error("[rateLimiter] DB error in increment — falling back to in-memory:", err);
+      }
     }
 
     const now = Date.now();
@@ -423,13 +427,17 @@ export class PgRateLimitStore implements Store {
     const fk = this.fullKey(key);
 
     if (this.pool) {
-      await this.pool.query(
-        `UPDATE ratelimit_store
-         SET hits = GREATEST(0, hits - 1)
-         WHERE key = $1 AND reset_time > NOW()`,
-        [fk]
-      );
-      return;
+      try {
+        await this.pool.query(
+          `UPDATE ratelimit_store
+           SET hits = GREATEST(0, hits - 1)
+           WHERE key = $1 AND reset_time > NOW()`,
+          [fk]
+        );
+        return;
+      } catch (err) {
+        console.error("[rateLimiter] DB error in decrement — falling back to in-memory:", err);
+      }
     }
 
     const existing = this.fallback.get(fk);
@@ -442,8 +450,12 @@ export class PgRateLimitStore implements Store {
     const fk = this.fullKey(key);
 
     if (this.pool) {
-      await this.pool.query(`DELETE FROM ratelimit_store WHERE key = $1`, [fk]);
-      return;
+      try {
+        await this.pool.query(`DELETE FROM ratelimit_store WHERE key = $1`, [fk]);
+        return;
+      } catch (err) {
+        console.error("[rateLimiter] DB error in resetKey — falling back to in-memory:", err);
+      }
     }
 
     this.fallback.delete(fk);

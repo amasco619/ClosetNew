@@ -230,6 +230,88 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
     __resetForTesting();
   }
 
+  // ── DB-error fallback — increment / decrement / resetKey ────────────────────
+  //
+  // When the Postgres pool throws (e.g. DB temporarily unavailable), each method
+  // must catch the error, log it, and fall back to the in-memory Map so the
+  // request is neither dropped nor returns a 500.
+
+  section("DB-error fallback — increment falls back to in-memory on pool error");
+  {
+    const brokenPool = {
+      query: () => Promise.reject(new Error("simulated DB connection refused")),
+    } as any;
+
+    const store = new PgRateLimitStore("test-fallback", brokenPool);
+    store.init({ windowMs: 60_000 } as any);
+
+    let result: import("express-rate-limit").ClientRateLimitInfo | undefined;
+    let threw = false;
+    try {
+      result = await store.increment("user-1");
+    } catch {
+      threw = true;
+    }
+
+    assert(!threw,           "increment does not throw when pool errors");
+    assert(result !== undefined, "increment returns a value despite DB error");
+    assert(result?.totalHits === 1, `increment returns totalHits=1 from in-memory fallback (got ${result?.totalHits})`);
+    assert(result?.resetTime instanceof Date, "increment returns a valid resetTime Date");
+
+    const result2 = await store.increment("user-1");
+    assert(result2.totalHits === 2, `second increment returns totalHits=2 from in-memory fallback (got ${result2.totalHits})`);
+  }
+
+  section("DB-error fallback — decrement falls back to in-memory on pool error");
+  {
+    const brokenPool = {
+      query: () => Promise.reject(new Error("simulated DB connection refused")),
+    } as any;
+
+    const store = new PgRateLimitStore("test-fallback-dec", brokenPool);
+    store.init({ windowMs: 60_000 } as any);
+
+    await store.increment("user-2");
+    await store.increment("user-2");
+
+    let threw = false;
+    try {
+      await store.decrement("user-2");
+    } catch {
+      threw = true;
+    }
+
+    assert(!threw, "decrement does not throw when pool errors");
+
+    const result = await store.increment("user-2");
+    assert(result.totalHits === 2, `after decrement in-memory count is correct (got ${result.totalHits})`);
+  }
+
+  section("DB-error fallback — resetKey falls back to in-memory on pool error");
+  {
+    const brokenPool = {
+      query: () => Promise.reject(new Error("simulated DB connection refused")),
+    } as any;
+
+    const store = new PgRateLimitStore("test-fallback-reset", brokenPool);
+    store.init({ windowMs: 60_000 } as any);
+
+    await store.increment("user-3");
+    await store.increment("user-3");
+
+    let threw = false;
+    try {
+      await store.resetKey("user-3");
+    } catch {
+      threw = true;
+    }
+
+    assert(!threw, "resetKey does not throw when pool errors");
+
+    const result = await store.increment("user-3");
+    assert(result.totalHits === 1, `after resetKey in-memory counter resets to 1 (got ${result.totalHits})`);
+  }
+
   // ── Summary ────────────────────────────────────────────────────────────────
 
   console.log(`\n${failed === 0 ? "All tests passed." : `${failed} test(s) FAILED.`}`);
