@@ -19,6 +19,7 @@
 import {
   WardrobeItem, OutfitComponent, OccasionTag, UserProfile,
   MoodGoal, OutfitReaction, WearEntry, Fabric, FabricWeight, FaceShape, Neckline,
+  StyleGoal,
 } from './types';
 import {
   classifyPalette, scorePaletteType,
@@ -66,23 +67,23 @@ export const SCENARIO_AFFINITY: Record<OccasionTag, string[]> = {
   'night-out':   ['mini-dress', 'bodycon-dress', 'cocktail-dress', 'sequin-top', 'camisole', 'blouse', 'midi-skirt', 'strappy-heels', 'heels', 'stilettos', 'evening-bag', 'clutch', 'mini-bag', 'statement-earrings', 'earrings', 'necklace', 'blazer'],
 } satisfies Record<OccasionTag, string[]>;
 
-export const STYLE_PREFERRED_COLORS: Record<string, string[]> = {
+export const STYLE_PREFERRED_COLORS = {
   minimal:  ['black', 'white', 'grey', 'beige', 'cream'],
   elevated: ['black', 'navy', 'cream', 'camel', 'burgundy'],
   bold:     ['red', 'blue', 'green', 'pink', 'coral', 'burgundy', 'orange'],
   romantic: ['pink', 'lavender', 'cream', 'beige', 'white', 'blush'],
   classic:  ['navy', 'black', 'white', 'camel', 'grey', 'burgundy'],
   youthful: ['pink', 'blue', 'green', 'red', 'coral', 'lavender', 'yellow'],
-};
+} satisfies Record<StyleGoal, string[]>;
 
-export const STYLE_GOAL_SUBTYPES: Record<string, Set<string>> = {
+export const STYLE_GOAL_SUBTYPES = {
   minimal:  new Set(['t-shirt', 'long-sleeve', 'wide-leg', 'trousers', 'midi-skirt', 'tote', 'flats', 'loafers', 'blazer']),
   elevated: new Set(['blouse', 'blazer', 'coat', 'trousers', 'midi-skirt', 'heels', 'tote', 'shoulder-bag', 'necklace', 'turtleneck']),
   bold:     new Set(['maxi-dress', 'midi-dress', 'blazer', 'wide-leg', 'heels', 'earrings', 'necklace', 'bracelet', 'camisole']),
   romantic: new Set(['midi-dress', 'wrap-dress', 'blouse', 'camisole', 'midi-skirt', 'heels', 'mules', 'earrings', 'necklace', 'maxi-dress']),
   classic:  new Set(['blazer', 'trousers', 'midi-skirt', 'blouse', 'loafers', 'tote', 'watch', 'shirt', 'coat']),
   youthful: new Set(['t-shirt', 'mini-skirt', 'sneakers', 'jeans', 'shorts', 'crossbody', 'earrings', 'hoodie', 'mini-dress', 'crop-top']),
-};
+} satisfies Record<StyleGoal, Set<string>>;
 
 // ─── Scenario formality bands ────────────────────────────────────────────────
 // Each scenario has a [min, max] formality band (1=loungewear, 9=black-tie).
@@ -447,7 +448,9 @@ export function distinctivenessScore(
 
   // 5. Style-goal lift — heroes that align with the user's primary goal feel
   //    "on brief" and read more intentional. Secondary goal worth less.
-  const primaryHero = STYLE_GOAL_SUBTYPES[profile?.styleGoalPrimary ?? '']?.has(item.subType);
+  const primaryHero = profile?.styleGoalPrimary
+    ? STYLE_GOAL_SUBTYPES[profile.styleGoalPrimary]?.has(item.subType)
+    : false;
   if (primaryHero) score += 2;
   const secHero = profile?.styleGoalSecondary
     ? STYLE_GOAL_SUBTYPES[profile.styleGoalSecondary]?.has(item.subType)
@@ -850,7 +853,9 @@ export function scoreItemForProfile(
   else if (f >= minF - 1 && f <= maxF + 1) score += 1;
 
   // 3. Style goal — colour (max +6)
-  const primaryColors = STYLE_PREFERRED_COLORS[profile.styleGoalPrimary ?? ''] ?? [];
+  const primaryColors = profile.styleGoalPrimary
+    ? STYLE_PREFERRED_COLORS[profile.styleGoalPrimary]
+    : [];
   const matchesPrimaryColor = primaryColors.includes(item.colorFamily);
   if (matchesPrimaryColor) score += 5;
   const secColors = profile.styleGoalSecondary
@@ -860,7 +865,9 @@ export function scoreItemForProfile(
   if (matchesSecondaryColor) score += 1;
 
   // 4. Style goal — silhouette (max +3)
-  const primarySubtypes = STYLE_GOAL_SUBTYPES[profile.styleGoalPrimary ?? ''];
+  const primarySubtypes = profile.styleGoalPrimary
+    ? STYLE_GOAL_SUBTYPES[profile.styleGoalPrimary]
+    : undefined;
   const matchesPrimarySubtype = primarySubtypes?.has(item.subType) ?? false;
   if (matchesPrimarySubtype) score += 3;
   const secondarySubtypes = profile.styleGoalSecondary

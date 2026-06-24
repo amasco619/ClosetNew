@@ -8,14 +8,6 @@
 
 import type { ItemCategory } from './types';
 
-export const LIFESTYLE_CATEGORY_WEIGHTS: Record<string, Record<ItemCategory, number>> = {
-  work:   { top: 1, bottom: 1, outerwear: 2, shoes: 1, jewelry: 1, dress: 1, bag: 1 },
-  casual: { top: 1, bottom: 1, outerwear: 0, shoes: 2, jewelry: 0, dress: 0, bag: 1 },
-  events: { top: 0, bottom: 0, outerwear: 0, shoes: 1, jewelry: 2, dress: 2, bag: 1 },
-  active: { top: 0, bottom: 2, outerwear: 1, shoes: 2, jewelry: 0, dress: 0, bag: 0 },
-  brunch: { top: 1, bottom: 0, outerwear: 0, shoes: 1, jewelry: 1, dress: 2, bag: 2 },
-};
-
 export interface LifestyleValues {
   work: number;
   casual: number;
@@ -23,6 +15,14 @@ export interface LifestyleValues {
   active: number;
   brunch: number;
 }
+
+export const LIFESTYLE_CATEGORY_WEIGHTS = {
+  work:   { top: 1, bottom: 1, outerwear: 2, shoes: 1, jewelry: 1, dress: 1, bag: 1 },
+  casual: { top: 1, bottom: 1, outerwear: 0, shoes: 2, jewelry: 0, dress: 0, bag: 1 },
+  events: { top: 0, bottom: 0, outerwear: 0, shoes: 1, jewelry: 2, dress: 2, bag: 1 },
+  active: { top: 0, bottom: 2, outerwear: 1, shoes: 2, jewelry: 0, dress: 0, bag: 0 },
+  brunch: { top: 1, bottom: 0, outerwear: 0, shoes: 1, jewelry: 1, dress: 2, bag: 2 },
+} satisfies Record<keyof LifestyleValues, Record<ItemCategory, number>>;
 
 export interface PrioritisedSlot {
   category: ItemCategory;
