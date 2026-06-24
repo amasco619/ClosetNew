@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import { classifyGarment } from "./classify-garment";
 import { extractColor } from "./extract-color";
-import { supabaseAdmin } from "./supabase";
+import { supabaseAdmin, supabaseAuth } from "./supabase";
 import { aiLimiter, colorLimiter, accountLimiter, authLimiter, resetLimiter } from "./middleware/rateLimiter";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -15,7 +15,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "email and password are required." });
     }
     try {
-      const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+      const { data, error } = await supabaseAuth.auth.signInWithPassword({
         email: String(email).trim().toLowerCase(),
         password: String(password),
       });
@@ -30,14 +30,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/reset-password", resetLimiter, async (req, res) => {
-    const { email, redirectTo } = req.body;
+    const { email } = req.body;
     if (!email) {
       return res.status(400).json({ error: "email is required." });
     }
+    // redirectTo is server-controlled to prevent open-redirect abuse.
+    const redirectTo = "auracloset://";
     try {
-      const { error } = await supabaseAdmin.auth.resetPasswordForEmail(
+      const { error } = await supabaseAuth.auth.resetPasswordForEmail(
         String(email).trim().toLowerCase(),
-        { redirectTo: String(redirectTo || "") }
+        { redirectTo }
       );
       if (error) {
         return res.status(400).json({ error: error.message });

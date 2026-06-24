@@ -14,3 +14,13 @@ export const supabaseAdmin = createClient(
   supabaseUrl,
   supabaseSecretKey
 )
+
+// Separate stateless client for auth proxy operations.
+// persistSession: false ensures sign-in/reset calls never mutate the shared
+// admin session, keeping the admin client clean for privileged operations.
+export const supabaseAuth = createClient(supabaseUrl, supabaseSecretKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+})

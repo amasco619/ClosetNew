@@ -1,8 +1,9 @@
 import { makeRedirectUri } from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
 import * as QueryParams from 'expo-auth-session/build/QueryParams'
+import { fetch } from 'expo/fetch'
 import { supabase } from './supabase'
-import { apiRequest } from './query-client'
+import { getApiUrl } from './query-client'
 
 WebBrowser.maybeCompleteAuthSession()
 
@@ -42,9 +43,12 @@ export async function signInWithEmail(
   email: string,
   password: string
 ): Promise<void> {
-  const res = await apiRequest('POST', '/api/auth/sign-in', {
-    email: email.trim().toLowerCase(),
-    password,
+  const url = new URL('/api/auth/sign-in', getApiUrl())
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+    credentials: 'include',
   })
   const json = await res.json()
   if (!res.ok) {
@@ -56,9 +60,12 @@ export async function signInWithEmail(
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
-  const res = await apiRequest('POST', '/api/auth/reset-password', {
-    email: email.trim().toLowerCase(),
-    redirectTo,
+  const url = new URL('/api/auth/reset-password', getApiUrl())
+  const res = await fetch(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    credentials: 'include',
   })
   const json = await res.json()
   if (!res.ok) {
