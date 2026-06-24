@@ -8,6 +8,9 @@ const LOCKOUT_MAX_ATTEMPTS = 5;
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 
+const BASE_PRUNE_INTERVAL_MS = 60 * 60 * 1000;
+const MAX_PRUNE_BACKOFF_MS = 8 * 60 * 60 * 1000;
+
 export interface LockoutRecord {
   attempts: number;
   windowStart: number;
@@ -173,6 +176,113 @@ export function __resetForTesting(): void {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Returns true when the pg Pool has been permanently shut down.
+ * Querying an ended pool throws synchronously, so we stop the schedule
+ * immediately rather than accumulating noise in the log.
+ */
+function isPoolEnded(pool: Pool): boolean {
+  return (pool as unknown as { ended?: boolean }).ended === true;
+}
+
+/**
+ * Compute the back-off delay for prune attempt number `failCount`.
+ * failCount=0 → BASE (1 h); failCount=1 → 2 h; failCount=2 → 4 h; ≥3 → 8 h.
+ */
+function pruneDelay(failCount: number): number {
+  return Math.min(BASE_PRUNE_INTERVAL_MS * Math.pow(2, failCount), MAX_PRUNE_BACKOFF_MS);
+}
+
+/**
+ * Schedule the next rate-limit prune tick using setTimeout so the interval
+ * can widen (exponential back-off) after consecutive errors and self-stop
+ * when the pool is permanently closed.
+ */
+function scheduleRlPrune(
+  pool: Pool,
+  failCount: number
+): ReturnType<typeof setTimeout> {
+  return setTimeout(() => {
+    if (isPoolEnded(pool)) {
+      console.log("[rateLimiter] rate-limit pool closed — stopping prune schedule");
+      __rlPruneIntervalForTesting = null;
+      return;
+    }
+    pool
+      .query(`DELETE FROM ratelimit_store WHERE reset_time <= NOW()`)
+      .then(
+        ({ rowCount }) => {
+          if ((rowCount ?? 0) > 0) {
+            console.log(
+              `[rateLimiter] periodic prune: removed ${rowCount} expired rate-limit row(s)`
+            );
+          }
+          __rlPruneIntervalForTesting = scheduleRlPrune(pool, 0);
+        },
+        (err: unknown) => {
+          if (isPoolEnded(pool)) {
+            console.log("[rateLimiter] rate-limit pool closed — stopping prune schedule");
+            __rlPruneIntervalForTesting = null;
+            return;
+          }
+          const nextFail = failCount + 1;
+          const nextDelay = pruneDelay(nextFail);
+          console.error(
+            `[rateLimiter] periodic prune error (retrying in ${nextDelay / 60_000} min):`,
+            err
+          );
+          __rlPruneIntervalForTesting = scheduleRlPrune(pool, nextFail);
+        }
+      );
+  }, pruneDelay(failCount));
+}
+
+/**
+ * Schedule the next lockout prune tick using setTimeout with the same
+ * exponential back-off / pool-ended self-stop logic as scheduleRlPrune.
+ */
+function scheduleLockoutPrune(
+  pool: Pool,
+  failCount: number
+): ReturnType<typeof setTimeout> {
+  return setTimeout(() => {
+    if (isPoolEnded(pool)) {
+      console.log("[rateLimiter] lockout pool closed — stopping prune schedule");
+      __lockoutPruneIntervalForTesting = null;
+      return;
+    }
+    pool
+      .query(
+        `DELETE FROM lockout_store WHERE expires IS NOT NULL AND expires <= $1`,
+        [Date.now()]
+      )
+      .then(
+        ({ rowCount }) => {
+          if ((rowCount ?? 0) > 0) {
+            console.log(
+              `[rateLimiter] periodic prune: removed ${rowCount} expired lockout row(s)`
+            );
+          }
+          __lockoutPruneIntervalForTesting = scheduleLockoutPrune(pool, 0);
+        },
+        (err: unknown) => {
+          if (isPoolEnded(pool)) {
+            console.log("[rateLimiter] lockout pool closed — stopping prune schedule");
+            __lockoutPruneIntervalForTesting = null;
+            return;
+          }
+          const nextFail = failCount + 1;
+          const nextDelay = pruneDelay(nextFail);
+          console.error(
+            `[rateLimiter] periodic lockout prune error (retrying in ${nextDelay / 60_000} min):`,
+            err
+          );
+          __lockoutPruneIntervalForTesting = scheduleLockoutPrune(pool, nextFail);
+        }
+      );
+  }, pruneDelay(failCount));
+}
+
+/**
  * Ensure the `lockout_store` table exists in Postgres.
  * Runs an explicit CREATE TABLE IF NOT EXISTS so the table is always present
  * before @keyv/postgres touches it, even on a fresh database or when the DB
@@ -247,23 +357,7 @@ export async function initLockoutStore(): Promise<void> {
   if (__lockoutPruneIntervalForTesting === null) {
     const pool = _pool;
     if (pool) {
-      __lockoutPruneIntervalForTesting = setInterval(() => {
-        pool.query(
-          `DELETE FROM lockout_store WHERE expires IS NOT NULL AND expires <= $1`,
-          [Date.now()]
-        ).then(
-          ({ rowCount }) => {
-            if ((rowCount ?? 0) > 0) {
-              console.log(
-                `[rateLimiter] periodic prune: removed ${rowCount} expired lockout row(s)`
-              );
-            }
-          },
-          (err: unknown) => {
-            console.error("[rateLimiter] periodic lockout prune error:", err);
-          }
-        );
-      }, 60 * 60 * 1000);
+      __lockoutPruneIntervalForTesting = scheduleLockoutPrune(pool, 0);
     }
   }
 }
@@ -299,20 +393,7 @@ export async function initRateLimitStore(): Promise<void> {
   }
 
   if (__rlPruneIntervalForTesting === null) {
-    __rlPruneIntervalForTesting = setInterval(() => {
-      pool.query(`DELETE FROM ratelimit_store WHERE reset_time <= NOW()`).then(
-        ({ rowCount }) => {
-          if ((rowCount ?? 0) > 0) {
-            console.log(
-              `[rateLimiter] periodic prune: removed ${rowCount} expired rate-limit row(s)`
-            );
-          }
-        },
-        (err: unknown) => {
-          console.error("[rateLimiter] periodic prune error:", err);
-        }
-      );
-    }, 60 * 60 * 1000);
+    __rlPruneIntervalForTesting = scheduleRlPrune(pool, 0);
   }
 }
 
