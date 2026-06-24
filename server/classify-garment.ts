@@ -158,7 +158,7 @@ const DISPLAYNAME_OCCASION_OVERRIDES: Record<string, OccasionTag[]> = {
   "Running shoes":       ["active"],
 };
 
-function inferOccasions(subType: string | null, displayName: string): OccasionTag[] {
+export function inferOccasions(subType: string | null, displayName: string): OccasionTag[] {
   if (DISPLAYNAME_OCCASION_OVERRIDES[displayName]) {
     return DISPLAYNAME_OCCASION_OVERRIDES[displayName];
   }
@@ -215,7 +215,7 @@ const SUBTYPE_SEASONS: Partial<Record<string, SeasonTag[]>> = {
   "ankle-boots":   ["fall", "winter"],
 };
 
-function inferSeasonTags(subType: string | null, fabric: string | null): SeasonTag[] {
+export function inferSeasonTags(subType: string | null, fabric: string | null): SeasonTag[] {
   if (fabric) {
     const fromFabric = FABRIC_SEASONS[fabric];
     if (fromFabric) return fromFabric;
@@ -229,7 +229,7 @@ function inferSeasonTags(subType: string | null, fabric: string | null): SeasonT
 
 // ─── Weight inference from fabric ────────────────────────────────────────────
 
-function inferWeight(fabric: string | null | undefined): "light" | "mid" | "heavy" | undefined {
+export function inferWeight(fabric: string | null | undefined): "light" | "mid" | "heavy" | undefined {
   if (!fabric) return undefined;
   if (["wool", "cashmere", "leather", "velvet", "tweed", "suede"].includes(fabric)) return "heavy";
   if (["silk", "satin", "linen", "chiffon"].includes(fabric)) return "light";
@@ -238,7 +238,7 @@ function inferWeight(fabric: string | null | undefined): "light" | "mid" | "heav
 
 // ─── Description builder ──────────────────────────────────────────────────────
 
-function buildDescription(displayName: string, colorFamily: string | null): string {
+export function buildDescription(displayName: string, colorFamily: string | null): string {
   if (colorFamily) {
     const capitalizedColor = colorFamily.charAt(0).toUpperCase() + colorFamily.slice(1);
     const lower = displayName.toLowerCase();
@@ -255,7 +255,7 @@ function buildDescription(displayName: string, colorFamily: string | null): stri
 // ─── Perceptual colour helpers (sRGB → HSL / CIE Lab) ────────────────────────
 // Restored for computing dominantHsl / dominantLab from Gemini's dominant RGB.
 
-function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+export function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
   const rn = r / 255, gn = g / 255, bn = b / 255;
   const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
   const l = (max + min) / 2;
@@ -273,7 +273,7 @@ function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: n
   return { h, s, l };
 }
 
-function rgbToLab(r: number, g: number, b: number): { L: number; a: number; b: number } {
+export function rgbToLab(r: number, g: number, b: number): { L: number; a: number; b: number } {
   const lin = [r, g, b].map(v => {
     const c = v / 255;
     return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
@@ -288,9 +288,9 @@ function rgbToLab(r: number, g: number, b: number): { L: number; a: number; b: n
 
 // ─── Valid value sets (used for validation after Gemini response) ─────────────
 
-const VALID_CATEGORIES = new Set<string>(["top", "bottom", "dress", "outerwear", "shoes", "bag", "jewelry"]);
+export const VALID_CATEGORIES = new Set<string>(["top", "bottom", "dress", "outerwear", "shoes", "bag", "jewelry"]);
 
-const VALID_SUBTYPES_BY_CATEGORY: Record<string, string[]> = {
+export const VALID_SUBTYPES_BY_CATEGORY: Record<string, string[]> = {
   top: [
     "t-shirt","long-sleeve","polo-shirt","henley","rugby-shirt",
     "tank-top","crop-top","shirt","button-down","blouse",
@@ -325,7 +325,7 @@ const VALID_SUBTYPES_BY_CATEGORY: Record<string, string[]> = {
   ],
 };
 
-const VALID_COLOR_FAMILIES = new Set<string>([
+export const VALID_COLOR_FAMILIES = new Set<string>([
   "black","white","grey","cream","beige","camel","brown",
   "red","burgundy","coral","orange","yellow","olive","green",
   "blue","navy","lavender","pink",
@@ -343,6 +343,153 @@ const VALID_NECKLINES = new Set<string>(["crew","v-neck","scoop","turtleneck","b
 const VALID_SLEEVE_LENGTHS = new Set<string>(["sleeveless","short","three-quarter","long"]);
 const VALID_RISES = new Set<string>(["low","mid","high"]);
 const VALID_WARMTH_BANDS = new Set<string>(["cold","cool","mild","warm","hot"]);
+
+// ─── Pure processing function ─────────────────────────────────────────────────
+// Separating parse/validate/build from the HTTP layer makes the core logic
+// directly testable without Express req/res or Gemini API calls.
+
+export interface ClassificationResult {
+  category: ItemCategory | null;
+  subType: string | null;
+  colorFamily: string | null;
+  accentColor?: string;
+  description: string;
+  occasionTags: OccasionTag[];
+  seasonTags: SeasonTag[];
+  pattern?: string;
+  patternScale?: string;
+  fit?: string;
+  neckline?: string;
+  sleeveLength?: string;
+  rise?: string;
+  warmthBand?: string;
+  fabric?: string;
+  weight?: "light" | "mid" | "heavy";
+  dominantHsl?: { h: number; s: number; l: number };
+  dominantLab?: { L: number; a: number; b: number };
+  modelConfidence: number;
+  source: "gemini";
+}
+
+export type GuardrailResult = { refused: true; reason: string };
+
+export function processGeminiResult(parsed: GeminiResult): ClassificationResult | GuardrailResult {
+  // Content guardrail
+  if (parsed.refused) {
+    return {
+      refused: true,
+      reason: parsed.reason ?? "This image could not be classified as a clothing item.",
+    };
+  }
+
+  // Validate and sanitise each field
+  const category = VALID_CATEGORIES.has(parsed.category ?? "")
+    ? (parsed.category as ItemCategory)
+    : null;
+
+  const validSubTypes = category ? VALID_SUBTYPES_BY_CATEGORY[category] : [];
+  const subType = validSubTypes.includes(parsed.subType ?? "")
+    ? parsed.subType!
+    : null;
+
+  const colorFamily = VALID_COLOR_FAMILIES.has(parsed.colorFamily ?? "")
+    ? parsed.colorFamily!
+    : null;
+
+  const accentColor =
+    parsed.accentColor && VALID_COLOR_FAMILIES.has(parsed.accentColor)
+      ? parsed.accentColor
+      : undefined;
+
+  const fabric =
+    parsed.fabric && VALID_FABRICS.has(parsed.fabric)
+      ? parsed.fabric
+      : undefined;
+
+  const pattern =
+    parsed.pattern && VALID_PATTERNS.has(parsed.pattern)
+      ? parsed.pattern
+      : undefined;
+
+  const patternScale =
+    parsed.patternScale && VALID_PATTERN_SCALES.has(parsed.patternScale)
+      ? parsed.patternScale
+      : undefined;
+
+  const fit =
+    parsed.fit && VALID_FITS.has(parsed.fit)
+      ? parsed.fit
+      : undefined;
+
+  const neckline =
+    parsed.neckline && VALID_NECKLINES.has(parsed.neckline)
+      ? parsed.neckline
+      : undefined;
+
+  const sleeveLength =
+    parsed.sleeveLength && VALID_SLEEVE_LENGTHS.has(parsed.sleeveLength)
+      ? parsed.sleeveLength
+      : undefined;
+
+  const rise =
+    parsed.rise && VALID_RISES.has(parsed.rise)
+      ? parsed.rise
+      : undefined;
+
+  const warmthBand =
+    parsed.warmthBand && VALID_WARMTH_BANDS.has(parsed.warmthBand)
+      ? parsed.warmthBand
+      : undefined;
+
+  const modelConfidence =
+    typeof parsed.modelConfidence === "number"
+      ? Math.min(1, Math.max(0, parsed.modelConfidence))
+      : 0.7;
+
+  const displayName = parsed.displayName ??
+    (category ? category.charAt(0).toUpperCase() + category.slice(1) : "Clothing item");
+  const description = buildDescription(displayName, colorFamily);
+  const occasionTags = inferOccasions(subType, displayName);
+  const weight = inferWeight(fabric);
+  const seasonTags = inferSeasonTags(subType, fabric ?? null);
+
+  // Derive perceptual colour signals from Gemini's representative RGB
+  let dominantHsl: { h: number; s: number; l: number } | undefined;
+  let dominantLab: { L: number; a: number; b: number } | undefined;
+
+  if (
+    Array.isArray(parsed.dominantRgb) &&
+    parsed.dominantRgb.length === 3 &&
+    parsed.dominantRgb.every((v: unknown) => typeof v === "number" && v >= 0 && v <= 255)
+  ) {
+    const [r, g, b] = parsed.dominantRgb as [number, number, number];
+    dominantHsl = rgbToHsl(r, g, b);
+    dominantLab = rgbToLab(r, g, b);
+  }
+
+  return {
+    category,
+    subType,
+    colorFamily,
+    accentColor,
+    description,
+    occasionTags,
+    seasonTags,
+    pattern,
+    patternScale,
+    fit,
+    neckline,
+    sleeveLength,
+    rise,
+    warmthBand,
+    fabric,
+    weight,
+    dominantHsl,
+    dominantLab,
+    modelConfidence,
+    source: "gemini",
+  };
+}
 
 // ─── Gemini classifier ────────────────────────────────────────────────────────
 
@@ -511,129 +658,24 @@ export async function classifyGarment(req: Request, res: Response) {
       return res.status(500).json({ error: "classification_failed" });
     }
 
-    // ── Content guardrail triggered ───────────────────────────────────────────
-    if (parsed.refused) {
-      console.log(`[classify] guardrail triggered: ${parsed.reason}`);
+    // ── Delegate to pure processing function ─────────────────────────────────
+    const result = processGeminiResult(parsed);
+
+    if ("refused" in result && result.refused) {
+      console.log(`[classify] guardrail triggered: ${result.reason}`);
       return res.status(422).json({
         error: "content_guardrail",
-        reason: parsed.reason ?? "This image could not be classified as a clothing item.",
+        reason: result.reason,
       });
     }
 
-    // ── Validate and sanitise the response ────────────────────────────────────
-    const category = VALID_CATEGORIES.has(parsed.category ?? "")
-      ? (parsed.category as ItemCategory)
-      : null;
-
-    const validSubTypes = category ? VALID_SUBTYPES_BY_CATEGORY[category] : [];
-    const subType = validSubTypes.includes(parsed.subType ?? "")
-      ? parsed.subType!
-      : null;
-
-    const colorFamily = VALID_COLOR_FAMILIES.has(parsed.colorFamily ?? "")
-      ? parsed.colorFamily!
-      : null;
-
-    const accentColor =
-      parsed.accentColor && VALID_COLOR_FAMILIES.has(parsed.accentColor)
-        ? parsed.accentColor
-        : undefined;
-
-    const fabric =
-      parsed.fabric && VALID_FABRICS.has(parsed.fabric)
-        ? parsed.fabric
-        : undefined;
-
-    const pattern =
-      parsed.pattern && VALID_PATTERNS.has(parsed.pattern)
-        ? parsed.pattern
-        : undefined;
-
-    const patternScale =
-      parsed.patternScale && VALID_PATTERN_SCALES.has(parsed.patternScale)
-        ? parsed.patternScale
-        : undefined;
-
-    const fit =
-      parsed.fit && VALID_FITS.has(parsed.fit)
-        ? parsed.fit
-        : undefined;
-
-    const neckline =
-      parsed.neckline && VALID_NECKLINES.has(parsed.neckline)
-        ? parsed.neckline
-        : undefined;
-
-    const sleeveLength =
-      parsed.sleeveLength && VALID_SLEEVE_LENGTHS.has(parsed.sleeveLength)
-        ? parsed.sleeveLength
-        : undefined;
-
-    const rise =
-      parsed.rise && VALID_RISES.has(parsed.rise)
-        ? parsed.rise
-        : undefined;
-
-    const warmthBand =
-      parsed.warmthBand && VALID_WARMTH_BANDS.has(parsed.warmthBand)
-        ? parsed.warmthBand
-        : undefined;
-
-    const modelConfidence =
-      typeof parsed.modelConfidence === "number"
-        ? Math.min(1, Math.max(0, parsed.modelConfidence))
-        : 0.7;
-
-    const displayName = parsed.displayName ?? (category ? category.charAt(0).toUpperCase() + category.slice(1) : "Clothing item");
-    const description = buildDescription(displayName, colorFamily);
-    const occasionTags = inferOccasions(subType, displayName);
-    const weight = inferWeight(fabric);
-    const seasonTags = inferSeasonTags(subType, fabric ?? null);
-
-    // ── Perceptual colour signals ─────────────────────────────────────────────
-    // Derive HSL + Lab from the Gemini-supplied representative RGB so downstream
-    // outfit scoring can reason about undertone, value spread, and saturation.
-    let dominantHsl: { h: number; s: number; l: number } | undefined;
-    let dominantLab: { L: number; a: number; b: number } | undefined;
-
-    if (
-      Array.isArray(parsed.dominantRgb) &&
-      parsed.dominantRgb.length === 3 &&
-      parsed.dominantRgb.every((v: unknown) => typeof v === "number" && v >= 0 && v <= 255)
-    ) {
-      const [r, g, b] = parsed.dominantRgb as [number, number, number];
-      dominantHsl = rgbToHsl(r, g, b);
-      dominantLab = rgbToLab(r, g, b);
-    }
-
     if (userId) {
-      console.log(`[classify] user=${userId} → ${subType ?? "unknown"} (${colorFamily}) conf=${modelConfidence.toFixed(2)}`);
+      console.log(`[classify] user=${userId} → ${(result as ClassificationResult).subType ?? "unknown"} (${(result as ClassificationResult).colorFamily}) conf=${((result as ClassificationResult).modelConfidence ?? 0).toFixed(2)}`);
     } else {
-      console.log(`[classify] → ${subType ?? "unknown"} (${colorFamily}) conf=${modelConfidence.toFixed(2)}`);
+      console.log(`[classify] → ${(result as ClassificationResult).subType ?? "unknown"} (${(result as ClassificationResult).colorFamily}) conf=${((result as ClassificationResult).modelConfidence ?? 0).toFixed(2)}`);
     }
 
-    return res.json({
-      category,
-      subType,
-      colorFamily,
-      accentColor,
-      description,
-      occasionTags,
-      seasonTags,
-      pattern,
-      patternScale,
-      fit,
-      neckline,
-      sleeveLength,
-      rise,
-      warmthBand,
-      fabric,
-      weight,
-      dominantHsl,
-      dominantLab,
-      modelConfidence,
-      source: "gemini",
-    });
+    return res.json(result);
   } catch (err: any) {
     const status = err?.response?.status;
     const detail = err?.response?.data?.error?.message ?? err.message;
