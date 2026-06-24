@@ -27,6 +27,8 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { STYLE_BLUEPRINT_SLOTS, STYLE_GOALS } from '../constants/blueprintSlots';
+import { buildProfileBlueprintSlots } from '../constants/blueprintCore';
+import type { StyleGoal } from '../constants/types';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
 
@@ -222,6 +224,54 @@ if (missingFiles.length > 0) {
   console.error(
     `\n  PNG files missing from assets/recommendations/ (will crash at runtime):\n` +
     missingFiles.map(k => `    assets/recommendations/${k}.png`).join('\n'),
+  );
+}
+
+// ── 6. ALGORITHM OUTPUT — NO FALLBACK IMAGES ─────────────────────────────────
+// Runs buildProfileBlueprintSlots for every primary goal (and a secondary-goal
+// cross-product sample) and verifies that every imageKey the algorithm produces
+// resolves to a real SAMPLE_IMAGES entry — not the white_tee fallback.
+// This catches keys introduced by secondary-goal merges or constraint-filtered
+// swaps that would pass check 1 but still silently fall back in the real app.
+
+console.log('\n6. buildProfileBlueprintSlots never produces an imageKey that falls back to white_tee');
+
+for (const primary of STYLE_GOALS as StyleGoal[]) {
+  const slots = buildProfileBlueprintSlots({ styleGoalPrimary: primary });
+  const fallbacks = slots.filter(s => !sampleImageKeys.has(s.imageKey));
+
+  assert(
+    fallbacks.length === 0,
+    `primary="${primary}": all ${slots.length} algorithm-output slots have a valid imageKey` +
+    (fallbacks.length > 0
+      ? `\n    would fall back: ${fallbacks.map(s => `${s.id} → "${s.imageKey}"`).join(', ')}`
+      : ''),
+  );
+}
+
+// Cross-product sample: each goal paired with a different secondary goal
+const secondaryPairs: Array<[StyleGoal, StyleGoal]> = [
+  ['minimal',  'classic'],
+  ['elevated', 'romantic'],
+  ['bold',     'youthful'],
+  ['romantic', 'minimal'],
+  ['classic',  'elevated'],
+  ['youthful', 'bold'],
+];
+
+for (const [primary, secondary] of secondaryPairs) {
+  const slots = buildProfileBlueprintSlots({
+    styleGoalPrimary: primary,
+    styleGoalSecondary: secondary,
+  });
+  const fallbacks = slots.filter(s => !sampleImageKeys.has(s.imageKey));
+
+  assert(
+    fallbacks.length === 0,
+    `primary="${primary}" + secondary="${secondary}": all ${slots.length} merged slots have a valid imageKey` +
+    (fallbacks.length > 0
+      ? `\n    would fall back: ${fallbacks.map(s => `${s.id} → "${s.imageKey}"`).join(', ')}`
+      : ''),
   );
 }
 

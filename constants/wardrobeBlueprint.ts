@@ -57,6 +57,24 @@ export type UINextSmartBuy = Omit<NextSmartBuy, 'slot'> & {
 
 type BlueprintItem = Omit<WardrobeSlot, 'status' | 'matchedItemId'>;
 
+/**
+ * Resolves an imageKey to its ImageSourcePropType.
+ * Falls back to white_tee when the key is absent and, in dev builds,
+ * logs a warning naming the offending slot id and missing key so
+ * authoring errors are caught before they reach production.
+ */
+function resolveSampleImage(imageKey: string, slotId: string): ImageSourcePropType {
+  if (__DEV__ && !(imageKey in SAMPLE_IMAGES)) {
+    console.warn(
+      `[wardrobeBlueprint] Slot "${slotId}" has imageKey "${imageKey}" ` +
+      `with no matching SAMPLE_IMAGES entry — falling back to white_tee. ` +
+      `Add the key to SAMPLE_IMAGES in wardrobeBlueprint.ts or fix the ` +
+      `imageKey in blueprintSlots.ts.`,
+    );
+  }
+  return SAMPLE_IMAGES[imageKey] ?? SAMPLE_IMAGES.white_tee;
+}
+
 const SAMPLE_IMAGES: Record<string, ImageSourcePropType> = {
   // ── Tops ────────────────────────────────────────────────────────────────
   white_tee:               require('@/assets/recommendations/white_tee.png'),
@@ -211,7 +229,7 @@ const STYLE_BLUEPRINTS: Record<StyleGoal, BlueprintItem[]> = Object.fromEntries(
     goal,
     STYLE_BLUEPRINT_SLOTS[goal].map(({ imageKey, ...rest }) => ({
       ...rest,
-      sampleImage: SAMPLE_IMAGES[imageKey] ?? SAMPLE_IMAGES.white_tee,
+      sampleImage: resolveSampleImage(imageKey, rest.id),
     })),
   ])
 ) as Record<StyleGoal, BlueprintItem[]>;
@@ -277,7 +295,7 @@ export function getProfileBlueprint(profile: UserProfile): BlueprintItem[] {
 
   return buildProfileBlueprintSlots(profile).map(({ imageKey, ...rest }) => ({
     ...rest,
-    sampleImage: SAMPLE_IMAGES[imageKey] ?? SAMPLE_IMAGES.white_tee,
+    sampleImage: resolveSampleImage(imageKey, rest.id),
   }));
 }
 
