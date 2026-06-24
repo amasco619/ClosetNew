@@ -126,8 +126,7 @@ Once the app is confirmed working end-to-end in the new environment, you may beg
 | **Supabase Storage** | Wardrobe item photos stored as `{userId}/{itemId}.jpg` |
 | **@supabase/supabase-js** | Supabase client library |
 | **Supabase Admin client** | Server-side operations (upgrade-premium, delete-account) using `SUPABASE_SERVICE_ROLE_KEY` |
-| **expo-secure-store** | Encrypted session token storage (iOS Keychain / Android Keystore) replacing plain AsyncStorage |
-| **@react-native-async-storage/async-storage** | Offline-first local persistence for wardrobe items, outfit reactions, wear log, blueprint slots, weather cache, affinity data, rotation cursors |
+| **@react-native-async-storage/async-storage** | Session token storage (native) and all offline-first local persistence: wardrobe items, outfit reactions, wear log, blueprint slots, weather cache, affinity data, rotation cursors |
 
 ### AI & External APIs
 
@@ -197,7 +196,7 @@ Once the app is confirmed working end-to-end in the new environment, you may beg
 1. User taps "Continue with Google/Apple" → `lib/auth.ts` calls `supabase.auth.signInWithOAuth()`
 2. Supabase returns an OAuth URL → app opens it in `expo-web-browser`
 3. On redirect, `createSessionFromUrl()` extracts tokens from URL and calls `supabase.auth.setSession()`
-4. Session tokens are stored in `expo-secure-store` (iOS Keychain / Android Keystore)
+4. Session tokens are stored in `AsyncStorage` on native (the Supabase client is initialised with `storage: AsyncStorage`)
 5. For email auth: `signInWithEmail()` calls `supabase.auth.signInWithPassword()` directly
 6. `AppContext` listens to `supabase.auth.onAuthStateChange()` for session updates
 
@@ -517,8 +516,8 @@ All Express API endpoints are protected by `express-rate-limit`:
 
 ---
 
-### Session Security
-Supabase session tokens (JWT access + refresh) are stored in `expo-secure-store` on native platforms (iOS Keychain / Android Keystore), not in plain AsyncStorage. The web platform continues to use the default Supabase storage (localStorage).
+### Session Storage
+Supabase session tokens (JWT access + refresh) are stored in `AsyncStorage` on native platforms. The Supabase client is initialised with `storage: AsyncStorage` inside the `Platform.OS !== 'web'` branch. The web platform uses the Supabase default (localStorage). Migration to `expo-secure-store` (iOS Keychain / Android Keystore) is planned as a future security hardening step.
 
 **Code:** `lib/supabase.ts`
 
