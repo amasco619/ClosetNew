@@ -2,6 +2,7 @@ import { makeRedirectUri } from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
 import * as QueryParams from 'expo-auth-session/build/QueryParams'
 import { supabase } from './supabase'
+import { apiRequest } from './query-client'
 
 WebBrowser.maybeCompleteAuthSession()
 
@@ -41,19 +42,28 @@ export async function signInWithEmail(
   email: string,
   password: string
 ): Promise<void> {
-  const { error } = await supabase.auth.signInWithPassword({
+  const res = await apiRequest('POST', '/api/auth/sign-in', {
     email: email.trim().toLowerCase(),
     password,
   })
-  if (error) throw new Error(`[signInWithEmail] ${error.message}`)
+  const json = await res.json()
+  if (!res.ok) {
+    throw new Error(`[signInWithEmail] ${json.error ?? res.statusText}`)
+  }
+  if (json.session) {
+    await supabase.auth.setSession(json.session)
+  }
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
-  const { error } = await supabase.auth.resetPasswordForEmail(
-    email.trim().toLowerCase(),
-    { redirectTo }
-  )
-  if (error) throw new Error(`[requestPasswordReset] ${error.message}`)
+  const res = await apiRequest('POST', '/api/auth/reset-password', {
+    email: email.trim().toLowerCase(),
+    redirectTo,
+  })
+  const json = await res.json()
+  if (!res.ok) {
+    throw new Error(`[requestPasswordReset] ${json.error ?? res.statusText}`)
+  }
 }
 
 export async function updatePassword(newPassword: string): Promise<void> {
