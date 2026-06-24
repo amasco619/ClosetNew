@@ -1,6 +1,62 @@
 import rateLimit from "express-rate-limit";
 import type { Request, Response } from "express";
 
+const LOCKOUT_MAX_ATTEMPTS = 5;
+const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
+
+interface LockoutRecord {
+  attempts: number;
+  windowStart: number;
+  lockedUntil: number | null;
+}
+
+const lockoutStore = new Map<string, LockoutRecord>();
+
+export function checkAccountLockout(email: string): { locked: true; minutesLeft: number } | { locked: false } {
+  const key = email.trim().toLowerCase();
+  const now = Date.now();
+  const record = lockoutStore.get(key);
+
+  if (!record) return { locked: false };
+
+  if (record.lockedUntil !== null) {
+    if (now < record.lockedUntil) {
+      const minutesLeft = Math.max(1, Math.ceil((record.lockedUntil - now) / 60000));
+      return { locked: true, minutesLeft };
+    }
+    lockoutStore.delete(key);
+    return { locked: false };
+  }
+
+  if (now - record.windowStart > LOCKOUT_WINDOW_MS) {
+    lockoutStore.delete(key);
+    return { locked: false };
+  }
+
+  return { locked: false };
+}
+
+export function recordFailedAttempt(email: string): void {
+  const key = email.trim().toLowerCase();
+  const now = Date.now();
+  const record = lockoutStore.get(key);
+
+  if (!record || now - record.windowStart > LOCKOUT_WINDOW_MS) {
+    lockoutStore.set(key, { attempts: 1, windowStart: now, lockedUntil: null });
+    return;
+  }
+
+  record.attempts += 1;
+  if (record.attempts >= LOCKOUT_MAX_ATTEMPTS) {
+    record.lockedUntil = now + LOCKOUT_DURATION_MS;
+  }
+}
+
+export function clearLockout(email: string): void {
+  lockoutStore.delete(email.trim().toLowerCase());
+}
+
 function makeHandler() {
   return (req: Request, res: Response) => {
     const info = (req as any).rateLimit;

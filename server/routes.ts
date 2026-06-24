@@ -3,7 +3,7 @@ import { createServer, type Server } from "node:http";
 import { classifyGarment } from "./classify-garment";
 import { extractColor } from "./extract-color";
 import { supabaseAdmin, supabaseAuth } from "./supabase";
-import { aiLimiter, colorLimiter, accountLimiter, authLimiter, resetLimiter } from "./middleware/rateLimiter";
+import { aiLimiter, colorLimiter, accountLimiter, authLimiter, resetLimiter, checkAccountLockout, recordFailedAttempt, clearLockout } from "./middleware/rateLimiter";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/classify-garment", aiLimiter, classifyGarment);
@@ -14,14 +14,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!email || !password) {
       return res.status(400).json({ error: "email and password are required." });
     }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+
+    const lockout = checkAccountLockout(normalizedEmail);
+    if (lockout.locked) {
+      return res.status(429).json({
+        error: `Account temporarily locked. Try again in ${lockout.minutesLeft} minute${lockout.minutesLeft === 1 ? "" : "s"}.`,
+        retryAfter: lockout.minutesLeft * 60,
+      });
+    }
+
     try {
       const { data, error } = await supabaseAuth.auth.signInWithPassword({
-        email: String(email).trim().toLowerCase(),
+        email: normalizedEmail,
         password: String(password),
       });
       if (error) {
+        recordFailedAttempt(normalizedEmail);
         return res.status(401).json({ error: error.message });
       }
+      clearLockout(normalizedEmail);
       return res.json({ session: data.session });
     } catch (err: any) {
       console.error("[auth/sign-in]", err.message);
