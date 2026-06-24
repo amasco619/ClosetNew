@@ -17,7 +17,7 @@ AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo 
 ## Key Features
 - Multi-step onboarding (body type with illustrated images, eye color, skin tone, style goals)
 - Wardrobe digitization with camera/gallery (Guest: 8-item cap, Free: 15-item cap, Premium: unlimited)
-- Garment classification via Google Cloud Vision (POST /api/classify-garment)
+- Garment classification via Gemini AI (POST /api/classify-garment)
 - **Personalized outfit generation** — dynamic outfit combinations built exclusively from the user's actual wardrobe items. Algorithm uses occasion tags, color harmony (neutral + anything, monochromatic), style goal color preferences, and profile constraints (noSleeveless, noShortSkirts, maxHeelHeight). Each component is always "owned" (real items only).
 - **"Just Added" outfit suggestions** — when a user uploads a new clothing item, `generateOutfitsForItem` builds complete looks centered on that new item using existing wardrobe pieces. These appear as a dismissable "Styled for your new item" banner in the Outfits tab and contribute to the "Ready Outfits" count on the dashboard.
 - **Outfits tab redesign** — shows only real, wearable looks from the user's wardrobe (no "need" items). Features: scenario filter (work/casual/date/event/brunch/active + premium tiers for resort/night-out), lookbook-style cards with item photos, mood descriptor per scenario, and a "Ready to wear" badge on every outfit.
@@ -62,8 +62,8 @@ constants/
                          getProfileBlueprint (delegates to blueprintCore), slot matching
   outfitGenerator.ts   - Personalized outfit generator (generatePersonalizedOutfits). WardrobeItem/OutfitComponent/OutfitSet interfaces live in types.ts (moved from AppContext to avoid circular imports)
 server/
-  classify-garment.ts  - POST /api/classify-garment; Gemini + GCV; expanded VALID_SUBTYPES for all engine
-                         sub-types; GEMINI_PROMPT updated to return OccasionTags from the 12-tag taxonomy
+  classify-garment.ts  - POST /api/classify-garment; Gemini API only (gemini-flash-lite-latest → gemini-2.5-flash fallback);
+                         GEMINI_PROMPT returns full garment fields + OccasionTags from the 12-tag taxonomy
 assets/
   body_types/          - Illustrated body shape images (hourglass, pear, apple, rectangle, inverted triangle, athletic)
   recommendations/     - Sample images for wardrobe slots (19 flat-lay fashion photos)
@@ -111,13 +111,13 @@ __tests__/
 
 ## Garment Classification API
 - Endpoint: POST /api/classify-garment (on the existing Express server, port 5000)
-- Calls Google Cloud Vision Label Detection to identify garment type and color
-- Maps Vision labels to internal schema (garmentType + colorFamily)
-- Returns a human-readable `description` field combining color and garment type (e.g. "Grey zip-up hoodie")
-- Requires `GCV_API_KEY` secret (Google Cloud Vision API key)
+- Calls Google Gemini AI to identify garment type, color, fabric, pattern, fit, neckline, sleeveLength, rise, warmthBand
+- Primary model: gemini-flash-lite-latest; fallback: gemini-2.5-flash (on 429 quota errors)
+- Returns: category, subType, colorFamily, displayName, description, occasionTags, seasonTags, dominantHsl, dominantLab, modelConfidence
+- Requires `GEMINI_API_KEY` secret
 - Implementation: `server/classify-garment.ts`, registered in `server/routes.ts`
 - Documentation: `server/README.md`
-- Dependencies: axios (for Vision API calls)
+- Dependencies: axios (for Gemini API calls)
 - JSON body limit increased to 10mb to support base64 image uploads
 
 ## Color Palette
