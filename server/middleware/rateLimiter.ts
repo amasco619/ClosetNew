@@ -49,6 +49,12 @@ let _pool: Pool | null = null;
  */
 let _rlPool: Pool | null | undefined = undefined;
 
+/**
+ * Handle for the periodic rate-limit prune interval.
+ * Exported so tests can call clearInterval() on it to avoid leaking timers.
+ */
+export let __rlPruneIntervalForTesting: ReturnType<typeof setInterval> | null = null;
+
 function buildPostgresPersistence(): LockoutPersistenceLayer | null {
   const url = process.env.DATABASE_URL;
   if (!url) return null;
@@ -148,6 +154,10 @@ export function __resetForTesting(): void {
   _kv = null;
   _pool = null;
   _rlPool = undefined;
+  if (__rlPruneIntervalForTesting !== null) {
+    clearInterval(__rlPruneIntervalForTesting);
+    __rlPruneIntervalForTesting = null;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -253,6 +263,23 @@ export async function initRateLimitStore(): Promise<void> {
     );
   } catch (err) {
     console.error("[rateLimiter] failed to initialise rate-limit store:", err);
+  }
+
+  if (__rlPruneIntervalForTesting === null) {
+    __rlPruneIntervalForTesting = setInterval(() => {
+      pool.query(`DELETE FROM ratelimit_store WHERE reset_time <= NOW()`).then(
+        ({ rowCount }) => {
+          if ((rowCount ?? 0) > 0) {
+            console.log(
+              `[rateLimiter] periodic prune: removed ${rowCount} expired rate-limit row(s)`
+            );
+          }
+        },
+        (err: unknown) => {
+          console.error("[rateLimiter] periodic prune error:", err);
+        }
+      );
+    }, 60 * 60 * 1000);
   }
 }
 
