@@ -1,4 +1,4 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { type Store, type Options, type ClientRateLimitInfo } from "express-rate-limit";
 import type { Request, Response } from "express";
 import { Pool } from "pg";
 import Keyv from "keyv";
@@ -38,7 +38,16 @@ const memCache = new Map<string, CacheEntry>();
 
 let _persistence: LockoutPersistenceLayer | null = null;
 let _kv: Keyv<LockoutRecord> | null = null;
+
+/** Shared pg.Pool for the lockout store (and for the rate-limit store below). */
 let _pool: Pool | null = null;
+
+/**
+ * Dedicated pg.Pool for rate-limit counters.
+ * Using `undefined` as the "not yet initialised" sentinel so that `null`
+ * can unambiguously mean "no DATABASE_URL, use in-memory fallback".
+ */
+let _rlPool: Pool | null | undefined = undefined;
 
 function buildPostgresPersistence(): LockoutPersistenceLayer | null {
   const url = process.env.DATABASE_URL;
@@ -103,6 +112,24 @@ function getPersistence(): LockoutPersistenceLayer | null {
   return pg;
 }
 
+/** Return (or lazily create) the Pool used for rate-limit counters. */
+function getRlPool(): Pool | null {
+  if (_rlPool !== undefined) return _rlPool;
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    _rlPool = null;
+    return null;
+  }
+  try {
+    _rlPool = new Pool({ connectionString: url });
+    return _rlPool;
+  } catch (err) {
+    console.error("[rateLimiter] failed to create rate-limit pool:", err);
+    _rlPool = null;
+    return null;
+  }
+}
+
 // ── Test helpers ─────────────────────────────────────────────────────────────
 // These are intentionally exported so unit tests can inject a mock persistence
 // layer and verify restart-survival semantics without a real DB connection.
@@ -120,6 +147,7 @@ export function __resetForTesting(): void {
   _persistence = null;
   _kv = null;
   _pool = null;
+  _rlPool = undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,6 +180,39 @@ export async function initLockoutStore(): Promise<void> {
     console.error("[rateLimiter] failed to load lockout records from DB:", err);
   }
 }
+
+/**
+ * Ensure the `ratelimit_store` table exists and prune expired rows.
+ * Call once from server startup alongside `initLockoutStore`.
+ */
+export async function initRateLimitStore(): Promise<void> {
+  const pool = getRlPool();
+  if (!pool) {
+    console.warn(
+      "[rateLimiter] DATABASE_URL not set — rate-limit counters will not survive restarts"
+    );
+    return;
+  }
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ratelimit_store (
+        key        TEXT        PRIMARY KEY,
+        hits       INTEGER     NOT NULL DEFAULT 0,
+        reset_time TIMESTAMPTZ NOT NULL
+      )
+    `);
+    const { rowCount } = await pool.query(
+      `DELETE FROM ratelimit_store WHERE reset_time <= NOW()`
+    );
+    console.log(
+      `[rateLimiter] rate-limit store ready; pruned ${rowCount ?? 0} expired row(s)`
+    );
+  } catch (err) {
+    console.error("[rateLimiter] failed to initialise rate-limit store:", err);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function checkAccountLockout(
   email: string
@@ -227,6 +288,146 @@ export function clearLockout(email: string): void {
   }
 }
 
+// ── Atomic Postgres-backed rate-limit store ───────────────────────────────────
+
+interface RateLimitEntry {
+  hits: number;
+  resetTime: number;
+}
+
+/**
+ * A Postgres-backed Store for express-rate-limit that uses a single atomic
+ * `INSERT … ON CONFLICT DO UPDATE` for every increment so concurrent requests
+ * cannot race and undercount hits.
+ *
+ * The `ratelimit_store` table is created by `initRateLimitStore()` at startup.
+ *
+ * When DATABASE_URL is absent the store falls back to a plain in-memory Map so
+ * development environments without Postgres continue to work unchanged.
+ */
+class PgRateLimitStore implements Store {
+  readonly prefix: string;
+  private windowMs: number = 60_000;
+  private pool: Pool | null;
+  private fallback: Map<string, RateLimitEntry> = new Map();
+
+  constructor(prefix: string, pool: Pool | null) {
+    this.prefix = prefix;
+    this.pool = pool;
+  }
+
+  init(options: Options): void {
+    this.windowMs = options.windowMs ?? 60_000;
+  }
+
+  private fullKey(key: string): string {
+    return `${this.prefix}:${key}`;
+  }
+
+  async increment(key: string): Promise<ClientRateLimitInfo> {
+    const fk = this.fullKey(key);
+
+    if (this.pool) {
+      /**
+       * Single atomic upsert:
+       * - On first hit for this key: insert with hits=1 and a fresh window.
+       * - On conflict: if the existing row's window has expired, reset to 1
+       *   with a fresh window; otherwise increment hits within the same window.
+       * RETURNING gives us the authoritative post-write values.
+       */
+      const { rows } = await this.pool.query<{
+        hits: number;
+        reset_time_ms: string;
+      }>(
+        `INSERT INTO ratelimit_store (key, hits, reset_time)
+         VALUES ($1, 1, NOW() + ($2::bigint * interval '1 ms'))
+         ON CONFLICT (key) DO UPDATE SET
+           hits = CASE
+             WHEN ratelimit_store.reset_time <= NOW() THEN 1
+             ELSE ratelimit_store.hits + 1
+           END,
+           reset_time = CASE
+             WHEN ratelimit_store.reset_time <= NOW()
+               THEN NOW() + ($2::bigint * interval '1 ms')
+             ELSE ratelimit_store.reset_time
+           END
+         RETURNING hits,
+           (extract(epoch from reset_time) * 1000)::bigint AS reset_time_ms`,
+        [fk, this.windowMs]
+      );
+
+      const row = rows[0];
+      return {
+        totalHits: Number(row.hits),
+        resetTime: new Date(Number(row.reset_time_ms)),
+      };
+    }
+
+    const now = Date.now();
+    const existing = this.fallback.get(fk);
+    let hits: number;
+    let resetTime: number;
+
+    if (!existing || now >= existing.resetTime) {
+      hits = 1;
+      resetTime = now + this.windowMs;
+    } else {
+      hits = existing.hits + 1;
+      resetTime = existing.resetTime;
+    }
+
+    this.fallback.set(fk, { hits, resetTime });
+    return { totalHits: hits, resetTime: new Date(resetTime) };
+  }
+
+  async decrement(key: string): Promise<void> {
+    const fk = this.fullKey(key);
+
+    if (this.pool) {
+      await this.pool.query(
+        `UPDATE ratelimit_store
+         SET hits = GREATEST(0, hits - 1)
+         WHERE key = $1 AND reset_time > NOW()`,
+        [fk]
+      );
+      return;
+    }
+
+    const existing = this.fallback.get(fk);
+    if (existing && existing.hits > 0) {
+      this.fallback.set(fk, { ...existing, hits: existing.hits - 1 });
+    }
+  }
+
+  async resetKey(key: string): Promise<void> {
+    const fk = this.fullKey(key);
+
+    if (this.pool) {
+      await this.pool.query(`DELETE FROM ratelimit_store WHERE key = $1`, [fk]);
+      return;
+    }
+
+    this.fallback.delete(fk);
+  }
+
+  async resetAll(): Promise<void> {
+    if (this.pool) {
+      await this.pool.query(
+        `DELETE FROM ratelimit_store WHERE key LIKE $1`,
+        [`${this.prefix}:%`]
+      );
+      return;
+    }
+    this.fallback.clear();
+  }
+}
+
+function makeStore(prefix: string): PgRateLimitStore {
+  return new PgRateLimitStore(prefix, getRlPool());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function makeLimiterHandler() {
   return (req: Request, res: Response) => {
     const info = (req as any).rateLimit;
@@ -255,6 +456,7 @@ export const aiLimiter = rateLimit({
   ...LIMITER_CONFIGS.aiLimiter,
   standardHeaders: true,
   legacyHeaders: true,
+  store: makeStore("ai"),
   handler: makeLimiterHandler(),
 });
 
@@ -262,6 +464,7 @@ export const colorLimiter = rateLimit({
   ...LIMITER_CONFIGS.colorLimiter,
   standardHeaders: true,
   legacyHeaders: true,
+  store: makeStore("color"),
   handler: makeLimiterHandler(),
 });
 
@@ -269,6 +472,7 @@ export const accountLimiter = rateLimit({
   ...LIMITER_CONFIGS.accountLimiter,
   standardHeaders: true,
   legacyHeaders: true,
+  store: makeStore("account"),
   handler: makeLimiterHandler(),
 });
 
@@ -276,6 +480,7 @@ export const authLimiter = rateLimit({
   ...LIMITER_CONFIGS.authLimiter,
   standardHeaders: true,
   legacyHeaders: true,
+  store: makeStore("auth"),
   handler: makeLimiterHandler(),
 });
 
@@ -283,5 +488,6 @@ export const resetLimiter = rateLimit({
   ...LIMITER_CONFIGS.resetLimiter,
   standardHeaders: true,
   legacyHeaders: true,
+  store: makeStore("reset"),
   handler: makeLimiterHandler(),
 });

@@ -1,7 +1,7 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { initLockoutStore } from "./middleware/rateLimiter";
+import { initLockoutStore, initRateLimitStore } from "./middleware/rateLimiter";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -236,6 +236,7 @@ function setupErrorHandler(app: express.Application) {
   configureExpoAndLanding(app);
 
   await initLockoutStore();
+  await initRateLimitStore();
 
   const server = await registerRoutes(app);
 
