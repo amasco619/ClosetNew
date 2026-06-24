@@ -312,6 +312,155 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
     assert(result.totalHits === 1, `after resetKey in-memory counter resets to 1 (got ${result.totalHits})`);
   }
 
+  // ── LIMITER_CONFIGS completeness ────────────────────────────────────────────
+
+  section("LIMITER_CONFIGS — all expected route-limiter keys are present");
+  {
+    const expected: Array<keyof typeof LIMITER_CONFIGS> = [
+      "authLimiter", "accountLimiter", "aiLimiter", "colorLimiter", "resetLimiter",
+    ];
+    for (const key of expected) {
+      assert(key in LIMITER_CONFIGS, `LIMITER_CONFIGS["${key}"] is defined`);
+    }
+  }
+
+  section("LIMITER_CONFIGS — security thresholds are within policy bounds");
+  {
+    assert(
+      LIMITER_CONFIGS.authLimiter.max <= 5,
+      `authLimiter.max <= 5 (auth routes — got ${LIMITER_CONFIGS.authLimiter.max})`,
+    );
+    assert(
+      LIMITER_CONFIGS.authLimiter.windowMs >= 10 * 60 * 1000,
+      `authLimiter.windowMs >= 10 min`,
+    );
+    assert(
+      LIMITER_CONFIGS.resetLimiter.max <= 5,
+      `resetLimiter.max <= 5 (password-reset route — got ${LIMITER_CONFIGS.resetLimiter.max})`,
+    );
+    assert(
+      LIMITER_CONFIGS.resetLimiter.windowMs >= 30 * 60 * 1000,
+      `resetLimiter.windowMs >= 30 min`,
+    );
+    assert(
+      LIMITER_CONFIGS.aiLimiter.max <= 20,
+      `aiLimiter.max <= 20 (got ${LIMITER_CONFIGS.aiLimiter.max})`,
+    );
+    assert(
+      LIMITER_CONFIGS.accountLimiter.max <= 10,
+      `accountLimiter.max <= 10 (got ${LIMITER_CONFIGS.accountLimiter.max})`,
+    );
+  }
+
+  section("LIMITER_CONFIGS — relative restrictiveness: auth ≤ ai ≤ color (wiring sanity)");
+  {
+    const { authLimiter, resetLimiter, aiLimiter, colorLimiter, accountLimiter } = LIMITER_CONFIGS;
+    assert(
+      resetLimiter.max <= authLimiter.max,
+      `resetLimiter.max (${resetLimiter.max}) <= authLimiter.max (${authLimiter.max}) — password-reset is tightest`,
+    );
+    assert(
+      authLimiter.max <= aiLimiter.max,
+      `authLimiter.max (${authLimiter.max}) <= aiLimiter.max (${aiLimiter.max}) — auth is more restrictive than AI`,
+    );
+    assert(
+      colorLimiter.max >= aiLimiter.max,
+      `colorLimiter.max (${colorLimiter.max}) >= aiLimiter.max (${aiLimiter.max}) — color extraction is higher-volume`,
+    );
+    assert(
+      accountLimiter.max <= aiLimiter.max,
+      `accountLimiter.max (${accountLimiter.max}) <= aiLimiter.max (${aiLimiter.max}) — account ops are restricted`,
+    );
+  }
+
+  // ── PgRateLimitStore — loadFromDb() ─────────────────────────────────────────
+
+  section("PgRateLimitStore.loadFromDb — null pool: no-op, no throw");
+  {
+    const store = new PgRateLimitStore("test-lfd-null", null);
+    store.init({ windowMs: 60_000 } as any);
+
+    let threw = false;
+    try { await store.loadFromDb(); } catch { threw = true; }
+    assert(!threw, "loadFromDb() with null pool does not throw");
+  }
+
+  section("PgRateLimitStore.loadFromDb — broken pool: logs and does not throw");
+  {
+    const brokenPool = {
+      query: () => Promise.reject(new Error("simulated DB error")),
+    } as any;
+
+    const store = new PgRateLimitStore("test-lfd-err", brokenPool);
+    store.init({ windowMs: 60_000 } as any);
+
+    let threw = false;
+    try { await store.loadFromDb(); } catch { threw = true; }
+    assert(!threw, "loadFromDb() swallows pool errors (no throw)");
+  }
+
+  // ── PgRateLimitStore — consecutive DB failure counter ────────────────────────
+
+  section("PgRateLimitStore._consecutiveDbFailuresForTesting — starts at 0");
+  {
+    const store = new PgRateLimitStore("test-cdf-start", null);
+    assert(
+      store._consecutiveDbFailuresForTesting === 0,
+      `_consecutiveDbFailuresForTesting starts at 0 (got ${store._consecutiveDbFailuresForTesting})`,
+    );
+  }
+
+  section("PgRateLimitStore._consecutiveDbFailuresForTesting — increments on each DB failure");
+  {
+    const brokenPool = {
+      query: () => Promise.reject(new Error("simulated failure")),
+    } as any;
+
+    const store = new PgRateLimitStore("test-cdf-inc", brokenPool);
+    store.init({ windowMs: 60_000 } as any);
+
+    await store.increment("u1");
+    assert(
+      store._consecutiveDbFailuresForTesting === 1,
+      `counter is 1 after first failure (got ${store._consecutiveDbFailuresForTesting})`,
+    );
+
+    await store.increment("u1");
+    assert(
+      store._consecutiveDbFailuresForTesting === 2,
+      `counter is 2 after second failure (got ${store._consecutiveDbFailuresForTesting})`,
+    );
+  }
+
+  section("PgRateLimitStore._consecutiveDbFailuresForTesting — resets to 0 after success");
+  {
+    let callCount = 0;
+    const flakyPool = {
+      query: () => {
+        callCount++;
+        if (callCount <= 2) {
+          return Promise.reject(new Error("simulated failure"));
+        }
+        // Simulate a successful upsert return
+        return Promise.resolve({
+          rows: [{ hits: 1, reset_time_ms: String(Date.now() + 60_000) }],
+        });
+      },
+    } as any;
+
+    const store = new PgRateLimitStore("test-cdf-reset", flakyPool);
+    store.init({ windowMs: 60_000 } as any);
+
+    await store.increment("u2"); // fail 1 → counter = 1
+    await store.increment("u2"); // fail 2 → counter = 2
+    await store.increment("u2"); // success → counter resets to 0
+
+    assert(
+      store._consecutiveDbFailuresForTesting === 0,
+      `counter resets to 0 after a successful DB call (got ${store._consecutiveDbFailuresForTesting})`,
+    );
+  }
+
   // ── Summary ────────────────────────────────────────────────────────────────
 
   console.log(`\n${failed === 0 ? "All tests passed." : `${failed} test(s) FAILED.`}`);

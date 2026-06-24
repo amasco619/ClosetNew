@@ -66,6 +66,9 @@ Open the app on a physical device using Expo Go, or in a simulator. Confirm:
 ### Step 7 — Only then begin new development
 Once the app is confirmed working end-to-end in the new environment, you may begin writing new code. All changes should be tested with `npm test` before committing (the pre-commit hook enforces this automatically).
 
+### Step 8 — Keep this document updated
+Whenever you make a change that affects any section of this document — new API endpoints, file structure changes, new packages, feature additions, convention changes, or test suite updates — update TECHNICAL.md in the same commit. This document is the authoritative on-boarding reference; let it drift and the next developer (or agent) starts blind.
+
 ---
 
 ## 2. Project Overview
@@ -506,11 +509,23 @@ Unlocks: unlimited wardrobe items, 4 outfits/scenario/day (vs 2), resort and nig
 ---
 
 ### Rate Limiting
-All Express API endpoints are protected by `express-rate-limit`:
-- `POST /api/classify-garment` — 10 requests/minute per IP
-- `POST /api/extract-color` — 30 requests/minute per IP
-- `POST /api/user/upgrade-premium` — 5 requests/hour per IP
-- `DELETE /api/user/delete-account` — 5 requests/hour per IP
+All Express API endpoints are protected by `express-rate-limit` using the centrally-configured `LIMITER_CONFIGS` object:
+
+| Limiter | Route(s) | Max | Window |
+|---------|----------|-----|--------|
+| `aiLimiter` | `POST /api/classify-garment` | 10 req | 60 sec |
+| `colorLimiter` | `POST /api/extract-color` | 30 req | 60 sec |
+| `accountLimiter` | upgrade-premium, delete-account | 5 req | 60 min |
+| `authLimiter` | sign-in, sign-up | 5 req | 15 min |
+| `resetLimiter` | password-reset | 3 req | 60 min |
+
+**`PgRateLimitStore`** — custom `express-rate-limit` store that writes counters to Postgres (`ratelimit_store` table) with automatic in-memory fallback when the pool is unavailable.  Key behaviours:
+- `loadFromDb()` — called by `initRateLimitStore()` at startup to pre-warm the in-memory fallback Map with unexpired DB counters, preventing false window resets after a process restart.
+- `_consecutiveDbFailures` — private counter incremented on each failed DB query; emits a `console.warn` once ≥ 3 consecutive failures to signal a persistent DB problem.
+
+**`withRetry(fn, label, maxAttempts, baseDelayMs)`** — internal helper that retries async calls with exponential back-off. Used by `initLockoutStore()` when ensuring the `lockout_store` table and pruning expired rows.
+
+**`_stores` registry** — module-level `Map<string, PgRateLimitStore>` populated by `makeStore()`. Allows `initRateLimitStore()` to call `loadFromDb()` on every registered store in one pass.
 
 **Code:** `server/middleware/rateLimiter.ts`, `server/routes.ts`
 
@@ -578,21 +593,27 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (12 total)
+### Test Suites (18 total)
 
 | Suite | What it tests |
 |-------|--------------|
+| `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival, prune-interval state, DB integration (skipped when `DATABASE_URL` absent) |
 | `blueprint-image-sync.test.ts` | Every blueprint slot imageKey maps to a valid SAMPLE_IMAGES entry (no broken placeholder fallbacks) |
 | `blueprint-lifestyle-slots.test.ts` | Lifestyle slot group thresholds across all 6 blueprints (group existence, category ordering, proportionality) |
 | `blueprint-slots.test.ts` | Slot structure invariants (required fields, valid categories, no duplicate IDs) |
+| `classifyGarment.test.ts` | `processGeminiResult` parsing, field validation (subType, colorFamily, modelConfidence), colour conversion helpers, edge cases (empty `{}`, null subType, mismatched category, boundary `modelConfidence`) |
+| `classifyGarmentIntegration.test.ts` | HTTP-layer tests for `POST /api/classify-garment`: 400 for missing/ambiguous image input, 500 for absent `GEMINI_API_KEY`, 429 after aiLimiter cap, JSON response shape |
 | `getProfileBlueprint.test.ts` | Algorithm tests calling `buildProfileBlueprintSlots()` directly (no mocking) |
 | `lifestyle-blueprint.test.ts` | Lifestyle weight ordering and category priority adjustments |
 | `lifestyleSlotGroups.test.ts` | Slot group activation thresholds for active and brunch lifestyles |
 | `outfitComboScorer.test.ts` | Colour harmony scoring, combo scoring, proportion-balance, metal-cohesion |
 | `outfitGenerator.test.ts` | Outfit generation correctness, scenario hero coverage, "just added" suggestions |
-| `outfitGroupCompletion.test.ts` | Outfit group completeness scoring |
+| `outfitGroupCompletion.test.ts` | Outfit group completeness scoring, recipe slot-ID cross-check against blueprint output, `hasSubstitution` flag when constraint-excluded slots are the only missing piece |
 | `outfitRotation.test.ts` | Daily rotation engine: tieredShuffle stability, hero-diversity, completeness bias, sort tie-breakers |
+| `outfitScoringData.test.ts` | Data-table invariants for `SCENARIO_AFFINITY`, `STYLE_PREFERRED_COLORS`, `STYLE_GOAL_SUBTYPES` (key completeness against `OccasionTag` and `StyleGoal` unions) |
 | `perceptualScoring.test.ts` | HSL/Lab perceptual colour scoring |
+| `rateLimiter.test.ts` | Per-limiter blocking + 429 response shape, standard headers, `PgRateLimitStore` fallback behaviour, `LIMITER_CONFIGS` key completeness and security bounds, `loadFromDb()` no-throw contract, `_consecutiveDbFailuresForTesting` counter |
+| `wardrobeDiagnostics.test.ts` | `computeDiagnostics` health score, category stats, scenario coverage; `ALL_SCENARIOS` export integrity and alignment with `computeDiagnostics` output |
 | `weather.test.ts` | Weather-aware outerwear rules (temperature gating, rain-friendly subtype bias) |
 
 ### Running tests
@@ -631,3 +652,4 @@ All exhaustive `Record<UnionType, V>` maps across the codebase carry `satisfies 
 | **Pure constants** | Blueprint and outfit engine files (`blueprintCore.ts`, `outfitGenerator.ts`, `outfitRotation.ts`, `affinity.ts`) contain no React imports and no PNG `require()` calls — they must be directly importable in Node/tsx for testing |
 | **No .env file** | Use Replit Secrets only. A `.env` file overrides injected secrets and breaks Supabase. |
 | **Stable sorts** | All sort operations use an original-index tie-breaker to guarantee deterministic output across JS runtimes |
+| **Update TECHNICAL.md** | Every code change that affects architecture, endpoints, file structure, packages, tests, or conventions must update TECHNICAL.md in the same commit |

@@ -230,12 +230,16 @@ export function generateOutfitPool(
       if (!byCategory[item.category]) byCategory[item.category] = [];
       byCategory[item.category].push(item);
     }
+    const eligibleIndex = new Map<string, number>(eligible.map((item, idx) => [item.id, idx]));
     for (const cat of Object.keys(byCategory)) {
-      byCategory[cat].sort(
-        (a, b) =>
-          scoreItemForProfile(b, scenario, profile, mood) -
-          scoreItemForProfile(a, scenario, profile, mood),
-      );
+      byCategory[cat].sort((a, b) => {
+        const diff = scoreItemForProfile(b, scenario, profile, mood) -
+                     scoreItemForProfile(a, scenario, profile, mood);
+        if (diff !== 0) return diff;
+        // Stable tie-breaker: preserve original eligible-array order so output
+        // is deterministic across JS runtimes and repeated calls.
+        return (eligibleIndex.get(a.id) ?? 0) - (eligibleIndex.get(b.id) ?? 0);
+      });
     }
 
     const tops      = byCategory['top']       ?? [];

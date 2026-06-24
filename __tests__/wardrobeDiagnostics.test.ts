@@ -10,7 +10,7 @@
  * Exits non-zero on any failed assertion.
  */
 
-import { computeDiagnostics } from '../constants/wardrobeDiagnostics';
+import { computeDiagnostics, ALL_SCENARIOS } from '../constants/wardrobeDiagnostics';
 import type { WardrobeItem, UserProfile } from '../constants/types';
 import type { WardrobeSlot } from '../constants/wardrobeBlueprint';
 
@@ -209,6 +209,42 @@ console.log('\n=== wardrobeDiagnostics — empty wardrobe edge case ===\n');
   assert(result.coverageScore === 0, `coverageScore === 0 for empty wardrobe`);
   assert(result.categoryStats.every(s => s.status === 'missing'),
     `all categories are missing in an empty wardrobe`);
+}
+
+// =============================================================================
+// ALL_SCENARIOS — exported constant
+// =============================================================================
+
+console.log('\n=== ALL_SCENARIOS — exported constant ===\n');
+{
+  assert(Array.isArray(ALL_SCENARIOS), 'ALL_SCENARIOS is an array');
+  assert(ALL_SCENARIOS.length === 8, `ALL_SCENARIOS has 8 entries (got ${ALL_SCENARIOS.length})`);
+
+  const EXPECTED = [
+    'casual', 'work', 'date-casual', 'date-dressy',
+    'event', 'interview', 'wedding', 'travel',
+  ];
+  for (const tag of EXPECTED) {
+    assert(ALL_SCENARIOS.includes(tag as any), `ALL_SCENARIOS includes "${tag}"`);
+  }
+
+  const deduped = new Set(ALL_SCENARIOS);
+  assert(deduped.size === ALL_SCENARIOS.length, 'ALL_SCENARIOS has no duplicate entries');
+
+  // computeDiagnostics must produce exactly one scenarioCoverage entry per
+  // element of ALL_SCENARIOS — verifying the export and the function are in sync.
+  const diag = computeDiagnostics([], BASE_PROFILE, []);
+  assert(
+    diag.scenarioCoverage.length === ALL_SCENARIOS.length,
+    `computeDiagnostics returns ${ALL_SCENARIOS.length} scenarioCoverage entries (got ${diag.scenarioCoverage.length})`,
+  );
+
+  const returnedScenarios = diag.scenarioCoverage.map(s => s.scenario).sort();
+  const expectedSorted = [...ALL_SCENARIOS].sort();
+  assert(
+    JSON.stringify(returnedScenarios) === JSON.stringify(expectedSorted),
+    'scenarioCoverage scenarios match ALL_SCENARIOS exactly',
+  );
 }
 
 // ── Exit ──────────────────────────────────────────────────────────────────────

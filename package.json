@@ -17,7 +17,8 @@
     "lint:fix": "npx expo lint --fix",
     "test": "node_modules/.bin/tsx scripts/run-tests.mjs",
     "test:watch": "node scripts/watch-tests.mjs",
-    "typecheck": "npx tsc --noEmit"
+    "typecheck": "npx tsc --noEmit",
+    "check:images": "node scripts/check-blueprint-images.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",

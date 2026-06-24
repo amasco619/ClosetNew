@@ -41,6 +41,13 @@ export interface RecommendedOutfitGroup {
   rationale?: string;
   slots: CoreWardrobeSlot[];
   isComplete: boolean;
+  /**
+   * True when one or more recipe slots were excluded by profile constraints
+   * (e.g. noSleeveless removes a tank-top slot) and the group was surfaced as
+   * a partial look rather than dropped entirely.  isComplete is always false
+   * when hasSubstitution is true.
+   */
+  hasSubstitution?: boolean;
 }
 
 /**
@@ -278,7 +285,17 @@ export function inferStyleGoal(slots: CoreWardrobeSlot[]): StyleGoal | null {
  * positional pairing only if no recipes match the current slot set.
  * An outfit group is "complete" when every slot in it is owned.
  */
-export function generateRecommendedOutfitGroups(slots: CoreWardrobeSlot[]): RecommendedOutfitGroup[] {
+/**
+ * @param slots     The user's current blueprint slots (after constraint filtering).
+ * @param options.excludedSlotIds  Optional set of slot IDs that were removed by
+ *   profile constraints (e.g. noSleeveless removes `tank-top` slots).  When
+ *   provided, recipes whose only missing slots are all in this set are included
+ *   as partial looks with `hasSubstitution: true` instead of being dropped.
+ */
+export function generateRecommendedOutfitGroups(
+  slots: CoreWardrobeSlot[],
+  options?: { excludedSlotIds?: Set<string> },
+): RecommendedOutfitGroup[] {
   if (slots.length === 0) return [];
 
   const goal = inferStyleGoal(slots);
@@ -291,16 +308,35 @@ export function generateRecommendedOutfitGroups(slots: CoreWardrobeSlot[]): Reco
       const resolved = recipe.slotIds
         .map(id => slotsById.get(id))
         .filter((s): s is CoreWardrobeSlot => !!s);
-      if (resolved.length !== recipe.slotIds.length) continue;
 
-      groups.push({
-        id: recipe.id,
-        label: recipe.label,
-        vibe: recipe.vibe,
-        rationale: recipe.rationale,
-        slots: resolved,
-        isComplete: resolved.every(s => s.status === 'owned'),
-      });
+      if (resolved.length === recipe.slotIds.length) {
+        groups.push({
+          id: recipe.id,
+          label: recipe.label,
+          vibe: recipe.vibe,
+          rationale: recipe.rationale,
+          slots: resolved,
+          isComplete: resolved.every(s => s.status === 'owned'),
+        });
+      } else if (
+        options?.excludedSlotIds &&
+        resolved.length > 0 &&
+        recipe.slotIds.every(
+          id => slotsById.has(id) || options.excludedSlotIds!.has(id),
+        )
+      ) {
+        // Every missing slot was removed by constraints — surface as a partial
+        // look so the user can see the inspiration rather than losing it silently.
+        groups.push({
+          id: recipe.id,
+          label: recipe.label,
+          vibe: recipe.vibe,
+          rationale: recipe.rationale,
+          slots: resolved,
+          isComplete: false,
+          hasSubstitution: true,
+        });
+      }
     }
     if (groups.length > 0) return groups;
   }

@@ -150,6 +150,15 @@ function interpretScore(score: number, totalItems: number): string {
   return 'A few targeted pieces could transform your dressing experience.';
 }
 
+/**
+ * The eight lifestyle scenarios used by computeDiagnostics for scenario
+ * coverage analysis. Exported so tests and other modules can reference the
+ * canonical list without duplicating it.
+ */
+export const ALL_SCENARIOS: OccasionTag[] = [
+  'casual', 'work', 'date-casual', 'date-dressy', 'event', 'interview', 'wedding', 'travel',
+];
+
 export function computeDiagnostics(
   items: WardrobeItem[],
   profile: UserProfile,
@@ -219,8 +228,6 @@ export function computeDiagnostics(
   }
 
   // ── 3. Scenario Coverage ────────────────────────────────────────────────
-  const ALL_SCENARIOS: OccasionTag[] = ['casual', 'work', 'date-casual', 'date-dressy', 'event', 'interview', 'wedding', 'travel'];
-
   const scenarioCoverage: ScenarioCoverage[] = ALL_SCENARIOS.map(scenario => {
     const scoringItems = items.filter(i => scoreForScenario(i, scenario) > 0).length;
     const strength: ScenarioCoverage['strength'] =

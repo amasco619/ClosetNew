@@ -45,6 +45,11 @@ export function isNeutral(color: string): boolean {
 }
 
 // ─── Scenario sub-type affinity ───────────────────────────────────────────────
+// Read by: scoreItemForScenario() (this file) and scoreForScenario() in
+//   constants/wardrobeDiagnostics.ts.
+// Invariant: every OccasionTag key must be present — enforced by `satisfies` below.
+// To update: if OccasionTag gains a new value, add a matching row here AND in the
+//   parallel SCENARIO_AFFINITY table inside constants/wardrobeDiagnostics.ts.
 
 export const SCENARIO_AFFINITY: Record<OccasionTag, string[]> = {
   casual:        ['t-shirt', 'long-sleeve', 'henley', 'sweater', 'jeans', 'chinos', 'shorts', 'leggings', 'sneakers', 'flats', 'crossbody', 'backpack', 'hoodie', 'cardigan', 'denim-jacket', 'polo-shirt', 'rugby-shirt', 'joggers'],
@@ -67,6 +72,12 @@ export const SCENARIO_AFFINITY: Record<OccasionTag, string[]> = {
   'night-out':   ['mini-dress', 'bodycon-dress', 'cocktail-dress', 'sequin-top', 'camisole', 'blouse', 'midi-skirt', 'strappy-heels', 'heels', 'stilettos', 'evening-bag', 'clutch', 'mini-bag', 'statement-earrings', 'earrings', 'necklace', 'blazer'],
 } satisfies Record<OccasionTag, string[]>;
 
+// ─── Style-goal preferred colour palette ─────────────────────────────────────
+// Read by: scoreItemForProfile() — awards +1 to items whose colorFamily appears
+//   in the active style goal's colour list.
+// Invariant: every StyleGoal key must be present — enforced by `satisfies` below.
+// To update: if StyleGoal gains a value, add a colour-family array; keep colours
+//   consistent with the goal's aesthetic and coherent with OUTFIT_RECIPES.
 export const STYLE_PREFERRED_COLORS = {
   minimal:  ['black', 'white', 'grey', 'beige', 'cream'],
   elevated: ['black', 'navy', 'cream', 'camel', 'burgundy'],
@@ -76,6 +87,12 @@ export const STYLE_PREFERRED_COLORS = {
   youthful: ['pink', 'blue', 'green', 'red', 'coral', 'lavender', 'yellow'],
 } satisfies Record<StyleGoal, string[]>;
 
+// ─── Style-goal preferred sub-types ──────────────────────────────────────────
+// Read by: scoreItemForProfile() — awards +1 when the item's subType is in the
+//   active style goal's Set.
+// Invariant: every StyleGoal key must be present — enforced by `satisfies` below.
+// To update: if StyleGoal gains a value, add a Set here; if sub-types are renamed
+//   or removed, update both this table and SCENARIO_AFFINITY consistently.
 export const STYLE_GOAL_SUBTYPES = {
   minimal:  new Set(['t-shirt', 'long-sleeve', 'wide-leg', 'trousers', 'midi-skirt', 'tote', 'flats', 'loafers', 'blazer']),
   elevated: new Set(['blouse', 'blazer', 'coat', 'trousers', 'midi-skirt', 'heels', 'tote', 'shoulder-bag', 'necklace', 'turtleneck']),

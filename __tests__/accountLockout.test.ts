@@ -18,6 +18,7 @@ import {
   initLockoutStore,
   __setPersistenceLayerForTesting,
   __resetForTesting,
+  __lockoutPruneIntervalForTesting,
   type LockoutRecord,
   type LockoutPersistenceLayer,
 } from '../server/middleware/rateLimiter';
@@ -417,6 +418,61 @@ section('restart survival: expired lock is not restored after restart');
   assert(afterExpiredRestart.locked === false, 'expired lock not restored after restart');
 
   restoreNow();
+}
+
+// ── prune interval: handle is null after __resetForTesting ────────────────
+
+section('prune interval: __lockoutPruneIntervalForTesting is null after __resetForTesting');
+
+{
+  __resetForTesting();
+  // Re-read the exported binding to get its current value at this point.
+  // In CJS/tsx the import is a live read of the exports object.
+  const { __lockoutPruneIntervalForTesting: val } = await import('../server/middleware/rateLimiter');
+  assert(
+    val === null,
+    '__lockoutPruneIntervalForTesting is null immediately after __resetForTesting',
+  );
+}
+
+section('prune interval: __resetForTesting is idempotent (safe to call twice)');
+
+{
+  __resetForTesting();
+  __resetForTesting();
+  const { __lockoutPruneIntervalForTesting: val } = await import('../server/middleware/rateLimiter');
+  assert(
+    val === null,
+    'double __resetForTesting leaves __lockoutPruneIntervalForTesting null',
+  );
+}
+
+// ── DB integration: skipped when DATABASE_URL is absent ───────────────────
+
+section('DB integration (skipped when DATABASE_URL absent)');
+
+if (!process.env.DATABASE_URL) {
+  console.log('  (skipped — DATABASE_URL not set; run with a real DB to exercise this section)');
+} else {
+  __resetForTesting();
+  try {
+    await initLockoutStore();
+    // When DATABASE_URL is present, initLockoutStore should schedule the prune
+    // interval and load any persisted lockout records.
+    const { __lockoutPruneIntervalForTesting: val } = await import('../server/middleware/rateLimiter');
+    assert(
+      val !== null,
+      'prune interval is set after initLockoutStore with DATABASE_URL',
+    );
+    assert(
+      checkAccountLockout(EMAIL).locked === false,
+      'no spurious lock after clean initLockoutStore with DB',
+    );
+  } catch (err) {
+    assert(false, `initLockoutStore threw unexpectedly: ${String(err)}`);
+  } finally {
+    __resetForTesting();
+  }
 }
 
 // ── Summary ───────────────────────────────────────────────────────────────────

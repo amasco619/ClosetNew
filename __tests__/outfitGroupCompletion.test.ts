@@ -641,6 +641,108 @@ console.log('\n5b-iv. Runtime skips dangling recipes for constrained profiles');
 }
 
 // =============================================================================
+// 5c. hasSubstitution flag when constraint-excluded slots are the only gap
+// =============================================================================
+
+console.log('\n5c. hasSubstitution:true when constraints are the only reason a slot is missing');
+{
+  const cases: Array<{
+    label: string;
+    goal: keyof typeof OUTFIT_RECIPES;
+    constraints: NonNullable<Parameters<typeof buildProfileBlueprintSlots>[0]['constraints']>;
+  }> = [
+    { label: 'noSleeveless/minimal',   goal: 'minimal',  constraints: { noSleeveless: true } },
+    { label: 'flatHeels/elevated',     goal: 'elevated', constraints: { maxHeelHeight: 'flat' } },
+    { label: 'noShortSkirts/youthful', goal: 'youthful', constraints: { noShortSkirts: true } },
+  ];
+
+  for (const { label, goal, constraints } of cases) {
+    const unconstrainedBp = buildProfileBlueprintSlots({ styleGoalPrimary: goal });
+    const constrainedBp   = buildProfileBlueprintSlots({ styleGoalPrimary: goal, constraints });
+
+    const constrainedIds  = new Set(constrainedBp.map(s => s.id));
+    const excludedSlotIds = new Set(
+      unconstrainedBp.map(s => s.id).filter(id => !constrainedIds.has(id)),
+    );
+
+    if (excludedSlotIds.size === 0) {
+      console.log(`  (skip: ${label} — constraint removes no slots from blueprint)`);
+      continue;
+    }
+
+    const danglingIds = findDanglingRecipes(goal, constraints);
+
+    if (danglingIds.size === 0) {
+      console.log(`  (skip: ${label} — no dangling recipes for this constraint combination)`);
+      continue;
+    }
+
+    const runtimeSlots      = toRuntimeSlots(constrainedBp);
+    const groupsWithOptions = generateRecommendedOutfitGroups(runtimeSlots, { excludedSlotIds });
+    const groupsWithout     = generateRecommendedOutfitGroups(runtimeSlots);
+
+    const subGroups = groupsWithOptions.filter(g => g.hasSubstitution === true);
+
+    assert(
+      subGroups.length > 0,
+      `[${label}] at least one hasSubstitution group when dangling recipes exist (got ${subGroups.length})`,
+    );
+
+    for (const g of subGroups) {
+      assert(
+        g.isComplete === false,
+        `[${label}] hasSubstitution group "${g.id}" has isComplete=false`,
+      );
+      assert(
+        danglingIds.has(g.id),
+        `[${label}] hasSubstitution group "${g.id}" corresponds to a known dangling recipe`,
+      );
+    }
+
+    // Without options, those dangling recipes are still silently dropped (backward compat)
+    const withoutIds = new Set(groupsWithout.map(g => g.id));
+    for (const g of subGroups) {
+      assert(
+        !withoutIds.has(g.id),
+        `[${label}] recipe "${g.id}" absent from output without excludedSlotIds (old behaviour preserved)`,
+      );
+    }
+
+    assert(
+      groupsWithOptions.length >= groupsWithout.length,
+      `[${label}] group count with excludedSlotIds (${groupsWithOptions.length}) >= without (${groupsWithout.length})`,
+    );
+  }
+}
+
+console.log('\n5c-ii. hasSubstitution groups always have isComplete=false, even with all-owned slots');
+{
+  const goal: keyof typeof OUTFIT_RECIPES = 'minimal';
+  const constraints = { noSleeveless: true };
+
+  const unconstrainedBp = buildProfileBlueprintSlots({ styleGoalPrimary: goal });
+  const constrainedBp   = buildProfileBlueprintSlots({ styleGoalPrimary: goal, constraints });
+  const excludedSlotIds = new Set(
+    unconstrainedBp.map(s => s.id).filter(id => !constrainedBp.find(s2 => s2.id === id)),
+  );
+
+  if (excludedSlotIds.size > 0) {
+    // All constrained slots set to 'owned' — substitution groups still cannot be complete.
+    const allOwned = toRuntimeSlots(constrainedBp).map(s => ({ ...s, status: 'owned' as const }));
+    const groups   = generateRecommendedOutfitGroups(allOwned, { excludedSlotIds });
+
+    for (const g of groups.filter(g => g.hasSubstitution === true)) {
+      assert(
+        g.isComplete === false,
+        `hasSubstitution group "${g.id}" has isComplete=false even when all owned slots are "owned"`,
+      );
+    }
+  } else {
+    console.log('  (skip: noSleeveless removes no slots from minimal blueprint)');
+  }
+}
+
+// =============================================================================
 // Exit
 // =============================================================================
 

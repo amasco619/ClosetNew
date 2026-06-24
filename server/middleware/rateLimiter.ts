@@ -163,6 +163,7 @@ export function __resetForTesting(): void {
   _kv = null;
   _pool = null;
   _rlPool = undefined;
+  _stores.clear();
   if (__rlPruneIntervalForTesting !== null) {
     clearInterval(__rlPruneIntervalForTesting);
     __rlPruneIntervalForTesting = null;
@@ -171,6 +172,45 @@ export function __resetForTesting(): void {
     clearInterval(__lockoutPruneIntervalForTesting);
     __lockoutPruneIntervalForTesting = null;
   }
+}
+
+/**
+ * Registry of all production-facing PgRateLimitStore instances, keyed by
+ * prefix.  Populated by makeStore() so initRateLimitStore() can call
+ * loadFromDb() on each store at startup to pre-warm the in-memory fallback.
+ *
+ * Note: declared after __resetForTesting in the source order but that is safe
+ * because __resetForTesting is only ever called at runtime (never at module
+ * load time), and by then this Map is already initialised.
+ */
+const _stores = new Map<string, PgRateLimitStore>();
+
+/**
+ * Re-attempts `fn` up to `maxAttempts` times using exponential back-off
+ * starting at `baseDelayMs` ms.  Throws the last error if every attempt fails.
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  label: string,
+  maxAttempts = 3,
+  baseDelayMs = 500,
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxAttempts) {
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        console.warn(
+          `[rateLimiter] ${label} failed (attempt ${attempt}/${maxAttempts}), retrying in ${delay} ms`,
+        );
+        await new Promise<void>(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastErr;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -318,18 +358,23 @@ export async function initLockoutStore(): Promise<void> {
   }
 
   try {
-    await ensureLockoutTable(_pool);
+    await withRetry(() => ensureLockoutTable(_pool!), 'ensure lockout_store table', 3, 500);
     console.log("[rateLimiter] lockout_store table is present");
   } catch (err) {
-    console.error("[rateLimiter] failed to ensure lockout_store table:", err);
+    console.error("[rateLimiter] failed to ensure lockout_store table after retries:", err);
     // Continue — if the table was pre-created by a migration it will still be
     // readable; we just won't be able to auto-create it here.
   }
 
   try {
-    const { rowCount } = await _pool.query(
-      `DELETE FROM lockout_store WHERE expires IS NOT NULL AND expires <= $1`,
-      [Date.now()]
+    const { rowCount } = await withRetry(
+      () => _pool!.query(
+        `DELETE FROM lockout_store WHERE expires IS NOT NULL AND expires <= $1`,
+        [Date.now()]
+      ),
+      'prune lockout_store',
+      2,
+      300,
     );
     console.log(`[rateLimiter] pruned ${rowCount ?? 0} expired lockout row(s)`);
   } catch (err) {
@@ -341,7 +386,7 @@ export async function initLockoutStore(): Promise<void> {
 
   try {
     const now = Date.now();
-    const entries = await p.loadAll();
+    const entries = await withRetry(() => p.loadAll(), 'load lockout records', 3, 500);
     let loaded = 0;
     for (const { key, record, expiresAt } of entries) {
       if (expiresAt > now) {
@@ -394,6 +439,12 @@ export async function initRateLimitStore(): Promise<void> {
 
   if (__rlPruneIntervalForTesting === null) {
     __rlPruneIntervalForTesting = scheduleRlPrune(pool, 0);
+  }
+
+  // Pre-warm each store's in-memory fallback with unexpired counters from the
+  // DB so that rate-limit windows survive a brief DB hiccup after startup.
+  for (const store of _stores.values()) {
+    await store.loadFromDb();
   }
 }
 
@@ -495,6 +546,9 @@ export class PgRateLimitStore implements Store {
   private windowMs: number = 60_000;
   private pool: Pool | null;
   private fallback: Map<string, RateLimitEntry> = new Map();
+  /** Count of consecutive failures since the last successful DB query. */
+  private _consecutiveDbFailures = 0;
+  private static readonly DB_FAILURE_WARN_THRESHOLD = 3;
 
   constructor(prefix: string, pool: Pool | null) {
     this.prefix = prefix;
@@ -548,11 +602,19 @@ export class PgRateLimitStore implements Store {
         );
 
         const row = rows[0];
+        this._consecutiveDbFailures = 0;
         return {
           totalHits: Number(row.hits),
           resetTime: new Date(Number(row.reset_time_ms)),
         };
       } catch (err) {
+        this._consecutiveDbFailures++;
+        if (this._consecutiveDbFailures >= PgRateLimitStore.DB_FAILURE_WARN_THRESHOLD) {
+          console.warn(
+            `[rateLimiter] ${this.prefix}: ${this._consecutiveDbFailures} consecutive DB ` +
+            `failure(s) — switching to in-memory fallback for this window`,
+          );
+        }
         console.error("[rateLimiter] DB error in increment — falling back to in-memory:", err);
       }
     }
@@ -622,10 +684,52 @@ export class PgRateLimitStore implements Store {
     }
     this.fallback.clear();
   }
+
+  /**
+   * Load unexpired counters from `ratelimit_store` into the in-memory fallback
+   * Map.  Called by `initRateLimitStore()` at startup so the fallback starts
+   * with accurate counts rather than zero, preventing a false rate-limit window
+   * reset immediately after a process restart.
+   */
+  async loadFromDb(): Promise<void> {
+    if (!this.pool) return;
+    try {
+      const { rows } = await this.pool.query<{
+        key: string;
+        hits: number;
+        reset_time_ms: string;
+      }>(
+        `SELECT key, hits, (extract(epoch from reset_time) * 1000)::bigint AS reset_time_ms
+         FROM ratelimit_store
+         WHERE key LIKE $1 AND reset_time > NOW()`,
+        [`${this.prefix}:%`],
+      );
+      let loaded = 0;
+      for (const row of rows) {
+        this.fallback.set(row.key, {
+          hits: Number(row.hits),
+          resetTime: Number(row.reset_time_ms),
+        });
+        loaded++;
+      }
+      if (loaded > 0) {
+        console.log(`[rateLimiter] ${this.prefix}: pre-loaded ${loaded} counter(s) into fallback`);
+      }
+    } catch (err) {
+      console.error(`[rateLimiter] ${this.prefix}: failed to pre-load counters from DB:`, err);
+    }
+  }
+
+  /** Exposed for unit tests only — do not use in production code. */
+  get _consecutiveDbFailuresForTesting(): number {
+    return this._consecutiveDbFailures;
+  }
 }
 
 function makeStore(prefix: string): PgRateLimitStore {
-  return new PgRateLimitStore(prefix, getRlPool());
+  const store = new PgRateLimitStore(prefix, getRlPool());
+  _stores.set(prefix, store);
+  return store;
 }
 
 /** Create a named store using the current DATABASE_URL setting. For unit tests only. */

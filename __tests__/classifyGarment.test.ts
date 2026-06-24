@@ -607,6 +607,98 @@ console.log('\nrgbToLab:');
   assert(r.a > 50, 'red → positive a (redness)');
 }
 
+// ── processGeminiResult — edge cases ─────────────────────────────────────────
+
+console.log('\nprocessGeminiResult — edge cases:');
+
+// Empty result {} — must not crash and must return a non-null object
+{
+  let threw = false;
+  let result: any;
+  try {
+    result = processGeminiResult({} as any);
+  } catch {
+    threw = true;
+  }
+  assert(!threw, 'empty {} → no crash');
+  assert(typeof result === 'object' && result !== null, 'empty {} → non-null object returned');
+  assert(
+    !('refused' in result && result.refused === true),
+    'empty {} → not treated as a guardrail refusal',
+  );
+  assert(
+    result.modelConfidence === undefined ||
+    (typeof result.modelConfidence === 'number' && result.modelConfidence >= 0 && result.modelConfidence <= 1),
+    'empty {} → modelConfidence is undefined or in [0,1]',
+  );
+}
+
+// null subType — must not crash, subType should be null
+{
+  let threw = false;
+  let result: any;
+  try {
+    result = processGeminiResult({ subType: null } as any);
+  } catch {
+    threw = true;
+  }
+  assert(!threw, 'null subType → no crash');
+  assert(
+    result.subType === null || result.subType === undefined,
+    `null subType input → subType is null/undefined (got ${JSON.stringify(result?.subType)})`,
+  );
+}
+
+// refused:true with empty reason — must return guardrail result
+{
+  const result = processGeminiResult({ refused: true, reason: '' } as any);
+  assert(
+    'refused' in result && (result as any).refused === true,
+    'refused:true → guardrail result',
+  );
+}
+
+// refused:false should NOT be treated as guardrail
+{
+  const result = processGeminiResult({ refused: false, category: 'top', subType: 't-shirt' } as any);
+  assert(
+    !('refused' in result && (result as any).refused === true),
+    'refused:false → not a guardrail result',
+  );
+}
+
+// subType from wrong category — should treat as invalid for the given category
+{
+  let threw = false;
+  let result: any;
+  try {
+    result = processGeminiResult({ category: 'shoes', subType: 't-shirt' } as any);
+  } catch {
+    threw = true;
+  }
+  assert(!threw, 'subType from wrong category → no crash');
+  // t-shirt is a top subType, not a shoes subType — should be rejected
+  assert(
+    result.subType === null || result.subType !== 't-shirt',
+    `mismatched subType/category → subType is null or sanitised (got ${JSON.stringify(result?.subType)})`,
+  );
+}
+
+// modelConfidence exactly at boundary values 0 and 1
+{
+  const r0 = processGeminiResult({ category: 'top', subType: 't-shirt', modelConfidence: 0 } as any) as any;
+  assert(typeof r0 === 'object', 'modelConfidence=0 → no crash');
+
+  const r1 = processGeminiResult({ category: 'top', subType: 't-shirt', modelConfidence: 1 } as any) as any;
+  assert(typeof r1 === 'object', 'modelConfidence=1 → no crash');
+  if (!('refused' in r1)) {
+    assert(
+      typeof r1.modelConfidence === 'number' && r1.modelConfidence >= 0 && r1.modelConfidence <= 1,
+      `modelConfidence=1 stays in [0,1] (got ${r1.modelConfidence})`,
+    );
+  }
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 console.log(`\n${failed === 0 ? 'All' : failed + ' of'} test${failed === 1 ? '' : 's'} ${failed === 0 ? 'passed' : 'failed'}.`);

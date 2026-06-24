@@ -16,6 +16,14 @@ export interface LifestyleValues {
   brunch: number;
 }
 
+// ─── Lifestyle-to-category weight table ──────────────────────────────────────
+// Read by: applyLifestyleWeights() — scales each category's priority up or down
+//   based on the user's lifestyle split (work / casual / events / active / brunch).
+// Invariant: every LifestyleValues key AND every ItemCategory must be present —
+//   enforced by `satisfies` below.
+// To update: if LifestyleValues or ItemCategory gains a new value, add the matching
+//   row/column here. Weights are relative (0 = no influence, 2 = strong boost);
+//   only ratios between values matter, not absolute magnitudes.
 export const LIFESTYLE_CATEGORY_WEIGHTS = {
   work:   { top: 1, bottom: 1, outerwear: 2, shoes: 1, jewelry: 1, dress: 1, bag: 1 },
   casual: { top: 1, bottom: 1, outerwear: 0, shoes: 2, jewelry: 0, dress: 0, bag: 1 },
