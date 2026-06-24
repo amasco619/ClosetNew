@@ -17,10 +17,11 @@ import {
   applyFreshnessOrder,
   applyHeroDiversityOrder,
   tieredShuffle,
+  generateOutfitPool,
   INITIAL_ROTATION_STATE,
   SCENARIOS,
 } from '../constants/outfitRotation';
-import type { OccasionTag, OutfitComponent, OutfitSet } from '../constants/types';
+import type { OccasionTag, OutfitComponent, OutfitSet, WardrobeItem, UserProfile } from '../constants/types';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
 
@@ -1101,6 +1102,84 @@ describe('7b. tieredShuffle: freshness/hero-diversity ordering is not undone for
   assert(
     onlyFreshInTopHalf,
     'All 4 output positions 0-3 are fresh outfits — worn outfit not promoted by tieredShuffle',
+  );
+});
+
+// ── 8. generateOutfitPool tie-breaker stability ───────────────────────────────
+
+describe('8. generateOutfitPool: identical wardrobe produces identical pool ordering on every call', () => {
+  // Minimal wardrobe with enough variety to produce multiple outfits per
+  // scenario and create natural score ties (same category, same occasion tags,
+  // same formality level).
+  const makeItem = (
+    id: string,
+    category: WardrobeItem['category'],
+    subType: string,
+    colorFamily: string,
+    occasionTags: OccasionTag[],
+  ): WardrobeItem => ({
+    id,
+    photoUri: '',
+    category,
+    subType,
+    colorFamily,
+    occasionTags,
+    seasonTags: ['all-season'],
+    formalityLevel: 3,
+    createdAt: '2026-01-01',
+  });
+
+  const ALL_OCCASIONS: OccasionTag[] = ['work', 'casual', 'date-casual'];
+
+  const wardrobe: WardrobeItem[] = [
+    makeItem('top-a', 'top', 'blouse', 'white', ALL_OCCASIONS),
+    makeItem('top-b', 'top', 'blouse', 'navy', ALL_OCCASIONS),
+    makeItem('top-c', 'top', 'blouse', 'black', ALL_OCCASIONS),
+    makeItem('btm-a', 'bottom', 'trousers', 'black', ALL_OCCASIONS),
+    makeItem('btm-b', 'bottom', 'trousers', 'navy', ALL_OCCASIONS),
+    makeItem('btm-c', 'bottom', 'trousers', 'beige', ALL_OCCASIONS),
+    makeItem('sh-a',  'shoes', 'pumps', 'black', ALL_OCCASIONS),
+    makeItem('sh-b',  'shoes', 'pumps', 'nude', ALL_OCCASIONS),
+    makeItem('sh-c',  'shoes', 'loafers', 'tan', ALL_OCCASIONS),
+  ];
+
+  const profile: UserProfile = {
+    name: 'Test',
+    styleGoalPrimary: 'minimal',
+    styleGoalSecondary: null,
+    bodyType: 'rectangle',
+    skinTone: 'medium',
+    eyeColor: 'dark-brown',
+    undertone: null,
+    lifestyleWork: 40,
+    lifestyleCasual: 40,
+    lifestyleEvents: 20,
+    lifestyleActive: 0,
+    lifestyleBrunch: 0,
+    constraints: { noSleeveless: false, noShortSkirts: false, maxHeelHeight: 'any' },
+    onboardingComplete: true,
+    weatherEnabled: false,
+  };
+
+  const pool1 = generateOutfitPool(wardrobe, profile);
+  const pool2 = generateOutfitPool(wardrobe, profile);
+
+  for (const scenario of SCENARIOS) {
+    const ids1 = (pool1[scenario] ?? []).map(o => o.id).join(',');
+    const ids2 = (pool2[scenario] ?? []).map(o => o.id).join(',');
+    assert(
+      ids1 === ids2,
+      `generateOutfitPool: '${scenario}' pool order is identical across two calls with the same wardrobe`,
+    );
+  }
+
+  // Also verify that the hero-group ordering is stable (heroOrder tie-breaker).
+  // Collect all heroIds in order for one scenario and check consistency.
+  const heroIds1 = (pool1['casual'] ?? []).map(o => o.heroId ?? '').join(',');
+  const heroIds2 = (pool2['casual'] ?? []).map(o => o.heroId ?? '').join(',');
+  assert(
+    heroIds1 === heroIds2,
+    'generateOutfitPool: hero interleave order for \'casual\' is identical across two calls',
   );
 });
 

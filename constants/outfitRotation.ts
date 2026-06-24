@@ -419,7 +419,7 @@ export function generateOutfitPool(
       }
     }
 
-    type ScoredOutfit = { outfit: OutfitSet; score: number };
+    type ScoredOutfit = { outfit: OutfitSet; score: number; fp: string };
     const scoredPool: ScoredOutfit[] = [];
 
     for (const core of cores) {
@@ -567,6 +567,7 @@ export function generateOutfitPool(
 
         scoredPool.push({
           score: totalScore,
+          fp,
           outfit: {
             id: `pool-${scenario}-${scoredPool.length}`,
             scenario,
@@ -579,7 +580,7 @@ export function generateOutfitPool(
       }
     }
 
-    scoredPool.sort((a, b) => b.score - a.score);
+    scoredPool.sort((a, b) => (b.score - a.score) || a.fp.localeCompare(b.fp));
 
     // ── Hero diversification (round-robin) ───────────────────────────────
     // Group by heroId, then interleave one outfit per hero in turn so the
@@ -597,7 +598,7 @@ export function generateOutfitPool(
     const heroOrder = Array.from(byHero.keys()).sort((a, b) => {
       const ax = byHero.get(a)![0]?.confidenceScore ?? 0;
       const bx = byHero.get(b)![0]?.confidenceScore ?? 0;
-      return bx - ax;
+      return (bx - ax) || a.localeCompare(b);
     });
     const interleaved: OutfitSet[] = [];
     let drained = false;
