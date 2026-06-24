@@ -254,7 +254,7 @@ export const OUTFIT_RECIPES: Record<StyleGoal, OutfitRecipe[]> = {
       slotIds: ['cls-top-3', 'cls-bot-2', 'cls-sho-3'],
     },
   ],
-};
+} satisfies Record<StyleGoal, OutfitRecipe[]>;
 
 export function inferStyleGoal(slots: CoreWardrobeSlot[]): StyleGoal | null {
   const counts: Record<string, number> = {};

@@ -25,7 +25,7 @@ export interface SlotMeta {
   imageKey: string;
 }
 
-export const STYLE_BLUEPRINT_SLOTS: Record<StyleGoal, SlotMeta[]> = {
+export const STYLE_BLUEPRINT_SLOTS = {
 
   // ── MINIMAL ──────────────────────────────────────────────────────────────
   minimal: [
@@ -285,7 +285,7 @@ export const STYLE_BLUEPRINT_SLOTS: Record<StyleGoal, SlotMeta[]> = {
     { id: 'yth-ngt-1', category: 'top',       subType: 'sequin-top',          colorFamily: 'silver', priority: 13, label: 'Silver Sequin Party Top',            description: 'Sequins and youth energy — wear this and the night opens up',                        imageKey: 'sequin_top' },
     { id: 'yth-ngt-2', category: 'jewelry',   subType: 'statement-earrings',  colorFamily: 'gold',   priority: 14, label: 'Fun Statement Drop Earrings',        description: 'Bold, playful earrings that say you dressed for the night',                          imageKey: 'statement_earrings' },
   ],
-};
+} satisfies Record<StyleGoal, SlotMeta[]>;
 
 export const STYLE_GOALS: StyleGoal[] = [
   'minimal', 'elevated', 'bold', 'romantic', 'classic', 'youthful',

@@ -254,7 +254,7 @@ export const WARDROBE_BLUEPRINT: BlueprintItem[] = STYLE_BLUEPRINTS.classic;
  * garments stay selectable. Guarantees that every blueprint slot is
  * fillable from the UI under the strict matcher.
  */
-const EXTRA_SUBTYPES: Record<ItemCategory, string[]> = {
+const EXTRA_SUBTYPES = {
   top: [
     't-shirt', 'long-sleeve', 'polo-shirt', 'henley', 'rugby-shirt', 'turtleneck',
     'button-down', 'knit-top', 'sweatshirt', 'rashguard', 'linen-set',
@@ -265,7 +265,7 @@ const EXTRA_SUBTYPES: Record<ItemCategory, string[]> = {
   shoes: ['ankle-boots', 'pumps', 'stilettos', 'block-heels', 'espadrilles', 'training-shoes'],
   bag: ['gym-bag', 'wicker-bag', 'evening-bag', 'beach-bag'],
   jewelry: ['brooch', 'statement-earrings', 'sunglasses', 'sunhat'],
-};
+} satisfies Record<ItemCategory, string[]>;
 
 export const BLUEPRINT_SUBTYPES_BY_CATEGORY: Record<ItemCategory, string[]> = (() => {
   const acc: Record<ItemCategory, Set<string>> = {

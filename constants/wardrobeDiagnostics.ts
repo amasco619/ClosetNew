@@ -27,12 +27,12 @@ function scoreForScenario(item: WardrobeItem, scenario: OccasionTag): number {
   return score;
 }
 
-const CATEGORY_LABELS: Record<ItemCategory, string> = {
+const CATEGORY_LABELS = {
   top: 'Tops', bottom: 'Bottoms', dress: 'Dresses',
   outerwear: 'Outerwear', shoes: 'Shoes', bag: 'Bags', jewelry: 'Jewelry',
-};
+} satisfies Record<ItemCategory, string>;
 
-const IDEAL_CATEGORY_RANGE: Record<ItemCategory, [number, number]> = {
+const IDEAL_CATEGORY_RANGE = {
   top:      [0.20, 0.35],
   bottom:   [0.12, 0.28],
   dress:    [0.08, 0.22],
@@ -40,7 +40,7 @@ const IDEAL_CATEGORY_RANGE: Record<ItemCategory, [number, number]> = {
   shoes:    [0.08, 0.22],
   bag:      [0.04, 0.16],
   jewelry:  [0.04, 0.16],
-};
+} satisfies Record<ItemCategory, [number, number]>;
 
 export interface CategoryStat {
   category: ItemCategory;

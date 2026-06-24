@@ -12,14 +12,14 @@ import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/con
 
 const { width } = Dimensions.get('window');
 
-const BODY_TYPE_IMAGES: Record<BodyType, ImageSourcePropType> = {
+const BODY_TYPE_IMAGES = {
   'hourglass': require('@/assets/body_types/hourglass.png'),
   'pear': require('@/assets/body_types/pear.png'),
   'apple': require('@/assets/body_types/apple.png'),
   'rectangle': require('@/assets/body_types/rectangle.png'),
   'inverted-triangle': require('@/assets/body_types/inverted_triangle.png'),
   'athletic': require('@/assets/body_types/athletic.png'),
-};
+} satisfies Record<BodyType, ImageSourcePropType>;
 
 const BODY_TYPES: { id: BodyType; label: string; desc: string }[] = [
   { id: 'hourglass', label: 'Hourglass', desc: 'Balanced shoulders & hips, defined waist' },

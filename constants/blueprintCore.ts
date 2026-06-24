@@ -24,7 +24,7 @@ export const BODY_TYPE_PRIORITY_BOOSTS: Record<BodyType, Partial<Record<ItemCate
   rectangle:           { outerwear: -1, dress: -1, jewelry: -1 },
   'inverted-triangle': { bottom: -1, shoes: -1 },
   athletic:            { dress: -1, outerwear: -1, jewelry: -1 },
-};
+} satisfies Record<BodyType, Partial<Record<ItemCategory, number>>>;
 
 /**
  * Minimal profile shape required by buildProfileBlueprintSlots.
