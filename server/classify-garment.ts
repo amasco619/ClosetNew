@@ -592,8 +592,7 @@ export async function classifyGarment(req: Request, res: Response) {
 
     // ── Perceptual colour signals ─────────────────────────────────────────────
     // Derive HSL + Lab from the Gemini-supplied representative RGB so downstream
-    // outfit scoring can reason about undertone, value spread, and saturation —
-    // the same perceptual signals the old GCV pixel pipeline provided.
+    // outfit scoring can reason about undertone, value spread, and saturation.
     let dominantHsl: { h: number; s: number; l: number } | undefined;
     let dominantLab: { L: number; a: number; b: number } | undefined;
 
