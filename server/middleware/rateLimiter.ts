@@ -339,7 +339,7 @@ interface RateLimitEntry {
  * When DATABASE_URL is absent the store falls back to a plain in-memory Map so
  * development environments without Postgres continue to work unchanged.
  */
-class PgRateLimitStore implements Store {
+export class PgRateLimitStore implements Store {
   readonly prefix: string;
   private windowMs: number = 60_000;
   private pool: Pool | null;
@@ -348,6 +348,11 @@ class PgRateLimitStore implements Store {
   constructor(prefix: string, pool: Pool | null) {
     this.prefix = prefix;
     this.pool = pool;
+  }
+
+  /** Exposed for unit tests only — do not use in production code. */
+  get _poolForTesting(): Pool | null {
+    return this.pool;
   }
 
   init(options: Options): void {
@@ -458,6 +463,11 @@ class PgRateLimitStore implements Store {
 
 function makeStore(prefix: string): PgRateLimitStore {
   return new PgRateLimitStore(prefix, getRlPool());
+}
+
+/** Create a named store using the current DATABASE_URL setting. For unit tests only. */
+export function __makeStoreForTesting(prefix: string): PgRateLimitStore {
+  return makeStore(prefix);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

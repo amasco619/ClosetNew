@@ -22,6 +22,9 @@ import request from "supertest";
 import {
   LIMITER_CONFIGS,
   makeLimiterHandler,
+  PgRateLimitStore,
+  __makeStoreForTesting,
+  __resetForTesting,
 } from "../server/middleware/rateLimiter";
 
 // ── Assertion harness (same pattern as other test files) ──────────────────────
@@ -165,6 +168,66 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
       statuses.every((s) => s === 200),
       `${key}: all ${max} pre-limit requests return 200`
     );
+  }
+
+  // ── Postgres store adapter ────────────────────────────────────────────────
+  //
+  // These tests verify that:
+  //   1. makeStore() returns a PgRateLimitStore in all cases.
+  //   2. Without DATABASE_URL the pool is null (in-memory fallback).
+  //   3. With DATABASE_URL set the pool is non-null (Postgres mode).
+  //
+  // We use __resetForTesting() to clear module-level singletons between
+  // scenarios so the lazy-init logic is exercised fresh each time.
+
+  section("Postgres store adapter — falls back to in-memory without DATABASE_URL");
+  {
+    const savedUrl = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    __resetForTesting();
+
+    const store = __makeStoreForTesting("auth");
+    assert(store instanceof PgRateLimitStore, "store is a PgRateLimitStore");
+    assert(store._poolForTesting === null, "pool is null when DATABASE_URL is absent (in-memory fallback)");
+
+    if (savedUrl !== undefined) process.env.DATABASE_URL = savedUrl;
+    __resetForTesting();
+  }
+
+  section("Postgres store adapter — pool is created when DATABASE_URL is set");
+  {
+    const savedUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "postgres://localhost/test_auracloset";
+    __resetForTesting();
+
+    const store = __makeStoreForTesting("auth");
+    assert(store instanceof PgRateLimitStore, "store is a PgRateLimitStore");
+    assert(store._poolForTesting !== null, "pool is non-null when DATABASE_URL is set (Postgres mode)");
+
+    if (savedUrl !== undefined) process.env.DATABASE_URL = savedUrl;
+    else delete process.env.DATABASE_URL;
+    __resetForTesting();
+  }
+
+  section("Postgres store adapter — security-sensitive limiters each get a dedicated prefix");
+  {
+    const savedUrl = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    __resetForTesting();
+
+    const authStore    = __makeStoreForTesting("auth");
+    const resetStore   = __makeStoreForTesting("reset");
+    const accountStore = __makeStoreForTesting("account");
+
+    assert(authStore.prefix    === "auth",    `authLimiter store prefix is "auth" (got "${authStore.prefix}")`);
+    assert(resetStore.prefix   === "reset",   `resetLimiter store prefix is "reset" (got "${resetStore.prefix}")`);
+    assert(accountStore.prefix === "account", `accountLimiter store prefix is "account" (got "${accountStore.prefix}")`);
+
+    assert(authStore.prefix !== resetStore.prefix,   "authLimiter and resetLimiter use distinct prefixes");
+    assert(authStore.prefix !== accountStore.prefix, "authLimiter and accountLimiter use distinct prefixes");
+
+    if (savedUrl !== undefined) process.env.DATABASE_URL = savedUrl;
+    __resetForTesting();
   }
 
   // ── Summary ────────────────────────────────────────────────────────────────
