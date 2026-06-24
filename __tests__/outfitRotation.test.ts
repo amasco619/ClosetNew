@@ -931,6 +931,60 @@ describe('applyCompletenessBias: complete outfit rises to index 0', () => {
   assert(resultEmpty.length === 0, 'applyCompletenessBias handles empty pool');
 });
 
+describe('applyCompletenessBias: equal-score outfits retain original pool order', () => {
+  const BASE_SCORE = 3;
+
+  // Two complete outfits with the same starting score — after the +1 bump they
+  // both land on BASE_SCORE + 1.  The one that appeared first in the pool must
+  // still be first in the result.
+  const completeA: OutfitSet = makeOutfit(
+    'acb-stable-a',
+    'casual',
+    [
+      makeComponent('top', 'acb-top-sa'),
+      makeComponent('bottom', 'acb-btm-sa'),
+      makeComponent('shoes', 'acb-sh-sa'),
+      makeComponent('bag', 'acb-bag-sa'),
+      makeComponent('jewelry', 'acb-jwl-sa'),
+    ],
+    { confidenceScore: BASE_SCORE },
+  );
+
+  const completeB: OutfitSet = makeOutfit(
+    'acb-stable-b',
+    'casual',
+    [
+      makeComponent('top', 'acb-top-sb'),
+      makeComponent('bottom', 'acb-btm-sb'),
+      makeComponent('shoes', 'acb-sh-sb'),
+      makeComponent('bag', 'acb-bag-sb'),
+      makeComponent('jewelry', 'acb-jwl-sb'),
+    ],
+    { confidenceScore: BASE_SCORE },
+  );
+
+  const resultAB = applyCompletenessBias([completeA, completeB]);
+  assert(
+    resultAB[0].id === 'acb-stable-a',
+    'Equal-score complete outfits: first pool entry stays at index 0 (A before B)',
+  );
+  assert(
+    resultAB[1].id === 'acb-stable-b',
+    'Equal-score complete outfits: second pool entry stays at index 1 (B after A)',
+  );
+
+  // Reverse the input order — B must now be first.
+  const resultBA = applyCompletenessBias([completeB, completeA]);
+  assert(
+    resultBA[0].id === 'acb-stable-b',
+    'Equal-score complete outfits: first pool entry stays at index 0 (B before A)',
+  );
+  assert(
+    resultBA[1].id === 'acb-stable-a',
+    'Equal-score complete outfits: second pool entry stays at index 1 (A after B)',
+  );
+});
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 console.log('\n─────────────────────────────────────────────');

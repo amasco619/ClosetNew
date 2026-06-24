@@ -120,13 +120,18 @@ export function applyFreshnessOrder(
  * unit testing independently of tieredShuffle or quota behaviour.
  */
 export function applyCompletenessBias(pool: OutfitSet[]): OutfitSet[] {
-  const biased = pool.map(o => {
+  const biased = pool.map((o, idx) => {
     const cats = new Set(o.components.map(c => c.category));
     const complete = cats.has('shoes') && cats.has('bag') && cats.has('jewelry');
-    return complete ? { ...o, confidenceScore: (o.confidenceScore ?? 0) + 1 } : o;
+    const bumped = complete ? { ...o, confidenceScore: (o.confidenceScore ?? 0) + 1 } : o;
+    return { outfit: bumped, originalIndex: idx };
   });
-  biased.sort((a, b) => (b.confidenceScore ?? 0) - (a.confidenceScore ?? 0));
-  return biased;
+  biased.sort((a, b) => {
+    const scoreDiff = (b.outfit.confidenceScore ?? 0) - (a.outfit.confidenceScore ?? 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    return a.originalIndex - b.originalIndex;
+  });
+  return biased.map(({ outfit }) => outfit);
 }
 
 export interface RotationState {
