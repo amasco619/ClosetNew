@@ -363,9 +363,24 @@ export default function SignInScreen() {
               </TouchableOpacity>
             </View>
             {mode === 'sign-up' && (
-              <Text style={styles.passwordHint}>
-                At least 6 characters.
-              </Text>
+              <View style={styles.passwordRules}>
+                {([
+                  { met: password.length >= 8, label: 'At least 8 characters' },
+                  { met: /[A-Z]/.test(password), label: 'One uppercase letter' },
+                  { met: /[0-9]/.test(password), label: 'One number' },
+                ] as { met: boolean; label: string }[]).map(({ met, label }) => (
+                  <View key={label} style={styles.passwordRuleRow}>
+                    <Ionicons
+                      name={met ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={14}
+                      color={met ? '#D0B892' : '#8AA39B'}
+                    />
+                    <Text style={[styles.passwordRuleText, met && styles.passwordRuleMet]}>
+                      {label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             )}
             {passwordError && (
               <View style={styles.errorBox}>
@@ -623,11 +638,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  passwordHint: {
+  passwordRules: {
+    marginTop: 8,
+    gap: 6,
+  },
+  passwordRuleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  passwordRuleText: {
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
     color: '#8AA39B',
-    marginTop: 6,
+  },
+  passwordRuleMet: {
+    color: '#D0B892',
   },
   errorBox: {
     backgroundColor: '#EACFD3',
