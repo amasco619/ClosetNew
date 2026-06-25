@@ -194,6 +194,8 @@ export default function AddItemScreen() {
   const [rise,            setRise]            = useState<string | undefined>(undefined);
   const [warmthBand,      setWarmthBand]      = useState<string | undefined>(undefined);
   const [photoBase64,     setPhotoBase64]     = useState<string | null>(null);
+  const [photoWidth,      setPhotoWidth]      = useState<number>(0);
+  const [photoHeight,     setPhotoHeight]     = useState<number>(0);
   const [saving,          setSaving]          = useState(false);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
@@ -354,7 +356,8 @@ export default function AddItemScreen() {
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         setPhotoUri(asset.uri);
-        // Keep full-resolution base64 for Supabase Storage upload (crisp thumbnails)
+        setPhotoWidth(asset.width ?? 0);
+        setPhotoHeight(asset.height ?? 0);
         if (asset.base64) setPhotoBase64(asset.base64);
         setStep(1);
 
@@ -527,7 +530,36 @@ export default function AddItemScreen() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user && photoBase64) {
         try {
-          finalUri = await uploadWardrobeImage(session.user.id, photoBase64, itemId);
+          // Resize to ≤1600 px on the longest edge before uploading to Storage.
+          // Cuts a typical 12 MP upload from 6–12 MB to ~300–600 KB with no
+          // visible quality loss in wardrobe thumbnails.
+          const MAX_STORAGE_PX = 1600;
+          let uploadBase64 = photoBase64;
+          try {
+            const w = photoWidth;
+            const h = photoHeight;
+            const longestEdge = Math.max(w, h);
+            if (longestEdge > MAX_STORAGE_PX) {
+              const scale = MAX_STORAGE_PX / longestEdge;
+              const shrunk = await ImageManipulator.manipulateAsync(
+                photoUri,
+                [{ resize: { width: Math.round(w * scale), height: Math.round(h * scale) } }],
+                { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+              );
+              if (shrunk.base64) uploadBase64 = shrunk.base64;
+            } else {
+              // Already within the limit — still re-encode as JPEG for consistent format
+              const reencoded = await ImageManipulator.manipulateAsync(
+                photoUri,
+                [],
+                { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+              );
+              if (reencoded.base64) uploadBase64 = reencoded.base64;
+            }
+          } catch {
+            // Resize failed — fall back silently to original base64
+          }
+          finalUri = await uploadWardrobeImage(session.user.id, uploadBase64, itemId, 'image/jpeg');
         } catch (uploadErr) {
           console.warn('[add-item] Storage upload failed, using local URI:', uploadErr);
         }

@@ -4,13 +4,15 @@ import { decode } from 'base64-arraybuffer'
 export async function uploadWardrobeImage(
   userId: string,
   imageBase64: string,
-  itemId: string
+  itemId: string,
+  mimeType: 'image/jpeg' | 'image/png' = 'image/jpeg'
 ): Promise<string> {
-  const fileName = `${userId}/${itemId}.png`
+  const ext = mimeType === 'image/jpeg' ? 'jpg' : 'png'
+  const fileName = `${userId}/${itemId}.${ext}`
   const { error } = await supabase.storage
     .from('wardrobe-images')
     .upload(fileName, decode(imageBase64), {
-      contentType: 'image/png',
+      contentType: mimeType,
       upsert: true,
     })
   if (error) throw new Error(`[uploadWardrobeImage] ${error.message}`)
@@ -44,6 +46,6 @@ export async function deleteWardrobeImage(
 ): Promise<void> {
   const { error } = await supabase.storage
     .from('wardrobe-images')
-    .remove([`${userId}/${itemId}.png`])
+    .remove([`${userId}/${itemId}.jpg`, `${userId}/${itemId}.png`])
   if (error) throw new Error(`[deleteWardrobeImage] ${error.message}`)
 }
