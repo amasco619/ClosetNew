@@ -1,22 +1,118 @@
 import { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Dimensions, Platform } from 'react-native';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  Easing,
+  FadeInDown,
+  FadeInUp,
+  withSpring,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/colors';
-import * as Haptics from 'expo-haptics';
 import { supabase } from '../lib/supabase';
 
-const FEATURES = [
-  'Digitise your wardrobe in seconds',
-  'Personalised outfit suggestions, daily',
-  'Calibrates to your taste over time',
-] as const;
+const { height } = Dimensions.get('window');
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+interface GlassButtonProps {
+  label: string;
+  iconName?: keyof typeof Ionicons.glyphMap;
+  variant: 'gold' | 'glass' | 'ghost';
+  onPress: () => void;
+  delay: number;
+}
+
+function GlassButton({ label, iconName, variant, onPress, delay }: GlassButtonProps) {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
+
+  const onPressIn = () => {
+    Haptics.impactAsync(
+      variant === 'gold'
+        ? Haptics.ImpactFeedbackStyle.Medium
+        : Haptics.ImpactFeedbackStyle.Light,
+    );
+    scale.value = withSpring(0.97, { damping: 15, stiffness: 300 });
+    opacity.value = withSpring(0.85, { damping: 15, stiffness: 300 });
+  };
+
+  const onPressOut = () => {
+    scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+    opacity.value = withSpring(1, { damping: 15, stiffness: 300 });
+  };
+
+  if (variant === 'ghost') {
+    return (
+      <Animated.View entering={FadeInDown.delay(delay).duration(280)}>
+        <Pressable
+          onPress={onPress}
+          onPressIn={onPressIn}
+          onPressOut={onPressOut}
+          hitSlop={12}
+          style={styles.ghostPressable}
+        >
+          <Animated.Text style={[styles.ghostText, animStyle]}>{label}</Animated.Text>
+        </Pressable>
+      </Animated.View>
+    );
+  }
+
+  const isGold = variant === 'gold';
+
+  return (
+    <Animated.View entering={FadeInDown.delay(delay).duration(280)} style={styles.buttonWrapper}>
+      <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} style={styles.pressableFill}>
+        <Animated.View
+          style={[
+            styles.glassCard,
+            isGold ? styles.glassCardGold : styles.glassCardSecondary,
+            animStyle,
+          ]}
+        >
+          <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={styles.buttonContent}>
+            {iconName && (
+              <Ionicons
+                name={iconName}
+                size={19}
+                color={isGold ? Colors.secondary : '#FFFFFF'}
+                style={styles.buttonIcon}
+              />
+            )}
+            <Text style={[styles.buttonText, isGold && styles.buttonTextGold]}>{label}</Text>
+          </View>
+        </Animated.View>
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
-  const webTop = Platform.OS === 'web' ? 67 : 0;
+  const bgScale = useSharedValue(1);
+
+  useEffect(() => {
+    bgScale.value = withRepeat(
+      withTiming(1.07, { duration: 14000, easing: Easing.inOut(Easing.quad) }),
+      -1,
+      true,
+    );
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -24,57 +120,84 @@ export default function WelcomeScreen() {
     }).catch(() => {});
   }, []);
 
+  const animatedBgStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: bgScale.value }],
+  }));
+
   const handleGetStarted = () => {
-    Haptics.selectionAsync();
     router.push('/onboarding?guest=true');
   };
 
   const handleSignIn = () => {
-    Haptics.selectionAsync();
     router.push('/sign-in');
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + webTop, paddingBottom: insets.bottom + 24 }]}>
-      <Animated.View entering={FadeInDown.duration(280).delay(60)} style={styles.hero}>
-        <View style={styles.logoMark}>
-          <Text style={styles.logoInitial}>A</Text>
+    <View style={styles.container}>
+      {/* Atmospheric Background — Ken Burns slow breathing */}
+      <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]}>
+        <Image
+          source={require('../assets/images/closet.jpg')}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          transition={300}
+        />
+      </Animated.View>
+
+      {/* Luxury gradient scrim — preserves ceiling warmth, creates legible bottom zone */}
+      <LinearGradient
+        colors={[Colors.navyScrimTop, Colors.navyScrimMid, Colors.navyScrimBottom]}
+        locations={[0, 0.5, 0.88]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Foreground UI */}
+      <View
+        style={[
+          styles.content,
+          {
+            paddingTop: insets.top + 20,
+            paddingBottom: Math.max(insets.bottom + 28, 52),
+          },
+        ]}
+      >
+        {/* Brand Header */}
+        <Animated.View entering={FadeInDown.delay(80).duration(280)} style={styles.headerGroup}>
+          <Text style={styles.microLabel}>A U R A C L O S E T</Text>
+          <Text style={styles.headline}>Your quiet-luxury{'\n'}stylist in your pocket.</Text>
+          <Text style={styles.tagline}>Your private dressing room, always curated.</Text>
+        </Animated.View>
+
+        {/* Action Stack */}
+        <View style={styles.buttonStack}>
+          <GlassButton
+            label="Get started"
+            iconName="sparkles-outline"
+            variant="gold"
+            delay={200}
+            onPress={handleGetStarted}
+          />
+          <GlassButton
+            label="I already have an account"
+            iconName="person-outline"
+            variant="glass"
+            delay={280}
+            onPress={handleSignIn}
+          />
+          <GlassButton
+            label="Explore as guest"
+            variant="ghost"
+            delay={360}
+            onPress={handleGetStarted}
+          />
         </View>
-        <Text style={styles.wordmark}>AuraCloset</Text>
-        <Text style={styles.tagline}>Your quiet-luxury stylist in your pocket</Text>
-      </Animated.View>
 
-      <Animated.View entering={FadeInDown.duration(280).delay(160)} style={styles.features}>
-        {FEATURES.map((feat, i) => (
-          <View key={i} style={styles.featureRow}>
-            <View style={styles.featureDot} />
-            <Text style={styles.featureText}>{feat}</Text>
-          </View>
-        ))}
-      </Animated.View>
-
-      <Animated.View entering={FadeInUp.duration(280).delay(260)} style={styles.actions}>
-        <Pressable
-          style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
-          onPress={handleGetStarted}
-        >
-          <Text style={styles.primaryBtnText}>Get Started</Text>
-          <Text style={styles.primaryBtnSub}>No account needed</Text>
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.7 }]}
-          onPress={handleSignIn}
-        >
-          <Text style={styles.secondaryBtnText}>I already have an account</Text>
-          <Ionicons name="chevron-forward" size={14} color={Colors.secondary} />
-        </Pressable>
-      </Animated.View>
-
-      <Animated.View entering={FadeInUp.duration(280).delay(340)} style={styles.footer}>
-        <Ionicons name="lock-closed-outline" size={12} color={Colors.textLight} />
-        <Text style={styles.footerText}>Your wardrobe stays private, always</Text>
-      </Animated.View>
+        {/* Privacy footer */}
+        <Animated.View entering={FadeInUp.delay(440).duration(280)} style={styles.footerRow}>
+          <Ionicons name="lock-closed-outline" size={11} color="rgba(255,255,255,0.35)" />
+          <Text style={styles.footerText}>Your wardrobe stays private, always</Text>
+        </Animated.View>
+      </View>
     </View>
   );
 }
@@ -82,129 +205,103 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
-    paddingHorizontal: 28,
-    justifyContent: 'space-between',
-  },
-  hero: {
-    alignItems: 'center',
-    paddingTop: 48,
-  },
-  logoMark: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
     backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    shadowColor: Colors.primary,
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
   },
-  logoInitial: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 36,
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'flex-end',
+  },
+  headerGroup: {
+    marginBottom: 36,
+  },
+  microLabel: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
     color: Colors.secondary,
-    letterSpacing: -1,
+    letterSpacing: 4.5,
+    marginBottom: 14,
+    textTransform: 'uppercase',
   },
-  wordmark: {
+  headline: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 30,
-    color: Colors.primary,
+    fontSize: 34,
+    color: '#FFFFFF',
+    lineHeight: 40,
     letterSpacing: -0.8,
     marginBottom: 10,
   },
   tagline: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    letterSpacing: 0.1,
-  },
-  features: {
-    gap: 14,
-    paddingVertical: 8,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  featureDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.secondary,
-  },
-  featureText: {
-    fontFamily: 'Inter_400Regular',
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: 'rgba(255,255,255,0.65)',
     lineHeight: 20,
+    letterSpacing: -0.1,
   },
-  actions: {
+  buttonStack: {
     gap: 12,
+    marginBottom: 20,
   },
-  primaryBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: 'center',
-    shadowColor: Colors.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
+  buttonWrapper: {
+    width: '100%',
+    height: 56,
   },
-  primaryBtnPressed: {
-    opacity: 0.85,
-    transform: [{ scale: 0.97 }],
+  pressableFill: {
+    flex: 1,
   },
-  primaryBtnText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 16,
-    color: Colors.white,
-    letterSpacing: -0.2,
+  glassCard: {
+    flex: 1,
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
-  primaryBtnSub: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 11,
-    color: '#FFFFFF99',
-    marginTop: 2,
-    letterSpacing: 0.2,
+  glassCardGold: {
+    backgroundColor: Colors.glassSurfaceGold,
+    borderColor: Colors.glassBorder,
   },
-  secondaryBtn: {
+  glassCardSecondary: {
+    backgroundColor: Colors.glassSurface,
+    borderColor: Colors.glassBorderWhite,
+  },
+  buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+  },
+  buttonIcon: {
+    marginRight: 10,
+  },
+  buttonText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 16,
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  buttonTextGold: {
+    color: '#FFFFFF',
+  },
+  ghostPressable: {
+    alignItems: 'center',
     paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.secondary + '40',
-    backgroundColor: Colors.white,
   },
-  secondaryBtnText: {
+  ghostText: {
     fontFamily: 'Inter_500Medium',
-    fontSize: 14,
-    color: Colors.secondary,
-    letterSpacing: -0.1,
+    fontSize: 13,
+    color: Colors.sage,
+    letterSpacing: 0.2,
   },
-  footer: {
+  footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingBottom: 8,
   },
   footerText: {
     fontFamily: 'Inter_400Regular',
     fontSize: 11,
-    color: Colors.textLight,
+    color: 'rgba(255,255,255,0.35)',
     letterSpacing: 0.1,
   },
 });

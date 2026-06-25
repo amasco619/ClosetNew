@@ -1,0 +1,33 @@
+Key Architectural & UX Brief for the Developer
+1. Logo Assessment (Addressing your specific question)
+Verdict: Do not change the geometric sans-serif wordmark ("AuraCloset" in Inter Bold), but completely invert its optical hierarchy.
+
+Why the current execution fails: In your screenshots, AuraCloset is rendered in dark navy #101826 against flat grey #F5F3F0. This looks like a standard tax-filing or utility dashboard.
+Why the wordmark itself works: Pure typography without illustrative clip-art (like clothes hangers or closet doors) is the universal standard for ultra-luxury fashion houses (Celine, Saint Laurent, Bottega Veneta) and premium tech (Apple, Tesla).
+The Developer Prescription:
+Invert the wordmark color to Crisp Off-White (#FFFFFF) with a delicate dispersion shadow.
+Directly above AuraCloset, inject an uppercase micro-header: A U R A C L O S E T A T E L I E R (Inter Medium, 10pt, Champagne Gold #D0B892, wide tracking +4.5px). This tension between micro-tracking and bold headlines immediately screams high fashion.
+2. Screen 1 (Landing) & Screen 2 (Auth) Background Continuity
+The "No-Reload" Contract: When transitioning from Screen 1 (Get started) to Screen 2 (Sign-in), the background photograph closet.jpg must not reload, cut, or reset.
+Living Motion: Animate the photograph with a continuous 16-second looping Ken Burns zoom (scale: 1.0 -> 1.08) using React Native Reanimated.
+Dynamic Focus Scrim: On Screen 1, a 3-stop LinearGradient overlay (35% top to 96% navy bottom) keeps the warm ceiling recessed lights visible. As Screen 2 transitions in, increase the mid-screen scrim opacity from 0.65 to 0.92 (or mount a secondary BlurView). This creates optical depth of field, locking the user's eye directly onto the input fields.
+3. Frosted Glassmorphism Inputs (BlurView)
+Replaces flat white boxes with Translucent Frosted Glass Inputs (backgroundColor: rgba(255,255,255,0.06), hairline 1px border rgba(255,255,255,0.14)).
+Tactile Focus State: When an input receives focus, animate the border color to Champagne Gold (#D0B892) with a subtle 3px outer glow.
+4. Animation Choreography Matrix (Mandatory <300ms)
+Conforming strictly to §12 of TECHNICAL.md:
+
+Entering Stagger: Screen elements mount via FadeInDown.duration(280) with a silky 60ms progressive layer stagger (Brand -> Social Pills -> Tab Bar -> Inputs -> Submit CTA).
+Tactile Haptics: Tapping any button triggers Haptics.impactAsync(Light) while Reanimated spring physics momentarily depress the glass container to scale: 0.97.
+Summary of Deliverables Created
+
+auth_luxury_preview.html
+ (Presented) — Interactive dual-screen HTML mock-up demonstrating transition physics, glass inputs, and Ken Burns motion.
+
+DEVELOPER_LANDING_SPEC.md
+ — Comprehensive developer brief detailing exact Reanimated curves, LinearGradient stops, and layout specs.
+
+welcome.tsx
+ & 
+colors.ts
+ — Production Expo React Native code adhering to your tech stack.

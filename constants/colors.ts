@@ -20,6 +20,19 @@ const Colors = {
   black: '#000000',
   overlay: 'rgba(16, 24, 38, 0.5)',
 
+  // Atmospheric scrim tokens (welcome / sign-in dark screens)
+  navyScrimTop: 'rgba(16, 24, 38, 0.35)',
+  navyScrimMid: 'rgba(16, 24, 38, 0.72)',
+  navyScrimBottom: 'rgba(16, 24, 38, 0.97)',
+  navyScrimAuthMid: 'rgba(16, 24, 38, 0.88)',
+  navyScrimAuthBottom: 'rgba(16, 24, 38, 0.99)',
+
+  // Glass surface tokens
+  glassBorder: 'rgba(208, 184, 146, 0.40)',
+  glassBorderWhite: 'rgba(255, 255, 255, 0.16)',
+  glassSurface: 'rgba(255, 255, 255, 0.08)',
+  glassSurfaceGold: 'rgba(208, 184, 146, 0.12)',
+
   light: {
     text: '#101826',
     background: '#F5F3F0',

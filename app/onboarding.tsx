@@ -1,13 +1,13 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { StyleSheet, Text, View, Pressable, TextInput, ScrollView, Dimensions, Platform, Image, ImageSourcePropType } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useApp, BodyType, EyeColor, SkinTone, Undertone, StyleGoal } from '@/contexts/AppContext';
 import type { HairColor, HeightBand, ContrastLevel, MoodGoal, LifePhase, MetalPreference, Industry, FaceShape } from '@/constants/types';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInRight, FadeInUp } from 'react-native-reanimated';
 import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/constants/lifestyle';
 
 const { width } = Dimensions.get('window');
@@ -119,13 +119,13 @@ function deriveContrast(skin: SkinTone | null, hair: HairColor | null): Contrast
 
 const TOTAL_STEPS = 9;
 
-
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { updateProfile, profile } = useApp();
   const params = useLocalSearchParams<{ guest?: string }>();
   const [step, setStep] = useState(0);
   const [name, setName] = useState(profile.name || '');
+  const [nameFocused, setNameFocused] = useState(false);
   const [bodyType, setBodyType] = useState<BodyType | null>(profile.bodyType);
   const [faceShape, setFaceShape] = useState<FaceShape | null>(profile.faceShape ?? null);
   const [eyeColor, setEyeColor] = useState<EyeColor | null>(profile.eyeColor);
@@ -158,11 +158,11 @@ export default function OnboardingScreen() {
     switch (step) {
       case 0: return name.trim().length > 0;
       case 1: return !!bodyType;
-      case 2: return true;        // face shape is optional — can skip
+      case 2: return true;
       case 3: return !!eyeColor;
       case 4: return !!skinTone && !!undertone;
       case 5: return !!styleGoalPrimary;
-      case 6: return true;        // lifestyle — all optional
+      case 6: return true;
       case 7: return true;
       case 8: return true;
       default: return true;
@@ -172,6 +172,7 @@ export default function OnboardingScreen() {
   const toggleAversion = (c: string) => {
     setColorAversions(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
   };
+
   const skipStep = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step < TOTAL_STEPS - 1) setStep(step + 1);
@@ -219,28 +220,39 @@ export default function OnboardingScreen() {
     switch (step) {
       case 0:
         return (
-          <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
-            <View style={styles.welcomeIcon}>
-              <MaterialCommunityIcons name="hanger" size={48} color={Colors.secondary} />
-            </View>
-            <Text style={styles.stepTitle}>Welcome to AuraCloset</Text>
-            <Text style={styles.stepSubtitle}>{"Your quiet-luxury stylist in your pocket. Let's learn about your style in a few quick steps."}</Text>
-            <View style={styles.inputWrap}>
-              <Text style={styles.inputLabel}>What should we call you?</Text>
+          <Animated.View entering={FadeInRight.duration(280)} style={styles.stepContent}>
+            {/* Atelier Monogram Badge */}
+            <Animated.View entering={FadeInDown.delay(60).duration(280)} style={styles.monogramBadge}>
+              <Text style={styles.monogramSymbol}>◆</Text>
+            </Animated.View>
+
+            {/* Luxury headline */}
+            <Animated.View entering={FadeInDown.delay(120).duration(280)} style={styles.nameHeaderGroup}>
+              <Text style={styles.stepTitle}>May we have your name?</Text>
+              <Text style={styles.stepSubtitle}>
+                To begin your personal calibration, how should your quiet-luxury stylist address you?
+              </Text>
+            </Animated.View>
+
+            {/* Elevated Surface Input */}
+            <Animated.View entering={FadeInDown.delay(180).duration(280)}>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, nameFocused && styles.textInputFocused]}
                 placeholder="Your name"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor="rgba(16,24,38,0.30)"
                 value={name}
                 onChangeText={setName}
+                onFocus={() => setNameFocused(true)}
+                onBlur={() => setNameFocused(false)}
                 autoCapitalize="words"
+                autoCorrect={false}
               />
-            </View>
+            </Animated.View>
           </Animated.View>
         );
       case 1:
         return (
-          <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
+          <Animated.View entering={FadeInRight.duration(280)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Body Shape</Text>
             <Text style={styles.stepSubtitle}>This helps us recommend the most flattering silhouettes</Text>
             <View style={styles.optionsGrid}>
@@ -260,7 +272,7 @@ export default function OnboardingScreen() {
         );
       case 2:
         return (
-          <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
+          <Animated.View entering={FadeInRight.duration(280)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Face Shape</Text>
             <Text style={styles.stepSubtitle}>Helps us suggest necklines that flatter your features. You can skip this.</Text>
             <View style={styles.optionsGrid}>
@@ -300,7 +312,7 @@ export default function OnboardingScreen() {
         );
       case 3:
         return (
-          <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
+          <Animated.View entering={FadeInRight.duration(280)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Eye Color</Text>
             <Text style={styles.stepSubtitle}>{"We'll suggest jewelry and colours that complement your eyes"}</Text>
             <View style={styles.eyeGrid}>
@@ -321,7 +333,7 @@ export default function OnboardingScreen() {
         );
       case 4:
         return (
-          <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
+          <Animated.View entering={FadeInRight.duration(280)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Skin Tone & Undertone</Text>
             <Text style={styles.stepSubtitle}>For the most harmonious colour recommendations</Text>
             <Text style={styles.subLabel}>Skin Tone</Text>
@@ -356,7 +368,7 @@ export default function OnboardingScreen() {
         );
       case 5:
         return (
-          <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
+          <Animated.View entering={FadeInRight.duration(280)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Style Goals</Text>
             <Text style={styles.stepSubtitle}>Pick your primary style, and optionally a secondary one</Text>
             <View style={styles.styleGrid}>
@@ -397,7 +409,7 @@ export default function OnboardingScreen() {
         );
       case 6:
         return (
-          <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
+          <Animated.View entering={FadeInRight.duration(280)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Your Lifestyle</Text>
             <Text style={styles.stepSubtitle}>{"How often do you dress for each occasion? We'll tailor your wardrobe blueprint accordingly."}</Text>
             {LIFESTYLE_SCENARIOS.map(scenario => (
@@ -432,7 +444,7 @@ export default function OnboardingScreen() {
         );
       case 7:
         return (
-          <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
+          <Animated.View entering={FadeInRight.duration(280)} style={styles.stepContent}>
             <Text style={styles.stepTitle}>A few finishing touches</Text>
             <Text style={styles.stepSubtitle}>Optional — each one sharpens your recommendations. You can skip anything.</Text>
 
@@ -564,7 +576,7 @@ export default function OnboardingScreen() {
         );
       case 8:
         return (
-          <Animated.View entering={FadeInRight.duration(400)} style={styles.stepContent}>
+          <Animated.View entering={FadeInRight.duration(280)} style={styles.stepContent}>
             <View style={styles.finishIcon}>
               <Ionicons name="checkmark-circle" size={56} color={Colors.success} />
             </View>
@@ -580,57 +592,160 @@ export default function OnboardingScreen() {
     }
   };
 
+  const progressPct = ((step + 1) / TOTAL_STEPS) * 100;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+      {/* Top Navigation with Liquid Capsule Progress */}
       <View style={styles.topBar}>
         {(step > 0 || params.guest === 'true') ? (
-          <Pressable onPress={step > 0 ? handleBack : () => router.back()} style={styles.backBtn}>
+          <Pressable
+            onPress={step > 0 ? handleBack : () => router.back()}
+            style={styles.backBtn}
+            hitSlop={12}
+          >
             <Ionicons name="chevron-back" size={24} color={Colors.primary} />
           </Pressable>
-        ) : <View style={{ width: 40 }} />}
-        <View style={styles.progressRow}>
-          {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-            <View key={i} style={[styles.progressDot, i <= step && styles.progressDotActive]} />
-          ))}
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
+
+        <View style={styles.progressContainer}>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${progressPct}%` as any }]} />
+          </View>
+          <Text style={styles.microTracker}>
+            STEP {step + 1} OF {TOTAL_STEPS}
+            {step === 0 ? '  ·  PERSONAL CALIBRATION' : ''}
+          </Text>
         </View>
+
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {renderStep()}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) + (Platform.OS === 'web' ? 34 : 0) }]}>
+      {/* Footer CTA */}
+      <Animated.View
+        entering={FadeInUp.delay(240).duration(280)}
+        style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) + (Platform.OS === 'web' ? 34 : 0) }]}
+      >
         <Pressable
-          style={[styles.nextButton, !canProceed() && styles.nextButtonDisabled]}
+          style={({ pressed }) => [
+            styles.nextButton,
+            !canProceed() && styles.nextButtonDisabled,
+            pressed && canProceed() && { transform: [{ scale: 0.97 }], opacity: 0.9 },
+          ]}
           onPress={handleNext}
           disabled={!canProceed()}
         >
-          <Text style={styles.nextButtonText}>
+          <Text style={[styles.nextButtonText, !canProceed() && styles.nextButtonTextDisabled]}>
             {step === TOTAL_STEPS - 1 ? 'Get Started' : 'Continue'}
           </Text>
-          <Ionicons name="arrow-forward" size={20} color={Colors.white} />
+          <Ionicons
+            name="arrow-forward"
+            size={20}
+            color={canProceed() ? Colors.secondary : 'rgba(16,24,38,0.3)'}
+          />
         </Pressable>
-      </View>
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
+
+  // Top navigation bar
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  progressRow: { flexDirection: 'row', gap: 6 },
-  progressDot: { width: 24, height: 4, borderRadius: 2, backgroundColor: Colors.border },
-  progressDotActive: { backgroundColor: Colors.secondary },
+
+  // Liquid capsule progress
+  progressContainer: { flex: 1 },
+  progressTrack: {
+    width: '100%',
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(16, 24, 38, 0.08)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: Colors.secondary,
+  },
+  microTracker: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 10,
+    color: Colors.sage,
+    letterSpacing: 2.5,
+    marginTop: 8,
+    textTransform: 'uppercase',
+  },
+
   scrollContent: { flexGrow: 1, paddingHorizontal: 24 },
   stepContent: { flex: 1, paddingTop: 12 },
-  welcomeIcon: { width: 80, height: 80, borderRadius: 24, backgroundColor: Colors.secondary + '15', alignItems: 'center', justifyContent: 'center', marginBottom: 24, alignSelf: 'center' },
-  stepTitle: { fontFamily: 'Inter_700Bold', fontSize: 26, color: Colors.primary, marginBottom: 8, letterSpacing: -0.5 },
-  stepSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 15, color: Colors.textSecondary, lineHeight: 22, marginBottom: 24 },
-  inputWrap: { marginTop: 8 },
-  inputLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary, marginBottom: 8, letterSpacing: 0.3 },
-  textInput: { fontFamily: 'Inter_500Medium', fontSize: 16, color: Colors.primary, backgroundColor: Colors.white, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1, borderColor: Colors.border },
+
+  // Step 0 — Luxury name input
+  monogramBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(208, 184, 146, 0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(208, 184, 146, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 28,
+  },
+  monogramSymbol: {
+    fontSize: 18,
+    color: Colors.secondary,
+  },
+  nameHeaderGroup: {
+    marginBottom: 28,
+  },
+
+  stepTitle: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.primary, marginBottom: 8, letterSpacing: -0.6, lineHeight: 34 },
+  stepSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary, lineHeight: 22, marginBottom: 24 },
+
+  // Elevated Surface Input (step 0)
+  textInput: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 18,
+    color: Colors.primary,
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    height: 56,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 24, 38, 0.1)',
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  textInputFocused: {
+    borderColor: Colors.secondary,
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+  },
+
+  // Steps 1–8 shared
+  subLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, marginBottom: 12 },
   optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   optionCard: { width: (width - 58) / 2, backgroundColor: Colors.white, borderRadius: 14, padding: 14, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center' as const },
   optionCardSelected: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '08' },
@@ -646,7 +761,6 @@ const styles = StyleSheet.create({
   eyeCardSelected: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '08' },
   eyeSwatch: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   eyeLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, textAlign: 'center' },
-  subLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, marginBottom: 12 },
   skinRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   skinCard: { alignItems: 'center', backgroundColor: Colors.white, borderRadius: 12, padding: 8, borderWidth: 1.5, borderColor: Colors.border, width: (width - 104) / 4 },
   skinCardSelected: { borderColor: Colors.secondary },
@@ -681,8 +795,35 @@ const styles = StyleSheet.create({
   skipRow: { marginTop: 24, marginBottom: 8, alignItems: 'center' as const },
   skipText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textLight, textDecorationLine: 'underline' as const },
   finishIcon: { alignSelf: 'center', marginBottom: 20, marginTop: 40 },
+
+  // Footer CTA — Navy with Champagne Gold text
   footer: { paddingHorizontal: 24, paddingTop: 12, backgroundColor: Colors.background },
-  nextButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16 },
-  nextButtonDisabled: { opacity: 0.4 },
-  nextButtonText: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.white },
+  nextButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    borderRadius: 18,
+    height: 56,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  nextButtonDisabled: {
+    backgroundColor: 'rgba(16, 24, 38, 0.12)',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  nextButtonText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 16,
+    color: Colors.secondary,
+    letterSpacing: -0.1,
+  },
+  nextButtonTextDisabled: {
+    color: 'rgba(16, 24, 38, 0.30)',
+  },
 });
