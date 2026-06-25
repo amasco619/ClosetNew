@@ -94,6 +94,7 @@ Whenever you make a change that affects any section of this document — new API
 | **React Native Gesture Handler** | Touch and gesture processing |
 | **Expo Image** | High-performance image rendering with caching |
 | **Expo Image Picker** | Camera and photo library access |
+| **Expo Image Manipulator** | On-device image resizing before classification and storage upload |
 | **Expo Location** | GPS coordinates for weather-aware outfit suggestions |
 | **Expo Haptics** | Tactile feedback on chip selection and card taps |
 | **Expo Linking** | Deep link handling for OAuth redirects |
@@ -206,12 +207,13 @@ Whenever you make a change that affects any section of this document — new API
 ### Garment Classification Flow
 
 1. User picks a photo in `app/add-item.tsx` via camera or gallery
-2. Image is converted to base64 and sent to `POST /api/classify-garment` on the Express server
-3. Express validates and rate-limits the request, then calls Gemini API with a structured prompt
-4. Gemini returns: category, subType, colorFamily, fabric, pattern, fit, neckline, sleeveLength, rise, warmthBand, dominantRgb, modelConfidence
-5. Server derives: occasionTags (deterministic business rules), seasonTags, HSL/Lab colour values
-6. Response is returned to the app; the item form is pre-filled
-7. User reviews and confirms; item is uploaded to Supabase Storage and saved
+2. **`expo-image-manipulator` resizes the image to ≤1024 px on the longest edge** (JPEG, 0.8 compress) — reduces the classify payload from a typical 4–12 MB to ~100–300 KB. The original full-resolution base64 is kept separately for the storage upload.
+3. Resized base64 is sent to `POST /api/classify-garment` on the Express server
+4. Express validates and rate-limits the request, then calls Gemini API with a structured prompt
+5. Gemini returns: category, subType, colorFamily, fabric, pattern, fit, neckline, sleeveLength, rise, warmthBand, dominantRgb, modelConfidence
+6. Server derives: occasionTags (deterministic business rules), seasonTags, HSL/Lab colour values
+7. Response is returned to the app; the item form is pre-filled
+8. User reviews and confirms; **`expo-image-manipulator` resizes the original to ≤1600 px** (JPEG, 0.85 compress) before uploading to Supabase Storage — reduces storage payload from 6–12 MB to ~300–600 KB with no visible quality loss in thumbnails
 
 ---
 
@@ -295,12 +297,14 @@ scripts/
 
 ```
 User takes/picks photo
-  → add-item.tsx converts to base64
-  → POST /api/classify-garment (Express + Gemini)
+  → add-item.tsx stores original full-res base64 (photoBase64) + asset URI
+  → expo-image-manipulator resizes to ≤1024 px longest edge → classifyBase64
+  → POST /api/classify-garment (Express + Gemini) receives classifyBase64 (~100–300 KB)
   → Item form pre-filled with classification results
   → User confirms
   → Crypto.randomUUID() generates item ID
-  → uploadWardrobeImage() uploads to Supabase Storage: {userId}/{itemId}.jpg
+  → expo-image-manipulator resizes original to ≤1600 px → storageBase64 (~300–600 KB)
+  → uploadWardrobeImage() uploads storageBase64 to Supabase Storage: {userId}/{itemId}.jpg
   → addWardrobeItem() saves item to AppContext state + AsyncStorage
   → Blueprint slots updated (first matching needed slot becomes owned)
   → generateOutfitsForItem() builds "just added" outfit suggestions
@@ -470,14 +474,20 @@ Multi-step style quiz capturing: name, body type (with illustrated SVG silhouett
 ---
 
 ### Wardrobe Digitisation
-Users photograph or select items from their photo library. Expo Image Picker provides base64 data to the classify endpoint. Item caps: Guest = 8, Free = 15, Premium = unlimited. Items are stored in Supabase Storage and persisted locally.
+Users photograph or select items from their photo library. Before any network call is made, `expo-image-manipulator` performs two on-device resize passes:
+- **Classify pass** — longest edge clamped to 1024 px, JPEG 0.8 compress → `classifyBase64` sent to Gemini (~100–300 KB)
+- **Storage pass** — longest edge clamped to 1600 px, JPEG 0.85 compress → `storageBase64` uploaded to Supabase (~300–600 KB)
+
+The original full-resolution asset is never sent over the network. Both resize calls fall back silently to the original base64 if `manipulateAsync` throws, so users are never blocked from adding an item. Item caps: Guest = 8, Free = 15, Premium = unlimited.
+
+`uploadWardrobeImage()` accepts an optional `mimeType` parameter (`'image/jpeg'` default, `'image/png'` supported); the file extension is derived from the MIME type. `deleteWardrobeImage()` removes both `.jpg` and `.png` variants to handle items stored under either extension.
 
 **Code:** `app/add-item.tsx`, `lib/storage.ts`
 
 ---
 
 ### Gemini Garment Classification
-Every uploaded photo is sent to `POST /api/classify-garment`. Gemini classifies the item into category, subType, colourFamily, fabric, pattern, fit, neckline, sleeveLength, rise, warmthBand, and returns a dominant RGB for perceptual colour scoring. The server applies deterministic occasion and season rules on top of Gemini's output for consistency. Two-model fallback: `gemini-flash-lite-latest` → `gemini-2.5-flash` on 429. Content guardrails reject selfies, blurry images, non-clothing subjects.
+A resized base64 image (≤1024 px, ~100–300 KB) is sent to `POST /api/classify-garment`. Gemini classifies the item into category, subType, colourFamily, fabric, pattern, fit, neckline, sleeveLength, rise, warmthBand, and returns a dominant RGB for perceptual colour scoring. The server applies deterministic occasion and season rules on top of Gemini's output for consistency. Two-model fallback: `gemini-flash-lite-latest` → `gemini-2.5-flash` on 429. Content guardrails reject selfies, blurry images, non-clothing subjects. A `[classify] payload N KB` log line is emitted at the start of each request for observability.
 
 **Code:** `server/classify-garment.ts`, `server/routes.ts`
 
