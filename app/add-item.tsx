@@ -376,6 +376,23 @@ export default function AddItemScreen() {
           }
           let classified;
           try {
+            // Resize to ≤1024 px on the longest edge before sending to Gemini.
+            // The original full-res base64 (asset.base64) is kept in photoBase64
+            // for Supabase Storage upload so thumbnails stay crisp.
+            const MAX_CLASSIFY_PX = 1024;
+            const w = asset.width ?? 0;
+            const h = asset.height ?? 0;
+            const longestEdge = Math.max(w, h);
+            let classifyBase64 = asset.base64;
+            if (longestEdge > MAX_CLASSIFY_PX) {
+              const scale = MAX_CLASSIFY_PX / longestEdge;
+              const resized = await ImageManipulator.manipulateAsync(
+                asset.uri,
+                [{ resize: { width: Math.round(w * scale), height: Math.round(h * scale) } }],
+                { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+              );
+              classifyBase64 = resized.base64 ?? asset.base64;
+            }
             classified = await classifyWithServer(classifyBase64, category);
           } catch (classifyErr: any) {
             setClassifying(false);

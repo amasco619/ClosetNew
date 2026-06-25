@@ -585,6 +585,11 @@ export async function classifyGarment(req: Request, res: Response) {
       return res.status(400).json({ error: "imageBase64 or imageUrl required" });
     }
 
+    if (imageBase64) {
+      const kb = Math.round((imageBase64.length * 3) / 4 / 1024);
+      console.log(`[classify] payload ${kb} KB (base64 len ${imageBase64.length})`);
+    }
+
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       console.error("[classify] GEMINI_API_KEY is not set");
