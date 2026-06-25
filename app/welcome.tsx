@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -20,19 +20,16 @@ import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/colors';
 import { supabase } from '../lib/supabase';
 
-const { height } = Dimensions.get('window');
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-
 interface GlassButtonProps {
   label: string;
+  subLabel?: string;
   iconName?: keyof typeof Ionicons.glyphMap;
-  variant: 'gold' | 'glass' | 'ghost';
+  variant: 'gold' | 'glass';
   onPress: () => void;
   delay: number;
 }
 
-function GlassButton({ label, iconName, variant, onPress, delay }: GlassButtonProps) {
+function GlassButton({ label, subLabel, iconName, variant, onPress, delay }: GlassButtonProps) {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
 
@@ -56,26 +53,13 @@ function GlassButton({ label, iconName, variant, onPress, delay }: GlassButtonPr
     opacity.value = withSpring(1, { damping: 15, stiffness: 300 });
   };
 
-  if (variant === 'ghost') {
-    return (
-      <Animated.View entering={FadeInDown.delay(delay).duration(280)}>
-        <Pressable
-          onPress={onPress}
-          onPressIn={onPressIn}
-          onPressOut={onPressOut}
-          hitSlop={12}
-          style={styles.ghostPressable}
-        >
-          <Animated.Text style={[styles.ghostText, animStyle]}>{label}</Animated.Text>
-        </Pressable>
-      </Animated.View>
-    );
-  }
-
   const isGold = variant === 'gold';
 
   return (
-    <Animated.View entering={FadeInDown.delay(delay).duration(280)} style={styles.buttonWrapper}>
+    <Animated.View
+      entering={FadeInDown.delay(delay).duration(280)}
+      style={[styles.buttonWrapper, subLabel && styles.buttonWrapperTall]}
+    >
       <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} style={styles.pressableFill}>
         <Animated.View
           style={[
@@ -85,16 +69,21 @@ function GlassButton({ label, iconName, variant, onPress, delay }: GlassButtonPr
           ]}
         >
           <BlurView intensity={28} tint="dark" style={StyleSheet.absoluteFill} />
-          <View style={styles.buttonContent}>
-            {iconName && (
-              <Ionicons
-                name={iconName}
-                size={19}
-                color={isGold ? Colors.secondary : '#FFFFFF'}
-                style={styles.buttonIcon}
-              />
+          <View style={styles.buttonInner}>
+            <View style={styles.buttonContent}>
+              {iconName && (
+                <Ionicons
+                  name={iconName}
+                  size={19}
+                  color={isGold ? Colors.secondary : '#FFFFFF'}
+                  style={styles.buttonIcon}
+                />
+              )}
+              <Text style={[styles.buttonText, isGold && styles.buttonTextGold]}>{label}</Text>
+            </View>
+            {subLabel && (
+              <Text style={styles.buttonSubLabel}>{subLabel}</Text>
             )}
-            <Text style={[styles.buttonText, isGold && styles.buttonTextGold]}>{label}</Text>
           </View>
         </Animated.View>
       </Pressable>
@@ -172,6 +161,7 @@ export default function WelcomeScreen() {
         <View style={styles.buttonStack}>
           <GlassButton
             label="Get started"
+            subLabel="No account required"
             iconName="sparkles-outline"
             variant="gold"
             delay={200}
@@ -184,16 +174,10 @@ export default function WelcomeScreen() {
             delay={280}
             onPress={handleSignIn}
           />
-          <GlassButton
-            label="Explore as guest"
-            variant="ghost"
-            delay={360}
-            onPress={handleGetStarted}
-          />
         </View>
 
         {/* Privacy footer */}
-        <Animated.View entering={FadeInUp.delay(440).duration(280)} style={styles.footerRow}>
+        <Animated.View entering={FadeInUp.delay(360).duration(280)} style={styles.footerRow}>
           <Ionicons name="lock-closed-outline" size={11} color="rgba(255,255,255,0.35)" />
           <Text style={styles.footerText}>Your wardrobe stays private, always</Text>
         </Animated.View>
@@ -246,6 +230,9 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 56,
   },
+  buttonWrapperTall: {
+    height: 68,
+  },
   pressableFill: {
     flex: 1,
   },
@@ -265,6 +252,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.glassSurface,
     borderColor: Colors.glassBorderWhite,
   },
+  buttonInner: {
+    alignItems: 'center',
+  },
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -282,15 +272,12 @@ const styles = StyleSheet.create({
   buttonTextGold: {
     color: '#FFFFFF',
   },
-  ghostPressable: {
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  ghostText: {
-    fontFamily: 'Inter_500Medium',
-    fontSize: 13,
-    color: Colors.sage,
+  buttonSubLabel: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.55)',
     letterSpacing: 0.2,
+    marginTop: 3,
   },
   footerRow: {
     flexDirection: 'row',

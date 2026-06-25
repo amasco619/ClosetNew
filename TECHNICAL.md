@@ -584,7 +584,7 @@ All Express API endpoints are protected by `express-rate-limit` using the centra
 ---
 
 ### Session Storage
-Supabase session tokens (JWT access + refresh) are stored in `AsyncStorage` on native platforms. The Supabase client is initialised with `storage: AsyncStorage` inside the `Platform.OS !== 'web'` branch. The web platform uses the Supabase default (localStorage). Migration to `expo-secure-store` (iOS Keychain / Android Keystore) is planned as a future security hardening step.
+Supabase session tokens (JWT access + refresh) are stored in `expo-secure-store` on native platforms (iOS Keychain / Android Keystore). The Supabase client is initialised with a `SecureStoreAdapter` (`getItemAsync` / `setItemAsync` / `deleteItemAsync`) inside the `Platform.OS !== 'web'` branch. The web platform uses the Supabase default (localStorage). Tokens are never written to `AsyncStorage`.
 
 **Code:** `lib/supabase.ts`
 
