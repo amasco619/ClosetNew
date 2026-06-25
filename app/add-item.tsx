@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { router } from 'expo-router';
 import { useApp, ItemCategory, OccasionTag, SeasonTag, subTypes, colorFamilies } from '@/contexts/AppContext';
 import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, SleeveLength, Rise, WarmthBand } from '@/constants/types';
@@ -353,14 +354,29 @@ export default function AddItemScreen() {
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         setPhotoUri(asset.uri);
+        // Keep full-resolution base64 for Supabase Storage upload (crisp thumbnails)
         if (asset.base64) setPhotoBase64(asset.base64);
         setStep(1);
 
         if (asset.base64) {
           setClassifying(true);
+          // Downscale to ≤1024px wide before sending to Gemini — reduces payload from
+          // 4–12 MB to ~100–300 KB with no impact on classification accuracy.
+          // Full-res asset.base64 is preserved in photoBase64 for the storage upload.
+          let classifyBase64 = asset.base64;
+          try {
+            const resized = await ImageManipulator.manipulateAsync(
+              asset.uri,
+              [{ resize: { width: 1024 } }],
+              { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+            );
+            if (resized.base64) classifyBase64 = resized.base64;
+          } catch {
+            // Resize failed — fall back silently to original base64
+          }
           let classified;
           try {
-            classified = await classifyWithServer(asset.base64, category);
+            classified = await classifyWithServer(classifyBase64, category);
           } catch (classifyErr: any) {
             setClassifying(false);
             if (classifyErr instanceof ContentGuardrailError) {
