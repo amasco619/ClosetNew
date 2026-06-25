@@ -410,8 +410,60 @@ If you need to bypass it in an emergency: `git commit --no-verify` (use sparingl
 
 ## 9. Implemented Features
 
+### Luxury UI — Welcome, Sign-in & Onboarding Screens
+All three entry screens were redesigned with a quiet-luxury visual system:
+
+**Welcome screen (`app/welcome.tsx`):**
+- Full-screen `assets/images/closet.jpg` background with a 14-second Ken Burns slow-breathe animation (scale 1.0 → 1.07, `withRepeat` via Reanimated)
+- Three-stop `LinearGradient` scrim (`navyScrimTop` → `navyScrimMid` → `navyScrimBottom`)
+- Three `BlurView` (intensity 28) glass buttons: gold-bordered "Get started", ghost-glass "I already have an account", sage ghost "Explore as guest"
+- Atelier micro-label in champagne gold (letter-spacing 4.5), 34 px bold headline, translucent tagline
+- Supabase session check (`supabase.auth.getSession`) fires on mount; authenticated users are forwarded directly to tabs
+- `expo-image` used (not RN `Image`) for `closet.jpg` to support the `transition` prop
+
+**Sign-in screen (`app/sign-in.tsx`):**
+- All existing auth logic preserved: `signInWithEmail`, `signInWithPassword`, Google/Apple OAuth, `validateEmailField`/`validatePassword`/`validateConfirmPassword`, confirmed-email state, forgot-password routing, error display
+- Visual layer replaced: closet.jpg background with deepened scrim, `BlurView` (intensity 30) glass inputs with gold focus border (`Colors.glassBorderWhite` → `Colors.secondary`), social auth as `BlurView` glass cards, gold underline tab switcher, champagne gold submit button
+
+**Onboarding screen (`app/onboarding.tsx`):**
+- Step 0 redesigned: atelier `◆` monogram badge, "May we have your name?" copy, elevated surface `TextInput` with gold focus state and subtle shadow; `FadeInDown` stagger (60 / 120 / 180 ms)
+- Progress indicator: replaced dot-segment array with a liquid capsule track (fills proportionally per step) + "STEP N OF 9 · PERSONAL CALIBRATION" micro-label in sage
+- Footer CTA: navy card with champagne gold text and arrow icon; disabled state uses translucent fill
+- All 9 steps (name, body type, face shape, eye colour, skin tone, style goals, lifestyle, extras, finish) content unchanged
+
+**New colour tokens in `constants/colors.ts`** (all additions — no existing token modified):
+`navyScrimTop`, `navyScrimMid`, `navyScrimBottom`, `navyScrimAuthMid`, `navyScrimAuthBottom`, `glassBorder`, `glassBorderWhite`, `glassSurface`, `glassSurfaceGold`
+
+**Code:** `app/welcome.tsx`, `app/sign-in.tsx`, `app/onboarding.tsx`, `constants/colors.ts`, `assets/images/closet.jpg`
+
+---
+
+### Onboarding — Couture SVG Body Shape Illustrations
+The six body-type cards in onboarding step 1 (Body Shape) now display inline vector silhouettes instead of raster PNGs.
+
+**Implementation:**
+- 6 SVG files created in `assets/body_types/` (`.svg` alongside the retained `.png` originals)
+- Onboarding renders them as inline `react-native-svg` components (`Svg`, `Circle`, `Path`, `Line`, `Ellipse`, `Rect`) via the `BodyTypeSVG` function component defined at the top of `app/onboarding.tsx`
+- `BODY_TYPE_IMAGES` PNG map and the `Image`/`ImageSourcePropType` react-native imports were removed
+- Each silhouette: `viewBox="0 0 100 145"`, head circle + bezier body path (navy stroke, translucent navy fill), unique champagne gold accent element per archetype:
+
+| Shape | Gold accent |
+|---|---|
+| Hourglass | Dashed waist cinch line at hip level + faint shoulder reference line |
+| Pear | Dotted ellipse halo at hip level |
+| Apple | Dotted circle halo at midsection |
+| Rectangle | Dashed structural rect overlay across torso |
+| Inverted Triangle | Solid gold shoulder bar + faint dashed secondary |
+| Athletic | Two horizontal posture dashes at chest and waist |
+
+- `tsconfig.json` `exclude` array updated to include `"attached_assets"` to prevent reference template files from being type-checked
+
+**Code:** `app/onboarding.tsx`, `assets/body_types/*.svg`, `tsconfig.json`
+
+---
+
 ### Onboarding
-Multi-step style quiz capturing: name, body type (with illustrated images for 6 body shapes), eye colour, skin tone, undertone, primary and secondary style goals, and lifestyle percentages (work / casual / events / active / brunch). Profile is persisted to AsyncStorage and Supabase. The app routes to onboarding when `profile.onboardingComplete` is false.
+Multi-step style quiz capturing: name, body type (with illustrated SVG silhouettes for 6 body shapes), eye colour, skin tone, undertone, primary and secondary style goals, and lifestyle percentages (work / casual / events / active / brunch). Profile is persisted to AsyncStorage and Supabase. The app routes to onboarding when `profile.onboardingComplete` is false.
 
 **Code:** `app/onboarding.tsx`, `contexts/AppContext.tsx`
 

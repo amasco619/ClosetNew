@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View, Pressable, TextInput, ScrollView, Dimensions, Platform, Image, ImageSourcePropType } from 'react-native';
+import { StyleSheet, Text, View, Pressable, TextInput, ScrollView, Dimensions, Platform } from 'react-native';
+import Svg, { Circle, Path, Line, Ellipse, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -12,14 +13,69 @@ import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/con
 
 const { width } = Dimensions.get('window');
 
-const BODY_TYPE_IMAGES = {
-  'hourglass': require('@/assets/body_types/hourglass.png'),
-  'pear': require('@/assets/body_types/pear.png'),
-  'apple': require('@/assets/body_types/apple.png'),
-  'rectangle': require('@/assets/body_types/rectangle.png'),
-  'inverted-triangle': require('@/assets/body_types/inverted_triangle.png'),
-  'athletic': require('@/assets/body_types/athletic.png'),
-} satisfies Record<BodyType, ImageSourcePropType>;
+const NAVY = '#101826';
+const GOLD = '#D0B892';
+
+function BodyTypeSVG({ id }: { id: BodyType }) {
+  const accent = GOLD;
+  return (
+    <Svg viewBox="0 0 100 145" width={80} height={90} style={{ marginBottom: 4 }}>
+      {/* Head */}
+      <Circle cx={50} cy={13} r={10} fill="none" stroke={NAVY} strokeWidth={1.5} />
+
+      {id === 'hourglass' && <>
+        <Path
+          d="M 45 23 L 28 40 C 24 56 38 70 39 80 C 39 92 26 100 28 105 L 32 140 L 68 140 L 72 105 C 74 100 61 92 61 80 C 62 70 76 56 72 40 L 55 23 Z"
+          fill="rgba(16,24,38,0.05)" stroke={NAVY} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round"
+        />
+        <Line x1={37} y1={80} x2={63} y2={80} stroke={accent} strokeWidth={1.5} strokeDasharray="3 2.5" strokeLinecap="round" />
+        <Line x1={28} y1={40} x2={72} y2={40} stroke={accent} strokeWidth={0.75} strokeDasharray="2 3" opacity={0.5} />
+      </>}
+
+      {id === 'pear' && <>
+        <Path
+          d="M 45 23 L 35 40 C 31 56 37 70 38 80 C 37 92 24 100 22 105 L 26 140 L 74 140 L 78 105 C 76 100 63 92 62 80 C 63 70 69 56 65 40 L 55 23 Z"
+          fill="rgba(16,24,38,0.05)" stroke={NAVY} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round"
+        />
+        <Ellipse cx={50} cy={108} rx={26} ry={8} fill="none" stroke={accent} strokeWidth={1} strokeDasharray="2.5 3" opacity={0.7} />
+      </>}
+
+      {id === 'apple' && <>
+        <Path
+          d="M 45 23 L 32 40 C 26 53 23 68 26 80 C 27 92 29 100 30 105 L 34 140 L 66 140 L 70 105 C 71 100 73 92 74 80 C 77 68 74 53 68 40 L 55 23 Z"
+          fill="rgba(16,24,38,0.05)" stroke={NAVY} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round"
+        />
+        <Circle cx={50} cy={68} r={24} fill="none" stroke={accent} strokeWidth={0.9} strokeDasharray="2 3.5" opacity={0.65} />
+      </>}
+
+      {id === 'rectangle' && <>
+        <Path
+          d="M 45 23 L 33 40 C 31 56 32 70 33 80 C 33 92 31 100 33 105 L 36 140 L 64 140 L 67 105 C 69 100 67 92 67 80 C 68 70 69 56 67 40 L 55 23 Z"
+          fill="rgba(16,24,38,0.05)" stroke={NAVY} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round"
+        />
+        <Rect x={33} y={40} width={34} height={65} rx={1} fill="none" stroke={accent} strokeWidth={0.9} strokeDasharray="3 2.5" opacity={0.6} />
+      </>}
+
+      {id === 'inverted-triangle' && <>
+        <Path
+          d="M 45 23 L 24 40 C 20 56 33 70 36 80 C 36 92 36 100 37 105 L 40 140 L 60 140 L 63 105 C 64 100 64 92 64 80 C 67 70 80 56 76 40 L 55 23 Z"
+          fill="rgba(16,24,38,0.05)" stroke={NAVY} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round"
+        />
+        <Line x1={24} y1={40} x2={76} y2={40} stroke={accent} strokeWidth={1.5} strokeLinecap="round" />
+        <Line x1={27} y1={44} x2={73} y2={44} stroke={accent} strokeWidth={0.6} strokeDasharray="2 2.5" opacity={0.55} />
+      </>}
+
+      {id === 'athletic' && <>
+        <Path
+          d="M 45 23 L 28 40 C 24 55 35 68 38 80 C 37 92 29 100 31 105 L 35 140 L 65 140 L 69 105 C 71 100 63 92 62 80 C 65 68 76 55 72 40 L 55 23 Z"
+          fill="rgba(16,24,38,0.05)" stroke={NAVY} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round"
+        />
+        <Line x1={32} y1={57} x2={68} y2={57} stroke={accent} strokeWidth={0.9} strokeDasharray="2.5 2" opacity={0.55} strokeLinecap="round" />
+        <Line x1={37} y1={80} x2={63} y2={80} stroke={accent} strokeWidth={0.9} strokeDasharray="2.5 2" opacity={0.55} strokeLinecap="round" />
+      </>}
+    </Svg>
+  );
+}
 
 const BODY_TYPES: { id: BodyType; label: string; desc: string }[] = [
   { id: 'hourglass', label: 'Hourglass', desc: 'Balanced shoulders & hips, defined waist' },
@@ -262,7 +318,7 @@ export default function OnboardingScreen() {
                   style={[styles.optionCard, bodyType === bt.id && styles.optionCardSelected]}
                   onPress={() => { setBodyType(bt.id); Haptics.selectionAsync(); }}
                 >
-                  <Image source={BODY_TYPE_IMAGES[bt.id]} style={styles.bodyTypeImage} resizeMode="contain" />
+                  <BodyTypeSVG id={bt.id} />
                   <Text style={[styles.optionLabel, bodyType === bt.id && styles.optionLabelSelected]}>{bt.label}</Text>
                   <Text style={styles.optionDesc}>{bt.desc}</Text>
                 </Pressable>
@@ -749,7 +805,6 @@ const styles = StyleSheet.create({
   optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   optionCard: { width: (width - 58) / 2, backgroundColor: Colors.white, borderRadius: 14, padding: 14, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center' as const },
   optionCardSelected: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '08' },
-  bodyTypeImage: { width: 80, height: 90, marginBottom: 4 },
   optionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, marginTop: 8 },
   optionLabelSelected: { color: Colors.secondary },
   optionDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 4, lineHeight: 15 },
