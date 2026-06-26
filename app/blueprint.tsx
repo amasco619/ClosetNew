@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View, ScrollView, Pressable, Platform, Image } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -123,6 +124,7 @@ export default function BlueprintScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+      <StatusBar style="dark" />
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={Colors.primary} />

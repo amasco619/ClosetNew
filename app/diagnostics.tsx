@@ -1,6 +1,7 @@
 import {
   StyleSheet, Text, View, ScrollView, Pressable, Platform,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -159,6 +160,7 @@ export default function DiagnosticsScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+      <StatusBar style="dark" />
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.closeBtn}>
           <Ionicons name="arrow-back" size={22} color={Colors.primary} />
