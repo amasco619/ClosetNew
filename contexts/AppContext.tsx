@@ -451,8 +451,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         AsyncStorage.getItem(STORAGE_KEYS.mood),
         AsyncStorage.getItem(STORAGE_KEYS.savedLooks),
       ]);
-      const loadedProfile = profileData ? mergeProfile(JSON.parse(profileData)) : defaultProfile;
-      setProfile(loadedProfile);
+      const loadedProfile = profileData ? mergeProfile(JSON.parse(profileData)) : null;
+      if (loadedProfile) setProfile(loadedProfile);
       const rawItems: WardrobeItem[] = wardrobeData ? JSON.parse(wardrobeData) : [];
       // ── Perceptual migration (two phase) ──────────────────────────────────
       // Phase 1 (synchronous, instant): seed every legacy item's HSL/Lab

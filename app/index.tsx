@@ -66,7 +66,7 @@ export default function IndexScreen() {
     }
 
     router.replace('/welcome');
-  }, [checking, hasSession, isLoading, profile.onboardingComplete, profile.isGuest]);
+  }, [checking, hasSession, isLoading, profile.onboardingComplete, profile.isGuest, profile.name, profile.bodyType, profile.eyeColor, profile.skinTone, profile.undertone, profile.styleGoalPrimary]);
 
   return <View style={styles.container} />;
 }
