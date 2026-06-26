@@ -56,8 +56,12 @@ export default function IndexScreen() {
       return;
     }
 
-    if (profile.isGuest && profile.onboardingComplete && hasRequiredOnboardingFields(profile)) {
-      router.replace('/(tabs)');
+    if (profile.isGuest) {
+      if (profile.onboardingComplete && hasRequiredOnboardingFields(profile)) {
+        router.replace('/(tabs)');
+      } else {
+        router.replace('/onboarding?guest=true');
+      }
       return;
     }
 
