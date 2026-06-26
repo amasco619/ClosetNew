@@ -44,7 +44,7 @@ export default function ItemDetailScreen() {
 
   if (!item) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+      <View style={[styles.container, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + webTopInset }]}>
         <View style={styles.topBar}>
           <Pressable onPress={() => router.back()} style={styles.closeBtn}>
             <Ionicons name="close" size={24} color={Colors.primary} />
@@ -105,7 +105,7 @@ export default function ItemDetailScreen() {
   return (
     <SwipeToDismiss>
     <StatusBar style="dark" />
-    <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+    <View style={[styles.container, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + webTopInset }]}>
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.closeBtn}>
           <Ionicons name="close" size={24} color={Colors.primary} />

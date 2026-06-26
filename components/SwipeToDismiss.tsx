@@ -1,6 +1,8 @@
 import React from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Colors from '@/constants/colors';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -18,6 +20,7 @@ interface SwipeToDismissProps {
 }
 
 export default function SwipeToDismiss({ children }: SwipeToDismissProps) {
+  const insets = useSafeAreaInsets();
   const translateY = useSharedValue(0);
 
   const dismiss = () => router.back();
@@ -54,6 +57,9 @@ export default function SwipeToDismiss({ children }: SwipeToDismissProps) {
   return (
     <GestureDetector gesture={pan}>
       <Animated.View style={[styles.container, animatedStyle]}>
+        <View style={[styles.handleContainer, { paddingTop: insets.top + 10 }]}>
+          <View style={styles.handle} />
+        </View>
         {children}
       </Animated.View>
     </GestureDetector>
@@ -63,5 +69,16 @@ export default function SwipeToDismiss({ children }: SwipeToDismissProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  handleContainer: {
+    alignItems: 'center',
+    paddingBottom: 6,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.textLight,
+    opacity: 0.35,
   },
 });
