@@ -200,9 +200,25 @@ Whenever you make a change that affects any section of this document — new API
 1. User taps "Continue with Google/Apple" → `lib/auth.ts` calls `supabase.auth.signInWithOAuth()`
 2. Supabase returns an OAuth URL → app opens it in `expo-web-browser`
 3. On redirect, `createSessionFromUrl()` extracts tokens from URL and calls `supabase.auth.setSession()`
-4. Session tokens are stored in `AsyncStorage` on native (the Supabase client is initialised with `storage: AsyncStorage`)
+4. Session tokens are stored in `expo-secure-store` on native (iOS Keychain / Android Keystore) via `SecureStoreAdapter`. They are **not** in `AsyncStorage`.
 5. For email auth: `signInWithEmail()` calls `supabase.auth.signInWithPassword()` directly
-6. `AppContext` listens to `supabase.auth.onAuthStateChange()` for session updates
+6. `AppContext` listens to `supabase.auth.onAuthStateChange()` for **subsequent** events only — `INITIAL_SESSION` is intentionally excluded (see Startup Initialization below)
+
+### Startup Initialization (deterministic, race-free)
+
+On cold start, `AppContext.loadData()` is the single owner of the initialization sequence:
+
+1. Read all AsyncStorage keys in one `Promise.all` (wardrobe, profile, slots, reactions, wear log, etc.)
+2. Call `supabase.auth.getSession()` — a local SecureStore read, not a network call
+3. If a session exists: call `loadUserDataFromDB(userId, authName, localSnap)` inline and await completion
+4. `setAppReady(true)` in the `finally` block — guaranteed to fire after all data is settled
+5. `app/index.tsx` gates all routing on `appReady: true` from AppContext
+
+`INITIAL_SESSION` is **not** handled in `onAuthStateChange` because `loadData()` already covers it via `getSession()`. Handling it in the listener as well would recreate the race (`appReady` could fire before the DB load triggered by the listener finished). The listener only handles `SIGNED_IN` (subsequent logins after OAuth/email confirmation) and `SIGNED_OUT`.
+
+Two context flags exposed to consumers:
+- `appReady: boolean` — safe to route; only `true` after full initialization
+- `isAuthenticated: boolean` — `true` when a valid Supabase session was found and DB data was loaded
 
 ### Garment Classification Flow
 
@@ -241,6 +257,7 @@ app/
 
 components/              Shared React Native components
   ErrorBoundary.tsx      Top-level error boundary
+  SwipeToDismiss.tsx     Android swipe-to-dismiss gesture wrapper with drag handle (no-op on iOS/web)
 
 contexts/
   AppContext.tsx          Entire app state: profile, wardrobe, premium, blueprint slots,
@@ -280,7 +297,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               12 test suites (see §11)
+__tests__/               18 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -396,7 +413,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 12 test suites once |
+| `npm test` | Run all 18 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -611,6 +628,86 @@ Users can enter the app without creating an account. Guest profile has `isGuest:
 Style constraints (no sleeveless, no short skirts, max heel height, colour aversions), body type, lifestyle percentages, weather toggle, temperature unit (°C / °F), metal preference, hair colour, height band, contrast level, mood goal, life phase, industry, face shape. Profile changes propagate immediately to outfit generation and blueprint slot ordering.
 
 **Code:** `app/(tabs)/profile.tsx`, `contexts/AppContext.tsx`
+
+---
+
+### App Startup — Branded Loading Screen & Splash Management
+
+While `appReady` is false, `app/index.tsx` renders a full-screen branded loading view instead of routing: the AuraCloset wordmark (Inter_700Bold, letter-spacing -1, 34 px) with a champagne gold accent line below it and the tagline in sage. Both elements animate in via `FadeInDown` (280 ms, 60 ms stagger). The component sits in the navigation stack so it participates in screen transitions normally.
+
+`expo-splash-screen` is configured with `SplashScreen.preventAutoHideAsync()` in the root layout. `SplashScreen.hideAsync()` is called inside `app/index.tsx` after `appReady` becomes true — this eliminates the blank flash that occurred when hide fired before data was loaded.
+
+**Code:** `app/index.tsx`, `app/_layout.tsx`
+
+---
+
+### Screen Transitions — Unified Fade System
+
+All non-modal screens share a consistent, platform-safe fade transition defined by the `FADE_OPTIONS` constant in `app/_layout.tsx`:
+
+```ts
+const FADE_OPTIONS = {
+  animation: 'fade',
+  animationDuration: 220,
+  animationTypeForReplace: 'push',  // prevents the "pop" slide-out on Android replace
+} as const;
+```
+
+`animationTypeForReplace: 'push'` is required on Android — without it, the `replace` call used for auth redirects produces an unexpected slide-out instead of a fade.
+
+Screens that receive `FADE_OPTIONS`: `sign-in`, `forgot-password`, `auth/update-password`, `auth/callback`, `outfit-ideas`.
+
+The entry screen (`index`) is registered with `animation: 'none'` so the branded loading screen appears instantly with no transition flicker. Navigation away from it uses `fadeOutThenNavigate()`: Reanimated `withTiming` fades the loading view to opacity 0 over 200 ms before calling `router.replace()`, giving a smooth hand-off to the destination screen.
+
+**Code:** `app/_layout.tsx`, `app/index.tsx`
+
+---
+
+### Add Item — Upload Progress Stages & Classifying Shimmer
+
+The save flow in `app/add-item.tsx` is divided into explicit stages shown as a 3-segment progress track:
+
+| Index | Label | Stage |
+|-------|-------|-------|
+| 0 | Preparing | Image resized, pre-upload checks done |
+| 1 | Saving | Supabase Storage upload in progress |
+| 2 | Finishing | AppContext state update and blueprint slot sync |
+
+Each segment is rendered by `AnimatedSegment` — a component that measures its own container width via `onLayout` and animates a champagne gold fill from `width: 0` to the full measured width using `withTiming(260 ms)` when `isActive` becomes true. The fill anchors at `left: 0` inside an `overflow: 'hidden'` container.
+
+While Gemini is classifying the image, a separate shimmer indicator replaces the earlier hardcoded `width: '60%'` bar. It uses a `shimmerOffset` shared value (Reanimated) that sweeps the fill view via `translateX` from off-screen left to off-screen right with `withRepeat(withTiming(...))`. The track width is captured as a `useSharedValue` (not a `useRef`) so the animation worklet running on the UI thread can read it correctly. The shimmer loop starts when `classifying` becomes true and is cancelled/reset when classification completes.
+
+**Code:** `app/add-item.tsx` — `AnimatedSegment` component, `SAVE_STAGES` constant, `shimmerOffset` and `classifyingTrackWidth` shared values
+
+---
+
+### Android Modal UX — Slide Animation, Swipe-to-Dismiss & Drag Handle
+
+**Consistent slide-up animation (`MODAL_OPTIONS`):**
+The three modal screens (add-item, premium, item-detail) use a `MODAL_OPTIONS` constant that adds `animation: 'slide_from_bottom'` on Android alongside `presentation: 'modal'`. On iOS, `animation: 'default'` preserves the native sheet slide that Expo Router already provides. Without this, Android can fall back to a fade or OS-default transition that diverges from the intended bottom-sheet feel.
+
+```ts
+const MODAL_OPTIONS = {
+  presentation: 'modal',
+  animation: Platform.OS === 'android' ? 'slide_from_bottom' : 'default',
+} as const;
+```
+
+**Swipe-to-dismiss (`components/SwipeToDismiss.tsx`):**
+A reusable wrapper component that adds a downward-swipe dismiss gesture on Android. It is a transparent pass-through on iOS and web (iOS already supports the native sheet swipe). On Android it wraps the screen content in a `GestureDetector` with a Pan gesture configured as:
+- `activeOffsetY(10)` / `failOffsetY(-5)` — vertical scroll gestures are not intercepted; only intentional downward drags activate the gesture
+- `translateY` follows the drag (clamped to positive/downward direction only)
+- Dismisses via `router.back()` when `translationY > 120 pt` OR `velocityY > 800`
+- If the threshold is not met, snaps back with a spring (`damping: 20, stiffness: 300`)
+- When dismissing, slides the sheet off-screen (`withTiming` to `700 pt`, 220 ms) before calling `back()` so the gesture feels fluid
+
+**Drag handle pill:**
+`SwipeToDismiss.tsx` renders a centred 36 × 4 pt rounded pill in `Colors.border` at the top of the wrapper, with `paddingTop = insets.top + 10` so it sits below the status bar. To prevent double-counting the top safe-area inset, the three consuming modal screens set `paddingTop` to `0` on Android (the wrapper owns it) and the original `insets.top` on iOS.
+
+**Per-screen status bar management:**
+All three modal screens (add-item, premium, item-detail) declare their own `<StatusBar style="dark" />` as the first child. This ensures the status bar icon style is correct while the modal is visible and reverts automatically to the root `_layout.tsx` declaration when the modal is dismissed. The fix primarily targets Android, where the root style can bleed through without an explicit per-screen declaration.
+
+**Code:** `app/_layout.tsx` (`MODAL_OPTIONS`), `components/SwipeToDismiss.tsx`, `app/add-item.tsx`, `app/premium.tsx`, `app/item-detail.tsx`
 
 ---
 
