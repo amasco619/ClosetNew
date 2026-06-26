@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { router } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 import { useApp } from '@/contexts/AppContext';
 import type { UserProfile } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
-import { supabase } from '../lib/supabase';
 import * as Linking from 'expo-linking';
 import { createSessionFromUrl } from '../lib/auth';
 
@@ -20,9 +19,7 @@ function hasRequiredOnboardingFields(p: UserProfile): boolean {
 }
 
 export default function IndexScreen() {
-  const { profile, isLoading } = useApp();
-  const [checking, setChecking] = useState(true);
-  const [hasSession, setHasSession] = useState(false);
+  const { profile, appReady, isAuthenticated } = useApp();
 
   const url = Linking.useLinkingURL();
   useEffect(() => {
@@ -32,22 +29,9 @@ export default function IndexScreen() {
   }, [url]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setHasSession(!!session);
-      setChecking(false);
-    }).catch(() => setChecking(false));
+    if (!appReady) return;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setHasSession(!!session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    if (checking || isLoading) return;
-
-    if (hasSession) {
+    if (isAuthenticated) {
       if (profile.onboardingComplete && hasRequiredOnboardingFields(profile)) {
         router.replace('/(tabs)');
       } else {
@@ -66,7 +50,7 @@ export default function IndexScreen() {
     }
 
     router.replace('/welcome');
-  }, [checking, hasSession, isLoading, profile.onboardingComplete, profile.isGuest, profile.name, profile.bodyType, profile.eyeColor, profile.skinTone, profile.undertone, profile.styleGoalPrimary]);
+  }, [appReady, isAuthenticated, profile.onboardingComplete, profile.isGuest, profile.name, profile.bodyType, profile.eyeColor, profile.skinTone, profile.undertone, profile.styleGoalPrimary]);
 
   return <View style={styles.container} />;
 }
