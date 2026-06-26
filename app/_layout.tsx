@@ -25,6 +25,7 @@ function RootLayoutNav() {
       <Stack.Screen name="outfit-ideas" options={{ headerShown: false }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false, animation: 'fade', animationDuration: 220 }} />
       <Stack.Screen name="forgot-password" options={{ headerShown: false, animation: 'fade', animationDuration: 220 }} />
+      <Stack.Screen name="auth/callback" options={{ headerShown: false, animation: 'fade', animationDuration: 220 }} />
       <Stack.Screen name="auth/update-password" options={{ headerShown: false, animation: 'fade', animationDuration: 220 }} />
     </Stack>
   );
