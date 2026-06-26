@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Pressable, ScrollView, Platform, Alert, ActivityIndicator, TextInput } from 'react-native';
+import SwipeToDismiss from '@/components/SwipeToDismiss';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -682,6 +683,7 @@ export default function AddItemScreen() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
+    <SwipeToDismiss>
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.closeBtn}>
@@ -1230,6 +1232,7 @@ export default function AddItemScreen() {
         </View>
       )}
     </View>
+    </SwipeToDismiss>
   );
 }
 

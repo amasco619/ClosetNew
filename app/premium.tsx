@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View, ScrollView, Pressable, Platform } from 'react-native';
+import SwipeToDismiss from '@/components/SwipeToDismiss';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -33,6 +34,7 @@ export default function PremiumScreen() {
   };
 
   return (
+    <SwipeToDismiss>
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.closeBtn}>
@@ -126,6 +128,7 @@ export default function PremiumScreen() {
         )}
       </View>
     </View>
+    </SwipeToDismiss>
   );
 }
 
