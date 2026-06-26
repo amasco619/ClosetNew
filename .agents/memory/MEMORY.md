@@ -5,3 +5,4 @@
 - [Gemini extended clothing fields](gemini-clothing-fields.md) — Gemini prompt returns fit/neckline/sleeveLength/rise/warmthBand; applied before subtype inference in add-item.tsx.
 - [Supabase direct client pattern](supabase-direct-client.md) — anon client + RLS is the correct pattern; the old Express /api/db/* proxy was a temporary workaround and has been removed.
 - [Image upload + item ID sync](image-upload-flow.md) — addWardrobeItem accepts optional id so add-item pre-generates UUID, uploads to Storage under that id, then passes it to context keeping Storage path and DB row aligned.
+- [TECHNICAL.md must stay current](technical-md-discipline.md) — user requires every merged task be reflected in TECHNICAL.md immediately; task agents do not do this automatically.

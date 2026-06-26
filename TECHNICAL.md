@@ -705,9 +705,18 @@ A reusable wrapper component that adds a downward-swipe dismiss gesture on Andro
 `SwipeToDismiss.tsx` renders a centred 36 × 4 pt rounded pill in `Colors.border` at the top of the wrapper, with `paddingTop = insets.top + 10` so it sits below the status bar. To prevent double-counting the top safe-area inset, the three consuming modal screens set `paddingTop` to `0` on Android (the wrapper owns it) and the original `insets.top` on iOS.
 
 **Per-screen status bar management:**
-All three modal screens (add-item, premium, item-detail) declare their own `<StatusBar style="dark" />` as the first child. This ensures the status bar icon style is correct while the modal is visible and reverts automatically to the root `_layout.tsx` declaration when the modal is dismissed. The fix primarily targets Android, where the root style can bleed through without an explicit per-screen declaration.
+Every full-screen route that slides over the tab bar declares its own `<StatusBar style="dark" />` as the first child. This ensures the status bar icon style is correct while the screen is visible and reverts automatically to the root `_layout.tsx` declaration on dismiss. The fix primarily targets Android, where the root style can bleed through without an explicit per-screen declaration.
 
-**Code:** `app/_layout.tsx` (`MODAL_OPTIONS`), `components/SwipeToDismiss.tsx`, `app/add-item.tsx`, `app/premium.tsx`, `app/item-detail.tsx`
+Screens with per-screen `<StatusBar style="dark" />`:
+- `app/add-item.tsx`
+- `app/premium.tsx`
+- `app/item-detail.tsx`
+- `app/blueprint.tsx`
+- `app/diagnostics.tsx`
+
+All have a light (`#F5F3F0`) background, making `style="dark"` (dark icons) correct for all of them.
+
+**Code:** `app/_layout.tsx` (`MODAL_OPTIONS`), `components/SwipeToDismiss.tsx`, `app/add-item.tsx`, `app/premium.tsx`, `app/item-detail.tsx`, `app/blueprint.tsx`, `app/diagnostics.tsx`
 
 ---
 
