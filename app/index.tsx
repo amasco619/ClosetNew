@@ -7,6 +7,8 @@ import Animated, {
   withTiming,
   withRepeat,
   withSequence,
+  cancelAnimation,
+  runOnJS,
   Easing,
 } from 'react-native-reanimated';
 import { useApp } from '@/contexts/AppContext';
@@ -59,25 +61,40 @@ export default function IndexScreen() {
   useEffect(() => {
     if (!appReady) return;
 
+    const navigateTo = (path: string) => {
+      router.replace(path as Parameters<typeof router.replace>[0]);
+    };
+
+    const fadeOutThenNavigate = (path: string) => {
+      cancelAnimation(pulseOpacity);
+      containerOpacity.value = withTiming(
+        0,
+        { duration: 180, easing: Easing.in(Easing.ease) },
+        (finished) => {
+          if (finished) runOnJS(navigateTo)(path);
+        }
+      );
+    };
+
     if (isAuthenticated) {
       if (profile.onboardingComplete && hasRequiredOnboardingFields(profile)) {
-        router.replace('/(tabs)');
+        fadeOutThenNavigate('/(tabs)');
       } else {
-        router.replace('/onboarding');
+        fadeOutThenNavigate('/onboarding');
       }
       return;
     }
 
     if (profile.isGuest) {
       if (profile.onboardingComplete && hasRequiredOnboardingFields(profile)) {
-        router.replace('/(tabs)');
+        fadeOutThenNavigate('/(tabs)');
       } else {
-        router.replace('/onboarding?guest=true');
+        fadeOutThenNavigate('/onboarding?guest=true');
       }
       return;
     }
 
-    router.replace('/welcome');
+    fadeOutThenNavigate('/welcome');
   }, [appReady, isAuthenticated, profile.onboardingComplete, profile.isGuest, profile.name, profile.bodyType, profile.eyeColor, profile.skinTone, profile.undertone, profile.styleGoalPrimary]);
 
   const containerStyle = useAnimatedStyle(() => ({

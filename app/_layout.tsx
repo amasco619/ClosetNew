@@ -15,8 +15,10 @@ SplashScreen.preventAutoHideAsync();
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Back", headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
+      <Stack.Screen name="welcome" options={{ headerShown: false, animation: 'fade', animationDuration: 220 }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: 'fade', animationDuration: 220 }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false, animation: 'fade', animationDuration: 220 }} />
       <Stack.Screen name="add-item" options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="premium" options={{ headerShown: false, presentation: 'modal' }} />
       <Stack.Screen name="item-detail" options={{ headerShown: false, presentation: 'modal' }} />
