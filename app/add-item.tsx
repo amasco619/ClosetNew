@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Pressable, ScrollView, Platform, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,7 +11,7 @@ import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, Sleeve
 import { SUBTYPE_FORMALITY, inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { apiRequest } from '@/lib/query-client';
 import * as Crypto from 'expo-crypto';
 import { uploadWardrobeImage } from '../lib/storage';
@@ -173,6 +173,33 @@ const SAVE_STAGES = [
 ] as const;
 
 type SaveStage = typeof SAVE_STAGES[number]['key'] | null;
+
+function AnimatedSegment({ isActive }: { isActive: boolean }) {
+  const segWidth = useRef(0);
+  const fillWidth = useSharedValue(0);
+
+  useEffect(() => {
+    if (isActive && segWidth.current > 0) {
+      fillWidth.value = withTiming(segWidth.current, { duration: 260 });
+    }
+  }, [isActive]);
+
+  const fillStyle = useAnimatedStyle(() => ({ width: fillWidth.value }));
+
+  return (
+    <View
+      style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: Colors.border, overflow: 'hidden' }}
+      onLayout={e => {
+        segWidth.current = e.nativeEvent.layout.width;
+        if (isActive) fillWidth.value = withTiming(segWidth.current, { duration: 260 });
+      }}
+    >
+      <Animated.View
+        style={[{ position: 'absolute', top: 0, left: 0, bottom: 0, backgroundColor: Colors.secondary, borderRadius: 2 }, fillStyle]}
+      />
+    </View>
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -1154,13 +1181,7 @@ export default function AddItemScreen() {
                 {SAVE_STAGES.map((s, i) => {
                   const currentIdx = SAVE_STAGES.findIndex(st => st.key === saveStage);
                   return (
-                    <View
-                      key={s.key}
-                      style={[
-                        styles.stageSegment,
-                        i <= currentIdx && styles.stageSegmentActive,
-                      ]}
-                    />
+                    <AnimatedSegment key={s.key} isActive={i <= currentIdx} />
                   );
                 })}
               </View>
@@ -1218,8 +1239,6 @@ const styles = StyleSheet.create({
   classifyingHint:   { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textLight, letterSpacing: 0.1 },
   savingContainer:   { alignItems: 'center', paddingVertical: 8, gap: 10 },
   stageTrack:        { flexDirection: 'row', gap: 6, width: '100%' },
-  stageSegment:      { flex: 1, height: 3, borderRadius: 2, backgroundColor: Colors.border },
-  stageSegmentActive:{ backgroundColor: Colors.secondary },
   stageLabelRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stageLabelText:    { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
   descriptionCard:   { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.white, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 20, borderWidth: 1, borderColor: Colors.border },
