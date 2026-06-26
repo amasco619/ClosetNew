@@ -222,10 +222,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session?.user) {
+        if (event === 'SIGNED_IN' && session?.user) {
+          // INITIAL_SESSION is intentionally excluded: loadData() calls getSession()
+          // internally and awaits loadUserDataFromDB before setAppReady(true), so the
+          // initial session is fully settled before routing fires. Handling INITIAL_SESSION
+          // here as well would create a race where setAppReady(true) could fire before
+          // the DB load started by this listener has completed.
           const userId = session.user.id;
-          // Dedup: loadData() handles the INITIAL_SESSION case inline via getSession().
-          // This handler fires for subsequent sign-ins (e.g. after sign-up confirmation).
+          // Dedup: loadData() may have already loaded this user's data.
           if (currentUserIdRef.current === userId) return;
           currentUserIdRef.current = userId;
           const authName: string =
