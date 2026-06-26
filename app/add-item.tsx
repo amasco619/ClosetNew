@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Pressable, ScrollView, Platform, Alert, ActivityIndicator, TextInput } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import SwipeToDismiss from '@/components/SwipeToDismiss';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -684,6 +685,7 @@ export default function AddItemScreen() {
 
   return (
     <SwipeToDismiss>
+    <StatusBar style="dark" />
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.closeBtn}>
