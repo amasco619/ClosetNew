@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -123,6 +124,7 @@ export default function WelcomeScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" />
       {/* Atmospheric Background — Ken Burns slow breathing */}
       <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]}>
         <Image

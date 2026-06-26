@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
 import { router } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 
@@ -14,6 +15,7 @@ export default function AuthCallback() {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="dark" />
       <ActivityIndicator color="#D0B892" size="large" />
       <Text style={styles.label}>Signing you in...</Text>
     </View>

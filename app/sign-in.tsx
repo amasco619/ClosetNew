@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator,
   AccessibilityInfo, Pressable,
 } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
 import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
 import { BlurView } from 'expo-blur'
@@ -228,6 +229,7 @@ export default function SignInScreen() {
   if (confirmed) {
     return (
       <View style={styles.container}>
+        <StatusBar style="light" />
         <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]}>
           <Image source={require('../assets/images/closet.jpg')} style={StyleSheet.absoluteFill} contentFit="cover" />
         </Animated.View>
@@ -258,6 +260,7 @@ export default function SignInScreen() {
 
   return (
     <View style={styles.container}>
+      <StatusBar style="light" />
       {/* Atmospheric Background */}
       <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]}>
         <Image

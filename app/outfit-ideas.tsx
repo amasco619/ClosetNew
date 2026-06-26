@@ -3,6 +3,7 @@ import {
   StyleSheet, Text, View, ScrollView, Pressable, Platform, Image,
   Modal, TextInput, KeyboardAvoidingView,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -281,6 +282,7 @@ export default function OutfitIdeasScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+      <StatusBar style="dark" />
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={Colors.primary} />

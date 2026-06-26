@@ -1,6 +1,7 @@
 import {
   StyleSheet, Text, View, ScrollView, Pressable, Platform, Image,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -87,6 +88,7 @@ export default function WearLogScreen() {
   if (!isPremium) {
     return (
       <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+        <StatusBar style="dark" />
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
             <Ionicons name="chevron-back" size={22} color={Colors.primary} />
@@ -114,6 +116,7 @@ export default function WearLogScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+      <StatusBar style="dark" />
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
           <Ionicons name="chevron-back" size={22} color={Colors.primary} />

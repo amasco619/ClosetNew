@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View, Pressable, TextInput, ScrollView, Dimensions, Platform } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import Svg, { Circle, Path, Line, Ellipse, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -652,6 +653,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+      <StatusBar style="dark" />
       {/* Top Navigation with Liquid Capsule Progress */}
       <View style={styles.topBar}>
         {(step > 0 || params.guest === 'true') ? (

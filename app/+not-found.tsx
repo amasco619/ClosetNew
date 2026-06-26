@@ -1,11 +1,13 @@
 import { Link, Stack } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import Colors from "@/constants/colors";
 
 export default function NotFoundScreen() {
   return (
     <>
+      <StatusBar style="dark" />
       <Stack.Screen options={{ title: "Not Found" }} />
       <View style={styles.container}>
         <Ionicons name="alert-circle-outline" size={48} color={Colors.textLight} />

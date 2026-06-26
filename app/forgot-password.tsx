@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator,
   AccessibilityInfo,
 } from 'react-native'
+import { StatusBar } from 'expo-status-bar'
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { requestPasswordReset, isValidEmail } from '../lib/auth'
@@ -46,6 +47,7 @@ export default function ForgotPasswordScreen() {
   if (success) {
     return (
       <View style={styles.successContainer}>
+        <StatusBar style="dark" />
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
@@ -74,10 +76,12 @@ export default function ForgotPasswordScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <>
+      <StatusBar style="dark" />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
@@ -146,7 +150,8 @@ export default function ForgotPasswordScreen() {
           </View>
         )}
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </>
   )
 }
 
