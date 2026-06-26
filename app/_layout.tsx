@@ -19,6 +19,14 @@ const FADE_OPTIONS = {
   animationTypeForReplace: 'push' as const,
 };
 
+const MODAL_OPTIONS = {
+  presentation: 'modal' as const,
+  animation: Platform.select({
+    android: 'slide_from_bottom' as const,
+    default: 'default' as const,
+  }),
+};
+
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Back", headerShown: false }}>
@@ -26,9 +34,9 @@ function RootLayoutNav() {
       <Stack.Screen name="welcome" options={{ headerShown: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false, ...FADE_OPTIONS }} />
-      <Stack.Screen name="add-item" options={{ headerShown: false, presentation: 'modal' }} />
-      <Stack.Screen name="premium" options={{ headerShown: false, presentation: 'modal' }} />
-      <Stack.Screen name="item-detail" options={{ headerShown: false, presentation: 'modal' }} />
+      <Stack.Screen name="add-item" options={{ headerShown: false, ...MODAL_OPTIONS }} />
+      <Stack.Screen name="premium" options={{ headerShown: false, ...MODAL_OPTIONS }} />
+      <Stack.Screen name="item-detail" options={{ headerShown: false, ...MODAL_OPTIONS }} />
       <Stack.Screen name="outfit-ideas" options={{ headerShown: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="forgot-password" options={{ headerShown: false, ...FADE_OPTIONS }} />
