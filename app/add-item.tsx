@@ -11,7 +11,7 @@ import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, Sleeve
 import { SUBTYPE_FORMALITY, inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, cancelAnimation } from 'react-native-reanimated';
 import { apiRequest } from '@/lib/query-client';
 import * as Crypto from 'expo-crypto';
 import { uploadWardrobeImage } from '../lib/storage';
@@ -237,6 +237,28 @@ export default function AddItemScreen() {
   const [saveStage,       setSaveStage]       = useState<SaveStage>(null);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+
+  // ─── Classifying shimmer animation ────────────────────────────────────────
+  const shimmerOffset = useSharedValue(0);
+  const classifyingTrackWidth = useSharedValue(0);
+
+  useEffect(() => {
+    if (classifying) {
+      shimmerOffset.value = 0;
+      shimmerOffset.value = withRepeat(withTiming(1, { duration: 1100 }), -1, false);
+    } else {
+      cancelAnimation(shimmerOffset);
+      shimmerOffset.value = 0;
+    }
+  }, [classifying]);
+
+  const shimmerStyle = useAnimatedStyle(() => {
+    const trackW = classifyingTrackWidth.value;
+    const fillW = trackW * 0.38;
+    return {
+      transform: [{ translateX: shimmerOffset.value * (trackW + fillW) - fillW }],
+    };
+  });
 
   // ─── Derived requirements ──────────────────────────────────────────────────
 
@@ -739,8 +761,11 @@ export default function AddItemScreen() {
                   <ActivityIndicator size="small" color={Colors.secondary} />
                   <Text style={styles.classifyingText}>Analysing photo…</Text>
                 </View>
-                <View style={styles.classifyingTrack}>
-                  <View style={[styles.classifyingFill, { width: '60%' }]} />
+                <View
+                  style={styles.classifyingTrack}
+                  onLayout={e => { classifyingTrackWidth.value = e.nativeEvent.layout.width; }}
+                >
+                  <Animated.View style={[styles.classifyingFill, shimmerStyle]} />
                 </View>
                 <Text style={styles.classifyingHint}>Reading colour, fabric and style details</Text>
               </View>
@@ -1235,7 +1260,7 @@ const styles = StyleSheet.create({
   classifyingRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
   classifyingText:   { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary },
   classifyingTrack:  { height: 3, borderRadius: 2, backgroundColor: Colors.border, overflow: 'hidden' },
-  classifyingFill:   { height: '100%', borderRadius: 2, backgroundColor: Colors.secondary },
+  classifyingFill:   { width: '38%', height: '100%', borderRadius: 2, backgroundColor: Colors.secondary },
   classifyingHint:   { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textLight, letterSpacing: 0.1 },
   savingContainer:   { alignItems: 'center', paddingVertical: 8, gap: 10 },
   stageTrack:        { flexDirection: 'row', gap: 6, width: '100%' },
