@@ -164,6 +164,16 @@ class ContentGuardrailError extends Error {
   }
 }
 
+// ─── Save stage tracking ──────────────────────────────────────────────────────
+
+const SAVE_STAGES = [
+  { key: 'resizing',  label: 'Preparing photo…'    },
+  { key: 'uploading', label: 'Uploading photo…'     },
+  { key: 'saving',    label: 'Saving to wardrobe…' },
+] as const;
+
+type SaveStage = typeof SAVE_STAGES[number]['key'] | null;
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AddItemScreen() {
@@ -197,6 +207,7 @@ export default function AddItemScreen() {
   const [photoWidth,      setPhotoWidth]      = useState<number>(0);
   const [photoHeight,     setPhotoHeight]     = useState<number>(0);
   const [saving,          setSaving]          = useState(false);
+  const [saveStage,       setSaveStage]       = useState<SaveStage>(null);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -523,6 +534,7 @@ export default function AddItemScreen() {
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSaving(true);
+    setSaveStage('resizing');
     try {
       const parsedPrice = parseFloat(purchasePrice.replace(/[^0-9.]/g, ''));
       const itemId = Crypto.randomUUID();
@@ -559,11 +571,13 @@ export default function AddItemScreen() {
           } catch {
             // Resize failed — fall back silently to original base64
           }
+          setSaveStage('uploading');
           finalUri = await uploadWardrobeImage(session.user.id, uploadBase64, itemId, 'image/jpeg');
         } catch (uploadErr) {
           console.warn('[add-item] Storage upload failed, using local URI:', uploadErr);
         }
       }
+      setSaveStage('saving');
       addWardrobeItem({
         id: itemId,
         photoUri: finalUri,
@@ -593,6 +607,7 @@ export default function AddItemScreen() {
     } catch (e) {
       console.error('[add-item] Save failed:', e);
       setSaving(false);
+      setSaveStage(null);
     }
   };
 
@@ -692,9 +707,15 @@ export default function AddItemScreen() {
 
             {/* Classifier status / description */}
             {classifying ? (
-              <View style={styles.classifyingRow}>
-                <ActivityIndicator size="small" color={Colors.secondary} />
-                <Text style={styles.classifyingText}>Analysing your item…</Text>
+              <View style={styles.classifyingCard}>
+                <View style={styles.classifyingRow}>
+                  <ActivityIndicator size="small" color={Colors.secondary} />
+                  <Text style={styles.classifyingText}>Analysing photo…</Text>
+                </View>
+                <View style={styles.classifyingTrack}>
+                  <View style={[styles.classifyingFill, { width: '60%' }]} />
+                </View>
+                <Text style={styles.classifyingHint}>Reading colour, fabric and style details</Text>
               </View>
             ) : description ? (
               <View style={styles.descriptionCard}>
@@ -1124,21 +1145,42 @@ export default function AddItemScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* ── Save button ─────────────────────────────────────────────────────── */}
+      {/* ── Save button / progress ──────────────────────────────────────────── */}
       {step === 1 && (
         <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) + (Platform.OS === 'web' ? 34 : 0) }]}>
-          <Pressable
-            style={[styles.saveButton, !canSave && { opacity: 0.4 }]}
-            onPress={handleSave}
-            disabled={!canSave}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color={Colors.white} />
-            ) : (
+          {saving ? (
+            <Animated.View entering={FadeInDown.duration(200)} style={styles.savingContainer}>
+              <View style={styles.stageTrack}>
+                {SAVE_STAGES.map((s, i) => {
+                  const currentIdx = SAVE_STAGES.findIndex(st => st.key === saveStage);
+                  return (
+                    <View
+                      key={s.key}
+                      style={[
+                        styles.stageSegment,
+                        i <= currentIdx && styles.stageSegmentActive,
+                      ]}
+                    />
+                  );
+                })}
+              </View>
+              <View style={styles.stageLabelRow}>
+                <ActivityIndicator size="small" color={Colors.secondary} />
+                <Text style={styles.stageLabelText}>
+                  {SAVE_STAGES.find(s => s.key === saveStage)?.label ?? 'Saving…'}
+                </Text>
+              </View>
+            </Animated.View>
+          ) : (
+            <Pressable
+              style={[styles.saveButton, !canSave && { opacity: 0.4 }]}
+              onPress={handleSave}
+              disabled={!canSave}
+            >
               <Ionicons name="checkmark" size={22} color={Colors.white} />
-            )}
-            <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save to Wardrobe'}</Text>
-          </Pressable>
+              <Text style={styles.saveButtonText}>Save to Wardrobe</Text>
+            </Pressable>
+          )}
         </View>
       )}
     </View>
@@ -1168,8 +1210,18 @@ const styles = StyleSheet.create({
   photoPreview:      { width: '100%', aspectRatio: 0.75, borderRadius: 16, overflow: 'hidden', marginBottom: 16, position: 'relative' },
   previewImage:      { width: '100%', height: '100%' },
   changePhoto:       { position: 'absolute', bottom: 12, right: 12, width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.overlay, alignItems: 'center', justifyContent: 'center' },
-  classifyingRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, paddingHorizontal: 4 },
-  classifyingText:   { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
+  classifyingCard:   { backgroundColor: Colors.white, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16, borderWidth: 1, borderColor: Colors.border, gap: 8 },
+  classifyingRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  classifyingText:   { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary },
+  classifyingTrack:  { height: 3, borderRadius: 2, backgroundColor: Colors.border, overflow: 'hidden' },
+  classifyingFill:   { height: '100%', borderRadius: 2, backgroundColor: Colors.secondary },
+  classifyingHint:   { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textLight, letterSpacing: 0.1 },
+  savingContainer:   { alignItems: 'center', paddingVertical: 8, gap: 10 },
+  stageTrack:        { flexDirection: 'row', gap: 6, width: '100%' },
+  stageSegment:      { flex: 1, height: 3, borderRadius: 2, backgroundColor: Colors.border },
+  stageSegmentActive:{ backgroundColor: Colors.secondary },
+  stageLabelRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stageLabelText:    { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
   descriptionCard:   { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.white, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 20, borderWidth: 1, borderColor: Colors.border },
   descriptionText:   { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.primary, flex: 1 },
   chipSmall:         { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },
