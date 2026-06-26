@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { router } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -30,6 +31,7 @@ function hasRequiredOnboardingFields(p: UserProfile): boolean {
 
 export default function IndexScreen() {
   const { profile, appReady, isAuthenticated } = useApp();
+  const splashHidden = useRef(false);
 
   const containerOpacity = useSharedValue(0);
   const wordmarkOpacity = useSharedValue(0);
@@ -60,6 +62,11 @@ export default function IndexScreen() {
 
   useEffect(() => {
     if (!appReady) return;
+
+    if (!splashHidden.current) {
+      splashHidden.current = true;
+      SplashScreen.hideAsync().catch(() => {});
+    }
 
     const navigateTo = (path: string) => {
       router.replace(path as Parameters<typeof router.replace>[0]);
