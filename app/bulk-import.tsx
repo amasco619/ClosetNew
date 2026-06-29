@@ -35,10 +35,9 @@ export default function BulkImportStudio() {
     setPicking(true);
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: true,
         selectionLimit: BATCH_CAP,
-        quality: 0.9,
       });
       if (!result.canceled && result.assets.length > 0) {
         router.push({
