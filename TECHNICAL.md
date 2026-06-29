@@ -244,6 +244,8 @@ app/
   forgot-password.tsx    Password reset request screen
   onboarding.tsx         Multi-step style profile quiz
   add-item.tsx           Add wardrobe item (camera / gallery + Gemini classification)
+  bulk-import.tsx        Bulk Digitization Studio entry — multi-photo picker modal (up to 10)
+  bulk-review.tsx        Bulk review grid — parallel AI classification + batch save
   item-detail.tsx        Item detail and edit screen
   premium.tsx            Premium upgrade screen
   wear-log.tsx           Full outfit wear history grouped by date
@@ -717,6 +719,59 @@ Screens with per-screen `<StatusBar style="dark" />`:
 All have a light (`#F5F3F0`) background, making `style="dark"` (dark icons) correct for all of them.
 
 **Code:** `app/_layout.tsx` (`MODAL_OPTIONS`), `components/SwipeToDismiss.tsx`, `app/add-item.tsx`, `app/premium.tsx`, `app/item-detail.tsx`, `app/blueprint.tsx`, `app/diagnostics.tsx`
+
+---
+
+### Bulk Digitization Studio
+
+Two-screen flow for digitising an entire wardrobe section in one session: up to 10 garments selected from the photo library, AI-classified in parallel, and batch-saved with a single tap.
+
+**Entry screen (`app/bulk-import.tsx`):**
+- Modal presentation (`MODAL_OPTIONS` — slides up from bottom)
+- `StatusBar style="dark"`, `SwipeToDismiss` wrapper (matches add-item pattern)
+- Atelier micro-label + 30 px bold title + feature card (three capability rows)
+- `ImagePicker.launchImageLibraryAsync({ allowsMultipleSelection: true, selectionLimit: 10 })` — requests library permission first; navigates to `bulk-review` with URIs encoded as `JSON.stringify(uris)` in route params
+
+**Review screen (`app/bulk-review.tsx`):**
+- Stack presentation (`FADE_OPTIONS` — fades in on top of bulk-import)
+- `StatusBar style="dark"`, no `SwipeToDismiss` (back arrow in header handles dismissal)
+- Parses `uris` param via `useLocalSearchParams`; initialises `BulkItem[]` state (`uri`, `status`, `classification`)
+- Item statuses: `pending → classifying → settled → saving → saved` (or `error`, `removed`)
+
+**Parallel classification (staggered, 150 ms apart):**
+1. `expo-image-manipulator` resizes each URI to ≤1024 px (JPEG, 0.8 compress) → base64
+2. `POST /api/classify-garment` — same endpoint as single-item add flow
+3. On settle: card info fades in with `FadeInDown.duration(280)` (key-prop remount trick)
+4. `Haptics.impactAsync(Light)` fires per settled card
+
+**Gold-pulse overlay (classifying state):**
+- `Colors.secondary` fill, `opacity` animated `withRepeat(withTiming(0.80, 900ms), -1, true)` via Reanimated `useSharedValue`
+- Shows `◆` symbol + cycling status micro-copy (screen-level `setInterval` at 450 ms cycles through: `REVIEWING SILHOUETTE / DERIVING OCCASION TAGS / CURATING COLOUR HARMONY / EXTRACTING FABRIC WEAVE`)
+- On classification settle: `cancelAnimation` + `withTiming(0, 260 ms)` fades the overlay out — photo always remains visible underneath
+
+**2-column grid layout:**
+- `FlatList numColumns={2}`, card width = `(screenWidth − 40 − 10) / 2` (square photo thumbnail + info section below)
+- Per-card Remove (×) button (top-right); Error state shows "Tap to retry" overlay; Saved state shows green checkmark overlay (`FadeInDown.duration(220)`)
+
+**Progress header:**
+- "X of N analysed" subtitle under "Batch Review" title
+- 2 pt progress track (full width) fills as cards settle
+
+**Batch save (`Save N Items to Wardrobe` footer CTA):**
+1. Iterates over all `settled` items sequentially
+2. Per item: `expo-image-manipulator` resizes URI to ≤1600 px (JPEG, 0.85 compress) → base64 → `uploadWardrobeImage()` → Supabase Storage
+3. Calls `addWardrobeItem()` with full classification payload (type guards: `asPattern`, `asFabric`, `asWeight`, `asFit`, `asNeckline`, `asSleeve`, `asRise`, `asWarmth` — re-defined locally, same logic as `add-item.tsx`)
+4. `formalityLevel` derived from `SUBTYPE_FORMALITY[subType] ?? 5` (from `constants/outfitScoring`)
+5. Falls back to local URI if Supabase upload fails (non-blocking)
+6. On completion: `Haptics.notificationAsync(Success)` + `router.navigate('/(tabs)/wardrobe')`
+
+**Navigation registration in `app/_layout.tsx`:**
+```
+<Stack.Screen name="bulk-import" options={{ headerShown: false, ...MODAL_OPTIONS }} />
+<Stack.Screen name="bulk-review" options={{ headerShown: false, ...FADE_OPTIONS }} />
+```
+
+**Code:** `app/bulk-import.tsx`, `app/bulk-review.tsx`, `app/_layout.tsx`
 
 ---
 
