@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, FlatList,
-  Dimensions, ActivityIndicator, Platform, BackHandler, AppState,
+  Dimensions, ActivityIndicator, Platform, BackHandler, AppState, Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -303,13 +303,48 @@ export default function BulkReviewScreen() {
     return () => { mountedRef.current = false; };
   }, []);
 
+  // Cancel with confirmation when classification is still in progress.
+  // If all items have already settled (or errored), exit immediately — there
+  // is nothing destructive about leaving at that point.
+  const handleCancel = useCallback(() => {
+    const hasInProgress = items.some(
+      it => it.status === 'pending' || it.status === 'classifying'
+    );
+    if (!hasInProgress) {
+      router.back();
+      return;
+    }
+    Alert.alert(
+      'Cancel batch review?',
+      'AI analysis is still running. Leaving now will discard all pending results and you will need to re-upload the photos.',
+      [
+        { text: 'Keep waiting', style: 'cancel' },
+        {
+          text: 'Cancel',
+          style: 'destructive',
+          onPress: () => router.back(),
+        },
+      ]
+    );
+  }, [items]);
+
   // Block the Android hardware back button while saving is in progress so the
   // user cannot navigate away mid-save and leave orphaned wardrobe entries.
+  // While classification is still running, show the same confirmation dialog
+  // that the Cancel button triggers so no path silently discards pending results.
   useEffect(() => {
-    if (!saving) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    const hasInProgress = items.some(
+      it => it.status === 'pending' || it.status === 'classifying'
+    );
+    if (!saving && !hasInProgress) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (saving) return true; // fully blocked while save is running
+      // Classification in progress — show confirmation then block the default back
+      handleCancel();
+      return true;
+    });
     return () => sub.remove();
-  }, [saving]);
+  }, [saving, items, handleCancel]);
 
   // When the app returns to the foreground mid-save, re-sync the React saving
   // state from the ref.  AppState changes trigger a re-render; without this,
@@ -524,7 +559,7 @@ export default function BulkReviewScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={handleCancel}
           style={styles.backBtn}
           hitSlop={8}
           disabled={saving}
@@ -539,7 +574,16 @@ export default function BulkReviewScreen() {
           <Text style={styles.headerTitle}>Batch Review</Text>
           <Text style={styles.headerSub}>{classifiedCount} of {totalCount} analysed</Text>
         </View>
-        <View style={{ width: 40 }} />
+        <Pressable
+          onPress={handleCancel}
+          style={styles.cancelBtn}
+          hitSlop={8}
+          disabled={saving}
+        >
+          <Text style={[styles.cancelBtnText, saving && { color: Colors.textLight }]}>
+            Cancel
+          </Text>
+        </Pressable>
       </View>
 
       {/* Progress track */}
@@ -632,6 +676,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 10,
   },
   backBtn:     { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  cancelBtn:   { width: 60, height: 40, alignItems: 'flex-end', justifyContent: 'center' },
+  cancelBtnText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.primary, letterSpacing: -0.1 },
   headerCenter:{ flex: 1, alignItems: 'center' },
   headerTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.primary, letterSpacing: -0.2 },
   headerSub:   { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textLight, marginTop: 1 },
