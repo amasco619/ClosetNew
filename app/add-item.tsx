@@ -13,7 +13,7 @@ import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, Sleeve
 import { SUBTYPE_FORMALITY, inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, cancelAnimation } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, cancelAnimation, runOnJS } from 'react-native-reanimated';
 import { apiRequest } from '@/lib/query-client';
 import * as Crypto from 'expo-crypto';
 import { uploadWardrobeImage } from '../lib/storage';
@@ -237,6 +237,19 @@ export default function AddItemScreen() {
   const [photoHeight,     setPhotoHeight]     = useState<number>(0);
   const [saving,          setSaving]          = useState(false);
   const [saveStage,       setSaveStage]       = useState<SaveStage>(null);
+  const [displayedLabel,  setDisplayedLabel]  = useState<string>('Saving…');
+  const stageLabelOpacity = useSharedValue(1);
+  const stageLabelStyle   = useAnimatedStyle(() => ({ opacity: stageLabelOpacity.value }));
+
+  useEffect(() => {
+    const next = SAVE_STAGES.find(s => s.key === saveStage)?.label ?? 'Saving…';
+    stageLabelOpacity.value = withTiming(0, { duration: 110 }, (finished) => {
+      if (finished) {
+        runOnJS(setDisplayedLabel)(next);
+        stageLabelOpacity.value = withTiming(1, { duration: 170 });
+      }
+    });
+  }, [saveStage]);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -1215,9 +1228,9 @@ export default function AddItemScreen() {
               </View>
               <View style={styles.stageLabelRow}>
                 <ActivityIndicator size="small" color={Colors.secondary} />
-                <Text style={styles.stageLabelText}>
-                  {SAVE_STAGES.find(s => s.key === saveStage)?.label ?? 'Saving…'}
-                </Text>
+                <Animated.Text style={[styles.stageLabelText, stageLabelStyle]}>
+                  {displayedLabel}
+                </Animated.Text>
               </View>
             </Animated.View>
           ) : (
