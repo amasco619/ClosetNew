@@ -937,11 +937,11 @@ export default function AddItemScreen() {
     <StatusBar style="dark" />
     <View style={[styles.container, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + webTopInset }]}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.closeBtn}>
-          <Ionicons name="close" size={24} color={Colors.primary} />
+        <Pressable onPress={() => router.back()} style={styles.closeBtn} hitSlop={8}>
+          <Text style={styles.cancelText}>Cancel</Text>
         </Pressable>
         <Text style={styles.topTitle}>Add Item</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 56 }} />
       </View>
 
       <ScrollView
@@ -1510,7 +1510,8 @@ export default function AddItemScreen() {
 const styles = StyleSheet.create({
   container:         { flex: 1, backgroundColor: Colors.background },
   topBar:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8 },
-  closeBtn:          { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  closeBtn:          { minWidth: 56, height: 44, alignItems: 'flex-start', justifyContent: 'center' },
+  cancelText:        { fontFamily: 'Inter_400Regular', fontSize: 16, color: Colors.textSecondary, letterSpacing: -0.1 },
   topTitle:          { fontFamily: 'Inter_600SemiBold', fontSize: 17, color: Colors.primary },
   scrollContent:     { paddingHorizontal: 20 },
   sectionTitle:      { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary, marginBottom: 12, letterSpacing: -0.3, marginTop: 4 },

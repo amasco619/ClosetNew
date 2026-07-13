@@ -144,20 +144,14 @@ function BulkCard({
   const isSaving   = item.status === 'saving';
   const isError    = item.status === 'error';
 
-  // Always use the original picker URI for the preview thumbnail.
-  //
-  // Background: displayUri points to NSTemporaryDirectory (iOS) / Android
-  // tmp cache — both are volatile and can be evicted by the OS at any time,
-  // including while the app is in the foreground under memory pressure.
-  // Using item.uri (the original ImagePicker result, in the app-managed
-  // Library/Caches) is both more stable and guarantees the user sees their
-  // own recognisable photo rather than a transparent-background re-encode
-  // that may render as white on white for light-coloured garments.
-  //
-  // displayUri / cleanBase64 are still used exclusively by the upload path.
+  // Show the background-removed displayUri when available, otherwise the
+  // original picker URI. displayUri is a JPEG re-encode of the clean PNG
+  // written to NSTemporaryDirectory (iOS) / Android tmp cache — it can be
+  // evicted under memory pressure. The onError handler below falls back to
+  // the original picker URI (item.uri) if that happens.
   const [photoErrored, setPhotoErrored] = useState(false);
-  const previewUri = item.uri;
-  const fallbackUri = item.uri; // same source; kept separate for readability
+  const previewUri = item.displayUri ?? item.uri;
+  const fallbackUri = item.uri;
 
   return (
     <Pressable

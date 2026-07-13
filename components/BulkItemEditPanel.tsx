@@ -299,7 +299,7 @@ export default function BulkItemEditPanel({
         {/* Photo */}
         <View style={styles.photoWrap}>
           <Image
-            source={{ uri: currentItem.uri }}
+            source={{ uri: currentItem.displayUri ?? currentItem.uri }}
             style={styles.photo}
             contentFit="contain"
             recyclingKey={currentItem.uri}
@@ -335,22 +335,20 @@ export default function BulkItemEditPanel({
 
         {/* ── Sub-type ──────────────────────────────────────────────────────── */}
         <SectionLabel>Type</SectionLabel>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.hScroll}>
-          <View style={styles.chipRow}>
-            {(subTypes[cl.category] ?? []).map(st => (
-              <Pressable
-                key={st}
-                style={[styles.chip, cl.subType === st && styles.chipActive]}
-                onPress={() => patch({ subType: st })}
-                disabled={isReadOnly}
-              >
-                <Text style={[styles.chipText, cl.subType === st && styles.chipTextActive]}>
-                  {st.replace(/-/g, ' ')}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </ScrollView>
+        <View key={currentItem.uri + cl.category} style={styles.chipWrap}>
+          {(subTypes[cl.category] ?? []).map(st => (
+            <Pressable
+              key={st}
+              style={[styles.chip, cl.subType === st && styles.chipActive]}
+              onPress={() => patch({ subType: st })}
+              disabled={isReadOnly}
+            >
+              <Text style={[styles.chipText, cl.subType === st && styles.chipTextActive]}>
+                {st.replace(/-/g, ' ')}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
 
         {/* ── Color ─────────────────────────────────────────────────────────── */}
         <SectionLabel>Color</SectionLabel>
