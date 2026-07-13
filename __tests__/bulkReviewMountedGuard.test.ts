@@ -197,7 +197,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
     await tick(); // past post-resize guard, reaches removeBg
 
     d.resolveRemoveBg('clean-png');
-    await tick(); // post-removeBg guard passes, setItems(displayUri) fires, reaches reencodeAsJpeg
+    await tick(); // post-removeBg guard passes, pipeline enters reencodeAsJpeg directly (no intermediate data: URI update)
 
     // Unmount NOW, then let reencodeAsJpeg resolve.
     mountedRef.current = false;

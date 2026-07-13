@@ -100,26 +100,25 @@ export async function runClassifyUri(
     if (!mountedRef.current) return;
 
     if (cleanPngBase64) {
-      deps.setItems(prev =>
-        prev.map(it =>
-          it.uri === uri
-            ? { ...it, displayUri: `data:image/png;base64,${cleanPngBase64}`, cleanBase64: cleanPngBase64 }
-            : it,
-        ),
-      );
       try {
         const reencoded = await deps.reencodeAsJpeg(cleanPngBase64);
         if (!mountedRef.current) return;
         classifyBase64 = deps.resolveClassifyBase64(classifyBase64, reencoded?.base64 ?? null);
         const safeDisplayUri = deps.resolvePhotoUri(uri, reencoded?.uri ?? null);
         deps.setItems(prev =>
-          prev.map(it => it.uri === uri ? { ...it, displayUri: safeDisplayUri } : it),
+          prev.map(it =>
+            it.uri === uri
+              ? { ...it, displayUri: safeDisplayUri, cleanBase64: cleanPngBase64 }
+              : it,
+          ),
         );
       } catch {
         if (mountedRef.current) {
           deps.setItems(prev =>
             prev.map(it =>
-              it.uri === uri ? { ...it, displayUri: deps.resolvePhotoUri(uri, null) } : it,
+              it.uri === uri
+                ? { ...it, displayUri: deps.resolvePhotoUri(uri, null), cleanBase64: cleanPngBase64 }
+                : it,
             ),
           );
         }
