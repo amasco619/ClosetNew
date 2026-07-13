@@ -3,6 +3,15 @@ import type { Request, Response } from "express";
 const PHOTOROOM_SEGMENT_URL = "https://sdk.photoroom.com/v1/segment";
 const PHOTOROOM_TIMEOUT_MS = 15_000;
 
+// Log key presence once at module load so the server startup log makes the
+// 503-vs-200 contract explicit. A missing key returns HTTP 503 (service
+// unavailable), never HTTP 404 — the route is always registered.
+if (process.env.PHOTOROOM_API_KEY) {
+  console.log("[remove-background] PHOTOROOM_API_KEY is set — background removal enabled");
+} else {
+  console.warn("[remove-background] PHOTOROOM_API_KEY not set — /api/remove-background will return 503");
+}
+
 export async function removeBackground(req: Request, res: Response) {
   const apiKey = process.env.PHOTOROOM_API_KEY;
   if (!apiKey) {

@@ -233,12 +233,18 @@ function setupErrorHandler(app: express.Application) {
   setupBodyParsing(app);
   setupRequestLogging(app);
 
-  configureExpoAndLanding(app);
-
+  // Register API routes BEFORE static-file / landing-page middleware so that
+  // no express.static handler can ever shadow an API path. The landing-page
+  // middleware already guards /api routes with an explicit next() call, but
+  // registering API routes first is the canonical Express safety pattern.
   await initLockoutStore();
   await initRateLimitStore();
 
   const server = await registerRoutes(app);
+
+  // Static-file and landing-page serving comes after API routes so it only
+  // handles requests that no API route matched.
+  configureExpoAndLanding(app);
 
   setupErrorHandler(app);
 
