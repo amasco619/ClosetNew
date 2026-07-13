@@ -11,6 +11,7 @@ import {
 import { generateOutfitsForItem } from '@/constants/outfitGenerator';
 import { loadWeather, getCachedWeather, clearCachedWeather } from '@/constants/weather';
 import { inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
+import { runGuestRemoval } from '@/constants/guestPhotoCleanup';
 import { centroidHsl, hslToLab } from '@/constants/colorPerceptual';
 import { apiRequest } from '@/lib/query-client';
 import {
@@ -981,10 +982,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         deleteWardrobeImage(currentUserIdRef.current!, id).catch(console.warn);
       }
     } else {
-      const item = wardrobeItems.find(i => i.id === id);
-      if (item?.photoUri && FileSystem.documentDirectory && item.photoUri.startsWith(FileSystem.documentDirectory)) {
-        FileSystem.deleteAsync(item.photoUri, { idempotent: true }).catch(console.warn);
-      }
+      runGuestRemoval(id, wardrobeItems, FileSystem.documentDirectory, FileSystem.deleteAsync).catch(console.warn);
     }
     setWardrobeItems(prev => {
       const updated = prev.filter(item => item.id !== id);
