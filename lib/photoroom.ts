@@ -1,5 +1,6 @@
 import { fetch } from "expo/fetch";
 import { getApiUrl } from "./query-client";
+import { PHOTOROOM_TIMEOUT_ERROR } from "../shared/photoroom-error-codes";
 
 export { resolveClassifyBase64 } from "./classifyPath";
 
@@ -33,7 +34,7 @@ export async function removeBackground(imageBase64: string): Promise<string | nu
   const data = await attemptRemoveBackground(imageBase64);
   if (!data) return null;
 
-  if (data.error === "photoroom_timeout") {
+  if (data.error === PHOTOROOM_TIMEOUT_ERROR) {
     const retry = await attemptRemoveBackground(imageBase64);
     return retry?.imageBase64 ?? null;
   }

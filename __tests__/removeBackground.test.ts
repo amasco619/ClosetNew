@@ -25,6 +25,7 @@
 import { resolveClassifyBase64, selectClassifyPayload, resolvePhotoUri } from '../lib/classifyPath';
 import { removeBackground as serverRemoveBackground } from '../server/remove-background';
 import { resolveWardrobeUploadArg, stripDataUriPrefix } from '../lib/uploadArg';
+import { PHOTOROOM_TIMEOUT_ERROR } from '../shared/photoroom-error-codes';
 
 // ── Assertion harness ──────────────────────────────────────────────────────────
 
@@ -380,8 +381,8 @@ async function main() {
     assertEq(res._status, 502, 'AbortError (timeout) → HTTP 502');
     assertEq(
       (res._body as any)?.error,
-      'photoroom_timeout',
-      'AbortError (timeout) → error: "photoroom_timeout" (distinct from generic background_removal_failed)',
+      PHOTOROOM_TIMEOUT_ERROR,
+      `AbortError (timeout) → error: "${PHOTOROOM_TIMEOUT_ERROR}" (distinct from generic background_removal_failed)`,
     );
 
     (globalThis as any).fetch = originalFetch;
@@ -417,8 +418,8 @@ async function main() {
     assertEq(res._status, 502, 'mid-stream AbortError (body stall) → HTTP 502');
     assertEq(
       (res._body as any)?.error,
-      'photoroom_timeout',
-      'mid-stream AbortError → error: "photoroom_timeout" (not "background_removal_failed")',
+      PHOTOROOM_TIMEOUT_ERROR,
+      `mid-stream AbortError → error: "${PHOTOROOM_TIMEOUT_ERROR}" (not "background_removal_failed")`,
     );
 
     (globalThis as any).fetch = originalFetch;

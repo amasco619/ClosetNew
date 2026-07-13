@@ -19,6 +19,9 @@
  */
 
 import path from 'path';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+import { PHOTOROOM_TIMEOUT_ERROR } from '../shared/photoroom-error-codes';
 
 // ── Assertion helpers ──────────────────────────────────────────────────────────
 
@@ -135,7 +138,7 @@ async function main(): Promise<void> {
 
   {
     const ctx = await loadPhotoroomWithMock([
-      { error: 'photoroom_timeout' },
+      { error: PHOTOROOM_TIMEOUT_ERROR },
       { imageBase64: 'retry-success-png-base64' },
     ]);
 
@@ -159,8 +162,8 @@ async function main(): Promise<void> {
 
   {
     const ctx = await loadPhotoroomWithMock([
-      { error: 'photoroom_timeout' },
-      { error: 'photoroom_timeout' },
+      { error: PHOTOROOM_TIMEOUT_ERROR },
+      { error: PHOTOROOM_TIMEOUT_ERROR },
     ]);
 
     const result = await ctx.removeBackground('input-jpeg');
@@ -299,7 +302,7 @@ async function main(): Promise<void> {
 
   {
     const ctx = await loadPhotoroomWithMock([
-      { error: 'photoroom_timeout' },
+      { error: PHOTOROOM_TIMEOUT_ERROR },
       'throw',
     ]);
 
@@ -314,6 +317,53 @@ async function main(): Promise<void> {
       ctx.callCount(),
       2,
       'two fetch calls made — retry was attempted even though it failed with a network error',
+    );
+  }
+
+  // ── 9. Cross-layer contract: source-text assertions ────────────────────────
+  //
+  // These guards ensure that if anyone removes the shared-constant import from
+  // either production file and inlines the bare string instead, the test fails
+  // immediately — a compile-time TypeScript error alone is not enough if the
+  // constant is simply deleted from shared/photoroom-error-codes.ts.
+
+  console.log('\nCross-layer contract — server and client import from shared module:');
+
+  {
+    const readSrc = (rel: string) =>
+      readFileSync(join(process.cwd(), rel), 'utf8');
+
+    const serverSrc = readSrc('server/remove-background.ts');
+    assert(
+      serverSrc.includes('shared/photoroom-error-codes'),
+      'server/remove-background.ts imports from shared/photoroom-error-codes',
+    );
+    assert(
+      serverSrc.includes('PHOTOROOM_TIMEOUT_ERROR'),
+      'server/remove-background.ts references PHOTOROOM_TIMEOUT_ERROR constant',
+    );
+    assert(
+      !/"photoroom_timeout"/.test(serverSrc),
+      'server/remove-background.ts has no bare "photoroom_timeout" string literal',
+    );
+
+    const clientSrc = readSrc('lib/photoroom.ts');
+    assert(
+      clientSrc.includes('shared/photoroom-error-codes'),
+      'lib/photoroom.ts imports from shared/photoroom-error-codes',
+    );
+    assert(
+      clientSrc.includes('PHOTOROOM_TIMEOUT_ERROR'),
+      'lib/photoroom.ts references PHOTOROOM_TIMEOUT_ERROR constant',
+    );
+    assert(
+      !/"photoroom_timeout"/.test(clientSrc),
+      'lib/photoroom.ts has no bare "photoroom_timeout" string literal',
+    );
+
+    assert(
+      PHOTOROOM_TIMEOUT_ERROR === 'photoroom_timeout',
+      'shared constant value is "photoroom_timeout"',
     );
   }
 

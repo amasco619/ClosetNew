@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { PHOTOROOM_TIMEOUT_ERROR } from "../shared/photoroom-error-codes";
 
 const PHOTOROOM_SEGMENT_URL = "https://sdk.photoroom.com/v1/segment";
 const PHOTOROOM_TIMEOUT_MS = 15_000;
@@ -82,7 +83,7 @@ export async function removeBackground(req: Request, res: Response) {
     clearTimeout(timeoutId);
     if (err?.name === "AbortError") {
       console.error("[remove-background] Photoroom request timed out after %dms", PHOTOROOM_TIMEOUT_MS);
-      return res.status(502).json({ error: "photoroom_timeout" });
+      return res.status(502).json({ error: PHOTOROOM_TIMEOUT_ERROR });
     }
     console.error("[remove-background] Unexpected error:", err?.message);
     return res.status(502).json({ error: "background_removal_failed" });
