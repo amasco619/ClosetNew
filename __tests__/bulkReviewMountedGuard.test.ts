@@ -304,9 +304,67 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'error update suppressed when unmounted before resize result is processed');
   }
 
+  section('runClassifyUri — 8. reencodeAsJpeg throws (mounted): fallback displayUri = original URI, cleanBase64 captured');
+  {
+    // reencodeAsJpeg rejects while the component is still mounted.
+    // The catch block must: set displayUri = resolvePhotoUri(uri, null) = original file:// URI
+    //                  and: capture cleanBase64 so the clean PNG is still uploaded on save.
+    const mountedRef = { current: true };
+
+    // Capture full item snapshots (not just status) to inspect displayUri and cleanBase64.
+    const itemSnapshots: BulkItemCore[] = [];
+
+    const resizeD   = deferred<{ base64?: string } | null>();
+    const classifyD = deferred<Record<string, unknown>>();
+
+    const deps: ClassifyDeps = {
+      resize:          (_uri)    => resizeD.promise,
+      removeBg:        (_b64)    => Promise.resolve('clean-png'),
+      reencodeAsJpeg:  (_pngB64) => Promise.reject(new Error('reencode_failed')),
+      resolvePhotoUri: (orig, reenc) =>
+        reenc && reenc.length > 0 && !reenc.startsWith('data:') ? reenc : orig,
+      classify:  (_b64)    => classifyD.promise,
+      setItems: (updater) => {
+        const after = updater([makeItem()]);
+        if (after[0]) itemSnapshots.push({ ...after[0] });
+      },
+      onHaptic: () => {},
+    };
+
+    const classifyPromise = runClassifyUri(TEST_URI, mountedRef, deps);
+    await tick(); // reaches await resize
+
+    resizeD.resolve({ base64: 'resized' });
+    // removeBg resolves immediately (Promise.resolve), reencodeAsJpeg rejects immediately.
+    // Allow enough ticks for: resize → removeBg → reencodeAsJpeg reject → catch block.
+    await tick();
+    await tick();
+    await tick();
+    await tick();
+
+    classifyD.resolve(CLASSIFY_RESPONSE);
+    await classifyPromise;
+
+    // The catch block fires a setItems with displayUri set via resolvePhotoUri(uri, null).
+    const fallbackSnapshot = itemSnapshots.find(s => s.displayUri !== undefined);
+
+    assert(
+      fallbackSnapshot?.displayUri === TEST_URI,
+      'fallback displayUri is the original file:// URI, not blank or a data: string',
+    );
+    assert(
+      fallbackSnapshot?.cleanBase64 === 'clean-png',
+      'cleanBase64 is still captured even when reencodeAsJpeg throws',
+    );
+    assert(
+      itemSnapshots.some(s => s.status === 'settled'),
+      'pipeline continues to settled after reencodeAsJpeg failure',
+    );
+  }
+
   // ── runRedirectSingle ─────────────────────────────────────────────────────
 
-  section('runRedirectSingle — 8. unmounted: router.replace not called');
+  section('runRedirectSingle — 9. unmounted: router.replace not called');
   {
     const mountedRef          = { current: false };
     const singleRedirectedRef = { current: false };
@@ -326,7 +384,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'latch stays false when unmounted');
   }
 
-  section('runRedirectSingle — 9. mounted + settled with classification: replace fires with params');
+  section('runRedirectSingle — 10. mounted + settled with classification: replace fires with params');
   {
     const mountedRef          = { current: true };
     const singleRedirectedRef = { current: false };
@@ -355,7 +413,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'latch engaged after first call');
   }
 
-  section('runRedirectSingle — 10. singleRedirectedRef latch prevents double navigation');
+  section('runRedirectSingle — 11. singleRedirectedRef latch prevents double navigation');
   {
     const mountedRef          = { current: true };
     const singleRedirectedRef = { current: true }; // latch already set
@@ -373,7 +431,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'router.replace not called when latch is already set');
   }
 
-  section('runRedirectSingle — 11. race: two simultaneous calls, only first navigates');
+  section('runRedirectSingle — 12. race: two simultaneous calls, only first navigates');
   {
     const mountedRef          = { current: true };
     const singleRedirectedRef = { current: false };
@@ -464,7 +522,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
     };
   }
 
-  section('runSaveAll — 12. unmount before getSession resolves: no mutations fire');
+  section('runSaveAll — 13. unmount before getSession resolves: no mutations fire');
   {
     const mountedRef = { current: true };
     const d = makeDeferredSaveDeps();
@@ -484,7 +542,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'navigate not called when unmounted before getSession resolves');
   }
 
-  section('runSaveAll — 13. unmount before resize resolves: no wardrobe mutations fire');
+  section('runSaveAll — 14. unmount before resize resolves: no wardrobe mutations fire');
   {
     const mountedRef = { current: true };
     const d = makeDeferredSaveDeps();
@@ -507,7 +565,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'navigate suppressed when unmounted during resize');
   }
 
-  section('runSaveAll — 14. unmount after resize, before upload resolves: no wardrobe mutations fire');
+  section('runSaveAll — 15. unmount after resize, before upload resolves: no wardrobe mutations fire');
   {
     const mountedRef = { current: true };
     const d = makeDeferredSaveDeps();
@@ -533,7 +591,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'navigate suppressed when unmounted during upload');
   }
 
-  section('runSaveAll — 15. no unmount (happy path, guest): all mutations fire');
+  section('runSaveAll — 16. no unmount (happy path, guest): all mutations fire');
   {
     const mountedRef = { current: true };
     const d = makeDeferredSaveDeps();
@@ -559,7 +617,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'setSaving(false) fires at end');
   }
 
-  section('runSaveAll — 16. no unmount (happy path, authenticated): full upload + mutations fire');
+  section('runSaveAll — 17. no unmount (happy path, authenticated): full upload + mutations fire');
   {
     const mountedRef = { current: true };
     const d = makeDeferredSaveDeps();
@@ -585,7 +643,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'navigate fires on completion');
   }
 
-  section('runSaveAll — 17. early unmount (mountedRef already false at entry): nothing runs');
+  section('runSaveAll — 18. early unmount (mountedRef already false at entry): nothing runs');
   {
     const mountedRef = { current: false };
     const d = makeDeferredSaveDeps();
