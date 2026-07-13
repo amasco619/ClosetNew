@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
+import * as FileSystem from 'expo-file-system/legacy';
 import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory, getProfileBlueprint, BLUEPRINT_SUBTYPES_BY_CATEGORY, getLifestyleGatedSlots, LifestyleSlotGroup } from '@/constants/wardrobeBlueprint';
 import {
   BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag,
@@ -954,6 +955,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const item = wardrobeItems.find(i => i.id === id);
       if (item?.photoUri) {
         deleteWardrobeImage(currentUserIdRef.current!, id).catch(console.warn);
+      }
+    } else {
+      const item = wardrobeItems.find(i => i.id === id);
+      if (item?.photoUri && FileSystem.documentDirectory && item.photoUri.startsWith(FileSystem.documentDirectory)) {
+        FileSystem.deleteAsync(item.photoUri, { idempotent: true }).catch(console.warn);
       }
     }
     setWardrobeItems(prev => {
