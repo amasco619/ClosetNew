@@ -23,6 +23,7 @@ import { apiRequest } from '@/lib/query-client';
 import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
 import { resolvePhotoUri } from '@/lib/classifyPath';
 import { uploadWardrobeImage } from '@/lib/storage';
+import { resolveWardrobeUploadArg } from '@/lib/uploadArg';
 import { supabase } from '@/lib/supabase';
 import {
   runClassifyUri,
@@ -371,19 +372,22 @@ export default function BulkReviewScreen() {
         // Upload to Supabase Storage.
         // If background removal produced a clean PNG, use it directly.
         // Otherwise resize the original to ≤1600 px for a smaller JPEG.
+        // resolveWardrobeUploadArg selects the correct base64 + mimeType and
+        // guards against accidental data: URI strings or empty values.
         if (session?.user) {
           try {
-            if (item.cleanBase64) {
-              finalUri = await uploadWardrobeImage(session.user.id, item.cleanBase64, itemId, 'image/png');
-            } else {
+            let shrunkBase64: string | undefined;
+            if (!item.cleanBase64) {
               const shrunk = await ImageManipulator.manipulateAsync(
                 item.uri,
                 [{ resize: { width: 1600 } }],
                 { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
               );
-              if (shrunk.base64) {
-                finalUri = await uploadWardrobeImage(session.user.id, shrunk.base64, itemId, 'image/jpeg');
-              }
+              shrunkBase64 = shrunk.base64;
+            }
+            const uploadArg = resolveWardrobeUploadArg(item.cleanBase64, shrunkBase64);
+            if (uploadArg) {
+              finalUri = await uploadWardrobeImage(session.user.id, uploadArg.base64, itemId, uploadArg.mimeType);
             }
           } catch {
             // Upload failed — fall back to local URI

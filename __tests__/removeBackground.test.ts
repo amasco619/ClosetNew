@@ -24,6 +24,7 @@
 
 import { resolveClassifyBase64, selectClassifyPayload, resolvePhotoUri } from '../lib/classifyPath';
 import { removeBackground as serverRemoveBackground } from '../server/remove-background';
+import { resolveWardrobeUploadArg } from '../lib/uploadArg';
 
 // ── Assertion harness ──────────────────────────────────────────────────────────
 
@@ -863,6 +864,146 @@ async function main() {
       'PNG magic but body < 1 KB → error: "photoroom_invalid_response"',
     );
     delete process.env.PHOTOROOM_API_KEY;
+  }
+
+  // ── H2. uploadWardrobeImage argument — never data: prefix ────────────────
+  //
+  // Exercises resolveWardrobeUploadArg (lib/uploadArg.ts) — the production
+  // function called by handleSaveAll (app/bulk-review.tsx) to select the
+  // base64 string and mimeType that are forwarded to uploadWardrobeImage.
+  //
+  // Two invariants the production function enforces:
+  //   1. The returned base64 is never a data: URI string (would corrupt the
+  //      Storage file — decode() in lib/storage.ts would mis-parse the header).
+  //   2. The returned base64 is never empty (would upload a 0-byte file).
+  //
+  // If resolveWardrobeUploadArg were removed or its guard stripped, the tests
+  // below would fail at import or assertion time, preventing the regression
+  // from shipping silently.
+
+  console.log('\nH2. uploadWardrobeImage argument — cleanBase64 path (no data: prefix):');
+
+  {
+    // Happy path: background removal produced a plain PNG base64 string.
+    const cleanBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ';
+    const result = resolveWardrobeUploadArg(cleanBase64, null);
+    assert(result !== null, 'cleanBase64 set → resolveWardrobeUploadArg returns non-null');
+    assert(result!.base64.length > 0, 'cleanBase64 set → upload base64 is non-empty');
+    assert(!result!.base64.startsWith('data:'), 'cleanBase64 set → upload base64 has no data: prefix');
+    assertEq(result!.mimeType, 'image/png', 'cleanBase64 set → mimeType is image/png');
+  }
+
+  {
+    // Regression guard: if a data: URI is accidentally stored as cleanBase64
+    // (e.g. a platform API returns the full data URI instead of raw bytes),
+    // resolveWardrobeUploadArg must reject it and return null — NOT pass it
+    // on to uploadWardrobeImage where decode() would receive garbage.
+    const rawBytes = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ';
+    const dataUri  = 'data:image/png;base64,' + rawBytes;
+
+    const result = resolveWardrobeUploadArg(dataUri, null);
+    assert(result === null, 'data: URI as cleanBase64 → rejected (returns null, upload skipped)');
+  }
+
+  {
+    // Edge: cleanBase64 is the empty string (falsy) → falls through to the
+    // shrunk.base64 path, which has a valid JPEG.
+    const shrunkBase64 = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBg';
+    const result = resolveWardrobeUploadArg('', shrunkBase64);
+    assert(result !== null, 'empty cleanBase64 → shrunk path taken, result non-null');
+    assert(result!.base64.length > 0, 'empty cleanBase64 → shrunk path taken, base64 non-empty');
+    assert(!result!.base64.startsWith('data:'), 'empty cleanBase64 → shrunk base64 has no data: prefix');
+    assertEq(result!.mimeType, 'image/jpeg', 'empty cleanBase64 → shrunk path → mimeType is image/jpeg');
+  }
+
+  console.log('\nH2. uploadWardrobeImage argument — shrunk.base64 path (no cleanBase64):');
+
+  {
+    // Normal case: no background removal, ImageManipulator produces a JPEG.
+    const shrunkBase64 = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBg';
+    const result = resolveWardrobeUploadArg(null, shrunkBase64);
+    assert(result !== null, 'cleanBase64 null, shrunk.base64 set → result non-null');
+    assert(result!.base64.length > 0, 'cleanBase64 null, shrunk.base64 set → base64 non-empty');
+    assert(!result!.base64.startsWith('data:'), 'shrunk.base64 never carries a data: prefix');
+    assertEq(result!.mimeType, 'image/jpeg', 'cleanBase64 null → shrunk path → mimeType is image/jpeg');
+  }
+
+  {
+    // Regression guard for shrunk path: if ImageManipulator somehow returns a
+    // data: URI (hypothetical platform regression), it must also be rejected.
+    const shrunkDataUri = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD=';
+    const result = resolveWardrobeUploadArg(null, shrunkDataUri);
+    assert(result === null, 'data: URI as shrunkBase64 → rejected (returns null, upload skipped)');
+  }
+
+  {
+    // cleanBase64 is undefined (field absent on older items).
+    const shrunkBase64 = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBg';
+    const result = resolveWardrobeUploadArg(undefined, shrunkBase64);
+    assert(result !== null, 'cleanBase64 undefined, shrunk.base64 set → result non-null');
+    assert(!result!.base64.startsWith('data:'), 'undefined cleanBase64 → shrunk base64 path, no data: prefix');
+  }
+
+  {
+    // Both absent: upload is skipped entirely (no bytes to send).
+    const result = resolveWardrobeUploadArg(null, null);
+    assert(result === null, 'both null → null returned (upload is skipped, no bad call)');
+  }
+
+  {
+    // cleanBase64 null, shrunk.base64 is empty string → upload is also skipped.
+    const result = resolveWardrobeUploadArg(null, '');
+    assert(result === null, 'cleanBase64 null, shrunk.base64 empty → null returned (falsy guard)');
+  }
+
+  console.log('\nH2. uploadWardrobeImage argument — invariant across all realistic inputs:');
+
+  {
+    // Enumerate representative combinations.  When a result is returned it must
+    // always have a non-empty base64 free of a data: prefix. When null is
+    // returned both inputs must have been falsy or data: URIs.
+    type Case = {
+      clean: string | null | undefined;
+      shrunk: string | null | undefined;
+      expectNull: boolean;
+    };
+    const cases: Case[] = [
+      { clean: 'iVBORw0KGgo=',                         shrunk: null,            expectNull: false },
+      { clean: null,                                     shrunk: '/9j/4AAQ==',    expectNull: false },
+      { clean: undefined,                                shrunk: '/9j/4AAQ==',    expectNull: false },
+      { clean: '',                                       shrunk: '/9j/4AAQ==',    expectNull: false },
+      { clean: 'iVBORw0KGgo=',                         shrunk: '/9j/4AAQ==',    expectNull: false },
+      { clean: null,                                     shrunk: null,            expectNull: true  },
+      { clean: null,                                     shrunk: '',              expectNull: true  },
+      // Regression: data: URI inputs must be rejected (guarded by production code)
+      { clean: 'data:image/png;base64,iVBORw0KGgo=',   shrunk: null,            expectNull: true  },
+      { clean: null, shrunk: 'data:image/jpeg;base64,/9j/4AAQSkZJRgAB',         expectNull: true  },
+      // data: clean rejected → falls through to valid shrunk
+      { clean: 'data:image/png;base64,iVBORw0KGgo=',   shrunk: '/9j/4AAQ==',    expectNull: false },
+    ];
+
+    for (const { clean, shrunk, expectNull } of cases) {
+      const result = resolveWardrobeUploadArg(clean, shrunk);
+      if (expectNull) {
+        assert(
+          result === null,
+          `upload skipped (null) for clean=${JSON.stringify(clean)}, shrunk=${JSON.stringify(shrunk)}`,
+        );
+      } else {
+        assert(
+          result !== null,
+          `upload arg returned for clean=${JSON.stringify(clean)}, shrunk=${JSON.stringify(shrunk)}`,
+        );
+        assert(
+          result!.base64.length > 0,
+          `upload base64 non-empty for clean=${JSON.stringify(clean)}, shrunk=${JSON.stringify(shrunk)}`,
+        );
+        assert(
+          !result!.base64.startsWith('data:'),
+          `upload base64 has no data: prefix for clean=${JSON.stringify(clean)}, shrunk=${JSON.stringify(shrunk)}`,
+        );
+      }
+    }
   }
 
   // ── Final result ───────────────────────────────────────────────────────────
