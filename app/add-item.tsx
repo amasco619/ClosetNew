@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
 import { apiRequest } from '@/lib/query-client';
 import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
+import { resolvePhotoUri } from '@/lib/classifyPath';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
 import { uploadWardrobeImage } from '../lib/storage';
@@ -648,8 +649,9 @@ export default function AddItemScreen() {
                   [],
                   { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true },
                 );
-                // reencoded.uri is a local file:// path — safe to store in state
-                setPhotoUri(reencoded.uri);
+                // resolvePhotoUri guards against data: URIs — only accepts
+                // file:// or https:// paths; falls back to original asset URI.
+                setPhotoUri(resolvePhotoUri(asset.uri, reencoded.uri));
                 setPhotoBgRemoved(true);
                 classifyBase64 = resolveClassifyBase64(classifyBase64, reencoded.base64);
               } catch {

@@ -55,3 +55,28 @@ export function selectClassifyPayload(
   }
   return resolveClassifyBase64(originalJpeg, reencodedJpeg);
 }
+
+/**
+ * Selects the URI that should be stored in wardrobe state for the item photo.
+ *
+ * After background removal, ImageManipulator.manipulateAsync returns a local
+ * `file://` URI.  This helper ensures that URI is only accepted when it does
+ * not start with `data:` — if ImageManipulator somehow returned a data URI,
+ * we fall back to the original asset URI so a multi-megabyte base64 string
+ * never enters wardrobe state (and therefore never hits the wardrobe grid).
+ *
+ * Rules:
+ *  - `reencodedUri` is accepted when it is a non-empty string that does NOT
+ *    start with `data:` (i.e. it is a safe `file://` or `https://` path).
+ *  - Otherwise fall back to `originalUri`.
+ *  - The return value never starts with `data:`.
+ */
+export function resolvePhotoUri(
+  originalUri: string,
+  reencodedUri: string | null | undefined,
+): string {
+  if (reencodedUri && reencodedUri.length > 0 && !reencodedUri.startsWith('data:')) {
+    return reencodedUri;
+  }
+  return originalUri;
+}

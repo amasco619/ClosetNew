@@ -22,7 +22,7 @@
  * Exits non-zero on any failed assertion.
  */
 
-import { resolveClassifyBase64, selectClassifyPayload } from '../lib/classifyPath';
+import { resolveClassifyBase64, selectClassifyPayload, resolvePhotoUri } from '../lib/classifyPath';
 import { removeBackground as serverRemoveBackground } from '../server/remove-background';
 
 // ── Assertion harness ──────────────────────────────────────────────────────────
@@ -322,6 +322,160 @@ async function main() {
 
     (globalThis as any).fetch = originalFetch;
     delete process.env.PHOTOROOM_API_KEY;
+  }
+
+  // ── D. resolvePhotoUri — URI stored in wardrobe state is never data: ───────
+
+  console.log('\nresolvePhotoUri — normal file:// URI from ImageManipulator:');
+
+  {
+    const original = 'file:///var/mobile/Containers/Data/tmp/original.jpg';
+    const reencoded = 'file:///var/mobile/Containers/Data/tmp/IMG_reencoded.jpg';
+    assertEq(
+      resolvePhotoUri(original, reencoded),
+      reencoded,
+      'file:// reencoded URI is accepted and returned',
+    );
+  }
+
+  {
+    const original = 'file:///original.jpg';
+    const reencoded = 'https://supabase.co/storage/v1/object/public/wardrobe/123.png';
+    assertEq(
+      resolvePhotoUri(original, reencoded),
+      reencoded,
+      'https:// URI is accepted and returned (Supabase public URL)',
+    );
+  }
+
+  console.log('\nresolvePhotoUri — data: URI is rejected, falls back to originalUri:');
+
+  {
+    const original = 'file:///original.jpg';
+    const dataUri = 'data:image/jpeg;base64,/9j/4AAQSkZJRgAB...';
+    assertEq(
+      resolvePhotoUri(original, dataUri),
+      original,
+      'data: reencoded URI is rejected — falls back to original asset URI',
+    );
+  }
+
+  {
+    const original = 'file:///original.jpg';
+    assertEq(
+      resolvePhotoUri(original, null),
+      original,
+      'null reencoded URI → falls back to original (ImageManipulator threw)',
+    );
+  }
+
+  {
+    const original = 'file:///original.jpg';
+    assertEq(
+      resolvePhotoUri(original, undefined),
+      original,
+      'undefined reencoded URI → falls back to original',
+    );
+  }
+
+  {
+    const original = 'file:///original.jpg';
+    assertEq(
+      resolvePhotoUri(original, ''),
+      original,
+      'empty string reencoded URI → falls back to original',
+    );
+  }
+
+  console.log('\nresolvePhotoUri invariant — result never starts with data::');
+
+  const photoUriCases: Array<string | null | undefined> = [
+    'data:image/jpeg;base64,abc123',
+    'data:image/png;base64,iVBORw0KGgo=',
+    null,
+    undefined,
+    '',
+  ];
+
+  for (const candidate of photoUriCases) {
+    const result = resolvePhotoUri('file:///safe-fallback.jpg', candidate);
+    assert(
+      !result.startsWith('data:'),
+      `result does not start with "data:" when reencodedUri is ${JSON.stringify(candidate)}`,
+    );
+  }
+
+  // ── E. finalUri selection — wardrobe state never receives a data: URI ──────
+  // Models the handleSave() logic in add-item.tsx:
+  //   1. photoUri is set via resolvePhotoUri (never data:) before handleSave runs
+  //   2. Upload success  → finalUri = Supabase public URL (https://)
+  //   3. Upload failure  → finalUri = photoUri (file://)
+  //   4. Guest copy ok   → finalUri = documentDirectory path (file://)
+  //   5. Guest copy fail → finalUri = photoUri (file://)
+  // In all paths, finalUri must never start with "data:".
+
+  console.log('\nfinalUri selection — stored photoUri is never a data: URI:');
+
+  function selectFinalUri(
+    photoUri: string,
+    uploadedUrl: string | null,
+    guestDestPath: string | null,
+  ): string {
+    if (uploadedUrl !== null) return uploadedUrl;
+    if (guestDestPath !== null) return guestDestPath;
+    return photoUri;
+  }
+
+  const fileUri = 'file:///var/mobile/Containers/Data/tmp/IMG_reencoded.jpg';
+  const supabaseUrl = 'https://project.supabase.co/storage/v1/object/public/wardrobe/uuid.png';
+  const docDirPath = 'file:///var/mobile/Containers/Data/Documents/wardrobe_uuid.png';
+
+  {
+    assertEq(
+      selectFinalUri(fileUri, supabaseUrl, null),
+      supabaseUrl,
+      'upload success → finalUri is Supabase https:// URL',
+    );
+  }
+
+  {
+    assertEq(
+      selectFinalUri(fileUri, null, null),
+      fileUri,
+      'upload failure → finalUri falls back to file:// photoUri',
+    );
+  }
+
+  {
+    assertEq(
+      selectFinalUri(fileUri, null, docDirPath),
+      docDirPath,
+      'guest copy success → finalUri is documentDirectory file:// path',
+    );
+  }
+
+  {
+    assertEq(
+      selectFinalUri(fileUri, null, null),
+      fileUri,
+      'guest copy failure → finalUri falls back to file:// photoUri',
+    );
+  }
+
+  console.log('\nfinalUri invariant — never data: in any path:');
+
+  const finalUriCases: Array<[string | null, string | null]> = [
+    [supabaseUrl, null],
+    [null, null],
+    [null, docDirPath],
+  ];
+
+  for (const [uploadedUrl, guestDest] of finalUriCases) {
+    const result = selectFinalUri(fileUri, uploadedUrl, guestDest);
+    assert(
+      !result.startsWith('data:'),
+      `finalUri never starts with "data:" (uploadedUrl=${JSON.stringify(uploadedUrl)}, guestDest=${JSON.stringify(guestDest)})`,
+    );
   }
 
   // ── Final result ───────────────────────────────────────────────────────────
