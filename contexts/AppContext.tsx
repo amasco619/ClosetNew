@@ -386,6 +386,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (legacyIds.size > 0 || texturePersistIds.size > 0 || rebasedPathIds.size > 0) {
         AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(seededItems));
       }
+      // ── Temp-cache URI integrity check ────────────────────────────────────
+      // Authenticated-user items reference their Supabase Storage URL (https://)
+      // or, briefly, the ephemeral local URI that was used before the upload
+      // completed. If the app is backgrounded during an upload iOS may purge
+      // the temp cache, leaving a stale file:// URI that will never resolve.
+      // We detect this at load time and warn so developers can observe it in
+      // logs / Sentry before users report broken thumbnails. Guest photos use
+      // the `wardrobe_*` naming convention and are already handled by the
+      // rebase logic above — skip them here.
+      const isGuestPhotoUri = (uri: string): boolean => {
+        const filename = uri.split('/').pop() ?? '';
+        return /^wardrobe_[^/]+\.(jpg|png)$/i.test(filename);
+      };
+      const nonGuestFileUris = seededItems.filter(
+        it => it.photoUri?.startsWith('file://') && !isGuestPhotoUri(it.photoUri),
+      );
+      if (nonGuestFileUris.length > 0) {
+        setTimeout(async () => {
+          for (const item of nonGuestFileUris) {
+            try {
+              const info = await FileSystem.getInfoAsync(item.photoUri);
+              if (!info.exists) {
+                console.warn(
+                  `[AuraCloset] Wardrobe photo missing from temp cache — ` +
+                  `item id=${item.id} subType=${item.subType} uri=${item.photoUri}`,
+                );
+              }
+            } catch (err) {
+              console.warn(
+                `[AuraCloset] Could not verify wardrobe photo — ` +
+                `item id=${item.id} uri=${item.photoUri}`,
+                err,
+              );
+            }
+          }
+        }, 1000);
+      }
       // Phase 2 image refinement only runs if there is genuine legacy work to
       // do (some item lacked perceptual fields). Items added through the
       // current upload flow already carry precise per-pixel values and are
