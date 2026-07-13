@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, FlatList,
-  Dimensions, ActivityIndicator, Platform, BackHandler,
+  Dimensions, ActivityIndicator, Platform, BackHandler, AppState,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -310,6 +310,21 @@ export default function BulkReviewScreen() {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
     return () => sub.remove();
   }, [saving]);
+
+  // When the app returns to the foreground mid-save, re-sync the React saving
+  // state from the ref.  AppState changes trigger a re-render; without this,
+  // a stale false from a prior render cycle could briefly unlock the button.
+  // savingRef.current is always up-to-date (it is set synchronously at the top
+  // of handleSaveAll and cleared in its finally block), so it is the source of
+  // truth here.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && savingRef.current) {
+        setSaving(true);
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const SINGLE_REDIRECT_TIMEOUT_MS = 12_000;
 
