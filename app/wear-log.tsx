@@ -10,6 +10,8 @@ import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { OccasionTag } from '@/constants/types';
 
+const FREE_LOG_DAYS = 7;
+
 const scenarioLabels: Record<OccasionTag, { label: string; icon: string }> = {
   work:          { label: 'Work',       icon: 'briefcase-outline' },
   casual:        { label: 'Casual',     icon: 'cafe-outline' },
@@ -77,41 +79,26 @@ export default function WearLogScreen() {
   const { wearHistory, undoWear, wardrobeItems, isPremium } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
-  const grouped = groupByDate(wearHistory);
+  // Free users see last FREE_LOG_DAYS days only; premium sees everything.
+  const cutoff = (() => {
+    if (isPremium) return null;
+    const d = new Date();
+    d.setDate(d.getDate() - FREE_LOG_DAYS);
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const visibleHistory = cutoff
+    ? wearHistory.filter(e => e.date >= cutoff)
+    : wearHistory;
+
+  const hiddenCount = wearHistory.length - visibleHistory.length;
+
+  const grouped = groupByDate(visibleHistory);
 
   function getItems(entry: WearEntry): WardrobeItem[] {
     return entry.itemIds
       .map(id => wardrobeItems.find(w => w.id === id))
       .filter((w): w is WardrobeItem => Boolean(w));
-  }
-
-  if (!isPremium) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
-        <StatusBar style="dark" />
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-            <Ionicons name="chevron-back" size={22} color={Colors.primary} />
-          </Pressable>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Wear Log</Text>
-          </View>
-        </View>
-        <View style={styles.gateContainer}>
-          <View style={styles.gateIcon}>
-            <Ionicons name="calendar-outline" size={36} color={Colors.secondary} />
-          </View>
-          <Text style={styles.gateTitle}>Wear Log</Text>
-          <Text style={styles.gateDesc}>
-            Track every outfit you wear, review your history, and discover your cost-per-wear. A Premium feature.
-          </Text>
-          <Pressable style={styles.gateButton} onPress={() => router.push('/premium')}>
-            <Ionicons name="star" size={16} color={Colors.white} />
-            <Text style={styles.gateButtonText}>Unlock with Premium</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
   }
 
   return (
@@ -124,14 +111,27 @@ export default function WearLogScreen() {
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Wear Log</Text>
           <Text style={styles.subtitle}>
-            {wearHistory.length === 0
+            {visibleHistory.length === 0
               ? 'No outfits logged yet'
-              : `${wearHistory.length} outfit${wearHistory.length === 1 ? '' : 's'} logged`}
+              : `${visibleHistory.length} outfit${visibleHistory.length === 1 ? '' : 's'} logged`}
           </Text>
         </View>
       </View>
 
-      {wearHistory.length === 0 ? (
+      {!isPremium && (
+        <Pressable
+          style={({ pressed }) => [styles.freeNotice, pressed && { opacity: 0.82 }]}
+          onPress={() => router.push('/premium')}
+        >
+          <Ionicons name="calendar-outline" size={14} color={Colors.secondary} />
+          <Text style={styles.freeNoticeText}>Showing last {FREE_LOG_DAYS} days</Text>
+          <View style={styles.freeNoticePill}>
+            <Text style={styles.freeNoticePillText}>Full history with Premium</Text>
+          </View>
+        </Pressable>
+      )}
+
+      {visibleHistory.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIcon}>
             <Ionicons name="calendar-outline" size={48} color={Colors.border} />
@@ -148,7 +148,7 @@ export default function WearLogScreen() {
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           {grouped.map((group, gi) => (
-            <Animated.View key={group.date} entering={FadeInDown.delay(gi * 60).duration(400)}>
+            <Animated.View key={group.date} entering={FadeInDown.delay(gi * 60).duration(280)}>
               <View style={styles.dateHeader}>
                 <Text style={styles.dateLabel}>{formatDate(group.date)}</Text>
                 <View style={styles.dateDivider} />
@@ -218,6 +218,40 @@ export default function WearLogScreen() {
             </Animated.View>
           ))}
 
+          {!isPremium && hiddenCount > 0 && (
+            <Pressable
+              style={({ pressed }) => [styles.historyGate, pressed && { opacity: 0.85 }]}
+              onPress={() => router.push('/premium')}
+            >
+              <Ionicons name="lock-closed-outline" size={18} color={Colors.secondary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.historyGateTitle}>
+                  {hiddenCount} older {hiddenCount === 1 ? 'entry' : 'entries'} hidden
+                </Text>
+                <Text style={styles.historyGateSub}>
+                  Upgrade to Premium for your full wear history and cost-per-wear insights.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={15} color={Colors.secondary} />
+            </Pressable>
+          )}
+
+          {!isPremium && hiddenCount === 0 && wearHistory.length > 0 && (
+            <Pressable
+              style={({ pressed }) => [styles.historyGate, pressed && { opacity: 0.85 }]}
+              onPress={() => router.push('/premium')}
+            >
+              <Ionicons name="analytics-outline" size={18} color={Colors.secondary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.historyGateTitle}>Unlock full history & cost-per-wear</Text>
+                <Text style={styles.historyGateSub}>
+                  See every outfit you've ever worn and how hard each piece is working.
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={15} color={Colors.secondary} />
+            </Pressable>
+          )}
+
           <View style={{ height: 100 }} />
         </ScrollView>
       )}
@@ -230,7 +264,7 @@ const styles = StyleSheet.create({
 
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 20, marginTop: 8, marginBottom: 20,
+    paddingHorizontal: 20, marginTop: 8, marginBottom: 12,
   },
   backBtn: {
     width: 36, height: 36, borderRadius: 10,
@@ -239,6 +273,20 @@ const styles = StyleSheet.create({
   },
   title: { fontFamily: 'Inter_700Bold', fontSize: 24, color: Colors.primary, letterSpacing: -0.5 },
   subtitle: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 1 },
+
+  freeNotice: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 20, marginBottom: 14,
+    backgroundColor: Colors.white, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderWidth: 1, borderColor: Colors.secondary + '30',
+  },
+  freeNoticeText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, flex: 1 },
+  freeNoticePill: {
+    backgroundColor: Colors.secondary + '18', borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  freeNoticePillText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: Colors.secondary },
 
   scrollContent: { paddingHorizontal: 20 },
 
@@ -303,24 +351,12 @@ const styles = StyleSheet.create({
   },
   emptyActionText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.white },
 
-  gateContainer: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 36, paddingBottom: 80,
+  historyGate: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: Colors.white, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: Colors.secondary + '30',
+    marginBottom: 16,
   },
-  gateIcon: {
-    width: 80, height: 80, borderRadius: 24,
-    backgroundColor: Colors.secondary + '12',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 20,
-  },
-  gateTitle: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary, textAlign: 'center' },
-  gateDesc: {
-    fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary,
-    textAlign: 'center', lineHeight: 21, marginTop: 10, marginBottom: 28,
-  },
-  gateButton: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: Colors.secondary, borderRadius: 14,
-    paddingHorizontal: 24, paddingVertical: 14,
-  },
-  gateButtonText: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.white },
+  historyGateTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary },
+  historyGateSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 2, lineHeight: 15 },
 });

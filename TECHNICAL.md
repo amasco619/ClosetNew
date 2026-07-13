@@ -562,7 +562,9 @@ Category distribution bar chart and colour palette grid showing the breakdown of
 ### Blueprint System (Smart Buy List)
 Dynamic per-style-goal wardrobe blueprints. 6 curated sets (minimal, elevated, bold, romantic, classic, youthful). Algorithm (`buildProfileBlueprintSlots`) selects and ranks 19 essential slots based on primary/secondary style goal, body type priority boosts, lifestyle percentages, and constraints. Slot statuses (needed / owned) update automatically when items are added or removed. The Home tab shows "Starter Recommendations" (the first needed slot per category).
 
-**Code:** `constants/blueprintCore.ts`, `constants/blueprintSlots.ts`, `constants/wardrobeBlueprint.ts`, `constants/blueprintPriority.ts`
+The Blueprint screen (`app/blueprint.tsx`) is **open to all users including free tier**. Every user sees the full 19-slot map with real owned / needed status and their personalised progress count. Premium-only extras (close-colour-match hints and the "Next smart buy" highlight badge) remain locked. A soft upsell strip at the bottom of the free view explains what's unlocked with Premium without hiding the map itself.
+
+**Code:** `constants/blueprintCore.ts`, `constants/blueprintSlots.ts`, `constants/wardrobeBlueprint.ts`, `constants/blueprintPriority.ts`, `app/blueprint.tsx`
 
 ---
 
@@ -588,7 +590,12 @@ Uses Open-Meteo (free, no key) with device GPS (`expo-location`) and an IP-geolo
 ---
 
 ### Wear Tracking
-"Wearing this today" button on each OutfitCard logs a WearEntry (id, date, occasion, outfitFingerprint, itemIds, loggedAt) to AsyncStorage. Worn cards show a "Worn today" badge and an Undo button. Wear Log screen groups all entries by date with item thumbnails. Home tab shows a "Today's Looks" pill card when anything is logged.
+"Wearing this today" button on each OutfitCard logs a WearEntry (id, date, occasion, outfitFingerprint, itemIds, loggedAt) to AsyncStorage. Worn cards show a "Worn today" badge and an Undo button. Home tab shows a "Today's Looks" pill card when anything is logged; tapping "See all" opens the Wear Log for all users.
+
+**Wear Log tier access (`app/wear-log.tsx`):**
+- **Free users** — see entries from the last 7 days (`FREE_LOG_DAYS = 7`). A notice banner at the top of the screen shows "Showing last 7 days" with a "Full history with Premium" pill. If older entries are hidden, a locked row at the bottom states how many are hidden. If no entries are older than 7 days but the wardrobe has been worn, a soft upsell strip still surfaces cost-per-wear as a premium hook.
+- **Premium users** — see all entries (unlimited history). Undo is available for today's entries across all tiers.
+- The "Wearing this today" button on outfit cards is **not gated** — all users (free and guest) can log wear entries. The gate is only on the full history view.
 
 **Code:** `app/wear-log.tsx`, `app/(tabs)/index.tsx`, `contexts/AppContext.tsx`
 
@@ -601,8 +608,29 @@ Seeded Mulberry32 PRNG shuffle with per-scenario cursors, persisted to AsyncStor
 
 ---
 
+### Calibration Learning Indicator (Home Screen)
+A slim contextual strip on the Home tab surfaces the AI personalisation status to every user — free and premium — so they feel the stylist working from the first interaction.
+
+**Behaviour:**
+- Shown whenever the user has at least one ready outfit (`readyOutfits > 0`)
+- **Learning state** (< 5 signals): "Your stylist is learning your taste · N/5 reactions" with a `time-outline` icon
+- **Active state** (≥ 5 signals): "Your stylist knows your taste — picks are tuned to you" with a `sparkles` icon in champagne gold
+- Reads `affinitySignalCount` and `affinityActive` from `AppContext` (no new state — these are already computed in the context and exposed on the context value)
+- The strip uses `FadeInDown.delay(210)` — it enters after the Today's Pick card so it feels like a natural follow-on message, not a header element
+
+**Code:** `app/(tabs)/index.tsx` — `learningStrip` / `learningText` styles, `affinitySignalCount` / `affinityActive` added to `useApp()` destructuring
+
+---
+
 ### Premium Tier
-Unlocks: unlimited wardrobe items, 4 outfits/scenario/day (vs 2), resort and night-out scenario filters, Deep Diagnostics. Premium status stored in Supabase `user_profiles` table with an expiry timestamp. Upgrade is handled via `POST /api/user/upgrade-premium` on the Express server.
+Unlocks: unlimited wardrobe items, 4 outfits/scenario/day (vs 2), resort and night-out scenario filters, Deep Diagnostics, close-colour-match hints on Blueprint, full wear history (all-time) with cost-per-wear.
+
+**What is NOT gated (available to all free and guest users):**
+- Blueprint overview — full 19-slot map with owned/needed status (premium locks only "Next smart buy" highlight and close-colour-match hints)
+- Basic wear log — last 7 days of entries; "Wearing this today" button is always accessible
+- Calibration signals — love/not-today taps and wear logging always build affinity, even on free
+
+Premium status stored in Supabase `user_profiles` table with an expiry timestamp. Upgrade handled via `POST /api/user/upgrade-premium` on the Express server.
 
 **Code:** `app/premium.tsx`, `server/routes.ts`
 

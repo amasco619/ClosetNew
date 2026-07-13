@@ -46,6 +46,7 @@ export default function HomeScreen() {
     reactToOutfit, getOutfitReaction, logWear, undoWear, isWornToday,
     weather, weatherLoading, isGuest,
     orphanedItems, resolveOrphan,
+    affinitySignalCount, affinityActive,
   } = useApp();
   // Resolve the temperature unit: user override, or auto-detect from locale.
   const effectiveTempUnit = profile.tempUnit ?? defaultTempUnit();
@@ -340,6 +341,21 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
+        {readyOutfits > 0 && (
+          <Animated.View entering={FadeInDown.delay(210).duration(280)} style={styles.learningStrip}>
+            <Ionicons
+              name={affinityActive ? 'sparkles' : 'time-outline'}
+              size={13}
+              color={affinityActive ? Colors.secondary : Colors.textLight}
+            />
+            <Text style={styles.learningText}>
+              {affinityActive
+                ? 'Your stylist knows your taste — picks are tuned to you'
+                : `Your stylist is learning your taste · ${Math.round(affinitySignalCount)}/5 reactions`}
+            </Text>
+          </Animated.View>
+        )}
+
         {profile.styleGoalPrimary && (
           <Animated.View entering={FadeInDown.delay(220).duration(280)} style={styles.styleCard}>
             <View style={styles.styleCardHeader}>
@@ -358,7 +374,7 @@ export default function HomeScreen() {
             <View style={styles.todayCardHeader}>
               <Ionicons name="calendar" size={18} color={Colors.secondary} />
               <Text style={styles.todayCardTitle}>{"Today's Looks"}</Text>
-              <Pressable onPress={() => router.push(isPremium ? '/wear-log' : '/premium')} style={styles.todaySeeAll}>
+              <Pressable onPress={() => router.push('/wear-log')} style={styles.todaySeeAll}>
                 <Text style={styles.todaySeeAllText}>See all</Text>
                 <Ionicons name="chevron-forward" size={13} color={Colors.secondary} />
               </Pressable>
@@ -403,19 +419,10 @@ export default function HomeScreen() {
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.actionButton, pressed && styles.actionPressed]}
-              onPress={() => router.push(isPremium ? '/blueprint' : '/premium')}
+              onPress={() => { Haptics.selectionAsync(); router.push('/blueprint'); }}
             >
               <View style={[styles.actionIcon, { backgroundColor: Colors.secondary + '20' }]}>
-                {isPremium ? (
-                  <Ionicons name="map-outline" size={24} color={Colors.secondary} />
-                ) : (
-                  <View style={{ position: 'relative' }}>
-                    <Ionicons name="map-outline" size={24} color={Colors.secondary} />
-                    <View style={styles.lockBadge}>
-                      <Ionicons name="lock-closed" size={9} color={Colors.white} />
-                    </View>
-                  </View>
-                )}
+                <Ionicons name="map-outline" size={24} color={Colors.secondary} />
               </View>
               <Text style={styles.actionLabel}>Blueprint</Text>
             </Pressable>
@@ -646,6 +653,14 @@ const styles = StyleSheet.create({
   styleCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   styleCardTitle: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textLight, letterSpacing: 1, textTransform: 'uppercase' },
   styleCardValue: { fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary, letterSpacing: -0.2 },
+
+  learningStrip: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: Colors.white, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8,
+    marginBottom: 14, borderWidth: 1, borderColor: Colors.border,
+  },
+  learningText: { fontFamily: 'Inter_400Regular', fontSize: 11.5, color: Colors.textSecondary, flex: 1, lineHeight: 16 },
 
   sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.primary, marginBottom: 12, letterSpacing: -0.2 },
 
