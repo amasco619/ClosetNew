@@ -45,6 +45,7 @@ export default function HomeScreen() {
     starterRecommendations, lifestyleSlotGroups, recommendationSlots, todaysWear, wearHistory, backfillProgress,
     reactToOutfit, getOutfitReaction, logWear, undoWear, isWornToday,
     weather, weatherLoading, isGuest,
+    orphanedItems, resolveOrphan,
   } = useApp();
   // Resolve the temperature unit: user override, or auto-detect from locale.
   const effectiveTempUnit = profile.tempUnit ?? defaultTempUnit();
@@ -166,6 +167,57 @@ export default function HomeScreen() {
               />
             </View>
           </View>
+        )}
+
+        {orphanedItems.length > 0 && (
+          <Animated.View entering={FadeInDown.delay(100).duration(280)} style={styles.orphanCard}>
+            <View style={styles.orphanHeader}>
+              <Ionicons name="warning-outline" size={15} color={Colors.blush} />
+              <Text style={styles.orphanTitle}>
+                {orphanedItems.length === 1
+                  ? 'An item was saved without a photo'
+                  : `${orphanedItems.length} items were saved without photos`}
+              </Text>
+            </View>
+            <Text style={styles.orphanBody}>
+              These items were interrupted mid-save. Remove them or re-add with a new photo.
+            </Text>
+            {orphanedItems.map(item => (
+              <View key={item.id} style={styles.orphanRow}>
+                <View style={styles.orphanRowLeft}>
+                  <View style={styles.orphanThumbPlaceholder}>
+                    <Ionicons name="image-outline" size={16} color={Colors.textLight} />
+                  </View>
+                  <Text style={styles.orphanItemLabel} numberOfLines={1}>
+                    {item.subType || item.category}
+                  </Text>
+                </View>
+                <View style={styles.orphanActions}>
+                  <Pressable
+                    style={({ pressed }) => [styles.orphanBtn, pressed && styles.orphanBtnPressed]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      resolveOrphan(item.id, 'dismiss');
+                      router.push('/add-item');
+                    }}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.orphanBtnLabel}>Re-add</Text>
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [styles.orphanBtnDestructive, pressed && styles.orphanBtnPressed]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      resolveOrphan(item.id, 'remove');
+                    }}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.orphanBtnDestructiveLabel}>Remove</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </Animated.View>
         )}
 
         <Animated.View entering={FadeInDown.delay(120).duration(280)} style={styles.statsRow}>
@@ -518,6 +570,39 @@ const styles = StyleSheet.create({
   backfillText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, flexShrink: 1 },
   backfillTrack: { flex: 1, height: 3, borderRadius: 2, backgroundColor: Colors.secondary + '20', overflow: 'hidden', marginLeft: 4 },
   backfillFill: { height: '100%', backgroundColor: Colors.secondary, borderRadius: 2 },
+
+  orphanCard: {
+    marginBottom: 16, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8,
+    borderRadius: 14, backgroundColor: Colors.blush + '18',
+    borderWidth: 1, borderColor: Colors.blush + '50',
+    shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  orphanHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 4 },
+  orphanTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary, flex: 1 },
+  orphanBody: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, lineHeight: 18, marginBottom: 10 },
+  orphanRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 7, borderTopWidth: 1, borderTopColor: Colors.blush + '30' },
+  orphanRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
+  orphanThumbPlaceholder: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: Colors.blush + '30', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: Colors.blush + '40',
+  },
+  orphanItemLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary, flex: 1 },
+  orphanActions: { flexDirection: 'row', gap: 8, marginLeft: 10 },
+  orphanBtn: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
+    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border,
+    minHeight: 32, justifyContent: 'center',
+  },
+  orphanBtnDestructive: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
+    backgroundColor: Colors.blush + '30', borderWidth: 1, borderColor: Colors.blush + '60',
+    minHeight: 32, justifyContent: 'center',
+  },
+  orphanBtnPressed: { opacity: 0.7 },
+  orphanBtnLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.primary },
+  orphanBtnDestructiveLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.primary },
 
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   statCard: {

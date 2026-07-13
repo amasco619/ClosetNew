@@ -97,6 +97,10 @@ interface AppContextValue {
   refreshWeather: () => Promise<void>;
   setWeatherEnabled: (enabled: boolean) => void;
   isGuest: boolean;
+  // Ghost-item recovery — items detected on cold start with a missing or
+  // unrecoverable photo (e.g. interrupted mid-save upload).
+  orphanedItems: WardrobeItem[];
+  resolveOrphan: (id: string, action: 'remove' | 'dismiss') => void;
 }
 
 const defaultProfile: UserProfile = {
@@ -217,6 +221,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [backfillProgress, setBackfillProgress] = useState<{ done: number; total: number } | null>(null);
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
+  const [orphanedItems, setOrphanedItems] = useState<WardrobeItem[]>([]);
 
   const currentUserIdRef = useRef<string | null>(null);
 
@@ -396,9 +401,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const nonGuestFileUris = seededItems.filter(
         it => it.photoUri?.startsWith('file://') && !isGuestPhotoUri(it.photoUri),
       );
+      // Immediately surface items with a completely absent photoUri — these
+      // indicate a save that was interrupted before the URI was ever written.
+      const noPhotoUriItems = seededItems.filter(it => !it.photoUri);
+      if (noPhotoUriItems.length > 0) {
+        setOrphanedItems(prev => {
+          const existing = new Set(prev.map(o => o.id));
+          const toAdd = noPhotoUriItems.filter(it => !existing.has(it.id));
+          return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+        });
+      }
       if (nonGuestFileUris.length > 0) {
         setTimeout(async () => {
           const recoveredUpdates: Record<string, string> = {};
+          const unreachableItems: WardrobeItem[] = [];
           for (const item of nonGuestFileUris) {
             try {
               const info = await FileSystem.getInfoAsync(item.photoUri);
@@ -417,12 +433,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
                       `[AuraCloset] Wardrobe photo missing and not found in Storage — ` +
                       `item id=${item.id} subType=${item.subType} uri=${item.photoUri}`,
                     );
+                    unreachableItems.push(item);
                   }
                 } else {
                   console.warn(
                     `[AuraCloset] Wardrobe photo missing from temp cache — ` +
                     `item id=${item.id} subType=${item.subType} uri=${item.photoUri}`,
                   );
+                  unreachableItems.push(item);
                 }
               }
             } catch (err) {
@@ -440,6 +458,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
               );
               AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(next));
               return next;
+            });
+          }
+          // Surface items whose photo could not be recovered so the user can
+          // choose to remove or re-add them.
+          if (unreachableItems.length > 0) {
+            setOrphanedItems(prev => {
+              const existing = new Set(prev.map(o => o.id));
+              const toAdd = unreachableItems.filter(it => !existing.has(it.id));
+              return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
             });
           }
         }, 1000);
@@ -688,6 +715,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
             for (const item of mapped) {
               if (recoveryMap[item.id]) item.photoUri = recoveryMap[item.id];
             }
+          }
+          // Surface items whose DB photo could not be recovered so the user
+          // can choose to remove or re-add them.
+          const unrecoverableDb = staleDbItems.filter(it => !recoveryMap[it.id]);
+          if (unrecoverableDb.length > 0) {
+            setOrphanedItems(prev => {
+              const existing = new Set(prev.map(o => o.id));
+              const toAdd = unrecoverableDb.filter(it => !existing.has(it.id));
+              return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+            });
           }
         }
         setWardrobeItems(mapped);
@@ -1090,6 +1127,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [profile, isPremium, wardrobeItems]);
 
+  const resolveOrphan = useCallback((id: string, action: 'remove' | 'dismiss') => {
+    setOrphanedItems(prev => prev.filter(o => o.id !== id));
+    if (action === 'remove') {
+      removeWardrobeItem(id);
+    }
+  }, [removeWardrobeItem]);
+
   const updateWardrobeItem = useCallback((id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => {
     setWardrobeItems(prev => {
       const next = prev.map(item => {
@@ -1317,6 +1361,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     topAffinityItems: topItems, topAffinityPairs: topPairs,
     weather, weatherLoading, refreshWeather, setWeatherEnabled,
     isGuest: profile.isGuest === true,
+    orphanedItems, resolveOrphan,
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
        isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, appReady, isAuthenticated, canAddItem, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
@@ -1325,7 +1370,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
        profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,
        savedLooks, toggleSavedLook, isLookSaved, renameSavedLook, getSavedLookName,
        backfillProgress, affinityState, affinityActive, topItems, topPairs,
-       weather, weatherLoading, refreshWeather, setWeatherEnabled]);
+       weather, weatherLoading, refreshWeather, setWeatherEnabled,
+       orphanedItems, resolveOrphan]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
