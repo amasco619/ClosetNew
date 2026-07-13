@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useApp, ItemCategory, OccasionTag, SeasonTag, subTypes, colorFamilies } from '@/contexts/AppContext';
 import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, SleeveLength, Rise, WarmthBand } from '@/constants/types';
 import { SUBTYPE_FORMALITY, inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
@@ -209,8 +209,9 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
 export default function AddItemScreen() {
   const insets = useSafeAreaInsets();
   const { addWardrobeItem } = useApp();
+  const { initialUri } = useLocalSearchParams<{ initialUri?: string }>();
 
-  const [photoUri,        setPhotoUri]        = useState<string | null>(null);
+  const [photoUri,        setPhotoUri]        = useState<string | null>(initialUri ?? null);
   const [category,        setCategory]        = useState<ItemCategory>('top');
   const [subType,         setSubType]         = useState<string>('');
   const [colorFamily,     setColorFamily]     = useState<string>('');

@@ -258,9 +258,13 @@ export default function BulkReviewScreen() {
   const [statusPhase, setStatusPhase] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  // Redirect if no URIs were passed
+  // Redirect if no URIs were passed, or only one — single items belong in add-item
   useEffect(() => {
-    if (uris.length === 0) router.back();
+    if (uris.length === 0) {
+      router.back();
+    } else if (uris.length === 1) {
+      router.replace({ pathname: '/add-item', params: { initialUri: uris[0] } });
+    }
   }, []);
 
   // Cycle status micro-copy every 450ms while items are still classifying
