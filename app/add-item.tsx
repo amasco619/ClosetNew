@@ -20,6 +20,7 @@ import { resolvePhotoUri } from '@/lib/classifyPath';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
 import { buildGuestPhotoDestPath } from '../constants/guestPhotoCleanup';
+import { applyRePhotographSave } from '../constants/rePhotographSave';
 import { uploadWardrobeImage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
 
@@ -876,34 +877,36 @@ export default function AddItemScreen() {
         }
       }
       setSaveStage('saving');
-      addWardrobeItem({
-        id: itemId,
-        photoUri: finalUri,
-        category,
-        subType,
-        colorFamily,
-        description: description || undefined,
-        occasionTags: occasions,
-        seasonTags: seasons,
-        formalityLevel: SUBTYPE_FORMALITY[subType] ?? 5,
-        purchasePrice: isNaN(parsedPrice) || parsedPrice <= 0 ? undefined : parsedPrice,
-        pattern:      asPattern(pattern),
-        patternScale: asPatternScale(patternScale),
-        fabric:       asFabric(fabric),
-        weight:       asWeight(weight),
-        fit:          asFit(fit),
-        accentColor:  accentColor && colorFamilies.includes(accentColor) ? accentColor : undefined,
-        metalTone:    (metalTone === 'gold' || metalTone === 'silver' || metalTone === 'rose-gold' || metalTone === 'mixed' || metalTone === 'none') ? metalTone : undefined,
-        neckline:     asNeckline(neckline),
-        sleeveLength: asSleeve(sleeveLength),
-        rise:         asRise(rise),
-        warmthBand:   asWarmth(warmthBand),
-        dominantHsl,
-        dominantLab,
-      });
-      if (replaceItemId) {
-        removeWardrobeItem(replaceItemId);
-      }
+      applyRePhotographSave(
+        addWardrobeItem,
+        removeWardrobeItem,
+        {
+          id: itemId,
+          photoUri: finalUri,
+          category,
+          subType,
+          colorFamily,
+          description: description || undefined,
+          occasionTags: occasions,
+          seasonTags: seasons,
+          formalityLevel: SUBTYPE_FORMALITY[subType] ?? 5,
+          purchasePrice: isNaN(parsedPrice) || parsedPrice <= 0 ? undefined : parsedPrice,
+          pattern:      asPattern(pattern),
+          patternScale: asPatternScale(patternScale),
+          fabric:       asFabric(fabric),
+          weight:       asWeight(weight),
+          fit:          asFit(fit),
+          accentColor:  accentColor && colorFamilies.includes(accentColor) ? accentColor : undefined,
+          metalTone:    (metalTone === 'gold' || metalTone === 'silver' || metalTone === 'rose-gold' || metalTone === 'mixed' || metalTone === 'none') ? metalTone : undefined,
+          neckline:     asNeckline(neckline),
+          sleeveLength: asSleeve(sleeveLength),
+          rise:         asRise(rise),
+          warmthBand:   asWarmth(warmthBand),
+          dominantHsl,
+          dominantLab,
+        },
+        replaceItemId,
+      );
       router.back();
     } catch (e) {
       console.error('[add-item] Save failed:', e);

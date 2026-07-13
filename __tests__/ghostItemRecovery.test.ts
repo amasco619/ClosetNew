@@ -25,6 +25,7 @@ import {
   type FileInfoFn,
   type RecoverUrlFn,
 } from '../constants/orphanDetection';
+import { applyRePhotographSave } from '../constants/rePhotographSave';
 import type { WardrobeItem } from '../constants/types';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -460,6 +461,129 @@ async function testApplyOrphanResolution(): Promise<void> {
   }
 }
 
+// ── E. Re-photograph save path ────────────────────────────────────────────────
+//
+// Tests exercise the real production function `applyRePhotographSave` imported
+// from constants/rePhotographSave.ts — the same module used by
+// app/add-item.tsx.  Any regression in the production branching logic will
+// therefore be caught here (no surrogate / local mirror).
+
+async function testRePhotographSavePath(): Promise<void> {
+  section('E1. replaceItemId present — removeWardrobeItem is called with the old id');
+  {
+    const added: WardrobeItem[] = [];
+    const removed: string[] = [];
+    const newItem = makeItem({ id: 'new-item' });
+    applyRePhotographSave(
+      (item) => added.push(item),
+      (id) => removed.push(id),
+      newItem,
+      'old-item-id',
+    );
+    eq(removed.length, 1, 'removeWardrobeItem called exactly once');
+    eq(removed[0], 'old-item-id', 'removeWardrobeItem called with the old replaceItemId');
+  }
+
+  section('E2. replaceItemId absent — removeWardrobeItem is NOT called');
+  {
+    const removed: string[] = [];
+    const newItem = makeItem({ id: 'new-item-2' });
+    applyRePhotographSave(
+      () => {},
+      (id) => removed.push(id),
+      newItem,
+      undefined,
+    );
+    eq(removed.length, 0, 'removeWardrobeItem never called when replaceItemId is absent');
+  }
+
+  section('E3. addWardrobeItem is always called, regardless of replaceItemId');
+  {
+    const added: WardrobeItem[] = [];
+    const itemA = makeItem({ id: 'item-a' });
+    const itemB = makeItem({ id: 'item-b' });
+
+    applyRePhotographSave((item) => added.push(item), () => {}, itemA, 'replace-x');
+    applyRePhotographSave((item) => added.push(item), () => {}, itemB, undefined);
+
+    eq(added.length, 2, 'addWardrobeItem called for both the replace and normal flows');
+    assert(added.some(i => i.id === 'item-a'), 'item-a added in replace flow');
+    assert(added.some(i => i.id === 'item-b'), 'item-b added in normal flow');
+  }
+
+  section('E4. removeWardrobeItem is called with the OLD id, not the new item id');
+  {
+    const removed: string[] = [];
+    const newItem = makeItem({ id: 'brand-new' });
+    applyRePhotographSave(
+      () => {},
+      (id) => removed.push(id),
+      newItem,
+      'the-orphan-id',
+    );
+    assert(!removed.includes('brand-new'), 'new item id is not passed to removeWardrobeItem');
+    assert(removed.includes('the-orphan-id'), 'only the orphan id is removed');
+  }
+
+  section('E5. addWardrobeItem is called BEFORE removeWardrobeItem (no transient gap)');
+  {
+    const callOrder: string[] = [];
+    const newItem = makeItem({ id: 'seq-new' });
+    applyRePhotographSave(
+      () => callOrder.push('add'),
+      () => callOrder.push('remove'),
+      newItem,
+      'seq-old',
+    );
+    eq(callOrder[0], 'add', 'add precedes remove');
+    eq(callOrder[1], 'remove', 'remove follows add');
+    eq(callOrder.length, 2, 'exactly two calls total');
+  }
+
+  section('E6. replaceItemId empty string — treated as falsy, removeWardrobeItem NOT called');
+  {
+    const removed: string[] = [];
+    const newItem = makeItem({ id: 'item-empty-replace' });
+    applyRePhotographSave(
+      () => {},
+      (id) => removed.push(id),
+      newItem,
+      '',
+    );
+    eq(removed.length, 0, 'empty-string replaceItemId does not trigger removeWardrobeItem');
+  }
+
+  section('E7. multiple sequential re-photograph saves each remove exactly their own old id');
+  {
+    const removed: string[] = [];
+    const removeItem = (id: string) => removed.push(id);
+    const addItem = () => {};
+
+    applyRePhotographSave(addItem, removeItem, makeItem({ id: 'n1' }), 'o1');
+    applyRePhotographSave(addItem, removeItem, makeItem({ id: 'n2' }), 'o2');
+    applyRePhotographSave(addItem, removeItem, makeItem({ id: 'n3' }), 'o3');
+
+    eq(removed.length, 3, 'three removes for three re-photograph saves');
+    eq(removed[0], 'o1', 'first save removed o1');
+    eq(removed[1], 'o2', 'second save removed o2');
+    eq(removed[2], 'o3', 'third save removed o3');
+  }
+
+  section('E8. normal add mixed with replace — only replace flows call removeWardrobeItem');
+  {
+    const removed: string[] = [];
+    const removeItem = (id: string) => removed.push(id);
+    const addItem = () => {};
+
+    applyRePhotographSave(addItem, removeItem, makeItem({ id: 'na' }), undefined);
+    applyRePhotographSave(addItem, removeItem, makeItem({ id: 'nb' }), 'ob');
+    applyRePhotographSave(addItem, removeItem, makeItem({ id: 'nc' }), undefined);
+
+    eq(removed.length, 1, 'only the replace save triggers a remove');
+    eq(removed[0], 'ob', 'correct old id removed');
+  }
+}
+
 // ── Runner ────────────────────────────────────────────────────────────────────
 
 async function runTests(): Promise<void> {
@@ -467,6 +591,7 @@ async function runTests(): Promise<void> {
   await testIsGuestPhotoUri();
   await testDetectFileOrphans();
   await testApplyOrphanResolution();
+  await testRePhotographSavePath();
 
   console.log(`\n${failed === 0 ? 'All tests passed.' : `${failed} test(s) failed.`}`);
   if (failed > 0) process.exit(1);
