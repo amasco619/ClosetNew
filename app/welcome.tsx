@@ -19,7 +19,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/colors';
-import { supabase } from '../lib/supabase';
+import { useApp } from '@/contexts/AppContext';
 
 interface GlassButtonProps {
   label: string;
@@ -94,6 +94,7 @@ function GlassButton({ label, subLabel, iconName, variant, onPress, delay }: Gla
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
+  const { isAuthenticated } = useApp();
   const bgScale = useSharedValue(1);
 
   useEffect(() => {
@@ -105,10 +106,10 @@ export default function WelcomeScreen() {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace('/(tabs)');
-    }).catch(() => {});
-  }, []);
+    if (isAuthenticated) {
+      router.replace('/');
+    }
+  }, [isAuthenticated]);
 
   const animatedBgStyle = useAnimatedStyle(() => ({
     transform: [{ scale: bgScale.value }],
@@ -119,7 +120,7 @@ export default function WelcomeScreen() {
   };
 
   const handleSignIn = () => {
-    router.push('/sign-in');
+    router.replace('/sign-in');
   };
 
   return (
