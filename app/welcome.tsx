@@ -116,7 +116,7 @@ export default function WelcomeScreen() {
   }));
 
   const handleGetStarted = () => {
-    router.push('/onboarding?guest=true');
+    router.replace('/onboarding?guest=true');
   };
 
   const handleSignIn = () => {
