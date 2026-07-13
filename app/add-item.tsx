@@ -311,6 +311,12 @@ export default function AddItemScreen() {
     setClassifying(false);
     setClassifyFlash(success ? 'success' : 'error');
 
+    Haptics.notificationAsync(
+      success
+        ? Haptics.NotificationFeedbackType.Success
+        : Haptics.NotificationFeedbackType.Warning
+    );
+
     const trackW = classifyingTrackWidth.value;
     completionFillWidth.value = withTiming(trackW, { duration: 150 }, (filled) => {
       if (!filled) return;
