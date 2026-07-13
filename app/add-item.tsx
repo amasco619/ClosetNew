@@ -209,32 +209,120 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
 export default function AddItemScreen() {
   const insets = useSafeAreaInsets();
   const { addWardrobeItem } = useApp();
-  const { initialUri } = useLocalSearchParams<{ initialUri?: string }>();
+  const {
+    initialUri,
+    preClassified,
+    pcCategory,
+    pcSubType,
+    pcColorFamily,
+    pcAccentColor,
+    pcDescription,
+    pcOccasionTags,
+    pcSeasonTags,
+    pcPattern,
+    pcPatternScale,
+    pcFabric,
+    pcWeight,
+    pcDominantHsl,
+    pcDominantLab,
+    pcFit,
+    pcNeckline,
+    pcSleeveLength,
+    pcRise,
+    pcWarmthBand,
+  } = useLocalSearchParams<{
+    initialUri?: string;
+    preClassified?: string;
+    pcCategory?: string;
+    pcSubType?: string;
+    pcColorFamily?: string;
+    pcAccentColor?: string;
+    pcDescription?: string;
+    pcOccasionTags?: string;
+    pcSeasonTags?: string;
+    pcPattern?: string;
+    pcPatternScale?: string;
+    pcFabric?: string;
+    pcWeight?: string;
+    pcDominantHsl?: string;
+    pcDominantLab?: string;
+    pcFit?: string;
+    pcNeckline?: string;
+    pcSleeveLength?: string;
+    pcRise?: string;
+    pcWarmthBand?: string;
+  }>();
+
+  // Parse pre-classified payload once at mount — route params are strings so
+  // arrays and objects need JSON.parse. Gracefully falls back to defaults if
+  // the param is missing or malformed.
+  const hasPreClassified = preClassified === 'true';
+
+  const initCategory = (): ItemCategory => {
+    if (hasPreClassified && pcCategory) return pcCategory as ItemCategory;
+    return 'top';
+  };
+  const initSubType = (): string => {
+    if (!hasPreClassified || !pcSubType) return '';
+    const cat = initCategory();
+    return (subTypes[cat] ?? []).includes(pcSubType) ? pcSubType : '';
+  };
+  const initColorFamily = (): string => {
+    if (!hasPreClassified || !pcColorFamily) return '';
+    return colorFamilies.includes(pcColorFamily) ? pcColorFamily : '';
+  };
+  const initOccasions = (): OccasionTag[] => {
+    if (hasPreClassified && pcOccasionTags) {
+      try { return JSON.parse(pcOccasionTags) as OccasionTag[]; } catch { /* fall through */ }
+    }
+    return [];
+  };
+  const initSeasons = (): SeasonTag[] => {
+    if (hasPreClassified && pcSeasonTags) {
+      try {
+        const parsed = JSON.parse(pcSeasonTags) as SeasonTag[];
+        if (parsed.length > 0) return parsed;
+      } catch { /* fall through */ }
+    }
+    return ['all-season'];
+  };
+  const initDominantHsl = (): { h: number; s: number; l: number } | undefined => {
+    if (hasPreClassified && pcDominantHsl) {
+      try { return JSON.parse(pcDominantHsl); } catch { /* fall through */ }
+    }
+    return undefined;
+  };
+  const initDominantLab = (): { L: number; a: number; b: number } | undefined => {
+    if (hasPreClassified && pcDominantLab) {
+      try { return JSON.parse(pcDominantLab); } catch { /* fall through */ }
+    }
+    return undefined;
+  };
 
   const [photoUri,        setPhotoUri]        = useState<string | null>(initialUri ?? null);
-  const [category,        setCategory]        = useState<ItemCategory>('top');
-  const [subType,         setSubType]         = useState<string>('');
-  const [colorFamily,     setColorFamily]     = useState<string>('');
-  const [description,     setDescription]     = useState<string>('');
+  const [category,        setCategory]        = useState<ItemCategory>(initCategory);
+  const [subType,         setSubType]         = useState<string>(initSubType);
+  const [colorFamily,     setColorFamily]     = useState<string>(initColorFamily);
+  const [description,     setDescription]     = useState<string>(hasPreClassified && pcDescription ? pcDescription : '');
   const [classifying,     setClassifying]     = useState(false);
   const [classifyFlash,   setClassifyFlash]   = useState<'none' | 'success' | 'error'>('none');
-  const [occasions,       setOccasions]       = useState<OccasionTag[]>([]);
-  const [seasons,         setSeasons]         = useState<SeasonTag[]>(['all-season']);
+  const [occasions,       setOccasions]       = useState<OccasionTag[]>(initOccasions);
+  const [seasons,         setSeasons]         = useState<SeasonTag[]>(initSeasons);
   const [purchasePrice,   setPurchasePrice]   = useState('');
-  const [step,            setStep]            = useState(0);
-  const [pattern,         setPattern]         = useState<string | undefined>(undefined);
-  const [patternScale,    setPatternScale]    = useState<string | undefined>(undefined);
-  const [fabric,          setFabric]          = useState<string | undefined>(undefined);
-  const [weight,          setWeight]          = useState<string | undefined>(undefined);
-  const [accentColor,     setAccentColor]     = useState<string | undefined>(undefined);
-  const [dominantHsl,     setDominantHsl]     = useState<{ h: number; s: number; l: number } | undefined>(undefined);
-  const [dominantLab,     setDominantLab]     = useState<{ L: number; a: number; b: number } | undefined>(undefined);
-  const [fit,             setFit]             = useState<string | undefined>(undefined);
+  const [step,            setStep]            = useState(hasPreClassified ? 1 : 0);
+  const [pattern,         setPattern]         = useState<string | undefined>(hasPreClassified && pcPattern ? pcPattern : undefined);
+  const [patternScale,    setPatternScale]    = useState<string | undefined>(hasPreClassified && pcPatternScale ? pcPatternScale : undefined);
+  const [fabric,          setFabric]          = useState<string | undefined>(hasPreClassified && pcFabric ? pcFabric : undefined);
+  const [weight,          setWeight]          = useState<string | undefined>(hasPreClassified && pcWeight ? pcWeight : undefined);
+  const [accentColor,     setAccentColor]     = useState<string | undefined>(hasPreClassified && pcAccentColor ? pcAccentColor : undefined);
+  const [dominantHsl,     setDominantHsl]     = useState<{ h: number; s: number; l: number } | undefined>(initDominantHsl);
+  const [dominantLab,     setDominantLab]     = useState<{ L: number; a: number; b: number } | undefined>(initDominantLab);
+  const [fit,             setFit]             = useState<string | undefined>(hasPreClassified && pcFit ? pcFit : undefined);
   const [metalTone,       setMetalTone]       = useState<string | undefined>(undefined);
-  const [neckline,        setNeckline]        = useState<string | undefined>(undefined);
-  const [sleeveLength,    setSleeveLength]    = useState<string | undefined>(undefined);
-  const [rise,            setRise]            = useState<string | undefined>(undefined);
-  const [warmthBand,      setWarmthBand]      = useState<string | undefined>(undefined);
+  const [neckline,        setNeckline]        = useState<string | undefined>(hasPreClassified && pcNeckline ? pcNeckline : undefined);
+  const [sleeveLength,    setSleeveLength]    = useState<string | undefined>(hasPreClassified && pcSleeveLength ? pcSleeveLength : undefined);
+  const [rise,            setRise]            = useState<string | undefined>(hasPreClassified && pcRise ? pcRise : undefined);
+  const [warmthBand,      setWarmthBand]      = useState<string | undefined>(hasPreClassified && pcWarmthBand ? pcWarmthBand : undefined);
   const [photoBase64,     setPhotoBase64]     = useState<string | null>(null);
   const [photoBgRemoved,  setPhotoBgRemoved]  = useState<boolean>(false);
   const [photoWidth,      setPhotoWidth]      = useState<number>(0);
@@ -244,6 +332,22 @@ export default function AddItemScreen() {
   const [displayedLabel,  setDisplayedLabel]  = useState<string>('Saving…');
   const stageLabelOpacity = useSharedValue(1);
   const stageLabelStyle   = useAnimatedStyle(() => ({ opacity: stageLabelOpacity.value }));
+
+  // ─── Pre-classified inference fallbacks ───────────────────────────────────
+  // When arriving from a bulk-review redirect that already has classification
+  // results, fill any gaps using the same sub-type inference the normal
+  // classifyWithServer post-process applies. Runs once on mount.
+  useEffect(() => {
+    if (!hasPreClassified) return;
+    const validSub = initSubType();
+    if (!validSub) return;
+    if (!pcFabric)       { const f = inferFabric(validSub);      if (f) setFabric(f); }
+    if (!pcWeight)       setWeight(inferFabricWeight(validSub));
+    if (!pcPattern)      setPattern('solid');
+    if (!pcNeckline)     { const inf = SUBTYPE_NECKLINE[validSub]; if (inf) setNeckline(inf); }
+    if (!pcRise)         { const inf = SUBTYPE_RISE[validSub];     if (inf) setRise(inf);     }
+    if (!pcWarmthBand)   { const inf = SUBTYPE_WARMTH[validSub];   if (inf) setWarmthBand(inf); }
+  }, []);
 
   useEffect(() => {
     const next = SAVE_STAGES.find(s => s.key === saveStage)?.label ?? 'Saving…';

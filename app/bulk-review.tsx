@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, FlatList,
   Dimensions, ActivityIndicator, Platform,
@@ -258,13 +258,85 @@ export default function BulkReviewScreen() {
   const [statusPhase, setStatusPhase] = useState(0);
   const [saving, setSaving] = useState(false);
 
-  // Redirect if no URIs were passed, or only one — single items belong in add-item
+  // Redirect if no URIs were passed — single-item redirect is handled below.
   useEffect(() => {
     if (uris.length === 0) {
       router.back();
-    } else if (uris.length === 1) {
-      router.replace({ pathname: '/add-item', params: { initialUri: uris[0] } });
     }
+  }, []);
+
+  // ─── Single-item redirect ──────────────────────────────────────────────────
+  // When exactly one URI is passed, let classification run and redirect to
+  // add-item only once the result settles (with pre-filled params) or errors
+  // (without params). A 12-second timeout guards against slow networks:
+  // after it fires the user is redirected immediately without pre-fill,
+  // identical to the previous behaviour.
+  //
+  // Implemented as two co-operating effects:
+  //  1. Items watcher  — redirects as soon as the item settles or errors.
+  //  2. Timeout guard  — redirects without params after SINGLE_REDIRECT_TIMEOUT_MS.
+  //
+  // A ref gates both paths so only the first one to fire navigates.
+
+  const singleRedirectedRef = useRef(false);
+
+  const SINGLE_REDIRECT_TIMEOUT_MS = 12_000;
+
+  const redirectSingle = useCallback((item: BulkItem, settled: boolean) => {
+    if (singleRedirectedRef.current) return;
+    singleRedirectedRef.current = true;
+
+    if (settled && item.classification) {
+      const c = item.classification;
+      router.replace({
+        pathname: '/add-item',
+        params: {
+          initialUri:     item.uri,
+          preClassified:  'true',
+          pcCategory:     c.category,
+          pcSubType:      c.subType,
+          pcColorFamily:  c.colorFamily,
+          pcAccentColor:  c.accentColor  ?? '',
+          pcDescription:  c.description,
+          pcOccasionTags: JSON.stringify(c.occasionTags),
+          pcSeasonTags:   JSON.stringify(c.seasonTags),
+          pcPattern:      c.pattern      ?? '',
+          pcPatternScale: c.patternScale ?? '',
+          pcFabric:       c.fabric       ?? '',
+          pcWeight:       c.weight       ?? '',
+          pcDominantHsl:  c.dominantHsl  ? JSON.stringify(c.dominantHsl) : '',
+          pcDominantLab:  c.dominantLab  ? JSON.stringify(c.dominantLab) : '',
+          pcFit:          c.fit          ?? '',
+          pcNeckline:     c.neckline     ?? '',
+          pcSleeveLength: c.sleeveLength ?? '',
+          pcRise:         c.rise         ?? '',
+          pcWarmthBand:   c.warmthBand   ?? '',
+        },
+      });
+    } else {
+      // Classification failed or timed out — redirect without pre-fill.
+      router.replace({ pathname: '/add-item', params: { initialUri: item.uri } });
+    }
+  }, []);
+
+  // Effect 1: watch items; redirect as soon as the sole item settles or errors.
+  useEffect(() => {
+    if (uris.length !== 1) return;
+    const item = items[0];
+    if (!item) return;
+    if (item.status === 'settled') redirectSingle(item, true);
+    else if (item.status === 'error') redirectSingle(item, false);
+  }, [items, uris.length, redirectSingle]);
+
+  // Effect 2: timeout guard — redirects without params if classification is
+  // still running after SINGLE_REDIRECT_TIMEOUT_MS.
+  useEffect(() => {
+    if (uris.length !== 1) return;
+    const id = setTimeout(() => {
+      const item = items[0];
+      if (item) redirectSingle(item, false);
+    }, SINGLE_REDIRECT_TIMEOUT_MS);
+    return () => clearTimeout(id);
   }, []);
 
   // Cycle status micro-copy every 450ms while items are still classifying
