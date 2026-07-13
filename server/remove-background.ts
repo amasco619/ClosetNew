@@ -37,7 +37,28 @@ export async function removeBackground(req: Request, res: Response) {
       console.error("[remove-background] Photoroom returned an empty body (0 bytes)");
       return res.status(502).json({ error: "photoroom_empty_response" });
     }
-    const resultBase64 = Buffer.from(arrayBuffer).toString("base64");
+    const resultBuf = Buffer.from(arrayBuffer);
+    const isPng =
+      resultBuf.length >= 4 &&
+      resultBuf[0] === 0x89 &&
+      resultBuf[1] === 0x50 &&
+      resultBuf[2] === 0x4e &&
+      resultBuf[3] === 0x47;
+    if (!isPng) {
+      console.error(
+        "[remove-background] Photoroom response is not a valid PNG (byteLength=%d)",
+        arrayBuffer.byteLength,
+      );
+      return res.status(502).json({ error: "photoroom_invalid_response" });
+    }
+    if (arrayBuffer.byteLength < 1024) {
+      console.error(
+        "[remove-background] Photoroom response is too small to be a valid image (byteLength=%d)",
+        arrayBuffer.byteLength,
+      );
+      return res.status(502).json({ error: "photoroom_invalid_response" });
+    }
+    const resultBase64 = resultBuf.toString("base64");
 
     return res.json({ imageBase64: resultBase64, mimeType: "image/png" });
   } catch (err: any) {

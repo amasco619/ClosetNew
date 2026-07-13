@@ -766,6 +766,105 @@ async function main() {
     );
   }
 
+  // ── I. server handler — PNG magic-bytes + size validation (new guards) ────
+  //
+  // Covers the three scenarios from the task spec:
+  //   1. Truncated body (< 1 KB, non-PNG bytes)  → 502 photoroom_invalid_response
+  //   2. Correct PNG magic + size >= 1 KB         → 200 with base64 imageBase64
+  //   3. Large body (>= 1 KB) that is not a PNG  → 502 photoroom_invalid_response
+  // Plus an additional edge case not in the task spec but relevant:
+  //   4. PNG magic present but body < 1 KB        → 502 photoroom_invalid_response
+
+  // PNG magic bytes: \x89 P N G
+  function makePngArrayBuffer(size: number): ArrayBuffer {
+    const ab = new ArrayBuffer(size);
+    const view = new Uint8Array(ab);
+    view[0] = 0x89; view[1] = 0x50; view[2] = 0x4e; view[3] = 0x47;
+    return ab;
+  }
+
+  function makeNonPngArrayBuffer(size: number): ArrayBuffer {
+    const ab = new ArrayBuffer(size);
+    const view = new Uint8Array(ab);
+    for (let i = 0; i < size; i++) view[i] = 0x3c; // '<' typical of JSON/HTML error bodies
+    return ab;
+  }
+
+  function mockPhotoroom(ab: ArrayBuffer) {
+    (globalThis as any).fetch = async () => ({
+      ok: true,
+      arrayBuffer: async () => ab,
+    });
+  }
+
+  console.log('\nserver/remove-background — PNG magic-bytes + size validation:');
+
+  {
+    // 1. Truncated body: a few non-PNG bytes (< 1 KB, not a valid PNG)
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    mockPhotoroom(makeNonPngArrayBuffer(50));
+    const req = makeMockReq({ imageBase64: 'valid-base64' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+    assertEq(res._status, 502, 'truncated non-PNG body (< 1 KB) → HTTP 502');
+    assertEq(
+      (res._body as any)?.error,
+      'photoroom_invalid_response',
+      'truncated non-PNG body → error: "photoroom_invalid_response"',
+    );
+  }
+
+  {
+    // 2. Valid PNG: correct magic bytes AND size >= 1 KB → success
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    mockPhotoroom(makePngArrayBuffer(2048));
+    const req = makeMockReq({ imageBase64: 'valid-base64' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+    assertEq(res._status, 200, 'valid PNG (magic + >= 1 KB) → HTTP 200');
+    assert(
+      typeof (res._body as any)?.imageBase64 === 'string' &&
+        (res._body as any).imageBase64.length > 0,
+      'valid PNG → imageBase64 returned as non-empty string',
+    );
+    assertEq(
+      (res._body as any)?.mimeType,
+      'image/png',
+      'valid PNG → mimeType: "image/png"',
+    );
+  }
+
+  {
+    // 3. Large non-PNG body (>= 1 KB, e.g. JSON error delivered with HTTP 200)
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    mockPhotoroom(makeNonPngArrayBuffer(2048));
+    const req = makeMockReq({ imageBase64: 'valid-base64' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+    assertEq(res._status, 502, 'large non-PNG body (>= 1 KB) → HTTP 502');
+    assertEq(
+      (res._body as any)?.error,
+      'photoroom_invalid_response',
+      'large non-PNG body → error: "photoroom_invalid_response"',
+    );
+  }
+
+  {
+    // 4. PNG magic present but body is too small (< 1 KB, truncated PNG)
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    mockPhotoroom(makePngArrayBuffer(512));
+    const req = makeMockReq({ imageBase64: 'valid-base64' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+    assertEq(res._status, 502, 'PNG magic but body < 1 KB → HTTP 502');
+    assertEq(
+      (res._body as any)?.error,
+      'photoroom_invalid_response',
+      'PNG magic but body < 1 KB → error: "photoroom_invalid_response"',
+    );
+    delete process.env.PHOTOROOM_API_KEY;
+  }
+
   // ── Final result ───────────────────────────────────────────────────────────
 
   console.log(`\n${failed === 0 ? 'All tests passed.' : `${failed} test(s) failed.`}`);
