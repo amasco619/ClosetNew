@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, FlatList,
-  Dimensions, ActivityIndicator, Platform,
+  Dimensions, ActivityIndicator, Platform, BackHandler,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -303,6 +303,14 @@ export default function BulkReviewScreen() {
     return () => { mountedRef.current = false; };
   }, []);
 
+  // Block the Android hardware back button while saving is in progress so the
+  // user cannot navigate away mid-save and leave orphaned wardrobe entries.
+  useEffect(() => {
+    if (!saving) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => sub.remove();
+  }, [saving]);
+
   const SINGLE_REDIRECT_TIMEOUT_MS = 12_000;
 
   const redirectSingle = useCallback((item: BulkItem, settled: boolean) => {
@@ -500,8 +508,17 @@ export default function BulkReviewScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
-          <Ionicons name="arrow-back" size={24} color={Colors.primary} />
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backBtn}
+          hitSlop={8}
+          disabled={saving}
+        >
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color={saving ? Colors.textLight : Colors.primary}
+          />
         </Pressable>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Batch Review</Text>
