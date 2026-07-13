@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 
 const PHOTOROOM_SEGMENT_URL = "https://sdk.photoroom.com/v1/segment";
+const PHOTOROOM_TIMEOUT_MS = 15_000;
 
 export async function removeBackground(req: Request, res: Response) {
   const apiKey = process.env.PHOTOROOM_API_KEY;
@@ -13,6 +14,9 @@ export async function removeBackground(req: Request, res: Response) {
     return res.status(400).json({ error: "imageBase64 is required" });
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), PHOTOROOM_TIMEOUT_MS);
+
   try {
     const buffer = Buffer.from(imageBase64, "base64");
 
@@ -20,19 +24,23 @@ export async function removeBackground(req: Request, res: Response) {
     const blob = new Blob([buffer], { type: "image/jpeg" });
     form.append("image_file", blob, "garment.jpg");
 
-    const response = await fetch(PHOTOROOM_SEGMENT_URL, {
+    const fetchResponse = await fetch(PHOTOROOM_SEGMENT_URL, {
       method: "POST",
       headers: { "x-api-key": apiKey },
       body: form,
+      signal: controller.signal,
     });
 
-    if (!response.ok) {
-      const errText = await response.text().catch(() => response.statusText);
-      console.error("[remove-background] Photoroom error:", response.status, errText);
-      return res.status(502).json({ error: "photoroom_error", status: response.status });
+    if (!fetchResponse.ok) {
+      clearTimeout(timeoutId);
+      const errText = await fetchResponse.text().catch(() => fetchResponse.statusText);
+      console.error("[remove-background] Photoroom error:", fetchResponse.status, errText);
+      return res.status(502).json({ error: "photoroom_error", status: fetchResponse.status });
     }
 
-    const arrayBuffer = await response.arrayBuffer();
+    const arrayBuffer = await fetchResponse.arrayBuffer();
+    clearTimeout(timeoutId);
+
     if (arrayBuffer.byteLength === 0) {
       console.error("[remove-background] Photoroom returned an empty body (0 bytes)");
       return res.status(502).json({ error: "photoroom_empty_response" });
@@ -62,6 +70,11 @@ export async function removeBackground(req: Request, res: Response) {
 
     return res.json({ imageBase64: resultBase64, mimeType: "image/png" });
   } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err?.name === "AbortError") {
+      console.error("[remove-background] Photoroom request timed out after %dms", PHOTOROOM_TIMEOUT_MS);
+      return res.status(502).json({ error: "photoroom_timeout" });
+    }
     console.error("[remove-background] Unexpected error:", err?.message);
     return res.status(502).json({ error: "background_removal_failed" });
   }

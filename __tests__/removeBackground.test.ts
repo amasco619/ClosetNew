@@ -356,6 +356,75 @@ async function main() {
     delete process.env.PHOTOROOM_API_KEY;
   }
 
+  // ── B. server handler — AbortController timeout → 502 photoroom_timeout ───
+  // Simulates the fetch being aborted by the 15 s AbortController signal:
+  // the fetch rejects with a DOMException whose name is "AbortError".
+
+  console.log('\nserver/remove-background — Photoroom fetch times out (AbortError):');
+
+  {
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+
+    const req = makeMockReq({ imageBase64: 'valid-base64' });
+    const res = makeMockRes();
+
+    const originalFetch = (globalThis as any).fetch;
+    (globalThis as any).fetch = async () => {
+      const err = new Error('The operation was aborted');
+      (err as any).name = 'AbortError';
+      throw err;
+    };
+
+    await serverRemoveBackground(req as any, res as any);
+
+    assertEq(res._status, 502, 'AbortError (timeout) → HTTP 502');
+    assertEq(
+      (res._body as any)?.error,
+      'photoroom_timeout',
+      'AbortError (timeout) → error: "photoroom_timeout" (distinct from generic background_removal_failed)',
+    );
+
+    (globalThis as any).fetch = originalFetch;
+    delete process.env.PHOTOROOM_API_KEY;
+  }
+
+  // ── B. server handler — AbortError during body read (mid-stream stall) → 502
+  // The AbortController must remain active through response.arrayBuffer(), not
+  // just through fetch(). This test simulates the critical mid-stream case:
+  // fetch() resolves immediately (headers received) but arrayBuffer() rejects
+  // with AbortError — as happens when the timeout fires during body transfer.
+
+  console.log('\nserver/remove-background — timeout fires during body read (mid-stream AbortError):');
+
+  {
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+
+    const req = makeMockReq({ imageBase64: 'valid-base64' });
+    const res = makeMockRes();
+
+    const originalFetch = (globalThis as any).fetch;
+    (globalThis as any).fetch = async () => {
+      const abortErr = new Error('The operation was aborted');
+      (abortErr as any).name = 'AbortError';
+      return {
+        ok: true,
+        arrayBuffer: async () => { throw abortErr; },
+      };
+    };
+
+    await serverRemoveBackground(req as any, res as any);
+
+    assertEq(res._status, 502, 'mid-stream AbortError (body stall) → HTTP 502');
+    assertEq(
+      (res._body as any)?.error,
+      'photoroom_timeout',
+      'mid-stream AbortError → error: "photoroom_timeout" (not "background_removal_failed")',
+    );
+
+    (globalThis as any).fetch = originalFetch;
+    delete process.env.PHOTOROOM_API_KEY;
+  }
+
   // ── D. resolvePhotoUri — URI stored in wardrobe state is never data: ───────
 
   console.log('\nresolvePhotoUri — normal file:// URI from ImageManipulator:');
