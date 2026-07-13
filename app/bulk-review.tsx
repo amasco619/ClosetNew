@@ -141,15 +141,34 @@ function BulkCard({
   const isSaving   = item.status === 'saving';
   const isError    = item.status === 'error';
 
+  // Always use the original picker URI for the preview thumbnail.
+  //
+  // Background: displayUri points to NSTemporaryDirectory (iOS) / Android
+  // tmp cache — both are volatile and can be evicted by the OS at any time,
+  // including while the app is in the foreground under memory pressure.
+  // Using item.uri (the original ImagePicker result, in the app-managed
+  // Library/Caches) is both more stable and guarantees the user sees their
+  // own recognisable photo rather than a transparent-background re-encode
+  // that may render as white on white for light-coloured garments.
+  //
+  // displayUri / cleanBase64 are still used exclusively by the upload path.
+  const [photoErrored, setPhotoErrored] = useState(false);
+  const previewUri = item.uri;
+  const fallbackUri = item.uri; // same source; kept separate for readability
+
   return (
     <View style={styles.card}>
       {/* Photo — always visible; overlay sits on top */}
       <View style={styles.photoWrap}>
         <Image
-          source={{ uri: item.displayUri ?? item.uri }}
+          source={{ uri: photoErrored ? fallbackUri : previewUri }}
           style={styles.photo}
           contentFit="contain"
           transition={200}
+          recyclingKey={item.uri}
+          onError={() => {
+            if (!photoErrored) setPhotoErrored(true);
+          }}
         />
 
         <GoldOverlay isActive={isActive} statusPhase={statusPhase} />

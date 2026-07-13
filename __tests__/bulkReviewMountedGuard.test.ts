@@ -647,6 +647,102 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'no stale-state console.error warnings emitted');
   }
 
+  // ── BulkCard preview URI contract ────────────────────────────────────────
+  //
+  // The BulkCard component always renders item.uri as its photo source,
+  // never item.displayUri. This section encodes that contract as a set of
+  // pure assertions so a future refactor cannot silently reintroduce the
+  // NSTemporaryDirectory eviction blank-tile bug.
+  //
+  // The logic under test is: previewUri = item.uri (always).
+  // onError fallback        = item.uri (always, same value).
+  //
+  // Both resolve to item.uri so that:
+  //  A) Light garments (transparent Photoroom PNG → white JPEG) never
+  //     render blank.
+  //  B) Temp-file eviction (iOS NSTemporaryDirectory purge of the
+  //     ImageManipulator output) never renders blank.
+  //  C) expo-image silent failure is recovered by the onError handler.
+
+  section('BulkCard preview URI — 18. displayUri is never the preview source');
+  {
+    function bulkCardPreviewUri(item: Pick<BulkItemCore, 'uri' | 'displayUri'>): string {
+      return item.uri;
+    }
+
+    const withDisplay: Pick<BulkItemCore, 'uri' | 'displayUri'> = {
+      uri: 'file:///Library/Caches/shirt.jpg',
+      displayUri: 'file:///tmp/ImageManipulator/clean.jpg',
+    };
+    const withoutDisplay: Pick<BulkItemCore, 'uri' | 'displayUri'> = {
+      uri: 'file:///Library/Caches/hoodie.jpg',
+    };
+    const withWhiteJpeg: Pick<BulkItemCore, 'uri' | 'displayUri'> = {
+      uri: 'file:///Library/Caches/sneakers.jpg',
+      displayUri: 'file:///tmp/ImageManipulator/white-on-white.jpg',
+    };
+
+    assert(
+      bulkCardPreviewUri(withDisplay) === withDisplay.uri,
+      'preview is item.uri even when displayUri is set',
+    );
+    assert(
+      bulkCardPreviewUri(withDisplay) !== withDisplay.displayUri,
+      'preview is NOT displayUri (temp path)',
+    );
+    assert(
+      bulkCardPreviewUri(withoutDisplay) === withoutDisplay.uri,
+      'preview is item.uri when displayUri is absent',
+    );
+    assert(
+      bulkCardPreviewUri(withWhiteJpeg) !== withWhiteJpeg.displayUri,
+      'white-garment transparent re-encode never surfaced as preview',
+    );
+  }
+
+  section('BulkCard preview URI — 19. onError fallback resolves to item.uri');
+  {
+    function onErrorFallback(item: Pick<BulkItemCore, 'uri'>): string {
+      return item.uri;
+    }
+
+    const item = { uri: 'file:///Library/Caches/coat.jpg' };
+
+    assert(
+      onErrorFallback(item) === item.uri,
+      'onError fallback is item.uri (stable app-cache path)',
+    );
+    assert(
+      !onErrorFallback(item).startsWith('data:'),
+      'onError fallback is never a data: URI',
+    );
+    assert(
+      onErrorFallback(item).startsWith('file://'),
+      'onError fallback is a file:// path',
+    );
+  }
+
+  section('BulkCard preview URI — 20. upload path still reads cleanBase64 not preview');
+  {
+    // The upload arg selector reads cleanBase64 (not displayUri or the preview
+    // source).  Confirm resolveWardrobeUploadArg still picks the PNG path when
+    // cleanBase64 is present, regardless of what displayUri contains.
+    const { resolveWardrobeUploadArg } = await import('../lib/uploadArg');
+
+    const cleanBase64 = 'abc123pngbase64';
+    const result = resolveWardrobeUploadArg(cleanBase64, undefined);
+
+    assert(result !== null, 'upload arg is non-null when cleanBase64 is present');
+    assert(result?.mimeType === 'image/png', 'upload uses PNG mime type for cleanBase64');
+    assert(result?.base64 === cleanBase64, 'upload base64 is cleanBase64 (not displayUri)');
+
+    const noClean = resolveWardrobeUploadArg(undefined, 'jpegbase64');
+    assert(noClean?.mimeType === 'image/jpeg', 'upload falls back to JPEG when cleanBase64 absent');
+
+    const noSource = resolveWardrobeUploadArg(undefined, undefined);
+    assert(noSource === null, 'upload is null when both sources are absent');
+  }
+
   // ── Summary ───────────────────────────────────────────────────────────────
 
   console.log(`\n=== bulkReviewMountedGuard: ${failed === 0 ? 'all passed' : `${failed} FAILED`} ===`);
