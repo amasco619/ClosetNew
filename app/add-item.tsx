@@ -17,6 +17,7 @@ import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, wit
 import { apiRequest } from '@/lib/query-client';
 import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
 import * as Crypto from 'expo-crypto';
+import * as FileSystem from 'expo-file-system/legacy';
 import { uploadWardrobeImage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
 
@@ -840,6 +841,17 @@ export default function AddItemScreen() {
           finalUri = await uploadWardrobeImage(session.user.id, uploadBase64, itemId, uploadMime);
         } catch (uploadErr) {
           console.warn('[add-item] Storage upload failed, using local URI:', uploadErr);
+        }
+      } else {
+        // Guest user — copy the photo from the temp cache to the document directory
+        // so the thumbnail survives an app restart (temp files are purged by the OS).
+        try {
+          const ext = photoBgRemoved ? 'png' : 'jpg';
+          const dest = `${FileSystem.documentDirectory}wardrobe_${itemId}.${ext}`;
+          await FileSystem.copyAsync({ from: photoUri, to: dest });
+          finalUri = dest;
+        } catch (copyErr) {
+          console.warn('[add-item] Guest photo copy failed, keeping temp URI:', copyErr);
         }
       }
       setSaveStage('saving');
