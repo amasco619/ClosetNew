@@ -327,6 +327,88 @@ async function testDetectFileOrphans(): Promise<void> {
     eq(orphans[0]!.id, 'bad', 'correct item orphaned');
     assert(!orphans.some(o => o.id === 'good'), 'existent file not orphaned');
   }
+
+  // ── Android post-update documentDirectory shift ──────────────────────────────
+  // On Android the documentDirectory prefix can change between app versions.
+  // Non-wardrobe_ temp file:// paths that were NOT fixed by rebaseGuestPhotoUri
+  // still end up in nonGuestFileUris. Without the rebaseUri guard they would
+  // trigger the recovery card even though the file is present under the new prefix.
+
+  const OLD_DOCDIR = 'file:///data/user/0/com.app/files/';
+  const NEW_DOCDIR = 'file:///data/user/0/com.app.v2/files/';
+  const staleRebase = (uri: string) => {
+    if (!uri.startsWith('file://')) return uri;
+    const filename = uri.split('/').pop() ?? '';
+    return filename ? `${NEW_DOCDIR}${filename}` : uri;
+  };
+
+  section('C13. Post-update path shift: file exists at rebased path → NOT an orphan');
+  {
+    const item = makeItem({
+      id: 'shifted',
+      photoUri: `${OLD_DOCDIR}temp_upload_shifted.jpg`,
+    });
+    // Primary URI (old prefix) does not exist; rebased URI (new prefix) does.
+    const getInfoShifted: FileInfoFn = async (uri: string) => ({
+      exists: uri.startsWith(NEW_DOCDIR),
+    });
+    const { orphans, recovered } = await detectFileOrphans(
+      [item], getInfoShifted, noRecovery, 'user-abc', staleRebase,
+    );
+    eq(orphans.length, 0, 'item not orphaned when rebased path resolves locally');
+    assert(recovered['shifted'] !== undefined, 'rebased URI stored in recovered map');
+    eq(
+      recovered['shifted'],
+      `${NEW_DOCDIR}temp_upload_shifted.jpg`,
+      'recovered URI reflects the new documentDirectory prefix',
+    );
+  }
+
+  section('C14. Post-update path shift: file absent at both paths → IS an orphan');
+  {
+    const item = makeItem({
+      id: 'truly-gone',
+      photoUri: `${OLD_DOCDIR}temp_upload_gone.jpg`,
+    });
+    const { orphans } = await detectFileOrphans(
+      [item], neverExists, noRecovery, 'user-abc', staleRebase,
+    );
+    eq(orphans.length, 1, 'item orphaned when neither old nor rebased path exists');
+    eq(orphans[0]!.id, 'truly-gone', 'correct item surfaced');
+  }
+
+  section('C15. rebaseUri returns the same URI (no shift) → behaviour unchanged');
+  {
+    const item = makeItem({
+      id: 'no-shift',
+      photoUri: `${NEW_DOCDIR}temp_upload_stable.jpg`,
+    });
+    const identityRebase = (uri: string) => uri;
+    const { orphans } = await detectFileOrphans(
+      [item], neverExists, noRecovery, 'user-abc', identityRebase,
+    );
+    eq(orphans.length, 1, 'item still orphaned when rebaseUri produces the same URI');
+  }
+
+  section('C16. rebaseUri getInfo throws on rebased path → falls through to cloud recovery');
+  {
+    const item = makeItem({
+      id: 'rebase-throw',
+      photoUri: `${OLD_DOCDIR}temp_upload_throw.jpg`,
+    });
+    const newUri = `${NEW_DOCDIR}temp_upload_throw.jpg`;
+    let rebaseCheckCalled = false;
+    const selectiveThrow: FileInfoFn = async (uri: string) => {
+      if (uri === newUri) { rebaseCheckCalled = true; throw new Error('I/O error on rebased path'); }
+      return { exists: false };
+    };
+    const { orphans, recovered } = await detectFileOrphans(
+      [item], selectiveThrow, recoversFor('rebase-throw'), 'user-abc', staleRebase,
+    );
+    assert(rebaseCheckCalled, 'rebaseUri path was checked');
+    eq(orphans.length, 0, 'item not orphaned when cloud recovery succeeds after rebase check throws');
+    assert(recovered['rebase-throw'] !== undefined, 'cloud-recovered URI in recovered map');
+  }
 }
 
 // ── D. applyOrphanResolution ──────────────────────────────────────────────────

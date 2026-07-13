@@ -421,6 +421,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
               uri => FileSystem.getInfoAsync(uri),
               (uid, itemId) => recoverWardrobeImageUrl(uid, itemId).then(u => u ?? null),
               currentUserIdRef.current,
+              // Guard against Android post-update documentDirectory shifts:
+              // if the item's file:// path used a prefix that changed between
+              // app versions, compute the candidate path under the current
+              // documentDirectory and let detectFileOrphans verify existence
+              // before falling through to cloud recovery or orphan status.
+              (uri: string) => {
+                if (!currentDocDir || !uri.startsWith('file://')) return uri;
+                const filename = uri.split('/').pop() ?? '';
+                return filename ? `${currentDocDir}${filename}` : uri;
+              },
             );
           if (Object.keys(recoveredUpdates).length > 0) {
             console.log(

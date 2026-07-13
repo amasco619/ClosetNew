@@ -52,17 +52,26 @@ export interface OrphanScanResult {
  *   because there is no cloud fallback.
  * - If the file is missing and `recover` returns a URL, the item is NOT
  *   surfaced; instead its new URL is returned in `recovered`.
+ * - If `rebaseUri` is provided and the rebased path exists locally, the item
+ *   is NOT surfaced as an orphan. The rebased URI is stored in `recovered` so
+ *   the caller can update the item in place. This guards against the Android
+ *   post-update documentDirectory shift where non-wardrobe_ temp file:// paths
+ *   were never rebased by rebaseGuestPhotoUri but the file is still present
+ *   under the new prefix.
  *
- * @param items   Items with a non-guest `file://` photoUri
- * @param getInfo Resolves to `{ exists: boolean }` for a local URI
- * @param recover Returns the remote URL for an item, or null if absent
- * @param userId  Authenticated user id; null for guests
+ * @param items      Items with a non-guest `file://` photoUri
+ * @param getInfo    Resolves to `{ exists: boolean }` for a local URI
+ * @param recover    Returns the remote URL for an item, or null if absent
+ * @param userId     Authenticated user id; null for guests
+ * @param rebaseUri  Optional: maps a stale file:// URI to a candidate rebased
+ *                   path. Called only when the primary URI does not exist.
  */
 export async function detectFileOrphans(
   items: WardrobeItem[],
   getInfo: FileInfoFn,
   recover: RecoverUrlFn,
   userId: string | null,
+  rebaseUri?: (uri: string) => string,
 ): Promise<OrphanScanResult> {
   const recovered: Record<string, string> = {};
   const orphans: WardrobeItem[] = [];
@@ -71,6 +80,25 @@ export async function detectFileOrphans(
     try {
       const info = await getInfo(item.photoUri);
       if (!info.exists) {
+        // Before attempting cloud recovery, check whether the file simply
+        // moved to a new documentDirectory prefix (Android post-update shift).
+        if (rebaseUri) {
+          const rebased = rebaseUri(item.photoUri);
+          if (rebased !== item.photoUri) {
+            try {
+              const rebasedInfo = await getInfo(rebased);
+              if (rebasedInfo.exists) {
+                // File found at the rebased path — update the URI and skip
+                // cloud recovery. The item is not an orphan.
+                recovered[item.id] = rebased;
+                continue;
+              }
+            } catch {
+              // Rebased-path check failed — fall through to standard recovery.
+            }
+          }
+        }
+
         if (userId) {
           const remoteUrl = await recover(userId, item.id).catch(() => null);
           if (remoteUrl) {
