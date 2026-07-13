@@ -843,20 +843,34 @@ export default function AddItemScreen() {
           setSaveStage('uploading');
           finalUri = await uploadWardrobeImage(session.user.id, uploadBase64, itemId, uploadMime);
         } catch (uploadErr) {
-          console.warn('[add-item] Storage upload failed, using local URI:', uploadErr);
+          // Upload failed — copy to documentDirectory so the photo at least survives
+          // app restarts. The existing AppContext recovery logic will re-attempt the
+          // Supabase upload on next load and swap the local path for the remote URL.
+          console.warn('[add-item] Storage upload failed, attempting local copy fallback:', uploadErr);
+          const ext = photoBgRemoved ? 'png' : 'jpg';
+          const dest = buildGuestPhotoDestPath(FileSystem.documentDirectory!, itemId, ext);
+          try {
+            await FileSystem.copyAsync({ from: photoUri, to: dest });
+            finalUri = dest;
+            console.warn('[add-item] Upload failed — saved local copy; will recover on next launch.');
+          } catch (copyErr) {
+            console.error('[add-item] Local copy also failed:', copyErr);
+            throw new Error('Could not save photo — please check your storage and try again.');
+          }
         }
       } else {
         // Guest user — copy the photo from the temp cache to the document directory
         // so the thumbnail survives an app restart (temp files are purged by the OS).
         // buildGuestPhotoDestPath produces a path under documentDirectory so that
         // the deleteGuestPhoto cleanup guard (startsWith check) will always match.
+        const ext = photoBgRemoved ? 'png' : 'jpg';
+        const dest = buildGuestPhotoDestPath(FileSystem.documentDirectory!, itemId, ext);
         try {
-          const ext = photoBgRemoved ? 'png' : 'jpg';
-          const dest = buildGuestPhotoDestPath(FileSystem.documentDirectory!, itemId, ext);
           await FileSystem.copyAsync({ from: photoUri, to: dest });
           finalUri = dest;
         } catch (copyErr) {
-          console.warn('[add-item] Guest photo copy failed, keeping temp URI:', copyErr);
+          console.error('[add-item] Guest photo copy failed:', copyErr);
+          throw new Error('Could not save photo to device storage — please try again.');
         }
       }
       setSaveStage('saving');
@@ -890,6 +904,10 @@ export default function AddItemScreen() {
       console.error('[add-item] Save failed:', e);
       setSaving(false);
       setSaveStage(null);
+      Alert.alert(
+        'Could not save item',
+        e instanceof Error ? e.message : 'Something went wrong. Please try again.',
+      );
     }
   };
 
