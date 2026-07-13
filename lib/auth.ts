@@ -4,6 +4,7 @@ import * as QueryParams from 'expo-auth-session/build/QueryParams'
 import { fetch } from 'expo/fetch'
 import { supabase } from './supabase'
 import { getApiUrl } from './query-client'
+import { handleOAuthBrowserResult } from './oauthGuard'
 
 WebBrowser.maybeCompleteAuthSession()
 
@@ -91,9 +92,7 @@ export async function signInWithGoogle(): Promise<void> {
     data?.url ?? '',
     redirectTo
   )
-  if (result.type === 'success') {
-    await createSessionFromUrl(result.url)
-  }
+  await handleOAuthBrowserResult(result as import('./oauthGuard').OAuthBrowserResult, createSessionFromUrl)
 }
 
 export async function signInWithApple(): Promise<void> {
@@ -109,9 +108,7 @@ export async function signInWithApple(): Promise<void> {
     data?.url ?? '',
     redirectTo
   )
-  if (result.type === 'success') {
-    await createSessionFromUrl(result.url)
-  }
+  await handleOAuthBrowserResult(result as import('./oauthGuard').OAuthBrowserResult, createSessionFromUrl)
 }
 
 export async function signOut(): Promise<void> {
