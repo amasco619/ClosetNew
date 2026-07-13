@@ -28,6 +28,7 @@ import {
   createSessionFromUrl,
   isValidEmail, validatePassword,
 } from '../lib/auth'
+import { useApp } from '@/contexts/AppContext'
 import Colors from '@/constants/colors'
 
 type Mode = 'sign-in' | 'sign-up'
@@ -96,6 +97,7 @@ function SocialButton({
 export default function SignInScreen() {
   const insets = useSafeAreaInsets()
   const webTop = Platform.OS === 'web' ? 67 : 0
+  const { isAuthenticated } = useApp()
   const [mode, setMode] = useState<Mode>('sign-in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -111,6 +113,15 @@ export default function SignInScreen() {
   const [emailFocused, setEmailFocused] = useState(false)
   const [passwordFocused, setPasswordFocused] = useState(false)
   const [confirmFocused, setConfirmFocused] = useState(false)
+
+  // Navigate away as soon as the session is established — covers both the
+  // in-app browser OAuth path (Google / Apple) and the deep-link callback
+  // path. index.tsx then decides onboarding vs tabs based on profile state.
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace('/')
+    }
+  }, [isAuthenticated])
 
   // Ken Burns subtle motion on background
   const bgScale = useSharedValue(1)
