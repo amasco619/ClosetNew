@@ -24,7 +24,7 @@
 
 import { resolveClassifyBase64, selectClassifyPayload, resolvePhotoUri } from '../lib/classifyPath';
 import { removeBackground as serverRemoveBackground } from '../server/remove-background';
-import { resolveWardrobeUploadArg } from '../lib/uploadArg';
+import { resolveWardrobeUploadArg, stripDataUriPrefix } from '../lib/uploadArg';
 
 // ── Assertion harness ──────────────────────────────────────────────────────────
 
@@ -933,6 +933,75 @@ async function main() {
       'PNG magic but body < 1 KB → error: "photoroom_invalid_response"',
     );
     delete process.env.PHOTOROOM_API_KEY;
+  }
+
+  // ── H1. stripDataUriPrefix — strips data: header, passthrough otherwise ──
+  //
+  // Exercises the pure guard that uploadWardrobeImage applies internally before
+  // passing any base64 string to decode().  The same function is exported from
+  // lib/uploadArg so it can be unit-tested here without the Supabase client.
+
+  console.log('\nH1. stripDataUriPrefix — strips data: header when present:');
+
+  {
+    const raw = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ';
+    assertEq(
+      stripDataUriPrefix(`data:image/png;base64,${raw}`),
+      raw,
+      'strips data:image/png;base64, prefix → returns raw base64',
+    );
+  }
+
+  {
+    const raw = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBg';
+    assertEq(
+      stripDataUriPrefix(`data:image/jpeg;base64,${raw}`),
+      raw,
+      'strips data:image/jpeg;base64, prefix → returns raw base64',
+    );
+  }
+
+  {
+    const raw = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ';
+    assertEq(
+      stripDataUriPrefix(raw),
+      raw,
+      'plain base64 (no data: prefix) → returned unchanged',
+    );
+  }
+
+  {
+    const url = 'https://project.supabase.co/storage/v1/object/public/wardrobe/uuid.png';
+    assertEq(
+      stripDataUriPrefix(url),
+      url,
+      'https:// URL (no ;base64, marker) → returned unchanged',
+    );
+  }
+
+  {
+    assertEq(
+      stripDataUriPrefix(''),
+      '',
+      'empty string → returned unchanged',
+    );
+  }
+
+  console.log('\nH1. stripDataUriPrefix — invariant: result never contains ;base64, prefix:');
+
+  const stripCases = [
+    'data:image/png;base64,iVBORw0KGgo=',
+    'data:image/jpeg;base64,/9j/4AAQSkZJRgAB',
+    'iVBORw0KGgo=',
+    '',
+  ];
+
+  for (const input of stripCases) {
+    const result = stripDataUriPrefix(input);
+    assert(
+      !result.includes(';base64,'),
+      `result does not contain ";base64," for input ${JSON.stringify(input.slice(0, 40))}`,
+    );
   }
 
   // ── H2. uploadWardrobeImage argument — never data: prefix ────────────────

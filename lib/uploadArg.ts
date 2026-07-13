@@ -14,6 +14,21 @@ export interface WardrobeUploadArg {
 }
 
 /**
+ * Strip a "data:<mime>;base64," prefix when one is accidentally present.
+ * Returns the raw base64 string unchanged if no such prefix exists.
+ *
+ * Used both here (to guard resolveWardrobeUploadArg) and re-exported so
+ * lib/storage.ts can apply the same guard inside uploadWardrobeImage as a
+ * second line of defence — callers cannot corrupt Supabase Storage regardless
+ * of which code path reaches the upload call.
+ */
+export function stripDataUriPrefix(value: string): string {
+  const marker = ';base64,'
+  const idx = value.indexOf(marker)
+  return idx !== -1 ? value.slice(idx + marker.length) : value
+}
+
+/**
  * Given the two candidate base64 strings from the bulk-save upload branch,
  * returns the upload argument that should be passed to uploadWardrobeImage,
  * or null if neither source produced a usable value (upload should be skipped).

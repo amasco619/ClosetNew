@@ -1,5 +1,8 @@
 import { supabase } from './supabase'
 import { decode } from 'base64-arraybuffer'
+import { stripDataUriPrefix } from './uploadArg'
+
+export { stripDataUriPrefix } from './uploadArg'
 
 export async function uploadWardrobeImage(
   userId: string,
@@ -11,7 +14,7 @@ export async function uploadWardrobeImage(
   const fileName = `${userId}/${itemId}.${ext}`
   const { error } = await supabase.storage
     .from('wardrobe-images')
-    .upload(fileName, decode(imageBase64), {
+    .upload(fileName, decode(stripDataUriPrefix(imageBase64)), {
       contentType: mimeType,
       upsert: true,
     })
@@ -29,7 +32,7 @@ export async function uploadTryonPhoto(
   const fileName = `${userId}/reference.jpg`
   const { error } = await supabase.storage
     .from('tryon-photos')
-    .upload(fileName, decode(imageBase64), {
+    .upload(fileName, decode(stripDataUriPrefix(imageBase64)), {
       contentType: 'image/jpeg',
       upsert: true,
     })
