@@ -25,7 +25,14 @@
 import { resolveClassifyBase64, selectClassifyPayload, resolvePhotoUri } from '../lib/classifyPath';
 import { removeBackground as serverRemoveBackground } from '../server/remove-background';
 import { resolveWardrobeUploadArg, stripDataUriPrefix } from '../lib/uploadArg';
-import { PHOTOROOM_TIMEOUT_ERROR } from '../shared/photoroom-error-codes';
+import {
+  BACKGROUND_REMOVAL_FAILED,
+  BACKGROUND_REMOVAL_UNAVAILABLE,
+  PHOTOROOM_EMPTY_RESPONSE,
+  PHOTOROOM_ERROR,
+  PHOTOROOM_INVALID_RESPONSE,
+  PHOTOROOM_TIMEOUT_ERROR,
+} from '../shared/photoroom-error-codes';
 
 // ── Assertion harness ──────────────────────────────────────────────────────────
 
@@ -238,8 +245,8 @@ async function main() {
     assertEq(res._status, 503, 'missing API key → HTTP 503 (not 500)');
     assertEq(
       (res._body as any)?.error,
-      'background_removal_unavailable',
-      'missing API key → error: "background_removal_unavailable"',
+      BACKGROUND_REMOVAL_UNAVAILABLE,
+      `missing API key → error: "${BACKGROUND_REMOVAL_UNAVAILABLE}"`,
     );
 
     if (savedKey !== undefined) process.env.PHOTOROOM_API_KEY = savedKey;
@@ -288,8 +295,8 @@ async function main() {
     assertEq(res._status, 502, 'Photoroom non-OK response → HTTP 502');
     assertEq(
       (res._body as any)?.error,
-      'photoroom_error',
-      'Photoroom non-OK → error: "photoroom_error"',
+      PHOTOROOM_ERROR,
+      `Photoroom non-OK → error: "${PHOTOROOM_ERROR}"`,
     );
     assertEq(
       (res._body as any)?.status,
@@ -324,8 +331,8 @@ async function main() {
     assertEq(res._status, 502, 'HTTP 200 with 0-byte body → HTTP 502 (not 200)');
     assertEq(
       (res._body as any)?.error,
-      'photoroom_empty_response',
-      'HTTP 200 with 0-byte body → error: "photoroom_empty_response"',
+      PHOTOROOM_EMPTY_RESPONSE,
+      `HTTP 200 with 0-byte body → error: "${PHOTOROOM_EMPTY_RESPONSE}"`,
     );
 
     (globalThis as any).fetch = originalFetch;
@@ -349,8 +356,8 @@ async function main() {
     assertEq(res._status, 502, 'network error → HTTP 502 (not 500)');
     assertEq(
       (res._body as any)?.error,
-      'background_removal_failed',
-      'network error → error: "background_removal_failed"',
+      BACKGROUND_REMOVAL_FAILED,
+      `network error → error: "${BACKGROUND_REMOVAL_FAILED}"`,
     );
 
     (globalThis as any).fetch = originalFetch;
@@ -880,8 +887,8 @@ async function main() {
     assertEq(res._status, 502, 'truncated non-PNG body (< 1 KB) → HTTP 502');
     assertEq(
       (res._body as any)?.error,
-      'photoroom_invalid_response',
-      'truncated non-PNG body → error: "photoroom_invalid_response"',
+      PHOTOROOM_INVALID_RESPONSE,
+      `truncated non-PNG body → error: "${PHOTOROOM_INVALID_RESPONSE}"`,
     );
   }
 
@@ -915,8 +922,8 @@ async function main() {
     assertEq(res._status, 502, 'large non-PNG body (>= 1 KB) → HTTP 502');
     assertEq(
       (res._body as any)?.error,
-      'photoroom_invalid_response',
-      'large non-PNG body → error: "photoroom_invalid_response"',
+      PHOTOROOM_INVALID_RESPONSE,
+      `large non-PNG body → error: "${PHOTOROOM_INVALID_RESPONSE}"`,
     );
   }
 
@@ -930,8 +937,8 @@ async function main() {
     assertEq(res._status, 502, 'PNG magic but body < 1 KB → HTTP 502');
     assertEq(
       (res._body as any)?.error,
-      'photoroom_invalid_response',
-      'PNG magic but body < 1 KB → error: "photoroom_invalid_response"',
+      PHOTOROOM_INVALID_RESPONSE,
+      `PNG magic but body < 1 KB → error: "${PHOTOROOM_INVALID_RESPONSE}"`,
     );
     delete process.env.PHOTOROOM_API_KEY;
   }

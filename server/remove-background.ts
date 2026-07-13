@@ -1,5 +1,12 @@
 import type { Request, Response } from "express";
-import { PHOTOROOM_TIMEOUT_ERROR } from "../shared/photoroom-error-codes";
+import {
+  BACKGROUND_REMOVAL_FAILED,
+  BACKGROUND_REMOVAL_UNAVAILABLE,
+  PHOTOROOM_EMPTY_RESPONSE,
+  PHOTOROOM_ERROR,
+  PHOTOROOM_INVALID_RESPONSE,
+  PHOTOROOM_TIMEOUT_ERROR,
+} from "../shared/photoroom-error-codes";
 
 const PHOTOROOM_SEGMENT_URL = "https://sdk.photoroom.com/v1/segment";
 const PHOTOROOM_TIMEOUT_MS = 15_000;
@@ -16,7 +23,7 @@ if (process.env.PHOTOROOM_API_KEY) {
 export async function removeBackground(req: Request, res: Response) {
   const apiKey = process.env.PHOTOROOM_API_KEY;
   if (!apiKey) {
-    return res.status(503).json({ error: "background_removal_unavailable" });
+    return res.status(503).json({ error: BACKGROUND_REMOVAL_UNAVAILABLE });
   }
 
   const { imageBase64 } = req.body as { imageBase64?: string };
@@ -45,7 +52,7 @@ export async function removeBackground(req: Request, res: Response) {
       clearTimeout(timeoutId);
       const errText = await fetchResponse.text().catch(() => fetchResponse.statusText);
       console.error("[remove-background] Photoroom error:", fetchResponse.status, errText);
-      return res.status(502).json({ error: "photoroom_error", status: fetchResponse.status });
+      return res.status(502).json({ error: PHOTOROOM_ERROR, status: fetchResponse.status });
     }
 
     const arrayBuffer = await fetchResponse.arrayBuffer();
@@ -53,7 +60,7 @@ export async function removeBackground(req: Request, res: Response) {
 
     if (arrayBuffer.byteLength === 0) {
       console.error("[remove-background] Photoroom returned an empty body (0 bytes)");
-      return res.status(502).json({ error: "photoroom_empty_response" });
+      return res.status(502).json({ error: PHOTOROOM_EMPTY_RESPONSE });
     }
     const resultBuf = Buffer.from(arrayBuffer);
     const isPng =
@@ -67,14 +74,14 @@ export async function removeBackground(req: Request, res: Response) {
         "[remove-background] Photoroom response is not a valid PNG (byteLength=%d)",
         arrayBuffer.byteLength,
       );
-      return res.status(502).json({ error: "photoroom_invalid_response" });
+      return res.status(502).json({ error: PHOTOROOM_INVALID_RESPONSE });
     }
     if (arrayBuffer.byteLength < 1024) {
       console.error(
         "[remove-background] Photoroom response is too small to be a valid image (byteLength=%d)",
         arrayBuffer.byteLength,
       );
-      return res.status(502).json({ error: "photoroom_invalid_response" });
+      return res.status(502).json({ error: PHOTOROOM_INVALID_RESPONSE });
     }
     const resultBase64 = resultBuf.toString("base64");
 
@@ -86,6 +93,6 @@ export async function removeBackground(req: Request, res: Response) {
       return res.status(502).json({ error: PHOTOROOM_TIMEOUT_ERROR });
     }
     console.error("[remove-background] Unexpected error:", err?.message);
-    return res.status(502).json({ error: "background_removal_failed" });
+    return res.status(502).json({ error: BACKGROUND_REMOVAL_FAILED });
   }
 }
