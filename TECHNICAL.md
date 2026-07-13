@@ -39,6 +39,7 @@ In Replit, go to **Tools > Secrets** and add the following (see [§7](#7-environ
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes |
 | `EXPO_PUBLIC_SUPABASE_URL` | Yes |
 | `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes |
+| `PHOTOROOM_API_KEY` | Yes |
 
 Do **not** create a `.env` file. Replit secrets are injected automatically into the environment. A `.env` file will override the injected values and break Supabase initialisation.
 
@@ -181,6 +182,7 @@ Whenever you make a change that affects any section of this document — new API
 │   server/index.ts → server/routes.ts                    │
 │                                                         │
 │   POST /api/classify-garment  (aiLimiter: 10/min)       │
+│   POST /api/remove-background (aiLimiter: 10/min)       │
 │   POST /api/extract-color     (colorLimiter: 30/min)    │
 │   POST /api/user/upgrade-premium (accountLimiter: 5/hr) │
 │   DELETE /api/user/delete-account (accountLimiter: 5/hr)│
@@ -243,12 +245,14 @@ app/
   sign-in.tsx            Email + social auth screen (sign-in and sign-up modes)
   forgot-password.tsx    Password reset request screen
   onboarding.tsx         Multi-step style profile quiz
-  add-item.tsx           Add wardrobe item (camera / gallery + Gemini classification)
+  add-item.tsx           Add wardrobe item (camera / gallery + Gemini classification + Photoroom bg removal)
   bulk-review.tsx        Bulk review grid — parallel AI classification + batch save (reached via add-item multi-select)
   item-detail.tsx        Item detail and edit screen
   premium.tsx            Premium upgrade screen
   wear-log.tsx           Full outfit wear history grouped by date
   outfit-ideas.tsx       Outfit ideas for a selected wardrobe item
+  auth/
+    callback.tsx         OAuth redirect handler — extracts tokens from URL, calls setSession()
   (tabs)/
     _layout.tsx          Tab bar configuration (liquid glass on iOS 26+)
     index.tsx            Home / Dashboard tab
@@ -278,27 +282,40 @@ constants/
   wardrobeDiagnostics.ts Deep diagnostics engine (health score, gap analysis)
   affinity.ts            Personal calibration: per-item affinity, per-pair pairAffinity
   weather.ts             Weather-aware outerwear logic, Open-Meteo integration
+  orphanDetection.ts     Ghost-item recovery helpers: detectNoPhotoOrphans(), detectFileOrphans(), applyOrphanResolution()
+  rePhotographSave.ts    applyRePhotographSave() — pure add+remove branching for re-photograph flow
+  guestPhotoCleanup.ts   deleteGuestPhoto(), runGuestRemoval(), buildGuestPhotoDestPath() — guest local file cleanup
 
 lib/
   auth.ts                Auth helpers (signIn/Up/Out, OAuth, password reset)
   supabase.ts            Supabase client (SecureStore session adapter for native)
   storage.ts             uploadWardrobeImage() — uploads to Supabase Storage
   query-client.ts        @tanstack/react-query setup, apiRequest() helper
+  photoroom.ts           removeBackground() client — calls /api/remove-background, retries on photoroom_timeout
+  classifyPath.ts        resolveClassifyBase64(), selectClassifyPayload(), resolvePhotoUri() — bg-removal/classify pipeline helpers
+  uploadArg.ts           resolveWardrobeUploadArg(), stripDataUriPrefix() — upload argument normalisation
+  rebaseGuestPhotoUri.ts rebaseGuestPhotoUri() — Android post-update documentDirectory path fix for guest photos
+  bulkClassifyCore.ts    Parallel classification helpers shared between add-item and bulk-review
+  carouselUtils.ts       Carousel layout utilities for bulk-review grid
 
 server/
   index.ts               Express server entry (port 5000, 10mb JSON body limit)
-  routes.ts              Route registration (classifyGarment, extractColor, upgrade, delete)
+  routes.ts              Route registration (classifyGarment, removeBackground, extractColor, upgrade, delete)
   classify-garment.ts    POST /api/classify-garment — Gemini classifier
+  remove-background.ts   POST /api/remove-background — Photoroom background removal; 15 s AbortController timeout; error codes from shared/photoroom-error-codes
   extract-color.ts       POST /api/extract-color — perceptual colour extraction
   supabase.ts            Server-side Supabase admin client
   middleware/
     rateLimiter.ts       aiLimiter, colorLimiter, accountLimiter exports
 
+shared/
+  photoroom-error-codes.ts  Shared error-code string constants (PHOTOROOM_TIMEOUT_ERROR, PHOTOROOM_ERROR, etc.) imported by both server/remove-background.ts and lib/photoroom.ts
+
 assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               18 test suites (see §11)
+__tests__/               26 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -373,12 +390,7 @@ All secrets are set in **Replit Secrets (Tools > Secrets)**. Never commit secret
 | `SUPABASE_SERVICE_ROLE_KEY` | `server/supabase.ts` | Supabase service role key for admin operations (upgrade-premium, delete-account). Keep confidential — has full database access. |
 | `EXPO_PUBLIC_SUPABASE_URL` | `lib/supabase.ts` | Your Supabase project URL (e.g. `https://xyzabc.supabase.co`). Prefix `EXPO_PUBLIC_` makes it available in the Expo bundle. |
 | `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `lib/supabase.ts` | Supabase anonymous/publishable key. Safe to include in the app bundle; RLS policies enforce access control. |
-
-### Pending / Future Secrets
-
-| Secret | Used by | Description |
-|--------|---------|-------------|
-| `PHOTOROOM_API_KEY` | `app/add-item.tsx` (to be wired) | Photoroom background-removal API key. Already owned. See [§10](#10-pending-features) for integration plan. |
+| `PHOTOROOM_API_KEY` | `server/remove-background.ts` | Photoroom background-removal API key. Required for the background-removal pipeline (`POST /api/remove-background`). Without it the endpoint returns HTTP 503 and the app falls back to the original photo. |
 
 ### Runtime Environment Variables (auto-set by Replit workflows)
 
@@ -414,7 +426,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 18 test suites once |
+| `npm test` | Run all 26 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -769,6 +781,124 @@ Two-screen flow for digitising an entire wardrobe section in one session: up to 
 
 ---
 
+### Photoroom Background Removal
+
+At upload time, both `app/add-item.tsx` and `app/bulk-review.tsx` attempt to strip the photo background before Gemini classification and Supabase Storage upload, producing clean flat-lay style images.
+
+**Pipeline (single-item add flow):**
+1. Photo selected → original JPEG base64 captured
+2. `removeBackground()` in `lib/photoroom.ts` calls `POST /api/remove-background` on the Express server
+3. Server calls the Photoroom API with a 15-second `AbortController` timeout; returns the processed image as PNG base64
+4. Client re-encodes the PNG to JPEG using `expo-image-manipulator`
+5. `resolveClassifyBase64()` / `resolvePhotoUri()` select the final payload: re-encoded JPEG if successful, original JPEG as fallback — Gemini classification and Supabase upload always proceed
+6. `resolveWardrobeUploadArg()` strips any `data:` prefix before the upload
+
+**Retry logic (`lib/photoroom.ts`):**
+- Only `photoroom_timeout` triggers a single retry. All other error codes (`photoroom_error`, `photoroom_invalid_response`, `photoroom_empty_response`, `background_removal_failed`) return `null` immediately (no retry).
+- Network errors (`fetch` throws) also return `null` — no retry.
+
+**Server handler (`server/remove-background.ts`):**
+- Missing `PHOTOROOM_API_KEY` → HTTP 503 (`background_removal_unavailable`)
+- Missing `imageBase64` in request body → HTTP 400
+- Photoroom returns non-2xx → HTTP 502 (`photoroom_error`) with the upstream status forwarded in the response body
+- Photoroom returns HTTP 200 but 0-byte body → HTTP 502 (`photoroom_empty_response`)
+- `AbortError` (timeout during fetch or body read) → HTTP 502 (`photoroom_timeout`)
+- Any other thrown error → HTTP 502 (`background_removal_failed`)
+
+**Shared error codes (`shared/photoroom-error-codes.ts`):**
+All error-code string constants (`PHOTOROOM_TIMEOUT_ERROR`, `PHOTOROOM_ERROR`, `PHOTOROOM_EMPTY_RESPONSE`, `PHOTOROOM_INVALID_RESPONSE`, `BACKGROUND_REMOVAL_FAILED`, `BACKGROUND_REMOVAL_UNAVAILABLE`) are imported from this shared module by both `server/remove-background.ts` and `lib/photoroom.ts`. Inlining the bare strings in either file is a compile-time error — the shared module is the single source of truth.
+
+**Fallback guarantee:** If any step in the pipeline fails (API down, key missing, network error, re-encode throws), the app falls back to the original photo. Users are never blocked from adding an item.
+
+**Code:** `server/remove-background.ts`, `lib/photoroom.ts`, `lib/classifyPath.ts`, `lib/uploadArg.ts`, `shared/photoroom-error-codes.ts`, `app/add-item.tsx`, `app/bulk-review.tsx`
+
+---
+
+### Ghost Item Recovery
+
+Items can become "ghosts" — they exist in wardrobe state but their photo is missing (either `photoUri` is absent, or the local `file://` file no longer exists on disk). The Home screen shows a recovery card when ghosts are detected.
+
+**Two detection passes (both run on app startup and on wardrobe change):**
+1. `detectNoPhotoOrphans()` — synchronous filter; items with no `photoUri` at all
+2. `detectFileOrphans()` — async; checks `file://` items via `FileSystem.getInfoAsync`:
+   - File exists locally → not an orphan
+   - `getInfoAsync` throws (transient I/O error) → not surfaced as an orphan (silence is safer)
+   - File missing, authenticated user → attempt cloud recovery via Supabase Storage; if a URL is returned the item URI is patched in-place (no orphan card shown); if recovery fails → orphan
+   - File missing, guest user → orphan (no cloud fallback)
+   - `rebaseUri` guard: if an Android post-update `documentDirectory` shift is detected, the rebased path is checked first before cloud recovery
+
+**Resolution actions (shown in the Home screen recovery card):**
+- `'remove'` — calls `removeWardrobeItem(id)` to delete the DB row and local state
+- `'dismiss'` — clears the card; item remains in the wardrobe intact
+
+**Code:** `constants/orphanDetection.ts`, `contexts/AppContext.tsx`, `app/(tabs)/index.tsx`
+
+---
+
+### Re-photograph Flow
+
+From the ghost-item recovery card (and from `app/item-detail.tsx`), users can retake or re-select a photo for a wardrobe item rather than removing it entirely.
+
+**Flow:**
+1. User taps "Re-photograph" on a ghost item card
+2. `app/add-item.tsx` receives a `replaceItemId` param via route
+3. Classification and upload proceed exactly as a normal new-item add
+4. On save: `applyRePhotographSave()` in `constants/rePhotographSave.ts` calls `addWardrobeItem(newItem)` then `removeWardrobeItem(replaceItemId)` — the old ghost is atomically replaced by the new item
+5. If `replaceItemId` is absent (normal add flow), `removeWardrobeItem` is not called — the function is a pure no-op branch
+
+`applyRePhotographSave` is a deliberately simple, asset-free, React-free utility so it can be imported and verified directly in Node/tsx tests without any mocking.
+
+**Code:** `constants/rePhotographSave.ts`, `app/add-item.tsx`, `app/(tabs)/index.tsx`
+
+---
+
+### Bulk Review UX Hardening
+
+Three targeted fixes to the bulk-review save flow that prevent data loss, double-saves, and mount-after-unmount state corruption:
+
+**Save lock (`bulkSaveLock`):**
+A `useRef<boolean>` guard (`saveLockRef`) prevents the "Save N Items" button from triggering a second concurrent save if tapped rapidly or if the first save resolves while a second tap is in flight. The ref is checked at the top of the save handler; if already `true` the handler returns immediately.
+
+**Mounted guard (`isMountedRef`):**
+A `useRef<boolean>` (`isMountedRef`) is set to `true` on mount and `false` in the cleanup function of a `useEffect`. All async state-setter calls inside the classification and save loops check `isMountedRef.current` before calling `setState`. This prevents the React "can't perform a state update on an unmounted component" warning when the user navigates back before classification finishes.
+
+**Carousel scroll contract (`bulkCarousel`):**
+The review grid carousel scrolls to the first unsettled card when classification of a batch begins. The scroll index is clamped to `[0, items.length − 1]` and the `FlatList` ref is checked for nullability before calling `scrollToIndex`. This prevents a crash when the list is empty or when all items have already been removed.
+
+**Code:** `app/bulk-review.tsx`
+
+---
+
+### Guest Photo Cleanup
+
+When a guest user removes a wardrobe item, the local `file://` photo file is deleted from device storage. This prevents orphaned files accumulating across guest sessions.
+
+**Logic (`constants/guestPhotoCleanup.ts`):**
+- `deleteGuestPhoto(uri, documentDirectory, deleteAsync)` — deletes the file only when: (a) `uri` is defined, (b) `documentDirectory` is non-null, and (c) the URI starts with `documentDirectory` (prevents accidentally deleting files outside the app sandbox). Calls `deleteAsync(uri, { idempotent: true })` — the `idempotent` flag suppresses `ENOENT` errors on double-delete.
+- `runGuestRemoval(itemId, wardrobe, documentDirectory, deleteAsync)` — looks up the item by id, validates its `photoUri`, then calls `deleteGuestPhoto`. Called as fire-and-forget (`.catch(console.warn)`) from `AppContext.removeWardrobeItem`.
+- `buildGuestPhotoDestPath(documentDirectory, itemId, ext)` — canonical path builder used by both the guest upload path in `add-item.tsx` and the cleanup logic, ensuring the `startsWith` guard always holds.
+
+**Code:** `constants/guestPhotoCleanup.ts`, `contexts/AppContext.tsx`, `app/add-item.tsx`
+
+---
+
+### Android Guest Photo Rebase
+
+On Android, `FileSystem.documentDirectory` can change prefix between app version installs (e.g. `com.app/files/` → `com.app.v2/files/`). Guest wardrobe photos stored under the old prefix become unresolvable after an update.
+
+`rebaseGuestPhotoUri(uri, currentDocDir)` in `lib/rebaseGuestPhotoUri.ts` corrects stale paths at load time:
+- Only acts on `file://` URIs matching `wardrobe_<id>.jpg|png` (case-insensitive extension)
+- If the URI already starts with `currentDocDir` → returned unchanged
+- If the URI starts with a different `file://` prefix → the filename is extracted and prepended with `currentDocDir`
+- `https://`, `data:`, `content://`, non-guest filenames, unsupported extensions → returned unchanged
+- Empty `currentDocDir` → returned unchanged (no-op guard)
+
+Called from `AppContext` on wardrobe load, before orphan detection runs.
+
+**Code:** `lib/rebaseGuestPhotoUri.ts`, `contexts/AppContext.tsx`
+
+---
+
 ## 10. Pending Features
 
 These features are **not yet implemented**. They are the next development priorities.
@@ -787,30 +917,9 @@ These features are **not yet implemented**. They are the next development priori
 
 ---
 
-### Photoroom Background Remover
-
-**What it does:** Automatically removes the background from wardrobe item photos at upload time, producing clean flat-lay style images with a transparent or white background. This significantly improves the visual quality of outfit card thumbnails.
-
-**API:** The Photoroom background-removal API. The owner already has an API key — add it to Replit Secrets as `PHOTOROOM_API_KEY`.
-
-**Integration points:**
-- **Where to add it:** `app/add-item.tsx`, in the `pickImage()` function, immediately after the photo is selected and before it is uploaded to Supabase Storage
-- **Flow:**
-  1. User picks photo → base64 obtained
-  2. Call `POST /api/remove-background` on the Express server (new endpoint)
-  3. Express calls Photoroom API with the image, returns the processed image as base64 or a URL
-  4. Replace `photoUri` and `photoBase64` in add-item state with the background-removed version
-  5. Continue to Gemini classification and Supabase upload as normal
-- **New server file:** `server/remove-background.ts`
-- **New route:** `POST /api/remove-background` (apply `aiLimiter` rate limiting)
-- **Fallback:** If the Photoroom call fails (network error or API error), silently fall back to the original photo — the user should not be blocked from adding an item due to background-removal failure
-- **Secret to add:** `PHOTOROOM_API_KEY` in Replit Secrets
-
----
-
 ## 11. Testing & Quality
 
-### Test Suites (18 total)
+### Test Suites (26 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -818,9 +927,14 @@ These features are **not yet implemented**. They are the next development priori
 | `blueprint-image-sync.test.ts` | Every blueprint slot imageKey maps to a valid SAMPLE_IMAGES entry (no broken placeholder fallbacks) |
 | `blueprint-lifestyle-slots.test.ts` | Lifestyle slot group thresholds across all 6 blueprints (group existence, category ordering, proportionality) |
 | `blueprint-slots.test.ts` | Slot structure invariants (required fields, valid categories, no duplicate IDs) |
+| `bulkCarousel.test.ts` | Bulk-review carousel scroll contract: index clamping, null FlatList ref guard, empty-list safety |
+| `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard in bulk-review: async state setters are not called after the component unmounts |
+| `bulkSaveLock.test.ts` | Save-lock ref in bulk-review: concurrent save attempts are blocked by the `saveLockRef` guard |
 | `classifyGarment.test.ts` | `processGeminiResult` parsing, field validation (subType, colorFamily, modelConfidence), colour conversion helpers, edge cases (empty `{}`, null subType, mismatched category, boundary `modelConfidence`) |
 | `classifyGarmentIntegration.test.ts` | HTTP-layer tests for `POST /api/classify-garment`: 400 for missing/ambiguous image input, 500 for absent `GEMINI_API_KEY`, 429 after aiLimiter cap, JSON response shape |
 | `getProfileBlueprint.test.ts` | Algorithm tests calling `buildProfileBlueprintSlots()` directly (no mocking) |
+| `ghostItemRecovery.test.ts` | `detectNoPhotoOrphans`, `isGuestPhotoUri`, `detectFileOrphans` (file-exists/missing/throws/cloud-recovery/rebase-path), and `applyOrphanResolution` action routing; also exercises `applyRePhotographSave` |
+| `guestPhotoCleanup.test.ts` | `deleteGuestPhoto`, `runGuestRemoval`, `buildGuestPhotoDestPath` — cleanup guard (URI must start with documentDirectory), idempotent delete, rejection propagation, per-deletion isolation |
 | `lifestyle-blueprint.test.ts` | Lifestyle weight ordering and category priority adjustments |
 | `lifestyleSlotGroups.test.ts` | Slot group activation thresholds for active and brunch lifestyles |
 | `outfitComboScorer.test.ts` | Colour harmony scoring, combo scoring, proportion-balance, metal-cohesion |
@@ -829,7 +943,10 @@ These features are **not yet implemented**. They are the next development priori
 | `outfitRotation.test.ts` | Daily rotation engine: tieredShuffle stability, hero-diversity, completeness bias, sort tie-breakers |
 | `outfitScoringData.test.ts` | Data-table invariants for `SCENARIO_AFFINITY`, `STYLE_PREFERRED_COLORS`, `STYLE_GOAL_SUBTYPES` (key completeness against `OccasionTag` and `StyleGoal` unions) |
 | `perceptualScoring.test.ts` | HSL/Lab perceptual colour scoring |
+| `photoroomRetry.test.ts` | `removeBackground()` retry contract: timeout→success, timeout→timeout, no-retry error codes (photoroom_error/invalid/empty), network error, cross-layer import assertion (server + client reference shared constants) |
 | `rateLimiter.test.ts` | Per-limiter blocking + 429 response shape, standard headers, `PgRateLimitStore` fallback behaviour, `LIMITER_CONFIGS` key completeness and security bounds, `loadFromDb()` no-throw contract, `_consecutiveDbFailuresForTesting` counter |
+| `rebaseGuestPhotoUri.test.ts` | `rebaseGuestPhotoUri()`: prefix unchanged, old prefix rebased, non-guest URIs untouched, malformed filenames untouched, edge cases (empty currentDocDir, same prefix) |
+| `removeBackground.test.ts` | `resolveClassifyBase64`/`selectClassifyPayload`/`resolvePhotoUri` pipeline helpers; server handler error codes (503 missing key, 400 missing body, 502 non-OK/empty-body/network-error/AbortError/mid-stream AbortError); `resolveWardrobeUploadArg`/`stripDataUriPrefix` |
 | `wardrobeDiagnostics.test.ts` | `computeDiagnostics` health score, category stats, scenario coverage; `ALL_SCENARIOS` export integrity and alignment with `computeDiagnostics` output |
 | `weather.test.ts` | Weather-aware outerwear rules (temperature gating, rain-friendly subtype bias) |
 
