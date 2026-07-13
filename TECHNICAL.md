@@ -244,8 +244,7 @@ app/
   forgot-password.tsx    Password reset request screen
   onboarding.tsx         Multi-step style profile quiz
   add-item.tsx           Add wardrobe item (camera / gallery + Gemini classification)
-  bulk-import.tsx        Bulk Digitization Studio entry — multi-photo picker modal (up to 10)
-  bulk-review.tsx        Bulk review grid — parallel AI classification + batch save
+  bulk-review.tsx        Bulk review grid — parallel AI classification + batch save (reached via add-item multi-select)
   item-detail.tsx        Item detail and edit screen
   premium.tsx            Premium upgrade screen
   wear-log.tsx           Full outfit wear history grouped by date
@@ -726,14 +725,10 @@ All have a light (`#F5F3F0`) background, making `style="dark"` (dark icons) corr
 
 Two-screen flow for digitising an entire wardrobe section in one session: up to 10 garments selected from the photo library, AI-classified in parallel, and batch-saved with a single tap.
 
-**Entry screen (`app/bulk-import.tsx`):**
-- Modal presentation (`MODAL_OPTIONS` — slides up from bottom)
-- `StatusBar style="dark"`, `SwipeToDismiss` wrapper (matches add-item pattern)
-- Atelier micro-label + 30 px bold title + feature card (three capability rows)
-- `ImagePicker.launchImageLibraryAsync({ allowsMultipleSelection: true, selectionLimit: 10 })` — requests library permission first; navigates to `bulk-review` with URIs encoded as `JSON.stringify(uris)` in route params
+**Entry point:** selecting 2–10 photos in `app/add-item.tsx` (gallery picker with `allowsMultipleSelection: true, selectionLimit: 10`) routes directly to `/bulk-review` with URIs encoded as `JSON.stringify(uris)` in route params. There is no longer a separate Bulk Studio splash screen.
 
 **Review screen (`app/bulk-review.tsx`):**
-- Stack presentation (`FADE_OPTIONS` — fades in on top of bulk-import)
+- Stack presentation (`FADE_OPTIONS`)
 - `StatusBar style="dark"`, no `SwipeToDismiss` (back arrow in header handles dismissal)
 - Parses `uris` param via `useLocalSearchParams`; initialises `BulkItem[]` state (`uri`, `status`, `classification`)
 - Item statuses: `pending → classifying → settled → saving → saved` (or `error`, `removed`)
@@ -767,11 +762,10 @@ Two-screen flow for digitising an entire wardrobe section in one session: up to 
 
 **Navigation registration in `app/_layout.tsx`:**
 ```
-<Stack.Screen name="bulk-import" options={{ headerShown: false, ...MODAL_OPTIONS }} />
 <Stack.Screen name="bulk-review" options={{ headerShown: false, ...FADE_OPTIONS }} />
 ```
 
-**Code:** `app/bulk-import.tsx`, `app/bulk-review.tsx`, `app/_layout.tsx`
+**Code:** `app/bulk-review.tsx`, `app/add-item.tsx`, `app/_layout.tsx`
 
 ---
 

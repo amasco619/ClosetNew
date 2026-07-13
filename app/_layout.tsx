@@ -35,7 +35,6 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="add-item" options={{ headerShown: false, ...MODAL_OPTIONS }} />
-      <Stack.Screen name="bulk-import" options={{ headerShown: false, ...MODAL_OPTIONS }} />
       <Stack.Screen name="bulk-review" options={{ headerShown: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="premium" options={{ headerShown: false, ...MODAL_OPTIONS }} />
       <Stack.Screen name="item-detail" options={{ headerShown: false, ...MODAL_OPTIONS }} />
