@@ -977,6 +977,108 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
     );
   }
 
+  // ── Photo preview timing ──────────────────────────────────────────────────
+  //
+  // After removeBg resolves, the pipeline immediately sets
+  //   classifyBase64 = cleanPngBase64
+  // so Gemini receives the clean image — but displayUri is NOT written to
+  // state until reencodeAsJpeg resolves.  These two sections lock in that
+  // ordering so a future refactor cannot silently break either invariant.
+
+  section('Photo preview timing — 25. displayUri not set while reencodeAsJpeg is in-flight');
+  {
+    // After removeBg resolves (and before reencodeAsJpeg resolves), the
+    // pipeline has updated its internal classifyBase64 = cleanPngBase64
+    // but must NOT have called setItems with displayUri yet.
+    // A second assertion verifies that classify is eventually invoked
+    // with the clean PNG base64, not the resized JPEG.
+    const mountedRef = { current: true };
+    const itemSnapshots: BulkItemCore[] = [];
+    let classifyCalledWith = '';
+
+    const resizeD   = deferred<{ base64?: string } | null>();
+    const reencodeD = deferred<{ base64?: string; uri: string } | null>();
+    const classifyD = deferred<Record<string, unknown>>();
+
+    const deps: ClassifyDeps = {
+      resize:          (_uri)    => resizeD.promise,
+      removeBg:        (_b64)    => Promise.resolve('clean-png-b64'),
+      reencodeAsJpeg:  (_pngB64) => reencodeD.promise,
+      resolvePhotoUri: (orig, reenc) =>
+        reenc && reenc.length > 0 && !reenc.startsWith('data:') ? reenc : orig,
+      classify: (b64) => { classifyCalledWith = b64; return classifyD.promise; },
+      setItems: (updater) => {
+        const after = updater([makeItem()]);
+        if (after[0]) itemSnapshots.push({ ...after[0] });
+      },
+      onHaptic: () => {},
+    };
+
+    const classifyPromise = runClassifyUri(TEST_URI, mountedRef, deps);
+    await tick(); // pipeline reaches await resize
+
+    resizeD.resolve({ base64: 'resized-b64' });
+    await tick(); // resize result delivered; removeBg (Promise.resolve) queued
+    await tick(); // removeBg value delivered; pipeline enters await reencodeAsJpeg (pending)
+    await tick(); // extra tick to absorb any additional scheduling
+
+    // At this point removeBg has resolved but reencodeAsJpeg is still pending.
+    // No setItems call should have included displayUri yet.
+    const snapshotsBeforeReencode = [...itemSnapshots];
+
+    assert(
+      snapshotsBeforeReencode.every(s => s.displayUri === undefined),
+      'displayUri not set on any item while reencodeAsJpeg is still in-flight',
+    );
+
+    // Resolve the rest of the pipeline.
+    reencodeD.resolve({ base64: 'reenc-b64', uri: 'file:///reenc.jpg' });
+    await tick();
+    classifyD.resolve(CLASSIFY_RESPONSE);
+    await classifyPromise;
+
+    assert(
+      classifyCalledWith === 'clean-png-b64',
+      'classify receives cleanPngBase64 (not the original resized JPEG)',
+    );
+  }
+
+  section('Photo preview timing — 26. displayUri is set before settled fires on happy path');
+  {
+    // On the successful path the pipeline must write displayUri (and
+    // cleanBase64) in a setItems call that precedes the final
+    // setItems({ status: \'settled\' }) call.  Verify by comparing
+    // the snapshot indices captured during the run.
+    const mountedRef = { current: true };
+    const itemSnapshots: BulkItemCore[] = [];
+
+    const deps: ClassifyDeps = {
+      resize:          (_uri)    => Promise.resolve({ base64: 'resized-b64' }),
+      removeBg:        (_b64)    => Promise.resolve('clean-png-b64'),
+      reencodeAsJpeg:  (_pngB64) => Promise.resolve({ base64: 'reenc-b64', uri: 'file:///reenc.jpg' }),
+      resolvePhotoUri: (orig, reenc) =>
+        reenc && reenc.length > 0 && !reenc.startsWith('data:') ? reenc : orig,
+      classify: (_b64) => Promise.resolve(CLASSIFY_RESPONSE),
+      setItems: (updater) => {
+        const after = updater([makeItem()]);
+        if (after[0]) itemSnapshots.push({ ...after[0] });
+      },
+      onHaptic: () => {},
+    };
+
+    await runClassifyUri(TEST_URI, mountedRef, deps);
+
+    const displayUriIdx = itemSnapshots.findIndex(s => s.displayUri !== undefined);
+    const settledIdx    = itemSnapshots.findIndex(s => s.status === 'settled');
+
+    assert(displayUriIdx !== -1, 'displayUri is set at some point on the happy path');
+    assert(settledIdx    !== -1, 'settled status is reached on the happy path');
+    assert(
+      displayUriIdx < settledIdx,
+      'displayUri is set before settled fires (preview appears before Gemini result)',
+    );
+  }
+
   // ── Summary ───────────────────────────────────────────────────────────────
 
   console.log(`\n=== bulkReviewMountedGuard: ${failed === 0 ? 'all passed' : `${failed} FAILED`} ===`);
