@@ -33,6 +33,10 @@ export async function removeBackground(req: Request, res: Response) {
     }
 
     const arrayBuffer = await response.arrayBuffer();
+    if (arrayBuffer.byteLength === 0) {
+      console.error("[remove-background] Photoroom returned an empty body (0 bytes)");
+      return res.status(502).json({ error: "photoroom_empty_response" });
+    }
     const resultBase64 = Buffer.from(arrayBuffer).toString("base64");
 
     return res.json({ imageBase64: resultBase64, mimeType: "image/png" });

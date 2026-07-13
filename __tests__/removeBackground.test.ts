@@ -298,6 +298,37 @@ async function main() {
     (globalThis as any).fetch = originalFetch;
   }
 
+  // ── B. server handler — Photoroom HTTP 200 with 0-byte body → 502 ───────────
+  // The real bug: Photoroom returns a valid HTTP 200 but an empty PNG body.
+  // Without the byteLength guard the server would return a 200 with an empty
+  // base64 string, storing a broken image in Supabase Storage.
+
+  console.log('\nserver/remove-background — Photoroom HTTP 200 with empty body (0 bytes):');
+
+  {
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+
+    const req = makeMockReq({ imageBase64: 'valid-base64' });
+    const res = makeMockRes();
+
+    const originalFetch = (globalThis as any).fetch;
+    (globalThis as any).fetch = async () => ({
+      ok: true,
+      arrayBuffer: async () => new ArrayBuffer(0),
+    });
+
+    await serverRemoveBackground(req as any, res as any);
+
+    assertEq(res._status, 502, 'HTTP 200 with 0-byte body → HTTP 502 (not 200)');
+    assertEq(
+      (res._body as any)?.error,
+      'photoroom_empty_response',
+      'HTTP 200 with 0-byte body → error: "photoroom_empty_response"',
+    );
+
+    (globalThis as any).fetch = originalFetch;
+  }
+
   // ── B. server handler — network error (fetch throws) → 502 ────────────────
 
   console.log('\nserver/remove-background — network error:');
