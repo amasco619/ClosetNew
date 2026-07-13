@@ -275,7 +275,9 @@ export default function BulkReviewScreen() {
   );
   const [statusPhase, setStatusPhase] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  // URI-based identity for the open panel — stable across status transitions.
+  // An integer index into a dynamically-filtered list would drift as items settle.
+  const [editingUri, setEditingUri] = useState<string | null>(null);
 
   // Redirect if no URIs were passed — single-item redirect is handled below.
   useEffect(() => {
@@ -461,6 +463,16 @@ export default function BulkReviewScreen() {
   const editableItems   = visibleItems.filter(it =>
     it.status === 'settled' || it.status === 'saving' || it.status === 'saved'
   );
+  // Derive a stable integer index from the URI so the panel never drifts to
+  // the wrong garment when new items settle and editableItems grows/reorders.
+  const editingIndex    = editingUri !== null
+    ? editableItems.findIndex(it => it.uri === editingUri)
+    : -1;
+  // Header display: position among ALL non-removed items (not just editable).
+  const displayPosition = editingUri !== null
+    ? visibleItems.findIndex(it => it.uri === editingUri) + 1
+    : 1;
+  const displayTotal    = visibleItems.length;
   const settledCount    = items.filter(it => it.status === 'settled').length;
   const classifiedCount = items.filter(it =>
     ['settled','saving','saved','error'].includes(it.status)
@@ -514,10 +526,13 @@ export default function BulkReviewScreen() {
             onRemove={handleRemove}
             onRetry={handleRetry}
             onPress={() => {
-              const editableIdx = editableItems.findIndex(e => e.uri === item.uri);
-              if (editableIdx < 0) return;
+              // Only settled/saving/saved items are editable; guard by status.
+              const isEditable = item.status === 'settled'
+                || item.status === 'saving'
+                || item.status === 'saved';
+              if (!isEditable) return;
               Haptics.selectionAsync();
-              setEditingIndex(editableIdx);
+              setEditingUri(item.uri);
             }}
           />
         )}
@@ -548,15 +563,19 @@ export default function BulkReviewScreen() {
       </View>
 
       {/* Carousel edit panel — absolute-fill overlay, zIndex 10.
-          Receives only editableItems so Prev/Next never lands on a
-          pending/classifying/error entry that has no classification. */}
-      {editingIndex !== null && editableItems.length > 0 && (
+          editingUri is URI-based so the panel never drifts to the wrong garment
+          when items settle and editableItems grows/reorders mid-session.
+          editingIndex is derived each render: if the URI disappears (removed)
+          it becomes -1 and the guard below closes the panel automatically. */}
+      {editingUri !== null && editingIndex >= 0 && editableItems.length > 0 && (
         <BulkItemEditPanel
           items={editableItems}
-          editingIndex={Math.min(editingIndex, editableItems.length - 1)}
-          setEditingIndex={setEditingIndex}
+          editingIndex={editingIndex}
+          setEditingIndex={(idx) => setEditingUri(editableItems[idx]?.uri ?? null)}
+          displayPosition={displayPosition}
+          displayTotal={displayTotal}
           patchItem={handlePatchItem}
-          onClose={() => setEditingIndex(null)}
+          onClose={() => setEditingUri(null)}
           onSaveAll={handleSaveAll}
           canSaveAll={canSaveAll}
           saving={saving}

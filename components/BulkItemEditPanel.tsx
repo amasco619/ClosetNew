@@ -96,11 +96,20 @@ const SPRING_OUT = { damping: 28, stiffness: 320 } as const;
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface BulkItemEditPanelProps {
-  /** Non-removed items (visibleItems from parent). */
+  /** Navigable items only (settled/saving/saved). Prev/Next step within this list. */
   items: BulkItemCore[];
-  /** Index into `items` of the currently-edited garment. */
+  /** Index into `items` of the currently-edited garment (derived from URI in parent). */
   editingIndex: number;
   setEditingIndex: (idx: number) => void;
+  /**
+   * 1-based position of the current item among ALL non-removed items.
+   * Used only for the "GARMENT N OF M" header display — kept separate from
+   * `editingIndex` so the counter reflects the full visible list, not just
+   * the editable subset.
+   */
+  displayPosition: number;
+  /** Total non-removed item count — the "M" in "GARMENT N OF M". */
+  displayTotal: number;
   /** Patch a single classification field on the item with the given URI. */
   patchItem: (uri: string, updates: Partial<ClassifyResult>) => void;
   onClose: () => void;
@@ -117,6 +126,8 @@ export default function BulkItemEditPanel({
   items,
   editingIndex,
   setEditingIndex,
+  displayPosition,
+  displayTotal,
   patchItem,
   onClose,
   onSaveAll,
@@ -241,7 +252,7 @@ export default function BulkItemEditPanel({
         <View style={styles.headerCenter}>
           <Text style={styles.garmentLabel}>GARMENT</Text>
           <Text style={styles.garmentCounter}>
-            {editingIndex + 1} <Text style={styles.garmentOf}>OF</Text> {total}
+            {displayPosition} <Text style={styles.garmentOf}>OF</Text> {displayTotal}
           </Text>
         </View>
 
