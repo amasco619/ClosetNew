@@ -883,6 +883,100 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'only one of five concurrent taps reaches runSaveAll');
   }
 
+  section('runSaveAll — 24. upload failure on first item does not block second item');
+  {
+    const mountedRef = { current: true };
+
+    const item1: SaveAllItem = {
+      uri: 'file:///photos/item1.jpg',
+      classification: {
+        category:     'top',
+        subType:      't-shirt',
+        colorFamily:  'white',
+        description:  'Item 1',
+        occasionTags: ['casual'],
+        seasonTags:   ['all-season'],
+      },
+    };
+    const item2: SaveAllItem = {
+      uri: 'file:///photos/item2.jpg',
+      classification: {
+        category:     'bottom',
+        subType:      'jeans',
+        colorFamily:  'blue',
+        description:  'Item 2',
+        occasionTags: ['casual'],
+        seasonTags:   ['all-season'],
+      },
+    };
+
+    const addItemPayloads: Array<{ photoUri: string }> = [];
+    const finalStatuses: Record<string, string> = {};
+    let uploadCallCount = 0;
+
+    const deps: SaveAllDeps = {
+      generateId: () => `uuid-${uploadCallCount}`,
+      getSession: async () => 'user-123',
+      resize: async (_uri) => ({ base64: 'shrunk' }),
+      upload: async (_userId, _b64, _itemId, _mime) => {
+        uploadCallCount++;
+        if (uploadCallCount === 1) throw new Error('network_error');
+        return 'https://storage.example.com/item2.jpg';
+      },
+      resolveUploadArg: (clean, shrunk) => {
+        const b = clean ?? shrunk;
+        if (!b) return null;
+        return { base64: b, mimeType: 'image/jpeg' };
+      },
+      addItem: (payload) => { addItemPayloads.push({ photoUri: payload.photoUri }); },
+      setItems: (updater) => {
+        const prev = [
+          { uri: item1.uri, status: finalStatuses[item1.uri] ?? 'pending', classification: null },
+          { uri: item2.uri, status: finalStatuses[item2.uri] ?? 'pending', classification: null },
+        ];
+        const after = updater(prev);
+        for (const it of after) {
+          finalStatuses[it.uri] = it.status;
+        }
+      },
+      setSaving:    () => {},
+      onItemHaptic: () => {},
+      onDoneHaptic: () => {},
+      navigate:     () => {},
+    };
+
+    await runSaveAll([item1, item2], mountedRef, deps);
+
+    assert(
+      addItemPayloads.length === 2,
+      'addItem called for both items even though first upload failed',
+    );
+    assert(
+      addItemPayloads[0]?.photoUri === item1.uri,
+      'first item falls back to local URI when upload throws',
+    );
+    assert(
+      addItemPayloads[1]?.photoUri === 'https://storage.example.com/item2.jpg',
+      'second item uses the uploaded cloud URI',
+    );
+    assert(
+      finalStatuses[item1.uri] === 'saved',
+      'first item ends in saved (not stuck in saving)',
+    );
+    assert(
+      finalStatuses[item2.uri] === 'saved',
+      'second item ends in saved (not stuck in saving)',
+    );
+    assert(
+      finalStatuses[item1.uri] !== 'saving',
+      'first item is not stuck in saving',
+    );
+    assert(
+      finalStatuses[item2.uri] !== 'saving',
+      'second item is not stuck in saving',
+    );
+  }
+
   // ── Summary ───────────────────────────────────────────────────────────────
 
   console.log(`\n=== bulkReviewMountedGuard: ${failed === 0 ? 'all passed' : `${failed} FAILED`} ===`);
