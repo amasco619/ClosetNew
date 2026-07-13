@@ -279,11 +279,19 @@ export default function BulkReviewScreen() {
   // A ref gates both paths so only the first one to fire navigates.
 
   const singleRedirectedRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  // Mark unmounted so async callbacks don't touch state or navigate after the
+  // component has been torn down (e.g. user presses back mid-classification).
+  useEffect(() => {
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const SINGLE_REDIRECT_TIMEOUT_MS = 12_000;
 
   const redirectSingle = useCallback((item: BulkItem, settled: boolean) => {
     if (singleRedirectedRef.current) return;
+    if (!mountedRef.current) return;
     singleRedirectedRef.current = true;
 
     if (settled && item.classification) {
@@ -349,6 +357,7 @@ export default function BulkReviewScreen() {
 
   // Classify one URI: resize → background removal → POST /api/classify-garment → settle card
   const classifyUri = useCallback(async (uri: string) => {
+    if (!mountedRef.current) return;
     setItems(prev => prev.map(it => it.uri === uri ? { ...it, status: 'classifying' } : it));
     try {
       const resized = await ImageManipulator.manipulateAsync(
@@ -356,6 +365,7 @@ export default function BulkReviewScreen() {
         [{ resize: { width: 1024 } }],
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       );
+      if (!mountedRef.current) return;
       if (!resized.base64) throw new Error('resize_failed');
 
       // Remove background via Photoroom — silent fallback if unavailable.
@@ -364,6 +374,7 @@ export default function BulkReviewScreen() {
       // The clean PNG base64 is stored on the item for the storage upload path.
       let classifyBase64 = resized.base64;
       const cleanPngBase64 = await removeBackground(resized.base64);
+      if (!mountedRef.current) return;
       if (cleanPngBase64) {
         setItems(prev => prev.map(it =>
           it.uri === uri
@@ -376,6 +387,7 @@ export default function BulkReviewScreen() {
             [],
             { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true },
           );
+          if (!mountedRef.current) return;
           classifyBase64 = resolveClassifyBase64(classifyBase64, reencoded.base64);
         } catch {
           // Re-encode failed — keep original JPEG for classify
@@ -384,6 +396,7 @@ export default function BulkReviewScreen() {
 
       const res  = await apiRequest('POST', '/api/classify-garment', { imageBase64: classifyBase64 });
       const data = await res.json();
+      if (!mountedRef.current) return;
 
       const classification: ClassifyResult = {
         category:     (data.category as ItemCategory) || 'top',
@@ -409,6 +422,7 @@ export default function BulkReviewScreen() {
       setItems(prev => prev.map(it => it.uri === uri ? { ...it, status: 'settled', classification } : it));
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch {
+      if (!mountedRef.current) return;
       setItems(prev => prev.map(it => it.uri === uri ? { ...it, status: 'error' } : it));
     }
   }, []);
