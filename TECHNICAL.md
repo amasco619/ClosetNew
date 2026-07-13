@@ -182,7 +182,7 @@ Whenever you make a change that affects any section of this document — new API
 │   server/index.ts → server/routes.ts                    │
 │                                                         │
 │   POST /api/classify-garment  (aiLimiter: 10/min)       │
-│   POST /api/remove-background (aiLimiter: 10/min)       │
+│   POST /api/remove-background (bgRemovalLimiter: 30/min) │
 │   POST /api/extract-color     (colorLimiter: 30/min)    │
 │   POST /api/user/upgrade-premium (accountLimiter: 5/hr) │
 │   DELETE /api/user/delete-account (accountLimiter: 5/hr)│
@@ -512,7 +512,12 @@ The original full-resolution asset is never sent over the network. Both resize c
 
 `uploadWardrobeImage()` accepts an optional `mimeType` parameter (`'image/jpeg'` default, `'image/png'` supported); the file extension is derived from the MIME type. `deleteWardrobeImage()` removes both `.jpg` and `.png` variants to handle items stored under either extension.
 
-**Code:** `app/add-item.tsx`, `lib/storage.ts`
+**Recent improvements to `app/add-item.tsx`:**
+- Photoroom background removal is now invoked between photo selection and classification (see [Photoroom Background Removal](#photoroom-background-removal) for the full pipeline).
+- Re-photograph flow: when `replaceItemId` is present in route params, saving a new item atomically removes the old ghost item (see [Re-photograph Flow](#re-photograph-flow)).
+- Multi-select now routes directly to `bulk-review.tsx` with no intermediate splash screen.
+
+**Code:** `app/add-item.tsx`, `lib/storage.ts`, `lib/classifyPath.ts`, `lib/uploadArg.ts`, `constants/rePhotographSave.ts`
 
 ---
 
@@ -606,6 +611,7 @@ All Express API endpoints are protected by `express-rate-limit` using the centra
 | Limiter | Route(s) | Max | Window |
 |---------|----------|-----|--------|
 | `aiLimiter` | `POST /api/classify-garment` | 10 req | 60 sec |
+| `bgRemovalLimiter` | `POST /api/remove-background` | 30 req | 60 sec |
 | `colorLimiter` | `POST /api/extract-color` | 30 req | 60 sec |
 | `accountLimiter` | upgrade-premium, delete-account | 5 req | 60 min |
 | `authLimiter` | sign-in, sign-up | 5 req | 15 min |
@@ -856,14 +862,23 @@ From the ghost-item recovery card (and from `app/item-detail.tsx`), users can re
 
 Three targeted fixes to the bulk-review save flow that prevent data loss, double-saves, and mount-after-unmount state corruption:
 
-**Save lock (`bulkSaveLock`):**
-A `useRef<boolean>` guard (`saveLockRef`) prevents the "Save N Items" button from triggering a second concurrent save if tapped rapidly or if the first save resolves while a second tap is in flight. The ref is checked at the top of the save handler; if already `true` the handler returns immediately.
+**Save lock (`savingRef`):**
+A `useRef<boolean>` guard (`savingRef`) prevents the "Save N Items" button from triggering a second concurrent save if tapped rapidly or if the first save resolves while a second tap is in flight. The ref is set synchronously at the top of `handleSaveAll` and cleared in its `finally` block, making it the authoritative save-in-progress signal (unlike the `saving` React state, which can be one render cycle behind).
 
-**Mounted guard (`isMountedRef`):**
-A `useRef<boolean>` (`isMountedRef`) is set to `true` on mount and `false` in the cleanup function of a `useEffect`. All async state-setter calls inside the classification and save loops check `isMountedRef.current` before calling `setState`. This prevents the React "can't perform a state update on an unmounted component" warning when the user navigates back before classification finishes.
+**Mounted guard (`mountedRef`):**
+A `useRef<boolean>` (`mountedRef`) is set to `true` on mount and `false` in the `useEffect` cleanup. All async state-setter calls inside the classification and save loops check `mountedRef.current` before calling `setState`. This prevents the React "can't perform a state update on an unmounted component" warning when the user navigates back before classification finishes.
 
 **Carousel scroll contract (`bulkCarousel`):**
 The review grid carousel scrolls to the first unsettled card when classification of a batch begins. The scroll index is clamped to `[0, items.length − 1]` and the `FlatList` ref is checked for nullability before calling `scrollToIndex`. This prevents a crash when the list is empty or when all items have already been removed.
+
+**Cancel / back guard:**
+`handleCancel` checks whether any item is still `pending` or `classifying`. If all have settled, it calls `router.back()` immediately. If classification is still running, it shows a destructive `Alert` ("Cancel batch review?") with "Keep waiting" (cancel) and "Cancel" (destructive / `router.back()`) options. The Android hardware back button (`BackHandler`) is wired to the same logic: fully blocked while `saving` is `true`, shows the confirmation dialog while classification is in progress.
+
+**AppState foreground debounce:**
+An `AppState` listener re-syncs the `saving` React state from `savingRef.current` whenever the app returns to the foreground. The handler is wrapped in a 16 ms debounce (one animation frame) so that rapid background → inactive → active transitions on Android OEMs with sluggish reconciliation coalesce into a single `setSaving(true)` call, preventing the save button from briefly flickering unlocked mid-save.
+
+**Background-removed photo preview (`displayUri`):**
+Each `BulkItem` carries an optional `displayUri` field — a JPEG re-encode of the Photoroom-cleaned PNG. The card thumbnail displays `item.displayUri ?? item.uri` so users see the background-removed version (when available) while the item is still being saved. The original `item.uri` is never mutated.
 
 **Code:** `app/bulk-review.tsx`
 
