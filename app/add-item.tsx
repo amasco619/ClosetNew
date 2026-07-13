@@ -13,7 +13,7 @@ import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, Sleeve
 import { SUBTYPE_FORMALITY, inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, cancelAnimation, runOnJS } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
 import { apiRequest } from '@/lib/query-client';
 import * as Crypto from 'expo-crypto';
 import { uploadWardrobeImage } from '../lib/storage';
@@ -215,6 +215,7 @@ export default function AddItemScreen() {
   const [colorFamily,     setColorFamily]     = useState<string>('');
   const [description,     setDescription]     = useState<string>('');
   const [classifying,     setClassifying]     = useState(false);
+  const [classifyFlash,   setClassifyFlash]   = useState<'none' | 'success' | 'error'>('none');
   const [occasions,       setOccasions]       = useState<OccasionTag[]>([]);
   const [seasons,         setSeasons]         = useState<SeasonTag[]>(['all-season']);
   const [purchasePrice,   setPurchasePrice]   = useState('');
@@ -274,6 +275,51 @@ export default function AddItemScreen() {
       transform: [{ translateX: shimmerOffset.value * (trackW + fillW) - fillW }],
     };
   });
+
+  // ─── Completion flash animation ────────────────────────────────────────────
+  const completionFillWidth = useSharedValue(0);
+  const completionIsError   = useSharedValue(0);   // 0 = gold success, 1 = muted red error
+  const cardFadeOpacity     = useSharedValue(1);
+
+  const completionFillStyle = useAnimatedStyle(() => {
+    const bg = interpolateColor(completionIsError.value, [0, 1], [Colors.secondary, '#B94040']);
+    return {
+      position: 'absolute' as const,
+      top: 0,
+      left: 0,
+      bottom: 0,
+      width: completionFillWidth.value,
+      borderRadius: 2,
+      backgroundColor: bg,
+    };
+  });
+
+  const cardFadeStyle = useAnimatedStyle(() => ({ opacity: cardFadeOpacity.value }));
+
+  /**
+   * Called when the Gemini classification settles (success or error path).
+   * Plays the 100 % fill flash, holds briefly, then fades the card out.
+   */
+  const finishClassifying = (success: boolean) => {
+    cancelAnimation(shimmerOffset);
+    shimmerOffset.value = 0;
+    completionIsError.value = success ? 0 : 1;
+    completionFillWidth.value = 0;
+    cardFadeOpacity.value = 1;
+    setClassifying(false);
+    setClassifyFlash(success ? 'success' : 'error');
+
+    const trackW = classifyingTrackWidth.value;
+    completionFillWidth.value = withTiming(trackW, { duration: 150 }, (filled) => {
+      if (!filled) return;
+      cardFadeOpacity.value = withDelay(200, withTiming(0, { duration: 150 }, (faded) => {
+        if (!faded) return;
+        runOnJS(setClassifyFlash)('none');
+        cardFadeOpacity.value = 1;
+        completionFillWidth.value = 0;
+      }));
+    });
+  };
 
   // ─── Derived requirements ──────────────────────────────────────────────────
 
@@ -443,6 +489,9 @@ export default function AddItemScreen() {
         setPhotoHeight(asset.height ?? 0);
         setStep(1);
 
+        setClassifyFlash('none');
+        cardFadeOpacity.value = 1;
+        completionFillWidth.value = 0;
         setClassifying(true);
         // Obtain base64 from ImageManipulator (picker no longer requests base64 to
         // support multi-select without eagerly decoding multiple full-res images).
@@ -512,16 +561,19 @@ export default function AddItemScreen() {
               if (!classified.warmthBand) { const inf = SUBTYPE_WARMTH[validSub];   if (inf) setWarmthBand(inf); }
             }
 
-            setClassifying(false);
+            finishClassifying(true);
           } catch (classifyErr: any) {
-            setClassifying(false);
             if (classifyErr instanceof ContentGuardrailError) {
+              // Photo rejected — reset immediately with no flash (card disappears with the step)
+              setClassifying(false);
+              setClassifyFlash('none');
               setPhotoUri(null);
               setStep(0);
               Alert.alert('Photo not accepted', classifyErr.reason);
             } else {
               // API unavailable (quota, rate-limit, or server error) —
-              // keep the photo and stay on step 1 so the user can fill in manually.
+              // show error flash, then keep the photo so the user can fill in manually.
+              finishClassifying(false);
               Alert.alert(
                 'Auto-fill unavailable',
                 'We couldn\'t identify this item automatically. Please fill in the details below.',
@@ -687,7 +739,7 @@ export default function AddItemScreen() {
   // ─── Whether the form is complete enough to save ──────────────────────────
 
   const canSave =
-    !!photoUri && !classifying && !saving && !!subType && !!colorFamily &&
+    !!photoUri && !classifying && classifyFlash === 'none' && !saving && !!subType && !!colorFamily &&
     (!needsFit          || !!fit) &&
     (!needsPattern      || !!pattern) &&
     (!needsFabric       || !!fabric) &&
@@ -771,20 +823,42 @@ export default function AddItemScreen() {
             )}
 
             {/* Classifier status / description */}
-            {classifying ? (
-              <View style={styles.classifyingCard}>
+            {(classifying || classifyFlash !== 'none') ? (
+              <Animated.View style={[styles.classifyingCard, cardFadeStyle]}>
                 <View style={styles.classifyingRow}>
-                  <ActivityIndicator size="small" color={Colors.secondary} />
-                  <Text style={styles.classifyingText}>Analysing photo…</Text>
+                  {classifying ? (
+                    <ActivityIndicator size="small" color={Colors.secondary} />
+                  ) : classifyFlash === 'success' ? (
+                    <Ionicons name="checkmark-circle" size={18} color={Colors.secondary} />
+                  ) : (
+                    <Ionicons name="alert-circle" size={18} color="#B94040" />
+                  )}
+                  <Text style={styles.classifyingText}>
+                    {classifying
+                      ? 'Analysing photo…'
+                      : classifyFlash === 'success'
+                      ? 'Analysis complete'
+                      : 'Auto-fill unavailable'}
+                  </Text>
                 </View>
                 <View
                   style={styles.classifyingTrack}
                   onLayout={e => { classifyingTrackWidth.value = e.nativeEvent.layout.width; }}
                 >
-                  <Animated.View style={[styles.classifyingFill, shimmerStyle]} />
+                  {classifying ? (
+                    <Animated.View style={[styles.classifyingFill, shimmerStyle]} />
+                  ) : (
+                    <Animated.View style={completionFillStyle} />
+                  )}
                 </View>
-                <Text style={styles.classifyingHint}>Reading colour, fabric and style details</Text>
-              </View>
+                <Text style={styles.classifyingHint}>
+                  {classifying
+                    ? 'Reading colour, fabric and style details'
+                    : classifyFlash === 'success'
+                    ? 'Details filled in below'
+                    : 'Please fill in the details below'}
+                </Text>
+              </Animated.View>
             ) : description ? (
               <View style={styles.descriptionCard}>
                 <Ionicons name="sparkles" size={15} color={Colors.secondary} />
@@ -820,7 +894,7 @@ export default function AddItemScreen() {
             <Text style={styles.sectionTitle}>
               Type <Text style={styles.requiredAsterisk}>*</Text>
             </Text>
-            {!subType && !classifying && (
+            {!subType && !classifying && classifyFlash === 'none' && (
               <Text style={styles.requiredHint}>Pick the specific type so your blueprint matches accurately.</Text>
             )}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
@@ -843,7 +917,7 @@ export default function AddItemScreen() {
             <Text style={styles.sectionTitle}>
               Color <Text style={styles.requiredAsterisk}>*</Text>
             </Text>
-            {!colorFamily && !classifying && (
+            {!colorFamily && !classifying && classifyFlash === 'none' && (
               <Text style={styles.requiredHint}>Pick the dominant color family.</Text>
             )}
             <View style={styles.colorGrid}>
