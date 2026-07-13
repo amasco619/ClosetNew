@@ -1,5 +1,7 @@
 import { apiRequest } from "./query-client";
 
+export { resolveClassifyBase64 } from "./classifyPath";
+
 /**
  * Calls the server-side /api/remove-background endpoint which proxies Photoroom.
  * Returns a base64 PNG string on success, or null on any failure (graceful degradation).

@@ -15,7 +15,7 @@ import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
 import { apiRequest } from '@/lib/query-client';
-import { removeBackground } from '@/lib/photoroom';
+import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
 import * as Crypto from 'expo-crypto';
 import { uploadWardrobeImage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
@@ -546,7 +546,7 @@ export default function AddItemScreen() {
                 // reencoded.uri is a local file:// path — safe to store in state
                 setPhotoUri(reencoded.uri);
                 setPhotoBgRemoved(true);
-                if (reencoded.base64) classifyBase64 = reencoded.base64;
+                classifyBase64 = resolveClassifyBase64(classifyBase64, reencoded.base64);
               } catch {
                 // Re-encode failed — keep original JPEG for classify;
                 // leave photoUri as the original asset URI (no data URI stored)

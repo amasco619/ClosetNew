@@ -20,7 +20,7 @@ import type { ItemCategory, OccasionTag, SeasonTag } from '@/constants/types';
 import Colors from '@/constants/colors';
 import { SUBTYPE_FORMALITY } from '@/constants/outfitScoring';
 import { apiRequest } from '@/lib/query-client';
-import { removeBackground } from '@/lib/photoroom';
+import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
 import { uploadWardrobeImage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 
@@ -304,7 +304,7 @@ export default function BulkReviewScreen() {
             [],
             { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true },
           );
-          if (reencoded.base64) classifyBase64 = reencoded.base64;
+          classifyBase64 = resolveClassifyBase64(classifyBase64, reencoded.base64);
         } catch {
           // Re-encode failed — keep original JPEG for classify
         }
