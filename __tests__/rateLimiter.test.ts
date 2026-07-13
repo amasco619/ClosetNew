@@ -317,7 +317,7 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
   section("LIMITER_CONFIGS — all expected route-limiter keys are present");
   {
     const expected: Array<keyof typeof LIMITER_CONFIGS> = [
-      "authLimiter", "accountLimiter", "aiLimiter", "colorLimiter", "resetLimiter",
+      "authLimiter", "accountLimiter", "aiLimiter", "bgRemovalLimiter", "colorLimiter", "resetLimiter",
     ];
     for (const key of expected) {
       assert(key in LIMITER_CONFIGS, `LIMITER_CONFIGS["${key}"] is defined`);

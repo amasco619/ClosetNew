@@ -2,12 +2,14 @@ import type { Express } from "express";
 import { createServer, type Server } from "node:http";
 import { classifyGarment } from "./classify-garment";
 import { extractColor } from "./extract-color";
+import { removeBackground } from "./remove-background";
 import { supabaseAdmin, supabaseAuth } from "./supabase";
-import { aiLimiter, colorLimiter, accountLimiter, authLimiter, resetLimiter, checkAccountLockout, recordFailedAttempt, clearLockout } from "./middleware/rateLimiter";
+import { aiLimiter, bgRemovalLimiter, colorLimiter, accountLimiter, authLimiter, resetLimiter, checkAccountLockout, recordFailedAttempt, clearLockout } from "./middleware/rateLimiter";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/classify-garment", aiLimiter, classifyGarment);
   app.post("/api/extract-color", colorLimiter, extractColor);
+  app.post("/api/remove-background", bgRemovalLimiter, removeBackground);
 
   app.post("/api/auth/sign-in", authLimiter, async (req, res) => {
     const { email, password } = req.body;

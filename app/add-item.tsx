@@ -15,6 +15,7 @@ import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
 import { apiRequest } from '@/lib/query-client';
+import { removeBackground } from '@/lib/photoroom';
 import * as Crypto from 'expo-crypto';
 import { uploadWardrobeImage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
@@ -516,6 +517,27 @@ export default function AddItemScreen() {
           if (resized.base64) {
             classifyBase64 = resized.base64;
             setPhotoBase64(resized.base64);
+
+            // Remove background via Photoroom — silent fallback if unavailable.
+            // Photoroom returns a PNG; re-encode to JPEG so the classify endpoint
+            // always receives image/jpeg (its hardcoded MIME type for Gemini).
+            // We store the clean PNG base64 separately for the storage upload
+            // (higher quality, transparent background) and update the preview URI.
+            const cleanPngBase64 = await removeBackground(resized.base64);
+            if (cleanPngBase64) {
+              setPhotoBase64(cleanPngBase64);
+              setPhotoUri(`data:image/png;base64,${cleanPngBase64}`);
+              try {
+                const reencoded = await ImageManipulator.manipulateAsync(
+                  `data:image/png;base64,${cleanPngBase64}`,
+                  [],
+                  { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+                );
+                if (reencoded.base64) classifyBase64 = reencoded.base64;
+              } catch {
+                // Re-encode failed — keep original JPEG for classify
+              }
+            }
           }
         } catch {
           // Resize failed — classifyBase64 stays undefined
@@ -664,34 +686,40 @@ export default function AddItemScreen() {
           // Resize to ≤1600 px on the longest edge before uploading to Storage.
           // Cuts a typical 12 MP upload from 6–12 MB to ~300–600 KB with no
           // visible quality loss in wardrobe thumbnails.
+          // When background removal succeeded, photoUri is a data URI and
+          // photoBase64 is already the clean PNG — skip ImageManipulator in that case.
           const MAX_STORAGE_PX = 1600;
+          const isDataUri = photoUri?.startsWith('data:');
           let uploadBase64 = photoBase64;
-          try {
-            const w = photoWidth;
-            const h = photoHeight;
-            const longestEdge = Math.max(w, h);
-            if (longestEdge > MAX_STORAGE_PX) {
-              const scale = MAX_STORAGE_PX / longestEdge;
-              const shrunk = await ImageManipulator.manipulateAsync(
-                photoUri,
-                [{ resize: { width: Math.round(w * scale), height: Math.round(h * scale) } }],
-                { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-              );
-              if (shrunk.base64) uploadBase64 = shrunk.base64;
-            } else {
-              // Already within the limit — still re-encode as JPEG for consistent format
-              const reencoded = await ImageManipulator.manipulateAsync(
-                photoUri,
-                [],
-                { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-              );
-              if (reencoded.base64) uploadBase64 = reencoded.base64;
+          let uploadMime: 'image/jpeg' | 'image/png' = isDataUri ? 'image/png' : 'image/jpeg';
+          if (!isDataUri) {
+            try {
+              const w = photoWidth;
+              const h = photoHeight;
+              const longestEdge = Math.max(w, h);
+              if (longestEdge > MAX_STORAGE_PX) {
+                const scale = MAX_STORAGE_PX / longestEdge;
+                const shrunk = await ImageManipulator.manipulateAsync(
+                  photoUri,
+                  [{ resize: { width: Math.round(w * scale), height: Math.round(h * scale) } }],
+                  { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+                );
+                if (shrunk.base64) uploadBase64 = shrunk.base64;
+              } else {
+                // Already within the limit — still re-encode as JPEG for consistent format
+                const reencoded = await ImageManipulator.manipulateAsync(
+                  photoUri,
+                  [],
+                  { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+                );
+                if (reencoded.base64) uploadBase64 = reencoded.base64;
+              }
+            } catch {
+              // Resize failed — fall back silently to original base64
             }
-          } catch {
-            // Resize failed — fall back silently to original base64
           }
           setSaveStage('uploading');
-          finalUri = await uploadWardrobeImage(session.user.id, uploadBase64, itemId, 'image/jpeg');
+          finalUri = await uploadWardrobeImage(session.user.id, uploadBase64, itemId, uploadMime);
         } catch (uploadErr) {
           console.warn('[add-item] Storage upload failed, using local URI:', uploadErr);
         }

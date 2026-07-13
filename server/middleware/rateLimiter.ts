@@ -756,11 +756,12 @@ export function makeLimiterHandler() {
  * production values — any drift here will fail the integration tests.
  */
 export const LIMITER_CONFIGS = {
-  aiLimiter:      { windowMs: 60 * 1000,      max: 10 },
-  colorLimiter:   { windowMs: 60 * 1000,      max: 30 },
-  accountLimiter: { windowMs: 60 * 60 * 1000, max: 5  },
-  authLimiter:    { windowMs: 15 * 60 * 1000, max: 5  },
-  resetLimiter:   { windowMs: 60 * 60 * 1000, max: 3  },
+  aiLimiter:        { windowMs: 60 * 1000,      max: 10 },
+  bgRemovalLimiter: { windowMs: 60 * 1000,      max: 30 },
+  colorLimiter:     { windowMs: 60 * 1000,      max: 30 },
+  accountLimiter:   { windowMs: 60 * 60 * 1000, max: 5  },
+  authLimiter:      { windowMs: 15 * 60 * 1000, max: 5  },
+  resetLimiter:     { windowMs: 60 * 60 * 1000, max: 3  },
 } as const;
 
 export const aiLimiter = rateLimit({
@@ -768,6 +769,14 @@ export const aiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: true,
   store: makeStore("ai"),
+  handler: makeLimiterHandler(),
+});
+
+export const bgRemovalLimiter = rateLimit({
+  ...LIMITER_CONFIGS.bgRemovalLimiter,
+  standardHeaders: true,
+  legacyHeaders: true,
+  store: makeStore("bgremoval"),
   handler: makeLimiterHandler(),
 });
 

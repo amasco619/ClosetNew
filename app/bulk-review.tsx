@@ -20,6 +20,7 @@ import type { ItemCategory, OccasionTag, SeasonTag } from '@/constants/types';
 import Colors from '@/constants/colors';
 import { SUBTYPE_FORMALITY } from '@/constants/outfitScoring';
 import { apiRequest } from '@/lib/query-client';
+import { removeBackground } from '@/lib/photoroom';
 import { uploadWardrobeImage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 
@@ -73,6 +74,8 @@ type ItemStatus =
 
 interface BulkItem {
   uri: string;
+  displayUri?: string;
+  cleanBase64?: string;
   status: ItemStatus;
   classification: ClassifyResult | null;
 }
@@ -153,9 +156,9 @@ function BulkCard({
       {/* Photo — always visible; overlay sits on top */}
       <View style={styles.photoWrap}>
         <Image
-          source={{ uri: item.uri }}
+          source={{ uri: item.displayUri ?? item.uri }}
           style={styles.photo}
-          contentFit="cover"
+          contentFit="contain"
           transition={200}
         />
 
@@ -268,7 +271,7 @@ export default function BulkReviewScreen() {
     return () => clearInterval(id);
   }, [items]);
 
-  // Classify one URI: resize → POST /api/classify-garment → settle card
+  // Classify one URI: resize → background removal → POST /api/classify-garment → settle card
   const classifyUri = useCallback(async (uri: string) => {
     setItems(prev => prev.map(it => it.uri === uri ? { ...it, status: 'classifying' } : it));
     try {
@@ -279,7 +282,31 @@ export default function BulkReviewScreen() {
       );
       if (!resized.base64) throw new Error('resize_failed');
 
-      const res  = await apiRequest('POST', '/api/classify-garment', { imageBase64: resized.base64 });
+      // Remove background via Photoroom — silent fallback if unavailable.
+      // Photoroom returns a PNG; re-encode to JPEG so the classify endpoint
+      // always receives image/jpeg (its hardcoded MIME type for Gemini).
+      // The clean PNG base64 is stored on the item for the storage upload path.
+      let classifyBase64 = resized.base64;
+      const cleanPngBase64 = await removeBackground(resized.base64);
+      if (cleanPngBase64) {
+        setItems(prev => prev.map(it =>
+          it.uri === uri
+            ? { ...it, displayUri: `data:image/png;base64,${cleanPngBase64}`, cleanBase64: cleanPngBase64 }
+            : it
+        ));
+        try {
+          const reencoded = await ImageManipulator.manipulateAsync(
+            `data:image/png;base64,${cleanPngBase64}`,
+            [],
+            { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+          );
+          if (reencoded.base64) classifyBase64 = reencoded.base64;
+        } catch {
+          // Re-encode failed — keep original JPEG for classify
+        }
+      }
+
+      const res  = await apiRequest('POST', '/api/classify-garment', { imageBase64: classifyBase64 });
       const data = await res.json();
 
       const classification: ClassifyResult = {
@@ -343,16 +370,22 @@ export default function BulkReviewScreen() {
         const itemId  = Crypto.randomUUID();
         let finalUri  = item.uri;
 
-        // Upload to Supabase Storage (resize to ≤1600 px first)
+        // Upload to Supabase Storage.
+        // If background removal produced a clean PNG, use it directly.
+        // Otherwise resize the original to ≤1600 px for a smaller JPEG.
         if (session?.user) {
           try {
-            const shrunk = await ImageManipulator.manipulateAsync(
-              item.uri,
-              [{ resize: { width: 1600 } }],
-              { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-            );
-            if (shrunk.base64) {
-              finalUri = await uploadWardrobeImage(session.user.id, shrunk.base64, itemId, 'image/jpeg');
+            if (item.cleanBase64) {
+              finalUri = await uploadWardrobeImage(session.user.id, item.cleanBase64, itemId, 'image/png');
+            } else {
+              const shrunk = await ImageManipulator.manipulateAsync(
+                item.uri,
+                [{ resize: { width: 1600 } }],
+                { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+              );
+              if (shrunk.base64) {
+                finalUri = await uploadWardrobeImage(session.user.id, shrunk.base64, itemId, 'image/jpeg');
+              }
             }
           } catch {
             // Upload failed — fall back to local URI
