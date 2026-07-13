@@ -161,6 +161,131 @@ export async function runClassifyUri(
   }
 }
 
+// ─── Save-all pipeline ───────────────────────────────────────────────────────
+
+/** A settled BulkItem ready to be persisted (classification is guaranteed). */
+export interface SaveAllItem {
+  uri: string;
+  cleanBase64?: string;
+  classification: ClassifyResult;
+}
+
+/** Opaque payload passed from runSaveAll → deps.addItem so the caller can
+ *  apply its own type guards before forwarding to the wardrobe store. */
+export interface BulkSavePayload {
+  id: string;
+  photoUri: string;
+  classification: ClassifyResult;
+}
+
+export interface SaveAllDeps {
+  /** Generate a unique item id. */
+  generateId(): string;
+  /** Return the authenticated user id, or null for guest / unauthenticated. */
+  getSession(): Promise<string | null>;
+  /** Resize `uri` for upload (≤1600 px JPEG). Returns base64 result or null. */
+  resize(uri: string): Promise<{ base64?: string } | null>;
+  /**
+   * Upload to cloud storage.
+   * Signature mirrors uploadWardrobeImage(userId, base64, itemId, mimeType).
+   */
+  upload(
+    userId: string,
+    base64: string,
+    itemId: string,
+    mimeType: string,
+  ): Promise<string>;
+  /**
+   * Pick the best upload source.  Pure — wraps resolveWardrobeUploadArg.
+   * Returns null when neither source is usable (upload should be skipped).
+   */
+  resolveUploadArg(
+    cleanBase64: string | undefined,
+    shrunkBase64: string | undefined,
+  ): { base64: string; mimeType: string } | null;
+  /** Persist one item to the wardrobe store. */
+  addItem(payload: BulkSavePayload): void;
+  /** Updater for the items state array. */
+  setItems(updater: (prev: BulkItemCore[]) => BulkItemCore[]): void;
+  /** Set the saving spinner flag. */
+  setSaving(value: boolean): void;
+  /** Light haptic after each item is saved. */
+  onItemHaptic(): void;
+  /** Success haptic after all items are saved. */
+  onDoneHaptic(): void;
+  /** Navigate away once the save loop finishes. */
+  navigate(): void;
+}
+
+/**
+ * Run the full save-all loop, checking `mountedRef` at every async checkpoint
+ * and before every wardrobe / state mutation so nothing fires after the
+ * component unmounts.
+ *
+ * This is the testable heart of handleSaveAll in bulk-review.tsx.
+ */
+export async function runSaveAll(
+  toSave: SaveAllItem[],
+  mountedRef: { current: boolean },
+  deps: SaveAllDeps,
+): Promise<void> {
+  deps.setSaving(true);
+
+  const userId = await deps.getSession();
+  if (!mountedRef.current) return;
+
+  for (const item of toSave) {
+    if (!mountedRef.current) break;
+
+    deps.setItems(prev =>
+      prev.map(it => it.uri === item.uri ? { ...it, status: 'saving' } : it),
+    );
+
+    try {
+      const itemId = deps.generateId();
+      let finalUri = item.uri;
+
+      if (userId) {
+        try {
+          let shrunkBase64: string | undefined;
+          if (!item.cleanBase64) {
+            const shrunk = await deps.resize(item.uri);
+            if (!mountedRef.current) return;
+            shrunkBase64 = shrunk?.base64;
+          }
+          const uploadArg = deps.resolveUploadArg(item.cleanBase64, shrunkBase64);
+          if (uploadArg) {
+            finalUri = await deps.upload(userId, uploadArg.base64, itemId, uploadArg.mimeType);
+            if (!mountedRef.current) return;
+          }
+        } catch {
+          // Upload failed — fall back to local URI
+        }
+      }
+
+      if (!mountedRef.current) break;
+      deps.addItem({ id: itemId, photoUri: finalUri, classification: item.classification });
+      deps.setItems(prev =>
+        prev.map(it => it.uri === item.uri ? { ...it, status: 'saved' } : it),
+      );
+      deps.onItemHaptic();
+    } catch {
+      if (mountedRef.current) {
+        deps.setItems(prev =>
+          prev.map(it => it.uri === item.uri ? { ...it, status: 'error' } : it),
+        );
+      }
+    }
+  }
+
+  if (!mountedRef.current) return;
+  deps.setSaving(false);
+  deps.onDoneHaptic();
+  deps.navigate();
+}
+
+// ─── Single-item redirect ─────────────────────────────────────────────────────
+
 /**
  * Fire a single-item redirect, guarded by both the mounted ref and a
  * one-shot latch so it can never navigate more than once.

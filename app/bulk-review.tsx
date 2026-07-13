@@ -28,6 +28,7 @@ import { supabase } from '@/lib/supabase';
 import {
   runClassifyUri,
   runRedirectSingle,
+  runSaveAll,
   type ClassifyResult,
   type ClassifyDeps,
 } from '@/lib/bulkClassifyCore';
@@ -357,44 +358,32 @@ export default function BulkReviewScreen() {
   // Save all settled items to wardrobe sequentially
   const handleSaveAll = async () => {
     if (saving) return;
-    const toSave = items.filter(it => it.status === 'settled');
+    const toSave = items
+      .filter(it => it.status === 'settled' && it.classification != null)
+      .map(it => ({ uri: it.uri, cleanBase64: it.cleanBase64, classification: it.classification! }));
     if (toSave.length === 0) return;
 
-    setSaving(true);
-    const { data: { session } } = await supabase.auth.getSession();
-
-    for (const item of toSave) {
-      setItems(prev => prev.map(it => it.uri === item.uri ? { ...it, status: 'saving' } : it));
-      try {
-        const itemId  = Crypto.randomUUID();
-        let finalUri  = item.uri;
-
-        // Upload to Supabase Storage.
-        // If background removal produced a clean PNG, use it directly.
-        // Otherwise resize the original to ≤1600 px for a smaller JPEG.
-        // resolveWardrobeUploadArg selects the correct base64 + mimeType and
-        // guards against accidental data: URI strings or empty values.
-        if (session?.user) {
-          try {
-            let shrunkBase64: string | undefined;
-            if (!item.cleanBase64) {
-              const shrunk = await ImageManipulator.manipulateAsync(
-                item.uri,
-                [{ resize: { width: 1600 } }],
-                { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-              );
-              shrunkBase64 = shrunk.base64;
-            }
-            const uploadArg = resolveWardrobeUploadArg(item.cleanBase64, shrunkBase64);
-            if (uploadArg) {
-              finalUri = await uploadWardrobeImage(session.user.id, uploadArg.base64, itemId, uploadArg.mimeType);
-            }
-          } catch {
-            // Upload failed — fall back to local URI
-          }
-        }
-
-        const c = item.classification!;
+    await runSaveAll(toSave, mountedRef, {
+      generateId: () => Crypto.randomUUID(),
+      getSession: async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        return session?.user?.id ?? null;
+      },
+      // Upload to Supabase Storage.
+      // If background removal produced a clean PNG, use it directly.
+      // Otherwise resize the original to ≤1600 px for a smaller JPEG.
+      resize: (uri) => ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1600 } }],
+        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      ),
+      upload: (userId, base64, itemId, mimeType) =>
+        uploadWardrobeImage(userId, base64, itemId, mimeType as 'image/jpeg' | 'image/png'),
+      // resolveWardrobeUploadArg selects the correct base64 + mimeType and
+      // guards against accidental data: URI strings or empty values.
+      resolveUploadArg: (cleanBase64, shrunkBase64) =>
+        resolveWardrobeUploadArg(cleanBase64, shrunkBase64),
+      addItem: ({ id: itemId, photoUri: finalUri, classification: c }) => {
         addWardrobeItem({
           id: itemId,
           photoUri:      finalUri,
@@ -418,17 +407,13 @@ export default function BulkReviewScreen() {
           dominantLab:   c.dominantLab,
           accentColor:   c.accentColor,
         });
-
-        setItems(prev => prev.map(it => it.uri === item.uri ? { ...it, status: 'saved' } : it));
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {
-        setItems(prev => prev.map(it => it.uri === item.uri ? { ...it, status: 'error' } : it));
-      }
-    }
-
-    setSaving(false);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    router.navigate('/(tabs)/wardrobe');
+      },
+      setItems: (updater) => setItems(prev => updater(prev) as BulkItem[]),
+      setSaving,
+      onItemHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+      onDoneHaptic: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
+      navigate: () => router.navigate('/(tabs)/wardrobe'),
+    });
   };
 
   // Derived values

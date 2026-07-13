@@ -20,8 +20,8 @@
  * Exits non-zero on any failed assertion.
  */
 
-import { runClassifyUri, runRedirectSingle } from '../lib/bulkClassifyCore';
-import type { BulkItemCore, ClassifyResult, ClassifyDeps } from '../lib/bulkClassifyCore';
+import { runClassifyUri, runRedirectSingle, runSaveAll } from '../lib/bulkClassifyCore';
+import type { BulkItemCore, ClassifyResult, ClassifyDeps, SaveAllItem, SaveAllDeps } from '../lib/bulkClassifyCore';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
 
@@ -387,6 +387,221 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
 
     assert(callCount === 1,
       'router.replace called exactly once despite race');
+  }
+
+  // ── runSaveAll ────────────────────────────────────────────────────────────
+
+  /**
+   * Build a SaveAllDeps where getSession, resize, and upload are backed by
+   * deferred promises so tests can release them one at a time.
+   */
+  interface DeferredSaveDeps {
+    deps: SaveAllDeps;
+    addItemCalls: number;
+    setItemsStatuses: string[];
+    setSavingValues: boolean[];
+    navigateCalled: boolean;
+    resolveSession(userId: string | null): void;
+    resolveResize(result: { base64?: string } | null): void;
+    resolveUpload(url: string): void;
+    rejectUpload(err: Error): void;
+  }
+
+  function makeSaveItem(overrides: Partial<SaveAllItem> = {}): SaveAllItem {
+    return {
+      uri: 'file:///photos/shirt.jpg',
+      classification: {
+        category:     'top',
+        subType:      't-shirt',
+        colorFamily:  'white',
+        description:  'A white t-shirt',
+        occasionTags: ['casual'],
+        seasonTags:   ['all-season'],
+      },
+      ...overrides,
+    };
+  }
+
+  function makeDeferredSaveDeps(): DeferredSaveDeps {
+    let addItemCalls = 0;
+    const setItemsStatuses: string[] = [];
+    const setSavingValues: boolean[] = [];
+    let navigateCalled = false;
+
+    const sessionD = deferred<string | null>();
+    const resizeD  = deferred<{ base64?: string } | null>();
+    const uploadD  = deferred<string>();
+
+    const deps: SaveAllDeps = {
+      generateId: () => 'test-uuid',
+      getSession: () => sessionD.promise,
+      resize:     (_uri) => resizeD.promise,
+      upload:     (_userId, _b64, _itemId, _mime) => uploadD.promise,
+      resolveUploadArg: (clean, shrunk) => {
+        const b = clean ?? shrunk;
+        if (!b || b.startsWith('data:')) return null;
+        return { base64: b, mimeType: 'image/jpeg' };
+      },
+      addItem: () => { addItemCalls++; },
+      setItems: (updater) => {
+        const after = updater([{ uri: 'file:///photos/shirt.jpg', status: 'pending', classification: null }]);
+        setItemsStatuses.push(after[0]?.status ?? 'unknown');
+      },
+      setSaving: (v) => { setSavingValues.push(v); },
+      onItemHaptic: () => {},
+      onDoneHaptic: () => {},
+      navigate: () => { navigateCalled = true; },
+    };
+
+    return {
+      deps,
+      get addItemCalls() { return addItemCalls; },
+      get setItemsStatuses() { return setItemsStatuses; },
+      get setSavingValues() { return setSavingValues; },
+      get navigateCalled() { return navigateCalled; },
+      resolveSession: (v) => sessionD.resolve(v),
+      resolveResize:  (v) => resizeD.resolve(v),
+      resolveUpload:  (v) => uploadD.resolve(v),
+      rejectUpload:   (e) => { uploadD.promise.catch(() => {}); (uploadD as any)._reject?.(e); },
+    };
+  }
+
+  section('runSaveAll — 12. unmount before getSession resolves: no mutations fire');
+  {
+    const mountedRef = { current: true };
+    const d = makeDeferredSaveDeps();
+
+    const p = runSaveAll([makeSaveItem()], mountedRef, d.deps);
+    await tick(); // pipeline reaches await getSession
+
+    mountedRef.current = false;
+    d.resolveSession('user-123');
+    await p;
+
+    assert(d.addItemCalls === 0,
+      'addItem not called when unmounted before getSession resolves');
+    assert(!d.setItemsStatuses.includes('saved'),
+      'setItems(saved) not called when unmounted before getSession resolves');
+    assert(!d.navigateCalled,
+      'navigate not called when unmounted before getSession resolves');
+  }
+
+  section('runSaveAll — 13. unmount before resize resolves: no wardrobe mutations fire');
+  {
+    const mountedRef = { current: true };
+    const d = makeDeferredSaveDeps();
+
+    const p = runSaveAll([makeSaveItem()], mountedRef, d.deps);
+    await tick();
+
+    d.resolveSession('user-123'); // getSession resolves, loop starts
+    await tick(); // loop sets 'saving', reaches await resize
+
+    mountedRef.current = false;
+    d.resolveResize({ base64: 'shrunk-base64' });
+    await p;
+
+    assert(d.addItemCalls === 0,
+      'addItem not called when unmounted during resize');
+    assert(!d.setItemsStatuses.includes('saved'),
+      'setItems(saved) suppressed when unmounted during resize');
+    assert(!d.navigateCalled,
+      'navigate suppressed when unmounted during resize');
+  }
+
+  section('runSaveAll — 14. unmount after resize, before upload resolves: no wardrobe mutations fire');
+  {
+    const mountedRef = { current: true };
+    const d = makeDeferredSaveDeps();
+
+    const p = runSaveAll([makeSaveItem()], mountedRef, d.deps);
+    await tick();
+
+    d.resolveSession('user-123');
+    await tick();
+
+    d.resolveResize({ base64: 'shrunk-base64' }); // resize resolves, upload starts
+    await tick();
+
+    mountedRef.current = false;
+    d.resolveUpload('https://storage.example.com/item.jpg');
+    await p;
+
+    assert(d.addItemCalls === 0,
+      'addItem not called when unmounted during upload');
+    assert(!d.setItemsStatuses.includes('saved'),
+      'setItems(saved) suppressed when unmounted during upload');
+    assert(!d.navigateCalled,
+      'navigate suppressed when unmounted during upload');
+  }
+
+  section('runSaveAll — 15. no unmount (happy path, guest): all mutations fire');
+  {
+    const mountedRef = { current: true };
+    const d = makeDeferredSaveDeps();
+
+    // Guest: no userId → skips upload entirely
+    const p = runSaveAll([makeSaveItem()], mountedRef, d.deps);
+    await tick();
+
+    d.resolveSession(null); // guest
+    await p;
+
+    assert(d.addItemCalls === 1,
+      'addItem called once on guest happy path');
+    assert(d.setItemsStatuses.includes('saving'),
+      'setItems(saving) fires');
+    assert(d.setItemsStatuses.includes('saved'),
+      'setItems(saved) fires');
+    assert(d.navigateCalled,
+      'navigate fires on completion');
+    assert(d.setSavingValues[0] === true,
+      'setSaving(true) fires at start');
+    assert(d.setSavingValues[d.setSavingValues.length - 1] === false,
+      'setSaving(false) fires at end');
+  }
+
+  section('runSaveAll — 16. no unmount (happy path, authenticated): full upload + mutations fire');
+  {
+    const mountedRef = { current: true };
+    const d = makeDeferredSaveDeps();
+
+    // Authenticated, no cleanBase64 → resize + upload path
+    const p = runSaveAll([makeSaveItem({ cleanBase64: undefined })], mountedRef, d.deps);
+    await tick();
+
+    d.resolveSession('user-123');
+    await tick();
+
+    d.resolveResize({ base64: 'shrunk-b64' });
+    await tick();
+
+    d.resolveUpload('https://storage.example.com/wardrobe/user-123/test-uuid.jpg');
+    await p;
+
+    assert(d.addItemCalls === 1,
+      'addItem called once on authenticated happy path');
+    assert(d.setItemsStatuses.includes('saved'),
+      'setItems(saved) fires');
+    assert(d.navigateCalled,
+      'navigate fires on completion');
+  }
+
+  section('runSaveAll — 17. early unmount (mountedRef already false at entry): nothing runs');
+  {
+    const mountedRef = { current: false };
+    const d = makeDeferredSaveDeps();
+
+    const p = runSaveAll([makeSaveItem()], mountedRef, d.deps);
+    d.resolveSession(null);
+    d.resolveResize(null);
+    d.resolveUpload('');
+    await p;
+
+    assert(d.addItemCalls === 0,
+      'addItem never called when already unmounted at entry');
+    assert(!d.navigateCalled,
+      'navigate never called when already unmounted at entry');
   }
 
   // ── No stale-state console warnings ──────────────────────────────────────
