@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator,
-  AccessibilityInfo,
+  AccessibilityInfo, BackHandler,
 } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { router } from 'expo-router'
@@ -16,6 +16,15 @@ export default function ForgotPasswordScreen() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [focused, setFocused] = useState(false)
+
+  useEffect(() => {
+    if (!success) return
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      router.replace('/sign-in')
+      return true
+    })
+    return () => sub.remove()
+  }, [success])
 
   const validateEmail = () => {
     if (!email.trim()) {
@@ -49,10 +58,10 @@ export default function ForgotPasswordScreen() {
       <View style={styles.successContainer}>
         <StatusBar style="dark" />
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => router.replace('/sign-in')}
           style={styles.backBtn}
           activeOpacity={0.82}
-          accessibilityLabel="Go back"
+          accessibilityLabel="Back to sign in"
           accessibilityRole="button"
         >
           <Ionicons name="arrow-back" size={22} color="#101826" />
