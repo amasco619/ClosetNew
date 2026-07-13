@@ -16,7 +16,7 @@
  * Exits non-zero on any failed assertion.
  */
 
-import { deleteGuestPhoto, runGuestRemoval } from '../constants/guestPhotoCleanup';
+import { deleteGuestPhoto, runGuestRemoval, buildGuestPhotoDestPath } from '../constants/guestPhotoCleanup';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -176,11 +176,62 @@ async function testRunGuestRemoval(): Promise<void> {
   }
 }
 
+// ── C. buildGuestPhotoDestPath — path contract tests ──────────────────────────
+//
+// These tests confirm that the path written by the guest upload path in
+// add-item.tsx will always start with documentDirectory, satisfying the
+// startsWith guard in deleteGuestPhoto. Both sides of the contract now use
+// the same function, so a change to the path format is caught here first.
+
+async function testBuildGuestPhotoDestPath(): Promise<void> {
+  const ITEM_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+
+  section('C1. buildGuestPhotoDestPath — jpg path starts with documentDirectory');
+  {
+    const path = buildGuestPhotoDestPath(DOCUMENT_DIR, ITEM_ID, 'jpg');
+    assert(path.startsWith(DOCUMENT_DIR), 'jpg path starts with documentDirectory');
+  }
+
+  section('C2. buildGuestPhotoDestPath — png path starts with documentDirectory');
+  {
+    const path = buildGuestPhotoDestPath(DOCUMENT_DIR, ITEM_ID, 'png');
+    assert(path.startsWith(DOCUMENT_DIR), 'png path starts with documentDirectory');
+  }
+
+  section('C3. buildGuestPhotoDestPath — path contains the item id');
+  {
+    const path = buildGuestPhotoDestPath(DOCUMENT_DIR, ITEM_ID, 'jpg');
+    assert(path.includes(ITEM_ID), 'path contains the item id');
+  }
+
+  section('C4. buildGuestPhotoDestPath — jpg path ends with .jpg');
+  {
+    const path = buildGuestPhotoDestPath(DOCUMENT_DIR, ITEM_ID, 'jpg');
+    assert(path.endsWith('.jpg'), 'path ends with .jpg');
+  }
+
+  section('C5. buildGuestPhotoDestPath — png path ends with .png');
+  {
+    const path = buildGuestPhotoDestPath(DOCUMENT_DIR, ITEM_ID, 'png');
+    assert(path.endsWith('.png'), 'path ends with .png');
+  }
+
+  section('C6. buildGuestPhotoDestPath → deleteGuestPhoto contract: path satisfies cleanup guard');
+  {
+    const path = buildGuestPhotoDestPath(DOCUMENT_DIR, ITEM_ID, 'jpg');
+    const spy = makeSpy();
+    await deleteGuestPhoto(path, DOCUMENT_DIR, spy.fn);
+    assert(spy.calls.length === 1, 'deleteGuestPhoto fires for a path built by buildGuestPhotoDestPath');
+    assert(spy.calls[0]?.uri === path, 'deleteGuestPhoto receives the exact path that was built');
+  }
+}
+
 // ── Runner ────────────────────────────────────────────────────────────────────
 
 async function runTests(): Promise<void> {
   await testDeleteGuestPhoto();
   await testRunGuestRemoval();
+  await testBuildGuestPhotoDestPath();
 
   console.log(`\n${failed === 0 ? 'All tests passed.' : `${failed} test(s) failed.`}`);
   if (failed > 0) process.exit(1);

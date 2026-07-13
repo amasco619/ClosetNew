@@ -19,6 +19,7 @@ import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
 import { resolvePhotoUri } from '@/lib/classifyPath';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
+import { buildGuestPhotoDestPath } from '../constants/guestPhotoCleanup';
 import { uploadWardrobeImage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
 
@@ -847,9 +848,11 @@ export default function AddItemScreen() {
       } else {
         // Guest user — copy the photo from the temp cache to the document directory
         // so the thumbnail survives an app restart (temp files are purged by the OS).
+        // buildGuestPhotoDestPath produces a path under documentDirectory so that
+        // the deleteGuestPhoto cleanup guard (startsWith check) will always match.
         try {
           const ext = photoBgRemoved ? 'png' : 'jpg';
-          const dest = `${FileSystem.documentDirectory}wardrobe_${itemId}.${ext}`;
+          const dest = buildGuestPhotoDestPath(FileSystem.documentDirectory!, itemId, ext);
           await FileSystem.copyAsync({ from: photoUri, to: dest });
           finalUri = dest;
         } catch (copyErr) {

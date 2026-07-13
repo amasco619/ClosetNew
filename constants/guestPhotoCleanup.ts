@@ -8,12 +8,37 @@
  *  - Only delete when no signed-in user is present (guest mode).
  *  - Only delete when the URI lives inside documentDirectory (local file).
  *  - https:// Supabase URIs must never trigger a local delete.
+ *
+ * `buildGuestPhotoDestPath` is the canonical path builder for guest uploads.
+ * Using it in both add-item.tsx (write side) and tests (contract side) ensures
+ * the two sides of the cleanup guard always agree on the path format.
  */
 
 export type DeleteAsyncFn = (
   uri: string,
   options: { idempotent: boolean }
 ) => Promise<void>;
+
+/**
+ * Builds the destination path for a guest photo being copied into
+ * documentDirectory during the add-item save flow.
+ *
+ * Keeping this function here — next to deleteGuestPhoto — makes both sides of
+ * the cleanup contract live in one module and lets tests verify that the path
+ * written by the upload path will always pass the startsWith(documentDirectory)
+ * guard in deleteGuestPhoto.
+ *
+ * @param documentDirectory expo-file-system's FileSystem.documentDirectory.
+ * @param itemId            The UUID for the new wardrobe item.
+ * @param ext               File extension without the leading dot ('jpg' | 'png').
+ */
+export function buildGuestPhotoDestPath(
+  documentDirectory: string,
+  itemId: string,
+  ext: 'jpg' | 'png'
+): string {
+  return `${documentDirectory}wardrobe_${itemId}.${ext}`;
+}
 
 /**
  * Deletes a locally-stored photo for a guest wardrobe item.
