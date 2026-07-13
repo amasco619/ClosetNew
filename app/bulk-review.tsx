@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useApp } from '@/contexts/AppContext';
 import type { ItemCategory, OccasionTag, SeasonTag } from '@/constants/types';
+import BulkItemEditPanel from '@/components/BulkItemEditPanel';
 import Colors from '@/constants/colors';
 import { SUBTYPE_FORMALITY } from '@/constants/outfitScoring';
 import { apiRequest } from '@/lib/query-client';
@@ -129,11 +130,13 @@ function BulkCard({
   statusPhase,
   onRemove,
   onRetry,
+  onPress,
 }: {
   item: BulkItem;
   statusPhase: number;
   onRemove: (uri: string) => void;
   onRetry: (uri: string) => void;
+  onPress?: () => void;
 }) {
   const isActive   = item.status === 'pending' || item.status === 'classifying';
   const isSettled  = item.status === 'settled' || item.status === 'saving' || item.status === 'saved';
@@ -157,7 +160,13 @@ function BulkCard({
   const fallbackUri = item.uri; // same source; kept separate for readability
 
   return (
-    <View style={styles.card}>
+    <Pressable
+      style={({ pressed }) => [
+        styles.card,
+        isSettled && onPress && pressed && styles.cardPressed,
+      ]}
+      onPress={isSettled ? onPress : undefined}
+    >
       {/* Photo — always visible; overlay sits on top */}
       <View style={styles.photoWrap}>
         <Image
@@ -245,7 +254,7 @@ function BulkCard({
           </View>
         )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -266,6 +275,7 @@ export default function BulkReviewScreen() {
   );
   const [statusPhase, setStatusPhase] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   // Redirect if no URIs were passed — single-item redirect is handled below.
   useEffect(() => {
@@ -373,6 +383,15 @@ export default function BulkReviewScreen() {
   const handleRetry = useCallback((uri: string) => {
     classifyUri(uri);
   }, [classifyUri]);
+
+  // Patch a classification field on a single item (called from BulkItemEditPanel)
+  const handlePatchItem = useCallback((uri: string, updates: Partial<import('@/lib/bulkClassifyCore').ClassifyResult>) => {
+    setItems(prev => prev.map(it =>
+      it.uri === uri && it.classification
+        ? { ...it, classification: { ...it.classification, ...updates } }
+        : it
+    ));
+  }, []);
 
   // Save all settled items to wardrobe sequentially
   const handleSaveAll = async () => {
@@ -483,12 +502,16 @@ export default function BulkReviewScreen() {
         columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <BulkCard
             item={item}
             statusPhase={statusPhase}
             onRemove={handleRemove}
             onRetry={handleRetry}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setEditingIndex(index);
+            }}
           />
         )}
       />
@@ -516,6 +539,21 @@ export default function BulkReviewScreen() {
           </Text>
         </Pressable>
       </View>
+
+      {/* Carousel edit panel — absolute-fill overlay, zIndex 10 */}
+      {editingIndex !== null && (
+        <BulkItemEditPanel
+          items={visibleItems}
+          editingIndex={Math.min(editingIndex, visibleItems.length - 1)}
+          setEditingIndex={setEditingIndex}
+          patchItem={handlePatchItem}
+          onClose={() => setEditingIndex(null)}
+          onSaveAll={handleSaveAll}
+          canSaveAll={canSaveAll}
+          saving={saving}
+          settledCount={settledCount}
+        />
+      )}
     </View>
   );
 }
@@ -549,6 +587,10 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
     shadowColor: Colors.primary, shadowOpacity: 0.05,
     shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+  },
+  cardPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.97 }],
   },
 
   photoWrap:  { width: CARD_WIDTH, height: PHOTO_HEIGHT, position: 'relative' },
