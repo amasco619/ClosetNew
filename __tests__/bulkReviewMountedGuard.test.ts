@@ -97,11 +97,9 @@ function makeDeferredDeps(): DeferredDeps {
   const classifyD = deferred<Record<string, unknown>>();
 
   const deps: ClassifyDeps = {
-    resize:              (_uri)   => resizeD.promise,
-    removeBg:            (_b64)   => removeBgD.promise,
-    reencodeAsJpeg:      (_pngB64) => reencodeD.promise,
-    resolveClassifyBase64: (orig, reenc) =>
-      reenc && reenc.length > 0 ? reenc : orig,
+    resize:         (_uri)    => resizeD.promise,
+    removeBg:       (_b64)    => removeBgD.promise,
+    reencodeAsJpeg: (_pngB64) => reencodeD.promise,
     resolvePhotoUri: (orig, reenc) =>
       reenc && reenc.length > 0 && !reenc.startsWith('data:') ? reenc : orig,
     classify: (_b64) => classifyD.promise,

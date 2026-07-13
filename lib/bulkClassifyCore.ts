@@ -50,10 +50,8 @@ export interface ClassifyDeps {
   resize(uri: string): Promise<{ base64?: string } | null>;
   /** Remove background from a JPEG base64. Returns PNG base64 or null. */
   removeBg(base64: string): Promise<string | null>;
-  /** Re-encode a clean PNG base64 back to JPEG. Returns null on failure. */
+  /** Re-encode a clean PNG base64 back to JPEG for display (file:// URI). Returns null on failure. */
   reencodeAsJpeg(pngBase64: string): Promise<{ base64?: string; uri: string } | null>;
-  /** Pick the best base64 for the classify endpoint (original vs re-encoded). */
-  resolveClassifyBase64(original: string, reencoded: string | null | undefined): string;
   /** Pick the safe display URI (never a data: string). */
   resolvePhotoUri(original: string, reencoded: string | null | undefined): string;
   /** POST to /api/classify-garment and return the parsed response body. */
@@ -100,10 +98,10 @@ export async function runClassifyUri(
     if (!mountedRef.current) return;
 
     if (cleanPngBase64) {
+      classifyBase64 = cleanPngBase64;
       try {
         const reencoded = await deps.reencodeAsJpeg(cleanPngBase64);
         if (!mountedRef.current) return;
-        classifyBase64 = deps.resolveClassifyBase64(classifyBase64, reencoded?.base64 ?? null);
         const safeDisplayUri = deps.resolvePhotoUri(uri, reencoded?.uri ?? null);
         deps.setItems(prev =>
           prev.map(it =>

@@ -21,7 +21,7 @@ import BulkItemEditPanel from '@/components/BulkItemEditPanel';
 import Colors from '@/constants/colors';
 import { SUBTYPE_FORMALITY } from '@/constants/outfitScoring';
 import { apiRequest } from '@/lib/query-client';
-import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
+import { removeBackground } from '@/lib/photoroom';
 import { resolvePhotoUri } from '@/lib/classifyPath';
 import { uploadWardrobeImage } from '@/lib/storage';
 import { resolveWardrobeUploadArg } from '@/lib/uploadArg';
@@ -357,7 +357,6 @@ export default function BulkReviewScreen() {
         [],
         { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       ),
-      resolveClassifyBase64,
       resolvePhotoUri,
       classify: async (imageBase64) => {
         const res = await apiRequest('POST', '/api/classify-garment', { imageBase64 });
