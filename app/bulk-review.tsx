@@ -24,6 +24,12 @@ import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
 import { resolvePhotoUri } from '@/lib/classifyPath';
 import { uploadWardrobeImage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
+import {
+  runClassifyUri,
+  runRedirectSingle,
+  type ClassifyResult,
+  type ClassifyDeps,
+} from '@/lib/bulkClassifyCore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -43,26 +49,7 @@ const PHOTO_HEIGHT = CARD_WIDTH; // square thumbnail
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface ClassifyResult {
-  category: ItemCategory;
-  subType: string;
-  colorFamily: string;
-  accentColor?: string;
-  description: string;
-  occasionTags: OccasionTag[];
-  seasonTags: SeasonTag[];
-  pattern?: string;
-  patternScale?: string;
-  fabric?: string;
-  weight?: string;
-  dominantHsl?: { h: number; s: number; l: number };
-  dominantLab?: { L: number; a: number; b: number };
-  fit?: string;
-  neckline?: string;
-  sleeveLength?: string;
-  rise?: string;
-  warmthBand?: string;
-}
+// ClassifyResult is imported from lib/bulkClassifyCore.
 
 type ItemStatus =
   | 'pending'
@@ -291,41 +278,7 @@ export default function BulkReviewScreen() {
   const SINGLE_REDIRECT_TIMEOUT_MS = 12_000;
 
   const redirectSingle = useCallback((item: BulkItem, settled: boolean) => {
-    if (singleRedirectedRef.current) return;
-    if (!mountedRef.current) return;
-    singleRedirectedRef.current = true;
-
-    if (settled && item.classification) {
-      const c = item.classification;
-      router.replace({
-        pathname: '/add-item',
-        params: {
-          initialUri:     item.uri,
-          preClassified:  'true',
-          pcCategory:     c.category,
-          pcSubType:      c.subType,
-          pcColorFamily:  c.colorFamily,
-          pcAccentColor:  c.accentColor  ?? '',
-          pcDescription:  c.description,
-          pcOccasionTags: JSON.stringify(c.occasionTags),
-          pcSeasonTags:   JSON.stringify(c.seasonTags),
-          pcPattern:      c.pattern      ?? '',
-          pcPatternScale: c.patternScale ?? '',
-          pcFabric:       c.fabric       ?? '',
-          pcWeight:       c.weight       ?? '',
-          pcDominantHsl:  c.dominantHsl  ? JSON.stringify(c.dominantHsl) : '',
-          pcDominantLab:  c.dominantLab  ? JSON.stringify(c.dominantLab) : '',
-          pcFit:          c.fit          ?? '',
-          pcNeckline:     c.neckline     ?? '',
-          pcSleeveLength: c.sleeveLength ?? '',
-          pcRise:         c.rise         ?? '',
-          pcWarmthBand:   c.warmthBand   ?? '',
-        },
-      });
-    } else {
-      // Classification failed or timed out — redirect without pre-fill.
-      router.replace({ pathname: '/add-item', params: { initialUri: item.uri } });
-    }
+    runRedirectSingle(item, settled, mountedRef, singleRedirectedRef, { replace: router.replace });
   }, []);
 
   // Effect 1: watch items; redirect as soon as the sole item settles or errors.
@@ -356,90 +309,30 @@ export default function BulkReviewScreen() {
     return () => clearInterval(id);
   }, [items]);
 
-  // Classify one URI: resize → background removal → POST /api/classify-garment → settle card
+  // Classify one URI: resize → background removal → POST /api/classify-garment → settle card.
+  // Core guard logic lives in lib/bulkClassifyCore.runClassifyUri (tested directly in Node).
   const classifyUri = useCallback(async (uri: string) => {
-    if (!mountedRef.current) return;
-    setItems(prev => prev.map(it => it.uri === uri ? { ...it, status: 'classifying' } : it));
-    try {
-      const resized = await ImageManipulator.manipulateAsync(
-        uri,
+    await runClassifyUri(uri, mountedRef, {
+      resize: (u) => ImageManipulator.manipulateAsync(
+        u,
         [{ resize: { width: 1024 } }],
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-      );
-      if (!mountedRef.current) return;
-      if (!resized.base64) throw new Error('resize_failed');
-
-      // Remove background via Photoroom — silent fallback if unavailable.
-      // Photoroom returns a PNG; re-encode to JPEG so the classify endpoint
-      // always receives image/jpeg (its hardcoded MIME type for Gemini).
-      // The clean PNG base64 is stored on the item for the storage upload path.
-      let classifyBase64 = resized.base64;
-      const cleanPngBase64 = await removeBackground(resized.base64);
-      if (!mountedRef.current) return;
-      if (cleanPngBase64) {
-        setItems(prev => prev.map(it =>
-          it.uri === uri
-            ? { ...it, displayUri: `data:image/png;base64,${cleanPngBase64}`, cleanBase64: cleanPngBase64 }
-            : it
-        ));
-        try {
-          const reencoded = await ImageManipulator.manipulateAsync(
-            `data:image/png;base64,${cleanPngBase64}`,
-            [],
-            { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-          );
-          if (!mountedRef.current) return;
-          classifyBase64 = resolveClassifyBase64(classifyBase64, reencoded.base64);
-          // Replace the intermediate data: URI with the file:// URI produced by
-          // ImageManipulator so displayUri never holds a multi-megabyte base64 string.
-          // resolvePhotoUri guards against any unexpected data: URI from the manipulator.
-          const safeDisplayUri = resolvePhotoUri(uri, reencoded.uri);
-          setItems(prev => prev.map(it =>
-            it.uri === uri ? { ...it, displayUri: safeDisplayUri } : it
-          ));
-        } catch {
-          // Re-encode failed — keep original JPEG for classify; reset displayUri
-          // from the intermediate data: URI back to the original asset URI so no
-          // data: string persists in component state.
-          if (mountedRef.current) {
-            setItems(prev => prev.map(it =>
-              it.uri === uri ? { ...it, displayUri: resolvePhotoUri(uri, null) } : it
-            ));
-          }
-        }
-      }
-
-      const res  = await apiRequest('POST', '/api/classify-garment', { imageBase64: classifyBase64 });
-      const data = await res.json();
-      if (!mountedRef.current) return;
-
-      const classification: ClassifyResult = {
-        category:     (data.category as ItemCategory) || 'top',
-        subType:      data.subType      || '',
-        colorFamily:  data.colorFamily  || '',
-        accentColor:  data.accentColor,
-        description:  data.description  || '',
-        occasionTags: Array.isArray(data.occasionTags) ? data.occasionTags : [],
-        seasonTags:   Array.isArray(data.seasonTags)   ? data.seasonTags as SeasonTag[] : [],
-        pattern:      data.pattern,
-        patternScale: data.patternScale,
-        fabric:       data.fabric,
-        weight:       data.weight,
-        dominantHsl:  data.dominantHsl,
-        dominantLab:  data.dominantLab,
-        fit:          data.fit,
-        neckline:     data.neckline,
-        sleeveLength: data.sleeveLength,
-        rise:         data.rise,
-        warmthBand:   data.warmthBand,
-      };
-
-      setItems(prev => prev.map(it => it.uri === uri ? { ...it, status: 'settled', classification } : it));
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {
-      if (!mountedRef.current) return;
-      setItems(prev => prev.map(it => it.uri === uri ? { ...it, status: 'error' } : it));
-    }
+      ),
+      removeBg: (b64) => removeBackground(b64),
+      reencodeAsJpeg: (pngB64) => ImageManipulator.manipulateAsync(
+        `data:image/png;base64,${pngB64}`,
+        [],
+        { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      ),
+      resolveClassifyBase64,
+      resolvePhotoUri,
+      classify: async (imageBase64) => {
+        const res = await apiRequest('POST', '/api/classify-garment', { imageBase64 });
+        return res.json();
+      },
+      setItems: setItems as unknown as ClassifyDeps['setItems'],
+      onHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+    });
   }, []);
 
   // Kick off staggered classify tasks on mount
