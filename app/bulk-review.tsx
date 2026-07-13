@@ -21,6 +21,7 @@ import Colors from '@/constants/colors';
 import { SUBTYPE_FORMALITY } from '@/constants/outfitScoring';
 import { apiRequest } from '@/lib/query-client';
 import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
+import { resolvePhotoUri } from '@/lib/classifyPath';
 import { uploadWardrobeImage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 
@@ -389,8 +390,22 @@ export default function BulkReviewScreen() {
           );
           if (!mountedRef.current) return;
           classifyBase64 = resolveClassifyBase64(classifyBase64, reencoded.base64);
+          // Replace the intermediate data: URI with the file:// URI produced by
+          // ImageManipulator so displayUri never holds a multi-megabyte base64 string.
+          // resolvePhotoUri guards against any unexpected data: URI from the manipulator.
+          const safeDisplayUri = resolvePhotoUri(uri, reencoded.uri);
+          setItems(prev => prev.map(it =>
+            it.uri === uri ? { ...it, displayUri: safeDisplayUri } : it
+          ));
         } catch {
-          // Re-encode failed — keep original JPEG for classify
+          // Re-encode failed — keep original JPEG for classify; reset displayUri
+          // from the intermediate data: URI back to the original asset URI so no
+          // data: string persists in component state.
+          if (mountedRef.current) {
+            setItems(prev => prev.map(it =>
+              it.uri === uri ? { ...it, displayUri: resolvePhotoUri(uri, null) } : it
+            ));
+          }
         }
       }
 

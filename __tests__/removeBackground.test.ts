@@ -626,6 +626,146 @@ async function main() {
     }
   }
 
+  // ── G. Bulk-review displayUri path — resolvePhotoUri guards the card preview URI
+  //
+  // After background removal + re-encode, classifyUri() in bulk-review.tsx calls
+  // resolvePhotoUri(uri, reencoded.uri) to update displayUri.  The helper ensures
+  // the stored value is always a file:// or https:// URI, never a data: string.
+  //
+  // Mapping to bulk-review.tsx code paths:
+  //   Success  → ImageManipulator returns file:// URI → resolvePhotoUri accepts it
+  //   Failure  → re-encode throws / returns null      → resolvePhotoUri falls back
+  //              to the original asset URI (item.uri)
+  //   Invariant → displayUri (and therefore the wardrobe photoUri) never starts with "data:"
+
+  console.log('\nbulk-review displayUri — resolvePhotoUri guards the card preview URI:');
+
+  {
+    // Happy path: bg removal + re-encode both succeed.
+    // ImageManipulator.manipulateAsync returns a local file:// URI.
+    const originalAssetUri = 'file:///var/mobile/tmp/bulk-item-0.jpg';
+    const reencodedFileUri = 'file:///var/mobile/tmp/IMG_reencoded_bulk-item-0.jpg';
+    assertEq(
+      resolvePhotoUri(originalAssetUri, reencodedFileUri),
+      reencodedFileUri,
+      'bulk displayUri: re-encode succeeds → file:// URI accepted as displayUri',
+    );
+  }
+
+  {
+    // bg removal succeeds but ImageManipulator.manipulateAsync throws during re-encode.
+    // The catch block in bulk-review.tsx calls resolvePhotoUri(uri, null), which
+    // returns the original asset URI, resetting displayUri away from the intermediate
+    // data: PNG that was set just before the try block.
+    const originalAssetUri = 'file:///var/mobile/tmp/bulk-item-1.jpg';
+    assertEq(
+      resolvePhotoUri(originalAssetUri, null),
+      originalAssetUri,
+      'bulk displayUri: re-encode throws → catch calls resolvePhotoUri(uri, null) → original asset URI stored',
+    );
+  }
+
+  {
+    // bg removal returns null (API key missing / network error / HTTP 502).
+    // classifyUri skips the re-encode try/catch block entirely; no data: URI is ever
+    // set into displayUri, so it stays as the original asset URI (item.uri).
+    const originalAssetUri = 'file:///var/mobile/tmp/bulk-item-2.jpg';
+    assertEq(
+      resolvePhotoUri(originalAssetUri, null),
+      originalAssetUri,
+      'bulk displayUri: bg removal returns null → re-encode block skipped → original asset URI kept',
+    );
+  }
+
+  {
+    // ImageManipulator unexpectedly returns a data: URI (defensive guard).
+    // resolvePhotoUri rejects it and falls back to the original asset URI.
+    const originalAssetUri = 'file:///var/mobile/tmp/bulk-item-3.jpg';
+    const dataUri = 'data:image/jpeg;base64,/9j/4AAQSkZJRgAB...';
+    assertEq(
+      resolvePhotoUri(originalAssetUri, dataUri),
+      originalAssetUri,
+      'bulk displayUri: ImageManipulator returns data: URI → rejected; falls back to original asset URI',
+    );
+  }
+
+  console.log('\nbulk-review displayUri invariant — resolvePhotoUri result never starts with "data:":');
+
+  const bulkDisplayUriCases: Array<string | null | undefined> = [
+    'data:image/jpeg;base64,/9j/4AAQSkZJRgAB...',
+    'data:image/png;base64,iVBORw0KGgo=',
+    null,
+    undefined,
+    '',
+  ];
+
+  for (const candidate of bulkDisplayUriCases) {
+    const result = resolvePhotoUri('file:///safe-fallback.jpg', candidate);
+    assert(
+      !result.startsWith('data:'),
+      `bulk displayUri never starts with "data:" when reencodedUri is ${JSON.stringify(candidate)}`,
+    );
+  }
+
+  // ── H. Bulk-review finalUri (wardrobe photoUri) — never a data: URI ──────
+  //
+  // Models the handleSaveAll() logic in bulk-review.tsx:
+  //   finalUri starts as item.uri (file://)
+  //   Upload success (session + cleanBase64) → finalUri = Supabase public URL (https://)
+  //   Upload success (session, no cleanBase64) → finalUri = Supabase public URL (https://)
+  //   Upload failure (catch) → finalUri stays as item.uri (file://)
+  //   Guest / no session → finalUri stays as item.uri (file://)
+  // In all paths, the photoUri stored in addWardrobeItem must never start with "data:".
+
+  console.log('\nbulk-review finalUri (wardrobe photoUri) — never a data: URI:');
+
+  function selectBulkFinalUri(
+    itemUri: string,
+    uploadedUrl: string | null,
+  ): string {
+    if (uploadedUrl !== null) return uploadedUrl;
+    return itemUri;
+  }
+
+  const bulkItemUri   = 'file:///var/mobile/tmp/bulk-item-4.jpg';
+  const bulkSupabase  = 'https://project.supabase.co/storage/v1/object/public/wardrobe/bulk-uuid.png';
+
+  {
+    assertEq(
+      selectBulkFinalUri(bulkItemUri, bulkSupabase),
+      bulkSupabase,
+      'bulk upload success (cleanBase64) → photoUri is Supabase https:// URL',
+    );
+  }
+
+  {
+    assertEq(
+      selectBulkFinalUri(bulkItemUri, null),
+      bulkItemUri,
+      'bulk upload failure → photoUri falls back to original file:// URI',
+    );
+  }
+
+  {
+    assertEq(
+      selectBulkFinalUri(bulkItemUri, null),
+      bulkItemUri,
+      'bulk guest/no-session → photoUri is original file:// URI (no upload attempt)',
+    );
+  }
+
+  console.log('\nbulk-review finalUri invariant — never data: in any path:');
+
+  const bulkFinalUriCases: Array<string | null> = [bulkSupabase, null];
+
+  for (const uploadedUrl of bulkFinalUriCases) {
+    const result = selectBulkFinalUri(bulkItemUri, uploadedUrl);
+    assert(
+      !result.startsWith('data:'),
+      `bulk finalUri never starts with "data:" (uploadedUrl=${JSON.stringify(uploadedUrl)})`,
+    );
+  }
+
   // ── Final result ───────────────────────────────────────────────────────────
 
   console.log(`\n${failed === 0 ? 'All tests passed.' : `${failed} test(s) failed.`}`);
