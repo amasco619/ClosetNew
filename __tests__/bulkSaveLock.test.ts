@@ -172,7 +172,70 @@ function makeDeps(overrides: Partial<SaveAllDeps> = {}): SaveAllDeps & {
     assert(setSavingCalls.length === 0, 'setSaving not called after save has finished');
   }
 
-  // ── 4. runSaveAll — setSaving lifecycle ───────────────────────────────────
+  // ── 4. AppState debounce — rapid transitions coalesce ────────────────────
+
+  section('AppState debounce — rapid background→inactive→active transitions coalesce');
+
+  // Simulates the debounced AppState listener added to bulk-review.tsx.
+  // Multiple rapid state changes within the 16 ms window must coalesce so
+  // the button never flickers unlocked between transitions.
+  {
+    const setSavingCalls: boolean[] = [];
+    const setSaving = (v: boolean) => setSavingCalls.push(v);
+
+    // Minimal debounce implementation mirroring bulk-review.tsx
+    function makeDebounced(savingRef: { current: boolean }) {
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      return function onAppStateChange(nextState: 'active' | 'background' | 'inactive') {
+        if (timer !== null) clearTimeout(timer);
+        timer = setTimeout(() => {
+          timer = null;
+          if (nextState === 'active' && savingRef.current) {
+            setSaving(true);
+          }
+        }, 16);
+      };
+    }
+
+    const savingRef = { current: true };
+    const handler = makeDebounced(savingRef);
+
+    // Rapid sequence: background → inactive → active (all within one tick —
+    // simulates an OEM that fires multiple AppState events in quick succession)
+    handler('background');
+    handler('inactive');
+    handler('active'); // only this one should survive the debounce
+
+    // Advance timers so the debounced callback executes
+    await new Promise<void>(resolve => setTimeout(resolve, 20));
+
+    assert(
+      setSavingCalls.length === 1,
+      'setSaving called exactly once despite three rapid transitions'
+    );
+    assert(
+      setSavingCalls[0] === true,
+      'the surviving call locks the button (true)'
+    );
+
+    setSavingCalls.length = 0;
+
+    // Scenario B: save finishes between the last transition and the debounce
+    // firing — the button must NOT be re-locked.
+    const savingRef2 = { current: true };
+    const handler2 = makeDebounced(savingRef2);
+    handler2('background');
+    handler2('active');
+    savingRef2.current = false; // save completes before the 16 ms timer fires
+    await new Promise<void>(resolve => setTimeout(resolve, 20));
+
+    assert(
+      setSavingCalls.length === 0,
+      'setSaving not called when save completes before debounce fires'
+    );
+  }
+
+  // ── 5. runSaveAll — setSaving lifecycle ───────────────────────────────────
 
   section('runSaveAll — setSaving lifecycle');
 
@@ -192,7 +255,7 @@ function makeDeps(overrides: Partial<SaveAllDeps> = {}): SaveAllDeps & {
       'navigate called after save');
   }
 
-  // ── 5. runSaveAll — unmount suppresses setSaving(false) ───────────────────
+  // ── 6. runSaveAll — unmount suppresses setSaving(false) ───────────────────
 
   section('runSaveAll — unmount during save suppresses setSaving(false)');
 

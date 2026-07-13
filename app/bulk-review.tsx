@@ -352,13 +352,32 @@ export default function BulkReviewScreen() {
   // savingRef.current is always up-to-date (it is set synchronously at the top
   // of handleSaveAll and cleared in its finally block), so it is the source of
   // truth here.
+  //
+  // The handler is wrapped in a 16 ms debounce (one animation frame) so that
+  // rapid background → inactive → active transitions on Android OEMs with
+  // sluggish reconciliation coalesce into a single setSaving(true) call and
+  // the button never flickers unlocked between transitions.
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
     const sub = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active' && savingRef.current) {
-        setSaving(true);
+      if (debounceTimer !== null) {
+        clearTimeout(debounceTimer);
       }
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        if (nextState === 'active' && savingRef.current) {
+          setSaving(true);
+        }
+      }, 16);
     });
-    return () => sub.remove();
+
+    return () => {
+      sub.remove();
+      if (debounceTimer !== null) {
+        clearTimeout(debounceTimer);
+      }
+    };
   }, []);
 
   const SINGLE_REDIRECT_TIMEOUT_MS = 12_000;
