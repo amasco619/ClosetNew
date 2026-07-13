@@ -317,6 +317,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const loadedProfile: UserProfile = profileData ? mergeProfile(JSON.parse(profileData)) : defaultProfile;
       if (profileData) setProfile(loadedProfile);
       const rawItems: WardrobeItem[] = wardrobeData ? JSON.parse(wardrobeData) : [];
+      // ── Guest photo path normalisation ────────────────────────────────────
+      // On Android, FileSystem.documentDirectory can change between app
+      // updates. Guest items were saved as absolute paths
+      // (`${documentDirectory}wardrobe_<uuid>.jpg`). If the directory
+      // portion has shifted we silently rebase to the current value so
+      // thumbnails keep rendering. Paths that don't match the
+      // `wardrobe_*.jpg|png` guest naming convention are left untouched.
+      const currentDocDir = FileSystem.documentDirectory ?? '';
+      const rebaseGuestPhotoUri = (uri: string): string => {
+        if (!currentDocDir || !uri.startsWith('file://')) return uri;
+        const filename = uri.split('/').pop() ?? '';
+        if (!/^wardrobe_[^/]+\.(jpg|png)$/i.test(filename)) return uri;
+        const expected = `${currentDocDir}${filename}`;
+        return expected !== uri ? expected : uri;
+      };
       // ── Perceptual migration (two phase) ──────────────────────────────────
       // Phase 1 (synchronous, instant): seed every legacy item's HSL/Lab
       // from the colour-family centroid so the scorer never sees null while
@@ -327,7 +342,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // A persistent flag prevents this from ever running twice.
       const legacyIds = new Set<string>();
       const texturePersistIds = new Set<string>();
+      const rebasedPathIds = new Set<string>();
       const seededItems = rawItems.map((it) => {
+        // Rebase guest photo paths if documentDirectory has changed
+        if (it.photoUri) {
+          const rebased = rebaseGuestPhotoUri(it.photoUri);
+          if (rebased !== it.photoUri) {
+            it = { ...it, photoUri: rebased };
+            rebasedPathIds.add(it.id);
+          }
+        }
         // One-shot occasion migration (April 2026): the legacy `'date'` tag
         // was split into `'date-casual'` / `'date-dressy'`. Default forward
         // to `'date-dressy'` since the historical scorer band [3,7] sat
@@ -358,7 +382,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return { ...withTexture, dominantHsl: hsl, dominantLab: lab };
       });
       if (wardrobeData) setWardrobeItems(seededItems);
-      if (legacyIds.size > 0 || texturePersistIds.size > 0) {
+      if (legacyIds.size > 0 || texturePersistIds.size > 0 || rebasedPathIds.size > 0) {
         AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(seededItems));
       }
       // Phase 2 image refinement only runs if there is genuine legacy work to
