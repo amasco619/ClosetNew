@@ -226,12 +226,105 @@ async function testBuildGuestPhotoDestPath(): Promise<void> {
   }
 }
 
+// ── D. Per-deletion fire-and-forget contract ───────────────────────────────────
+//
+// AppContext calls runGuestRemoval(...).catch(console.warn) so that a failing
+// delete never surfaces an error to the user (best-effort). These tests verify
+// that:
+//   1. runGuestRemoval propagates deleteAsync rejections so the caller's
+//      .catch() handler can intercept them.
+//   2. deleteGuestPhoto likewise propagates rejections from deleteAsync.
+//   3. A guest user who never signs in and removes items one-by-one only has
+//      their own item's file deleted (no cross-contamination).
+//   4. Removing the same item twice is safe because deleteAsync is called with
+//      { idempotent: true } which prevents ENOENT errors from surfacing.
+
+async function testPerDeletionContract(): Promise<void> {
+  const ITEM_ID = 'item-del';
+  const OTHER_ID = 'item-other';
+
+  const wardrobeItems = [
+    { id: ITEM_ID, photoUri: `${DOCUMENT_DIR}wardrobe_${ITEM_ID}.jpg` },
+    { id: OTHER_ID, photoUri: `${DOCUMENT_DIR}wardrobe_${OTHER_ID}.jpg` },
+  ];
+
+  section('D1. runGuestRemoval — deleteAsync rejection propagates to caller');
+  {
+    const throwingFn = async (_uri: string, _opts: { idempotent: boolean }): Promise<void> => {
+      throw new Error('disk full');
+    };
+    let caught: Error | null = null;
+    try {
+      await runGuestRemoval(ITEM_ID, wardrobeItems, DOCUMENT_DIR, throwingFn);
+    } catch (e) {
+      caught = e as Error;
+    }
+    assert(caught !== null, 'runGuestRemoval rejects when deleteAsync throws');
+    assert(caught?.message === 'disk full', 'rejection carries the original error message');
+  }
+
+  section('D2. deleteGuestPhoto — deleteAsync rejection propagates to caller');
+  {
+    const throwingFn = async (_uri: string, _opts: { idempotent: boolean }): Promise<void> => {
+      throw new Error('permission denied');
+    };
+    let caught: Error | null = null;
+    try {
+      await deleteGuestPhoto(`${DOCUMENT_DIR}wardrobe_any.jpg`, DOCUMENT_DIR, throwingFn);
+    } catch (e) {
+      caught = e as Error;
+    }
+    assert(caught !== null, 'deleteGuestPhoto rejects when deleteAsync throws');
+    assert(caught?.message === 'permission denied', 'rejection carries the original error message');
+  }
+
+  section('D3. per-deletion — removing item A does not delete item B');
+  {
+    const spy = makeSpy();
+    await runGuestRemoval(ITEM_ID, wardrobeItems, DOCUMENT_DIR, spy.fn);
+    assert(spy.calls.length === 1, 'exactly one delete call issued');
+    assert(
+      spy.calls[0]?.uri === `${DOCUMENT_DIR}wardrobe_${ITEM_ID}.jpg`,
+      'only item A URI passed to deleteAsync'
+    );
+    assert(
+      !spy.calls.some(c => c.uri.includes(OTHER_ID)),
+      'item B URI never passed to deleteAsync'
+    );
+  }
+
+  section('D4. per-deletion — idempotent flag makes double-delete safe');
+  {
+    const spy = makeSpy();
+    const singleItemWardrobe = [{ id: ITEM_ID, photoUri: `${DOCUMENT_DIR}wardrobe_${ITEM_ID}.jpg` }];
+    await runGuestRemoval(ITEM_ID, singleItemWardrobe, DOCUMENT_DIR, spy.fn);
+    await runGuestRemoval(ITEM_ID, singleItemWardrobe, DOCUMENT_DIR, spy.fn);
+    assert(spy.calls.length === 2, 'deleteAsync called on each deletion attempt');
+    assert(
+      spy.calls.every(c => c.options.idempotent === true),
+      'idempotent flag is true on every call so ENOENT errors are suppressed'
+    );
+  }
+
+  section('D5. per-deletion — guest user stays guest: no Supabase URI is ever touched');
+  {
+    const mixedWardrobe = [
+      { id: 'local-item', photoUri: `${DOCUMENT_DIR}wardrobe_local-item.jpg` },
+      { id: 'cloud-item', photoUri: 'https://xyzcompany.supabase.co/storage/v1/object/public/wardrobe/cloud.jpg' },
+    ];
+    const spy = makeSpy();
+    await runGuestRemoval('cloud-item', mixedWardrobe, DOCUMENT_DIR, spy.fn);
+    assert(spy.calls.length === 0, 'Supabase URI is never passed to deleteAsync even in guest mode');
+  }
+}
+
 // ── Runner ────────────────────────────────────────────────────────────────────
 
 async function runTests(): Promise<void> {
   await testDeleteGuestPhoto();
   await testRunGuestRemoval();
   await testBuildGuestPhotoDestPath();
+  await testPerDeletionContract();
 
   console.log(`\n${failed === 0 ? 'All tests passed.' : `${failed} test(s) failed.`}`);
   if (failed > 0) process.exit(1);
