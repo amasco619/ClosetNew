@@ -456,6 +456,11 @@ export default function BulkReviewScreen() {
 
   // Derived values
   const visibleItems    = items.filter(it => it.status !== 'removed');
+  // editableItems: items the carousel can actually display/edit (have a classification).
+  // pending/classifying/error items are never navigable within the panel.
+  const editableItems   = visibleItems.filter(it =>
+    it.status === 'settled' || it.status === 'saving' || it.status === 'saved'
+  );
   const settledCount    = items.filter(it => it.status === 'settled').length;
   const classifiedCount = items.filter(it =>
     ['settled','saving','saved','error'].includes(it.status)
@@ -502,15 +507,17 @@ export default function BulkReviewScreen() {
         columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        renderItem={({ item, index }) => (
+        renderItem={({ item }) => (
           <BulkCard
             item={item}
             statusPhase={statusPhase}
             onRemove={handleRemove}
             onRetry={handleRetry}
             onPress={() => {
+              const editableIdx = editableItems.findIndex(e => e.uri === item.uri);
+              if (editableIdx < 0) return;
               Haptics.selectionAsync();
-              setEditingIndex(index);
+              setEditingIndex(editableIdx);
             }}
           />
         )}
@@ -540,11 +547,13 @@ export default function BulkReviewScreen() {
         </Pressable>
       </View>
 
-      {/* Carousel edit panel — absolute-fill overlay, zIndex 10 */}
-      {editingIndex !== null && (
+      {/* Carousel edit panel — absolute-fill overlay, zIndex 10.
+          Receives only editableItems so Prev/Next never lands on a
+          pending/classifying/error entry that has no classification. */}
+      {editingIndex !== null && editableItems.length > 0 && (
         <BulkItemEditPanel
-          items={visibleItems}
-          editingIndex={Math.min(editingIndex, visibleItems.length - 1)}
+          items={editableItems}
+          editingIndex={Math.min(editingIndex, editableItems.length - 1)}
           setEditingIndex={setEditingIndex}
           patchItem={handlePatchItem}
           onClose={() => setEditingIndex(null)}

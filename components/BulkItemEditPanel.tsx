@@ -137,6 +137,8 @@ export default function BulkItemEditPanel({
   const showSleeve  = SLEEVE_CATEGORIES.has(cl?.category as ItemCategory);
 
   // ── Local description state (controlled for smooth typing) ─────────────────
+  // Changes are written back to shared state immediately on every keystroke
+  // via patchItem so the parent items array always reflects the latest text.
   const [localDesc, setLocalDesc] = useState(cl?.description ?? '');
 
   useEffect(() => {
@@ -145,7 +147,14 @@ export default function BulkItemEditPanel({
     scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
   }, [editingIndex]);
 
-  // ── Commit description to parent on blur ────────────────────────────────────
+  const handleDescChange = useCallback((text: string) => {
+    if (isReadOnly || !currentItem) return;
+    setLocalDesc(text);
+    patchItem(currentItem.uri, { description: text });
+  }, [isReadOnly, currentItem, patchItem]);
+
+  // Kept as a no-op ref-flush for navigation / close paths that fire before
+  // onChangeText has propagated (e.g. hardware back pressed mid-word).
   const commitDesc = useCallback(() => {
     if (!currentItem || isReadOnly) return;
     patchItem(currentItem.uri, { description: localDesc });
@@ -214,7 +223,7 @@ export default function BulkItemEditPanel({
   const saveBtnLabel = saving
     ? 'Saving...'
     : settledCount > 0
-      ? `Add ${settledCount} Item${settledCount !== 1 ? 's' : ''} to Wardrobe`
+      ? `Save ${settledCount} Item${settledCount !== 1 ? 's' : ''} to Wardrobe`
       : 'Analysing items...';
 
   if (!currentItem || !cl) return null;
@@ -544,7 +553,7 @@ export default function BulkItemEditPanel({
         <TextInput
           style={[styles.descInput, isReadOnly && styles.descInputReadOnly]}
           value={localDesc}
-          onChangeText={isReadOnly ? undefined : setLocalDesc}
+          onChangeText={handleDescChange}
           onBlur={commitDesc}
           placeholder="Short description of this piece..."
           placeholderTextColor={Colors.textLight}
