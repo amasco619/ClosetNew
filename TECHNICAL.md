@@ -252,7 +252,7 @@ app/
   wear-log.tsx           Full outfit wear history grouped by date
   outfit-ideas.tsx       Outfit ideas for a selected wardrobe item
   auth/
-    callback.tsx         OAuth redirect handler — extracts tokens from URL, calls setSession()
+    callback.tsx         OAuth callback landing screen — calls supabase.auth.getClaims(), routes to '/' (index) when a session exists, '/sign-in' when not
   (tabs)/
     _layout.tsx          Tab bar configuration (liquid glass on iOS 26+)
     index.tsx            Home / Dashboard tab
@@ -513,6 +513,9 @@ The original full-resolution asset is never sent over the network. Both resize c
 `uploadWardrobeImage()` accepts an optional `mimeType` parameter (`'image/jpeg'` default, `'image/png'` supported); the file extension is derived from the MIME type. `deleteWardrobeImage()` removes both `.jpg` and `.png` variants to handle items stored under either extension.
 
 **Recent improvements to `app/add-item.tsx`:**
+- `gestureEnabled: false` on the add-item stack screen (set in `app/_layout.tsx`) — prevents the iOS swipe-back gesture from partially dismissing the form mid-save.
+- "Cancel" text button replaces the earlier icon-only close control, improving accessibility and clarity.
+- Subtype chip rows use `flexDirection: 'row', flexWrap: 'wrap'` instead of a `ScrollView` — all sub-types are always visible without horizontal scrolling.
 - Photoroom background removal is now invoked between photo selection and classification (see [Photoroom Background Removal](#photoroom-background-removal) for the full pipeline).
 - Re-photograph flow: when `replaceItemId` is present in route params, saving a new item atomically removes the old ghost item (see [Re-photograph Flow](#re-photograph-flow)).
 - Multi-select now routes directly to `bulk-review.tsx` with no intermediate splash screen.
