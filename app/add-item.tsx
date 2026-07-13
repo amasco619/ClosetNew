@@ -236,6 +236,7 @@ export default function AddItemScreen() {
   const [rise,            setRise]            = useState<string | undefined>(undefined);
   const [warmthBand,      setWarmthBand]      = useState<string | undefined>(undefined);
   const [photoBase64,     setPhotoBase64]     = useState<string | null>(null);
+  const [photoBgRemoved,  setPhotoBgRemoved]  = useState<boolean>(false);
   const [photoWidth,      setPhotoWidth]      = useState<number>(0);
   const [photoHeight,     setPhotoHeight]     = useState<number>(0);
   const [saving,          setSaving]          = useState(false);
@@ -493,6 +494,7 @@ export default function AddItemScreen() {
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
         setPhotoUri(asset.uri);
+        setPhotoBgRemoved(false);
         setPhotoWidth(asset.width ?? 0);
         setPhotoHeight(asset.height ?? 0);
         setStep(1);
@@ -530,19 +532,24 @@ export default function AddItemScreen() {
             // always receives image/jpeg (its hardcoded MIME type for Gemini).
             // We store the clean PNG base64 separately for the storage upload
             // (higher quality, transparent background) and update the preview URI.
+            // IMPORTANT: use the file URI returned by ImageManipulator (never the
+            // raw data URI) so the large base64 string never enters wardrobe state.
             const cleanPngBase64 = await removeBackground(resized.base64);
             if (cleanPngBase64) {
               setPhotoBase64(cleanPngBase64);
-              setPhotoUri(`data:image/png;base64,${cleanPngBase64}`);
               try {
                 const reencoded = await ImageManipulator.manipulateAsync(
                   `data:image/png;base64,${cleanPngBase64}`,
                   [],
                   { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true },
                 );
+                // reencoded.uri is a local file:// path — safe to store in state
+                setPhotoUri(reencoded.uri);
+                setPhotoBgRemoved(true);
                 if (reencoded.base64) classifyBase64 = reencoded.base64;
               } catch {
-                // Re-encode failed — keep original JPEG for classify
+                // Re-encode failed — keep original JPEG for classify;
+                // leave photoUri as the original asset URI (no data URI stored)
               }
             }
           }
@@ -597,6 +604,7 @@ export default function AddItemScreen() {
               setClassifying(false);
               setClassifyFlash('none');
               setPhotoUri(null);
+              setPhotoBgRemoved(false);
               setStep(0);
               Alert.alert('Photo not accepted', classifyErr.reason);
             } else {
@@ -693,13 +701,12 @@ export default function AddItemScreen() {
           // Resize to ≤1600 px on the longest edge before uploading to Storage.
           // Cuts a typical 12 MP upload from 6–12 MB to ~300–600 KB with no
           // visible quality loss in wardrobe thumbnails.
-          // When background removal succeeded, photoUri is a data URI and
-          // photoBase64 is already the clean PNG — skip ImageManipulator in that case.
+          // When background removal succeeded, photoBase64 is already the clean
+          // PNG — skip ImageManipulator resize and upload directly as PNG.
           const MAX_STORAGE_PX = 1600;
-          const isDataUri = photoUri?.startsWith('data:');
           let uploadBase64 = photoBase64;
-          let uploadMime: 'image/jpeg' | 'image/png' = isDataUri ? 'image/png' : 'image/jpeg';
-          if (!isDataUri) {
+          let uploadMime: 'image/jpeg' | 'image/png' = photoBgRemoved ? 'image/png' : 'image/jpeg';
+          if (!photoBgRemoved) {
             try {
               const w = photoWidth;
               const h = photoHeight;
