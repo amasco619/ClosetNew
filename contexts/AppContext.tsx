@@ -24,6 +24,7 @@ import {
 } from '../lib/database';
 import { supabase } from '../lib/supabase';
 import { deleteWardrobeImage } from '../lib/storage';
+import { rebaseGuestPhotoUri } from '../lib/rebaseGuestPhotoUri';
 import {
   RotationState, INITIAL_ROTATION_STATE,
   generateOutfitPool, applyDailyRotation, computePoolHash, todayString,
@@ -326,13 +327,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // thumbnails keep rendering. Paths that don't match the
       // `wardrobe_*.jpg|png` guest naming convention are left untouched.
       const currentDocDir = FileSystem.documentDirectory ?? '';
-      const rebaseGuestPhotoUri = (uri: string): string => {
-        if (!currentDocDir || !uri.startsWith('file://')) return uri;
-        const filename = uri.split('/').pop() ?? '';
-        if (!/^wardrobe_[^/]+\.(jpg|png)$/i.test(filename)) return uri;
-        const expected = `${currentDocDir}${filename}`;
-        return expected !== uri ? expected : uri;
-      };
       // ── Perceptual migration (two phase) ──────────────────────────────────
       // Phase 1 (synchronous, instant): seed every legacy item's HSL/Lab
       // from the colour-family centroid so the scorer never sees null while
@@ -347,7 +341,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const seededItems = rawItems.map((it) => {
         // Rebase guest photo paths if documentDirectory has changed
         if (it.photoUri) {
-          const rebased = rebaseGuestPhotoUri(it.photoUri);
+          const rebased = rebaseGuestPhotoUri(it.photoUri, currentDocDir);
           if (rebased !== it.photoUri) {
             it = { ...it, photoUri: rebased };
             rebasedPathIds.add(it.id);
