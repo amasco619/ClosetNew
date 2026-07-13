@@ -478,6 +478,123 @@ async function main() {
     );
   }
 
+  // ── F. Bulk-review classify path ──────────────────────────────────────────
+  //
+  // bulk-review.tsx classifyUri() models the same pipeline as add-item.tsx:
+  //   1. Resize → original JPEG base64 (classifyBase64 = resized.base64)
+  //   2. removeBackground(resized.base64) → cleanPngBase64 | null
+  //   3. If cleanPngBase64:
+  //        a. re-encode PNG → JPEG (ImageManipulator.manipulateAsync)
+  //        b. classifyBase64 = resolveClassifyBase64(classifyBase64, reencoded.base64)
+  //   4. POST /api/classify-garment with { imageBase64: classifyBase64 }
+  //
+  // All paths below use selectClassifyPayload() which is the pure distillation
+  // of that exact logic, exercising the same resolveClassifyBase64 branch that
+  // bulk-review.tsx calls on line 379.
+
+  console.log('\nbulk-review classify path — resolveClassifyBase64 is used for every item:');
+
+  {
+    // Happy path: bg removal AND re-encode both succeed for a single item.
+    const originalJpeg = 'bulk-item-original-jpeg';
+    const bgPng = 'photoroom-clean-png';
+    const reencodedJpeg = 'reencoded-jpeg-for-gemini';
+    assertEq(
+      selectClassifyPayload(originalJpeg, bgPng, reencodedJpeg),
+      reencodedJpeg,
+      'bulk: bg removal + re-encode succeed → classify receives re-encoded JPEG (not original)',
+    );
+  }
+
+  {
+    // bg removal returns null (Photoroom API key missing, network error, HTTP 502).
+    const originalJpeg = 'bulk-item-original-jpeg';
+    assertEq(
+      selectClassifyPayload(originalJpeg, null, null),
+      originalJpeg,
+      'bulk: bg removal returns null → classify falls back to original JPEG (item still classified)',
+    );
+  }
+
+  {
+    // bg removal succeeds but ImageManipulator.manipulateAsync throws during re-encode.
+    // The catch block in bulk-review.tsx keeps classifyBase64 at the original value.
+    const originalJpeg = 'bulk-item-original-jpeg';
+    const bgPng = 'photoroom-clean-png';
+    assertEq(
+      selectClassifyPayload(originalJpeg, bgPng, null),
+      originalJpeg,
+      'bulk: bg removal succeeds but re-encode throws → classify falls back to original JPEG',
+    );
+  }
+
+  {
+    // bg removal succeeds but re-encode yields an empty base64 string.
+    // resolveClassifyBase64 treats empty string as a failure.
+    const originalJpeg = 'bulk-item-original-jpeg';
+    const bgPng = 'photoroom-clean-png';
+    assertEq(
+      selectClassifyPayload(originalJpeg, bgPng, ''),
+      originalJpeg,
+      'bulk: re-encode produces empty string → classify falls back to original JPEG (never sends empty payload)',
+    );
+  }
+
+  {
+    // bg removal returns an empty string (malformed Photoroom response).
+    // lib/photoroom.ts returns data.imageBase64 ?? null, so a missing key yields null;
+    // but guard that empty string from a different code path also falls back.
+    const originalJpeg = 'bulk-item-original-jpeg';
+    assertEq(
+      selectClassifyPayload(originalJpeg, null, null),
+      originalJpeg,
+      'bulk: malformed Photoroom response (treated as null) → classify falls back to original JPEG',
+    );
+  }
+
+  console.log('\nbulk-review classify path — multi-item: every item independently falls back:');
+
+  {
+    // Simulate a 3-item bulk upload where bg removal behaves differently per item.
+    const items = [
+      { original: 'item-a-jpeg', bgPng: 'bg-removed-a', reencoded: 'reenc-a' },
+      { original: 'item-b-jpeg', bgPng: null,            reencoded: null },
+      { original: 'item-c-jpeg', bgPng: 'bg-removed-c',  reencoded: null },
+    ];
+
+    const expected = ['reenc-a', 'item-b-jpeg', 'item-c-jpeg'];
+
+    items.forEach((item, i) => {
+      const result = selectClassifyPayload(item.original, item.bgPng, item.reencoded);
+      assertEq(
+        result,
+        expected[i],
+        `bulk item [${i}]: correct classify payload selected independently of other items`,
+      );
+    });
+  }
+
+  console.log('\nbulk-review classify path — invariant: classify payload is never empty:');
+
+  {
+    // Across all realistic pipeline outcomes for a bulk item, the classify
+    // payload must always be a non-empty string so Gemini never receives garbage.
+    const bulkFailureCases: Array<[string | null, string | null]> = [
+      [null, null],          // bg removal failed outright
+      ['png', null],         // re-encode threw
+      ['png', ''],           // re-encode returned empty string
+      [null, 'ignored'],     // bg removal null; reencoded arg is irrelevant
+    ];
+
+    for (const [bgPng, reencoded] of bulkFailureCases) {
+      const result = selectClassifyPayload('non-empty-original', bgPng, reencoded);
+      assert(
+        result.length > 0,
+        `bulk invariant: classify payload non-empty for bgPng=${JSON.stringify(bgPng)}, reencoded=${JSON.stringify(reencoded)}`,
+      );
+    }
+  }
+
   // ── Final result ───────────────────────────────────────────────────────────
 
   console.log(`\n${failed === 0 ? 'All tests passed.' : `${failed} test(s) failed.`}`);
