@@ -396,23 +396,31 @@ export default function AddItemScreen() {
     resetAllFields();
     try {
       let result: ImagePicker.ImagePickerResult;
-      const pickerOptions: ImagePicker.ImagePickerOptions = {
-        quality: 0.8, allowsEditing: true, base64: true,
-      };
       if (useCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert('Permission needed', 'Camera access is required to photograph items');
           return;
         }
-        result = await ImagePicker.launchCameraAsync(pickerOptions);
+        result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'] });
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert('Permission needed', 'Photo library access is required');
           return;
         }
-        result = await ImagePicker.launchImageLibraryAsync(pickerOptions);
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsMultipleSelection: true,
+          selectionLimit: 10,
+        });
+        if (!result.canceled && result.assets.length > 1) {
+          router.push({
+            pathname: '/bulk-review',
+            params: { uris: JSON.stringify(result.assets.map(a => a.uri)) },
+          });
+          return;
+        }
       }
 
       if (!result.canceled && result.assets[0]) {
@@ -420,45 +428,78 @@ export default function AddItemScreen() {
         setPhotoUri(asset.uri);
         setPhotoWidth(asset.width ?? 0);
         setPhotoHeight(asset.height ?? 0);
-        if (asset.base64) setPhotoBase64(asset.base64);
         setStep(1);
 
-        if (asset.base64) {
-          setClassifying(true);
-          // Downscale to ≤1024px wide before sending to Gemini — reduces payload from
-          // 4–12 MB to ~100–300 KB with no impact on classification accuracy.
-          // Full-res asset.base64 is preserved in photoBase64 for the storage upload.
-          let classifyBase64 = asset.base64;
-          try {
-            const resized = await ImageManipulator.manipulateAsync(
-              asset.uri,
-              [{ resize: { width: 1024 } }],
-              { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-            );
-            if (resized.base64) classifyBase64 = resized.base64;
-          } catch {
-            // Resize failed — fall back silently to original base64
+        setClassifying(true);
+        // Obtain base64 from ImageManipulator (picker no longer requests base64 to
+        // support multi-select without eagerly decoding multiple full-res images).
+        // Downscale to ≤1024 px on the longest edge for Gemini — reduces payload from
+        // 4–12 MB to ~100–300 KB with no impact on classification accuracy.
+        // The result is also stored in photoBase64 as the fallback for the storage
+        // upload step (which re-encodes at ≤1600 px from the URI anyway).
+        let classifyBase64: string | undefined;
+        try {
+          const MAX_CLASSIFY_PX = 1024;
+          const w = asset.width ?? 0;
+          const h = asset.height ?? 0;
+          const longestEdge = Math.max(w, h);
+          const scale = longestEdge > MAX_CLASSIFY_PX ? MAX_CLASSIFY_PX / longestEdge : 1;
+          const resized = await ImageManipulator.manipulateAsync(
+            asset.uri,
+            longestEdge > MAX_CLASSIFY_PX
+              ? [{ resize: { width: Math.round(w * scale), height: Math.round(h * scale) } }]
+              : [],
+            { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+          );
+          if (resized.base64) {
+            classifyBase64 = resized.base64;
+            setPhotoBase64(resized.base64);
           }
-          let classified;
+        } catch {
+          // Resize failed — classifyBase64 stays undefined
+        }
+
+        if (classifyBase64) {
           try {
-            // Resize to ≤1024 px on the longest edge before sending to Gemini.
-            // The original full-res base64 (asset.base64) is kept in photoBase64
-            // for Supabase Storage upload so thumbnails stay crisp.
-            const MAX_CLASSIFY_PX = 1024;
-            const w = asset.width ?? 0;
-            const h = asset.height ?? 0;
-            const longestEdge = Math.max(w, h);
-            let classifyBase64 = asset.base64;
-            if (longestEdge > MAX_CLASSIFY_PX) {
-              const scale = MAX_CLASSIFY_PX / longestEdge;
-              const resized = await ImageManipulator.manipulateAsync(
-                asset.uri,
-                [{ resize: { width: Math.round(w * scale), height: Math.round(h * scale) } }],
-                { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-              );
-              classifyBase64 = resized.base64 ?? asset.base64;
+            const classified = await classifyWithServer(classifyBase64, category);
+            setCategory(classified.category);
+
+            const validSub = subTypes[classified.category]?.includes(classified.subType) ? classified.subType : '';
+            const validCol = colorFamilies.includes(classified.colorFamily) ? classified.colorFamily : '';
+            setSubType(validSub);
+            setColorFamily(validCol);
+            setDescription(classified.description);
+            if (classified.occasionTags.length > 0) setOccasions(classified.occasionTags);
+            if (classified.seasonTags.length > 0)   setSeasons(classified.seasonTags);
+
+            // Set classifier results — then fire sub-type inference to fill any gaps
+            if (classified.pattern)      setPattern(classified.pattern);
+            if (classified.patternScale) setPatternScale(classified.patternScale);
+            if (classified.fabric)       setFabric(classified.fabric);
+            if (classified.weight)       setWeight(classified.weight);
+            if (classified.accentColor)  setAccentColor(classified.accentColor);
+            if (classified.dominantHsl)  setDominantHsl(classified.dominantHsl);
+            if (classified.dominantLab)  setDominantLab(classified.dominantLab);
+
+            // Apply Gemini-returned detail fields (fit/neckline/sleeveLength/rise/warmthBand)
+            if (classified.fit)          setFit(classified.fit);
+            if (classified.neckline)     setNeckline(classified.neckline);
+            if (classified.sleeveLength) setSleeveLength(classified.sleeveLength);
+            if (classified.rise)         setRise(classified.rise);
+            if (classified.warmthBand)   setWarmthBand(classified.warmthBand);
+
+            // Fill any gaps from sub-type inference (only fires when classifier
+            // didn't return a value — fabric/weight are checked inside the setter)
+            if (validSub) {
+              if (!classified.fabric)     { const f = inferFabric(validSub);     if (f) setFabric(f); }
+              if (!classified.weight)     { setWeight(inferFabricWeight(validSub)); }
+              if (!classified.pattern)    setPattern('solid');
+              if (!classified.neckline)   { const inf = SUBTYPE_NECKLINE[validSub]; if (inf) setNeckline(inf); }
+              if (!classified.rise)       { const inf = SUBTYPE_RISE[validSub];     if (inf) setRise(inf);     }
+              if (!classified.warmthBand) { const inf = SUBTYPE_WARMTH[validSub];   if (inf) setWarmthBand(inf); }
             }
-            classified = await classifyWithServer(classifyBase64, category);
+
+            setClassifying(false);
           } catch (classifyErr: any) {
             setClassifying(false);
             if (classifyErr instanceof ContentGuardrailError) {
@@ -474,51 +515,13 @@ export default function AddItemScreen() {
                 [{ text: 'Got it' }],
               );
             }
-            return;
           }
-          setCategory(classified.category);
-
-          const validSub = subTypes[classified.category]?.includes(classified.subType) ? classified.subType : '';
-          const validCol = colorFamilies.includes(classified.colorFamily) ? classified.colorFamily : '';
-          setSubType(validSub);
-          setColorFamily(validCol);
-          setDescription(classified.description);
-          if (classified.occasionTags.length > 0) setOccasions(classified.occasionTags);
-          if (classified.seasonTags.length > 0)   setSeasons(classified.seasonTags);
-
-          // Set classifier results — then fire sub-type inference to fill any gaps
-          if (classified.pattern)      setPattern(classified.pattern);
-          if (classified.patternScale) setPatternScale(classified.patternScale);
-          if (classified.fabric)       setFabric(classified.fabric);
-          if (classified.weight)       setWeight(classified.weight);
-          if (classified.accentColor)  setAccentColor(classified.accentColor);
-          if (classified.dominantHsl)  setDominantHsl(classified.dominantHsl);
-          if (classified.dominantLab)  setDominantLab(classified.dominantLab);
-
-          // Apply Gemini-returned detail fields (fit/neckline/sleeveLength/rise/warmthBand)
-          if (classified.fit)          setFit(classified.fit);
-          if (classified.neckline)     setNeckline(classified.neckline);
-          if (classified.sleeveLength) setSleeveLength(classified.sleeveLength);
-          if (classified.rise)         setRise(classified.rise);
-          if (classified.warmthBand)   setWarmthBand(classified.warmthBand);
-
-          // Fill any gaps from sub-type inference (only fires when classifier
-          // didn't return a value — fabric/weight are checked inside the setter)
-          if (validSub) {
-            if (!classified.fabric)       { const f = inferFabric(validSub);       if (f) setFabric(f); }
-            if (!classified.weight)       { setWeight(inferFabricWeight(validSub)); }
-            if (!classified.pattern)      setPattern('solid');
-            if (!classified.neckline)   { const inf = SUBTYPE_NECKLINE[validSub]; if (inf) setNeckline(inf); }
-            if (!classified.rise)       { const inf = SUBTYPE_RISE[validSub];     if (inf) setRise(inf);     }
-            if (!classified.warmthBand) { const inf = SUBTYPE_WARMTH[validSub];   if (inf) setWarmthBand(inf); }
-          }
-
-          setClassifying(false);
         } else {
           const fallback = localClassifyFallback(category);
           setSubType(fallback.subType);
           setColorFamily(fallback.colorFamily);
           setDescription('');
+          setClassifying(false);
         }
       }
     } catch (e) {
@@ -704,10 +707,6 @@ export default function AddItemScreen() {
         {step === 0 ? (
           <Animated.View entering={FadeInDown.duration(400)}>
             <Text style={styles.sectionTitle}>Choose Photo</Text>
-            <View style={styles.cropTip}>
-              <Ionicons name="crop-outline" size={14} color={Colors.secondary} />
-              <Text style={styles.cropTipText}>Crop tightly around the garment and remove any background for the most accurate results.</Text>
-            </View>
             <View style={styles.photoActions}>
               <Pressable
                 style={({ pressed }) => [styles.photoBtn, pressed && { opacity: 0.7 }]}
@@ -1247,8 +1246,6 @@ const styles = StyleSheet.create({
   topTitle:          { fontFamily: 'Inter_600SemiBold', fontSize: 17, color: Colors.primary },
   scrollContent:     { paddingHorizontal: 20 },
   sectionTitle:      { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary, marginBottom: 12, letterSpacing: -0.3, marginTop: 4 },
-  cropTip:           { flexDirection: 'row', alignItems: 'flex-start', gap: 7, backgroundColor: Colors.secondary + '18', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, marginBottom: 14, borderWidth: 1, borderColor: Colors.secondary + '30' },
-  cropTipText:       { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, flex: 1, lineHeight: 17 },
   photoActions:      { flexDirection: 'row', gap: 14 },
   photoBtn:          { flex: 1, backgroundColor: Colors.white, borderRadius: 16, padding: 24, alignItems: 'center' },
   photoBtnIcon:      { width: 56, height: 56, borderRadius: 16, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
