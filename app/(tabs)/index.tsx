@@ -198,11 +198,35 @@ export default function HomeScreen() {
                     onPress={() => {
                       Haptics.selectionAsync();
                       resolveOrphan(item.id, 'dismiss');
-                      router.push('/add-item');
+                      router.push({
+                        pathname: '/add-item',
+                        params: {
+                          preClassified: 'true',
+                          replaceItemId: item.id,
+                          pcCategory:     item.category,
+                          pcSubType:      item.subType ?? '',
+                          pcColorFamily:  item.colorFamily ?? '',
+                          pcAccentColor:  item.accentColor ?? '',
+                          pcDescription:  item.description ?? '',
+                          pcOccasionTags: JSON.stringify(item.occasionTags ?? []),
+                          pcSeasonTags:   JSON.stringify(item.seasonTags ?? []),
+                          pcPattern:      item.pattern ?? '',
+                          pcPatternScale: item.patternScale ?? '',
+                          pcFabric:       item.fabric ?? '',
+                          pcWeight:       item.weight ?? '',
+                          pcDominantHsl:  item.dominantHsl ? JSON.stringify(item.dominantHsl) : '',
+                          pcDominantLab:  item.dominantLab ? JSON.stringify(item.dominantLab) : '',
+                          pcFit:          item.fit ?? '',
+                          pcNeckline:     item.neckline ?? '',
+                          pcSleeveLength: item.sleeveLength ?? '',
+                          pcRise:         item.rise ?? '',
+                          pcWarmthBand:   item.warmthBand ?? '',
+                        },
+                      });
                     }}
                     hitSlop={8}
                   >
-                    <Text style={styles.orphanBtnLabel}>Re-add</Text>
+                    <Text style={styles.orphanBtnLabel}>Re-photograph</Text>
                   </Pressable>
                   <Pressable
                     style={({ pressed }) => [styles.orphanBtnDestructive, pressed && styles.orphanBtnPressed]}

@@ -211,10 +211,11 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
 
 export default function AddItemScreen() {
   const insets = useSafeAreaInsets();
-  const { addWardrobeItem } = useApp();
+  const { addWardrobeItem, removeWardrobeItem } = useApp();
   const {
     initialUri,
     preClassified,
+    replaceItemId,
     pcCategory,
     pcSubType,
     pcColorFamily,
@@ -236,6 +237,7 @@ export default function AddItemScreen() {
   } = useLocalSearchParams<{
     initialUri?: string;
     preClassified?: string;
+    replaceItemId?: string;
     pcCategory?: string;
     pcSubType?: string;
     pcColorFamily?: string;
@@ -312,7 +314,7 @@ export default function AddItemScreen() {
   const [occasions,       setOccasions]       = useState<OccasionTag[]>(initOccasions);
   const [seasons,         setSeasons]         = useState<SeasonTag[]>(initSeasons);
   const [purchasePrice,   setPurchasePrice]   = useState('');
-  const [step,            setStep]            = useState(hasPreClassified ? 1 : 0);
+  const [step,            setStep]            = useState(hasPreClassified && !replaceItemId ? 1 : 0);
   const [pattern,         setPattern]         = useState<string | undefined>(hasPreClassified && pcPattern ? pcPattern : undefined);
   const [patternScale,    setPatternScale]    = useState<string | undefined>(hasPreClassified && pcPatternScale ? pcPatternScale : undefined);
   const [fabric,          setFabric]          = useState<string | undefined>(hasPreClassified && pcFabric ? pcFabric : undefined);
@@ -899,6 +901,9 @@ export default function AddItemScreen() {
         dominantHsl,
         dominantLab,
       });
+      if (replaceItemId) {
+        removeWardrobeItem(replaceItemId);
+      }
       router.back();
     } catch (e) {
       console.error('[add-item] Save failed:', e);
