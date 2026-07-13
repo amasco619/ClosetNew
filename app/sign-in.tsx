@@ -114,11 +114,15 @@ export default function SignInScreen() {
   const [passwordFocused, setPasswordFocused] = useState(false)
   const [confirmFocused, setConfirmFocused] = useState(false)
 
-  // Navigate away as soon as the session is established — covers both the
-  // in-app browser OAuth path (Google / Apple) and the deep-link callback
-  // path. index.tsx then decides onboarding vs tabs based on profile state.
+  // Guards the isAuthenticated effect so it only triggers navigation when the
+  // user has actively pressed a sign-in button in this session. Without this,
+  // a stale Supabase session restored from SecureStore on app boot would call
+  // setIsAuthenticated(true) inside loadData() and auto-navigate the user away
+  // from this screen before they have done anything intentional.
+  const intentionalSignIn = useRef(false)
+
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && intentionalSignIn.current) {
       router.replace('/')
     }
   }, [isAuthenticated])
@@ -188,6 +192,7 @@ export default function SignInScreen() {
 
     setAuthError(null)
     setLoading('email')
+    intentionalSignIn.current = true
     try {
       if (mode === 'sign-in') {
         await signInWithEmail(email, password)
@@ -213,6 +218,7 @@ export default function SignInScreen() {
   const handleGoogle = async () => {
     setAuthError(null)
     setLoading('google')
+    intentionalSignIn.current = true
     try {
       await signInWithGoogle()
     } catch (err: any) {
@@ -225,6 +231,7 @@ export default function SignInScreen() {
   const handleApple = async () => {
     setAuthError(null)
     setLoading('apple')
+    intentionalSignIn.current = true
     try {
       await signInWithApple()
     } catch (err: any) {
