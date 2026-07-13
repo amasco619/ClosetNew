@@ -301,6 +301,7 @@ export default function BulkReviewScreen() {
 
   const singleRedirectedRef = useRef(false);
   const mountedRef = useRef(true);
+  const savingRef = useRef(false);
 
   // Mark unmounted so async callbacks don't touch state or navigate after the
   // component has been torn down (e.g. user presses back mid-classification).
@@ -394,14 +395,21 @@ export default function BulkReviewScreen() {
     ));
   }, []);
 
-  // Save all settled items to wardrobe sequentially
+  // Save all settled items to wardrobe sequentially.
+  // savingRef is checked synchronously so a rapid second tap cannot slip
+  // through the gap before the first call's setSaving(true) completes a
+  // React render cycle.  The state guard is kept as a belt-and-suspenders
+  // check; the ref is the primary race-condition lock.
   const handleSaveAll = async () => {
-    if (saving) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
+    if (saving) { savingRef.current = false; return; }
     const toSave = items
       .filter(it => it.status === 'settled' && it.classification != null)
       .map(it => ({ uri: it.uri, cleanBase64: it.cleanBase64, classification: it.classification! }));
-    if (toSave.length === 0) return;
+    if (toSave.length === 0) { savingRef.current = false; return; }
 
+    try {
     await runSaveAll(toSave, mountedRef, {
       generateId: () => Crypto.randomUUID(),
       getSession: async () => {
@@ -453,6 +461,9 @@ export default function BulkReviewScreen() {
       onDoneHaptic: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
       navigate: () => router.navigate('/(tabs)/wardrobe'),
     });
+    } finally {
+      savingRef.current = false;
+    }
   };
 
   // Derived values

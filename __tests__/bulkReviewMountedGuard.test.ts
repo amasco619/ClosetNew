@@ -799,6 +799,90 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
     assert(noSource === null, 'upload is null when both sources are absent');
   }
 
+  // ── handleSaveAll savingRef double-tap guard ──────────────────────────────
+  //
+  // The savingRef latch in handleSaveAll is a useRef(false) checked
+  // synchronously at the top of the handler and set to true before any await.
+  // This closes the race where a second tap arrives before setSaving(true) has
+  // completed a React render cycle.
+  //
+  // These tests mirror the exact ref pattern used in bulk-review.tsx —
+  // the component itself is not importable in Node, so we exercise the pattern
+  // directly.
+
+  section('savingRef latch — 21. second call exits immediately while first is in-flight');
+  {
+    let runSaveAllCallCount = 0;
+    const savingRef = { current: false };
+
+    const mockHandleSaveAll = async () => {
+      if (savingRef.current) return;
+      savingRef.current = true;
+      try {
+        runSaveAllCallCount++;
+        await tick(); // simulate async work (getSession, upload, etc.)
+      } finally {
+        savingRef.current = false;
+      }
+    };
+
+    // Simulate rapid double-tap: both calls happen synchronously before any
+    // await resolves, so the second call sees savingRef.current === true.
+    const p1 = mockHandleSaveAll();
+    const p2 = mockHandleSaveAll();
+    await Promise.all([p1, p2]);
+
+    assert(runSaveAllCallCount === 1,
+      'runSaveAll invoked exactly once despite rapid double-tap');
+  }
+
+  section('savingRef latch — 22. ref is cleared after completion (subsequent tap works)');
+  {
+    let runSaveAllCallCount = 0;
+    const savingRef = { current: false };
+
+    const mockHandleSaveAll = async () => {
+      if (savingRef.current) return;
+      savingRef.current = true;
+      try {
+        runSaveAllCallCount++;
+        await tick();
+      } finally {
+        savingRef.current = false;
+      }
+    };
+
+    await mockHandleSaveAll(); // first save completes
+    await mockHandleSaveAll(); // second save after completion should proceed
+
+    assert(runSaveAllCallCount === 2,
+      'savingRef is cleared after completion so a later tap can proceed');
+  }
+
+  section('savingRef latch — 23. many concurrent taps: exactly one proceeds');
+  {
+    let runSaveAllCallCount = 0;
+    const savingRef = { current: false };
+
+    const mockHandleSaveAll = async () => {
+      if (savingRef.current) return;
+      savingRef.current = true;
+      try {
+        runSaveAllCallCount++;
+        await tick();
+      } finally {
+        savingRef.current = false;
+      }
+    };
+
+    // Simulate 5 rapid taps before any microtask runs
+    const promises = Array.from({ length: 5 }, () => mockHandleSaveAll());
+    await Promise.all(promises);
+
+    assert(runSaveAllCallCount === 1,
+      'only one of five concurrent taps reaches runSaveAll');
+  }
+
   // ── Summary ───────────────────────────────────────────────────────────────
 
   console.log(`\n=== bulkReviewMountedGuard: ${failed === 0 ? 'all passed' : `${failed} FAILED`} ===`);
