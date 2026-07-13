@@ -49,3 +49,30 @@ export async function deleteWardrobeImage(
     .remove([`${userId}/${itemId}.jpg`, `${userId}/${itemId}.png`])
   if (error) throw new Error(`[deleteWardrobeImage] ${error.message}`)
 }
+
+/**
+ * Attempt to recover a wardrobe item's photo URL from Supabase Storage.
+ * Checks for both .jpg and .png variants under the {userId}/{itemId} path.
+ * Returns the public URL of the first matching file found, or null if neither
+ * variant exists in Storage.
+ */
+export async function recoverWardrobeImageUrl(
+  userId: string,
+  itemId: string
+): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from('wardrobe-images')
+    .list(userId, { search: itemId })
+  if (error || !data || data.length === 0) return null
+  const exts = ['jpg', 'png'] as const
+  for (const ext of exts) {
+    const match = data.find(f => f.name === `${itemId}.${ext}`)
+    if (match) {
+      const { data: urlData } = supabase.storage
+        .from('wardrobe-images')
+        .getPublicUrl(`${userId}/${itemId}.${ext}`)
+      return urlData.publicUrl
+    }
+  }
+  return null
+}

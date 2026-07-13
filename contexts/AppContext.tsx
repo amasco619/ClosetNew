@@ -23,7 +23,7 @@ import {
   getSavedLooks, upsertSavedLook, deleteSavedLook,
 } from '../lib/database';
 import { supabase } from '../lib/supabase';
-import { deleteWardrobeImage } from '../lib/storage';
+import { deleteWardrobeImage, recoverWardrobeImageUrl } from '../lib/storage';
 import { rebaseGuestPhotoUri } from '../lib/rebaseGuestPhotoUri';
 import {
   RotationState, INITIAL_ROTATION_STATE,
@@ -398,14 +398,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
       );
       if (nonGuestFileUris.length > 0) {
         setTimeout(async () => {
+          const recoveredUpdates: Record<string, string> = {};
           for (const item of nonGuestFileUris) {
             try {
               const info = await FileSystem.getInfoAsync(item.photoUri);
               if (!info.exists) {
-                console.warn(
-                  `[AuraCloset] Wardrobe photo missing from temp cache — ` +
-                  `item id=${item.id} subType=${item.subType} uri=${item.photoUri}`,
-                );
+                const userId = currentUserIdRef.current;
+                if (userId) {
+                  const remoteUrl = await recoverWardrobeImageUrl(userId, item.id).catch(() => null);
+                  if (remoteUrl) {
+                    recoveredUpdates[item.id] = remoteUrl;
+                    console.log(
+                      `[AuraCloset] Recovered wardrobe photo from Storage — ` +
+                      `item id=${item.id} subType=${item.subType}`,
+                    );
+                  } else {
+                    console.warn(
+                      `[AuraCloset] Wardrobe photo missing and not found in Storage — ` +
+                      `item id=${item.id} subType=${item.subType} uri=${item.photoUri}`,
+                    );
+                  }
+                } else {
+                  console.warn(
+                    `[AuraCloset] Wardrobe photo missing from temp cache — ` +
+                    `item id=${item.id} subType=${item.subType} uri=${item.photoUri}`,
+                  );
+                }
               }
             } catch (err) {
               console.warn(
@@ -414,6 +432,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 err,
               );
             }
+          }
+          if (Object.keys(recoveredUpdates).length > 0) {
+            setWardrobeItems(prev => {
+              const next = prev.map(it =>
+                recoveredUpdates[it.id] ? { ...it, photoUri: recoveredUpdates[it.id] } : it,
+              );
+              AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(next));
+              return next;
+            });
           }
         }, 1000);
       }
@@ -629,6 +656,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
           createdAt: it.created_at,
           formalityLevel: 5,
         }));
+        // ── Stale file:// URI recovery (DB path) ──────────────────────────────
+        // If the DB row's image_url is a file:// URI (upload was interrupted
+        // before the cleaned_image_url was written back), silently swap it for
+        // the Supabase Storage public URL so thumbnails render immediately.
+        const staleDbItems = mapped.filter(it => it.photoUri.startsWith('file://'));
+        if (staleDbItems.length > 0) {
+          const recoveryMap: Record<string, string> = {};
+          await Promise.all(
+            staleDbItems.map(async it => {
+              try {
+                const remoteUrl = await recoverWardrobeImageUrl(userId, it.id);
+                if (remoteUrl) {
+                  recoveryMap[it.id] = remoteUrl;
+                  console.log(
+                    `[AuraCloset] Recovered DB wardrobe photo from Storage — ` +
+                    `item id=${it.id} subType=${it.subType}`,
+                  );
+                } else {
+                  console.warn(
+                    `[AuraCloset] DB wardrobe photo missing and not found in Storage — ` +
+                    `item id=${it.id} subType=${it.subType}`,
+                  );
+                }
+              } catch (err) {
+                console.warn(`[AuraCloset] Could not recover DB wardrobe photo — item id=${it.id}`, err);
+              }
+            }),
+          );
+          if (Object.keys(recoveryMap).length > 0) {
+            for (const item of mapped) {
+              if (recoveryMap[item.id]) item.photoUri = recoveryMap[item.id];
+            }
+          }
+        }
         setWardrobeItems(mapped);
         AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(mapped));
       }
