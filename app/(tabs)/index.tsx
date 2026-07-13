@@ -180,7 +180,7 @@ export default function HomeScreen() {
               </Text>
             </View>
             <Text style={styles.orphanBody}>
-              These items were interrupted mid-save. Remove them or re-add with a new photo.
+              These items were interrupted mid-save. You can re-photograph them and correct any details, or remove them.
             </Text>
             {orphanedItems.map(item => (
               <View key={item.id} style={styles.orphanRow}>
@@ -226,7 +226,7 @@ export default function HomeScreen() {
                     }}
                     hitSlop={8}
                   >
-                    <Text style={styles.orphanBtnLabel}>Re-photograph</Text>
+                    <Text style={styles.orphanBtnLabel}>Edit & re-photograph</Text>
                   </Pressable>
                   <Pressable
                     style={({ pressed }) => [styles.orphanBtnDestructive, pressed && styles.orphanBtnPressed]}
