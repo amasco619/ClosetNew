@@ -12,6 +12,12 @@ import { generateOutfitsForItem } from '@/constants/outfitGenerator';
 import { loadWeather, getCachedWeather, clearCachedWeather } from '@/constants/weather';
 import { inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
 import { runGuestRemoval } from '@/constants/guestPhotoCleanup';
+import {
+  detectNoPhotoOrphans,
+  isGuestPhotoUri,
+  detectFileOrphans,
+  applyOrphanResolution,
+} from '@/constants/orphanDetection';
 import { centroidHsl, hslToLab } from '@/constants/colorPerceptual';
 import { apiRequest } from '@/lib/query-client';
 import {
@@ -394,16 +400,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // logs / Sentry before users report broken thumbnails. Guest photos use
       // the `wardrobe_*` naming convention and are already handled by the
       // rebase logic above — skip them here.
-      const isGuestPhotoUri = (uri: string): boolean => {
-        const filename = uri.split('/').pop() ?? '';
-        return /^wardrobe_[^/]+\.(jpg|png)$/i.test(filename);
-      };
       const nonGuestFileUris = seededItems.filter(
         it => it.photoUri?.startsWith('file://') && !isGuestPhotoUri(it.photoUri),
       );
       // Immediately surface items with a completely absent photoUri — these
       // indicate a save that was interrupted before the URI was ever written.
-      const noPhotoUriItems = seededItems.filter(it => !it.photoUri);
+      const noPhotoUriItems = detectNoPhotoOrphans(seededItems);
       if (noPhotoUriItems.length > 0) {
         setOrphanedItems(prev => {
           const existing = new Set(prev.map(o => o.id));
@@ -413,45 +415,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       if (nonGuestFileUris.length > 0) {
         setTimeout(async () => {
-          const recoveredUpdates: Record<string, string> = {};
-          const unreachableItems: WardrobeItem[] = [];
-          for (const item of nonGuestFileUris) {
-            try {
-              const info = await FileSystem.getInfoAsync(item.photoUri);
-              if (!info.exists) {
-                const userId = currentUserIdRef.current;
-                if (userId) {
-                  const remoteUrl = await recoverWardrobeImageUrl(userId, item.id).catch(() => null);
-                  if (remoteUrl) {
-                    recoveredUpdates[item.id] = remoteUrl;
-                    console.log(
-                      `[AuraCloset] Recovered wardrobe photo from Storage — ` +
-                      `item id=${item.id} subType=${item.subType}`,
-                    );
-                  } else {
-                    console.warn(
-                      `[AuraCloset] Wardrobe photo missing and not found in Storage — ` +
-                      `item id=${item.id} subType=${item.subType} uri=${item.photoUri}`,
-                    );
-                    unreachableItems.push(item);
-                  }
-                } else {
-                  console.warn(
-                    `[AuraCloset] Wardrobe photo missing from temp cache — ` +
-                    `item id=${item.id} subType=${item.subType} uri=${item.photoUri}`,
-                  );
-                  unreachableItems.push(item);
-                }
-              }
-            } catch (err) {
-              console.warn(
-                `[AuraCloset] Could not verify wardrobe photo — ` +
-                `item id=${item.id} uri=${item.photoUri}`,
-                err,
-              );
-            }
-          }
+          const { orphans: unreachableItems, recovered: recoveredUpdates } =
+            await detectFileOrphans(
+              nonGuestFileUris,
+              uri => FileSystem.getInfoAsync(uri),
+              (uid, itemId) => recoverWardrobeImageUrl(uid, itemId).then(u => u ?? null),
+              currentUserIdRef.current,
+            );
           if (Object.keys(recoveredUpdates).length > 0) {
+            console.log(
+              `[AuraCloset] Recovered ${Object.keys(recoveredUpdates).length} wardrobe photo(s) from Storage`,
+            );
             setWardrobeItems(prev => {
               const next = prev.map(it =>
                 recoveredUpdates[it.id] ? { ...it, photoUri: recoveredUpdates[it.id] } : it,
@@ -459,6 +433,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
               AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(next));
               return next;
             });
+          }
+          for (const item of unreachableItems) {
+            console.warn(
+              `[AuraCloset] Wardrobe photo missing and not found in Storage — ` +
+              `item id=${item.id} subType=${item.subType} uri=${item.photoUri}`,
+            );
           }
           // Surface items whose photo could not be recovered so the user can
           // choose to remove or re-add them.
@@ -1129,9 +1109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const resolveOrphan = useCallback((id: string, action: 'remove' | 'dismiss') => {
     setOrphanedItems(prev => prev.filter(o => o.id !== id));
-    if (action === 'remove') {
-      removeWardrobeItem(id);
-    }
+    applyOrphanResolution(id, action, removeWardrobeItem);
   }, [removeWardrobeItem]);
 
   const updateWardrobeItem = useCallback((id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => {
