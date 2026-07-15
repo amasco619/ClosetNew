@@ -121,6 +121,15 @@ export default function SignInScreen() {
   // from this screen before they have done anything intentional.
   const intentionalSignIn = useRef(false)
 
+  // Prevents the Linking deep-link handler (below) from calling
+  // createSessionFromUrl while openAuthSessionAsync is already in flight for
+  // the same URL.  Two concurrent calls compete for the Supabase processLock
+  // and deadlock, leaving the spinner frozen indefinitely.
+  const oauthInProgress = useRef(false)
+  // Deduplicate: only process each deep-link URL once even if the Linking
+  // event fires multiple times (e.g. app foregrounded twice with same URL).
+  const handledDeepLink = useRef<string | null>(null)
+
   useEffect(() => {
     if (isAuthenticated && intentionalSignIn.current) {
       router.replace('/')
@@ -142,7 +151,11 @@ export default function SignInScreen() {
 
   const url = Linking.useLinkingURL()
   useEffect(() => {
-    if (url) createSessionFromUrl(url).catch(console.error)
+    if (!url) return
+    if (oauthInProgress.current) return        // openAuthSessionAsync owns this
+    if (url === handledDeepLink.current) return // already processed this URL
+    handledDeepLink.current = url
+    createSessionFromUrl(url).catch(console.error)
   }, [url])
 
   const clearErrors = () => {
@@ -222,11 +235,13 @@ export default function SignInScreen() {
     setAuthError(null)
     setLoading('google')
     intentionalSignIn.current = true
+    oauthInProgress.current = true
     try {
       await signInWithGoogle()
     } catch (err: any) {
       setAuthError(err.message?.replace('[signInWithGoogle] ', '') ?? 'Google sign-in failed.')
     } finally {
+      oauthInProgress.current = false
       setLoading(null)
     }
   }
@@ -235,11 +250,13 @@ export default function SignInScreen() {
     setAuthError(null)
     setLoading('apple')
     intentionalSignIn.current = true
+    oauthInProgress.current = true
     try {
       await signInWithApple()
     } catch (err: any) {
       setAuthError(err.message?.replace('[signInWithApple] ', '') ?? 'Apple sign-in failed.')
     } finally {
+      oauthInProgress.current = false
       setLoading(null)
     }
   }

@@ -15,9 +15,21 @@ export async function createSessionFromUrl(url: string) {
   const { params, errorCode } = QueryParams.getQueryParams(url)
   if (errorCode) throw new Error(errorCode)
 
-  const { access_token, refresh_token } = params
-  if (!access_token) return null
+  const { access_token, refresh_token, code } = params
 
+  // PKCE flow (Supabase JS v2 default for OAuth on native).
+  // The redirect URL contains ?code=xxx; exchange it using the stored PKCE
+  // verifier via exchangeCodeForSession, which handles the processLock
+  // internally and avoids the setSession deadlock.
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(url)
+    if (error) throw new Error(`[createSessionFromUrl] ${error.message}`)
+    return data.session
+  }
+
+  // Implicit flow fallback (older Supabase project configuration or non-PKCE
+  // providers). The URL contains #access_token=xxx&refresh_token=yyy.
+  if (!access_token) return null
   const { data, error } = await supabase.auth.setSession({
     access_token,
     refresh_token,
