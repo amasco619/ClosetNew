@@ -1179,6 +1179,20 @@ export default function AddItemScreen() {
               </Animated.View>
             )}
 
+            {/* ── Guest upsell: sign in to unlock BG removal ─────────────── */}
+            {bgStatus === 'not-authenticated' && (
+              <Animated.View entering={FadeInDown.duration(260)}>
+                <Pressable
+                  style={({ pressed }) => [styles.bgUpsellPill, pressed && { opacity: 0.8 }]}
+                  onPress={() => router.push('/sign-in')}
+                >
+                  <Ionicons name="lock-closed-outline" size={14} color={Colors.secondary} />
+                  <Text style={styles.bgUpsellText}>Sign in to unlock automatic background removal</Text>
+                  <Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />
+                </Pressable>
+              </Animated.View>
+            )}
+
             {/* ── Category ────────────────────────────────────────────────── */}
             <Text style={styles.sectionTitle}>Category</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
@@ -1688,6 +1702,8 @@ const styles = StyleSheet.create({
   addedBanner:       { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.white, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 14, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 3, borderLeftColor: Colors.secondary, shadowColor: Colors.secondary, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   addedBannerIconWrap: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.secondary, alignItems: 'center', justifyContent: 'center' },
   addedBannerText:   { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary, flex: 1 },
+  bgUpsellPill:      { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.white, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 14, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 3, borderLeftColor: Colors.secondary, shadowColor: Colors.secondary, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  bgUpsellText:      { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary, flex: 1 },
   optionalLabel:     { fontFamily: 'Inter_400Regular', color: Colors.textLight, fontSize: 13, fontWeight: '400' },
   requiredAsterisk:  { fontFamily: 'Inter_700Bold', color: Colors.error, fontSize: 15 },
   requiredHint:      { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.error, marginTop: -8, marginBottom: 10, lineHeight: 17 },
