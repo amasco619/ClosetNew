@@ -6,6 +6,7 @@ import { fetch } from 'expo/fetch'
 import { supabase } from './supabase'
 import { getApiUrl } from './query-client'
 import { handleOAuthBrowserResult } from './oauthGuard'
+export { signInWithEmail } from './emailSignIn'
 
 WebBrowser.maybeCompleteAuthSession()
 
@@ -55,37 +56,6 @@ export async function signUpWithEmail(
   return { needsConfirmation: !data.session }
 }
 
-export async function signInWithEmail(
-  email: string,
-  password: string
-): Promise<void> {
-  // Step 1: server-side rate-limit + lockout check (Express proxy)
-  const url = new URL('/api/auth/sign-in', getApiUrl())
-  const res = await fetch(url.toString(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
-    credentials: 'include',
-  })
-  const json = await res.json()
-  if (!res.ok) {
-    throw new Error(`[signInWithEmail] ${json.error ?? res.statusText}`)
-  }
-
-  // Step 2: establish the client session directly with Supabase.
-  // We intentionally do NOT call supabase.auth.setSession(json.session) here.
-  // On web, setSession() with processLock can deadlock when the onAuthStateChange
-  // callback fires DB queries that internally call getSession() before the lock
-  // is released. Using signInWithPassword() avoids this entirely and is the
-  // idiomatic Supabase pattern for the anon-key client.
-  const { error } = await supabase.auth.signInWithPassword({
-    email: email.trim().toLowerCase(),
-    password,
-  })
-  if (error) {
-    throw new Error(`[signInWithEmail] ${error.message}`)
-  }
-}
 
 export async function requestPasswordReset(email: string): Promise<void> {
   const url = new URL('/api/auth/reset-password', getApiUrl())
