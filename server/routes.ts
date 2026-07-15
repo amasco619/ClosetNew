@@ -45,12 +45,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/reset-password", resetLimiter, async (req, res) => {
-    const { email } = req.body;
+    const { email, redirectTo: clientRedirectTo } = req.body;
     if (!email) {
       return res.status(400).json({ error: "email is required." });
     }
-    // redirectTo is server-controlled to prevent open-redirect abuse.
-    const redirectTo = "auracloset://";
+
+    // Determine the allowed set of web origins.
+    // ALLOWED_RESET_ORIGINS is a comma-separated list of exact origins
+    // (e.g. "https://auracloset.app,http://localhost:8081").  When unset the
+    // server falls back to comparing against the browser-supplied Origin header.
+    const envAllowlist = process.env.ALLOWED_RESET_ORIGINS
+      ? process.env.ALLOWED_RESET_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+      : null;
+
+    let redirectTo = "auracloset://";
+    if (typeof clientRedirectTo === "string") {
+      try {
+        const parsed = new URL(clientRedirectTo);
+        // https is required in production; http is permitted only for localhost dev.
+        const isHttps =
+          parsed.protocol === "https:" ||
+          (parsed.protocol === "http:" && (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1"));
+        // Path must be exactly /auth/update-password to prevent token delivery to arbitrary paths.
+        const hasCorrectPath = parsed.pathname === "/auth/update-password";
+
+        // Origin allowlist check — prefer the explicit env allowlist; fall back to
+        // matching the browser-set Origin header (cannot be forged by page JS in a
+        // same-site request).
+        const requestOrigin = typeof req.headers.origin === "string" ? req.headers.origin : null;
+        const originAllowed = envAllowlist
+          ? envAllowlist.includes(parsed.origin)
+          : requestOrigin !== null && parsed.origin === new URL(requestOrigin).origin;
+
+        if (isHttps && hasCorrectPath && originAllowed) {
+          redirectTo = clientRedirectTo;
+        }
+      } catch {
+        // Malformed URL — fall through to the native auracloset:// default.
+      }
+    }
+
     try {
       const { error } = await supabaseAuth.auth.resetPasswordForEmail(
         String(email).trim().toLowerCase(),

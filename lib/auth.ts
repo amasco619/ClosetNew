@@ -52,11 +52,16 @@ export async function createSessionFromUrl(url: string) {
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
+  const redirectTo =
+    Platform.OS === 'web' && typeof window !== 'undefined'
+      ? `${window.location.origin}/auth/update-password`
+      : undefined
+
   const url = new URL('/api/auth/reset-password', getApiUrl())
   const res = await fetch(url.toString(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email.trim().toLowerCase() }),
+    body: JSON.stringify({ email: email.trim().toLowerCase(), ...(redirectTo ? { redirectTo } : {}) }),
     credentials: 'include',
   })
   const json = await res.json()
