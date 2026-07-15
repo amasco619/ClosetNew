@@ -110,8 +110,10 @@ export async function removeBackground(req: Request, res: Response) {
   // ── 5. Check image hash cache (avoids paying Photoroom for duplicate images) ──
   // checkCacheByHash handles its own DB errors internally and returns null on
   // failure, so no outer try/catch is needed here.
-  const hash = computeImageHash(imageBase64);
-  const cached = await checkCacheByHash(hash);
+  // Cache is bypassed in test mode (_testOverrides.skipAuth) so that mock fetch
+  // calls are not short-circuited by stale DB entries from previous test runs.
+  const hash = _testOverrides.skipAuth ? null : computeImageHash(imageBase64);
+  const cached = hash ? await checkCacheByHash(hash) : null;
   if (cached) {
     // Cache hits do NOT count against the user's quota
     return res.json({ imageBase64: cached, mimeType: "image/png", fromCache: true });
