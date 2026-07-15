@@ -6,3 +6,5 @@
 - [Supabase direct client pattern](supabase-direct-client.md) — anon client + RLS is the correct pattern; the old Express /api/db/* proxy was a temporary workaround and has been removed.
 - [Image upload + item ID sync](image-upload-flow.md) — addWardrobeItem accepts optional id so add-item pre-generates UUID, uploads to Storage under that id, then passes it to context keeping Storage path and DB row aligned.
 - [TECHNICAL.md must stay current](technical-md-discipline.md) — user requires every merged task be reflected in TECHNICAL.md immediately; task agents do not do this automatically.
+- [Node.js test isolation for RN modules](node-test-rn-isolation.md) — lib/supabase.ts and lib/query-client.ts import react-native/expo; use dynamic import + _testOverrides pattern to keep them out of the static dep graph.
+- [_testOverrides mutable export pattern](test-overrides-pattern.md) — export const _testOverrides = {} and mutate its properties to bypass auth/I-O in tests; avoids ESM getter-only reassignment issues.

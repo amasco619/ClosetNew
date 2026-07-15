@@ -9,6 +9,7 @@ import { useApp, WearEntry, WardrobeItem } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { OccasionTag } from '@/constants/types';
+import { computeItemCpw, formatCpw, computeWardrobeDividends, DividendItem } from '@/constants/cpw';
 
 const FREE_LOG_DAYS = 7;
 
@@ -74,12 +75,36 @@ function ItemThumb({ item, isHero = false }: { item: WardrobeItem | undefined; i
   );
 }
 
+function DividendCard({ dividend }: { dividend: DividendItem }) {
+  const { item, wearCount, cpw } = dividend;
+  return (
+    <View style={styles.dividendCard}>
+      {item.photoUri ? (
+        <Image
+          source={{ uri: item.photoUri }}
+          style={styles.dividendPhoto}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={[styles.dividendPhoto, styles.dividendPhotoFallback]}>
+          <Ionicons name="shirt-outline" size={20} color={Colors.secondary} />
+        </View>
+      )}
+      <Text style={styles.dividendName} numberOfLines={1}>
+        {item.subType.replace(/-/g, ' ')}
+      </Text>
+      <Text style={styles.dividendCpw}>{formatCpw(cpw)}</Text>
+      <Text style={styles.dividendPerWear}>per wear</Text>
+      <Text style={styles.dividendWears}>{wearCount} {wearCount === 1 ? 'wear' : 'wears'}</Text>
+    </View>
+  );
+}
+
 export default function WearLogScreen() {
   const insets = useSafeAreaInsets();
-  const { wearHistory, undoWear, wardrobeItems, isPremium } = useApp();
+  const { wearHistory, undoWear, wardrobeItems, isPremium, getItemWearCount } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
-  // Free users see last FREE_LOG_DAYS days only; premium sees everything.
   const cutoff = (() => {
     if (isPremium) return null;
     const d = new Date();
@@ -92,8 +117,11 @@ export default function WearLogScreen() {
     : wearHistory;
 
   const hiddenCount = wearHistory.length - visibleHistory.length;
-
   const grouped = groupByDate(visibleHistory);
+
+  const dividends: DividendItem[] = isPremium
+    ? computeWardrobeDividends(wardrobeItems, getItemWearCount, 3)
+    : [];
 
   function getItems(entry: WearEntry): WardrobeItem[] {
     return entry.itemIds
@@ -138,7 +166,7 @@ export default function WearLogScreen() {
           </View>
           <Text style={styles.emptyTitle}>No outfits logged yet</Text>
           <Text style={styles.emptySubtitle}>
-            {`Tap "Wearing this today" on any outfit card in the Outfits tab to start tracking what you wear.`}
+            Tap &ldquo;Wearing this today&rdquo; on any outfit card in the Outfits tab to start tracking what you wear.
           </Text>
           <Pressable style={styles.emptyAction} onPress={() => router.push('/(tabs)/outfits')}>
             <Ionicons name="sparkles-outline" size={16} color={Colors.white} />
@@ -147,8 +175,38 @@ export default function WearLogScreen() {
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+
+          {/* ── Wardrobe Dividends (premium) ────────────────────────── */}
+          {isPremium && dividends.length > 0 && (
+            <Animated.View entering={FadeInDown.delay(40).duration(280)} style={styles.dividendsCard}>
+              <View style={styles.dividendsHeader}>
+                <View style={styles.dividendsAccent} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.dividendsSectionLabel}>WARDROBE DIVIDENDS</Text>
+                  <Text style={styles.dividendsTitle}>Hardest-working pieces</Text>
+                </View>
+                <View style={styles.dividendsBadge}>
+                  <Ionicons name="trending-down-outline" size={12} color={Colors.secondary} />
+                </View>
+              </View>
+              <Text style={styles.dividendsSub}>
+                Sorted by lowest cost per wear
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.dividendsRow}
+              >
+                {dividends.map(d => (
+                  <DividendCard key={d.item.id} dividend={d} />
+                ))}
+              </ScrollView>
+            </Animated.View>
+          )}
+
+          {/* ── Date groups ─────────────────────────────────────────── */}
           {grouped.map((group, gi) => (
-            <Animated.View key={group.date} entering={FadeInDown.delay(gi * 60).duration(280)}>
+            <Animated.View key={group.date} entering={FadeInDown.delay(gi * 60 + 80).duration(280)}>
               <View style={styles.dateHeader}>
                 <Text style={styles.dateLabel}>{formatDate(group.date)}</Text>
                 <View style={styles.dateDivider} />
@@ -157,7 +215,7 @@ export default function WearLogScreen() {
                 </Text>
               </View>
 
-              {group.entries.map((entry, ei) => {
+              {group.entries.map((entry) => {
                 const items = getItems(entry);
                 const scenario = scenarioLabels[entry.occasion];
                 const isToday = entry.date === new Date().toISOString().slice(0, 10);
@@ -184,6 +242,10 @@ export default function WearLogScreen() {
                       >
                         {items.map(item => {
                           const isHero = !!entry.heroId && item.id === entry.heroId;
+                          const itemWearCount = getItemWearCount(item.id);
+                          const itemCpw = item.purchasePrice && item.purchasePrice > 0 && itemWearCount > 0
+                            ? computeItemCpw(item.purchasePrice, itemWearCount)
+                            : null;
                           return (
                             <View key={item.id} style={styles.thumbWrap}>
                               <ItemThumb item={item} isHero={isHero} />
@@ -192,6 +254,11 @@ export default function WearLogScreen() {
                               </Text>
                               {isHero && (
                                 <Text style={styles.heroPieceLabel}>Focal piece</Text>
+                              )}
+                              {itemCpw !== null && (
+                                <View style={styles.cpwChip}>
+                                  <Text style={styles.cpwChipText}>{formatCpw(itemCpw)}/wear</Text>
+                                </View>
                               )}
                             </View>
                           );
@@ -243,9 +310,9 @@ export default function WearLogScreen() {
             >
               <Ionicons name="analytics-outline" size={18} color={Colors.secondary} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.historyGateTitle}>Unlock full history & cost-per-wear</Text>
+                <Text style={styles.historyGateTitle}>Unlock full history &amp; cost-per-wear</Text>
                 <Text style={styles.historyGateSub}>
-                  See every outfit you've ever worn and how hard each piece is working.
+                  See every outfit you have ever worn and how hard each piece is working.
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={15} color={Colors.secondary} />
@@ -290,6 +357,63 @@ const styles = StyleSheet.create({
 
   scrollContent: { paddingHorizontal: 20 },
 
+  // ── Wardrobe Dividends ─────────────────────────────────────────────────────
+  dividendsCard: {
+    backgroundColor: Colors.white, borderRadius: 18, padding: 16,
+    marginBottom: 20, borderWidth: 1, borderColor: Colors.secondary + '28',
+    borderLeftWidth: 3, borderLeftColor: Colors.secondary + '80',
+    shadowColor: Colors.secondary, shadowOpacity: 0.06, shadowRadius: 10, elevation: 1,
+  },
+  dividendsHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 4 },
+  dividendsAccent: { display: 'none' },
+  dividendsSectionLabel: {
+    fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.secondary,
+    textTransform: 'uppercase', letterSpacing: 1.0, marginBottom: 2,
+  },
+  dividendsTitle: {
+    fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary, letterSpacing: -0.2,
+  },
+  dividendsBadge: {
+    width: 28, height: 28, borderRadius: 8,
+    backgroundColor: Colors.secondary + '14',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  dividendsSub: {
+    fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary,
+    marginBottom: 14, lineHeight: 15,
+  },
+  dividendsRow: { gap: 12 },
+  dividendCard: {
+    width: 96, alignItems: 'center',
+    backgroundColor: Colors.background, borderRadius: 12, padding: 10,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  dividendPhoto: {
+    width: 72, height: 90, borderRadius: 10, marginBottom: 8,
+    backgroundColor: Colors.border,
+  },
+  dividendPhotoFallback: {
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background,
+  },
+  dividendName: {
+    fontFamily: 'Inter_500Medium', fontSize: 10, color: Colors.primary,
+    textTransform: 'capitalize', textAlign: 'center', marginBottom: 5,
+  },
+  dividendCpw: {
+    fontFamily: 'Inter_700Bold', fontSize: 14, color: Colors.secondary,
+    letterSpacing: -0.3, textAlign: 'center',
+  },
+  dividendPerWear: {
+    fontFamily: 'Inter_400Regular', fontSize: 9, color: Colors.textLight,
+    textAlign: 'center', marginBottom: 4,
+  },
+  dividendWears: {
+    fontFamily: 'Inter_400Regular', fontSize: 9, color: Colors.textSecondary,
+    textAlign: 'center',
+  },
+
+  // ── Date groups ────────────────────────────────────────────────────────────
   dateHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginBottom: 12, marginTop: 8,
@@ -322,8 +446,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.textSecondary,
     textTransform: 'capitalize', textAlign: 'center',
   },
-
-  heroPieceLabel: { fontFamily: 'Inter_500Medium', fontSize: 9, color: Colors.secondary, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 3, textAlign: 'center' },
+  heroPieceLabel: {
+    fontFamily: 'Inter_500Medium', fontSize: 9, color: Colors.secondary,
+    textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 3, textAlign: 'center',
+  },
+  cpwChip: {
+    marginTop: 4, backgroundColor: Colors.secondary + '12',
+    borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2,
+    borderWidth: 1, borderColor: Colors.secondary + '25',
+  },
+  cpwChipText: {
+    fontFamily: 'Inter_600SemiBold', fontSize: 9, color: Colors.secondary, textAlign: 'center',
+  },
 
   noItemsText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, fontStyle: 'italic' },
 

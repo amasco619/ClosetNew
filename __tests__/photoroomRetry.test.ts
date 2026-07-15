@@ -1,26 +1,28 @@
 /**
  * Unit tests for the retry logic in lib/photoroom.ts — removeBackground().
  *
+ * Updated to use BgRemovalResult return type and globalThis.fetch mocking
+ * instead of expo/fetch require.cache injection (which caused esbuild to
+ * follow expo/fetch → react-native and fail on syntax it cannot transform
+ * in Node.js).
+ *
  * The retry contract:
  *   - photoroom_timeout on attempt 1 → attempt 2 is made
- *     - attempt 2 succeeds → returns PNG base64
- *     - attempt 2 also times out → returns null
+ *     - attempt 2 succeeds → { status: 'success', base64: '...' }
+ *     - attempt 2 also times out → { status: 'failed' }
  *   - Any other error code (photoroom_error, photoroom_invalid_response,
- *     photoroom_empty_response) → no retry, returns null immediately
- *   - Network error (fetch throws) → no retry, returns null
- *   - Success on first call → returns PNG base64, no retry needed
- *
- * Strategy: expo/fetch is injected into require.cache before lib/photoroom.ts
- * is loaded so that photoroom receives our controlled mock fetch rather than
- * the native Expo networking module (which cannot run in Node.js).
+ *     photoroom_empty_response) → no retry, non-success status
+ *   - Network error (fetch throws) → no retry, { status: 'failed' }
+ *   - Success on first call → { status: 'success', base64: '...' }, no retry
  *
  * Run: npx tsx __tests__/photoroomRetry.test.ts
  * Exits non-zero on any failed assertion.
  */
 
-import path from 'path';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { removeBackground, _testOverrides } from '../lib/photoroom';
+import type { BgRemovalResult } from '../lib/photoroom';
 import { PHOTOROOM_TIMEOUT_ERROR } from '../shared/photoroom-error-codes';
 
 // ── Assertion helpers ──────────────────────────────────────────────────────────
@@ -45,115 +47,67 @@ function assertEq<T>(actual: T, expected: T, msg: string): void {
   }
 }
 
-// ── Module-mocking helper ──────────────────────────────────────────────────────
+// ── Mock fetch factory ─────────────────────────────────────────────────────────
 //
-// loadPhotoroomWithMock() installs a controlled fetch into require.cache under
-// the expo/fetch key, clears any cached copy of lib/photoroom.ts, then requires
-// it fresh so the module captures our mock fetch binding at import time.
+// Replaces globalThis.fetch with a mock that returns responses from the
+// provided array in order, tracking how many calls were made.
 //
-// It also records the number of times fetch was called so tests can assert that
-// non-timeout error codes do NOT trigger a second network request.
+//   { imageBase64?, error? }  → resolves with { json: async () => response }
+//   'throw'                   → rejects with a mock network error
 
-type FetchResponse = { imageBase64?: string; error?: string };
+type MockResponse = { imageBase64?: string; error?: string };
 
-interface MockContext {
-  removeBackground: (imageBase64: string) => Promise<string | null>;
+function setupMockFetch(responses: Array<MockResponse | 'throw'>): {
   callCount: () => number;
-}
-
-async function loadPhotoroomWithMock(
-  responses: Array<FetchResponse | 'throw'>,
-): Promise<MockContext> {
+  restore: () => void;
+} {
   let calls = 0;
+  const original = (globalThis as any).fetch;
 
-  const mockFetch = async (_url: string, _init: unknown): Promise<unknown> => {
-    const slot = responses[calls++];
+  (globalThis as any).fetch = async (_url: string, _init: unknown): Promise<unknown> => {
+    const slot = responses[calls++] ?? {};
     if (slot === 'throw') {
       throw new Error('mock: network error');
     }
-    const data = slot ?? { imageBase64: undefined };
-    return { json: async () => data };
+    return { json: async () => slot };
   };
-
-  const expoFetchKey = require.resolve('expo/fetch');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cache = (require as any).cache as Record<string, any>;
-  const prevExpoFetch = cache[expoFetchKey];
-
-  // Install mock expo/fetch
-  cache[expoFetchKey] = {
-    id: expoFetchKey,
-    filename: expoFetchKey,
-    loaded: true,
-    exports: { fetch: mockFetch },
-    children: [],
-    paths: [],
-  };
-
-  // Clear any previously cached version of photoroom and its sibling
-  const photoroomKey = path.resolve(__dirname, '../lib/photoroom.ts');
-  const classifyKey  = path.resolve(__dirname, '../lib/classifyPath.ts');
-  const qcKey        = path.resolve(__dirname, '../lib/query-client.ts');
-
-  for (const k of [photoroomKey, classifyKey, qcKey]) {
-    delete cache[k];
-  }
-
-  // Also try without extension in case tsx resolves differently
-  try {
-    const alt = require.resolve('../lib/photoroom');
-    if (alt !== photoroomKey) {
-      delete cache[alt];
-    }
-  } catch { /* ignore */ }
-
-  // Load photoroom — it will import expo/fetch from our mocked cache entry
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { removeBackground } = require('../lib/photoroom') as {
-    removeBackground: (s: string) => Promise<string | null>;
-  };
-
-  // Restore the original expo/fetch cache entry so other modules are unaffected
-  if (prevExpoFetch !== undefined) {
-    cache[expoFetchKey] = prevExpoFetch;
-  } else {
-    delete cache[expoFetchKey];
-  }
 
   return {
-    removeBackground,
     callCount: () => calls,
+    restore: () => { (globalThis as any).fetch = original; },
   };
 }
 
 // ── Test runner ────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  // getApiUrl() reads this env var; set it before any module load
+  // getApiUrl() reads this env var; set it before any import side-effects
   process.env.EXPO_PUBLIC_DOMAIN = 'test.example.com';
+
+  // Bypass supabase.auth.getSession() for all server-call tests so this
+  // suite runs in Node.js without a live Supabase connection.
+  _testOverrides.sessionToken = 'test-token';
 
   // ── 1. timeout → success on retry ─────────────────────────────────────────
 
   console.log('\nremoveBackground — photoroom_timeout on attempt 1, success on retry:');
 
   {
-    const ctx = await loadPhotoroomWithMock([
+    const mock = setupMockFetch([
       { error: PHOTOROOM_TIMEOUT_ERROR },
       { imageBase64: 'retry-success-png-base64' },
     ]);
 
-    const result = await ctx.removeBackground('input-jpeg');
+    const result = await removeBackground('input-jpeg');
+    mock.restore();
 
+    assertEq(result.status, 'success', 'status is "success" on successful retry');
     assertEq(
-      result,
+      result.base64,
       'retry-success-png-base64',
       'returns PNG base64 from the successful retry',
     );
-    assertEq(
-      ctx.callCount(),
-      2,
-      'exactly two fetch calls were made (initial + retry)',
-    );
+    assertEq(mock.callCount(), 2, 'exactly two fetch calls were made (initial + retry)');
   }
 
   // ── 2. timeout → timeout (both attempts fail) ──────────────────────────────
@@ -161,23 +115,16 @@ async function main(): Promise<void> {
   console.log('\nremoveBackground — photoroom_timeout on both attempts:');
 
   {
-    const ctx = await loadPhotoroomWithMock([
+    const mock = setupMockFetch([
       { error: PHOTOROOM_TIMEOUT_ERROR },
       { error: PHOTOROOM_TIMEOUT_ERROR },
     ]);
 
-    const result = await ctx.removeBackground('input-jpeg');
+    const result = await removeBackground('input-jpeg');
+    mock.restore();
 
-    assertEq(
-      result,
-      null,
-      'returns null when retry also times out',
-    );
-    assertEq(
-      ctx.callCount(),
-      2,
-      'exactly two fetch calls were made (initial + retry)',
-    );
+    assertEq(result.status, 'failed', 'status is "failed" when retry also times out');
+    assertEq(mock.callCount(), 2, 'exactly two fetch calls were made (initial + retry)');
   }
 
   // ── 3. photoroom_error — no retry ─────────────────────────────────────────
@@ -185,20 +132,20 @@ async function main(): Promise<void> {
   console.log('\nremoveBackground — photoroom_error does NOT trigger a retry:');
 
   {
-    const ctx = await loadPhotoroomWithMock([
+    const mock = setupMockFetch([
       { error: 'photoroom_error' },
       { imageBase64: 'should-never-be-returned' },
     ]);
 
-    const result = await ctx.removeBackground('input-jpeg');
+    const result = await removeBackground('input-jpeg');
+    mock.restore();
 
-    assertEq(
-      result,
-      null,
-      'photoroom_error returns null (no imageBase64 field)',
+    assert(
+      result.status !== 'success',
+      'photoroom_error does not return success status',
     );
     assertEq(
-      ctx.callCount(),
+      mock.callCount(),
       1,
       'only one fetch call made — photoroom_error does not trigger retry',
     );
@@ -209,20 +156,20 @@ async function main(): Promise<void> {
   console.log('\nremoveBackground — photoroom_invalid_response does NOT trigger a retry:');
 
   {
-    const ctx = await loadPhotoroomWithMock([
+    const mock = setupMockFetch([
       { error: 'photoroom_invalid_response' },
       { imageBase64: 'should-never-be-returned' },
     ]);
 
-    const result = await ctx.removeBackground('input-jpeg');
+    const result = await removeBackground('input-jpeg');
+    mock.restore();
 
-    assertEq(
-      result,
-      null,
-      'photoroom_invalid_response returns null',
+    assert(
+      result.status !== 'success',
+      'photoroom_invalid_response does not return success status',
     );
     assertEq(
-      ctx.callCount(),
+      mock.callCount(),
       1,
       'only one fetch call made — photoroom_invalid_response does not trigger retry',
     );
@@ -233,20 +180,20 @@ async function main(): Promise<void> {
   console.log('\nremoveBackground — photoroom_empty_response does NOT trigger a retry:');
 
   {
-    const ctx = await loadPhotoroomWithMock([
+    const mock = setupMockFetch([
       { error: 'photoroom_empty_response' },
       { imageBase64: 'should-never-be-returned' },
     ]);
 
-    const result = await ctx.removeBackground('input-jpeg');
+    const result = await removeBackground('input-jpeg');
+    mock.restore();
 
-    assertEq(
-      result,
-      null,
-      'photoroom_empty_response returns null',
+    assert(
+      result.status !== 'success',
+      'photoroom_empty_response does not return success status',
     );
     assertEq(
-      ctx.callCount(),
+      mock.callCount(),
       1,
       'only one fetch call made — photoroom_empty_response does not trigger retry',
     );
@@ -257,43 +204,38 @@ async function main(): Promise<void> {
   console.log('\nremoveBackground — success on first call, no retry needed:');
 
   {
-    const ctx = await loadPhotoroomWithMock([
+    const mock = setupMockFetch([
       { imageBase64: 'first-call-success-base64' },
     ]);
 
-    const result = await ctx.removeBackground('input-jpeg');
+    const result = await removeBackground('input-jpeg');
+    mock.restore();
 
+    assertEq(result.status, 'success', 'status is "success" on first-call success');
     assertEq(
-      result,
+      result.base64,
       'first-call-success-base64',
       'returns PNG base64 from the first successful call',
     );
-    assertEq(
-      ctx.callCount(),
-      1,
-      'exactly one fetch call made (no unnecessary retry on success)',
-    );
+    assertEq(mock.callCount(), 1, 'exactly one fetch call made (no unnecessary retry on success)');
   }
 
   // ── 7. Network error (fetch throws) — no retry ─────────────────────────────
 
-  console.log('\nremoveBackground — network error (fetch throws) returns null, no retry:');
+  console.log('\nremoveBackground — network error (fetch throws) returns failed status, no retry:');
 
   {
-    const ctx = await loadPhotoroomWithMock(['throw']);
+    const mock = setupMockFetch(['throw']);
 
-    const result = await ctx.removeBackground('input-jpeg');
+    const result = await removeBackground('input-jpeg');
+    mock.restore();
 
     assertEq(
-      result,
-      null,
-      'returns null when fetch throws (graceful degradation)',
+      result.status,
+      'failed',
+      'status is "failed" when fetch throws (graceful degradation)',
     );
-    assertEq(
-      ctx.callCount(),
-      1,
-      'only one fetch call made — network errors do not trigger retry',
-    );
+    assertEq(mock.callCount(), 1, 'only one fetch call made — network errors do not trigger retry');
   }
 
   // ── 8. timeout → network error on retry ────────────────────────────────────
@@ -301,20 +243,21 @@ async function main(): Promise<void> {
   console.log('\nremoveBackground — photoroom_timeout then network error on retry:');
 
   {
-    const ctx = await loadPhotoroomWithMock([
+    const mock = setupMockFetch([
       { error: PHOTOROOM_TIMEOUT_ERROR },
       'throw',
     ]);
 
-    const result = await ctx.removeBackground('input-jpeg');
+    const result = await removeBackground('input-jpeg');
+    mock.restore();
 
     assertEq(
-      result,
-      null,
-      'returns null when retry attempt throws a network error',
+      result.status,
+      'failed',
+      'status is "failed" when retry attempt throws a network error',
     );
     assertEq(
-      ctx.callCount(),
+      mock.callCount(),
       2,
       'two fetch calls made — retry was attempted even though it failed with a network error',
     );
@@ -322,10 +265,9 @@ async function main(): Promise<void> {
 
   // ── 9. Cross-layer contract: source-text assertions ────────────────────────
   //
-  // These guards ensure that if anyone removes the shared-constant import from
-  // either production file and inlines the bare string instead, the test fails
-  // immediately — a compile-time TypeScript error alone is not enough if the
-  // constant is simply deleted from shared/photoroom-error-codes.ts.
+  // Ensures that both the server handler and client lib import the error
+  // constant from the shared module — inlining the bare string would
+  // silently break the contract even if TypeScript still compiled.
 
   console.log('\nCross-layer contract — server and client import from shared module:');
 

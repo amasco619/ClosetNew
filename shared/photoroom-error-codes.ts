@@ -30,3 +30,11 @@ export type BackgroundRemovalFailed = typeof BACKGROUND_REMOVAL_FAILED;
 /** Emitted by the server when PHOTOROOM_API_KEY is not configured (HTTP 503). */
 export const BACKGROUND_REMOVAL_UNAVAILABLE = "background_removal_unavailable" as const;
 export type BackgroundRemovalUnavailable = typeof BACKGROUND_REMOVAL_UNAVAILABLE;
+
+/** Emitted by the server when no valid Authorization token is provided (HTTP 401). */
+export const BG_REMOVAL_AUTH_REQUIRED = "bg_removal_auth_required" as const;
+export type BgRemovalAuthRequired = typeof BG_REMOVAL_AUTH_REQUIRED;
+
+/** Emitted by the server when the free-tier usage quota has been reached (HTTP 403). */
+export const BG_REMOVAL_LIMIT_REACHED = "bg_removal_limit_reached" as const;
+export type BgRemovalLimitReached = typeof BG_REMOVAL_LIMIT_REACHED;

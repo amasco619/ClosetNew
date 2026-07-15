@@ -2,6 +2,7 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { initLockoutStore, initRateLimitStore } from "./middleware/rateLimiter";
+import { initBgRemovalStore } from "./bgRemovalStore";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -41,7 +42,7 @@ function setupCors(app: express.Application) {
         "Access-Control-Allow-Methods",
         "GET, POST, PUT, DELETE, OPTIONS",
       );
-      res.header("Access-Control-Allow-Headers", "Content-Type");
+      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
       res.header("Access-Control-Allow-Credentials", "true");
     }
 
@@ -239,6 +240,7 @@ function setupErrorHandler(app: express.Application) {
   // registering API routes first is the canonical Express safety pattern.
   await initLockoutStore();
   await initRateLimitStore();
+  await initBgRemovalStore();
 
   const server = await registerRoutes(app);
 

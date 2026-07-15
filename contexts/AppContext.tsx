@@ -139,7 +139,7 @@ const defaultProfile: UserProfile = {
   dismissedProfileNudge: undefined,
 };
 
-const FREE_ITEM_CAP = 15;
+const FREE_ITEM_CAP = 30;
 const GUEST_ITEM_CAP = 8;
 
 const AppContext = createContext<AppContextValue | null>(null);

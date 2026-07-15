@@ -757,7 +757,7 @@ export function makeLimiterHandler() {
  */
 export const LIMITER_CONFIGS = {
   aiLimiter:        { windowMs: 60 * 1000,      max: 10 },
-  bgRemovalLimiter: { windowMs: 60 * 1000,      max: 30 },
+  bgRemovalLimiter: { windowMs: 60 * 1000,      max: 8  },
   colorLimiter:     { windowMs: 60 * 1000,      max: 30 },
   accountLimiter:   { windowMs: 60 * 60 * 1000, max: 5  },
   authLimiter:      { windowMs: 15 * 60 * 1000, max: 5  },

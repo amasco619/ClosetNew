@@ -1,6 +1,6 @@
 import {
   StyleSheet, Text, View, ScrollView, Pressable,
-  Platform, Image,
+  Platform, Image, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,9 +8,13 @@ import { router } from 'expo-router';
 import { useApp, OutfitSet, OutfitComponent } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { useState, useCallback } from 'react';
-import { OccasionTag, WearEntry, MoodGoal, ReactionType } from '@/constants/types';
+import { useState, useCallback, useRef } from 'react';
+import { OccasionTag, WearEntry, MoodGoal, ReactionType, WardrobeItem } from '@/constants/types';
 import * as Haptics from 'expo-haptics';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
+import OOTDStoryCard from '@/components/OOTDStoryCard';
+import { computeItemCpw, formatCpw } from '@/constants/cpw';
 
 const MOOD_OPTIONS: { id: MoodGoal; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
   { id: 'confident', label: 'Confident', icon: 'flash-outline' },
@@ -188,6 +192,31 @@ function OutfitCard({
   const rewearUrgent = lastWorn !== null && lastWorn.daysAgo < halfThreshold;
 
   const moodText = outfit.rationale || scenario?.mood;
+  const storyRef = useRef<View>(null);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    Haptics.selectionAsync();
+    setExporting(true);
+    await new Promise<void>(resolve => setTimeout(resolve, 160));
+    try {
+      const uri = await captureRef(storyRef, {
+        format: 'png',
+        quality: 1.0,
+        result: 'tmpfile',
+      });
+      await Sharing.shareAsync(uri, {
+        mimeType: 'image/png',
+        dialogTitle: 'Share your look',
+        UTI: 'public.png',
+      });
+    } catch (err) {
+      console.error('[OOTD] Export failed:', err);
+      Alert.alert('Export failed', 'Unable to export this look right now.');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <Animated.View entering={FadeInDown.delay(index * 70).duration(280)}>
@@ -325,8 +354,25 @@ function OutfitCard({
                 <Text style={styles.reactionText}>Not today</Text>
               </Pressable>
             </View>
+            <Pressable
+              style={({ pressed }) => [styles.exportBtn, pressed && { opacity: 0.7 }]}
+              onPress={handleExport}
+              disabled={exporting}
+            >
+              <Ionicons name="share-outline" size={12} color={Colors.textSecondary} />
+              <Text style={styles.exportBtnText}>
+                {exporting ? 'Preparing...' : 'Export look'}
+              </Text>
+            </Pressable>
           </View>
         )}
+        <View
+          ref={storyRef}
+          collapsable={false}
+          style={{ position: 'absolute', left: -900, top: 0 }}
+        >
+          <OOTDStoryCard outfit={outfit} />
+        </View>
       </View>
     </Animated.View>
   );
@@ -417,7 +463,31 @@ export default function OutfitsScreen() {
     shouldShowProfileNudge,
     dismissProfileNudge,
     missingDimensions,
+    getItemWearCount,
   } = useApp();
+  const [cpwToast, setCpwToast] = useState<{ text: string } | null>(null);
+  const cpwToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleLogWear(outfit: OutfitSet) {
+    logWear(outfit);
+    const pricedItem = outfit.components
+      .filter(c => c.matchedItemId && c.owned)
+      .map(c => wardrobeItems.find((w: WardrobeItem) => w.id === c.matchedItemId))
+      .filter((w): w is WardrobeItem => Boolean(w?.purchasePrice && (w.purchasePrice ?? 0) > 0))
+      .sort((a: WardrobeItem, b: WardrobeItem) => (b.purchasePrice ?? 0) - (a.purchasePrice ?? 0))[0];
+    if (pricedItem?.purchasePrice) {
+      const newCount = getItemWearCount(pricedItem.id) + 1;
+      const cpw = computeItemCpw(pricedItem.purchasePrice, newCount);
+      if (cpw !== null) {
+        const name = pricedItem.subType.replace(/-/g, ' ');
+        const label = name.charAt(0).toUpperCase() + name.slice(1);
+        setCpwToast({ text: `${label}: ${formatCpw(cpw)} per wear` });
+        if (cpwToastTimer.current) clearTimeout(cpwToastTimer.current);
+        cpwToastTimer.current = setTimeout(() => setCpwToast(null), 3000);
+      }
+    }
+  }
+
   const [selectedScenario, setSelectedScenario] = useState<OccasionTag>('casual');
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -638,6 +708,13 @@ export default function OutfitsScreen() {
           />
         )}
 
+        {cpwToast && (
+          <Animated.View entering={FadeInUp.duration(250)} style={styles.cpwToast}>
+            <Ionicons name="trending-down-outline" size={13} color={Colors.secondary} />
+            <Text style={styles.cpwToastText}>{cpwToast.text}</Text>
+          </Animated.View>
+        )}
+
         {/* Outfit cards or empty state */}
         {filtered.length === 0 ? (
           <Animated.View entering={FadeInDown.delay(120).duration(280)} style={styles.emptyState}>
@@ -677,7 +754,7 @@ export default function OutfitsScreen() {
                 index={i}
                 wornToday={worn}
                 wornTodayEntryId={entryId}
-                onLogWear={logWear}
+                onLogWear={handleLogWear}
                 onUndoWear={undoWear}
                 wearHistory={wearHistory}
                 reaction={getOutfitReaction(outfit)}
@@ -963,4 +1040,22 @@ const styles = StyleSheet.create({
     shadowColor: Colors.primary, shadowOpacity: 0.25, shadowRadius: 8, elevation: 3,
   },
   emptyActionText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.white },
+
+  cpwToast: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.secondary + '12',
+    borderRadius: 12, padding: 12, marginBottom: 10,
+    borderWidth: 1, borderColor: Colors.secondary + '28',
+  },
+  cpwToastText: {
+    fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.secondary, flex: 1, lineHeight: 17,
+  },
+
+  exportBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 9, borderRadius: 12,
+    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.background,
+  },
+  exportBtnText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary },
 });

@@ -423,7 +423,7 @@ export default function BulkReviewScreen() {
         [{ resize: { width: 1024 } }],
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       ),
-      removeBg: (b64) => removeBackground(b64),
+      removeBg: (b64) => removeBackground(b64).then(r => r.status === 'success' ? (r.base64 ?? null) : null),
       reencodeAsJpeg: (pngB64) => ImageManipulator.manipulateAsync(
         `data:image/png;base64,${pngB64}`,
         [],

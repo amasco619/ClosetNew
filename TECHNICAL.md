@@ -508,7 +508,7 @@ Users photograph or select items from their photo library. Before any network ca
 - **Classify pass** — longest edge clamped to 1024 px, JPEG 0.8 compress → `classifyBase64` sent to Gemini (~100–300 KB)
 - **Storage pass** — longest edge clamped to 1600 px, JPEG 0.85 compress → `storageBase64` uploaded to Supabase (~300–600 KB)
 
-The original full-resolution asset is never sent over the network. Both resize calls fall back silently to the original base64 if `manipulateAsync` throws, so users are never blocked from adding an item. Item caps: Guest = 8, Free = 15, Premium = unlimited.
+The original full-resolution asset is never sent over the network. Both resize calls fall back silently to the original base64 if `manipulateAsync` throws, so users are never blocked from adding an item. Item caps: Guest = 8, Free = 30, Premium = unlimited.
 
 `uploadWardrobeImage()` accepts an optional `mimeType` parameter (`'image/jpeg'` default, `'image/png'` supported); the file extension is derived from the MIME type. `deleteWardrobeImage()` removes both `.jpg` and `.png` variants to handle items stored under either extension.
 
@@ -594,10 +594,65 @@ Uses Open-Meteo (free, no key) with device GPS (`expo-location`) and an IP-geolo
 
 **Wear Log tier access (`app/wear-log.tsx`):**
 - **Free users** — see entries from the last 7 days (`FREE_LOG_DAYS = 7`). A notice banner at the top of the screen shows "Showing last 7 days" with a "Full history with Premium" pill. If older entries are hidden, a locked row at the bottom states how many are hidden. If no entries are older than 7 days but the wardrobe has been worn, a soft upsell strip still surfaces cost-per-wear as a premium hook.
-- **Premium users** — see all entries (unlimited history). Undo is available for today's entries across all tiers.
+- **Premium users** — see all entries (unlimited history) plus the Wardrobe Dividends card (top 3 hardest-working pieces by CPW). Undo is available for today's entries across all tiers.
 - The "Wearing this today" button on outfit cards is **not gated** — all users (free and guest) can log wear entries. The gate is only on the full history view.
 
 **Code:** `app/wear-log.tsx`, `app/(tabs)/index.tsx`, `contexts/AppContext.tsx`
+
+---
+
+### CPW Dopamine Loop
+
+Every time the user taps "Wearing this today" on an outfit card, the app identifies the most expensive owned item in that outfit and computes its updated cost-per-wear. A brief toast card animates in (`FadeInUp`, 250 ms) below the outfit list showing the new CPW value, then auto-dismisses after 3 seconds.
+
+**CPW formula (`constants/cpw.ts`):**
+```
+cpw = purchasePrice / wearCount
+```
+- `computeItemCpw(purchasePrice, wearCount)` — returns `null` if either argument is missing or zero.
+- `formatCpw(cpw)` — formats to currency string: `£N.NN` (GBP). Values ≥ £10 show no decimal places; ≥ £1 show one decimal; below £1 show two decimals.
+- `computeWardrobeDividends(items, getWearCount, topN)` — returns the top-N items ranked by lowest CPW (best value-per-wear) for the Wardrobe Dividends card. Only includes items that have `purchasePrice > 0` and at least one logged wear.
+
+**CPW toast (Outfits tab):**
+- Fires in `handleLogWear` inside `OutfitsScreen` (replaces the direct `logWear` call)
+- Selects the highest-priced priced item from the outfit's owned components
+- Calls `getItemWearCount(itemId)` (from `AppContext`) to get the updated count
+- Toast state (`cpwToast`) auto-clears via `setTimeout` ref (`cpwToastTimer`)
+- Style: champagne gold tinted background (`Colors.secondary + '12'`), gold border, `trending-down-outline` icon
+
+**CPW chips (Wear Log item thumbnails):**
+- Each item thumbnail in a log entry shows a small CPW chip if `purchasePrice > 0` and `wearCount > 0`
+- Chip background: `Colors.secondary + '12'`; text: `£N.NN/wear`
+
+**Wardrobe Dividends card (Wear Log, premium only):**
+- Shown at the top of the Wear Log scroll when the user is premium and has at least one dividend item
+- Displays up to 3 items horizontally — photo, subtype name, CPW value, wear count
+- Left border accent: `borderLeftWidth: 3, borderLeftColor: Colors.secondary + '80'`
+- Computed via `computeWardrobeDividends()` from `constants/cpw.ts`
+
+**Code:** `constants/cpw.ts`, `app/(tabs)/outfits.tsx`, `app/wear-log.tsx`
+
+---
+
+### OOTD Story Export
+
+Each outfit card in the Outfits tab has an "Export look" button that captures a 9:16 story-format PNG and passes it to the native share sheet.
+
+**Flow:**
+1. User taps "Export look" — `handleExport()` fires with `Haptics.selectionAsync()`
+2. 160 ms delay to allow the off-screen `OOTDStoryCard` to render
+3. `captureRef(storyRef, { format: 'png', quality: 1.0, result: 'tmpfile' })` from `react-native-view-shot` captures the card to a temp file
+4. `Sharing.shareAsync(uri, { mimeType: 'image/png', UTI: 'public.png' })` from `expo-sharing` opens the native share sheet
+5. Errors surface as an `Alert` — button is disabled (`disabled={exporting}`) during capture
+
+**OOTDStoryCard (`components/OOTDStoryCard.tsx`):**
+- Fixed 360 × 640 pt canvas (9:16)
+- Background: `Colors.background` (warm off-white `#F5F3F0`)
+- Sections: brand wordmark → champagne-gold hairline divider → scenario label + rationale + date → core item photos (max 3, sized proportionally) → accessory row (max 3, 80 × 80) → footer watermark "CURATED BY AURACLOSET ATELIER"
+- Rendered off-screen at `position: absolute, left: -900` inside `OutfitCard` with `collapsable={false}` on the wrapper `View`
+- Uses `OutfitSet.rationale` for the mood/descriptor line (replaces the old `moodLabel` field which does not exist on the type)
+
+**Code:** `components/OOTDStoryCard.tsx`, `app/(tabs)/outfits.tsx`
 
 ---
 
@@ -623,7 +678,7 @@ A slim contextual strip on the Home tab surfaces the AI personalisation status t
 ---
 
 ### Premium Tier
-Unlocks: unlimited wardrobe items, 4 outfits/scenario/day (vs 2), resort and night-out scenario filters, Deep Diagnostics, close-colour-match hints on Blueprint, full wear history (all-time) with cost-per-wear.
+Unlocks: unlimited wardrobe items (free tier raised to 30, guest stays 8), 4 outfits/scenario/day (vs 2 free / 1 guest), resort and night-out scenario filters, Deep Diagnostics, close-colour-match hints on Blueprint, full wear history (all-time), Wardrobe Dividends (CPW ranking of hardest-working pieces), and unlimited background removal (free tier limited to 20 lifetime uses).
 
 **What is NOT gated (available to all free and guest users):**
 - Blueprint overview — full 19-slot map with owned/needed status (premium locks only "Next smart buy" highlight and close-colour-match hints)
@@ -642,7 +697,7 @@ All Express API endpoints are protected by `express-rate-limit` using the centra
 | Limiter | Route(s) | Max | Window |
 |---------|----------|-----|--------|
 | `aiLimiter` | `POST /api/classify-garment` | 10 req | 60 sec |
-| `bgRemovalLimiter` | `POST /api/remove-background` | 30 req | 60 sec |
+| `bgRemovalLimiter` | `POST /api/remove-background` | 8 req | 60 sec |
 | `colorLimiter` | `POST /api/extract-color` | 30 req | 60 sec |
 | `accountLimiter` | upgrade-premium, delete-account | 5 req | 60 min |
 | `authLimiter` | sign-in, sign-up | 5 req | 15 min |
@@ -822,32 +877,66 @@ Two-screen flow for digitising an entire wardrobe section in one session: up to 
 
 At upload time, both `app/add-item.tsx` and `app/bulk-review.tsx` attempt to strip the photo background before Gemini classification and Supabase Storage upload, producing clean flat-lay style images.
 
+**Quality tiers (auth-gated, server-enforced):**
+| Tier | Condition | Behaviour |
+|------|-----------|-----------|
+| Guest | No Supabase JWT in `Authorization` header | `{ status: 'not-authenticated' }` — removal skipped, original photo used |
+| Free | Authenticated, `isPremium = false` | Up to 20 lifetime uses (tracked in `bg_removal_usage` table). Exceeding quota → `{ status: 'limit-reached' }` |
+| Premium | Authenticated, `isPremium = true` | Unlimited — quota not checked |
+| Cache hit | Any tier (hash match) | Returns cached result; does **not** count against quota |
+
+**Hash cache (`server/bgRemovalStore.ts`):**
+- Two Postgres tables initialised by `initBgRemovalStore()` on server startup:
+  - `bg_removal_cache (image_hash TEXT PK, result_b64 TEXT, created_at TIMESTAMPTZ)` — stores SHA-256 hash → PNG base64. Hit rate avoids redundant Photoroom API calls and doesn't consume quota.
+  - `bg_removal_usage (user_id UUID PK, count INT, last_used_at TIMESTAMPTZ)` — per-user lifetime call counter for free-tier quota enforcement.
+- In-memory LRU cache (200 entries) backed by the DB. Cache hits are returned before any auth or quota check.
+
+**Client return type (`lib/photoroom.ts`):**
+`removeBackground()` now returns `Promise<BgRemovalResult>` instead of `Promise<string | null>`:
+```typescript
+type BgRemovalResult =
+  | { status: 'success'; base64: string }
+  | { status: 'not-authenticated' }
+  | { status: 'limit-reached' }
+  | { status: 'unavailable' }
+  | { status: 'failed' };
+```
+`app/add-item.tsx` stores the result status in `bgStatus` state. `app/bulk-review.tsx` adapts with a `.then(r => r.status === 'success' ? r.base64 ?? null : null)` wrapper to remain compatible with the `ClassifyDeps.removeBg` interface in `lib/bulkClassifyCore.ts`.
+
 **Pipeline (single-item add flow):**
 1. Photo selected → original JPEG base64 captured
-2. `removeBackground()` in `lib/photoroom.ts` calls `POST /api/remove-background` on the Express server
-3. Server calls the Photoroom API with a 15-second `AbortController` timeout; returns the processed image as PNG base64
-4. Client re-encodes the PNG to JPEG using `expo-image-manipulator`
-5. `resolveClassifyBase64()` / `resolvePhotoUri()` select the final payload: re-encoded JPEG if successful, original JPEG as fallback — Gemini classification and Supabase upload always proceed
-6. `resolveWardrobeUploadArg()` strips any `data:` prefix before the upload
+2. `removeBackground(base64)` in `lib/photoroom.ts` calls `POST /api/remove-background` with a `Bearer <JWT>` `Authorization` header
+3. Server: checks in-memory LRU → DB cache → auth (JWT verify) → premium check → quota check → Photoroom API (15 s `AbortController` timeout)
+4. Returns PNG base64 (or appropriate status code on failure)
+5. Client re-encodes the PNG to JPEG using `expo-image-manipulator`
+6. `resolveClassifyBase64()` / `resolvePhotoUri()` select the final payload: re-encoded JPEG if successful, original JPEG as fallback — Gemini classification and Supabase upload always proceed
+7. `resolveWardrobeUploadArg()` strips any `data:` prefix before the upload
 
 **Retry logic (`lib/photoroom.ts`):**
-- Only `photoroom_timeout` triggers a single retry. All other error codes (`photoroom_error`, `photoroom_invalid_response`, `photoroom_empty_response`, `background_removal_failed`) return `null` immediately (no retry).
-- Network errors (`fetch` throws) also return `null` — no retry.
+- Only `photoroom_timeout` triggers a single retry. All other error codes and non-success statuses return immediately (no retry).
+- Network errors (`fetch` throws) also return `{ status: 'failed' }` — no retry.
 
 **Server handler (`server/remove-background.ts`):**
+- Cache hit → HTTP 200 with cached PNG base64 (bypasses all further checks)
+- Missing or invalid `Authorization` JWT → HTTP 401 (`BG_REMOVAL_AUTH_REQUIRED`)
+- Free user over 20-use quota → HTTP 403 (`BG_REMOVAL_LIMIT_REACHED`)
 - Missing `PHOTOROOM_API_KEY` → HTTP 503 (`background_removal_unavailable`)
 - Missing `imageBase64` in request body → HTTP 400
-- Photoroom returns non-2xx → HTTP 502 (`photoroom_error`) with the upstream status forwarded in the response body
+- Photoroom returns non-2xx → HTTP 502 (`photoroom_error`)
 - Photoroom returns HTTP 200 but 0-byte body → HTTP 502 (`photoroom_empty_response`)
-- `AbortError` (timeout during fetch or body read) → HTTP 502 (`photoroom_timeout`)
+- `AbortError` (timeout) → HTTP 502 (`photoroom_timeout`)
 - Any other thrown error → HTTP 502 (`background_removal_failed`)
 
 **Shared error codes (`shared/photoroom-error-codes.ts`):**
-All error-code string constants (`PHOTOROOM_TIMEOUT_ERROR`, `PHOTOROOM_ERROR`, `PHOTOROOM_EMPTY_RESPONSE`, `PHOTOROOM_INVALID_RESPONSE`, `BACKGROUND_REMOVAL_FAILED`, `BACKGROUND_REMOVAL_UNAVAILABLE`) are imported from this shared module by both `server/remove-background.ts` and `lib/photoroom.ts`. Inlining the bare strings in either file is a compile-time error — the shared module is the single source of truth.
+All error-code string constants are imported from this shared module by both `server/remove-background.ts` and `lib/photoroom.ts`. The module now also exports `BG_REMOVAL_AUTH_REQUIRED` and `BG_REMOVAL_LIMIT_REACHED`. Inlining the bare strings is a compile-time error.
+
+**CORS:** The `Authorization` header is added to `Access-Control-Allow-Headers` in `server/index.ts` so preflight requests succeed from the Expo dev proxy.
+
+**Rate limiter:** `bgRemovalLimiter` reduced from 30 → 8 req/min (per-IP) now that per-user quota is enforced at the application layer.
 
 **Fallback guarantee:** If any step in the pipeline fails (API down, key missing, network error, re-encode throws), the app falls back to the original photo. Users are never blocked from adding an item.
 
-**Code:** `server/remove-background.ts`, `lib/photoroom.ts`, `lib/classifyPath.ts`, `lib/uploadArg.ts`, `shared/photoroom-error-codes.ts`, `app/add-item.tsx`, `app/bulk-review.tsx`
+**Code:** `server/remove-background.ts`, `server/bgRemovalStore.ts`, `lib/photoroom.ts`, `lib/classifyPath.ts`, `lib/uploadArg.ts`, `shared/photoroom-error-codes.ts`, `app/add-item.tsx`, `app/bulk-review.tsx`
 
 ---
 

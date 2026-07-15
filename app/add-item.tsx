@@ -212,7 +212,7 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
 
 export default function AddItemScreen() {
   const insets = useSafeAreaInsets();
-  const { addWardrobeItem, removeWardrobeItem } = useApp();
+  const { addWardrobeItem, removeWardrobeItem, isPremium } = useApp();
   const {
     initialUri,
     preClassified,
@@ -331,6 +331,7 @@ export default function AddItemScreen() {
   const [warmthBand,      setWarmthBand]      = useState<string | undefined>(hasPreClassified && pcWarmthBand ? pcWarmthBand : undefined);
   const [photoBase64,     setPhotoBase64]     = useState<string | null>(null);
   const [photoBgRemoved,  setPhotoBgRemoved]  = useState<boolean>(false);
+  const [bgStatus,        setBgStatus]        = useState<'idle'|'success'|'limit-reached'|'not-authenticated'>('idle');
   const [photoWidth,      setPhotoWidth]      = useState<number>(0);
   const [photoHeight,     setPhotoHeight]     = useState<number>(0);
   const [saving,          setSaving]          = useState(false);
@@ -605,6 +606,7 @@ export default function AddItemScreen() {
         const asset = result.assets[0];
         setPhotoUri(asset.uri);
         setPhotoBgRemoved(false);
+        setBgStatus('idle');
         setPhotoWidth(asset.width ?? 0);
         setPhotoHeight(asset.height ?? 0);
         setStep(1);
@@ -644,8 +646,15 @@ export default function AddItemScreen() {
             // (higher quality, transparent background) and update the preview URI.
             // IMPORTANT: use the file URI returned by ImageManipulator (never the
             // raw data URI) so the large base64 string never enters wardrobe state.
-            const cleanPngBase64 = await removeBackground(resized.base64);
-            if (cleanPngBase64) {
+            const bgResult = await removeBackground(resized.base64);
+            setBgStatus(
+              bgResult.status === 'success' ? 'success'
+              : bgResult.status === 'limit-reached' ? 'limit-reached'
+              : bgResult.status === 'not-authenticated' ? 'not-authenticated'
+              : 'idle',
+            );
+            if (bgResult.status === 'success' && bgResult.base64) {
+              const cleanPngBase64 = bgResult.base64;
               setPhotoBase64(cleanPngBase64);
               try {
                 const reencoded = await ImageManipulator.manipulateAsync(

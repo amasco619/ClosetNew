@@ -75,8 +75,11 @@ function makeMockRes(): MockRes {
   return res;
 }
 
-function makeMockReq(body: Record<string, unknown> = {}): { body: Record<string, unknown> } {
-  return { body };
+function makeMockReq(
+  body: Record<string, unknown> = {},
+  headers: Record<string, string> = {},
+): { body: Record<string, unknown>; headers: Record<string, string> } {
+  return { body, headers: { authorization: 'Bearer test-token', ...headers } };
 }
 
 // ── All tests (sync + async) in a single runner ────────────────────────────────
@@ -227,6 +230,19 @@ async function main() {
   for (const [bgPng, reencoded] of pipelineCases) {
     const result = selectClassifyPayload('non-empty-original', bgPng, reencoded);
     assert(result.length > 0, `payload is non-empty for bgPng=${JSON.stringify(bgPng)}, reencoded=${JSON.stringify(reencoded)}`);
+  }
+
+  // ── Server test setup ─────────────────────────────────────────────────────
+  // _testOverrides is a plain mutable object exported from remove-background.ts.
+  // Mutating its properties (rather than reassigning the export itself) works
+  // even though tsx compiles named exports as getter-only Object.defineProperty
+  // descriptors — we never reassign the export, only set props on the object.
+  {
+    const serverMod = require('../server/remove-background') as {
+      _testOverrides: { skipAuth: boolean; testUserId: string };
+    };
+    serverMod._testOverrides.skipAuth   = true;
+    serverMod._testOverrides.testUserId = 'test-user-id';
   }
 
   // ── B. server handler — missing PHOTOROOM_API_KEY → 503 ───────────────────
@@ -914,9 +930,11 @@ async function main() {
 
   {
     // 3. Large non-PNG body (>= 1 KB, e.g. JSON error delivered with HTTP 200)
+    // Use a distinct imageBase64 so the hash differs from case 2 and avoids
+    // the in-memory LRU cache hit that would otherwise return a cached 200.
     process.env.PHOTOROOM_API_KEY = 'test-key';
     mockPhotoroom(makeNonPngArrayBuffer(2048));
-    const req = makeMockReq({ imageBase64: 'valid-base64' });
+    const req = makeMockReq({ imageBase64: 'valid-base64-case3' });
     const res = makeMockRes();
     await serverRemoveBackground(req as any, res as any);
     assertEq(res._status, 502, 'large non-PNG body (>= 1 KB) → HTTP 502');
@@ -929,9 +947,10 @@ async function main() {
 
   {
     // 4. PNG magic present but body is too small (< 1 KB, truncated PNG)
+    // Use a distinct imageBase64 so the hash differs and avoids any LRU hit.
     process.env.PHOTOROOM_API_KEY = 'test-key';
     mockPhotoroom(makePngArrayBuffer(512));
-    const req = makeMockReq({ imageBase64: 'valid-base64' });
+    const req = makeMockReq({ imageBase64: 'valid-base64-case4' });
     const res = makeMockRes();
     await serverRemoveBackground(req as any, res as any);
     assertEq(res._status, 502, 'PNG magic but body < 1 KB → HTTP 502');
