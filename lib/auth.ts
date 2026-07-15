@@ -45,11 +45,16 @@ export async function signUpWithEmail(
   email: string,
   password: string
 ): Promise<{ needsConfirmation: boolean }> {
+  const emailRedirectTo =
+    Platform.OS === 'web'
+      ? `${window.location.origin}/auth/callback`
+      : nativeRedirectTo
+
   const { data, error } = await supabase.auth.signUp({
     email: email.trim().toLowerCase(),
     password,
     options: {
-      emailRedirectTo: nativeRedirectTo,
+      emailRedirectTo,
     },
   })
   if (error) throw new Error(`[signUpWithEmail] ${error.message}`)
