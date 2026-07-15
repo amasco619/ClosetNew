@@ -292,6 +292,9 @@ export default function BulkReviewScreen() {
   // URI-based identity for the open panel — stable across status transitions.
   // An integer index into a dynamically-filtered list would drift as items settle.
   const [editingUri, setEditingUri] = useState<string | null>(null);
+  // Guest upsell banner: shown once background removal is skipped for auth reasons.
+  const [bgNotAuthenticated, setBgNotAuthenticated] = useState(false);
+  const [bgUpsellDismissed, setBgUpsellDismissed] = useState(false);
 
   // Redirect if no URIs were passed — single-item redirect is handled below.
   useEffect(() => {
@@ -527,7 +530,10 @@ export default function BulkReviewScreen() {
         [{ resize: { width: 1024 } }],
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
       ),
-      removeBg: (b64) => removeBackground(b64).then(r => r.status === 'success' ? (r.base64 ?? null) : null),
+      removeBg: (b64) => removeBackground(b64).then(r => {
+        if (r.status === 'not-authenticated') setBgNotAuthenticated(true);
+        return r.status === 'success' ? (r.base64 ?? null) : null;
+      }),
       reencodeAsJpeg: (pngB64) => ImageManipulator.manipulateAsync(
         `data:image/png;base64,${pngB64}`,
         [],
@@ -788,6 +794,27 @@ export default function BulkReviewScreen() {
         columnWrapperStyle={styles.columnWrapper}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          bgNotAuthenticated && !bgUpsellDismissed ? (
+            <Animated.View entering={FadeInDown.duration(260)} style={styles.bgUpsellWrap}>
+              <Pressable
+                style={({ pressed }) => [styles.bgUpsellBanner, pressed && { opacity: 0.8 }]}
+                onPress={() => router.push('/sign-in')}
+              >
+                <Ionicons name="lock-closed-outline" size={14} color={Colors.secondary} />
+                <Text style={styles.bgUpsellBannerText}>
+                  Sign in to unlock automatic background removal for all items
+                </Text>
+                <Pressable
+                  hitSlop={8}
+                  onPress={() => setBgUpsellDismissed(true)}
+                >
+                  <Ionicons name="close" size={14} color={Colors.textSecondary} />
+                </Pressable>
+              </Pressable>
+            </Animated.View>
+          ) : null
+        }
         renderItem={({ item }) => (
           <BulkCard
             item={item}
@@ -976,6 +1003,22 @@ const styles = StyleSheet.create({
   },
   shimmerName: {
     height: 14, width: '70%', borderRadius: 4, backgroundColor: Colors.border,
+  },
+
+  bgUpsellWrap: { paddingHorizontal: SCREEN_PAD, paddingBottom: 12 },
+  bgUpsellBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.white, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderWidth: 1, borderColor: Colors.border,
+    borderLeftWidth: 3, borderLeftColor: Colors.secondary,
+    shadowColor: Colors.secondary, shadowOpacity: 0.08,
+    shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+  },
+  bgUpsellBannerText: {
+    flex: 1,
+    fontFamily: 'Inter_500Medium', fontSize: 13,
+    color: Colors.primary, letterSpacing: -0.1,
   },
 
   footer: {
