@@ -8,6 +8,7 @@ import { supabase } from './supabase'
 import { getApiUrl } from './query-client'
 import { handleOAuthBrowserResult, type OAuthBrowserResult } from './oauthGuard'
 export { signInWithEmail } from './emailSignIn'
+export { signUpWithEmail } from './emailSignUp'
 
 WebBrowser.maybeCompleteAuthSession()
 
@@ -40,27 +41,6 @@ export async function createSessionFromUrl(url: string) {
   if (error) throw new Error(`[createSessionFromUrl] ${error.message}`)
   return data.session
 }
-
-export async function signUpWithEmail(
-  email: string,
-  password: string
-): Promise<{ needsConfirmation: boolean }> {
-  const emailRedirectTo =
-    Platform.OS === 'web'
-      ? `${window.location.origin}/auth/callback`
-      : nativeRedirectTo
-
-  const { data, error } = await supabase.auth.signUp({
-    email: email.trim().toLowerCase(),
-    password,
-    options: {
-      emailRedirectTo,
-    },
-  })
-  if (error) throw new Error(`[signUpWithEmail] ${error.message}`)
-  return { needsConfirmation: !data.session }
-}
-
 
 export async function requestPasswordReset(email: string): Promise<void> {
   const url = new URL('/api/auth/reset-password', getApiUrl())
