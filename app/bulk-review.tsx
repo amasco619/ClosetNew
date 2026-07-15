@@ -30,6 +30,10 @@ import {
   runClassifyUri,
   runRedirectSingle,
   runSaveAll,
+  runAutoPersistItem,
+  runHandleRemove,
+  applyAutoSavedEdits,
+  selectAutoPersistCandidates,
   type ClassifyResult,
   type ClassifyDeps,
 } from '@/lib/bulkClassifyCore';
@@ -447,11 +451,10 @@ export default function BulkReviewScreen() {
   // Disabled for single-item mode (uris.length === 1) because that path immediately
   // redirects to add-item; auto-persisting there would create a duplicate wardrobe entry.
   // autoPersistAttemptedRef guards against re-firing on subsequent renders.
+  // Core pipeline is extracted to lib/bulkClassifyCore.runAutoPersistItem (tested directly).
   useEffect(() => {
     if (uris.length <= 1) return;
-    const itemsToAutoSave = items.filter(
-      it => it.status === 'settled' && it.cleanBase64 && !autoPersistAttemptedRef.current.has(it.uri)
-    );
+    const itemsToAutoSave = selectAutoPersistCandidates(items, autoPersistAttemptedRef.current);
     if (itemsToAutoSave.length === 0) return;
 
     // Batch-flip all qualifying items to 'auto-saving' before launching async work.
@@ -465,83 +468,53 @@ export default function BulkReviewScreen() {
 
     for (const item of itemsToAutoSave) {
       autoPersistAttemptedRef.current.add(item.uri);
-      autoPersistInFlightRef.current.add(item.uri); // mirror in ref for handleSaveAll
-      const captured = item; // freeze reference for async closure
+      autoPersistInFlightRef.current.add(item.uri);
+      const captured = item;
 
-      void (async () => {
-        try {
-          if (!mountedRef.current) return;
-          const { data: { session } } = await supabase.auth.getSession();
-          const userId = session?.user?.id;
-          if (!userId || !mountedRef.current) {
-            // No session — revert to 'settled' so CTA unlocks and manual save works.
-            setItems(prev => prev.map(it =>
-              it.uri === captured.uri && it.status === 'auto-saving'
-                ? { ...it, status: 'settled' } : it
-            ));
-            return;
-          }
-
-          // Guard: abort if the user removed this item while we were awaiting auth.
-          const afterAuth = itemsRef.current.find(it => it.uri === captured.uri);
-          if (!afterAuth || afterAuth.status === 'removed') return;
-
-          const itemId = Crypto.randomUUID();
-          const uploadArg = resolveWardrobeUploadArg(captured.cleanBase64, undefined);
-          let finalUri = captured.uri;
-          if (uploadArg) {
-            finalUri = await uploadWardrobeImage(userId, uploadArg.base64, itemId, uploadArg.mimeType as 'image/jpeg' | 'image/png');
-            if (!mountedRef.current) return;
-          }
-
-          // Guard: abort if the item was removed while we were uploading.
-          const afterUpload = itemsRef.current.find(it => it.uri === captured.uri);
-          if (!afterUpload || afterUpload.status === 'removed') return;
-
-          const c = captured.classification!;
-          addWardrobeItem({
-            id: itemId,
-            photoUri:      finalUri,
-            category:      c.category,
-            subType:       c.subType      || 'top',
-            colorFamily:   c.colorFamily  || 'black',
-            description:   c.description  || undefined,
-            occasionTags:  c.occasionTags,
-            seasonTags:    c.seasonTags.length ? c.seasonTags : ['all-season'],
-            formalityLevel: SUBTYPE_FORMALITY[c.subType] ?? 5,
-            pattern:       asPattern(c.pattern),
-            patternScale:  asPatternScale(c.patternScale),
-            fabric:        asFabric(c.fabric),
-            weight:        asWeight(c.weight),
-            fit:           asFit(c.fit),
-            neckline:      asNeckline(c.neckline),
-            sleeveLength:  asSleeve(c.sleeveLength),
-            rise:          asRise(c.rise),
-            warmthBand:    asWarmth(c.warmthBand),
-            dominantHsl:   c.dominantHsl,
-            dominantLab:   c.dominantLab,
-            accentColor:   c.accentColor,
-          });
-
-          if (!mountedRef.current) return;
-          setItems(prev => prev.map(it =>
-            it.uri === captured.uri && it.status !== 'removed'
-              ? { ...it, status: 'auto-saved', autoSavedId: itemId }
-              : it
-          ));
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        } catch {
-          // Upload failed — revert to 'settled' so CTA unlocks and manual save works.
-          if (mountedRef.current) {
-            setItems(prev => prev.map(it =>
-              it.uri === captured.uri && it.status === 'auto-saving'
-                ? { ...it, status: 'settled' } : it
-            ));
-          }
-        } finally {
-          autoPersistInFlightRef.current.delete(captured.uri);
-        }
-      })();
+      void runAutoPersistItem(
+        { uri: captured.uri, cleanBase64: captured.cleanBase64!, classification: captured.classification! },
+        mountedRef,
+        itemsRef,
+        {
+          generateId: () => Crypto.randomUUID(),
+          getSession: async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            return session?.user?.id ?? null;
+          },
+          resolveUploadArg: (cleanBase64) => resolveWardrobeUploadArg(cleanBase64, undefined),
+          upload: (userId, base64, itemId, mimeType) =>
+            uploadWardrobeImage(userId, base64, itemId, mimeType as 'image/jpeg' | 'image/png'),
+          addItem: ({ id: itemId, photoUri: finalUri, classification: c }) => {
+            addWardrobeItem({
+              id: itemId,
+              photoUri:      finalUri,
+              category:      c.category,
+              subType:       c.subType      || 'top',
+              colorFamily:   c.colorFamily  || 'black',
+              description:   c.description  || undefined,
+              occasionTags:  c.occasionTags,
+              seasonTags:    c.seasonTags.length ? c.seasonTags : ['all-season'],
+              formalityLevel: SUBTYPE_FORMALITY[c.subType] ?? 5,
+              pattern:       asPattern(c.pattern),
+              patternScale:  asPatternScale(c.patternScale),
+              fabric:        asFabric(c.fabric),
+              weight:        asWeight(c.weight),
+              fit:           asFit(c.fit),
+              neckline:      asNeckline(c.neckline),
+              sleeveLength:  asSleeve(c.sleeveLength),
+              rise:          asRise(c.rise),
+              warmthBand:    asWarmth(c.warmthBand),
+              dominantHsl:   c.dominantHsl,
+              dominantLab:   c.dominantLab,
+              accentColor:   c.accentColor,
+            });
+          },
+          setItems: (updater) => setItems(prev => updater(prev) as BulkItem[]),
+          onHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+        },
+      ).finally(() => {
+        autoPersistInFlightRef.current.delete(captured.uri);
+      });
     }
   }, [items, addWardrobeItem]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -582,10 +555,10 @@ export default function BulkReviewScreen() {
   const handleRemove = useCallback((uri: string) => {
     Haptics.selectionAsync();
     const item = itemsRef.current.find(it => it.uri === uri);
-    if (item?.status === 'auto-saved' && item.autoSavedId) {
-      removeWardrobeItem(item.autoSavedId);
-    }
-    setItems(prev => prev.map(it => it.uri === uri ? { ...it, status: 'removed' } : it));
+    runHandleRemove(uri, item, {
+      removeItem: removeWardrobeItem,
+      setItems: (updater) => setItems(prev => updater(prev) as BulkItem[]),
+    });
   }, [removeWardrobeItem]);
 
   const handleRetry = useCallback((uri: string) => {
@@ -628,30 +601,34 @@ export default function BulkReviewScreen() {
     if (toSave.length === 0 && autoSavedItems.length === 0) { savingRef.current = false; return; }
 
     // Apply any classification edits to already-persisted items (sync, instant).
-    for (const item of autoSavedItems) {
-      const c = item.classification!;
-      updateWardrobeItem(item.autoSavedId!, {
-        category:      c.category,
-        subType:       c.subType      || 'top',
-        colorFamily:   c.colorFamily  || 'black',
-        description:   c.description  || undefined,
-        occasionTags:  c.occasionTags,
-        seasonTags:    c.seasonTags.length ? c.seasonTags : ['all-season'],
-        formalityLevel: SUBTYPE_FORMALITY[c.subType] ?? 5,
-        pattern:       asPattern(c.pattern),
-        patternScale:  asPatternScale(c.patternScale),
-        fabric:        asFabric(c.fabric),
-        weight:        asWeight(c.weight),
-        fit:           asFit(c.fit),
-        neckline:      asNeckline(c.neckline),
-        sleeveLength:  asSleeve(c.sleeveLength),
-        rise:          asRise(c.rise),
-        warmthBand:    asWarmth(c.warmthBand),
-        dominantHsl:   c.dominantHsl,
-        dominantLab:   c.dominantLab,
-        accentColor:   c.accentColor,
-      });
-    }
+    applyAutoSavedEdits(
+      autoSavedItems.map(it => ({ autoSavedId: it.autoSavedId!, classification: it.classification! })),
+      {
+        updateItem: (id, c) => {
+          updateWardrobeItem(id, {
+            category:      c.category,
+            subType:       c.subType      || 'top',
+            colorFamily:   c.colorFamily  || 'black',
+            description:   c.description  || undefined,
+            occasionTags:  c.occasionTags,
+            seasonTags:    c.seasonTags.length ? c.seasonTags : ['all-season'],
+            formalityLevel: SUBTYPE_FORMALITY[c.subType] ?? 5,
+            pattern:       asPattern(c.pattern),
+            patternScale:  asPatternScale(c.patternScale),
+            fabric:        asFabric(c.fabric),
+            weight:        asWeight(c.weight),
+            fit:           asFit(c.fit),
+            neckline:      asNeckline(c.neckline),
+            sleeveLength:  asSleeve(c.sleeveLength),
+            rise:          asRise(c.rise),
+            warmthBand:    asWarmth(c.warmthBand),
+            dominantHsl:   c.dominantHsl,
+            dominantLab:   c.dominantLab,
+            accentColor:   c.accentColor,
+          });
+        },
+      },
+    );
 
     if (toSave.length > 0) {
       // Normal upload + add path for items that weren't auto-persisted.

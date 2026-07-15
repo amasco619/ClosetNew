@@ -41,6 +41,7 @@ export interface BulkItemCore {
   cleanBase64?: string;
   status: string;
   classification: ClassifyResult | null;
+  autoSavedId?: string;
 }
 
 // ─── Dependency interfaces ────────────────────────────────────────────────────
@@ -331,4 +332,174 @@ export function runRedirectSingle(
   } else {
     deps.replace({ pathname: '/add-item', params: { initialUri: item.uri } });
   }
+}
+
+// ─── Auto-persist pipeline ────────────────────────────────────────────────────
+
+/** Input for runAutoPersistItem — cleanBase64 is required (callers filter for it). */
+export interface AutoPersistItemInput {
+  uri: string;
+  cleanBase64: string;
+  classification: ClassifyResult;
+}
+
+export interface AutoPersistDeps {
+  /** Generate a unique item id. */
+  generateId(): string;
+  /** Return the authenticated user id, or null for guest / unauthenticated. */
+  getSession(): Promise<string | null>;
+  /**
+   * Pick the best upload source from the clean PNG base64.
+   * Returns null when the source is unusable and upload should be skipped.
+   */
+  resolveUploadArg(cleanBase64: string): { base64: string; mimeType: string } | null;
+  /** Upload to cloud storage. Returns the final public/signed URI. */
+  upload(userId: string, base64: string, itemId: string, mimeType: string): Promise<string>;
+  /** Persist one item to the wardrobe store. */
+  addItem(payload: BulkSavePayload): void;
+  /** Updater for the items state array. */
+  setItems(updater: (prev: BulkItemCore[]) => BulkItemCore[]): void;
+  /** Light haptic impulse on success. */
+  onHaptic(): void;
+}
+
+/**
+ * Run the auto-persist flow for a single settled item, checking `mountedRef`
+ * and the live `itemsRef` snapshot at every async checkpoint.
+ *
+ * Returns the generated `autoSavedId` on success, or `null` when the flow was
+ * aborted (no session, component unmounted, item removed, or upload failed).
+ *
+ * This is the testable heart of the auto-persist useEffect in bulk-review.tsx.
+ */
+export async function runAutoPersistItem(
+  item: AutoPersistItemInput,
+  mountedRef: { current: boolean },
+  itemsRef: { current: { uri: string; status: string }[] },
+  deps: AutoPersistDeps,
+): Promise<string | null> {
+  try {
+    if (!mountedRef.current) return null;
+
+    const userId = await deps.getSession();
+
+    if (!userId || !mountedRef.current) {
+      // No session — revert to 'settled' so the CTA unlocks and manual save works.
+      deps.setItems(prev => prev.map(it =>
+        it.uri === item.uri && it.status === 'auto-saving'
+          ? { ...it, status: 'settled' } : it,
+      ));
+      return null;
+    }
+
+    // Guard: abort if the item was removed while we were awaiting auth.
+    const afterAuth = itemsRef.current.find(it => it.uri === item.uri);
+    if (!afterAuth || afterAuth.status === 'removed') return null;
+
+    const itemId = deps.generateId();
+    const uploadArg = deps.resolveUploadArg(item.cleanBase64);
+    let finalUri = item.uri;
+    if (uploadArg) {
+      finalUri = await deps.upload(userId, uploadArg.base64, itemId, uploadArg.mimeType);
+      if (!mountedRef.current) return null;
+    }
+
+    // Guard: abort if the item was removed while we were uploading.
+    const afterUpload = itemsRef.current.find(it => it.uri === item.uri);
+    if (!afterUpload || afterUpload.status === 'removed') return null;
+
+    deps.addItem({ id: itemId, photoUri: finalUri, classification: item.classification });
+
+    if (!mountedRef.current) return null;
+    deps.setItems(prev => prev.map(it =>
+      it.uri === item.uri && it.status !== 'removed'
+        ? { ...it, status: 'auto-saved', autoSavedId: itemId }
+        : it,
+    ));
+    deps.onHaptic();
+    return itemId;
+  } catch {
+    // Upload failed — revert to 'settled' so the CTA unlocks and manual save works.
+    if (mountedRef.current) {
+      deps.setItems(prev => prev.map(it =>
+        it.uri === item.uri && it.status === 'auto-saving'
+          ? { ...it, status: 'settled' } : it,
+      ));
+    }
+    return null;
+  }
+}
+
+/**
+ * Select items eligible for auto-persist from the current items array.
+ * An item qualifies when it is 'settled', has a clean background-removed
+ * PNG (`cleanBase64`), and has not already had auto-persist attempted.
+ */
+export function selectAutoPersistCandidates(
+  items: BulkItemCore[],
+  attempted: Set<string>,
+): BulkItemCore[] {
+  return items.filter(
+    it => it.status === 'settled' && it.cleanBase64 && !attempted.has(it.uri),
+  );
+}
+
+// ─── handleRemove orphan cleanup ──────────────────────────────────────────────
+
+export interface HandleRemoveDeps {
+  /** Remove the wardrobe item that was auto-persisted (orphan cleanup). */
+  removeItem(id: string): void;
+  /** Mark the item as removed in the UI state. */
+  setItems(updater: (prev: BulkItemCore[]) => BulkItemCore[]): void;
+}
+
+/**
+ * Handle removal of a bulk-review item.  When the item was already
+ * auto-persisted, the matching wardrobe entry is removed first (orphan
+ * cleanup) before flipping the UI status to 'removed'.
+ *
+ * This is the testable heart of handleRemove in bulk-review.tsx.
+ */
+export function runHandleRemove(
+  uri: string,
+  match: { status: string; autoSavedId?: string } | undefined,
+  deps: HandleRemoveDeps,
+): void {
+  if (match?.status === 'auto-saved' && match.autoSavedId) {
+    deps.removeItem(match.autoSavedId);
+  }
+  deps.setItems(prev => prev.map(it =>
+    it.uri === uri ? { ...it, status: 'removed' } : it,
+  ));
+}
+
+// ─── handleSaveAll auto-saved edits ──────────────────────────────────────────
+
+/** An already-persisted item whose classification edits should be synced. */
+export interface AutoSavedEditItem {
+  autoSavedId: string;
+  classification: ClassifyResult;
+}
+
+export interface ApplyAutoSavedEditsDeps {
+  /** Sync classification fields back to the wardrobe store for an item. */
+  updateItem(id: string, classification: ClassifyResult): void;
+}
+
+/**
+ * Apply any classification edits made in the BulkItemEditPanel to items
+ * that were already auto-persisted (status === 'auto-saved').  This is the
+ * synchronous, instant update that runs at the top of handleSaveAll before
+ * the normal upload + add loop.
+ *
+ * Returns the number of items updated.
+ */
+export function applyAutoSavedEdits(
+  items: AutoSavedEditItem[],
+  deps: ApplyAutoSavedEditsDeps,
+): number {
+  for (const item of items) {
+    deps.updateItem(item.autoSavedId, item.classification);
+  }
+  return items.length;
 }
