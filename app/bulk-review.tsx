@@ -58,6 +58,7 @@ type ItemStatus =
   | 'pending'
   | 'classifying'
   | 'settled'
+  | 'auto-saving'
   | 'auto-saved'
   | 'saving'
   | 'saved'
@@ -140,12 +141,13 @@ function BulkCard({
   onRetry: (uri: string) => void;
   onPress?: () => void;
 }) {
-  const isActive    = item.status === 'pending' || item.status === 'classifying';
-  const isAutoSaved = item.status === 'auto-saved';
-  const isSettled   = item.status === 'settled' || isAutoSaved || item.status === 'saving' || item.status === 'saved';
-  const isSaved     = item.status === 'saved';
-  const isSaving    = item.status === 'saving';
-  const isError     = item.status === 'error';
+  const isActive     = item.status === 'pending' || item.status === 'classifying';
+  const isAutoSaving = item.status === 'auto-saving';
+  const isAutoSaved  = item.status === 'auto-saved';
+  const isSettled    = item.status === 'settled' || isAutoSaving || isAutoSaved || item.status === 'saving' || item.status === 'saved';
+  const isSaved      = item.status === 'saved';
+  const isSaving     = item.status === 'saving';
+  const isError      = item.status === 'error';
 
   // Show the background-removed displayUri when available, otherwise the
   // original picker URI. displayUri is a JPEG re-encode of the clean PNG
@@ -448,9 +450,18 @@ export default function BulkReviewScreen() {
     );
     if (itemsToAutoSave.length === 0) return;
 
+    // Batch-flip all qualifying items to 'auto-saving' before launching async work.
+    // This makes the in-flight state visible to React so the CTA lock fires immediately.
+    const urisToAutoSave = itemsToAutoSave.map(it => it.uri);
+    setItems(prev => prev.map(it =>
+      urisToAutoSave.includes(it.uri) && it.status === 'settled'
+        ? { ...it, status: 'auto-saving' }
+        : it
+    ));
+
     for (const item of itemsToAutoSave) {
       autoPersistAttemptedRef.current.add(item.uri);
-      autoPersistInFlightRef.current.add(item.uri); // mark in-flight before async work
+      autoPersistInFlightRef.current.add(item.uri); // mirror in ref for handleSaveAll
       const captured = item; // freeze reference for async closure
 
       void (async () => {
@@ -458,11 +469,18 @@ export default function BulkReviewScreen() {
           if (!mountedRef.current) return;
           const { data: { session } } = await supabase.auth.getSession();
           const userId = session?.user?.id;
-          if (!userId || !mountedRef.current) return;
+          if (!userId || !mountedRef.current) {
+            // No session — revert to 'settled' so CTA unlocks and manual save works.
+            setItems(prev => prev.map(it =>
+              it.uri === captured.uri && it.status === 'auto-saving'
+                ? { ...it, status: 'settled' } : it
+            ));
+            return;
+          }
 
           // Guard: abort if the user removed this item while we were awaiting auth.
-          const beforeUpload = itemsRef.current.find(it => it.uri === captured.uri);
-          if (!beforeUpload || beforeUpload.status === 'removed') return;
+          const afterAuth = itemsRef.current.find(it => it.uri === captured.uri);
+          if (!afterAuth || afterAuth.status === 'removed') return;
 
           const itemId = Crypto.randomUUID();
           const uploadArg = resolveWardrobeUploadArg(captured.cleanBase64, undefined);
@@ -473,7 +491,6 @@ export default function BulkReviewScreen() {
           }
 
           // Guard: abort if the item was removed while we were uploading.
-          // If addWardrobeItem were called here, removeWardrobeItem cleans it up.
           const afterUpload = itemsRef.current.find(it => it.uri === captured.uri);
           if (!afterUpload || afterUpload.status === 'removed') return;
 
@@ -503,7 +520,6 @@ export default function BulkReviewScreen() {
           });
 
           if (!mountedRef.current) return;
-          // Only flip to auto-saved if the item hasn't been removed since we last checked.
           setItems(prev => prev.map(it =>
             it.uri === captured.uri && it.status !== 'removed'
               ? { ...it, status: 'auto-saved', autoSavedId: itemId }
@@ -511,7 +527,13 @@ export default function BulkReviewScreen() {
           ));
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         } catch {
-          // Silent fail — item stays 'settled', user can save manually via CTA
+          // Upload failed — revert to 'settled' so CTA unlocks and manual save works.
+          if (mountedRef.current) {
+            setItems(prev => prev.map(it =>
+              it.uri === captured.uri && it.status === 'auto-saving'
+                ? { ...it, status: 'settled' } : it
+            ));
+          }
         } finally {
           autoPersistInFlightRef.current.delete(captured.uri);
         }
@@ -695,7 +717,7 @@ export default function BulkReviewScreen() {
   // editableItems: items the carousel can actually display/edit (have a classification).
   // pending/classifying/error items are never navigable within the panel.
   const editableItems   = visibleItems.filter(it =>
-    it.status === 'settled' || it.status === 'auto-saved' || it.status === 'saving' || it.status === 'saved'
+    it.status === 'settled' || it.status === 'auto-saving' || it.status === 'auto-saved' || it.status === 'saving' || it.status === 'saved'
   );
   // Derive a stable integer index from the URI so the panel never drifts to
   // the wrong garment when new items settle and editableItems grows/reorders.
@@ -710,26 +732,30 @@ export default function BulkReviewScreen() {
   const settledCount    = items.filter(it => it.status === 'settled').length;
   const autoSavedCount  = items.filter(it => it.status === 'auto-saved').length;
   const classifiedCount = items.filter(it =>
-    ['settled','auto-saved','saving','saved','error'].includes(it.status)
+    ['settled','auto-saving','auto-saved','saving','saved','error'].includes(it.status)
   ).length;
   const totalCount      = visibleItems.length;
   const progressRatio   = totalCount > 0 ? classifiedCount / totalCount : 0;
-  // Lock the CTA while any item is still pending/classifying so the user
-  // cannot navigate away and abandon in-flight uploads.
-  const hasActive       = items.some(it => it.status === 'pending' || it.status === 'classifying');
+  // Lock the CTA while any item is still pending/classifying OR uploading via
+  // auto-persist, so the user cannot navigate away and abandon in-flight work.
+  const hasClassifying  = items.some(it => it.status === 'pending' || it.status === 'classifying');
+  const hasAutoSaving   = items.some(it => it.status === 'auto-saving');
+  const hasActive       = hasClassifying || hasAutoSaving;
   const canSaveAll      = (settledCount + autoSavedCount) > 0 && !saving && !hasActive;
 
   const saveBtnLabel = saving
     ? 'Saving...'
-    : hasActive
+    : hasClassifying
       ? 'Analysing items...'
-      : settledCount === 0 && autoSavedCount > 0
-        ? 'Update wardrobe'
-        : settledCount > 0 && autoSavedCount > 0
-          ? `Save ${settledCount} + update wardrobe`
-          : settledCount > 0
-            ? `Save ${settledCount} Item${settledCount !== 1 ? 's' : ''} to Wardrobe`
-            : 'Analysing items...';
+      : hasAutoSaving
+        ? 'Saving items...'
+        : settledCount === 0 && autoSavedCount > 0
+          ? 'Update wardrobe'
+          : settledCount > 0 && autoSavedCount > 0
+            ? `Save ${settledCount} + update wardrobe`
+            : settledCount > 0
+              ? `Save ${settledCount} Item${settledCount !== 1 ? 's' : ''} to Wardrobe`
+              : 'Saving items...';
 
   return (
     <View style={[
@@ -843,6 +869,7 @@ export default function BulkReviewScreen() {
           canSaveAll={canSaveAll}
           saving={saving}
           settledCount={settledCount}
+          saveBtnLabel={saveBtnLabel}
         />
       )}
     </View>

@@ -118,6 +118,8 @@ export interface BulkItemEditPanelProps {
   canSaveAll: boolean;
   saving: boolean;
   settledCount: number;
+  /** Pre-computed label from bulk-review so panel and footer always agree. */
+  saveBtnLabel: string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -134,6 +136,7 @@ export default function BulkItemEditPanel({
   canSaveAll,
   saving,
   settledCount,
+  saveBtnLabel,
 }: BulkItemEditPanelProps) {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
@@ -230,12 +233,8 @@ export default function BulkItemEditPanel({
     patch({ seasonTags: next });
   };
 
-  // ── Save label ──────────────────────────────────────────────────────────────
-  const saveBtnLabel = saving
-    ? 'Saving...'
-    : settledCount > 0
-      ? `Save ${settledCount} Item${settledCount !== 1 ? 's' : ''} to Wardrobe`
-      : 'Analysing items...';
+  // saveBtnLabel is pre-computed in bulk-review.tsx and passed as a prop
+  // so the panel and footer always display the same label.
 
   if (!currentItem || !cl) return null;
 
