@@ -297,6 +297,7 @@ export default function BulkReviewScreen() {
   const [bgUpsellDismissed, setBgUpsellDismissed] = useState(false);
   // Limit-reached pill: shown once quota is exhausted (affects signed-in users too).
   const [bgLimitReached, setBgLimitReached] = useState(false);
+  const [bgLimitDismissed, setBgLimitDismissed] = useState(false);
 
   // Redirect if no URIs were passed — single-item redirect is handled below.
   useEffect(() => {
@@ -798,7 +799,7 @@ export default function BulkReviewScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          (bgNotAuthenticated && !bgUpsellDismissed) || bgLimitReached ? (
+          (bgNotAuthenticated && !bgUpsellDismissed) || (bgLimitReached && !bgLimitDismissed) ? (
             <View style={styles.bgUpsellWrap}>
               {bgNotAuthenticated && !bgUpsellDismissed && (
                 <Animated.View entering={FadeInDown.duration(260)}>
@@ -819,12 +820,18 @@ export default function BulkReviewScreen() {
                   </Pressable>
                 </Animated.View>
               )}
-              {bgLimitReached && (
+              {bgLimitReached && !bgLimitDismissed && (
                 <Animated.View entering={FadeInDown.duration(260)} style={styles.bgLimitPill}>
                   <Ionicons name="hourglass-outline" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.bgLimitText}>
+                  <Text style={[styles.bgLimitText, { flex: 1 }]}>
                     Background removal limit reached for today — some photos were saved as-is
                   </Text>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => setBgLimitDismissed(true)}
+                  >
+                    <Ionicons name="close" size={14} color={Colors.textSecondary} />
+                  </Pressable>
                 </Animated.View>
               )}
             </View>
