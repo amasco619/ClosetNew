@@ -55,6 +55,7 @@ export async function removeBackground(req: Request, res: Response) {
   // ── 3. Resolve authenticated user ────────────────────────────────────────
   let userId: string;
   let isPremium = false;
+  let remainingAfterUse: number | undefined = undefined;
 
   if (_testOverrides.skipAuth) {
     // Test-only path: skip all Supabase I/O
@@ -102,6 +103,7 @@ export async function removeBackground(req: Request, res: Response) {
           remaining: 0,
         });
       }
+      remainingAfterUse = Math.max(0, remaining - 1);
     }
   }
 
@@ -168,7 +170,7 @@ export async function removeBackground(req: Request, res: Response) {
       void incrementUserBgRemovalCount(userId);
     }
 
-    return res.json({ imageBase64: resultBase64, mimeType: "image/png" });
+    return res.json({ imageBase64: resultBase64, mimeType: "image/png", remaining: remainingAfterUse });
 
   } catch (err: any) {
     clearTimeout(timeoutId);

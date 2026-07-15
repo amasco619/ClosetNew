@@ -332,6 +332,7 @@ export default function AddItemScreen() {
   const [photoBase64,     setPhotoBase64]     = useState<string | null>(null);
   const [photoBgRemoved,  setPhotoBgRemoved]  = useState<boolean>(false);
   const [bgStatus,        setBgStatus]        = useState<'idle'|'success'|'limit-reached'|'not-authenticated'>('idle');
+  const [bgRemaining,     setBgRemaining]     = useState<number | undefined>(undefined);
   const [persistedItemId, setPersistedItemId] = useState<string | null>(null);
   const [autoSaved,       setAutoSaved]       = useState(false);
   const [autoPersisting,  setAutoPersisting]  = useState(false);
@@ -610,6 +611,7 @@ export default function AddItemScreen() {
         setPhotoUri(asset.uri);
         setPhotoBgRemoved(false);
         setBgStatus('idle');
+        setBgRemaining(undefined);
         // If a previous photo was auto-persisted, remove that orphan first
         if (persistedItemId) {
           removeWardrobeItem(persistedItemId);
@@ -664,6 +666,9 @@ export default function AddItemScreen() {
               : bgResult.status === 'not-authenticated' ? 'not-authenticated'
               : 'idle',
             );
+            if (bgResult.status === 'success' && bgResult.remaining !== undefined) {
+              setBgRemaining(bgResult.remaining);
+            }
             if (bgResult.status === 'success' && bgResult.base64) {
               const cleanPngBase64 = bgResult.base64;
               bgUploadBase64 = cleanPngBase64;
@@ -1114,6 +1119,26 @@ export default function AddItemScreen() {
                   <Ionicons name="camera-reverse" size={18} color={Colors.white} />
                 </Pressable>
               </View>
+            )}
+
+            {/* ── Remaining removals count ───────────────────────────────── */}
+            {bgStatus === 'success' && !isPremium && bgRemaining !== undefined && !classifying && (
+              <Animated.View entering={FadeInDown.duration(260)}>
+                <View style={styles.bgRemainingPill}>
+                  <Ionicons name="images-outline" size={14} color={Colors.sage} />
+                  <Text style={styles.bgRemainingText}>
+                    {bgRemaining} of 20 background removals left
+                  </Text>
+                  {bgRemaining <= 3 && (
+                    <Pressable
+                      onPress={() => router.push('/premium')}
+                      style={({ pressed }) => [styles.bgRemainingCta, pressed && { opacity: 0.7 }]}
+                    >
+                      <Text style={styles.bgRemainingCtaText}>Upgrade</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </Animated.View>
             )}
 
             {/* ── Guest upsell: sign in to unlock BG removal ─────────────── */}
@@ -1733,6 +1758,10 @@ const styles = StyleSheet.create({
   bgLimitText:       { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary, flex: 1 },
   bgLimitCta:        { flexDirection: 'row', alignItems: 'center', gap: 2 },
   bgLimitCtaText:    { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.secondary },
+  bgRemainingPill:   { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.white, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 14, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 3, borderLeftColor: Colors.sage, shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  bgRemainingText:   { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary, flex: 1 },
+  bgRemainingCta:    { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: Colors.secondary + '18', borderWidth: 1, borderColor: Colors.secondary + '40' },
+  bgRemainingCtaText:{ fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.secondary },
   optionalLabel:     { fontFamily: 'Inter_400Regular', color: Colors.textLight, fontSize: 13, fontWeight: '400' },
   requiredAsterisk:  { fontFamily: 'Inter_700Bold', color: Colors.error, fontSize: 15 },
   requiredHint:      { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.error, marginTop: -8, marginBottom: 10, lineHeight: 17 },

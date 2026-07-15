@@ -103,7 +103,7 @@ export async function removeBackground(imageBase64: string): Promise<BgRemovalRe
   if (data.error === PHOTOROOM_TIMEOUT_ERROR) {
     const retry = await attemptRemoveBackground(imageBase64, token);
     if (!retry?.imageBase64) return { status: "failed" };
-    return { status: "success", base64: retry.imageBase64 };
+    return { status: "success", base64: retry.imageBase64, remaining: retry.remaining };
   }
 
   if (data.error === BG_REMOVAL_AUTH_REQUIRED) {
@@ -116,5 +116,5 @@ export async function removeBackground(imageBase64: string): Promise<BgRemovalRe
 
   if (!data.imageBase64) return { status: "unavailable" };
 
-  return { status: "success", base64: data.imageBase64 };
+  return { status: "success", base64: data.imageBase64, remaining: data.remaining };
 }
