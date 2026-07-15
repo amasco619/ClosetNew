@@ -3,12 +3,15 @@ import { makeRedirectUri } from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
 import * as QueryParams from 'expo-auth-session/build/QueryParams'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { fetch } from 'expo/fetch'
 import { supabase } from './supabase'
 import { getApiUrl } from './query-client'
 import { handleOAuthBrowserResult, type OAuthBrowserResult } from './oauthGuard'
 export { signInWithEmail } from './emailSignIn'
 export { signUpWithEmail } from './emailSignUp'
+
+export const EMAIL_CONFIRMED_KEY = '@auracloset_email_confirmed'
 
 WebBrowser.maybeCompleteAuthSession()
 
@@ -18,7 +21,7 @@ export async function createSessionFromUrl(url: string) {
   const { params, errorCode } = QueryParams.getQueryParams(url)
   if (errorCode) throw new Error(errorCode)
 
-  const { access_token, refresh_token, code } = params
+  const { access_token, refresh_token, code, type } = params
 
   // PKCE flow (Supabase JS v2 default for OAuth on native).
   // The redirect URL contains ?code=xxx; exchange it using the stored PKCE
@@ -28,6 +31,9 @@ export async function createSessionFromUrl(url: string) {
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(String(code))
     if (error) throw new Error(`[createSessionFromUrl] ${error.message}`)
+    if (type === 'signup') {
+      AsyncStorage.setItem(EMAIL_CONFIRMED_KEY, '1').catch(() => {})
+    }
     return data.session
   }
 
@@ -39,6 +45,9 @@ export async function createSessionFromUrl(url: string) {
     refresh_token,
   })
   if (error) throw new Error(`[createSessionFromUrl] ${error.message}`)
+  if (type === 'signup') {
+    AsyncStorage.setItem(EMAIL_CONFIRMED_KEY, '1').catch(() => {})
+  }
   return data.session
 }
 

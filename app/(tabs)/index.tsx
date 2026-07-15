@@ -3,12 +3,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '@/contexts/AppContext';
 import { countRecommendedOutfits } from '@/constants/wardrobeBlueprint';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
+import { EMAIL_CONFIRMED_KEY } from '@/lib/auth';
 import Colors from '@/constants/colors';
-import Animated, { FadeInDown, FadeInUp, useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp, FadeOutUp, useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
 const styleGoalLabels: Record<string, string> = {
   youthful: 'Youthful', elevated: 'Elevated', minimal: 'Minimal',
@@ -116,6 +118,21 @@ export default function HomeScreen() {
     return () => clearTimeout(t);
   }, [isGuest, promptDismissed, wardrobeItems.length]);
 
+  const [showEmailConfirmed, setShowEmailConfirmed] = useState(false);
+  const emailConfirmedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    AsyncStorage.getItem(EMAIL_CONFIRMED_KEY).then((val) => {
+      if (val === '1') {
+        AsyncStorage.removeItem(EMAIL_CONFIRMED_KEY).catch(() => {});
+        setShowEmailConfirmed(true);
+        emailConfirmedTimer.current = setTimeout(() => setShowEmailConfirmed(false), 3000);
+      }
+    }).catch(() => {});
+    return () => {
+      if (emailConfirmedTimer.current) clearTimeout(emailConfirmedTimer.current);
+    };
+  }, []);
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -141,6 +158,27 @@ export default function HomeScreen() {
             <Text style={styles.guestBannerText}>Saved on device — create an account to sync</Text>
             <Ionicons name="chevron-forward" size={13} color={Colors.secondary} />
           </Pressable>
+        )}
+
+        {showEmailConfirmed && (
+          <Animated.View
+            entering={FadeInUp.duration(280)}
+            exiting={FadeOutUp.duration(200)}
+            style={styles.confirmedBanner}
+          >
+            <Ionicons name="checkmark-circle" size={16} color={Colors.sage} />
+            <Text style={styles.confirmedBannerText}>Email confirmed — welcome to AuraCloset</Text>
+            <Pressable
+              onPress={() => {
+                if (emailConfirmedTimer.current) clearTimeout(emailConfirmedTimer.current);
+                setShowEmailConfirmed(false);
+              }}
+              hitSlop={8}
+              accessibilityLabel="Dismiss"
+            >
+              <Ionicons name="close" size={14} color={Colors.textLight} />
+            </Pressable>
+          </Animated.View>
         )}
 
         {weatherSummary && (
@@ -790,6 +828,17 @@ const styles = StyleSheet.create({
   guestBannerText: {
     fontFamily: 'Inter_400Regular', fontSize: 12,
     color: Colors.textSecondary, flex: 1,
+  },
+
+  confirmedBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.sage + '14',
+    borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14,
+    marginBottom: 12, borderWidth: 1, borderColor: Colors.sage + '30',
+  },
+  confirmedBannerText: {
+    fontFamily: 'Inter_400Regular', fontSize: 12,
+    color: Colors.primary, flex: 1,
   },
 
   promptOverlay: {
