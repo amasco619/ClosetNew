@@ -1132,10 +1132,26 @@ export default function AddItemScreen() {
 
             {/* ── Limit-reached: BG removal quota exhausted ──────────────── */}
             {bgStatus === 'limit-reached' && !classifying && (
-              <Animated.View entering={FadeInDown.duration(260)} style={styles.bgLimitPill}>
-                <Ionicons name="hourglass-outline" size={14} color={Colors.textSecondary} />
-                <Text style={styles.bgLimitText}>Background removal limit reached — your photo was saved as-is</Text>
-              </Animated.View>
+              isPremium ? (
+                <Animated.View entering={FadeInDown.duration(260)} style={styles.bgLimitPill}>
+                  <Ionicons name="hourglass-outline" size={14} color={Colors.textSecondary} />
+                  <Text style={styles.bgLimitText}>Background removal limit reached — your photo was saved as-is</Text>
+                </Animated.View>
+              ) : (
+                <Animated.View entering={FadeInDown.duration(260)}>
+                  <Pressable
+                    style={({ pressed }) => [styles.bgLimitPill, styles.bgLimitPillUpgrade, pressed && { opacity: 0.8 }]}
+                    onPress={() => router.push('/premium')}
+                  >
+                    <Ionicons name="hourglass-outline" size={14} color={Colors.textSecondary} />
+                    <Text style={styles.bgLimitText}>Background removal limit reached — your photo was saved as-is</Text>
+                    <View style={styles.bgLimitCta}>
+                      <Text style={styles.bgLimitCtaText}>Upgrade</Text>
+                      <Ionicons name="chevron-forward" size={12} color={Colors.secondary} />
+                    </View>
+                  </Pressable>
+                </Animated.View>
+              )
             )}
 
             {/* Classifier status / description */}
@@ -1713,7 +1729,10 @@ const styles = StyleSheet.create({
   bgUpsellPill:      { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.white, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 14, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 3, borderLeftColor: Colors.secondary, shadowColor: Colors.secondary, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
   bgUpsellText:      { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary, flex: 1 },
   bgLimitPill:       { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.white, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 14, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 3, borderLeftColor: Colors.textSecondary, shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  bgLimitPillUpgrade: { borderLeftColor: Colors.secondary },
   bgLimitText:       { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary, flex: 1 },
+  bgLimitCta:        { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  bgLimitCtaText:    { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.secondary },
   optionalLabel:     { fontFamily: 'Inter_400Regular', color: Colors.textLight, fontSize: 13, fontWeight: '400' },
   requiredAsterisk:  { fontFamily: 'Inter_700Bold', color: Colors.error, fontSize: 15 },
   requiredHint:      { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.error, marginTop: -8, marginBottom: 10, lineHeight: 17 },

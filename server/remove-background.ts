@@ -72,16 +72,24 @@ export async function removeBackground(req: Request, res: Response) {
     }
     userId = user.id;
 
-    // ── 4. Check tier / usage quota ─────────────────────────────────────────
-    try {
-      const { data: profile } = await supabaseAdmin
-        .from("user_profiles")
-        .select("premium")
-        .eq("id", userId)
-        .single();
-      isPremium = profile?.premium === true;
-    } catch {
-      // Treat as free on DB error — conservative but keeps the endpoint functional
+    // ── 4. Determine premium tier ────────────────────────────────────────────
+    // Primary: read from JWT app_metadata claims (no extra round-trip).
+    // Fallback: query user_profiles when the claim is absent (e.g. tokens
+    // issued before the premium flag was synced to app_metadata).
+    const claimPremium = (user.app_metadata as Record<string, unknown> | undefined)?.premium;
+    if (claimPremium === true || claimPremium === false) {
+      isPremium = claimPremium === true;
+    } else {
+      try {
+        const { data: profile } = await supabaseAdmin
+          .from("user_profiles")
+          .select("premium")
+          .eq("id", userId)
+          .single();
+        isPremium = profile?.premium === true;
+      } catch {
+        // Treat as free on DB error — conservative but keeps the endpoint functional
+      }
     }
 
     if (!isPremium) {
