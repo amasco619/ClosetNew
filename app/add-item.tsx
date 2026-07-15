@@ -13,7 +13,7 @@ import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, Sleeve
 import { SUBTYPE_FORMALITY, inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
 import { apiRequest } from '@/lib/query-client';
 import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
 import { resolvePhotoUri } from '@/lib/classifyPath';
@@ -212,7 +212,7 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
 
 export default function AddItemScreen() {
   const insets = useSafeAreaInsets();
-  const { addWardrobeItem, removeWardrobeItem, isPremium } = useApp();
+  const { addWardrobeItem, removeWardrobeItem, updateWardrobeItem, isPremium } = useApp();
   const {
     initialUri,
     preClassified,
@@ -332,6 +332,9 @@ export default function AddItemScreen() {
   const [photoBase64,     setPhotoBase64]     = useState<string | null>(null);
   const [photoBgRemoved,  setPhotoBgRemoved]  = useState<boolean>(false);
   const [bgStatus,        setBgStatus]        = useState<'idle'|'success'|'limit-reached'|'not-authenticated'>('idle');
+  const [persistedItemId, setPersistedItemId] = useState<string | null>(null);
+  const [autoSaved,       setAutoSaved]       = useState(false);
+  const [autoPersisting,  setAutoPersisting]  = useState(false);
   const [photoWidth,      setPhotoWidth]      = useState<number>(0);
   const [photoHeight,     setPhotoHeight]     = useState<number>(0);
   const [saving,          setSaving]          = useState(false);
@@ -607,6 +610,12 @@ export default function AddItemScreen() {
         setPhotoUri(asset.uri);
         setPhotoBgRemoved(false);
         setBgStatus('idle');
+        // If a previous photo was auto-persisted, remove that orphan first
+        if (persistedItemId) {
+          removeWardrobeItem(persistedItemId);
+          setPersistedItemId(null);
+          setAutoSaved(false);
+        }
         setPhotoWidth(asset.width ?? 0);
         setPhotoHeight(asset.height ?? 0);
         setStep(1);
@@ -622,6 +631,8 @@ export default function AddItemScreen() {
         // The result is also stored in photoBase64 as the fallback for the storage
         // upload step (which re-encodes at ≤1600 px from the URI anyway).
         let classifyBase64: string | undefined;
+        let bgUploadBase64: string | null = null;
+        let bgFinalUri: string | null = null;
         try {
           const MAX_CLASSIFY_PX = 1024;
           const w = asset.width ?? 0;
@@ -655,6 +666,7 @@ export default function AddItemScreen() {
             );
             if (bgResult.status === 'success' && bgResult.base64) {
               const cleanPngBase64 = bgResult.base64;
+              bgUploadBase64 = cleanPngBase64;
               setPhotoBase64(cleanPngBase64);
               try {
                 const reencoded = await ImageManipulator.manipulateAsync(
@@ -664,12 +676,15 @@ export default function AddItemScreen() {
                 );
                 // resolvePhotoUri guards against data: URIs — only accepts
                 // file:// or https:// paths; falls back to original asset URI.
-                setPhotoUri(resolvePhotoUri(asset.uri, reencoded.uri));
+                const resolvedUri = resolvePhotoUri(asset.uri, reencoded.uri);
+                bgFinalUri = resolvedUri;
+                setPhotoUri(resolvedUri);
                 setPhotoBgRemoved(true);
                 classifyBase64 = resolveClassifyBase64(classifyBase64, reencoded.base64);
               } catch {
                 // Re-encode failed — keep original JPEG for classify;
                 // leave photoUri as the original asset URI (no data URI stored)
+                bgFinalUri = asset.uri;
               }
             }
           }
@@ -718,6 +733,54 @@ export default function AddItemScreen() {
             }
 
             finishClassifying(true);
+
+            // ── Auto-persist ──────────────────────────────────────────────
+            // When BG removal succeeded and the user is signed in, immediately
+            // save the item so progress is never lost if they leave the form.
+            // The CTA flips to "Update wardrobe" for any subsequent edits.
+            try {
+              if (bgUploadBase64 && bgFinalUri && validSub && validCol && !replaceItemId) {
+                const { data: { session: autoSession } } = await supabase.auth.getSession();
+                if (autoSession?.user) {
+                  const autoItemId = Crypto.randomUUID();
+                  setAutoPersisting(true);
+                  try {
+                    const uploadedUri = await uploadWardrobeImage(
+                      autoSession.user.id, bgUploadBase64, autoItemId, 'image/png',
+                    );
+                    addWardrobeItem({
+                      id: autoItemId,
+                      photoUri: uploadedUri,
+                      category: classified.category,
+                      subType: validSub,
+                      colorFamily: validCol,
+                      description: classified.description || undefined,
+                      occasionTags: classified.occasionTags.length > 0 ? classified.occasionTags : [],
+                      seasonTags: classified.seasonTags.length > 0 ? classified.seasonTags : [],
+                      formalityLevel: SUBTYPE_FORMALITY[validSub] ?? 5,
+                      pattern: asPattern(classified.pattern || 'solid'),
+                      patternScale: asPatternScale(classified.patternScale),
+                      fabric: asFabric(classified.fabric) ?? asFabric(inferFabric(validSub) ?? undefined),
+                      weight: asWeight(classified.weight) ?? asWeight(inferFabricWeight(validSub)),
+                      fit: asFit(classified.fit),
+                      accentColor: classified.accentColor && colorFamilies.includes(classified.accentColor) ? classified.accentColor : undefined,
+                      neckline: asNeckline(classified.neckline) ?? asNeckline(SUBTYPE_NECKLINE[validSub]),
+                      sleeveLength: asSleeve(classified.sleeveLength),
+                      rise: asRise(classified.rise) ?? asRise(SUBTYPE_RISE[validSub]),
+                      warmthBand: asWarmth(classified.warmthBand) ?? asWarmth(SUBTYPE_WARMTH[validSub]),
+                      dominantHsl: classified.dominantHsl,
+                      dominantLab: classified.dominantLab,
+                    });
+                    setPersistedItemId(autoItemId);
+                    setAutoSaved(true);
+                  } finally {
+                    setAutoPersisting(false);
+                  }
+                }
+              }
+            } catch {
+              // Auto-persist failed silently — normal save flow still works.
+            }
           } catch (classifyErr: any) {
             if (classifyErr instanceof ContentGuardrailError) {
               // Photo rejected — reset immediately with no flash (card disappears with the step)
@@ -813,6 +876,39 @@ export default function AddItemScreen() {
     setSaveStage('resizing');
     try {
       const parsedPrice = parseFloat(purchasePrice.replace(/[^0-9.]/g, ''));
+
+      // ── Update path: item was auto-persisted right after BG removal ──────
+      if (persistedItemId) {
+        setSaveStage('saving');
+        updateWardrobeItem(persistedItemId, {
+          photoUri,
+          category,
+          subType,
+          colorFamily,
+          description: description || undefined,
+          occasionTags: occasions,
+          seasonTags: seasons,
+          formalityLevel: SUBTYPE_FORMALITY[subType] ?? 5,
+          purchasePrice: isNaN(parsedPrice) || parsedPrice <= 0 ? undefined : parsedPrice,
+          pattern:      asPattern(pattern),
+          patternScale: asPatternScale(patternScale),
+          fabric:       asFabric(fabric),
+          weight:       asWeight(weight),
+          fit:          asFit(fit),
+          accentColor:  accentColor && colorFamilies.includes(accentColor) ? accentColor : undefined,
+          metalTone:    (metalTone === 'gold' || metalTone === 'silver' || metalTone === 'rose-gold' || metalTone === 'mixed' || metalTone === 'none') ? metalTone : undefined,
+          neckline:     asNeckline(neckline),
+          sleeveLength: asSleeve(sleeveLength),
+          rise:         asRise(rise),
+          warmthBand:   asWarmth(warmthBand),
+          dominantHsl,
+          dominantLab,
+        });
+        if (replaceItemId) removeWardrobeItem(replaceItemId);
+        router.back();
+        return;
+      }
+
       const itemId = Crypto.randomUUID();
       let finalUri = photoUri;
       const { data: { session } } = await supabase.auth.getSession();
@@ -1063,6 +1159,25 @@ export default function AddItemScreen() {
                 <Text style={styles.descriptionText}>{"Looks like " + description.charAt(0).toLowerCase() + description.slice(1)}</Text>
               </View>
             ) : null}
+
+            {/* ── Auto-saved banner ──────────────────────────────────────── */}
+            {autoPersisting && (
+              <Animated.View entering={FadeInDown.duration(200)} style={styles.addedBanner}>
+                <ActivityIndicator size="small" color={Colors.secondary} />
+                <Text style={styles.addedBannerText}>Saving to your wardrobe…</Text>
+              </Animated.View>
+            )}
+            {autoSaved && !autoPersisting && (
+              <Animated.View entering={FadeInUp.duration(260)} style={styles.addedBanner}>
+                <View style={styles.addedBannerIconWrap}>
+                  <Ionicons name="checkmark" size={13} color={Colors.white} />
+                </View>
+                <Text style={styles.addedBannerText}>Added to your wardrobe</Text>
+                <Pressable onPress={() => setAutoSaved(false)} hitSlop={8}>
+                  <Ionicons name="close" size={15} color={Colors.textSecondary} />
+                </Pressable>
+              </Animated.View>
+            )}
 
             {/* ── Category ────────────────────────────────────────────────── */}
             <Text style={styles.sectionTitle}>Category</Text>
@@ -1512,7 +1627,7 @@ export default function AddItemScreen() {
               disabled={!canSave}
             >
               <Ionicons name="checkmark" size={22} color={Colors.white} />
-              <Text style={styles.saveButtonText}>Save to Wardrobe</Text>
+              <Text style={styles.saveButtonText}>{persistedItemId ? 'Update wardrobe' : 'Save to Wardrobe'}</Text>
             </Pressable>
           )}
         </View>
@@ -1570,6 +1685,9 @@ const styles = StyleSheet.create({
   footer:            { paddingHorizontal: 20, paddingTop: 12, backgroundColor: Colors.background, borderTopWidth: 1, borderTopColor: Colors.border },
   saveButton:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, paddingVertical: 16 },
   saveButtonText:    { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.white },
+  addedBanner:       { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.white, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 14, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 3, borderLeftColor: Colors.secondary, shadowColor: Colors.secondary, shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  addedBannerIconWrap: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.secondary, alignItems: 'center', justifyContent: 'center' },
+  addedBannerText:   { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary, flex: 1 },
   optionalLabel:     { fontFamily: 'Inter_400Regular', color: Colors.textLight, fontSize: 13, fontWeight: '400' },
   requiredAsterisk:  { fontFamily: 'Inter_700Bold', color: Colors.error, fontSize: 15 },
   requiredHint:      { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.error, marginTop: -8, marginBottom: 10, lineHeight: 17 },
