@@ -1116,6 +1116,20 @@ export default function AddItemScreen() {
               </View>
             )}
 
+            {/* ── Guest upsell: sign in to unlock BG removal ─────────────── */}
+            {bgStatus === 'not-authenticated' && !classifying && (
+              <Animated.View entering={FadeInDown.duration(260)}>
+                <Pressable
+                  style={({ pressed }) => [styles.bgUpsellPill, pressed && { opacity: 0.8 }]}
+                  onPress={() => router.push('/sign-in')}
+                >
+                  <Ionicons name="lock-closed-outline" size={14} color={Colors.secondary} />
+                  <Text style={styles.bgUpsellText}>Sign in to unlock automatic background removal</Text>
+                  <Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />
+                </Pressable>
+              </Animated.View>
+            )}
+
             {/* Classifier status / description */}
             {(classifying || classifyFlash !== 'none') ? (
               <Animated.View style={[styles.classifyingCard, cardFadeStyle]}>
@@ -1175,20 +1189,6 @@ export default function AddItemScreen() {
                 <Text style={styles.addedBannerText}>Added to your wardrobe</Text>
                 <Pressable onPress={() => setAutoSaved(false)} hitSlop={8}>
                   <Ionicons name="close" size={15} color={Colors.textSecondary} />
-                </Pressable>
-              </Animated.View>
-            )}
-
-            {/* ── Guest upsell: sign in to unlock BG removal ─────────────── */}
-            {bgStatus === 'not-authenticated' && (
-              <Animated.View entering={FadeInDown.duration(260)}>
-                <Pressable
-                  style={({ pressed }) => [styles.bgUpsellPill, pressed && { opacity: 0.8 }]}
-                  onPress={() => router.push('/sign-in')}
-                >
-                  <Ionicons name="lock-closed-outline" size={14} color={Colors.secondary} />
-                  <Text style={styles.bgUpsellText}>Sign in to unlock automatic background removal</Text>
-                  <Ionicons name="chevron-forward" size={14} color={Colors.textSecondary} />
                 </Pressable>
               </Animated.View>
             )}
