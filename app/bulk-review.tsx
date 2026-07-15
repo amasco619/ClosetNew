@@ -435,8 +435,11 @@ export default function BulkReviewScreen() {
 
   // Auto-persist: when an item settles with a clean BG-removed image and the user is
   // authenticated, immediately upload + addWardrobeItem and flip status to 'auto-saved'.
+  // Disabled for single-item mode (uris.length === 1) because that path immediately
+  // redirects to add-item; auto-persisting there would create a duplicate wardrobe entry.
   // autoPersistAttemptedRef guards against re-firing on subsequent renders.
   useEffect(() => {
+    if (uris.length <= 1) return;
     const itemsToAutoSave = items.filter(
       it => it.status === 'settled' && it.cleanBase64 && !autoPersistAttemptedRef.current.has(it.uri)
     );
@@ -687,17 +690,22 @@ export default function BulkReviewScreen() {
   ).length;
   const totalCount      = visibleItems.length;
   const progressRatio   = totalCount > 0 ? classifiedCount / totalCount : 0;
-  const canSaveAll      = (settledCount + autoSavedCount) > 0 && !saving;
+  // Lock the CTA while any item is still pending/classifying so the user
+  // cannot navigate away and abandon in-flight uploads.
+  const hasActive       = items.some(it => it.status === 'pending' || it.status === 'classifying');
+  const canSaveAll      = (settledCount + autoSavedCount) > 0 && !saving && !hasActive;
 
   const saveBtnLabel = saving
     ? 'Saving...'
-    : settledCount === 0 && autoSavedCount > 0
-      ? 'Update wardrobe'
-      : settledCount > 0 && autoSavedCount > 0
-        ? `Save ${settledCount} + update wardrobe`
-        : settledCount > 0
-          ? `Save ${settledCount} Item${settledCount !== 1 ? 's' : ''} to Wardrobe`
-          : 'Analysing items...';
+    : hasActive
+      ? 'Analysing items...'
+      : settledCount === 0 && autoSavedCount > 0
+        ? 'Update wardrobe'
+        : settledCount > 0 && autoSavedCount > 0
+          ? `Save ${settledCount} + update wardrobe`
+          : settledCount > 0
+            ? `Save ${settledCount} Item${settledCount !== 1 ? 's' : ''} to Wardrobe`
+            : 'Analysing items...';
 
   return (
     <View style={[
