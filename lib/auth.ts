@@ -3,6 +3,7 @@ import { makeRedirectUri } from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
 import * as QueryParams from 'expo-auth-session/build/QueryParams'
+import Constants, { ExecutionEnvironment } from 'expo-constants'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { fetch } from 'expo/fetch'
 import { supabase } from './supabase'
@@ -15,7 +16,43 @@ export const EMAIL_CONFIRMED_KEY = '@auracloset_email_confirmed'
 
 WebBrowser.maybeCompleteAuthSession()
 
+// In Expo Go (StoreClient), expo-linking's resolveScheme() always returns 'exp'
+// regardless of the scheme argument — auracloset:// is silently ignored because it
+// is not registered in Expo Go's Info.plist.  makeRedirectUri({ scheme: 'auracloset' })
+// therefore resolves to exp://<devserver> in Expo Go, while returning auracloset://
+// in standalone / EAS builds where the scheme IS in Info.plist.
 const nativeRedirectTo = makeRedirectUri({ scheme: 'auracloset' })
+
+// True when running inside the Expo Go app (development, not a standalone build).
+const isExpoGo =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+
+// In Expo Go, nativeRedirectTo is exp://<devserver> (e.g. exp://localhost:8082).
+// We relay the OAuth callback through the HTTPS Replit domain (already in
+// Supabase's allowed redirect URL list from the web OAuth setup) so no extra
+// Supabase dashboard config is needed.
+//
+// The redirectTo we give Supabase becomes:
+//   https://<domain>?nativeCallback=<encoded-exp-url>
+//
+// Supabase strips query params before matching against the allow-list, so the
+// base domain matches.  After auth it redirects to:
+//   https://<domain>?nativeCallback=exp://localhost:8082&code=xxx
+//
+// The Expo web page loading inside ASWebAuthenticationSession detects
+// nativeCallback and does window.location.href = 'exp://localhost:8082?code=xxx'.
+// ASWebAuthenticationSession (callbackURLScheme = 'exp') intercepts that
+// redirect and resolves openAuthSessionAsync — no Supabase allow-list changes needed.
+//
+// In standalone builds, redirectTo = nativeRedirectTo = 'auracloset://' and the
+// existing direct-deep-link path is used unchanged.
+function buildNativeOAuthRedirectTo(): string {
+  if (!isExpoGo) return nativeRedirectTo
+  // EXPO_PUBLIC_DOMAIN is set to "$REPLIT_DEV_DOMAIN:5000"; strip the port so
+  // the URL matches the bare Replit domain that is in Supabase's allow-list.
+  const domain = (process.env.EXPO_PUBLIC_DOMAIN ?? '').split(':')[0]
+  return `https://${domain}?nativeCallback=${encodeURIComponent(nativeRedirectTo)}`
+}
 
 export async function createSessionFromUrl(url: string) {
   const { params, errorCode } = QueryParams.getQueryParams(url)
@@ -77,24 +114,32 @@ export async function updatePassword(newPassword: string): Promise<void> {
 
 /**
  * Opens the OAuth URL in the in-app browser (ASWebAuthenticationSession on
- * iOS, Chrome Custom Tabs on Android) and waits for the auracloset:// redirect.
+ * iOS, Chrome Custom Tabs on Android) and waits for the callback URL.
  *
- * On standalone builds the in-app browser detects the redirect itself and
- * resolves via `browserPromise`.
+ * On standalone builds redirectTo = auracloset:// (registered in Info.plist).
+ * ASWebAuthenticationSession (callbackURLScheme = 'auracloset') intercepts the
+ * Supabase redirect directly → browserPromise resolves.
  *
- * On Expo Go (development), the OS delivers the auracloset:// deep-link to the
- * Expo client before ASWebAuthenticationSession sees its callback, so
- * `openAuthSessionAsync` hangs indefinitely.  A native `Linking.addEventListener`
- * races it: whichever path delivers the redirect URL first wins.  The abandoned
- * `browserPromise` is suppressed so it never causes an unhandled rejection.
+ * On Expo Go, auracloset:// is not registered in Expo Go's Info.plist so
+ * ASWebAuthenticationSession cannot use it as a callbackURLScheme.
+ * Instead, redirectTo = https://<domain>?nativeCallback=exp://<devserver>.
+ * Supabase redirects to that HTTPS URL; the Expo web page (running inside the
+ * same ASWebAuthenticationSession) reads the nativeCallback param and does
+ * window.location.href = 'exp://<devserver>?code=xxx'.  callbackURLScheme = 'exp'
+ * (derived from nativeRedirectTo which is exp:// in Expo Go) intercepts that
+ * redirect → browserPromise resolves.
+ *
+ * A Linking.addEventListener races the browser promise as a belt-and-suspenders
+ * fallback for edge cases where ASWebAuth delivers the URL as a regular deep
+ * link instead.
  */
 async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
   const scheme = nativeRedirectTo.split('://')[0]
 
   let removeListener: (() => void) | undefined
 
-  // Linking listener: catches the deep-link when the OS routes auracloset://
-  // to the app directly (Expo Go development environment).
+  // Linking listener: catches the deep-link if the OS routes the callback URL
+  // to the app directly rather than via ASWebAuthenticationSession.
   const linkingPromise = new Promise<OAuthBrowserResult>((resolve) => {
     const sub = Linking.addEventListener('url', (event) => {
       if (
@@ -140,7 +185,7 @@ export async function signInWithGoogle(): Promise<void> {
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: nativeRedirectTo, skipBrowserRedirect: true },
+    options: { redirectTo: buildNativeOAuthRedirectTo(), skipBrowserRedirect: true },
   })
   if (error) throw new Error(`[signInWithGoogle] ${error.message}`)
   await openOAuthSessionWithFallback(data?.url ?? '')
@@ -159,7 +204,7 @@ export async function signInWithApple(): Promise<void> {
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'apple',
-    options: { redirectTo: nativeRedirectTo, skipBrowserRedirect: true },
+    options: { redirectTo: buildNativeOAuthRedirectTo(), skipBrowserRedirect: true },
   })
   if (error) throw new Error(`[signInWithApple] ${error.message}`)
   await openOAuthSessionWithFallback(data?.url ?? '')

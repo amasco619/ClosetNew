@@ -19,6 +19,17 @@ const SecureStoreAdapter = {
   removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 }
 
+// When the Expo Go OAuth relay is active, the web app loads inside
+// ASWebAuthenticationSession carrying ?nativeCallback=<exp-url>&code=<code>.
+// Suppress detectSessionInUrl so Supabase doesn't try to exchange the PKCE
+// code with a missing verifier (the verifier lives in native SecureStore, not
+// in the in-app browser's storage). The _layout.tsx relay useEffect handles
+// the redirect instead.
+const isNativeCallbackRelay =
+  Platform.OS === 'web' &&
+  typeof window !== 'undefined' &&
+  window.location.search.includes('nativeCallback')
+
 export const supabase = createClient(
   supabaseUrl,
   supabasePublishableKey,
@@ -31,9 +42,11 @@ export const supabase = createClient(
       persistSession: true,
       // On web: true so Supabase auto-processes the PKCE code (or hash tokens)
       // in the URL after an OAuth redirect and exchanges it for a session.
+      // Disabled during the native relay to avoid consuming the PKCE code
+      // before the native app can exchange it.
       // On native: false because deep-link URL parsing is handled manually
       // via createSessionFromUrl() in lib/auth.ts.
-      detectSessionInUrl: Platform.OS === 'web',
+      detectSessionInUrl: Platform.OS === 'web' && !isNativeCallbackRelay,
       lock: processLock,
     },
   }

@@ -57,6 +57,35 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
+  // Expo Go OAuth relay — runs on the web page that loads inside
+  // ASWebAuthenticationSession after Google/Apple auth completes.
+  //
+  // Flow: signInWithGoogle (native, Expo Go) passes
+  //   redirectTo = "https://<domain>?nativeCallback=exp://<devserver>"
+  // Supabase validates the base domain (strips query params) and redirects to:
+  //   https://<domain>?nativeCallback=exp://<devserver>&code=xxx
+  // That page loads here.  We immediately set window.location to the exp:// URL
+  // so ASWebAuthenticationSession (callbackURLScheme = 'exp') can intercept it
+  // and resolve openAuthSessionAsync in the native app.
+  // detectSessionInUrl is disabled (lib/supabase.ts) while nativeCallback is
+  // present so Supabase doesn't race to consume the PKCE code first.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const nativeCallback = params.get('nativeCallback');
+    const code = params.get('code');
+    if (!nativeCallback || !code) return;
+    // Only relay to known app schemes — never open arbitrary URLs.
+    const decoded = decodeURIComponent(nativeCallback);
+    if (!decoded.startsWith('auracloset://') && !decoded.startsWith('exp://')) return;
+    const relay = new URLSearchParams();
+    relay.set('code', code);
+    const type = params.get('type');
+    if (type) relay.set('type', type);
+    window.location.href = `${decoded.split('?')[0]}?${relay.toString()}`;
+  }, []);
+
   // On web, Supabase processes the confirmation redirect automatically via
   // detectSessionInUrl:true without calling createSessionFromUrl(). Inspect
   // window.location once at boot — before any navigation — and write the

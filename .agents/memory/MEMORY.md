@@ -8,3 +8,4 @@
 - [TECHNICAL.md must stay current](technical-md-discipline.md) — user requires every merged task be reflected in TECHNICAL.md immediately; task agents do not do this automatically.
 - [Node.js test isolation for RN modules](node-test-rn-isolation.md) — lib/supabase.ts and lib/query-client.ts import react-native/expo; use dynamic import + _testOverrides pattern to keep them out of the static dep graph.
 - [_testOverrides mutable export pattern](test-overrides-pattern.md) — export const _testOverrides = {} and mutate its properties to bypass auth/I-O in tests; avoids ESM getter-only reassignment issues.
+- [Expo Go OAuth relay](expo-go-oauth-relay.md) — makeRedirectUri always returns exp:// in StoreClient; relay via HTTPS domain (already Supabase-allowed) + _layout.tsx useEffect to bounce to exp:// inside ASWebAuth.
