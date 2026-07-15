@@ -21,8 +21,10 @@ export async function createSessionFromUrl(url: string) {
   // The redirect URL contains ?code=xxx; exchange it using the stored PKCE
   // verifier via exchangeCodeForSession, which handles the processLock
   // internally and avoids the setSession deadlock.
+  // Pass the code string itself (not the full URL) as the auth-js contract
+  // requires the authorization code value, not the callback URL.
   if (code) {
-    const { data, error } = await supabase.auth.exchangeCodeForSession(url)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(String(code))
     if (error) throw new Error(`[createSessionFromUrl] ${error.message}`)
     return data.session
   }
