@@ -63,6 +63,7 @@ interface AppContextValue {
   appReady: boolean;
   isAuthenticated: boolean;
   canAddItem: boolean;
+  itemCap: number;
   recommendationSlots: WardrobeSlot[];
   starterRecommendations: Record<string, WardrobeSlot | undefined>;
   lifestyleSlotGroups: LifestyleSlotGroup[];
@@ -1338,7 +1339,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({
     profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
     isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
-    isLoading, appReady, isAuthenticated, canAddItem, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
+    isLoading, appReady, isAuthenticated, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
     wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
     todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
     profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,
@@ -1352,7 +1353,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     orphanedItems, resolveOrphan,
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
        isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
-       isLoading, appReady, isAuthenticated, canAddItem, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
+       isLoading, appReady, isAuthenticated, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
        todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
        profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,

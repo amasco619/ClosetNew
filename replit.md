@@ -4,7 +4,7 @@
 AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo (React Native) and Express backend. The tagline is "Your quiet-luxury stylist in your pocket."
 
 ## Current State
-- **Version**: 1.4.0
+- **Version**: 1.5.0
 - **Last Updated**: 2026-06-16
 - **Status**: Blueprint engine refactored for testability + full lifestyle-slot coverage
 
@@ -16,7 +16,7 @@ AuraCloset is a virtual wardrobe + styling assistant mobile app built with Expo 
 
 ## Key Features
 - Multi-step onboarding (body type with illustrated images, eye color, skin tone, style goals)
-- Wardrobe digitization with camera/gallery (Guest: 8-item cap, Free: 15-item cap, Premium: unlimited)
+- Wardrobe digitization with camera/gallery (Guest: 8-item cap, Free: 30-item cap, Premium: unlimited)
 - Garment classification via Gemini AI (POST /api/classify-garment)
 - **Personalized outfit generation** — dynamic outfit combinations built exclusively from the user's actual wardrobe items. Algorithm uses occasion tags, color harmony (neutral + anything, monochromatic), style goal color preferences, and profile constraints (noSleeveless, noShortSkirts, maxHeelHeight). Each component is always "owned" (real items only).
 - **"Just Added" outfit suggestions** — when a user uploads a new clothing item, `generateOutfitsForItem` builds complete looks centered on that new item using existing wardrobe pieces. These appear as a dismissable "Styled for your new item" banner in the Outfits tab and contribute to the "Ready Outfits" count on the dashboard.

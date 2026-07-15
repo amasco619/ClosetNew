@@ -40,7 +40,7 @@ const formatSeasonTag = (tag: string) =>
 
 export default function WardrobeScreen() {
   const insets = useSafeAreaInsets();
-  const { wardrobeItems, activeWardrobeItems, canAddItem, isPremium, isGuest } = useApp();
+  const { wardrobeItems, activeWardrobeItems, canAddItem, isPremium, isGuest, itemCap } = useApp();
   const [filter, setFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
@@ -142,7 +142,7 @@ export default function WardrobeScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.subtitle}>
-            {activeWardrobeItems.length} items{!isPremium ? ` · ${isGuest ? 8 : 15} max` : ''}
+            {activeWardrobeItems.length} items{!isPremium ? ` · ${itemCap} max` : ''}
           </Text>
           <Text style={styles.title}>Wardrobe</Text>
         </View>
