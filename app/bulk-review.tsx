@@ -312,6 +312,9 @@ export default function BulkReviewScreen() {
   const savingRef = useRef(false);
   // Tracks URIs that have had auto-persist attempted so we don't re-fire.
   const autoPersistAttemptedRef = useRef<Set<string>>(new Set());
+  // Tracks URIs whose auto-persist upload is currently in flight.
+  // handleSaveAll excludes these from toSave to prevent duplicate wardrobe entries.
+  const autoPersistInFlightRef  = useRef<Set<string>>(new Set());
   // Stable items snapshot for callbacks that can't take items as a dep.
   const itemsRef = useRef<BulkItem[]>([]);
   useEffect(() => { itemsRef.current = items; }, [items]);
@@ -447,14 +450,19 @@ export default function BulkReviewScreen() {
 
     for (const item of itemsToAutoSave) {
       autoPersistAttemptedRef.current.add(item.uri);
+      autoPersistInFlightRef.current.add(item.uri); // mark in-flight before async work
       const captured = item; // freeze reference for async closure
 
       void (async () => {
-        if (!mountedRef.current) return;
         try {
+          if (!mountedRef.current) return;
           const { data: { session } } = await supabase.auth.getSession();
           const userId = session?.user?.id;
           if (!userId || !mountedRef.current) return;
+
+          // Guard: abort if the user removed this item while we were awaiting auth.
+          const beforeUpload = itemsRef.current.find(it => it.uri === captured.uri);
+          if (!beforeUpload || beforeUpload.status === 'removed') return;
 
           const itemId = Crypto.randomUUID();
           const uploadArg = resolveWardrobeUploadArg(captured.cleanBase64, undefined);
@@ -463,6 +471,11 @@ export default function BulkReviewScreen() {
             finalUri = await uploadWardrobeImage(userId, uploadArg.base64, itemId, uploadArg.mimeType as 'image/jpeg' | 'image/png');
             if (!mountedRef.current) return;
           }
+
+          // Guard: abort if the item was removed while we were uploading.
+          // If addWardrobeItem were called here, removeWardrobeItem cleans it up.
+          const afterUpload = itemsRef.current.find(it => it.uri === captured.uri);
+          if (!afterUpload || afterUpload.status === 'removed') return;
 
           const c = captured.classification!;
           addWardrobeItem({
@@ -490,12 +503,17 @@ export default function BulkReviewScreen() {
           });
 
           if (!mountedRef.current) return;
+          // Only flip to auto-saved if the item hasn't been removed since we last checked.
           setItems(prev => prev.map(it =>
-            it.uri === captured.uri ? { ...it, status: 'auto-saved', autoSavedId: itemId } : it
+            it.uri === captured.uri && it.status !== 'removed'
+              ? { ...it, status: 'auto-saved', autoSavedId: itemId }
+              : it
           ));
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         } catch {
           // Silent fail — item stays 'settled', user can save manually via CTA
+        } finally {
+          autoPersistInFlightRef.current.delete(captured.uri);
         }
       })();
     }
@@ -572,7 +590,13 @@ export default function BulkReviewScreen() {
       it => it.status === 'auto-saved' && it.autoSavedId != null && it.classification != null
     );
     const toSave = items
-      .filter(it => it.status === 'settled' && it.classification != null)
+      .filter(it =>
+        it.status === 'settled' &&
+        it.classification != null &&
+        // Skip items whose auto-persist is currently in flight to prevent
+        // duplicate wardrobe entries (they'll flip to 'auto-saved' shortly).
+        !autoPersistInFlightRef.current.has(it.uri)
+      )
       .map(it => ({ uri: it.uri, cleanBase64: it.cleanBase64, classification: it.classification! }));
 
     if (toSave.length === 0 && autoSavedItems.length === 0) { savingRef.current = false; return; }
