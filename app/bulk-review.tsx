@@ -295,6 +295,8 @@ export default function BulkReviewScreen() {
   // Guest upsell banner: shown once background removal is skipped for auth reasons.
   const [bgNotAuthenticated, setBgNotAuthenticated] = useState(false);
   const [bgUpsellDismissed, setBgUpsellDismissed] = useState(false);
+  // Limit-reached pill: shown once quota is exhausted (affects signed-in users too).
+  const [bgLimitReached, setBgLimitReached] = useState(false);
 
   // Redirect if no URIs were passed — single-item redirect is handled below.
   useEffect(() => {
@@ -532,6 +534,7 @@ export default function BulkReviewScreen() {
       ),
       removeBg: (b64) => removeBackground(b64).then(r => {
         if (r.status === 'not-authenticated') setBgNotAuthenticated(true);
+        if (r.status === 'limit-reached') setBgLimitReached(true);
         return r.status === 'success' ? (r.base64 ?? null) : null;
       }),
       reencodeAsJpeg: (pngB64) => ImageManipulator.manipulateAsync(
@@ -795,24 +798,36 @@ export default function BulkReviewScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          bgNotAuthenticated && !bgUpsellDismissed ? (
-            <Animated.View entering={FadeInDown.duration(260)} style={styles.bgUpsellWrap}>
-              <Pressable
-                style={({ pressed }) => [styles.bgUpsellBanner, pressed && { opacity: 0.8 }]}
-                onPress={() => router.push('/sign-in')}
-              >
-                <Ionicons name="lock-closed-outline" size={14} color={Colors.secondary} />
-                <Text style={styles.bgUpsellBannerText}>
-                  Sign in to unlock automatic background removal for all items
-                </Text>
-                <Pressable
-                  hitSlop={8}
-                  onPress={() => setBgUpsellDismissed(true)}
-                >
-                  <Ionicons name="close" size={14} color={Colors.textSecondary} />
-                </Pressable>
-              </Pressable>
-            </Animated.View>
+          (bgNotAuthenticated && !bgUpsellDismissed) || bgLimitReached ? (
+            <View style={styles.bgUpsellWrap}>
+              {bgNotAuthenticated && !bgUpsellDismissed && (
+                <Animated.View entering={FadeInDown.duration(260)}>
+                  <Pressable
+                    style={({ pressed }) => [styles.bgUpsellBanner, pressed && { opacity: 0.8 }]}
+                    onPress={() => router.push('/sign-in')}
+                  >
+                    <Ionicons name="lock-closed-outline" size={14} color={Colors.secondary} />
+                    <Text style={styles.bgUpsellBannerText}>
+                      Sign in to unlock automatic background removal for all items
+                    </Text>
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => setBgUpsellDismissed(true)}
+                    >
+                      <Ionicons name="close" size={14} color={Colors.textSecondary} />
+                    </Pressable>
+                  </Pressable>
+                </Animated.View>
+              )}
+              {bgLimitReached && (
+                <Animated.View entering={FadeInDown.duration(260)} style={styles.bgLimitPill}>
+                  <Ionicons name="hourglass-outline" size={14} color={Colors.textSecondary} />
+                  <Text style={styles.bgLimitText}>
+                    Background removal limit reached for today — some photos were saved as-is
+                  </Text>
+                </Animated.View>
+              )}
+            </View>
           ) : null
         }
         renderItem={({ item }) => (
@@ -1019,6 +1034,21 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'Inter_500Medium', fontSize: 13,
     color: Colors.primary, letterSpacing: -0.1,
+  },
+  bgLimitPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.white, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 10,
+    marginTop: 8,
+    borderWidth: 1, borderColor: Colors.border,
+    borderLeftWidth: 3, borderLeftColor: Colors.textSecondary,
+    shadowColor: Colors.primary, shadowOpacity: 0.04,
+    shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+  },
+  bgLimitText: {
+    flex: 1,
+    fontFamily: 'Inter_500Medium', fontSize: 13,
+    color: Colors.textSecondary, letterSpacing: -0.1,
   },
 
   footer: {
