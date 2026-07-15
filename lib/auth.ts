@@ -1,11 +1,12 @@
 import { Platform } from 'react-native'
 import { makeRedirectUri } from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
+import * as Linking from 'expo-linking'
 import * as QueryParams from 'expo-auth-session/build/QueryParams'
 import { fetch } from 'expo/fetch'
 import { supabase } from './supabase'
 import { getApiUrl } from './query-client'
-import { handleOAuthBrowserResult } from './oauthGuard'
+import { handleOAuthBrowserResult, type OAuthBrowserResult } from './oauthGuard'
 export { signInWithEmail } from './emailSignIn'
 
 WebBrowser.maybeCompleteAuthSession()
@@ -22,8 +23,7 @@ export async function createSessionFromUrl(url: string) {
   // The redirect URL contains ?code=xxx; exchange it using the stored PKCE
   // verifier via exchangeCodeForSession, which handles the processLock
   // internally and avoids the setSession deadlock.
-  // Pass the code string itself (not the full URL) as the auth-js contract
-  // requires the authorization code value, not the callback URL.
+  // Pass the code string itself (not the full URL) per the auth-js contract.
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(String(code))
     if (error) throw new Error(`[createSessionFromUrl] ${error.message}`)
@@ -81,41 +81,75 @@ export async function updatePassword(newPassword: string): Promise<void> {
   if (error) throw new Error(`[updatePassword] ${error.message}`)
 }
 
+/**
+ * Opens the OAuth URL in the in-app browser (ASWebAuthenticationSession on
+ * iOS, Chrome Custom Tabs on Android) and waits for the auracloset:// redirect.
+ *
+ * On standalone builds the in-app browser detects the redirect itself and
+ * resolves via `browserPromise`.
+ *
+ * On Expo Go (development), the OS delivers the auracloset:// deep-link to the
+ * Expo client before ASWebAuthenticationSession sees its callback, so
+ * `openAuthSessionAsync` hangs indefinitely.  A native `Linking.addEventListener`
+ * races it: whichever path delivers the redirect URL first wins.  The abandoned
+ * `browserPromise` is suppressed so it never causes an unhandled rejection.
+ */
+async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
+  const scheme = nativeRedirectTo.split('://')[0]
+
+  let removeListener: (() => void) | undefined
+
+  // Linking listener: catches the deep-link when the OS routes auracloset://
+  // to the app directly (Expo Go development environment).
+  const linkingPromise = new Promise<OAuthBrowserResult>((resolve) => {
+    const sub = Linking.addEventListener('url', (event) => {
+      if (
+        event.url.startsWith(scheme + '://') &&
+        (event.url.includes('code=') || event.url.includes('access_token='))
+      ) {
+        resolve({ type: 'success', url: event.url })
+      }
+    })
+    removeListener = () => sub.remove()
+  })
+
+  // Browser promise: normal path where ASWebAuth intercepts the redirect.
+  const browserPromise = WebBrowser.openAuthSessionAsync(oauthUrl, nativeRedirectTo)
+
+  // Prevent an unhandled-rejection warning from the losing promise.
+  browserPromise.catch(() => {})
+
+  try {
+    const result = await Promise.race([
+      browserPromise as Promise<OAuthBrowserResult>,
+      linkingPromise,
+    ])
+    await handleOAuthBrowserResult(result, createSessionFromUrl)
+  } finally {
+    removeListener?.()
+  }
+}
+
 export async function signInWithGoogle(): Promise<void> {
   if (Platform.OS === 'web') {
     // On web, custom URL schemes (auracloset://) cannot be received by the
-    // browser, so WebBrowser.openAuthSessionAsync would hang indefinitely
-    // waiting for a redirect that never lands. Use a full-page redirect
-    // instead: Supabase calls window.location.assign() and the browser
-    // navigates to Google, completes auth, and returns to this origin.
-    // detectSessionInUrl:true (set in lib/supabase.ts for web) will
-    // auto-process the PKCE code on return.
+    // browser. Use a full-page redirect instead; detectSessionInUrl:true (set
+    // in lib/supabase.ts for web) auto-processes the PKCE code on return.
     const origin = typeof window !== 'undefined' ? window.location.origin : nativeRedirectTo
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: origin,
-      },
+      options: { redirectTo: origin },
     })
     if (error) throw new Error(`[signInWithGoogle] ${error.message}`)
-    // window.location.assign() has been called; the page is navigating away.
     return
   }
 
-  // Native: in-app browser with auracloset:// deep-link redirect.
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: {
-      redirectTo: nativeRedirectTo,
-      skipBrowserRedirect: true,
-    },
+    options: { redirectTo: nativeRedirectTo, skipBrowserRedirect: true },
   })
   if (error) throw new Error(`[signInWithGoogle] ${error.message}`)
-  const result = await WebBrowser.openAuthSessionAsync(
-    data?.url ?? '',
-    nativeRedirectTo
-  )
-  await handleOAuthBrowserResult(result as import('./oauthGuard').OAuthBrowserResult, createSessionFromUrl)
+  await openOAuthSessionWithFallback(data?.url ?? '')
 }
 
 export async function signInWithApple(): Promise<void> {
@@ -123,9 +157,7 @@ export async function signInWithApple(): Promise<void> {
     const origin = typeof window !== 'undefined' ? window.location.origin : nativeRedirectTo
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
-      options: {
-        redirectTo: origin,
-      },
+      options: { redirectTo: origin },
     })
     if (error) throw new Error(`[signInWithApple] ${error.message}`)
     return
@@ -133,17 +165,10 @@ export async function signInWithApple(): Promise<void> {
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'apple',
-    options: {
-      redirectTo: nativeRedirectTo,
-      skipBrowserRedirect: true,
-    },
+    options: { redirectTo: nativeRedirectTo, skipBrowserRedirect: true },
   })
   if (error) throw new Error(`[signInWithApple] ${error.message}`)
-  const result = await WebBrowser.openAuthSessionAsync(
-    data?.url ?? '',
-    nativeRedirectTo
-  )
-  await handleOAuthBrowserResult(result as import('./oauthGuard').OAuthBrowserResult, createSessionFromUrl)
+  await openOAuthSessionWithFallback(data?.url ?? '')
 }
 
 export async function signOut(): Promise<void> {
