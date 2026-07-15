@@ -58,6 +58,7 @@ type ItemStatus =
   | 'pending'
   | 'classifying'
   | 'settled'
+  | 'auto-saved'
   | 'saving'
   | 'saved'
   | 'error'
@@ -69,6 +70,7 @@ interface BulkItem {
   cleanBase64?: string;
   status: ItemStatus;
   classification: ClassifyResult | null;
+  autoSavedId?: string;
 }
 
 // ─── Type guards (mirrors add-item.tsx) ──────────────────────────────────────
@@ -138,11 +140,12 @@ function BulkCard({
   onRetry: (uri: string) => void;
   onPress?: () => void;
 }) {
-  const isActive   = item.status === 'pending' || item.status === 'classifying';
-  const isSettled  = item.status === 'settled' || item.status === 'saving' || item.status === 'saved';
-  const isSaved    = item.status === 'saved';
-  const isSaving   = item.status === 'saving';
-  const isError    = item.status === 'error';
+  const isActive    = item.status === 'pending' || item.status === 'classifying';
+  const isAutoSaved = item.status === 'auto-saved';
+  const isSettled   = item.status === 'settled' || isAutoSaved || item.status === 'saving' || item.status === 'saved';
+  const isSaved     = item.status === 'saved';
+  const isSaving    = item.status === 'saving';
+  const isError     = item.status === 'error';
 
   // Show the background-removed displayUri when available, otherwise the
   // original picker URI. displayUri is a JPEG re-encode of the clean PNG
@@ -194,6 +197,17 @@ function BulkCard({
           >
             <Ionicons name="checkmark-circle" size={28} color={Colors.white} />
             <Text style={styles.savedOverlayLabel}>Saved</Text>
+          </Animated.View>
+        )}
+
+        {isAutoSaved && (
+          <Animated.View
+            entering={FadeInDown.duration(220)}
+            style={[StyleSheet.absoluteFill, styles.autoSavedOverlay]}
+            pointerEvents="none"
+          >
+            <Ionicons name="checkmark-circle" size={20} color={Colors.secondary} />
+            <Text style={styles.autoSavedOverlayLabel}>Saved</Text>
           </Animated.View>
         )}
 
@@ -256,7 +270,7 @@ function BulkCard({
 
 export default function BulkReviewScreen() {
   const insets = useSafeAreaInsets();
-  const { addWardrobeItem } = useApp();
+  const { addWardrobeItem, updateWardrobeItem, removeWardrobeItem } = useApp();
 
   const { uris: urisParam } = useLocalSearchParams<{ uris: string }>();
   const uris = useMemo<string[]>(() => {
@@ -296,6 +310,11 @@ export default function BulkReviewScreen() {
   const singleRedirectedRef = useRef(false);
   const mountedRef = useRef(true);
   const savingRef = useRef(false);
+  // Tracks URIs that have had auto-persist attempted so we don't re-fire.
+  const autoPersistAttemptedRef = useRef<Set<string>>(new Set());
+  // Stable items snapshot for callbacks that can't take items as a dep.
+  const itemsRef = useRef<BulkItem[]>([]);
+  useEffect(() => { itemsRef.current = items; }, [items]);
 
   // Mark unmounted so async callbacks don't touch state or navigate after the
   // component has been torn down (e.g. user presses back mid-classification).
@@ -414,6 +433,71 @@ export default function BulkReviewScreen() {
     return () => clearInterval(id);
   }, [items]);
 
+  // Auto-persist: when an item settles with a clean BG-removed image and the user is
+  // authenticated, immediately upload + addWardrobeItem and flip status to 'auto-saved'.
+  // autoPersistAttemptedRef guards against re-firing on subsequent renders.
+  useEffect(() => {
+    const itemsToAutoSave = items.filter(
+      it => it.status === 'settled' && it.cleanBase64 && !autoPersistAttemptedRef.current.has(it.uri)
+    );
+    if (itemsToAutoSave.length === 0) return;
+
+    for (const item of itemsToAutoSave) {
+      autoPersistAttemptedRef.current.add(item.uri);
+      const captured = item; // freeze reference for async closure
+
+      void (async () => {
+        if (!mountedRef.current) return;
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const userId = session?.user?.id;
+          if (!userId || !mountedRef.current) return;
+
+          const itemId = Crypto.randomUUID();
+          const uploadArg = resolveWardrobeUploadArg(captured.cleanBase64, undefined);
+          let finalUri = captured.uri;
+          if (uploadArg) {
+            finalUri = await uploadWardrobeImage(userId, uploadArg.base64, itemId, uploadArg.mimeType as 'image/jpeg' | 'image/png');
+            if (!mountedRef.current) return;
+          }
+
+          const c = captured.classification!;
+          addWardrobeItem({
+            id: itemId,
+            photoUri:      finalUri,
+            category:      c.category,
+            subType:       c.subType      || 'top',
+            colorFamily:   c.colorFamily  || 'black',
+            description:   c.description  || undefined,
+            occasionTags:  c.occasionTags,
+            seasonTags:    c.seasonTags.length ? c.seasonTags : ['all-season'],
+            formalityLevel: SUBTYPE_FORMALITY[c.subType] ?? 5,
+            pattern:       asPattern(c.pattern),
+            patternScale:  asPatternScale(c.patternScale),
+            fabric:        asFabric(c.fabric),
+            weight:        asWeight(c.weight),
+            fit:           asFit(c.fit),
+            neckline:      asNeckline(c.neckline),
+            sleeveLength:  asSleeve(c.sleeveLength),
+            rise:          asRise(c.rise),
+            warmthBand:    asWarmth(c.warmthBand),
+            dominantHsl:   c.dominantHsl,
+            dominantLab:   c.dominantLab,
+            accentColor:   c.accentColor,
+          });
+
+          if (!mountedRef.current) return;
+          setItems(prev => prev.map(it =>
+            it.uri === captured.uri ? { ...it, status: 'auto-saved', autoSavedId: itemId } : it
+          ));
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        } catch {
+          // Silent fail — item stays 'settled', user can save manually via CTA
+        }
+      })();
+    }
+  }, [items, addWardrobeItem]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Classify one URI: resize → background removal → POST /api/classify-garment → settle card.
   // Core guard logic lives in lib/bulkClassifyCore.runClassifyUri (tested directly in Node).
   const classifyUri = useCallback(async (uri: string) => {
@@ -450,8 +534,12 @@ export default function BulkReviewScreen() {
 
   const handleRemove = useCallback((uri: string) => {
     Haptics.selectionAsync();
+    const item = itemsRef.current.find(it => it.uri === uri);
+    if (item?.status === 'auto-saved' && item.autoSavedId) {
+      removeWardrobeItem(item.autoSavedId);
+    }
     setItems(prev => prev.map(it => it.uri === uri ? { ...it, status: 'removed' } : it));
-  }, []);
+  }, [removeWardrobeItem]);
 
   const handleRetry = useCallback((uri: string) => {
     classifyUri(uri);
@@ -475,64 +563,102 @@ export default function BulkReviewScreen() {
     if (savingRef.current) return;
     savingRef.current = true;
     if (saving) { savingRef.current = false; return; }
+
+    // Items already auto-persisted: apply any edits from the BulkItemEditPanel.
+    const autoSavedItems = items.filter(
+      it => it.status === 'auto-saved' && it.autoSavedId != null && it.classification != null
+    );
     const toSave = items
       .filter(it => it.status === 'settled' && it.classification != null)
       .map(it => ({ uri: it.uri, cleanBase64: it.cleanBase64, classification: it.classification! }));
-    if (toSave.length === 0) { savingRef.current = false; return; }
 
-    try {
-    await runSaveAll(toSave, mountedRef, {
-      generateId: () => Crypto.randomUUID(),
-      getSession: async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        return session?.user?.id ?? null;
-      },
-      // Upload to Supabase Storage.
-      // If background removal produced a clean PNG, use it directly.
-      // Otherwise resize the original to ≤1600 px for a smaller JPEG.
-      resize: (uri) => ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 1600 } }],
-        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-      ),
-      upload: (userId, base64, itemId, mimeType) =>
-        uploadWardrobeImage(userId, base64, itemId, mimeType as 'image/jpeg' | 'image/png'),
-      // resolveWardrobeUploadArg selects the correct base64 + mimeType and
-      // guards against accidental data: URI strings or empty values.
-      resolveUploadArg: (cleanBase64, shrunkBase64) =>
-        resolveWardrobeUploadArg(cleanBase64, shrunkBase64),
-      addItem: ({ id: itemId, photoUri: finalUri, classification: c }) => {
-        addWardrobeItem({
-          id: itemId,
-          photoUri:      finalUri,
-          category:      c.category,
-          subType:       c.subType      || 'top',
-          colorFamily:   c.colorFamily  || 'black',
-          description:   c.description  || undefined,
-          occasionTags:  c.occasionTags,
-          seasonTags:    c.seasonTags.length ? c.seasonTags : ['all-season'],
-          formalityLevel: SUBTYPE_FORMALITY[c.subType] ?? 5,
-          pattern:       asPattern(c.pattern),
-          patternScale:  asPatternScale(c.patternScale),
-          fabric:        asFabric(c.fabric),
-          weight:        asWeight(c.weight),
-          fit:           asFit(c.fit),
-          neckline:      asNeckline(c.neckline),
-          sleeveLength:  asSleeve(c.sleeveLength),
-          rise:          asRise(c.rise),
-          warmthBand:    asWarmth(c.warmthBand),
-          dominantHsl:   c.dominantHsl,
-          dominantLab:   c.dominantLab,
-          accentColor:   c.accentColor,
+    if (toSave.length === 0 && autoSavedItems.length === 0) { savingRef.current = false; return; }
+
+    // Apply any classification edits to already-persisted items (sync, instant).
+    for (const item of autoSavedItems) {
+      const c = item.classification!;
+      updateWardrobeItem(item.autoSavedId!, {
+        category:      c.category,
+        subType:       c.subType      || 'top',
+        colorFamily:   c.colorFamily  || 'black',
+        description:   c.description  || undefined,
+        occasionTags:  c.occasionTags,
+        seasonTags:    c.seasonTags.length ? c.seasonTags : ['all-season'],
+        formalityLevel: SUBTYPE_FORMALITY[c.subType] ?? 5,
+        pattern:       asPattern(c.pattern),
+        patternScale:  asPatternScale(c.patternScale),
+        fabric:        asFabric(c.fabric),
+        weight:        asWeight(c.weight),
+        fit:           asFit(c.fit),
+        neckline:      asNeckline(c.neckline),
+        sleeveLength:  asSleeve(c.sleeveLength),
+        rise:          asRise(c.rise),
+        warmthBand:    asWarmth(c.warmthBand),
+        dominantHsl:   c.dominantHsl,
+        dominantLab:   c.dominantLab,
+        accentColor:   c.accentColor,
+      });
+    }
+
+    if (toSave.length > 0) {
+      // Normal upload + add path for items that weren't auto-persisted.
+      try {
+        await runSaveAll(toSave, mountedRef, {
+          generateId: () => Crypto.randomUUID(),
+          getSession: async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            return session?.user?.id ?? null;
+          },
+          // Upload to Supabase Storage.
+          // If background removal produced a clean PNG, use it directly.
+          // Otherwise resize the original to ≤1600 px for a smaller JPEG.
+          resize: (uri) => ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 1600 } }],
+            { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+          ),
+          upload: (userId, base64, itemId, mimeType) =>
+            uploadWardrobeImage(userId, base64, itemId, mimeType as 'image/jpeg' | 'image/png'),
+          resolveUploadArg: (cleanBase64, shrunkBase64) =>
+            resolveWardrobeUploadArg(cleanBase64, shrunkBase64),
+          addItem: ({ id: itemId, photoUri: finalUri, classification: c }) => {
+            addWardrobeItem({
+              id: itemId,
+              photoUri:      finalUri,
+              category:      c.category,
+              subType:       c.subType      || 'top',
+              colorFamily:   c.colorFamily  || 'black',
+              description:   c.description  || undefined,
+              occasionTags:  c.occasionTags,
+              seasonTags:    c.seasonTags.length ? c.seasonTags : ['all-season'],
+              formalityLevel: SUBTYPE_FORMALITY[c.subType] ?? 5,
+              pattern:       asPattern(c.pattern),
+              patternScale:  asPatternScale(c.patternScale),
+              fabric:        asFabric(c.fabric),
+              weight:        asWeight(c.weight),
+              fit:           asFit(c.fit),
+              neckline:      asNeckline(c.neckline),
+              sleeveLength:  asSleeve(c.sleeveLength),
+              rise:          asRise(c.rise),
+              warmthBand:    asWarmth(c.warmthBand),
+              dominantHsl:   c.dominantHsl,
+              dominantLab:   c.dominantLab,
+              accentColor:   c.accentColor,
+            });
+          },
+          setItems: (updater) => setItems(prev => updater(prev) as BulkItem[]),
+          setSaving,
+          onItemHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+          onDoneHaptic: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
+          navigate: () => router.navigate('/(tabs)/wardrobe'),
         });
-      },
-      setItems: (updater) => setItems(prev => updater(prev) as BulkItem[]),
-      setSaving,
-      onItemHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
-      onDoneHaptic: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
-      navigate: () => router.navigate('/(tabs)/wardrobe'),
-    });
-    } finally {
+      } finally {
+        savingRef.current = false;
+      }
+    } else {
+      // All items were already auto-persisted — navigate directly.
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (mountedRef.current) router.navigate('/(tabs)/wardrobe');
       savingRef.current = false;
     }
   };
@@ -542,7 +668,7 @@ export default function BulkReviewScreen() {
   // editableItems: items the carousel can actually display/edit (have a classification).
   // pending/classifying/error items are never navigable within the panel.
   const editableItems   = visibleItems.filter(it =>
-    it.status === 'settled' || it.status === 'saving' || it.status === 'saved'
+    it.status === 'settled' || it.status === 'auto-saved' || it.status === 'saving' || it.status === 'saved'
   );
   // Derive a stable integer index from the URI so the panel never drifts to
   // the wrong garment when new items settle and editableItems grows/reorders.
@@ -555,18 +681,23 @@ export default function BulkReviewScreen() {
     : 1;
   const displayTotal    = visibleItems.length;
   const settledCount    = items.filter(it => it.status === 'settled').length;
+  const autoSavedCount  = items.filter(it => it.status === 'auto-saved').length;
   const classifiedCount = items.filter(it =>
-    ['settled','saving','saved','error'].includes(it.status)
+    ['settled','auto-saved','saving','saved','error'].includes(it.status)
   ).length;
   const totalCount      = visibleItems.length;
   const progressRatio   = totalCount > 0 ? classifiedCount / totalCount : 0;
-  const canSaveAll      = settledCount > 0 && !saving;
+  const canSaveAll      = (settledCount + autoSavedCount) > 0 && !saving;
 
   const saveBtnLabel = saving
     ? 'Saving...'
-    : settledCount > 0
-      ? `Save ${settledCount} Item${settledCount !== 1 ? 's' : ''} to Wardrobe`
-      : 'Analysing items...';
+    : settledCount === 0 && autoSavedCount > 0
+      ? 'Update wardrobe'
+      : settledCount > 0 && autoSavedCount > 0
+        ? `Save ${settledCount} + update wardrobe`
+        : settledCount > 0
+          ? `Save ${settledCount} Item${settledCount !== 1 ? 's' : ''} to Wardrobe`
+          : 'Analysing items...';
 
   return (
     <View style={[
@@ -625,8 +756,9 @@ export default function BulkReviewScreen() {
             onRemove={handleRemove}
             onRetry={handleRetry}
             onPress={() => {
-              // Only settled/saving/saved items are editable; guard by status.
+              // Only settled/auto-saved/saving/saved items are editable; guard by status.
               const isEditable = item.status === 'settled'
+                || item.status === 'auto-saved'
                 || item.status === 'saving'
                 || item.status === 'saved';
               if (!isEditable) return;
@@ -754,6 +886,16 @@ const styles = StyleSheet.create({
   savingOverlay: {
     backgroundColor: 'rgba(16, 24, 38, 0.45)',
     alignItems: 'center', justifyContent: 'center',
+  },
+
+  autoSavedOverlay: {
+    backgroundColor: 'rgba(208, 184, 146, 0.12)',
+    alignItems: 'center', justifyContent: 'center', gap: 3,
+    borderWidth: 1.5, borderColor: Colors.secondary + '55',
+  },
+  autoSavedOverlayLabel: {
+    fontFamily: 'Inter_500Medium', fontSize: 11,
+    color: Colors.secondary, letterSpacing: 0.3,
   },
 
   removeBtn: {
