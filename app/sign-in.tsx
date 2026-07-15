@@ -196,7 +196,10 @@ export default function SignInScreen() {
     try {
       if (mode === 'sign-in') {
         await signInWithEmail(email, password)
-        router.replace('/')
+        // Navigation is handled by the isAuthenticated effect above once
+        // onAuthStateChange fires and loadUserDataFromDB finishes. Calling
+        // router.replace('/') here would navigate before the DB load is
+        // complete, causing a flash of the welcome screen.
       } else {
         const { needsConfirmation } = await signUpWithEmail(email, password)
         if (needsConfirmation) {

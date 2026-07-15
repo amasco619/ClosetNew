@@ -29,7 +29,11 @@ export const supabase = createClient(
         : {}),
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: false,
+      // On web: true so Supabase auto-processes the PKCE code (or hash tokens)
+      // in the URL after an OAuth redirect and exchanges it for a session.
+      // On native: false because deep-link URL parsing is handled manually
+      // via createSessionFromUrl() in lib/auth.ts.
+      detectSessionInUrl: Platform.OS === 'web',
       lock: processLock,
     },
   }

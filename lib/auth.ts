@@ -1,3 +1,4 @@
+import { Platform } from 'react-native'
 import { makeRedirectUri } from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
 import * as QueryParams from 'expo-auth-session/build/QueryParams'
@@ -8,7 +9,7 @@ import { handleOAuthBrowserResult } from './oauthGuard'
 
 WebBrowser.maybeCompleteAuthSession()
 
-const redirectTo = makeRedirectUri({ scheme: 'auracloset' })
+const nativeRedirectTo = makeRedirectUri({ scheme: 'auracloset' })
 
 export async function createSessionFromUrl(url: string) {
   const { params, errorCode } = QueryParams.getQueryParams(url)
@@ -33,7 +34,7 @@ export async function signUpWithEmail(
     email: email.trim().toLowerCase(),
     password,
     options: {
-      emailRedirectTo: redirectTo,
+      emailRedirectTo: nativeRedirectTo,
     },
   })
   if (error) throw new Error(`[signUpWithEmail] ${error.message}`)
@@ -44,6 +45,7 @@ export async function signInWithEmail(
   email: string,
   password: string
 ): Promise<void> {
+  // Step 1: server-side rate-limit + lockout check (Express proxy)
   const url = new URL('/api/auth/sign-in', getApiUrl())
   const res = await fetch(url.toString(), {
     method: 'POST',
@@ -55,8 +57,19 @@ export async function signInWithEmail(
   if (!res.ok) {
     throw new Error(`[signInWithEmail] ${json.error ?? res.statusText}`)
   }
-  if (json.session) {
-    await supabase.auth.setSession(json.session)
+
+  // Step 2: establish the client session directly with Supabase.
+  // We intentionally do NOT call supabase.auth.setSession(json.session) here.
+  // On web, setSession() with processLock can deadlock when the onAuthStateChange
+  // callback fires DB queries that internally call getSession() before the lock
+  // is released. Using signInWithPassword() avoids this entirely and is the
+  // idiomatic Supabase pattern for the anon-key client.
+  const { error } = await supabase.auth.signInWithPassword({
+    email: email.trim().toLowerCase(),
+    password,
+  })
+  if (error) {
+    throw new Error(`[signInWithEmail] ${error.message}`)
   }
 }
 
@@ -80,33 +93,66 @@ export async function updatePassword(newPassword: string): Promise<void> {
 }
 
 export async function signInWithGoogle(): Promise<void> {
+  if (Platform.OS === 'web') {
+    // On web, custom URL schemes (auracloset://) cannot be received by the
+    // browser, so WebBrowser.openAuthSessionAsync would hang indefinitely
+    // waiting for a redirect that never lands. Use a full-page redirect
+    // instead: Supabase calls window.location.assign() and the browser
+    // navigates to Google, completes auth, and returns to this origin.
+    // detectSessionInUrl:true (set in lib/supabase.ts for web) will
+    // auto-process the PKCE code on return.
+    const origin = typeof window !== 'undefined' ? window.location.origin : nativeRedirectTo
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: origin,
+      },
+    })
+    if (error) throw new Error(`[signInWithGoogle] ${error.message}`)
+    // window.location.assign() has been called; the page is navigating away.
+    return
+  }
+
+  // Native: in-app browser with auracloset:// deep-link redirect.
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo,
+      redirectTo: nativeRedirectTo,
       skipBrowserRedirect: true,
     },
   })
   if (error) throw new Error(`[signInWithGoogle] ${error.message}`)
   const result = await WebBrowser.openAuthSessionAsync(
     data?.url ?? '',
-    redirectTo
+    nativeRedirectTo
   )
   await handleOAuthBrowserResult(result as import('./oauthGuard').OAuthBrowserResult, createSessionFromUrl)
 }
 
 export async function signInWithApple(): Promise<void> {
+  if (Platform.OS === 'web') {
+    const origin = typeof window !== 'undefined' ? window.location.origin : nativeRedirectTo
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: origin,
+      },
+    })
+    if (error) throw new Error(`[signInWithApple] ${error.message}`)
+    return
+  }
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'apple',
     options: {
-      redirectTo,
+      redirectTo: nativeRedirectTo,
       skipBrowserRedirect: true,
     },
   })
   if (error) throw new Error(`[signInWithApple] ${error.message}`)
   const result = await WebBrowser.openAuthSessionAsync(
     data?.url ?? '',
-    redirectTo
+    nativeRedirectTo
   )
   await handleOAuthBrowserResult(result as import('./oauthGuard').OAuthBrowserResult, createSessionFromUrl)
 }
