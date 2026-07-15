@@ -338,9 +338,13 @@ export default function BulkReviewScreen() {
       router.back();
       return;
     }
+    const hasAutoSaved = items.some(it => it.status === 'auto-saved');
+    const dialogBody = hasAutoSaved
+      ? 'Some items have already been saved to your wardrobe. Any items still analysing will be discarded.'
+      : 'AI analysis is still running. Leaving now will discard all pending results and you will need to re-upload the photos.';
     Alert.alert(
       'Cancel batch review?',
-      'AI analysis is still running. Leaving now will discard all pending results and you will need to re-upload the photos.',
+      dialogBody,
       [
         { text: 'Keep waiting', style: 'cancel' },
         {
