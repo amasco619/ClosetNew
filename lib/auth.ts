@@ -180,11 +180,28 @@ async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
     await handleOAuthBrowserResult(result, createSessionFromUrl)
   } finally {
     removeListener?.()
-    // If the linking-listener won the race (the deep link arrived while the
-    // browser was still visible), the SFSafariViewController / Chrome Custom
-    // Tab will not close on its own.  Explicitly dismiss it so the user is
-    // returned to the native app after authentication.
-    WebBrowser.dismissAuthSession()
+    // Attempt to close the in-app browser after the race settles.
+    //
+    // iOS — dismissAuthSession() closes SFSafariViewController /
+    //   ASWebAuthenticationSession cleanly.
+    //
+    // Android — dismissAuthSession() internally calls the native
+    //   dismissBrowser method WITHOUT optional-chaining, so if that
+    //   native method is absent it throws UnavailabilityError (the
+    //   error the user was seeing).  The top-level dismissBrowser()
+    //   export DOES use optional-chaining (?.()) so it is safe: it
+    //   closes the Chrome Custom Tab when the native method is present
+    //   and is silently a no-op when it isn't.  In the no-op case the
+    //   Custom Tab remains open until the user closes it manually, but
+    //   by then the app has already navigated to the home screen — this
+    //   is a known Expo Go limitation for custom-scheme OAuth on Android;
+    //   EAS/standalone builds with auracloset:// in AndroidManifest
+    //   handle it cleanly without needing an explicit dismiss.
+    if (Platform.OS === 'ios') {
+      WebBrowser.dismissAuthSession()
+    } else {
+      WebBrowser.dismissBrowser()
+    }
   }
 }
 
