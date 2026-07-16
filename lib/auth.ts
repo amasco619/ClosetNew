@@ -48,9 +48,23 @@ const isExpoGo =
 // existing direct-deep-link path is used unchanged.
 function buildNativeOAuthRedirectTo(): string {
   if (!isExpoGo) return nativeRedirectTo
-  // EXPO_PUBLIC_DOMAIN is set to "$REPLIT_DEV_DOMAIN:5000"; strip the port so
-  // the URL matches the bare Replit domain that is in Supabase's allow-list.
-  const domain = (process.env.EXPO_PUBLIC_DOMAIN ?? '').split(':')[0]
+  // EXPO_PUBLIC_DOMAIN = "$REPLIT_DEV_DOMAIN:5000".  Strip the port first.
+  // REPLIT_DEV_DOMAIN in Replit's agent/runner context is the session-specific
+  // UUID-prefixed domain (e.g. 53ecd44a-...-00-xyz.riker.replit.dev), which
+  // routes to the Expo dev-server web mode — NOT to our Express server on
+  // port 5000.  Supabase's Site URL is the *stable* domain without the UUID
+  // prefix (00-xyz.riker.replit.dev), so sending the UUID domain as redirectTo
+  // causes Supabase to reject it and fall back to the Site URL, silently
+  // dropping the nativeCallback query param we need.
+  //
+  // Fix: strip the UUID prefix (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx-) so we
+  // always use the stable domain that IS in Supabase's allow-list and that
+  // routes to Express on port 5000.
+  const raw = (process.env.EXPO_PUBLIC_DOMAIN ?? '').split(':')[0]
+  const domain = raw.replace(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i,
+    '',
+  )
   return `https://${domain}?nativeCallback=${encodeURIComponent(nativeRedirectTo)}`
 }
 

@@ -190,6 +190,51 @@ function configureExpoAndLanding(app: express.Application) {
     }
 
     if (req.path === "/") {
+      // Expo Go OAuth relay ─────────────────────────────────────────────────
+      // signInWithGoogle (native, Expo Go) passes:
+      //   redirectTo = "https://<domain>?nativeCallback=exp://<devserver>"
+      // Supabase validates the base domain (query-params stripped from the
+      // allow-list check) then redirects here with code= appended.
+      //
+      // Serve a minimal HTML page that sets window.location to the exp:// URL
+      // so ASWebAuthenticationSession (callbackURLScheme = 'exp') can intercept
+      // it and resolve openAuthSessionAsync in the native app — no Supabase
+      // allow-list changes required.
+      const nativeCallback = req.query.nativeCallback
+        ? String(req.query.nativeCallback)
+        : null;
+      const oauthCode = req.query.code ? String(req.query.code) : null;
+
+      if (nativeCallback && oauthCode) {
+        // Security: only relay to registered app schemes.
+        if (
+          nativeCallback.startsWith("auracloset://") ||
+          nativeCallback.startsWith("exp://")
+        ) {
+          const relayParams = new URLSearchParams();
+          relayParams.set("code", oauthCode);
+          const oauthType = req.query.type ? String(req.query.type) : null;
+          if (oauthType) relayParams.set("type", oauthType);
+          const base = nativeCallback.split("?")[0];
+          const targetUrl = `${base}?${relayParams.toString()}`;
+
+          const relayHtml = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Signing in...</title>
+<style>body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;background:#F5F3F0;color:#101826}</style>
+</head>
+<body>
+<script>window.location.href=${JSON.stringify(targetUrl)};</script>
+<p>Signing in to AuraCloset\u2026</p>
+</body>
+</html>`;
+
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+          return res.status(200).send(relayHtml);
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       return serveLandingPage({
         req,
         res,
