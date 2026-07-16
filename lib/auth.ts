@@ -180,6 +180,11 @@ async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
     await handleOAuthBrowserResult(result, createSessionFromUrl)
   } finally {
     removeListener?.()
+    // If the linking-listener won the race (the deep link arrived while the
+    // browser was still visible), the SFSafariViewController / Chrome Custom
+    // Tab will not close on its own.  Explicitly dismiss it so the user is
+    // returned to the native app after authentication.
+    WebBrowser.dismissAuthSession()
   }
 }
 
