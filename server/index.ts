@@ -218,19 +218,20 @@ function configureExpoAndLanding(app: express.Application) {
           const base = nativeCallback.split("?")[0];
           const targetUrl = `${base}?${relayParams.toString()}`;
 
-          const relayHtml = `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Signing in...</title>
-<style>body{display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:sans-serif;background:#F5F3F0;color:#101826}</style>
-</head>
-<body>
-<script>window.location.href=${JSON.stringify(targetUrl)};</script>
-<p>Signing in to AuraCloset\u2026</p>
-</body>
-</html>`;
-
-          res.setHeader("Content-Type", "text/html; charset=utf-8");
-          return res.status(200).send(relayHtml);
+          // Use an HTTP 302 redirect rather than a JS window.location.href.
+          //
+          // Android Chrome Custom Tabs block JavaScript-initiated navigations
+          // to custom URI schemes (exp://, auracloset://) as a security
+          // measure. An HTTP 302 is treated as a genuine navigation event:
+          // Chrome follows the redirect, detects the custom scheme, and
+          // dispatches it as an Android intent — which opens Expo Go and
+          // closes the Custom Tab.
+          //
+          // On iOS, ASWebAuthenticationSession monitors HTTP-level redirects
+          // and intercepts any Location header matching callbackURLScheme
+          // ('exp' or 'auracloset'), so 302 works identically to the JS
+          // approach there.
+          return res.redirect(302, targetUrl);
         }
       }
       // ─────────────────────────────────────────────────────────────────────
