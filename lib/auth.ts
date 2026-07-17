@@ -1,4 +1,4 @@
-import { Platform } from 'react-native'
+import { Platform, AppState } from 'react-native'
 import { makeRedirectUri } from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
@@ -127,33 +127,95 @@ export async function updatePassword(newPassword: string): Promise<void> {
 }
 
 /**
- * Opens the OAuth URL in the in-app browser (ASWebAuthenticationSession on
- * iOS, Chrome Custom Tabs on Android) and waits for the callback URL.
+ * Opens the OAuth URL and waits for the callback URL.
  *
- * On standalone builds redirectTo = auracloset:// (registered in Info.plist).
- * ASWebAuthenticationSession (callbackURLScheme = 'auracloset') intercepts the
- * Supabase redirect directly → browserPromise resolves.
+ * ─── iOS ────────────────────────────────────────────────────────────────────
+ * Uses openAuthSessionAsync (ASWebAuthenticationSession).  In Expo Go the
+ * callbackURLScheme is 'exp'; in standalone builds it is 'auracloset'.
+ * ASWebAuth intercepts the redirect and resolves browserPromise.  A Linking
+ * listener races it as a belt-and-suspenders fallback.  dismissAuthSession()
+ * closes the sheet after the race settles.
  *
- * On Expo Go, auracloset:// is not registered in Expo Go's Info.plist so
- * ASWebAuthenticationSession cannot use it as a callbackURLScheme.
- * Instead, redirectTo = https://<domain>?nativeCallback=exp://<devserver>.
- * Supabase redirects to that HTTPS URL; the Expo web page (running inside the
- * same ASWebAuthenticationSession) reads the nativeCallback param and does
- * window.location.href = 'exp://<devserver>?code=xxx'.  callbackURLScheme = 'exp'
- * (derived from nativeRedirectTo which is exp:// in Expo Go) intercepts that
- * redirect → browserPromise resolves.
+ * ─── Android ────────────────────────────────────────────────────────────────
+ * openAuthSessionAsync on Android routes to expo-web-browser's own
+ * _openAuthSessionPolyfillAsync, which opens a Chrome Custom Tab (CCT).
+ * expo-web-browser's own source code acknowledges the CCT cannot be
+ * programmatically dismissed ("Users on Android need to manually press the
+ * 'x' button in Chrome Custom Tabs, sadly.") — the native Kotlin module
+ * does not implement dismissBrowser at all.
  *
- * A Linking.addEventListener races the browser promise as a belt-and-suspenders
- * fallback for edge cases where ASWebAuth delivers the URL as a regular deep
- * link instead.
+ * Fix: bypass CCT entirely on Android.  Linking.openURL opens the OAuth URL
+ * in the FULL system Chrome app (a separate process).  When Google auth
+ * completes and the server returns 302 → exp://…, Android dispatches that as
+ * a VIEW intent to Expo Go; Chrome goes to the background and Expo Go comes
+ * to the foreground cleanly — no lingering in-app browser overlay and no
+ * dismissal call needed.
+ *
+ * Cancellation is detected via AppState: if the app returns to 'active'
+ * without a linking event firing, the user pressed back in Chrome and the
+ * promise resolves as { type: 'cancel' }, which handleOAuthBrowserResult
+ * treats as a silent no-op.
  */
 async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
   const scheme = nativeRedirectTo.split('://')[0]
 
+  // ── Android: open in the FULL system browser (not a Chrome Custom Tab) ──
+  if (Platform.OS === 'android') {
+    let resolved = false
+    let wentBackground = false
+    let linkingRemove: (() => void) | undefined
+    let appStateSub: ReturnType<typeof AppState.addEventListener> | undefined
+    let cancelTimer: ReturnType<typeof setTimeout> | undefined
+    let cancelResolve: ((r: OAuthBrowserResult) => void) | undefined
+
+    const linkingPromise = new Promise<OAuthBrowserResult>((resolve) => {
+      const sub = Linking.addEventListener('url', (event) => {
+        if (
+          event.url.startsWith(scheme + '://') &&
+          (event.url.includes('code=') || event.url.includes('access_token='))
+        ) {
+          resolved = true
+          resolve({ type: 'success', url: event.url })
+        }
+      })
+      linkingRemove = () => sub.remove()
+    })
+
+    // Resolve as 'cancel' ~400 ms after the app returns to the foreground
+    // without a linking event — covers the user pressing back in Chrome.
+    const cancelPromise = new Promise<OAuthBrowserResult>((resolve) => {
+      cancelResolve = resolve
+      appStateSub = AppState.addEventListener('change', (state) => {
+        if (state === 'background' || state === 'inactive') {
+          wentBackground = true
+        } else if (wentBackground && state === 'active' && !resolved) {
+          // Give linkingPromise a 400 ms head-start before treating this as
+          // a cancellation (the linking event and AppState change are nearly
+          // simultaneous when auth succeeds).
+          cancelTimer = setTimeout(() => {
+            if (!resolved) resolve({ type: 'cancel' })
+          }, 400)
+        }
+      })
+    })
+
+    try {
+      // Open in the system browser (separate process — not a Custom Tab).
+      await Linking.openURL(oauthUrl)
+      const result = await Promise.race([linkingPromise, cancelPromise])
+      await handleOAuthBrowserResult(result, createSessionFromUrl)
+    } finally {
+      resolved = true          // stop the cancel timer from firing after success
+      clearTimeout(cancelTimer)
+      linkingRemove?.()
+      appStateSub?.remove()
+    }
+    return
+  }
+
+  // ── iOS: ASWebAuthenticationSession via openAuthSessionAsync ──────────────
   let removeListener: (() => void) | undefined
 
-  // Linking listener: catches the deep-link if the OS routes the callback URL
-  // to the app directly rather than via ASWebAuthenticationSession.
   const linkingPromise = new Promise<OAuthBrowserResult>((resolve) => {
     const sub = Linking.addEventListener('url', (event) => {
       if (
@@ -166,10 +228,7 @@ async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
     removeListener = () => sub.remove()
   })
 
-  // Browser promise: normal path where ASWebAuth intercepts the redirect.
   const browserPromise = WebBrowser.openAuthSessionAsync(oauthUrl, nativeRedirectTo)
-
-  // Prevent an unhandled-rejection warning from the losing promise.
   browserPromise.catch(() => {})
 
   try {
@@ -180,28 +239,7 @@ async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
     await handleOAuthBrowserResult(result, createSessionFromUrl)
   } finally {
     removeListener?.()
-    // Attempt to close the in-app browser after the race settles.
-    //
-    // iOS — dismissAuthSession() closes SFSafariViewController /
-    //   ASWebAuthenticationSession cleanly.
-    //
-    // Android — dismissAuthSession() internally calls the native
-    //   dismissBrowser method WITHOUT optional-chaining, so if that
-    //   native method is absent it throws UnavailabilityError (the
-    //   error the user was seeing).  The top-level dismissBrowser()
-    //   export DOES use optional-chaining (?.()) so it is safe: it
-    //   closes the Chrome Custom Tab when the native method is present
-    //   and is silently a no-op when it isn't.  In the no-op case the
-    //   Custom Tab remains open until the user closes it manually, but
-    //   by then the app has already navigated to the home screen — this
-    //   is a known Expo Go limitation for custom-scheme OAuth on Android;
-    //   EAS/standalone builds with auracloset:// in AndroidManifest
-    //   handle it cleanly without needing an explicit dismiss.
-    if (Platform.OS === 'ios') {
-      WebBrowser.dismissAuthSession()
-    } else {
-      WebBrowser.dismissBrowser()
-    }
+    WebBrowser.dismissAuthSession()
   }
 }
 
