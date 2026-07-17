@@ -22,7 +22,18 @@
       "adaptiveIcon": {
         "backgroundColor": "#F5F3F0",
         "foregroundImage": "./assets/images/icon.png"
-      }
+      },
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "auracloset"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
