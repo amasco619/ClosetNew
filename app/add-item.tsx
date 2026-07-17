@@ -14,7 +14,7 @@ import { SUBTYPE_FORMALITY, inferFabric, inferFabricWeight } from '@/constants/o
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInUp, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
-import { apiRequest } from '@/lib/query-client';
+import { authenticatedApiRequest } from '@/lib/query-client';
 import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
 import { resolvePhotoUri } from '@/lib/classifyPath';
 import * as Crypto from 'expo-crypto';
@@ -512,7 +512,7 @@ export default function AddItemScreen() {
     warmthBand?: string;
   }> => {
     try {
-      const res  = await apiRequest('POST', '/api/classify-garment', { imageBase64: base64 });
+      const res  = await authenticatedApiRequest('POST', '/api/classify-garment', { imageBase64: base64 });
       const data = await res.json();
       const fallback = localClassifyFallback(cat);
       return {

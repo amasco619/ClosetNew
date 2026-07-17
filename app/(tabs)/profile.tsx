@@ -3,7 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { signOut } from '../../lib/auth';
-import { apiRequest } from '@/lib/query-client';
+import { authenticatedApiRequest } from '@/lib/query-client';
 import { supabase } from '../../lib/supabase';
 import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
@@ -744,7 +744,7 @@ export default function ProfileScreen() {
                             try {
                               const { data: { user } } = await supabase.auth.getUser();
                               if (!user?.id) throw new Error('Not signed in');
-                              await apiRequest('DELETE', '/api/user/delete-account', { userId: user.id });
+                              await authenticatedApiRequest('DELETE', '/api/user/delete-account', { userId: user.id });
                               await signOut();
                               router.replace('/sign-in');
                             } catch (err: any) {

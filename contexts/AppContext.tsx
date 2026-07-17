@@ -19,7 +19,7 @@ import {
   applyOrphanResolution,
 } from '@/constants/orphanDetection';
 import { centroidHsl, hslToLab } from '@/constants/colorPerceptual';
-import { apiRequest } from '@/lib/query-client';
+import { authenticatedApiRequest } from '@/lib/query-client';
 import {
   upsertUserProfile, getUserProfile, getWardrobeItems,
   getSlotStatuses, getWearLogs, getRotationCursors,
@@ -777,7 +777,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           reader.onerror = () => reject(new Error('FileReader failed'));
           reader.readAsDataURL(blob);
         });
-        const apiRes = await apiRequest('POST', '/api/extract-color', {
+        const apiRes = await authenticatedApiRequest('POST', '/api/extract-color', {
           imageBase64: base64,
           colorFamily: it.colorFamily,
         });

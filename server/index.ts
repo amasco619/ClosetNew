@@ -31,10 +31,13 @@ function setupCors(app: express.Application) {
 
     const origin = req.header("origin");
 
-    // Allow localhost origins for Expo web development (any port)
+    // Allow localhost origins for Expo web development (any port).
+    // Restricted to non-production environments only.
+    const isDevelopment = process.env.NODE_ENV !== "production";
     const isLocalhost =
-      origin?.startsWith("http://localhost:") ||
-      origin?.startsWith("http://127.0.0.1:");
+      isDevelopment &&
+      (origin?.startsWith("http://localhost:") ||
+        origin?.startsWith("http://127.0.0.1:"));
 
     if (origin && (origins.has(origin) || isLocalhost)) {
       res.header("Access-Control-Allow-Origin", origin);
@@ -85,7 +88,10 @@ function setupRequestLogging(app: express.Application) {
       const duration = Date.now() - start;
 
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      // Never log response bodies for auth routes — they may contain session
+      // tokens, access tokens, or other credentials.
+      const isAuthRoute = path.startsWith("/api/auth");
+      if (capturedJsonResponse && !isAuthRoute) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
@@ -207,10 +213,18 @@ function configureExpoAndLanding(app: express.Application) {
 
       if (nativeCallback && oauthCode) {
         // Security: only relay to registered app schemes.
-        if (
+        // For auracloset://, any path is fine (production custom scheme).
+        // For exp://, restrict to the current Replit dev domain so an
+        // attacker cannot craft a redirect that forwards auth codes to an
+        // arbitrary Expo Go server.
+        const allowedExpHost = process.env.REPLIT_DEV_DOMAIN ?? null;
+        const isAllowedCallback =
           nativeCallback.startsWith("auracloset://") ||
-          nativeCallback.startsWith("exp://")
-        ) {
+          (nativeCallback.startsWith("exp://") &&
+            allowedExpHost !== null &&
+            nativeCallback.includes(allowedExpHost));
+
+        if (isAllowedCallback) {
           const relayParams = new URLSearchParams();
           relayParams.set("code", oauthCode);
           const oauthType = req.query.type ? String(req.query.type) : null;

@@ -20,7 +20,7 @@ import type { ItemCategory, OccasionTag, SeasonTag } from '@/constants/types';
 import BulkItemEditPanel from '@/components/BulkItemEditPanel';
 import Colors from '@/constants/colors';
 import { SUBTYPE_FORMALITY } from '@/constants/outfitScoring';
-import { apiRequest } from '@/lib/query-client';
+import { authenticatedApiRequest } from '@/lib/query-client';
 import { removeBackground } from '@/lib/photoroom';
 import { resolvePhotoUri } from '@/lib/classifyPath';
 import { uploadWardrobeImage } from '@/lib/storage';
@@ -545,7 +545,7 @@ export default function BulkReviewScreen() {
       ),
       resolvePhotoUri,
       classify: async (imageBase64) => {
-        const res = await apiRequest('POST', '/api/classify-garment', { imageBase64 });
+        const res = await authenticatedApiRequest('POST', '/api/classify-garment', { imageBase64 });
         return res.json();
       },
       setItems: setItems as unknown as ClassifyDeps['setItems'],
