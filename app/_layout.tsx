@@ -3,13 +3,14 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { Platform } from "react-native";
+import * as Linking from "expo-linking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AppProvider } from "@/contexts/AppContext";
-import { EMAIL_CONFIRMED_KEY } from "@/lib/auth";
+import { EMAIL_CONFIRMED_KEY, createSessionFromUrl } from "@/lib/auth";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 import { StatusBar } from "expo-status-bar";
 
@@ -97,6 +98,31 @@ export default function RootLayout() {
     if (fullUrl.includes('type=signup')) {
       AsyncStorage.setItem(EMAIL_CONFIRMED_KEY, '1').catch(() => {});
     }
+  }, []);
+
+  // Android cold-start deep-link handler.
+  //
+  // When the user taps "Sign in with Google", the app opens the full Chrome
+  // browser via Linking.openURL and attaches a Linking.addEventListener to
+  // catch the auracloset:// callback.  That works as long as the app process
+  // stays alive in the background.
+  //
+  // On memory-constrained Android devices the OS can kill the background app
+  // process while Chrome is in the foreground.  When Google auth completes and
+  // Chrome follows the auracloset:// redirect, Android relaunches the app as a
+  // fresh process — the Linking event listener in auth.ts is never attached.
+  //
+  // In that scenario Linking.getInitialURL() returns the deep-link URL at
+  // startup.  We detect the OAuth params here and exchange the PKCE code,
+  // giving the user a seamless sign-in even after a cold restart.
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    Linking.getInitialURL().then((url) => {
+      if (!url) return;
+      if (!url.startsWith('auracloset://')) return;
+      if (!url.includes('code=') && !url.includes('access_token=')) return;
+      createSessionFromUrl(url).catch(() => {});
+    });
   }, []);
 
   if (!fontsLoaded) return null;
