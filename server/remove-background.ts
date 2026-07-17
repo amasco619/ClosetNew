@@ -57,8 +57,9 @@ export async function removeBackground(req: Request, res: Response) {
   let isPremium = false;
   let remainingAfterUse: number | undefined = undefined;
 
-  if (_testOverrides.skipAuth) {
-    // Test-only path: skip all Supabase I/O
+  if (_testOverrides.skipAuth && process.env.NODE_ENV === 'test') {
+    // NM-1: auth bypass is only honoured when NODE_ENV === 'test' so that a
+    // leaked or mutated _testOverrides object in production has no effect.
     userId = _testOverrides.testUserId || "test-user";
   } else {
     const authHeader = req.headers?.authorization;
@@ -110,9 +111,9 @@ export async function removeBackground(req: Request, res: Response) {
   // ── 5. Check image hash cache (avoids paying Photoroom for duplicate images) ──
   // checkCacheByHash handles its own DB errors internally and returns null on
   // failure, so no outer try/catch is needed here.
-  // Cache is bypassed in test mode (_testOverrides.skipAuth) so that mock fetch
+  // Cache is bypassed in test mode (_testOverrides.skipAuth && NODE_ENV=test) so that mock fetch
   // calls are not short-circuited by stale DB entries from previous test runs.
-  const hash = _testOverrides.skipAuth ? null : computeImageHash(imageBase64);
+  const hash = (_testOverrides.skipAuth && process.env.NODE_ENV === 'test') ? null : computeImageHash(imageBase64);
   const cached = hash ? await checkCacheByHash(hash) : null;
   if (cached) {
     // Cache hits do NOT count against the user's quota
@@ -168,7 +169,7 @@ export async function removeBackground(req: Request, res: Response) {
 
     // ── 7. Cache result + increment usage (fire-and-forget, non-blocking) ──
     if (hash) void storeCacheResult(hash, resultBase64);
-    if (!isPremium && !_testOverrides.skipAuth) {
+    if (!isPremium && !(_testOverrides.skipAuth && process.env.NODE_ENV === 'test')) {
       void incrementUserBgRemovalCount(userId);
     }
 

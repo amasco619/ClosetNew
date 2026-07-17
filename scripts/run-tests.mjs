@@ -50,7 +50,12 @@ function runFile(file) {
   const filePath = join(testDir, file);
   return new Promise(resolve => {
     const chunks = [];
-    const proc = spawn(TSX, [filePath], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const proc = spawn(TSX, [filePath], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      // NM-1: ensure _testOverrides.skipAuth bypass in server code is only
+      // active when NODE_ENV === 'test', matching the production guard.
+      env: { ...process.env, NODE_ENV: 'test' },
+    });
     proc.stdout.on('data', d => chunks.push(d));
     proc.stderr.on('data', d => chunks.push(d));
     proc.on('error', err => {

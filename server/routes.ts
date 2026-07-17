@@ -5,6 +5,19 @@ import { extractColor } from "./extract-color";
 import { removeBackground } from "./remove-background";
 import { supabaseAdmin, supabaseAuth } from "./supabase";
 import { aiLimiter, bgRemovalLimiter, colorLimiter, accountLimiter, authLimiter, resetLimiter, checkAccountLockout, recordFailedAttempt, clearLockout } from "./middleware/rateLimiter";
+// P-E: cap simultaneous AI calls so a burst cannot exhaust Gemini / GCV
+// memory or connections. Extras are queued, not rejected (the rate limiter
+// above handles outright rejection). Max 5 concurrent AI invocations.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pLimit = require("p-limit");
+const _aiSlots = pLimit(5) as <T>(fn: () => Promise<T>) => Promise<T>;
+/** Wraps an Express handler so it runs inside the AI concurrency slot pool. */
+function withAiLimit(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  handler: (req: Request, res: Response) => Promise<any> | void
+): (req: Request, res: Response) => void {
+  return (req, res) => { void _aiSlots(() => Promise.resolve(handler(req, res))); };
+}
 
 interface AuthenticatedRequest extends Request {
   authenticatedUser: { id: string; email?: string };
@@ -38,9 +51,9 @@ async function requireAuth(req: Request, res: Response, next: NextFunction): Pro
 export async function registerRoutes(app: Express): Promise<Server> {
   // ── AI endpoints: authentication required ────────────────────────────────
   // Without auth, anyone can exhaust Gemini / Google Vision quota.
-  app.post("/api/classify-garment", aiLimiter, requireAuth, classifyGarment);
-  app.post("/api/extract-color", colorLimiter, requireAuth, extractColor);
-  app.post("/api/remove-background", bgRemovalLimiter, removeBackground);
+  app.post("/api/classify-garment", aiLimiter, requireAuth, withAiLimit(classifyGarment));
+  app.post("/api/extract-color", colorLimiter, requireAuth, withAiLimit(extractColor));
+  app.post("/api/remove-background", bgRemovalLimiter, withAiLimit(removeBackground));
 
   app.post("/api/auth/sign-in", authLimiter, async (req, res) => {
     const { email, password } = req.body;

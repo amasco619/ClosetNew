@@ -19,7 +19,8 @@
 9. [Implemented Features](#9-implemented-features)
 10. [Pending Features](#10-pending-features)
 11. [Testing & Quality](#11-testing--quality)
-12. [Key Conventions](#12-key-conventions)
+12. [Security](#12-security)
+13. [Key Conventions](#13-key-conventions)
 
 ---
 
@@ -1054,14 +1055,16 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (26 total)
+### Test Suites (31 total)
 
 | Suite | What it tests |
 |-------|--------------|
 | `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival, prune-interval state, DB integration (skipped when `DATABASE_URL` absent) |
+| `androidOAuthCancel.test.ts` | Android OAuth cancellation path: `useEffect` cleanup, loading-spinner reset on cancel, no stuck-spinner regression |
 | `blueprint-image-sync.test.ts` | Every blueprint slot imageKey maps to a valid SAMPLE_IMAGES entry (no broken placeholder fallbacks) |
 | `blueprint-lifestyle-slots.test.ts` | Lifestyle slot group thresholds across all 6 blueprints (group existence, category ordering, proportionality) |
 | `blueprint-slots.test.ts` | Slot structure invariants (required fields, valid categories, no duplicate IDs) |
+| `bulkAutoPersist.test.ts` | Bulk-review auto-persist: items are saved incrementally as classification completes, not only on final submit |
 | `bulkCarousel.test.ts` | Bulk-review carousel scroll contract: index clamping, null FlatList ref guard, empty-list safety |
 | `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard in bulk-review: async state setters are not called after the component unmounts |
 | `bulkSaveLock.test.ts` | Save-lock ref in bulk-review: concurrent save attempts are blocked by the `saveLockRef` guard |
@@ -1072,6 +1075,7 @@ These features are **not yet implemented**. They are the next development priori
 | `guestPhotoCleanup.test.ts` | `deleteGuestPhoto`, `runGuestRemoval`, `buildGuestPhotoDestPath` — cleanup guard (URI must start with documentDirectory), idempotent delete, rejection propagation, per-deletion isolation |
 | `lifestyle-blueprint.test.ts` | Lifestyle weight ordering and category priority adjustments |
 | `lifestyleSlotGroups.test.ts` | Slot group activation thresholds for active and brunch lifestyles |
+| `oauthDismissGuard.test.ts` | OAuth dismiss guard: browser session cleanup on back-navigation and modal dismiss |
 | `outfitComboScorer.test.ts` | Colour harmony scoring, combo scoring, proportion-balance, metal-cohesion |
 | `outfitGenerator.test.ts` | Outfit generation correctness, scenario hero coverage, "just added" suggestions |
 | `outfitGroupCompletion.test.ts` | Outfit group completeness scoring, recipe slot-ID cross-check against blueprint output, `hasSubstitution` flag when constraint-excluded slots are the only missing piece |
@@ -1082,6 +1086,8 @@ These features are **not yet implemented**. They are the next development priori
 | `rateLimiter.test.ts` | Per-limiter blocking + 429 response shape, standard headers, `PgRateLimitStore` fallback behaviour, `LIMITER_CONFIGS` key completeness and security bounds, `loadFromDb()` no-throw contract, `_consecutiveDbFailuresForTesting` counter |
 | `rebaseGuestPhotoUri.test.ts` | `rebaseGuestPhotoUri()`: prefix unchanged, old prefix rebased, non-guest URIs untouched, malformed filenames untouched, edge cases (empty currentDocDir, same prefix) |
 | `removeBackground.test.ts` | `resolveClassifyBase64`/`selectClassifyPayload`/`resolvePhotoUri` pipeline helpers; server handler error codes (503 missing key, 400 missing body, 502 non-OK/empty-body/network-error/AbortError/mid-stream AbortError); `resolveWardrobeUploadArg`/`stripDataUriPrefix` |
+| `signInWithEmail.test.ts` | Email sign-in flow: credential validation, Supabase auth call, error propagation |
+| `signUpWithEmail.test.ts` | Email sign-up flow: input validation, Supabase account creation, error handling |
 | `wardrobeDiagnostics.test.ts` | `computeDiagnostics` health score, category stats, scenario coverage; `ALL_SCENARIOS` export integrity and alignment with `computeDiagnostics` output |
 | `weather.test.ts` | Weather-aware outerwear rules (temperature gating, rain-friendly subtype bias) |
 
@@ -1106,7 +1112,115 @@ All exhaustive `Record<UnionType, V>` maps across the codebase carry `satisfies 
 
 ---
 
-## 12. Key Conventions
+## 12. Security
+
+This section documents every security remediation applied to the codebase and the rationale for each decision. New developers must understand these constraints before modifying the affected files.
+
+### Applied Remediations
+
+#### NC-1 — Client cannot elevate its own premium status
+
+**Severity:** Critical  
+**File:** `lib/database.ts`, `contexts/AppContext.tsx`
+
+`upsertUserProfile()` no longer accepts a `premium` field. The parameter type explicitly omits it. The `togglePremium` function in `AppContext` writes only to AsyncStorage (local dev toggle) — it does not write to Supabase. The **only** authoritative write path for the `premium` column is the server-side `POST /api/user/upgrade-premium` endpoint, which is protected by `requireAuth` and uses the Supabase Admin client with `SUPABASE_SERVICE_ROLE_KEY`.
+
+**Rule:** Never add `premium` back to `upsertUserProfile`. Any premium-setting logic must go through the server endpoint.
+
+---
+
+#### NH-1 — Delete/update operations scoped to the owning user
+
+**Severity:** High  
+**File:** `lib/database.ts`
+
+`deleteWardrobeItem(userId, itemId)`, `deleteWearLog(userId, logId)`, and `updateWardrobeItemAffinity(userId, itemId, affinity)` all now include `.eq('user_id', userId)` in addition to `.eq('id', ...)`. Without this, a caller that somehow obtains a foreign item ID could delete or mutate another user's data. Supabase RLS policies provide a server-side backstop, but defence-in-depth requires the query itself to be scoped.
+
+**Rule:** Every `DELETE` and `UPDATE` on user-owned rows must filter on both `id` and `user_id`.
+
+---
+
+#### NH-2 — Outbound axios timeout on extract-color
+
+**Severity:** High  
+**File:** `server/extract-color.ts`
+
+The `axios.post` call to Google Cloud Vision now passes `{ timeout: 20_000 }` (20 seconds). Without a timeout, a slow or hung GCV response would stall the Node.js event loop for an unbounded duration, blocking all subsequent requests on the same thread.
+
+---
+
+#### NM-1 — Test auth bypass gated by NODE_ENV
+
+**Severity:** Medium  
+**File:** `server/remove-background.ts`, `scripts/run-tests.mjs`
+
+`_testOverrides.skipAuth` now only bypasses authentication when `process.env.NODE_ENV === 'test'`. In production (`NODE_ENV=development` or `NODE_ENV=production`) the override is ignored even if someone mutates the exported object. The test runner (`scripts/run-tests.mjs`) now explicitly sets `NODE_ENV=test` in every child process environment so that the test suite continues to work correctly.
+
+**Rule:** Never remove the `process.env.NODE_ENV === 'test'` guard from `_testOverrides` checks.
+
+---
+
+#### NM-2 — bg_removal_cache TTL prune
+
+**Severity:** Medium  
+**File:** `server/bgRemovalStore.ts`
+
+The `bg_removal_cache` Postgres table previously grew without bound — every background-removed image was stored forever. `initBgRemovalStore()` now runs `pruneBgRemovalCache()` once on startup and then every 24 hours via `setInterval`. The prune deletes all rows where `created_at < NOW() - INTERVAL '30 days'`. The in-memory LRU cap (200 entries) was already in place; the DB prune closes the disk-growth gap.
+
+---
+
+#### NM-3 — Web session uses sessionStorage instead of localStorage
+
+**Severity:** Medium  
+**File:** `lib/supabase.ts`
+
+On the `web` platform, Supabase previously defaulted to `localStorage`, which persists auth tokens across tabs and browser restarts. The `SessionStorageAdapter` now passed to `createClient` uses `window.sessionStorage`, scoping tokens to the current browser tab. Tokens are automatically cleared when the tab closes, reducing the cross-tab token-theft surface.
+
+**Note:** This only affects the Expo web platform (used for development preview and the OAuth relay page). Native iOS/Android continues to use `expo-secure-store` via `SecureStoreAdapter`.
+
+---
+
+#### P-A — 90-day window on affinity signal queries
+
+**Severity:** Performance  
+**File:** `lib/database.ts`
+
+`getAffinitySignals()` and `getPairAffinitySignals()` now include `.gte('logged_at', cutoff)` where `cutoff` is 90 days ago. The affinity engine applies a 60-day half-life decay, so signals older than 90 days contribute less than 0.25% weight to any multiplier. Fetching them added unbounded query size and startup latency as users accumulated history. The 90-day window caps the row count at a predictable ceiling.
+
+---
+
+#### P-E — AI endpoint concurrency limited to 5 simultaneous calls
+
+**Severity:** Performance  
+**File:** `server/routes.ts`
+
+`p-limit` (v3, CJS-compatible, already a project dependency) caps simultaneous calls to `/api/classify-garment`, `/api/extract-color`, and `/api/remove-background` at 5 concurrent AI invocations. Requests beyond the limit are queued — not rejected (the per-endpoint rate limiters handle outright rejection). This prevents a burst of requests from simultaneously exhausting Gemini / GCV memory or connection limits.
+
+---
+
+### First-Pass Remediations (already applied in prior sessions)
+
+| ID | Description | Files |
+|----|-------------|-------|
+| C-1 | `requireAuth` on `POST /api/user/upgrade-premium` | `server/routes.ts` |
+| C-2 | `requireAuth` on `DELETE /api/user/delete-account` | `server/routes.ts` |
+| H-1 | OAuth relay allowlist — `nativeCallback` redirect only bounces to `exp://` scheme, not arbitrary URLs | `app/_layout.tsx` |
+| H-2 | `requireAuth` on `POST /api/classify-garment` and `POST /api/extract-color`; `authenticatedApiRequest` on all client call-sites | `server/routes.ts`, `lib/query-client.ts` |
+| H-4 | CVE upgrade: `drizzle-orm` (GHSA-2m91-8mvq-fwwg) | `package.json` |
+| H-5 | CVE upgrade: `http-proxy-middleware` (prototype pollution) | `package.json` |
+| M-1 | CORS `localhost` origin gated on `NODE_ENV !== 'production'` | `server/index.ts` |
+| M-2 | Auth route bodies excluded from request logging to prevent credential leakage in logs | `server/index.ts` |
+| M-3 | CVE upgrade: `form-data` | `package.json` |
+
+### Known Infrastructure-Level Recommendations
+
+These require Supabase dashboard changes and cannot be enforced from application code alone:
+
+- **NM-4 — Wardrobe image bucket access:** The `wardrobe-images` Supabase Storage bucket should be set to **private** in the Supabase dashboard, with signed URLs generated at read time (1-hour TTL) instead of permanent public URLs. This prevents unauthenticated enumeration of user wardrobe photos. Current implementation uses public URLs with UUID-based paths (low practical risk, but should be hardened for production).
+
+---
+
+## 13. Key Conventions
 
 | Convention | Rule |
 |-----------|------|

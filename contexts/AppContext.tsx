@@ -945,7 +945,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const updated = prev.filter(e => e.id !== entryId);
       AsyncStorage.setItem(STORAGE_KEYS.wearHistory, JSON.stringify(updated));
       if (currentUserIdRef.current) {
-        deleteWearLog(entryId).catch(console.error);
+        deleteWearLog(currentUserIdRef.current, entryId).catch(console.error);
       }
       return updated;
     });
@@ -1096,7 +1096,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const removeWardrobeItem = useCallback((id: string) => {
     if (currentUserIdRef.current) {
-      deleteWardrobeItem(id).catch(console.error);
+      deleteWardrobeItem(currentUserIdRef.current, id).catch(console.error);
       const item = wardrobeItems.find(i => i.id === id);
       if (item?.photoUri) {
         deleteWardrobeImage(currentUserIdRef.current!, id).catch(console.warn);
@@ -1169,9 +1169,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setIsPremium(prev => {
       const updated = !prev;
       AsyncStorage.setItem(STORAGE_KEYS.premium, JSON.stringify(updated));
-      if (currentUserIdRef.current) {
-        upsertUserProfile({ id: currentUserIdRef.current, premium: updated }).catch(console.error);
-      }
+      // NC-1: premium status must never be written client-side to Supabase.
+      // The server-side /api/user/upgrade-premium endpoint is the sole
+      // authoritative write path for the premium column.
       return updated;
     });
   }, []);

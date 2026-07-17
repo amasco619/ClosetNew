@@ -19,6 +19,19 @@ const SecureStoreAdapter = {
   removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 }
 
+// NM-3: On web, use sessionStorage instead of the default localStorage so
+// that auth tokens are scoped to the browser tab and are not accessible to
+// other tabs or persisted beyond the session. sessionStorage is also cleared
+// automatically when the tab closes, reducing the token-theft surface.
+const SessionStorageAdapter = typeof window !== 'undefined' && window.sessionStorage ? {
+  getItem: (key: string): Promise<string | null> =>
+    Promise.resolve(window.sessionStorage.getItem(key)),
+  setItem: (key: string, value: string): Promise<void> =>
+    Promise.resolve(window.sessionStorage.setItem(key, value)),
+  removeItem: (key: string): Promise<void> =>
+    Promise.resolve(window.sessionStorage.removeItem(key)),
+} : null
+
 // When the Expo Go OAuth relay is active, the web app loads inside
 // ASWebAuthenticationSession carrying ?nativeCallback=<exp-url>&code=<code>.
 // Suppress detectSessionInUrl so Supabase doesn't try to exchange the PKCE
@@ -37,7 +50,7 @@ export const supabase = createClient(
     auth: {
       ...(Platform.OS !== 'web'
         ? { storage: SecureStoreAdapter }
-        : {}),
+        : SessionStorageAdapter ? { storage: SessionStorageAdapter } : {}),
       autoRefreshToken: true,
       persistSession: true,
       // On web: true so Supabase auto-processes the PKCE code (or hash tokens)

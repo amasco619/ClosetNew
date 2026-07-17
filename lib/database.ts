@@ -16,10 +16,13 @@ export async function upsertUserProfile(profile: {
   constraints?: Record<string, any>
   location_lat?: number
   location_lon?: number
-  premium?: boolean
   onboarding_complete?: boolean
   is_guest?: boolean
 }): Promise<void> {
+  // NC-1: `premium` is intentionally absent from this function's parameter type.
+  // Client code must never elevate its own premium status. The only write path
+  // for the `premium` column is the server-side /api/user/upgrade-premium
+  // endpoint, which is authenticated and server-authoritative.
   const { error } = await supabase
     .from('user_profiles')
     .upsert(profile, { onConflict: 'id' })
@@ -74,23 +77,29 @@ export async function getWardrobeItems(userId: string): Promise<any[]> {
   return data ?? []
 }
 
-export async function deleteWardrobeItem(itemId: string): Promise<void> {
+export async function deleteWardrobeItem(userId: string, itemId: string): Promise<void> {
+  // NH-1: always scope the delete to the owning user so a caller cannot delete
+  // another user's item even if they somehow obtain a foreign item ID.
   const { error } = await supabase
     .from('wardrobe_items')
     .delete()
     .eq('id', itemId)
+    .eq('user_id', userId)
   if (error) throw new Error(`[deleteWardrobeItem] ${error.message}`)
 }
 
 export async function updateWardrobeItemAffinity(
+  userId: string,
   itemId: string,
   affinity: number
 ): Promise<void> {
+  // NH-1: scope update to the owning user.
   const clamped = Math.min(1.3, Math.max(0.7, affinity))
   const { error } = await supabase
     .from('wardrobe_items')
     .update({ item_affinity: clamped, updated_at: new Date().toISOString() })
     .eq('id', itemId)
+    .eq('user_id', userId)
   if (error) throw new Error(`[updateWardrobeItemAffinity] ${error.message}`)
 }
 
@@ -158,11 +167,13 @@ export async function getWearLogs(userId: string): Promise<any[]> {
   return data ?? []
 }
 
-export async function deleteWearLog(logId: string): Promise<void> {
+export async function deleteWearLog(userId: string, logId: string): Promise<void> {
+  // NH-1: scope the delete to the owning user.
   const { error } = await supabase
     .from('wear_logs')
     .delete()
     .eq('id', logId)
+    .eq('user_id', userId)
   if (error) throw new Error(`[deleteWearLog] ${error.message}`)
 }
 
@@ -179,10 +190,14 @@ export async function insertAffinitySignal(signal: {
 }
 
 export async function getAffinitySignals(userId: string): Promise<any[]> {
+  // P-A: only load signals from the past 90 days (the affinity engine uses a
+  // 60-day half-life, so older signals contribute < 0.25% weight anyway).
+  const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
   const { data, error } = await supabase
     .from('affinity_signals')
     .select('*')
     .eq('user_id', userId)
+    .gte('logged_at', cutoff)
     .order('logged_at', { ascending: false })
   if (error) throw new Error(`[getAffinitySignals] ${error.message}`)
   return data ?? []
@@ -202,10 +217,13 @@ export async function insertPairAffinitySignal(signal: {
 }
 
 export async function getPairAffinitySignals(userId: string): Promise<any[]> {
+  // P-A: mirror the 90-day window applied to item-level affinity signals.
+  const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
   const { data, error } = await supabase
     .from('pair_affinity_signals')
     .select('*')
     .eq('user_id', userId)
+    .gte('logged_at', cutoff)
   if (error) throw new Error(`[getPairAffinitySignals] ${error.message}`)
   return data ?? []
 }

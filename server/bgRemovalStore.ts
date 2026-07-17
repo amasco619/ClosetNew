@@ -54,8 +54,27 @@ export async function initBgRemovalStore(): Promise<void> {
       )
     `);
     console.log("[bgRemovalStore] tables ready");
+
+    // NM-2: prune stale cache entries once at startup and then every 24 h so
+    // the bg_removal_cache table cannot grow without bound.
+    await pruneBgRemovalCache(pool);
+    setInterval(() => pruneBgRemovalCache(pool!), 24 * 60 * 60 * 1000);
   } catch (err) {
     console.error("[bgRemovalStore] table init failed:", err);
+  }
+}
+
+async function pruneBgRemovalCache(pool: Pool): Promise<void> {
+  try {
+    const result = await pool.query(
+      `DELETE FROM bg_removal_cache WHERE created_at < NOW() - INTERVAL '30 days'`
+    );
+    const removed = result.rowCount ?? 0;
+    if (removed > 0) {
+      console.log(`[bgRemovalStore] pruned ${removed} stale cache entries`);
+    }
+  } catch (err) {
+    console.error("[bgRemovalStore] prune failed:", err);
   }
 }
 

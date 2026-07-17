@@ -97,6 +97,7 @@ export async function extractColor(req: Request, res: Response) {
           features: [{ type: "IMAGE_PROPERTIES" }],
         }],
       },
+      { timeout: 20_000 }, // NH-2: cap outbound I/O so a slow GCV response cannot stall the event loop
     );
 
     const dominantColors: Array<{
