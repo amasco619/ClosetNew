@@ -10,6 +10,7 @@ import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { OccasionTag } from '@/constants/types';
 import { computeItemCpw, formatCpw, computeWardrobeDividends, DividendItem } from '@/constants/cpw';
+import { rs } from '../lib/responsive';
 
 const FREE_LOG_DAYS = 7;
 
@@ -338,8 +339,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: Colors.border,
   },
-  title: { fontFamily: 'Inter_700Bold', fontSize: 24, color: Colors.primary, letterSpacing: -0.5 },
-  subtitle: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 1 },
+  title: { fontFamily: 'Inter_700Bold', fontSize: rs(24), color: Colors.primary, letterSpacing: -0.5 },
+  subtitle: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 1 },
 
   freeNotice: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -348,12 +349,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 10,
     borderWidth: 1, borderColor: Colors.secondary + '30',
   },
-  freeNoticeText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, flex: 1 },
+  freeNoticeText: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, flex: 1 },
   freeNoticePill: {
     backgroundColor: Colors.secondary + '18', borderRadius: 8,
     paddingHorizontal: 8, paddingVertical: 3,
   },
-  freeNoticePillText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: Colors.secondary },
+  freeNoticePillText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(10), color: Colors.secondary },
 
   scrollContent: { paddingHorizontal: 20 },
 
@@ -367,11 +368,11 @@ const styles = StyleSheet.create({
   dividendsHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 4 },
   dividendsAccent: { display: 'none' },
   dividendsSectionLabel: {
-    fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.secondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(10), color: Colors.secondary,
     textTransform: 'uppercase', letterSpacing: 1.0, marginBottom: 2,
   },
   dividendsTitle: {
-    fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary, letterSpacing: -0.2,
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(15), color: Colors.primary, letterSpacing: -0.2,
   },
   dividendsBadge: {
     width: 28, height: 28, borderRadius: 8,
@@ -379,7 +380,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   dividendsSub: {
-    fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary,
     marginBottom: 14, lineHeight: 15,
   },
   dividendsRow: { gap: 12 },
@@ -397,19 +398,19 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background,
   },
   dividendName: {
-    fontFamily: 'Inter_500Medium', fontSize: 10, color: Colors.primary,
+    fontFamily: 'Inter_500Medium', fontSize: rs(10), color: Colors.primary,
     textTransform: 'capitalize', textAlign: 'center', marginBottom: 5,
   },
   dividendCpw: {
-    fontFamily: 'Inter_700Bold', fontSize: 14, color: Colors.secondary,
+    fontFamily: 'Inter_700Bold', fontSize: rs(14), color: Colors.secondary,
     letterSpacing: -0.3, textAlign: 'center',
   },
   dividendPerWear: {
-    fontFamily: 'Inter_400Regular', fontSize: 9, color: Colors.textLight,
+    fontFamily: 'Inter_400Regular', fontSize: rs(9), color: Colors.textLight,
     textAlign: 'center', marginBottom: 4,
   },
   dividendWears: {
-    fontFamily: 'Inter_400Regular', fontSize: 9, color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(9), color: Colors.textSecondary,
     textAlign: 'center',
   },
 
@@ -418,9 +419,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginBottom: 12, marginTop: 8,
   },
-  dateLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, flexShrink: 0 },
+  dateLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary, flexShrink: 0 },
   dateDivider: { flex: 1, height: 1, backgroundColor: Colors.border },
-  dayCount: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, flexShrink: 0 },
+  dayCount: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight, flexShrink: 0 },
 
   entryCard: {
     backgroundColor: Colors.white, borderRadius: 16, padding: 14,
@@ -432,8 +433,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background, borderRadius: 8,
     paddingHorizontal: 10, paddingVertical: 4,
   },
-  scenarioLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.primary },
-  entryTime: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight },
+  scenarioLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: Colors.primary },
+  entryTime: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight },
 
   thumbsRow: { gap: 10, paddingBottom: 4 },
   thumbWrap: { alignItems: 'center', width: 68 },
@@ -443,11 +444,11 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   thumbLabel: {
-    fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(10), color: Colors.textSecondary,
     textTransform: 'capitalize', textAlign: 'center',
   },
   heroPieceLabel: {
-    fontFamily: 'Inter_500Medium', fontSize: 9, color: Colors.secondary,
+    fontFamily: 'Inter_500Medium', fontSize: rs(9), color: Colors.secondary,
     textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 3, textAlign: 'center',
   },
   cpwChip: {
@@ -456,16 +457,16 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.secondary + '25',
   },
   cpwChipText: {
-    fontFamily: 'Inter_600SemiBold', fontSize: 9, color: Colors.secondary, textAlign: 'center',
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(9), color: Colors.secondary, textAlign: 'center',
   },
 
-  noItemsText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, fontStyle: 'italic' },
+  noItemsText: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight, fontStyle: 'italic' },
 
   undoButton: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border,
   },
-  undoText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary },
+  undoText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary },
 
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40, paddingBottom: 80 },
   emptyIcon: {
@@ -473,9 +474,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center', marginBottom: 20,
   },
-  emptyTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 20, color: Colors.primary, textAlign: 'center' },
+  emptyTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(20), color: Colors.primary, textAlign: 'center' },
   emptySubtitle: {
-    fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary,
     textAlign: 'center', lineHeight: 20, marginTop: 10,
   },
   emptyAction: {
@@ -483,7 +484,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary, borderRadius: 12,
     paddingHorizontal: 20, paddingVertical: 12, marginTop: 24,
   },
-  emptyActionText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.white },
+  emptyActionText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.white },
 
   historyGate: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -491,6 +492,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.secondary + '30',
     marginBottom: 16,
   },
-  historyGateTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary },
-  historyGateSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 2, lineHeight: 15 },
+  historyGateTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.primary },
+  historyGateSub: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, marginTop: 2, lineHeight: 15 },
 });

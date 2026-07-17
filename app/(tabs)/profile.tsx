@@ -14,6 +14,7 @@ import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weathe
 import CollapsibleSection from '@/components/CollapsibleSection';
 import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/constants/lifestyle';
 import * as Haptics from 'expo-haptics';
+import { rs } from '../../lib/responsive';
 
 const HAIR_OPTS: { id: HairColor; label: string }[] = [
   { id: 'black', label: 'Black' }, { id: 'dark-brown', label: 'Dark Brown' },
@@ -791,7 +792,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   avatarInitials: {
-    fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.secondary, letterSpacing: -0.5,
+    fontFamily: 'Inter_700Bold', fontSize: rs(28), color: Colors.secondary, letterSpacing: -0.5,
   },
   avatarEditBadge: {
     position: 'absolute', bottom: 1, right: 1,
@@ -801,8 +802,8 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: Colors.background,
   },
   nameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  heroName: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary, letterSpacing: -0.4 },
-  heroEmail: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, marginBottom: 10, letterSpacing: 0.1 },
+  heroName: { fontFamily: 'Inter_700Bold', fontSize: rs(22), color: Colors.primary, letterSpacing: -0.4 },
+  heroEmail: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight, marginBottom: 10, letterSpacing: 0.1 },
   tierBadge: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20,
@@ -810,11 +811,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
   },
   tierBadgePremium: { borderColor: Colors.secondary + '50', backgroundColor: Colors.secondary + '10' },
-  tierBadgeText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary, letterSpacing: 0.3 },
+  tierBadgeText: { fontFamily: 'Inter_500Medium', fontSize: rs(11), color: Colors.textSecondary, letterSpacing: 0.3 },
   tierBadgeTextPremium: { color: Colors.secondary },
   nameEditRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 8 },
   nameInput: {
-    fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary,
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(18), color: Colors.primary,
     borderBottomWidth: 1.5, borderBottomColor: Colors.secondary,
     paddingVertical: 4, paddingHorizontal: 8, minWidth: 130, textAlign: 'center',
   },
@@ -828,20 +829,20 @@ const styles = StyleSheet.create({
   },
   statCell: { flex: 1, alignItems: 'center' },
   statNum: {
-    fontFamily: 'Inter_700Bold', fontSize: 26, color: Colors.primary,
+    fontFamily: 'Inter_700Bold', fontSize: rs(26), color: Colors.primary,
     letterSpacing: -0.5, fontVariant: ['tabular-nums'],
   },
-  statLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 3 },
+  statLabel: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, marginTop: 3 },
   statDivider: { width: 1, backgroundColor: Colors.border, marginVertical: 6 },
 
   // ── Section headers ───────────────────────────────────────────────────────
   sectionHeaderBlock: { marginBottom: 10 },
   sectionLabel: {
-    fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textLight,
+    fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textLight,
     letterSpacing: 0.9, textTransform: 'uppercase', marginBottom: 3,
   },
   sectionTitle: {
-    fontFamily: 'Inter_700Bold', fontSize: 20, color: Colors.primary, letterSpacing: -0.4,
+    fontFamily: 'Inter_700Bold', fontSize: rs(20), color: Colors.primary, letterSpacing: -0.4,
   },
 
   // ── Card ─────────────────────────────────────────────────────────────────
@@ -856,15 +857,15 @@ const styles = StyleSheet.create({
   dnaPill: {
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
   },
-  dnaPillText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, letterSpacing: -0.1 },
+  dnaPillText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), letterSpacing: -0.1 },
   dnaEmpty: { padding: 16 },
-  dnaEmptyText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textLight, fontStyle: 'italic' },
+  dnaEmptyText: { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textLight, fontStyle: 'italic' },
   dnaQuizLink: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 16, paddingVertical: 12,
     borderTopWidth: 1, borderTopColor: Colors.border,
   },
-  dnaQuizLinkText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary },
+  dnaQuizLinkText: { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary },
 
   // ── Chip system ───────────────────────────────────────────────────────────
   chip: {
@@ -872,15 +873,15 @@ const styles = StyleSheet.create({
     borderRadius: 12, borderWidth: 1,
     minHeight: 36,
   },
-  chipText: { fontFamily: 'Inter_500Medium', fontSize: 13 },
+  chipText: { fontFamily: 'Inter_500Medium', fontSize: rs(13) },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
   chipGroupLabel: {
-    fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium', fontSize: rs(11), color: Colors.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.7,
     paddingHorizontal: 16, marginTop: 16, marginBottom: 8,
   },
   chipGroupSub: {
-    fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight,
+    fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight,
     paddingHorizontal: 16, marginTop: -4, marginBottom: 8,
   },
 
@@ -890,20 +891,20 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: Colors.border,
   },
   lifestyleScenarioLabel: {
-    fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary,
+    fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.primary,
     letterSpacing: -0.1, marginBottom: 8,
   },
   lifestyleChipRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 4,
   },
   lifestyleZeroWarning: {
-    fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary,
     paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, lineHeight: 18,
   },
 
   // ── Refinement help text ──────────────────────────────────────────────────
   refineHelp: {
-    fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textLight,
+    fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textLight,
     paddingHorizontal: 16, paddingVertical: 14, lineHeight: 19,
     borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
@@ -914,22 +915,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14,
   },
   toggleRowBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
-  toggleLabel: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.primary },
-  toggleSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2, lineHeight: 17 },
+  toggleLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(14), color: Colors.primary },
+  toggleSub: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 2, lineHeight: 17 },
 
   // ── Setting rows (unused, kept for future) ────────────────────────────────
   settingRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
   settingRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
   settingIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   settingBody: { flex: 1 },
-  settingLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary },
-  settingValue: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, marginTop: 1 },
+  settingLabel: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary },
+  settingValue: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary, marginTop: 1 },
 
   // ── Feature rows (Wear Log, Premium features) ─────────────────────────────
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
   featureIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  featureLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, letterSpacing: -0.1 },
-  featureSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  featureLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary, letterSpacing: -0.1 },
+  featureSub: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 2 },
   featureDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 16 },
 
   // ── Collapse header (for affinity section) ────────────────────────────────
@@ -946,14 +947,14 @@ const styles = StyleSheet.create({
 
   // ── Affinity / Intelligence ───────────────────────────────────────────────
   affinityStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  affinityStatus: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
+  affinityStatus: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.textSecondary },
   affinityHelp: {
-    fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight,
+    fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight,
     paddingHorizontal: 16, paddingVertical: 12, lineHeight: 18,
     borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
   affinityGroupTitle: {
-    fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium', fontSize: rs(11), color: Colors.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.6,
     paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6,
   },
@@ -962,16 +963,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 6,
   },
   affinityDot: { width: 7, height: 7, borderRadius: 4 },
-  affinityItemLabel: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.primary },
-  affinityItemScore: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
-  affinityEmpty: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textLight, paddingHorizontal: 16, paddingBottom: 10, fontStyle: 'italic' },
+  affinityItemLabel: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.primary },
+  affinityItemScore: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
+  affinityEmpty: { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textLight, paddingHorizontal: 16, paddingBottom: 10, fontStyle: 'italic' },
 
   // ── Manage button ─────────────────────────────────────────────────────────
   manageBtn: {
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10,
     borderWidth: 1, borderColor: Colors.border,
   },
-  manageBtnText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
+  manageBtnText: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.textSecondary },
 
   // ── Upgrade card (when not premium) ──────────────────────────────────────
   upgradeCard: {
@@ -991,15 +992,15 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     flexShrink: 0,
   },
-  upgradeCardTitle: { fontFamily: 'Inter_700Bold', fontSize: 15, color: Colors.primary, letterSpacing: -0.2 },
-  upgradeCardSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 3 },
+  upgradeCardTitle: { fontFamily: 'Inter_700Bold', fontSize: rs(15), color: Colors.primary, letterSpacing: -0.2 },
+  upgradeCardSub: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 3 },
   upgradeFeatures: {
     paddingHorizontal: 16, paddingBottom: 16, gap: 10,
     borderTopWidth: 1, borderTopColor: Colors.secondary + '15',
     paddingTop: 14,
   },
   upgradeFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  upgradeFeatureText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary },
+  upgradeFeatureText: { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary },
   // Full-width CTA button container — sits below features, always fully in frame
   upgradeBtnWrap: {
     paddingHorizontal: 16, paddingBottom: 16,
@@ -1011,7 +1012,7 @@ const styles = StyleSheet.create({
     shadowColor: Colors.secondary, shadowOpacity: 0.3, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
-  upgradeBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.white },
+  upgradeBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.white },
 
   // ── Account section ────────────────────────────────────────────────────────
   accountRow: {
@@ -1024,7 +1025,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   accountRowLabel: {
-    flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 15, letterSpacing: -0.1,
+    flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: rs(15), letterSpacing: -0.1,
   },
   accountRowDivider: {
     height: 1, backgroundColor: Colors.border, marginHorizontal: 16,

@@ -34,6 +34,7 @@ import { subTypes, colorFamilies } from '@/contexts/AppContext';
 import type { ItemCategory, OccasionTag, SeasonTag } from '@/constants/types';
 import type { BulkItemCore, ClassifyResult } from '@/lib/bulkClassifyCore';
 import { stepCarousel, canGoPrev, canGoNext } from '@/lib/carouselUtils';
+import { rs } from '../lib/responsive';
 
 // ─── Re-export pure carousel utility for testing ──────────────────────────────
 export { stepCarousel } from '@/lib/carouselUtils';
@@ -642,7 +643,7 @@ const styles = StyleSheet.create({
   },
   garmentLabel: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 10,
+    fontSize: rs(10),
     letterSpacing: 1.0,
     color: Colors.textLight,
     textTransform: 'uppercase',
@@ -650,7 +651,7 @@ const styles = StyleSheet.create({
   },
   garmentCounter: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 22,
+    fontSize: rs(22),
     color: Colors.primary,
     letterSpacing: -0.5,
     lineHeight: 28,
@@ -658,7 +659,7 @@ const styles = StyleSheet.create({
   },
   garmentOf: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 13,
+    fontSize: rs(13),
     color: Colors.textSecondary,
     letterSpacing: 0.5,
   },
@@ -726,14 +727,14 @@ const styles = StyleSheet.create({
   },
   readOnlyLabel: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 11,
+    fontSize: rs(11),
     color: Colors.white,
   },
 
   // Section label
   sectionLabel: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
+    fontSize: rs(13),
     color: Colors.primary,
     letterSpacing: -0.1,
     marginBottom: 10,
@@ -774,7 +775,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontFamily: 'Inter_500Medium',
-    fontSize: 13,
+    fontSize: rs(13),
     color: Colors.textSecondary,
     textTransform: 'capitalize',
   },
@@ -814,7 +815,7 @@ const styles = StyleSheet.create({
   },
   colorLabel: {
     fontFamily: 'Inter_500Medium',
-    fontSize: 12,
+    fontSize: rs(12),
     color: Colors.textSecondary,
     textTransform: 'capitalize',
   },
@@ -844,7 +845,7 @@ const styles = StyleSheet.create({
   },
   occasionText: {
     fontFamily: 'Inter_500Medium',
-    fontSize: 12,
+    fontSize: rs(12),
     color: Colors.textSecondary,
   },
   occasionTextActive: {
@@ -861,7 +862,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontFamily: 'Inter_400Regular',
-    fontSize: 13,
+    fontSize: rs(13),
     color: Colors.textPrimary,
     lineHeight: 20,
     minHeight: 80,
@@ -902,7 +903,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 16,
+    fontSize: rs(16),
     color: Colors.white,
   },
   saveBtnTextDisabled: {

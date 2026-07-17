@@ -7,6 +7,7 @@ import { useApp } from '@/contexts/AppContext';
 import { WardrobeSlot, findCloseMatch } from '@/constants/wardrobeBlueprint';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { rs } from '../lib/responsive';
 
 const CATEGORY_LABELS: Record<string, string> = {
   top: 'Tops',
@@ -204,22 +205,22 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8, marginBottom: 4 },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  topBarTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 17, color: Colors.primary, letterSpacing: -0.3 },
+  topBarTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(17), color: Colors.primary, letterSpacing: -0.3 },
   scrollContent: { paddingHorizontal: 20 },
 
   progressCard: { backgroundColor: Colors.white, borderRadius: 18, padding: 18, marginBottom: 24, borderWidth: 1, borderColor: Colors.border },
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
-  progressTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.primary },
-  progressSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
-  progressCount: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.secondary },
+  progressTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(16), color: Colors.primary },
+  progressSub: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 2 },
+  progressCount: { fontFamily: 'Inter_700Bold', fontSize: rs(22), color: Colors.secondary },
   progressBarBg: { height: 8, backgroundColor: Colors.border, borderRadius: 4, overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: Colors.secondary, borderRadius: 4 },
-  progressFooter: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 10 },
+  progressFooter: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 10 },
 
   categorySection: { marginBottom: 24 },
   categoryHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  categoryTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary, flex: 1 },
-  categoryCount: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
+  categoryTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(15), color: Colors.primary, flex: 1 },
+  categoryCount: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.textSecondary },
   categoryCountComplete: { color: Colors.success },
 
   slotsScroll: { marginHorizontal: -20 },
@@ -232,22 +233,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 3,
     backgroundColor: Colors.secondary, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8,
   },
-  slotHighlightText: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: Colors.white, letterSpacing: 0.3, textTransform: 'uppercase' },
+  slotHighlightText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(9), color: Colors.white, letterSpacing: 0.3, textTransform: 'uppercase' },
   slotImageWrap: { width: 155, height: 140, backgroundColor: Colors.border, position: 'relative' },
   slotImage: { width: 155, height: 140 },
   slotBadge: { position: 'absolute', bottom: 8, left: 8, flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, backgroundColor: Colors.white },
   slotBadgeOwned: {},
   slotBadgeNeeded: {},
-  slotBadgeText: { fontFamily: 'Inter_500Medium', fontSize: 10 },
-  slotLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.primary, paddingHorizontal: 10, paddingTop: 10 },
-  slotDesc: { fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.textSecondary, paddingHorizontal: 10, paddingTop: 2, paddingBottom: 10, lineHeight: 14 },
+  slotBadgeText: { fontFamily: 'Inter_500Medium', fontSize: rs(10) },
+  slotLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: Colors.primary, paddingHorizontal: 10, paddingTop: 10 },
+  slotDesc: { fontFamily: 'Inter_400Regular', fontSize: rs(10), color: Colors.textSecondary, paddingHorizontal: 10, paddingTop: 2, paddingBottom: 10, lineHeight: 14 },
   closeMatchHint: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     marginHorizontal: 10, marginBottom: 10, marginTop: 4,
     paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6,
     backgroundColor: Colors.secondary + '14',
   },
-  closeMatchText: { fontFamily: 'Inter_500Medium', fontSize: 9.5, color: Colors.secondary, textTransform: 'capitalize', flexShrink: 1 },
+  closeMatchText: { fontFamily: 'Inter_500Medium', fontSize: rs(9.5), color: Colors.secondary, textTransform: 'capitalize', flexShrink: 1 },
 
   upsellStrip: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -256,11 +257,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   upsellLeft: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  upsellTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary },
-  upsellSub: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 2, lineHeight: 15 },
+  upsellTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.primary },
+  upsellSub: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, marginTop: 2, lineHeight: 15 },
   upsellBtn: {
     backgroundColor: Colors.secondary, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 9,
   },
-  upsellBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.white },
+  upsellBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: Colors.white },
 });

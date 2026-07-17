@@ -11,6 +11,7 @@ import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInRight, FadeInUp } from 'react-native-reanimated';
 import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/constants/lifestyle';
+import { rs } from '../lib/responsive';
 
 const { width } = Dimensions.get('window');
 
@@ -746,7 +747,7 @@ const styles = StyleSheet.create({
   },
   microTracker: {
     fontFamily: 'Inter_500Medium',
-    fontSize: 10,
+    fontSize: rs(10),
     color: Colors.sage,
     letterSpacing: 2.5,
     marginTop: 8,
@@ -769,20 +770,20 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   monogramSymbol: {
-    fontSize: 18,
+    fontSize: rs(18),
     color: Colors.secondary,
   },
   nameHeaderGroup: {
     marginBottom: 28,
   },
 
-  stepTitle: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.primary, marginBottom: 8, letterSpacing: -0.6, lineHeight: 34 },
-  stepSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary, lineHeight: 22, marginBottom: 24 },
+  stepTitle: { fontFamily: 'Inter_700Bold', fontSize: rs(28), color: Colors.primary, marginBottom: 8, letterSpacing: -0.6, lineHeight: 34 },
+  stepSubtitle: { fontFamily: 'Inter_400Regular', fontSize: rs(14), color: Colors.textSecondary, lineHeight: 22, marginBottom: 24 },
 
   // Elevated Surface Input (step 0)
   textInput: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 18,
+    fontSize: rs(18),
     color: Colors.primary,
     backgroundColor: Colors.white,
     borderRadius: 16,
@@ -803,13 +804,13 @@ const styles = StyleSheet.create({
   },
 
   // Steps 1–8 shared
-  subLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, marginBottom: 12 },
+  subLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary, marginBottom: 12 },
   optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   optionCard: { width: (width - 58) / 2, backgroundColor: Colors.white, borderRadius: 14, padding: 14, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center' as const },
   optionCardSelected: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '08' },
-  optionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, marginTop: 8 },
+  optionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary, marginTop: 8 },
   optionLabelSelected: { color: Colors.secondary },
-  optionDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 4, lineHeight: 15 },
+  optionDesc: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, marginTop: 4, lineHeight: 15 },
   faceShapeIllustration: { width: 80, height: 90, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   faceShapeOutline: { borderWidth: 2 },
   faceShapeHeart: { borderTopLeftRadius: 32, borderTopRightRadius: 32, borderBottomLeftRadius: 50, borderBottomRightRadius: 50 },
@@ -817,40 +818,40 @@ const styles = StyleSheet.create({
   eyeCard: { width: (width - 72) / 3, backgroundColor: Colors.white, borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1.5, borderColor: Colors.border },
   eyeCardSelected: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '08' },
   eyeSwatch: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  eyeLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, textAlign: 'center' },
+  eyeLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary, textAlign: 'center' },
   skinRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   skinCard: { alignItems: 'center', backgroundColor: Colors.white, borderRadius: 12, padding: 8, borderWidth: 1.5, borderColor: Colors.border, width: (width - 104) / 4 },
   skinCardSelected: { borderColor: Colors.secondary },
   skinSwatch: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  skinLabel: { fontFamily: 'Inter_400Regular', fontSize: 9, color: Colors.textSecondary, textAlign: 'center' },
+  skinLabel: { fontFamily: 'Inter_400Regular', fontSize: rs(9), color: Colors.textSecondary, textAlign: 'center' },
   undertoneRow: { gap: 10 },
   undertoneCard: { backgroundColor: Colors.white, borderRadius: 14, padding: 14, borderWidth: 1.5, borderColor: Colors.border },
   undertoneCardSelected: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '08' },
-  undertoneLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.primary },
+  undertoneLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(16), color: Colors.primary },
   undertoneLabelSelected: { color: Colors.secondary },
-  undertoneDesc: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 4 },
+  undertoneDesc: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 4 },
   styleGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   styleCard: { width: (width - 58) / 2, backgroundColor: Colors.white, borderRadius: 14, padding: 14, borderWidth: 1.5, borderColor: Colors.border },
   styleCardSelected: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '08' },
-  styleLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary, marginTop: 8 },
+  styleLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(15), color: Colors.primary, marginTop: 8 },
   styleLabelSelected: { color: Colors.secondary },
-  styleDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 4, lineHeight: 15 },
+  styleDesc: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, marginTop: 4, lineHeight: 15 },
   primaryBadge: { marginTop: 6, backgroundColor: Colors.secondary + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start' },
-  primaryBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: Colors.secondary },
+  primaryBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(10), color: Colors.secondary },
   secondaryBadge: { marginTop: 6, backgroundColor: Colors.sage + '20', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start' },
-  secondaryBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: Colors.sage },
+  secondaryBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(10), color: Colors.sage },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { backgroundColor: Colors.white, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1.5, borderColor: Colors.border },
   chipActive: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '15' },
-  chipText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
+  chipText: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.textSecondary },
   chipTextActive: { color: Colors.secondary },
   lifestyleRow: { marginBottom: 16, backgroundColor: Colors.white, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Colors.border },
   lifestyleRowHeader: { marginBottom: 10 },
-  lifestyleLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, marginBottom: 2 },
-  lifestyleDesc: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },
+  lifestyleLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary, marginBottom: 2 },
+  lifestyleDesc: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, lineHeight: 17 },
   lifestyleChips: { flexDirection: 'row' as const, gap: 8, flexWrap: 'wrap' as const },
   skipRow: { marginTop: 24, marginBottom: 8, alignItems: 'center' as const },
-  skipText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textLight, textDecorationLine: 'underline' as const },
+  skipText: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.textLight, textDecorationLine: 'underline' as const },
   finishIcon: { alignSelf: 'center', marginBottom: 20, marginTop: 40 },
 
   // Footer CTA — Navy with Champagne Gold text
@@ -876,7 +877,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 16,
+    fontSize: rs(16),
     color: Colors.secondary,
     letterSpacing: -0.1,
   },

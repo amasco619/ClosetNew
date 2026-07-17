@@ -37,6 +37,7 @@ import {
   type ClassifyResult,
   type ClassifyDeps,
 } from '@/lib/bulkClassifyCore';
+import { rs } from '../lib/responsive';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -917,10 +918,10 @@ const styles = StyleSheet.create({
   },
   backBtn:     { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   cancelBtn:   { width: 60, height: 40, alignItems: 'flex-end', justifyContent: 'center' },
-  cancelBtnText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.primary, letterSpacing: -0.1 },
+  cancelBtnText: { fontFamily: 'Inter_500Medium', fontSize: rs(14), color: Colors.primary, letterSpacing: -0.1 },
   headerCenter:{ flex: 1, alignItems: 'center' },
-  headerTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.primary, letterSpacing: -0.2 },
-  headerSub:   { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textLight, marginTop: 1 },
+  headerTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(16), color: Colors.primary, letterSpacing: -0.2 },
+  headerSub:   { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textLight, marginTop: 1 },
 
   progressTrack: {
     height: 2, backgroundColor: Colors.border,
@@ -951,10 +952,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: 6,
   },
   goldSymbol: {
-    fontFamily: 'Inter_700Bold', fontSize: 12, color: Colors.primary, letterSpacing: 1,
+    fontFamily: 'Inter_700Bold', fontSize: rs(12), color: Colors.primary, letterSpacing: 1,
   },
   goldStatus: {
-    fontFamily: 'Inter_500Medium', fontSize: 9, color: Colors.primary,
+    fontFamily: 'Inter_500Medium', fontSize: rs(9), color: Colors.primary,
     letterSpacing: 1.0, textAlign: 'center', paddingHorizontal: 8,
   },
 
@@ -963,14 +964,14 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: 4,
   },
   errorLabel: {
-    fontFamily: 'Inter_500Medium', fontSize: 10, color: Colors.white, letterSpacing: 0.3,
+    fontFamily: 'Inter_500Medium', fontSize: rs(10), color: Colors.white, letterSpacing: 0.3,
   },
 
   savedOverlay: {
     backgroundColor: 'rgba(106, 175, 123, 0.88)',
     alignItems: 'center', justifyContent: 'center', gap: 4,
   },
-  savedOverlayLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.white },
+  savedOverlayLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: Colors.white },
 
   savingOverlay: {
     backgroundColor: 'rgba(16, 24, 38, 0.45)',
@@ -983,7 +984,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: Colors.secondary + '55',
   },
   autoSavedOverlayLabel: {
-    fontFamily: 'Inter_500Medium', fontSize: 11,
+    fontFamily: 'Inter_500Medium', fontSize: rs(11),
     color: Colors.secondary, letterSpacing: 0.3,
   },
 
@@ -1002,7 +1003,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
   },
   tagText: {
-    fontFamily: 'Inter_500Medium', fontSize: 10,
+    fontFamily: 'Inter_500Medium', fontSize: rs(10),
     color: Colors.textSecondary, textTransform: 'capitalize',
   },
   tagGold: {
@@ -1011,11 +1012,11 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.secondary + '30',
   },
   tagGoldText: {
-    fontFamily: 'Inter_500Medium', fontSize: 10,
+    fontFamily: 'Inter_500Medium', fontSize: rs(10),
     color: Colors.secondary, textTransform: 'capitalize',
   },
   subTypeText: {
-    fontFamily: 'Inter_600SemiBold', fontSize: 12,
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(12),
     color: Colors.primary, textTransform: 'capitalize', letterSpacing: -0.1,
   },
 
@@ -1039,7 +1040,7 @@ const styles = StyleSheet.create({
   },
   bgUpsellBannerText: {
     flex: 1,
-    fontFamily: 'Inter_500Medium', fontSize: 13,
+    fontFamily: 'Inter_500Medium', fontSize: rs(13),
     color: Colors.primary, letterSpacing: -0.1,
   },
   bgLimitPill: {
@@ -1054,7 +1055,7 @@ const styles = StyleSheet.create({
   },
   bgLimitText: {
     flex: 1,
-    fontFamily: 'Inter_500Medium', fontSize: 13,
+    fontFamily: 'Inter_500Medium', fontSize: rs(13),
     color: Colors.textSecondary, letterSpacing: -0.1,
   },
 
@@ -1070,6 +1071,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 3,
   },
   saveBtnDisabled: { backgroundColor: Colors.border },
-  saveBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.white },
+  saveBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(16), color: Colors.white },
   saveBtnTextDisabled: { color: Colors.textLight },
 });

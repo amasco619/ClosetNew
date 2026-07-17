@@ -1235,4 +1235,6 @@ These require Supabase dashboard changes and cannot be enforced from application
 | **Pure constants** | Blueprint and outfit engine files (`blueprintCore.ts`, `outfitGenerator.ts`, `outfitRotation.ts`, `affinity.ts`) contain no React imports and no PNG `require()` calls — they must be directly importable in Node/tsx for testing |
 | **No .env file** | Use Replit Secrets only. A `.env` file overrides injected secrets and breaks Supabase. |
 | **Stable sorts** | All sort operations use an original-index tie-breaker to guarantee deterministic output across JS runtimes |
+| **Responsive font sizes** | All `fontSize` values use `rs(n)` from `lib/responsive.ts` (moderate scale, factor 0.35, baseline 390pt). Never use a raw numeric literal for `fontSize` in StyleSheet. |
+| **Mood/scenario chip rows** | Horizontal `ScrollView` filter rows must have `minHeight` on the scroll container **and** `alignItems: 'flex-start'` on `contentContainerStyle` — never `alignItems: 'center'`, which collapses the view height on some devices. |
 | **Update TECHNICAL.md** | Every code change that affects architecture, endpoints, file structure, packages, tests, or conventions must update TECHNICAL.md in the same commit |

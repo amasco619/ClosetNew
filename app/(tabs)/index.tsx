@@ -11,6 +11,7 @@ import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weathe
 import { EMAIL_CONFIRMED_KEY } from '@/lib/auth';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp, FadeOutUp, useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { rs } from '../../lib/responsive';
 
 const styleGoalLabels: Record<string, string> = {
   youthful: 'Youthful', elevated: 'Elevated', minimal: 'Minimal',
@@ -610,14 +611,14 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: 20 },
 
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 20 },
-  greeting: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, letterSpacing: 0.8, textTransform: 'uppercase' },
-  appName: { fontFamily: 'Inter_700Bold', fontSize: 30, color: Colors.primary, letterSpacing: -0.8, marginTop: 2 },
+  greeting: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight, letterSpacing: 0.8, textTransform: 'uppercase' },
+  appName: { fontFamily: 'Inter_700Bold', fontSize: rs(30), color: Colors.primary, letterSpacing: -0.8, marginTop: 2 },
   premiumBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: Colors.secondary + '18', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
     borderWidth: 1, borderColor: Colors.secondary + '30',
   },
-  premiumText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: Colors.secondary, letterSpacing: 0.3 },
+  premiumText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(11), color: Colors.secondary, letterSpacing: 0.3 },
 
   weatherChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
@@ -628,7 +629,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.sage + '20',
     borderWidth: 1, borderColor: Colors.sage + '30',
   },
-  weatherChipText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.primary },
+  weatherChipText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.primary },
 
   backfillBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -636,7 +637,7 @@ const styles = StyleSheet.create({
     borderRadius: 12, backgroundColor: Colors.secondary + '10',
     borderWidth: 1, borderColor: Colors.secondary + '20',
   },
-  backfillText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, flexShrink: 1 },
+  backfillText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary, flexShrink: 1 },
   backfillTrack: { flex: 1, height: 3, borderRadius: 2, backgroundColor: Colors.secondary + '20', overflow: 'hidden', marginLeft: 4 },
   backfillFill: { height: '100%', backgroundColor: Colors.secondary, borderRadius: 2 },
 
@@ -648,8 +649,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   orphanHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 4 },
-  orphanTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary, flex: 1 },
-  orphanBody: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, lineHeight: 18, marginBottom: 10 },
+  orphanTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.primary, flex: 1 },
+  orphanBody: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, lineHeight: 18, marginBottom: 10 },
   orphanRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 7, borderTopWidth: 1, borderTopColor: Colors.blush + '30' },
   orphanRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
   orphanThumbPlaceholder: {
@@ -657,7 +658,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.blush + '30', alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: Colors.blush + '40',
   },
-  orphanItemLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary, flex: 1 },
+  orphanItemLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.primary, flex: 1 },
   orphanActions: { flexDirection: 'row', gap: 8, marginLeft: 10 },
   orphanBtn: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
@@ -670,8 +671,8 @@ const styles = StyleSheet.create({
     minHeight: 32, justifyContent: 'center',
   },
   orphanBtnPressed: { opacity: 0.7 },
-  orphanBtnLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.primary },
-  orphanBtnDestructiveLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.primary },
+  orphanBtnLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.primary },
+  orphanBtnDestructiveLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.primary },
 
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   statCard: {
@@ -680,8 +681,8 @@ const styles = StyleSheet.create({
     elevation: 2, borderWidth: 1, borderColor: Colors.border,
   },
   cardPressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
-  statNumber: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.primary, letterSpacing: -0.5 },
-  statLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 4, textAlign: 'center' },
+  statNumber: { fontFamily: 'Inter_700Bold', fontSize: rs(28), color: Colors.primary, letterSpacing: -0.5 },
+  statLabel: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, marginTop: 4, textAlign: 'center' },
 
   styleCard: {
     backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 20,
@@ -689,8 +690,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   styleCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  styleCardTitle: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textLight, letterSpacing: 1, textTransform: 'uppercase' },
-  styleCardValue: { fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary, letterSpacing: -0.2 },
+  styleCardTitle: { fontFamily: 'Inter_500Medium', fontSize: rs(11), color: Colors.textLight, letterSpacing: 1, textTransform: 'uppercase' },
+  styleCardValue: { fontFamily: 'Inter_600SemiBold', fontSize: rs(18), color: Colors.primary, letterSpacing: -0.2 },
 
   learningStrip: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
@@ -698,9 +699,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 8,
     marginBottom: 14, borderWidth: 1, borderColor: Colors.border,
   },
-  learningText: { fontFamily: 'Inter_400Regular', fontSize: 11.5, color: Colors.textSecondary, flex: 1, lineHeight: 16 },
+  learningText: { fontFamily: 'Inter_400Regular', fontSize: rs(11.5), color: Colors.textSecondary, flex: 1, lineHeight: 16 },
 
-  sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.primary, marginBottom: 12, letterSpacing: -0.2 },
+  sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(16), color: Colors.primary, marginBottom: 12, letterSpacing: -0.2 },
 
   actionsRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
   actionButton: {
@@ -710,7 +711,7 @@ const styles = StyleSheet.create({
   },
   actionPressed: { opacity: 0.82, transform: [{ scale: 0.97 }] },
   actionIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  actionLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.primary },
+  actionLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.primary },
   lockBadge: { position: 'absolute', bottom: -3, right: -5, width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.secondary, alignItems: 'center', justifyContent: 'center' },
 
   breakdownCard: {
@@ -720,11 +721,11 @@ const styles = StyleSheet.create({
   },
   breakdownRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 9 },
   breakdownLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  breakdownLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary },
+  breakdownLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.primary },
   breakdownRight: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1.5 },
   breakdownBarBg: { flex: 1, height: 5, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden' },
   breakdownBarFill: { height: '100%', backgroundColor: Colors.secondary, borderRadius: 3 },
-  breakdownCount: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.textSecondary, width: 24, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  breakdownCount: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: Colors.textSecondary, width: 24, textAlign: 'right', fontVariant: ['tabular-nums'] },
 
   tipCard: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
@@ -733,7 +734,7 @@ const styles = StyleSheet.create({
     shadowColor: Colors.primary, shadowOpacity: 0.03, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
     elevation: 1,
   },
-  tipText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, flex: 1, lineHeight: 19 },
+  tipText: { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary, flex: 1, lineHeight: 19 },
 
   todayCard: {
     backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 20,
@@ -742,9 +743,9 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   todayCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  todayCardTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, flex: 1 },
+  todayCardTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary, flex: 1 },
   todaySeeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  todaySeeAllText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.secondary },
+  todaySeeAllText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.secondary },
   todayPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   todayPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -752,11 +753,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6,
     borderWidth: 1, borderColor: Colors.success + '28',
   },
-  todayPillText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.primary },
+  todayPillText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.primary },
 
-  recSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary, marginBottom: 12, marginTop: -6 },
+  recSubtitle: { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary, marginBottom: 12, marginTop: -6 },
   lifestyleGroupHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
-  lifestyleGroupLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary, letterSpacing: -0.2 },
+  lifestyleGroupLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(15), color: Colors.primary, letterSpacing: -0.2 },
   lifestyleCompletePill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     alignSelf: 'flex-start',
@@ -765,7 +766,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.sage + '30',
     marginBottom: 24,
   },
-  lifestyleCompleteText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary },
+  lifestyleCompleteText: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.primary },
   recScroll: { marginBottom: 24, marginHorizontal: -20 },
   recScrollContent: { paddingHorizontal: 20, gap: 12, paddingRight: 20 },
   recCard: {
@@ -779,11 +780,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16,24,38,0.65)',
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
   },
-  recCategoryText: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: Colors.white, textTransform: 'uppercase', letterSpacing: 0.8 },
-  recLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary, paddingHorizontal: 10, paddingTop: 10, letterSpacing: -0.1 },
-  recDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, paddingHorizontal: 10, marginTop: 3, lineHeight: 15 },
+  recCategoryText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(9), color: Colors.white, textTransform: 'uppercase', letterSpacing: 0.8 },
+  recLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.primary, paddingHorizontal: 10, paddingTop: 10, letterSpacing: -0.1 },
+  recDesc: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, paddingHorizontal: 10, marginTop: 3, lineHeight: 15 },
   recNeededBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 8 },
-  recNeededText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.warning },
+  recNeededText: { fontFamily: 'Inter_500Medium', fontSize: rs(11), color: Colors.warning },
 
   pickCard: {
     backgroundColor: Colors.white, borderRadius: 18, padding: 16, marginBottom: 20,
@@ -792,9 +793,9 @@ const styles = StyleSheet.create({
     elevation: 2, overflow: 'hidden',
   },
   pickHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  pickTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary, flex: 1 },
+  pickTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary, flex: 1 },
   pickSeeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  pickSeeAllText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.secondary },
+  pickSeeAllText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.secondary },
   pickPhotosRow: { flexDirection: 'row', gap: 6, marginBottom: 12 },
   pickPhotoWrap: { flex: 1, aspectRatio: 0.85, maxWidth: 72 },
   pickPhoto: { width: '100%', height: '100%', borderRadius: 10, backgroundColor: Colors.background },
@@ -804,13 +805,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: Colors.primary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
   },
-  pickWearText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.white },
+  pickWearText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: Colors.white },
   pickUndoBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: Colors.success + '15', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20,
     borderWidth: 1, borderColor: Colors.success + '25',
   },
-  pickUndoText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary },
+  pickUndoText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary },
   pickReactionRow: { flexDirection: 'row', gap: 6 },
   pickReactBtn: {
     width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
@@ -826,7 +827,7 @@ const styles = StyleSheet.create({
     marginBottom: 12, borderWidth: 1, borderColor: Colors.secondary + '25',
   },
   guestBannerText: {
-    fontFamily: 'Inter_400Regular', fontSize: 12,
+    fontFamily: 'Inter_400Regular', fontSize: rs(12),
     color: Colors.textSecondary, flex: 1,
   },
 
@@ -837,7 +838,7 @@ const styles = StyleSheet.create({
     marginBottom: 12, borderWidth: 1, borderColor: Colors.sage + '30',
   },
   confirmedBannerText: {
-    fontFamily: 'Inter_400Regular', fontSize: 12,
+    fontFamily: 'Inter_400Regular', fontSize: rs(12),
     color: Colors.primary, flex: 1,
   },
 
@@ -855,11 +856,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center', marginBottom: 20,
   },
   promptTitle: {
-    fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary,
+    fontFamily: 'Inter_700Bold', fontSize: rs(22), color: Colors.primary,
     letterSpacing: -0.5, marginBottom: 10,
   },
   promptBody: {
-    fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(14), color: Colors.textSecondary,
     lineHeight: 21, marginBottom: 24,
   },
   promptPrimary: {
@@ -869,10 +870,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 }, elevation: 3,
   },
   promptPrimaryText: {
-    fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.white,
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(15), color: Colors.white,
   },
   promptSecondary: { paddingVertical: 13, alignItems: 'center' },
   promptSecondaryText: {
-    fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium', fontSize: rs(14), color: Colors.textSecondary,
   },
 });

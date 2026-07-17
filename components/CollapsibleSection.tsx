@@ -4,6 +4,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-na
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/colors';
+import { rs } from '../lib/responsive';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -79,14 +80,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
+    fontSize: rs(13),
     color: Colors.primary,
     letterSpacing: -0.1,
   },
   right: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   count: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 11,
+    fontSize: rs(11),
     color: Colors.textLight,
   },
   content: { paddingBottom: 10 },

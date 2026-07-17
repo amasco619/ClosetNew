@@ -11,6 +11,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useMemo } from 'react';
 import { computeDiagnostics, CategoryStat, ScenarioCoverage, VersatileItem, GapItem } from '@/constants/wardrobeDiagnostics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { rs } from '../lib/responsive';
 
 const GRADE_COLORS: Record<string, string> = {
   A: '#6AAF7B',
@@ -340,7 +341,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 10,
   },
   closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  topTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 17, color: Colors.primary },
+  topTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(17), color: Colors.primary },
 
   scrollContent: { paddingHorizontal: 20, paddingBottom: 20 },
 
@@ -355,24 +356,24 @@ const styles = StyleSheet.create({
     width: 108, height: 108, borderRadius: 54,
     borderWidth: 3, alignItems: 'center', justifyContent: 'center',
   },
-  scoreNumber: { fontFamily: 'Inter_700Bold', fontSize: 36, letterSpacing: -1 },
-  scoreOf: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: -4 },
+  scoreNumber: { fontFamily: 'Inter_700Bold', fontSize: rs(36), letterSpacing: -1 },
+  scoreOf: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, marginTop: -4 },
   gradePill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8, marginTop: 6 },
-  gradeText: { fontFamily: 'Inter_700Bold', fontSize: 14 },
-  scoreLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.primary, marginBottom: 6 },
+  gradeText: { fontFamily: 'Inter_700Bold', fontSize: rs(14) },
+  scoreLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(16), color: Colors.primary, marginBottom: 6 },
   scoreInterpretation: {
-    fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary,
     textAlign: 'center', lineHeight: 19, marginBottom: 18, paddingHorizontal: 8,
   },
   scoreMeta: { flexDirection: 'row', gap: 0 },
   scoreMetaItem: { alignItems: 'center', paddingHorizontal: 16 },
-  scoreMetaNumber: { fontFamily: 'Inter_700Bold', fontSize: 20, color: Colors.primary },
-  scoreMetaLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
+  scoreMetaNumber: { fontFamily: 'Inter_700Bold', fontSize: rs(20), color: Colors.primary },
+  scoreMetaLabel: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, marginTop: 2 },
   scoreMetaDivider: { width: 1, backgroundColor: Colors.border, height: 36, alignSelf: 'center' },
 
   emptyNotice: { alignItems: 'center', paddingVertical: 40, gap: 12 },
   emptyNoticeText: {
-    fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(14), color: Colors.textSecondary,
     textAlign: 'center', lineHeight: 20, maxWidth: 260,
   },
 
@@ -381,55 +382,55 @@ const styles = StyleSheet.create({
     marginBottom: 12, borderWidth: 1, borderColor: Colors.border,
   },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 14 },
-  sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary },
+  sectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary },
 
   miniBarBg: { height: 6, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden' },
   miniBarFill: { height: '100%', borderRadius: 3 },
 
   categoryRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
-  categoryLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary, width: 76 },
-  categoryCount: { fontFamily: 'Inter_600SemiBold', fontSize: 13, width: 20, textAlign: 'right' },
+  categoryLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.primary, width: 76 },
+  categoryCount: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), width: 20, textAlign: 'right' },
   statusDot: { width: 6, height: 6, borderRadius: 3, marginLeft: 4 },
 
   legendRow: { flexDirection: 'row', gap: 14, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary },
+  legendText: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary },
 
   swatchGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
   swatchWrap: { alignItems: 'center', width: 46 },
   swatch: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, marginBottom: 4 },
-  swatchLabel: { fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.textSecondary, textAlign: 'center', textTransform: 'capitalize', width: 46 },
-  swatchCount: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: Colors.primary },
+  swatchLabel: { fontFamily: 'Inter_400Regular', fontSize: rs(10), color: Colors.textSecondary, textAlign: 'center', textTransform: 'capitalize', width: 46 },
+  swatchCount: { fontFamily: 'Inter_600SemiBold', fontSize: rs(11), color: Colors.primary },
 
   paletteRatioRow: { marginBottom: 8 },
   paletteRatioBarBg: { height: 10, backgroundColor: Colors.blush + '60', borderRadius: 5, overflow: 'hidden' },
   paletteRatioBarFill: { height: '100%', backgroundColor: Colors.primary + 'A0', borderRadius: 5 },
   paletteRatioLabels: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   paletteRatioLabelItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  paletteNote: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, fontStyle: 'italic', lineHeight: 17 },
+  paletteNote: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, fontStyle: 'italic', lineHeight: 17 },
 
   scenarioRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 6 },
-  scenarioLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary, width: 68 },
-  scenarioCount: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, width: 46, textAlign: 'right' },
+  scenarioLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.primary, width: 68 },
+  scenarioCount: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, width: 46, textAlign: 'right' },
   strengthBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, marginLeft: 6 },
-  strengthText: { fontFamily: 'Inter_600SemiBold', fontSize: 10 },
-  coverageNote: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 10, lineHeight: 17, fontStyle: 'italic' },
+  strengthText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(10) },
+  coverageNote: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 10, lineHeight: 17, fontStyle: 'italic' },
 
-  versatileSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginBottom: 12, lineHeight: 17 },
+  versatileSubtitle: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginBottom: 12, lineHeight: 17 },
   versatileRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border + '80' },
-  medal: { fontSize: 16, width: 22 },
-  versatileLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary, flex: 1, textTransform: 'capitalize' },
-  versatileScenarios: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary },
+  medal: { fontSize: rs(16), width: 22 },
+  versatileLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.primary, flex: 1, textTransform: 'capitalize' },
+  versatileScenarios: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary },
 
   blueprintRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   blueprintTextWrap: { alignItems: 'center' },
-  blueprintFraction: { fontFamily: 'Inter_700Bold', fontSize: 28, color: Colors.primary },
-  blueprintTotal: { fontFamily: 'Inter_400Regular', fontSize: 16, color: Colors.textSecondary },
-  blueprintLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
-  blueprintPct: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, marginTop: 5 },
+  blueprintFraction: { fontFamily: 'Inter_700Bold', fontSize: rs(28), color: Colors.primary },
+  blueprintTotal: { fontFamily: 'Inter_400Regular', fontSize: rs(16), color: Colors.textSecondary },
+  blueprintLabel: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, marginTop: 2 },
+  blueprintPct: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, marginTop: 5 },
 
-  gapsSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginBottom: 12, lineHeight: 17 },
+  gapsSubtitle: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginBottom: 12, lineHeight: 17 },
   gapRow: {
     flexDirection: 'row', gap: 10, paddingVertical: 10,
     borderBottomWidth: 1, borderBottomColor: Colors.border + '60',
@@ -437,13 +438,13 @@ const styles = StyleSheet.create({
   gapRowHigh: {},
   gapPriorityDot: { width: 8, height: 8, borderRadius: 4, marginTop: 4 },
   gapTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
-  gapSuggestion: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary, flex: 1 },
-  gapReason: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },
+  gapSuggestion: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.primary, flex: 1 },
+  gapReason: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, lineHeight: 17 },
 
   addItemCta: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: Colors.primary, borderRadius: 12,
     paddingVertical: 12, marginTop: 14,
   },
-  addItemCtaText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.white },
+  addItemCtaText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.white },
 });

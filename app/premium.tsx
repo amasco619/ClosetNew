@@ -9,6 +9,7 @@ import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { rs } from '../lib/responsive';
 
 const FEATURES = [
   { icon: 'infinite-outline', title: 'Unlimited Wardrobe', desc: 'No 30-item cap. Add every piece you own.' },
@@ -142,23 +143,23 @@ const styles = StyleSheet.create({
   header: { marginBottom: 20, borderRadius: 20, overflow: 'hidden' },
   headerGradient: { paddingVertical: 36, paddingHorizontal: 24, alignItems: 'center' },
   crownIcon: { width: 72, height: 72, borderRadius: 22, backgroundColor: Colors.secondary + '20', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: 26, color: Colors.primary, textAlign: 'center', letterSpacing: -0.5 },
-  headerSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 15, color: Colors.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 22 },
+  headerTitle: { fontFamily: 'Inter_700Bold', fontSize: rs(26), color: Colors.primary, textAlign: 'center', letterSpacing: -0.5 },
+  headerSubtitle: { fontFamily: 'Inter_400Regular', fontSize: rs(15), color: Colors.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 22 },
   featureCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: Colors.white, borderRadius: 14, padding: 16, marginBottom: 8 },
   featureIconWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.secondary + '12', alignItems: 'center', justifyContent: 'center' },
-  featureTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary },
-  featureDesc: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2, lineHeight: 17 },
+  featureTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(15), color: Colors.primary },
+  featureDesc: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 2, lineHeight: 17 },
   pricingCard: { backgroundColor: Colors.white, borderRadius: 16, padding: 20, marginTop: 12 },
   pricingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-  pricingTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.primary },
-  savingsText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.success, marginTop: 2 },
+  pricingTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(16), color: Colors.primary },
+  savingsText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.success, marginTop: 2 },
   priceBadge: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
-  priceText: { fontFamily: 'Inter_700Bold', fontSize: 22, color: Colors.primary },
-  priceUnit: { fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary },
+  priceText: { fontFamily: 'Inter_700Bold', fontSize: rs(22), color: Colors.primary },
+  priceUnit: { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary },
   pricingDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 8 },
   footer: { paddingHorizontal: 20, paddingTop: 12, backgroundColor: Colors.background },
   upgradeButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.secondary, borderRadius: 14, paddingVertical: 16 },
   downgradeButton: { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },
-  upgradeText: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: Colors.white },
-  disclaimer: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight, textAlign: 'center', marginTop: 10 },
+  upgradeText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(16), color: Colors.white },
+  disclaimer: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight, textAlign: 'center', marginTop: 10 },
 });

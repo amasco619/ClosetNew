@@ -10,6 +10,7 @@ import { useApp, subTypes, colorFamilies } from '@/contexts/AppContext';
 import type { Neckline } from '@/constants/types';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
+import { rs } from '../lib/responsive';
 
 const NECKLINES: readonly Neckline[] = ['crew', 'v-neck', 'scoop', 'turtleneck', 'boat', 'square', 'halter', 'off-shoulder', 'collared'] as const;
 
@@ -323,24 +324,24 @@ const styles = StyleSheet.create({
   image: { width: '100%', aspectRatio: 0.75, backgroundColor: Colors.border },
   details: { padding: 24, paddingBottom: 48 },
   itemTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  itemType: { fontFamily: 'Inter_700Bold', fontSize: 24, color: Colors.primary, textTransform: 'capitalize' },
+  itemType: { fontFamily: 'Inter_700Bold', fontSize: rs(24), color: Colors.primary, textTransform: 'capitalize' },
   editChipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
   editChip: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },
   editChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  editChipText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary, textTransform: 'capitalize' },
+  editChipText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary, textTransform: 'capitalize' },
   editChipTextActive: { color: Colors.white },
   editColorChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border },
   editColorChipActive: { borderColor: Colors.secondary, backgroundColor: Colors.secondary + '12' },
   editColorDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 0.5, borderColor: Colors.border },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 0.5, borderColor: Colors.border },
-  metaText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.textSecondary, textTransform: 'capitalize' },
+  metaText: { fontFamily: 'Inter_500Medium', fontSize: rs(14), color: Colors.textSecondary, textTransform: 'capitalize' },
   metaDivider: { color: Colors.textLight },
   tagsRow: { flexDirection: 'row', gap: 6, marginTop: 12, flexWrap: 'wrap' },
   tag: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: Colors.sage + '20' },
-  tagText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.sage, textTransform: 'capitalize' },
+  tagText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.sage, textTransform: 'capitalize' },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { fontFamily: 'Inter_500Medium', fontSize: 16, color: Colors.textSecondary, marginTop: 12 },
+  emptyText: { fontFamily: 'Inter_500Medium', fontSize: rs(16), color: Colors.textSecondary, marginTop: 12 },
 
   statsCard: {
     flexDirection: 'row', backgroundColor: Colors.white, borderRadius: 16,
@@ -348,8 +349,8 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
   },
   statItem: { flex: 1, alignItems: 'center', gap: 4 },
-  statValue: { fontFamily: 'Inter_700Bold', fontSize: 18, color: Colors.primary },
-  statLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textSecondary, textAlign: 'center' },
+  statValue: { fontFamily: 'Inter_700Bold', fontSize: rs(18), color: Colors.primary },
+  statLabel: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, textAlign: 'center' },
   statDivider: { width: 1, backgroundColor: Colors.border, marginHorizontal: 8 },
 
   cpwInsight: {
@@ -358,32 +359,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 11, marginTop: 12,
     borderWidth: 1, borderColor: Colors.secondary + '25',
   },
-  cpwInsightText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.primary, flex: 1, lineHeight: 18 },
+  cpwInsightText: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.primary, flex: 1, lineHeight: 18 },
 
   necklinePill: { backgroundColor: Colors.secondary + '20' },
   necklinePillText: { color: Colors.primary, textTransform: 'capitalize' },
   necklineSection: { marginTop: 20 },
   necklineRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  necklineSectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.6 },
+  necklineSectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.6 },
   necklineValueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  necklineValue: { fontFamily: 'Inter_500Medium', fontSize: 14, color: Colors.primary, textTransform: 'capitalize' },
+  necklineValue: { fontFamily: 'Inter_500Medium', fontSize: rs(14), color: Colors.primary, textTransform: 'capitalize' },
   priceSection: { marginTop: 24 },
-  priceSectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.6 },
+  priceSectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.6 },
   priceDisplayRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: Colors.white, borderRadius: 12, borderWidth: 1,
     borderColor: Colors.border, paddingHorizontal: 16, paddingVertical: 14,
   },
-  priceDisplayValue: { fontFamily: 'Inter_500Medium', fontSize: 15, color: Colors.primary },
+  priceDisplayValue: { fontFamily: 'Inter_500Medium', fontSize: rs(15), color: Colors.primary },
   priceEditRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   priceInputWrap: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
     backgroundColor: Colors.white, borderRadius: 12, borderWidth: 1,
     borderColor: Colors.secondary, paddingHorizontal: 14,
   },
-  priceCurrencySymbol: { fontFamily: 'Inter_500Medium', fontSize: 16, color: Colors.textSecondary, marginRight: 4 },
-  priceTextInput: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 16, color: Colors.primary, paddingVertical: 13 },
+  priceCurrencySymbol: { fontFamily: 'Inter_500Medium', fontSize: rs(16), color: Colors.textSecondary, marginRight: 4 },
+  priceTextInput: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: rs(16), color: Colors.primary, paddingVertical: 13 },
   priceSaveBtn: { backgroundColor: Colors.primary, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12 },
-  priceSaveBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.white },
+  priceSaveBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.white },
   priceCancelBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
 });

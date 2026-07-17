@@ -6,6 +6,7 @@ import { Platform, StyleSheet, useColorScheme, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import Colors from "@/constants/colors";
+import { rs } from '../../lib/responsive';
 
 function NativeTabLayout() {
   return (
@@ -52,7 +53,7 @@ function ClassicTabLayout() {
         },
         tabBarLabelStyle: {
           fontFamily: 'Inter_500Medium',
-          fontSize: 11,
+          fontSize: rs(11),
         },
         tabBarBackground: () =>
           isIOS ? (

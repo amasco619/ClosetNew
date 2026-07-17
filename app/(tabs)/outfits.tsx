@@ -15,6 +15,7 @@ import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import OOTDStoryCard from '@/components/OOTDStoryCard';
 import { computeItemCpw, formatCpw } from '@/constants/cpw';
+import { rs } from '../../lib/responsive';
 
 const MOOD_OPTIONS: { id: MoodGoal; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
   { id: 'confident', label: 'Confident', icon: 'flash-outline' },
@@ -779,21 +780,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, marginTop: 10, marginBottom: 16,
   },
   headerLabel: {
-    fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textLight,
+    fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textLight,
     letterSpacing: 0.9, textTransform: 'uppercase', marginBottom: 4,
   },
   title: {
-    fontFamily: 'Inter_700Bold', fontSize: 30, color: Colors.primary, letterSpacing: -0.8,
+    fontFamily: 'Inter_700Bold', fontSize: rs(30), color: Colors.primary, letterSpacing: -0.8,
   },
   outfitCountBadge: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
     borderWidth: 1, marginBottom: 4,
   },
-  outfitCountText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, letterSpacing: 0.1 },
+  outfitCountText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), letterSpacing: 0.1 },
 
   // ── Scenario chips ────────────────────────────────────────────────────────
-  scenarioScroll: { flexGrow: 0, marginBottom: 12 },
-  scenarioScrollContent: { paddingHorizontal: 20, gap: 7, alignItems: 'center' },
+  scenarioScroll: { flexGrow: 0, marginBottom: 12, minHeight: 42 },
+  scenarioScrollContent: { paddingHorizontal: 20, gap: 7, alignItems: 'flex-start' },
   scenarioDivider: { width: 1, height: 24, backgroundColor: Colors.border, marginHorizontal: 2 },
 
   scenarioChip: {
@@ -805,23 +806,25 @@ const styles = StyleSheet.create({
   scenarioChipActive: {},
   scenarioChipPremium: { borderColor: Colors.secondary + '55' },
   scenarioChipLocked: { opacity: 0.55 },
-  scenarioText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary },
+  scenarioText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary },
   scenarioTextActive: { color: Colors.white, fontFamily: 'Inter_600SemiBold' },
   scenarioTextLocked: { color: Colors.textLight },
 
   // ── Mood row ──────────────────────────────────────────────────────────────
-  moodScroll: { flexGrow: 0, marginBottom: 12 },
-  moodScrollContent: { paddingHorizontal: 20, gap: 8, alignItems: 'center' },
+  moodScroll: { flexGrow: 0, marginBottom: 12, minHeight: 42 },
+  moodScrollContent: { paddingHorizontal: 20, gap: 8, alignItems: 'flex-start' },
   moodPrompt: {
-    fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginRight: 2,
+    fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginRight: 2,
+    lineHeight: 36, alignSelf: 'center',
   },
   moodChip: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingVertical: 7, paddingHorizontal: 12, borderRadius: 20,
     backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.secondary + '40',
+    minHeight: 36,
   },
   moodChipActive: { backgroundColor: Colors.secondary, borderColor: Colors.secondary },
-  moodChipText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.secondary },
+  moodChipText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.secondary },
   moodChipTextActive: { color: Colors.white },
 
   moodLockedStrip: {
@@ -831,7 +834,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary + '08',
     borderWidth: 1, borderColor: Colors.secondary + '20',
   },
-  moodLockedText: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.secondary },
+  moodLockedText: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.secondary },
 
   // ── Main scroll ───────────────────────────────────────────────────────────
   scrollContent: { paddingHorizontal: 20 },
@@ -847,12 +850,12 @@ const styles = StyleSheet.create({
     width: 32, height: 32, borderRadius: 10,
     backgroundColor: Colors.secondary + '15', alignItems: 'center', justifyContent: 'center',
   },
-  nudgeTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary, marginBottom: 2 },
-  nudgeSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, lineHeight: 17 },
+  nudgeTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.primary, marginBottom: 2 },
+  nudgeSub: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, lineHeight: 17 },
   nudgeActions: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 8 },
   nudgeCta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  nudgeCtaText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.secondary },
-  nudgeDismiss: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textLight },
+  nudgeCtaText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: Colors.secondary },
+  nudgeDismiss: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight },
 
   // ── Premium strip (top of scroll) ─────────────────────────────────────────
   premiumStrip: {
@@ -866,8 +869,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary + '18',
     alignItems: 'center', justifyContent: 'center',
   },
-  premiumStripTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary, letterSpacing: -0.1 },
-  premiumStripSub: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  premiumStripTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.primary, letterSpacing: -0.1 },
+  premiumStripSub: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 2 },
 
   // ── Just-added banner ─────────────────────────────────────────────────────
   bannerWrap: {
@@ -881,9 +884,9 @@ const styles = StyleSheet.create({
     width: 26, height: 26, borderRadius: 8,
     backgroundColor: Colors.secondary + '18', alignItems: 'center', justifyContent: 'center',
   },
-  bannerTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.primary, flex: 1 },
+  bannerTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.primary, flex: 1 },
   bannerDismiss: { padding: 4 },
-  bannerSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, marginBottom: 14, lineHeight: 17 },
+  bannerSubtitle: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginBottom: 14, lineHeight: 17 },
   bannerScroll: { gap: 10 },
   bannerCard: {
     width: 156, backgroundColor: Colors.white, borderRadius: 14,
@@ -891,11 +894,11 @@ const styles = StyleSheet.create({
     shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1,
   },
   bannerCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10 },
-  bannerCardScenario: { fontFamily: 'Inter_600SemiBold', fontSize: 11, textTransform: 'capitalize', letterSpacing: 0.1 },
+  bannerCardScenario: { fontFamily: 'Inter_600SemiBold', fontSize: rs(11), textTransform: 'capitalize', letterSpacing: 0.1 },
   bannerPhotos: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 8 },
   bannerPhotoWrap: {},
-  bannerHeroLabel: { fontFamily: 'Inter_500Medium', fontSize: 9, color: Colors.secondary, textAlign: 'center', marginTop: 2 },
-  bannerItemCount: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textLight },
+  bannerHeroLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(9), color: Colors.secondary, textAlign: 'center', marginTop: 2 },
+  bannerItemCount: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textLight },
 
   // ── Outfit card ───────────────────────────────────────────────────────────
   outfitCard: {
@@ -925,20 +928,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10,
     borderWidth: 1,
   },
-  scenarioPillText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, letterSpacing: 0.1 },
+  scenarioPillText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(11), letterSpacing: 0.1 },
 
   readyBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   readyDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.success },
-  readyText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.success },
+  readyText: { fontFamily: 'Inter_500Medium', fontSize: rs(11), color: Colors.success },
 
   wornBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: Colors.success + '12', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10,
   },
-  wornBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: Colors.success },
+  wornBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(11), color: Colors.success },
 
   moodText: {
-    fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary,
     fontStyle: 'italic', lineHeight: 18, marginBottom: 14, letterSpacing: 0.1,
   },
 
@@ -950,7 +953,7 @@ const styles = StyleSheet.create({
   },
   rewearAdvisorUrgent: { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' },
   rewearAdvisorText: {
-    fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.secondary, flex: 1, lineHeight: 15,
+    fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.secondary, flex: 1, lineHeight: 15,
   },
   rewearAdvisorTextUrgent: { color: '#92400E' },
 
@@ -961,30 +964,30 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', marginBottom: 7,
   },
   itemLabel: {
-    fontFamily: 'Inter_600SemiBold', fontSize: 11, color: Colors.primary,
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(11), color: Colors.primary,
     textTransform: 'capitalize', textAlign: 'center',
   },
   itemColor: {
-    fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(10), color: Colors.textSecondary,
     textTransform: 'capitalize', marginTop: 2, textAlign: 'center',
   },
   focalBadge: {
     marginTop: 5, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6,
     borderWidth: 1, backgroundColor: 'transparent',
   },
-  focalBadgeText: { fontFamily: 'Inter_500Medium', fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 },
+  focalBadgeText: { fontFamily: 'Inter_500Medium', fontSize: rs(9), textTransform: 'uppercase', letterSpacing: 0.5 },
 
   accessoriesWrap: {
     borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 14, marginBottom: 4,
   },
   accessoriesLabel: {
-    fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.textLight,
+    fontFamily: 'Inter_400Regular', fontSize: rs(10), color: Colors.textLight,
     textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10,
   },
   accessoriesRow: { flexDirection: 'row', gap: 12 },
   accessoryWrap: { alignItems: 'center' },
   accessoryLabel: {
-    fontFamily: 'Inter_400Regular', fontSize: 10, color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(10), color: Colors.textSecondary,
     textTransform: 'capitalize', marginTop: 4, textAlign: 'center',
   },
 
@@ -998,13 +1001,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12, paddingHorizontal: 16,
     shadowColor: Colors.primary, shadowOpacity: 0.2, shadowRadius: 6, elevation: 2,
   },
-  logWearText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: Colors.white },
+  logWearText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.white },
   undoWearBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: Colors.background, borderRadius: 14, borderWidth: 1,
     borderColor: Colors.border, paddingVertical: 11,
   },
-  undoWearText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
+  undoWearText: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.textSecondary },
 
   reactionRow: {
     flexDirection: 'row', gap: 10, alignItems: 'center',
@@ -1016,7 +1019,7 @@ const styles = StyleSheet.create({
   },
   reactionBtnLove: { backgroundColor: '#FEE2E2', borderColor: '#FECACA' },
   reactionBtnSkip: { backgroundColor: Colors.border, borderColor: Colors.border },
-  reactionText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary },
+  reactionText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary },
 
   // ── Empty state ───────────────────────────────────────────────────────────
   emptyState: { alignItems: 'center', paddingTop: 56, paddingHorizontal: 32 },
@@ -1026,11 +1029,11 @@ const styles = StyleSheet.create({
     marginBottom: 6, borderWidth: 1, borderColor: Colors.secondary + '20',
   },
   emptyTitle: {
-    fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary,
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(18), color: Colors.primary,
     marginTop: 16, textAlign: 'center', letterSpacing: -0.2,
   },
   emptySub: {
-    fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary,
     marginTop: 8, textAlign: 'center', lineHeight: 20,
   },
   emptyAction: {
@@ -1039,7 +1042,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22, paddingVertical: 13, marginTop: 24,
     shadowColor: Colors.primary, shadowOpacity: 0.25, shadowRadius: 8, elevation: 3,
   },
-  emptyActionText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.white },
+  emptyActionText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.white },
 
   cpwToast: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -1048,7 +1051,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.secondary + '28',
   },
   cpwToastText: {
-    fontFamily: 'Inter_600SemiBold', fontSize: 12, color: Colors.secondary, flex: 1, lineHeight: 17,
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: Colors.secondary, flex: 1, lineHeight: 17,
   },
 
   exportBtn: {
@@ -1057,5 +1060,5 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
     backgroundColor: Colors.background,
   },
-  exportBtnText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: Colors.textSecondary },
+  exportBtnText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary },
 });

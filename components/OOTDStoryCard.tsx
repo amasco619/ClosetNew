@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import Colors from '@/constants/colors';
 import { OutfitSet } from '@/constants/types';
+import { rs } from '../lib/responsive';
 
 const STORY_WIDTH = 360;
 const STORY_HEIGHT = 640;
@@ -125,7 +126,7 @@ const styles = StyleSheet.create({
   },
   brand: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
+    fontSize: rs(13),
     color: Colors.primary,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
@@ -140,14 +141,14 @@ const styles = StyleSheet.create({
   },
   scenarioLabel: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 22,
+    fontSize: rs(22),
     color: Colors.primary,
     letterSpacing: -0.5,
     marginBottom: 4,
   },
   moodLabel: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 13,
+    fontSize: rs(13),
     color: Colors.textSecondary,
     fontStyle: 'italic',
     marginBottom: 6,
@@ -155,7 +156,7 @@ const styles = StyleSheet.create({
   },
   dateLabel: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 11,
+    fontSize: rs(11),
     color: Colors.textLight,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
   },
   photoLabel: {
     fontFamily: 'Inter_500Medium',
-    fontSize: 9,
+    fontSize: rs(9),
     color: Colors.textSecondary,
     textTransform: 'capitalize',
     textAlign: 'center',
@@ -204,7 +205,7 @@ const styles = StyleSheet.create({
   },
   accLabel: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 9,
+    fontSize: rs(9),
     color: Colors.textSecondary,
     textTransform: 'capitalize',
     textAlign: 'center',
@@ -225,7 +226,7 @@ const styles = StyleSheet.create({
   },
   watermark: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 8,
+    fontSize: rs(8),
     color: Colors.secondary,
     letterSpacing: 1.8,
     textTransform: 'uppercase',

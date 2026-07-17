@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+import { rs } from '../lib/responsive';
 
 export type ErrorFallbackProps = {
   error: Error;
@@ -196,13 +197,13 @@ const styles = StyleSheet.create({
     maxWidth: 600,
   },
   title: {
-    fontSize: 28,
+    fontSize: rs(28),
     fontWeight: "700",
     textAlign: "center",
     lineHeight: 40,
   },
   message: {
-    fontSize: 16,
+    fontSize: rs(16),
     textAlign: "center",
     lineHeight: 24,
   },
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
   buttonText: {
     fontWeight: "600",
     textAlign: "center",
-    fontSize: 16,
+    fontSize: rs(16),
   },
   modalOverlay: {
     flex: 1,
@@ -257,7 +258,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: rs(20),
     fontWeight: "600",
   },
   closeButton: {
@@ -279,7 +280,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   errorText: {
-    fontSize: 12,
+    fontSize: rs(12),
     lineHeight: 18,
     width: "100%",
   },

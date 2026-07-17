@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { rs } from '../../lib/responsive';
 
 type ViewMode = 'list' | 'grid';
 
@@ -269,8 +270,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, marginTop: 12, marginBottom: 14,
   },
-  subtitle: { fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textLight, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 },
-  title: { fontFamily: 'Inter_700Bold', fontSize: 30, color: Colors.primary, letterSpacing: -0.8 },
+  subtitle: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textLight, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 3 },
+  title: { fontFamily: 'Inter_700Bold', fontSize: rs(30), color: Colors.primary, letterSpacing: -0.8 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   // View toggle
@@ -301,7 +302,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
   },
   filterChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  filterText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.textSecondary },
+  filterText: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.textSecondary },
   filterTextActive: { color: Colors.white },
 
   // Hidden banner
@@ -311,7 +312,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.secondary + '10', borderRadius: 12,
     borderWidth: 1, borderColor: Colors.secondary + '25',
   },
-  hiddenBannerText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.secondary, flex: 1 },
+  hiddenBannerText: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.secondary, flex: 1 },
 
   // Empty state
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
@@ -321,11 +322,11 @@ const styles = StyleSheet.create({
     marginBottom: 4, borderWidth: 1, borderColor: Colors.secondary + '20',
   },
   emptyTitle: {
-    fontFamily: 'Inter_600SemiBold', fontSize: 18, color: Colors.primary,
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(18), color: Colors.primary,
     marginTop: 16, textAlign: 'center', letterSpacing: -0.2,
   },
   emptySubtitle: {
-    fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular', fontSize: rs(14), color: Colors.textSecondary,
     marginTop: 8, textAlign: 'center', lineHeight: 21,
   },
   emptyAction: {
@@ -335,7 +336,7 @@ const styles = StyleSheet.create({
     shadowColor: Colors.primary, shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
     elevation: 3,
   },
-  emptyActionText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.white },
+  emptyActionText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.white },
 
   // ─── List view ───────────────────────────────────────────
   listContent: { paddingHorizontal: 20, paddingBottom: 120, gap: 10 },
@@ -349,13 +350,13 @@ const styles = StyleSheet.create({
   listThumb: { width: 76, height: 92 },
   listMeta: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, gap: 4 },
   listItemType: {
-    fontFamily: 'Inter_600SemiBold', fontSize: 15, color: Colors.primary,
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(15), color: Colors.primary,
     textTransform: 'capitalize', letterSpacing: -0.1,
   },
   listColorRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   colorDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 0.5, borderColor: Colors.border },
   listColorText: {
-    fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textSecondary, textTransform: 'capitalize',
+    fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, textTransform: 'capitalize',
   },
   pillRow: { flexDirection: 'row', gap: 6, marginTop: 3, flexWrap: 'wrap' },
   sagePill: {
@@ -363,14 +364,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.sage + '20',
   },
   sagePillText: {
-    fontFamily: 'Inter_500Medium', fontSize: 10, color: Colors.sage, textTransform: 'capitalize',
+    fontFamily: 'Inter_500Medium', fontSize: rs(10), color: Colors.sage, textTransform: 'capitalize',
   },
   blushPill: {
     paddingHorizontal: 8, paddingVertical: 2, borderRadius: 20,
     backgroundColor: Colors.blush + '45',
   },
   blushPillText: {
-    fontFamily: 'Inter_500Medium', fontSize: 10, color: '#A67B82', textTransform: 'capitalize',
+    fontFamily: 'Inter_500Medium', fontSize: rs(10), color: '#A67B82', textTransform: 'capitalize',
   },
   listChevron: { paddingHorizontal: 14 },
 
@@ -387,7 +388,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   gridBadgeText: {
-    fontFamily: 'Inter_700Bold', fontSize: 9, color: Colors.white,
+    fontFamily: 'Inter_700Bold', fontSize: rs(9), color: Colors.white,
   },
   gridLabel: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -395,7 +396,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16,24,38,0.45)',
   },
   gridLabelText: {
-    fontFamily: 'Inter_600SemiBold', fontSize: 9, color: Colors.white,
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(9), color: Colors.white,
     textAlign: 'center', textTransform: 'capitalize', letterSpacing: 0.2,
   },
 });
