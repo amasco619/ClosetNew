@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { fetch } from 'expo/fetch'
 import { supabase } from './supabase'
 import { getApiUrl } from './query-client'
-import { handleOAuthBrowserResult, type OAuthBrowserResult } from './oauthGuard'
+import { handleOAuthBrowserResult, buildAndroidCancelDetector, type OAuthBrowserResult } from './oauthGuard'
 export { signInWithEmail } from './emailSignIn'
 export { signUpWithEmail } from './emailSignUp'
 
@@ -161,54 +161,32 @@ async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
 
   // ── Android: open in the FULL system browser (not a Chrome Custom Tab) ──
   if (Platform.OS === 'android') {
-    let resolved = false
-    let wentBackground = false
-    let linkingRemove: (() => void) | undefined
-    let appStateSub: ReturnType<typeof AppState.addEventListener> | undefined
-    let cancelTimer: ReturnType<typeof setTimeout> | undefined
-    let cancelResolve: ((r: OAuthBrowserResult) => void) | undefined
+    // Resolve as 'cancel' ~400 ms after the app returns to the foreground
+    // without a linking event — covers the user pressing back in Chrome.
+    const cancelDetector = buildAndroidCancelDetector(AppState)
 
+    let linkingRemove: (() => void) | undefined
     const linkingPromise = new Promise<OAuthBrowserResult>((resolve) => {
       const sub = Linking.addEventListener('url', (event) => {
         if (
           event.url.startsWith(scheme + '://') &&
           (event.url.includes('code=') || event.url.includes('access_token='))
         ) {
-          resolved = true
+          cancelDetector.markLinkingResolved()
           resolve({ type: 'success', url: event.url })
         }
       })
       linkingRemove = () => sub.remove()
     })
 
-    // Resolve as 'cancel' ~400 ms after the app returns to the foreground
-    // without a linking event — covers the user pressing back in Chrome.
-    const cancelPromise = new Promise<OAuthBrowserResult>((resolve) => {
-      cancelResolve = resolve
-      appStateSub = AppState.addEventListener('change', (state) => {
-        if (state === 'background' || state === 'inactive') {
-          wentBackground = true
-        } else if (wentBackground && state === 'active' && !resolved) {
-          // Give linkingPromise a 400 ms head-start before treating this as
-          // a cancellation (the linking event and AppState change are nearly
-          // simultaneous when auth succeeds).
-          cancelTimer = setTimeout(() => {
-            if (!resolved) resolve({ type: 'cancel' })
-          }, 400)
-        }
-      })
-    })
-
     try {
       // Open in the system browser (separate process — not a Custom Tab).
       await Linking.openURL(oauthUrl)
-      const result = await Promise.race([linkingPromise, cancelPromise])
+      const result = await Promise.race([linkingPromise, cancelDetector.promise])
       await handleOAuthBrowserResult(result, createSessionFromUrl)
     } finally {
-      resolved = true          // stop the cancel timer from firing after success
-      clearTimeout(cancelTimer)
+      cancelDetector.markLinkingResolved()  // pre-empt the timer on any outcome
       linkingRemove?.()
-      appStateSub?.remove()
     }
     return
   }
