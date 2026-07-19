@@ -34,13 +34,16 @@ if (process.env.PHOTOROOM_API_KEY) {
  * getter restriction — only property reassignment (supa.supabaseAdmin = …)
  * is blocked, not property mutation (_testOverrides.skipAuth = true).
  *
- * bypassCache   — when false, the cache check runs even in skipAuth mode
- *                 (default: true, matching historical behaviour)
- * mockCheckCache — injected cache lookup; used when bypassCache is false
- * mockQuota     — injected quota status applied in skipAuth mode so tests
- *                 can exercise the `remaining` field without real DB calls
- * mockPremium   — when true, isPremium is set to true in skipAuth mode so
- *                 tests can verify the premium branch bypasses the quota guard
+ * bypassCache      — when false, the cache check runs even in skipAuth mode
+ *                    (default: true, matching historical behaviour)
+ * mockCheckCache   — injected cache lookup; used when bypassCache is false
+ * mockQuota        — injected quota status applied in skipAuth mode so tests
+ *                    can exercise the `remaining` field without real DB calls
+ * mockPremium      — when true, isPremium is set to true in skipAuth mode so
+ *                    tests can verify the premium branch bypasses the quota guard
+ * mockIncrementCount — when set in skipAuth mode, called instead of the real
+ *                    incrementUserBgRemovalCount so tests can assert that the
+ *                    count is always recorded regardless of premium status
  */
 export const _testOverrides: {
   skipAuth: boolean;
@@ -49,6 +52,7 @@ export const _testOverrides: {
   mockCheckCache?: (hash: string) => Promise<string | null>;
   mockQuota?: { allowed: boolean; count: number; remaining: number };
   mockPremium?: boolean;
+  mockIncrementCount?: () => Promise<void>;
 } = { skipAuth: false, testUserId: "" };
 
 export async function removeBackground(req: Request, res: Response) {
@@ -205,8 +209,16 @@ export async function removeBackground(req: Request, res: Response) {
 
     // ── 7. Cache result + increment usage (fire-and-forget, non-blocking) ──
     if (hash) void storeCacheResult(hash, resultBase64);
-    if (!isPremium && !(_testOverrides.skipAuth && process.env.NODE_ENV === 'test')) {
+    // Always record usage regardless of premium status.
+    // The FREE_TIER_LIMIT quota gate (step 4) is applied only at check-time,
+    // so premium users are never blocked. But tracking the count unconditionally
+    // means a lapsed-premium user's count is already accurate the moment their
+    // token refreshes to free-tier — preventing a silent quota reset that would
+    // grant them another full 20 free removals.
+    if (!(_testOverrides.skipAuth && process.env.NODE_ENV === 'test')) {
       void incrementUserBgRemovalCount(userId);
+    } else if (_testOverrides.mockIncrementCount) {
+      void _testOverrides.mockIncrementCount();
     }
 
     const responseBody: Record<string, unknown> = { imageBase64: resultBase64, mimeType: "image/png" };

@@ -1443,6 +1443,88 @@ async function main() {
     delete process.env.PHOTOROOM_API_KEY;
   }
 
+  // ── M. Premium usage is always counted — lapsed-premium regression guard ───
+  //
+  // Regression: before this fix, `incrementUserBgRemovalCount` was guarded by
+  // `!isPremium`, so premium users never accumulated a count. If a user's
+  // premium status lapsed mid-session (JWT still showed premium=true but the
+  // subscription had actually ended), every successful removal went uncounted.
+  // When the token expired and re-authed as free-tier, their count was still 0,
+  // silently granting them another full 20 removals.
+  //
+  // Fix: the increment now runs unconditionally for all real (non-test) requests.
+  // The FREE_TIER_LIMIT quota gate (step 4) remains guarded by !isPremium so
+  // premium users are still never blocked — we just keep their count accurate.
+  //
+  // This test injects `mockPremium: true` + `mockIncrementCount` to confirm
+  // that the increment callback is invoked even for premium users, and that
+  // the response is still HTTP 200 with no `remaining` field.
+
+  console.log('\nM. premium user — usage count IS incremented (lapsed-premium regression guard):');
+
+  {
+    const overrides = (require('../server/remove-background') as any)._testOverrides as {
+      skipAuth: boolean;
+      testUserId: string;
+      bypassCache?: boolean;
+      mockCheckCache?: (hash: string) => Promise<string | null>;
+      mockQuota?: { allowed: boolean; count: number; remaining: number };
+      mockPremium?: boolean;
+      mockIncrementCount?: () => Promise<void>;
+    };
+
+    overrides.skipAuth    = true;
+    overrides.testUserId  = 'user-premium-increment-test';
+    overrides.mockPremium = true;
+    // bypassCache left at default (true) → hash = null → cache block skipped
+
+    let incrementCallCount = 0;
+    overrides.mockIncrementCount = async () => { incrementCallCount++; };
+
+    // Fake valid PNG body (1024 bytes with correct magic bytes).
+    const pngBuf = new Uint8Array(1024);
+    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+    const fakePngArrayBuffer = pngBuf.buffer;
+
+    const originalFetch = (globalThis as any).fetch;
+    (globalThis as any).fetch = async (..._args: unknown[]) => ({
+      ok:          true,
+      arrayBuffer: async () => fakePngArrayBuffer,
+      text:        async () => '',
+      statusText:  'OK',
+    });
+
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    const req = makeMockReq({ imageBase64: 'aGVsbG8=' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+
+    // mockIncrementCount is fire-and-forget (void); await one microtask tick
+    // to ensure the promise chain has resolved before asserting.
+    await Promise.resolve();
+
+    (globalThis as any).fetch = originalFetch;
+
+    assertEq(res._status, 200,
+      'premium user → HTTP 200 (quota gate still bypassed)');
+    assert(typeof (res._body as any).imageBase64 === 'string',
+      'premium user → imageBase64 present in response');
+    assert(!('remaining' in (res._body as any)),
+      'premium user → `remaining` field is absent (quota does not apply)');
+    assertEq(incrementCallCount, 1,
+      'premium user → mockIncrementCount called exactly once (count always recorded)');
+
+    // Restore
+    delete overrides.bypassCache;
+    delete overrides.mockCheckCache;
+    delete overrides.mockQuota;
+    delete overrides.mockPremium;
+    delete overrides.mockIncrementCount;
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'test-user-id';
+    delete process.env.PHOTOROOM_API_KEY;
+  }
+
   // ── Final result ───────────────────────────────────────────────────────────
 
   console.log(`\n${failed === 0 ? 'All tests passed.' : `${failed} test(s) failed.`}`);
