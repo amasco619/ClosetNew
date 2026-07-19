@@ -222,11 +222,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── Password reset ────────────────────────────────────────────────────────
-  // Rate-limited (3 req / hour per IP).
+  // Double-gated:
+  //   1. authLimiter (5 req / 15 min per IP) — shared with sign-in and
+  //      sign-up so exhausting any one auth route applies back-pressure on
+  //      the others.  An attacker who burns the sign-in budget cannot
+  //      immediately switch to hammering reset-password at full quota.
+  //   2. resetLimiter (3 req / hour per IP) — tighter cap specific to the
+  //      password-reset flow, independent of the shared counter above.
   //
   // Always returns { success: true } regardless of whether the email is
   // registered — prevents email enumeration.
-  app.post("/api/auth/reset-password", resetLimiter, async (req, res) => {
+  app.post("/api/auth/reset-password", authLimiter, resetLimiter, async (req, res) => {
     const { email, redirectTo: clientRedirectTo } = req.body;
 
     if (!isValidEmail(email)) {

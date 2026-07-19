@@ -461,6 +461,96 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
     );
   }
 
+  // ── Shared auth budget: cross-route back-pressure ────────────────────────
+  //
+  // Verifies that exhausting authLimiter on one auth route (e.g. sign-in)
+  // also blocks a second auth route (e.g. reset-password) that shares the
+  // same limiter instance.  This closes the gap where an attacker who burns
+  // the sign-up/sign-in budget could immediately pivot to reset-password.
+
+  section("Shared auth budget — exhausting budget on route A blocks route B");
+  {
+    const sharedAuthLimiter = rateLimit({
+      ...LIMITER_CONFIGS.authLimiter,
+      standardHeaders: true,
+      legacyHeaders: true,
+      handler: makeLimiterHandler(),
+    });
+
+    const resetOnlyLimiter = rateLimit({
+      ...LIMITER_CONFIGS.resetLimiter,
+      standardHeaders: true,
+      legacyHeaders: true,
+      handler: makeLimiterHandler(),
+    });
+
+    const app = express();
+    app.use(express.json());
+    app.post("/sign-in",       sharedAuthLimiter, (_req, res) => res.status(200).json({ ok: true }));
+    app.post("/reset-password", sharedAuthLimiter, resetOnlyLimiter, (_req, res) => res.status(200).json({ ok: true }));
+
+    const { max } = LIMITER_CONFIGS.authLimiter;
+
+    const signInStatuses: number[] = [];
+    for (let i = 0; i < max; i++) {
+      const r = await request(app).post("/sign-in").send({});
+      signInStatuses.push(r.status);
+    }
+    assert(
+      signInStatuses.every((s) => s === 200),
+      `shared authLimiter: first ${max} sign-in requests all pass (got [${signInStatuses.join(",")}])`,
+    );
+
+    const resetAfterExhaustion = await request(app).post("/reset-password").send({});
+    assert(
+      resetAfterExhaustion.status === 429,
+      `shared authLimiter: reset-password is blocked (429) once sign-in budget is exhausted (got ${resetAfterExhaustion.status})`,
+    );
+    assert(
+      resetAfterExhaustion.body?.error === "rate_limit",
+      `shared authLimiter: reset-password blocked response has error:"rate_limit" (got "${resetAfterExhaustion.body?.error}")`,
+    );
+  }
+
+  section("Shared auth budget — reset-password resetLimiter also fires independently");
+  {
+    const sharedAuthLimiter2 = rateLimit({
+      ...LIMITER_CONFIGS.authLimiter,
+      standardHeaders: true,
+      legacyHeaders: true,
+      handler: makeLimiterHandler(),
+    });
+
+    const resetOnlyLimiter2 = rateLimit({
+      ...LIMITER_CONFIGS.resetLimiter,
+      standardHeaders: true,
+      legacyHeaders: true,
+      handler: makeLimiterHandler(),
+    });
+
+    const app2 = express();
+    app2.use(express.json());
+    app2.post("/reset-password", sharedAuthLimiter2, resetOnlyLimiter2, (_req, res) => res.status(200).json({ ok: true }));
+
+    const { max: resetMax } = LIMITER_CONFIGS.resetLimiter;
+
+    const beforeLimitStatuses: number[] = [];
+    for (let i = 0; i < resetMax; i++) {
+      const r = await request(app2).post("/reset-password").send({});
+      beforeLimitStatuses.push(r.status);
+    }
+    assert(
+      beforeLimitStatuses.every((s) => s === 200),
+      `resetLimiter: first ${resetMax} reset requests all pass (got [${beforeLimitStatuses.join(",")}])`,
+    );
+
+    const blocked = await request(app2).post("/reset-password").send({});
+    assert(
+      blocked.status === 429,
+      `resetLimiter: request ${resetMax + 1} on reset-password returns 429 (got ${blocked.status})`,
+    );
+  }
+
   // ── Summary ────────────────────────────────────────────────────────────────
 
   console.log(`\n${failed === 0 ? "All tests passed." : `${failed} test(s) FAILED.`}`);
