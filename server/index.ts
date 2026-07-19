@@ -214,15 +214,19 @@ function configureExpoAndLanding(app: express.Application) {
       if (nativeCallback && oauthCode) {
         // Security: only relay to registered app schemes.
         // For auracloset://, any path is fine (production custom scheme).
-        // For exp://, restrict to the current Replit dev domain so an
-        // attacker cannot craft a redirect that forwards auth codes to an
-        // arbitrary Expo Go server.
+        // For exp://, allow:
+        //   (a) the current Replit dev domain (served Expo web context), OR
+        //   (b) localhost / 127.0.0.1 — Expo starts with --localhost so
+        //       makeRedirectUri() always returns exp://localhost:<port> in
+        //       Expo Go (StoreClient). The PKCE verifier in native SecureStore
+        //       is the real security gate: a third party that intercepts the
+        //       relay cannot exchange the code without the verifier.
         const allowedExpHost = process.env.REPLIT_DEV_DOMAIN ?? null;
         const isAllowedCallback =
           nativeCallback.startsWith("auracloset://") ||
           (nativeCallback.startsWith("exp://") &&
-            allowedExpHost !== null &&
-            nativeCallback.includes(allowedExpHost));
+            (/^exp:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(nativeCallback) ||
+              (allowedExpHost !== null && nativeCallback.includes(allowedExpHost))));
 
         if (isAllowedCallback) {
           const relayParams = new URLSearchParams();

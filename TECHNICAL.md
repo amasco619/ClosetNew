@@ -1205,6 +1205,7 @@ On the `web` platform, Supabase previously defaulted to `localStorage`, which pe
 | C-1 | `requireAuth` on `POST /api/user/upgrade-premium` | `server/routes.ts` |
 | C-2 | `requireAuth` on `DELETE /api/user/delete-account` | `server/routes.ts` |
 | H-1 | OAuth relay allowlist — `nativeCallback` redirect only bounces to `exp://` scheme, not arbitrary URLs | `app/_layout.tsx` |
+| H-1b | OAuth relay allowlist extended: `exp://localhost` and `exp://127.0.0.1` are now valid relay targets alongside the Replit dev domain. Expo starts with `--localhost`, so `makeRedirectUri()` always returns `exp://localhost:<port>` in Expo Go (StoreClient). The previous check `nativeCallback.includes(REPLIT_DEV_DOMAIN)` always failed for localhost URLs, causing the server to serve the landing page instead of the 302 relay — leaving iOS ASWebAuth stuck and Android Chrome showing the web app instead of the native app. The PKCE verifier in native SecureStore is the real security gate. | `server/index.ts` |
 | H-2 | `requireAuth` on `POST /api/classify-garment` and `POST /api/extract-color`; `authenticatedApiRequest` on all client call-sites | `server/routes.ts`, `lib/query-client.ts` |
 | H-4 | CVE upgrade: `drizzle-orm` (GHSA-2m91-8mvq-fwwg) | `package.json` |
 | H-5 | CVE upgrade: `http-proxy-middleware` (prototype pollution) | `package.json` |
