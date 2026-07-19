@@ -164,6 +164,7 @@ function OutfitCard({
   wearHistory,
   reaction,
   onReact,
+  isPremium,
 }: {
   outfit: OutfitSet;
   index: number;
@@ -175,6 +176,7 @@ function OutfitCard({
   wearHistory: WearEntry[];
   reaction: ReactionType | null;
   onReact: (outfit: OutfitSet, type: ReactionType) => void;
+  isPremium: boolean;
 }) {
   const scenario = scenarioLabels[outfit.scenario];
   const accent = SCENARIO_ACCENT[outfit.scenario] ?? Colors.secondary;
@@ -192,7 +194,11 @@ function OutfitCard({
   const halfThreshold = Math.ceil(threshold / 2);
   const rewearUrgent = lastWorn !== null && lastWorn.daysAgo < halfThreshold;
 
-  const moodText = outfit.rationale || scenario?.mood;
+  // Premium: show the AI-generated rationale ("why this works for your
+  // body type and palette"). Free: show only the short mood descriptor.
+  const moodText = isPremium
+    ? (outfit.rationale || scenario?.mood)
+    : scenario?.mood;
   const storyRef = useRef<View>(null);
   const [exporting, setExporting] = useState(false);
 
@@ -760,6 +766,7 @@ export default function OutfitsScreen() {
                 wearHistory={wearHistory}
                 reaction={getOutfitReaction(outfit)}
                 onReact={reactToOutfit}
+                isPremium={isPremium}
               />
             );
           })

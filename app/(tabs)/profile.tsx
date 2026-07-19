@@ -589,17 +589,24 @@ export default function ProfileScreen() {
                   </View>
                 ))}
 
-              {topAffinityPairs.liked.length > 0 && (
-                <>
-                  <Text style={styles.affinityGroupTitle}>Combinations that work</Text>
-                  {topAffinityPairs.liked.map(({ ids, score }) => (
-                    <View key={`pair-liked-${ids[0]}-${ids[1]}`} style={styles.affinityItem}>
-                      <View style={[styles.affinityDot, { backgroundColor: Colors.success }]} />
-                      <Text style={styles.affinityItemLabel} numberOfLines={1}>{itemLabel(ids[0])} + {itemLabel(ids[1])}</Text>
-                      <Text style={styles.affinityItemScore}>+{score.toFixed(1)}</Text>
-                    </View>
-                  ))}
-                </>
+              {isPremium ? (
+                topAffinityPairs.liked.length > 0 && (
+                  <>
+                    <Text style={styles.affinityGroupTitle}>Combinations that work</Text>
+                    {topAffinityPairs.liked.map(({ ids, score }) => (
+                      <View key={`pair-liked-${ids[0]}-${ids[1]}`} style={styles.affinityItem}>
+                        <View style={[styles.affinityDot, { backgroundColor: Colors.success }]} />
+                        <Text style={styles.affinityItemLabel} numberOfLines={1}>{itemLabel(ids[0])} + {itemLabel(ids[1])}</Text>
+                        <Text style={styles.affinityItemScore}>+{score.toFixed(1)}</Text>
+                      </View>
+                    ))}
+                  </>
+                )
+              ) : (
+                <View style={styles.affinityUpgradeRow}>
+                  <Ionicons name="lock-closed-outline" size={12} color={Colors.textLight} />
+                  <Text style={styles.affinityUpgradeText}>Combination learning — Premium</Text>
+                </View>
               )}
             </Animated.View>
           )}
@@ -966,6 +973,8 @@ const styles = StyleSheet.create({
   affinityItemLabel: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.primary },
   affinityItemScore: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
   affinityEmpty: { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textLight, paddingHorizontal: 16, paddingBottom: 10, fontStyle: 'italic' },
+  affinityUpgradeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
+  affinityUpgradeText: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight },
 
   // ── Manage button ─────────────────────────────────────────────────────────
   manageBtn: {

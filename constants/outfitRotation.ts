@@ -208,6 +208,7 @@ export function generateOutfitPool(
   wearHistory: WearEntry[] = [],
   affinity: AffinityState = EMPTY_AFFINITY,
   weather: WeatherSnapshot | null = null,
+  isPremium?: boolean,
 ): Record<OccasionTag, OutfitSet[]> {
   const weatherActive = profile.weatherEnabled !== false && !!weather;
   const wxRule = weatherActive ? outerwearRule(weather) : 'optional';
@@ -524,8 +525,12 @@ export function generateOutfitPool(
         // Pair-affinity nudge — multiplies the combo's geometric "fit" score
         // by how well these items have played together for the user. Cold-
         // start safe: returns 1.0 until ≥5 signals have been logged.
-        const pairMult = comboPairAffinityMultiplier(affinity, allItems.map(i => i.id));
-        combo.total = combo.total * pairMult;
+        // Premium-only: free users get item-level affinity ("Basic affinity")
+        // but not cross-item pair learning ("Full Calibration Loop").
+        if (isPremium) {
+          const pairMult = comboPairAffinityMultiplier(affinity, allItems.map(i => i.id));
+          combo.total = combo.total * pairMult;
+        }
 
         // ── Hard gates — violations we never want to surface ─────────────
         // (soft penalties in scoreOutfitCombo surface near the bottom; these

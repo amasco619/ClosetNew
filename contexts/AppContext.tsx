@@ -1195,9 +1195,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const outfitPool = useMemo(
     () => generateOutfitPool(
-      activeWardrobeItems, profile, todayMood, reactions, todayString(), wearHistory, affinityState, weather,
+      activeWardrobeItems, profile, todayMood, reactions, todayString(), wearHistory, affinityState, weather, isPremium,
     ),
-    [activeWardrobeItems, profile, todayMood, reactions, wearHistory, affinityState, weather],
+    [activeWardrobeItems, profile, todayMood, reactions, wearHistory, affinityState, weather, isPremium],
   );
 
   const recentWornFingerprints = useMemo(() => {

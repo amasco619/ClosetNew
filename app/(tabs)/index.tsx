@@ -389,8 +389,10 @@ export default function HomeScreen() {
             />
             <Text style={styles.learningText}>
               {affinityActive
-                ? 'Your stylist knows your taste — picks are tuned to you'
-                : `Your stylist is learning your taste · ${Math.round(affinitySignalCount)}/5 reactions`}
+                ? isPremium
+                  ? 'Full calibration active — picks tuned to your taste and combinations'
+                  : 'Learning your style — upgrade to unlock combination memory'
+                : `${isPremium ? 'Full calibration' : 'Basic affinity'} · ${Math.round(affinitySignalCount)}/5 reactions to activate`}
             </Text>
           </Animated.View>
         )}
