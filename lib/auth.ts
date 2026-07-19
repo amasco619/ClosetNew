@@ -1,4 +1,4 @@
-import { Platform, AppState } from 'react-native'
+import { Platform } from 'react-native'
 import { makeRedirectUri } from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { fetch } from 'expo/fetch'
 import { supabase } from './supabase'
 import { getApiUrl } from './query-client'
-import { handleOAuthBrowserResult, buildAndroidCancelDetector, type OAuthBrowserResult } from './oauthGuard'
+import { handleOAuthBrowserResult, type OAuthBrowserResult } from './oauthGuard'
 export { signInWithEmail } from './emailSignIn'
 export { signUpWithEmail } from './emailSignUp'
 
@@ -137,56 +137,69 @@ export async function updatePassword(newPassword: string): Promise<void> {
  * closes the sheet after the race settles.
  *
  * ─── Android ────────────────────────────────────────────────────────────────
- * openAuthSessionAsync on Android routes to expo-web-browser's own
- * _openAuthSessionPolyfillAsync, which opens a Chrome Custom Tab (CCT).
- * expo-web-browser's own source code acknowledges the CCT cannot be
- * programmatically dismissed ("Users on Android need to manually press the
- * 'x' button in Chrome Custom Tabs, sadly.") — the native Kotlin module
- * does not implement dismissBrowser at all.
+ * Uses WebBrowser.openBrowserAsync (Chrome Custom Tab / CCT).  A CCT slides
+ * in as a sheet over the app — no hard app-switch to a separate Chrome
+ * process.  When Google auth completes and the server returns 302 → exp://…,
+ * Android intercepts the custom scheme as a VIEW intent: the CCT closes
+ * automatically and Expo Go comes to the foreground.
  *
- * Fix: bypass CCT entirely on Android.  Linking.openURL opens the OAuth URL
- * in the FULL system Chrome app (a separate process).  When Google auth
- * completes and the server returns 302 → exp://…, Android dispatches that as
- * a VIEW intent to Expo Go; Chrome goes to the background and Expo Go comes
- * to the foreground cleanly — no lingering in-app browser overlay and no
- * dismissal call needed.
- *
- * Cancellation is detected via AppState: if the app returns to 'active'
- * without a linking event firing, the user pressed back in Chrome and the
- * promise resolves as { type: 'cancel' }, which handleOAuthBrowserResult
- * treats as a silent no-op.
+ * Cancel detection: openBrowserAsync resolves (type 'cancel') when the CCT
+ * is closed for any reason.  A 500 ms buffer after the browser closes gives
+ * the Linking event time to arrive before we declare cancel — the CCT close
+ * and the Linking callback race each other by ~200 ms on the success path.
+ * WebBrowser.dismissBrowser() is called in the finally block as a best-effort
+ * cleanup; it is a no-op if the CCT already closed via intent dispatch.
  */
 async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
   const scheme = nativeRedirectTo.split('://')[0]
 
-  // ── Android: open in the FULL system browser (not a Chrome Custom Tab) ──
+  // ── Android: Chrome Custom Tab (in-app browser sheet) ────────────────────
+  //
+  // openBrowserAsync opens a Chrome Custom Tab that slides in over the app —
+  // no hard app-switch to a separate Chrome process. When the server 302s to
+  // exp://…, Android intercepts the scheme as a VIEW intent: the CCT closes
+  // automatically and Expo Go comes to the foreground (the Linking listener
+  // below catches the URL). The user never leaves the app context.
+  //
+  // Cancel detection: openBrowserAsync resolves (type 'cancel') when the CCT
+  // closes for any reason. A 500 ms buffer gives the Linking event time to
+  // arrive before we declare cancel — on intent-dispatch the CCT close and
+  // the Linking callback race each other by ~200 ms.
   if (Platform.OS === 'android') {
-    // Resolve as 'cancel' ~400 ms after the app returns to the foreground
-    // without a linking event — covers the user pressing back in Chrome.
-    const cancelDetector = buildAndroidCancelDetector(AppState)
-
     let linkingRemove: (() => void) | undefined
+
     const linkingPromise = new Promise<OAuthBrowserResult>((resolve) => {
       const sub = Linking.addEventListener('url', (event) => {
         if (
           event.url.startsWith(scheme + '://') &&
           (event.url.includes('code=') || event.url.includes('access_token='))
         ) {
-          cancelDetector.markLinkingResolved()
           resolve({ type: 'success', url: event.url })
         }
       })
       linkingRemove = () => sub.remove()
     })
 
+    // openBrowserAsync promise resolves when the CCT is dismissed (manually or
+    // via intent dispatch). Race it with the linking success event; add 500 ms
+    // after browser close so the Linking callback has time to fire first on
+    // the success path.
+    const browserClosedPromise: Promise<OAuthBrowserResult> =
+      WebBrowser.openBrowserAsync(oauthUrl, { showTitle: false })
+        .then(
+          () =>
+            new Promise<OAuthBrowserResult>((r) =>
+              setTimeout(() => r({ type: 'cancel' }), 500),
+            ),
+        )
+        .catch((): OAuthBrowserResult => ({ type: 'cancel' }))
+
     try {
-      // Open in the system browser (separate process — not a Custom Tab).
-      await Linking.openURL(oauthUrl)
-      const result = await Promise.race([linkingPromise, cancelDetector.promise])
+      const result = await Promise.race([linkingPromise, browserClosedPromise])
       await handleOAuthBrowserResult(result, createSessionFromUrl)
     } finally {
-      cancelDetector.markLinkingResolved()  // pre-empt the timer on any outcome
       linkingRemove?.()
+      WebBrowser.dismissBrowser() // best-effort; CCT may already be closed
     }
     return
   }
