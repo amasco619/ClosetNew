@@ -148,6 +148,41 @@ export async function incrementUserBgRemovalCount(userId: string): Promise<numbe
   }
 }
 
+/**
+ * Resets the background-removal usage count for a user to 0.
+ *
+ * ## Re-subscribe policy (product decision)
+ * When a user re-subscribes to premium after having lapsed, their free-tier
+ * quota count is reset to 0. This grants a fresh slate of FREE_TIER_LIMIT
+ * removals if they lapse again in the future.
+ *
+ * Rationale: the count accumulates while premium to keep lapsed-premium
+ * accurate (see incrementUserBgRemovalCount comments in remove-background.ts),
+ * but premium usage was never quota-gated — carrying that count forward into a
+ * re-subscribe cycle would silently reduce the user's next free-tier window.
+ * Resetting on re-subscribe is the commercially sensible and user-friendly
+ * choice: premium is a paid tier that earns a fresh free-tier slate.
+ *
+ * This function should be called by the subscription-change webhook or admin
+ * endpoint when a user transitions from free/lapsed → premium.
+ */
+export async function resetUserBgRemovalCount(userId: string): Promise<void> {
+  const pool = getPool();
+  if (!pool) return;
+  try {
+    await pool.query(
+      `INSERT INTO bg_removal_usage (user_id, count, last_used_at)
+       VALUES ($1, 0, NOW())
+       ON CONFLICT (user_id) DO UPDATE
+         SET count        = 0,
+             last_used_at = NOW()`,
+      [userId],
+    );
+  } catch (err) {
+    console.error("[bgRemovalStore] reset failed:", err);
+  }
+}
+
 export async function getUserBgRemovalStatus(
   userId: string,
   freeLimit: number,

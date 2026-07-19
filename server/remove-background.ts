@@ -215,6 +215,11 @@ export async function removeBackground(req: Request, res: Response) {
     // means a lapsed-premium user's count is already accurate the moment their
     // token refreshes to free-tier — preventing a silent quota reset that would
     // grant them another full 20 free removals.
+    //
+    // Re-subscribe policy: when a user re-subscribes to premium after lapsing,
+    // call resetUserBgRemovalCount(userId) (bgRemovalStore.ts) to reset their
+    // count to 0. This grants a fresh FREE_TIER_LIMIT slate if they lapse again.
+    // See the JSDoc on resetUserBgRemovalCount for the full rationale.
     if (!(_testOverrides.skipAuth && process.env.NODE_ENV === 'test')) {
       void incrementUserBgRemovalCount(userId);
     } else if (_testOverrides.mockIncrementCount) {

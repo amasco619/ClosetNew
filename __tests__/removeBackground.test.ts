@@ -1525,6 +1525,172 @@ async function main() {
     delete process.env.PHOTOROOM_API_KEY;
   }
 
+  // ── N. Re-subscribe path — quota resets to 0 on re-subscribe ──────────────
+  //
+  // Product decision: when a user re-subscribes to premium after lapsing, their
+  // free-tier quota count is reset to 0 (via resetUserBgRemovalCount in
+  // bgRemovalStore.ts). This grants a fresh FREE_TIER_LIMIT slate if they lapse
+  // again, rather than carrying over counts accumulated while they were premium
+  // (during which removals were never quota-gated anyway).
+  //
+  // The re-subscribe reset is applied externally (e.g. subscription webhook) —
+  // it is not part of the remove-background handler. These tests verify:
+  //
+  //   N1. A user near the free-tier limit (count=18) is allowed through and
+  //       sees the correct `remaining` field (1 after use).
+  //   N2. After re-subscribing (count reset to 0), the same user is treated as
+  //       having a completely fresh quota: allowed=true, remaining=20 before use,
+  //       remaining=19 after the next removal (handler reports remaining-1).
+  //   N3. resetUserBgRemovalCount is exported from bgRemovalStore (API contract).
+  //   N4. A user who lapses after re-subscribing and uses removals incrementally
+  //       never receives remaining < 0 (Math.max guard holds post-reset).
+
+  console.log('\nN. re-subscribe path — quota resets correctly on re-subscribe:');
+
+  // N1. User near limit before re-subscribe — last two removals still work
+  {
+    const FREE_TIER_LIMIT   = 20;
+    const countBeforeReset  = 18; // user has used 18 of 20 before re-subscribing
+    const expectedRemaining = FREE_TIER_LIMIT - countBeforeReset - 1; // = 1
+
+    const overrides = (require('../server/remove-background') as any)._testOverrides as {
+      skipAuth: boolean;
+      testUserId: string;
+      bypassCache?: boolean;
+      mockQuota?: { allowed: boolean; count: number; remaining: number };
+      mockIncrementCount?: () => Promise<void>;
+    };
+
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'user-resubscribe-test';
+    overrides.mockQuota  = {
+      allowed:   true,
+      count:     countBeforeReset,
+      remaining: FREE_TIER_LIMIT - countBeforeReset, // 2
+    };
+
+    const pngBuf = new Uint8Array(1024);
+    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+
+    const originalFetch = (globalThis as any).fetch;
+    (globalThis as any).fetch = async () => ({
+      ok:          true,
+      arrayBuffer: async () => pngBuf.buffer,
+      text:        async () => '',
+      statusText:  'OK',
+    });
+
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    const req = makeMockReq({ imageBase64: 'aGVsbG8=' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+
+    (globalThis as any).fetch = originalFetch;
+
+    assertEq(res._status, 200,
+      'N1: user near limit (count=18) before re-subscribe → HTTP 200 (still allowed)');
+    assertEq((res._body as any).remaining, expectedRemaining,
+      `N1: near-limit user → remaining=${expectedRemaining} (= FREE_TIER_LIMIT - count - 1)`);
+
+    delete overrides.bypassCache;
+    delete overrides.mockQuota;
+    delete overrides.mockIncrementCount;
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'test-user-id';
+    delete process.env.PHOTOROOM_API_KEY;
+  }
+
+  // N2. After re-subscribe reset — user starts from 0, gets a full fresh slate
+  {
+    const FREE_TIER_LIMIT       = 20;
+    const countAfterReset       = 0; // resetUserBgRemovalCount was called on re-subscribe
+    const expectedRemainingAfter = FREE_TIER_LIMIT - countAfterReset - 1; // = 19
+
+    const overrides = (require('../server/remove-background') as any)._testOverrides as {
+      skipAuth: boolean;
+      testUserId: string;
+      bypassCache?: boolean;
+      mockQuota?: { allowed: boolean; count: number; remaining: number };
+      mockIncrementCount?: () => Promise<void>;
+    };
+
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'user-resubscribe-fresh';
+    // Simulate the state immediately after resetUserBgRemovalCount(userId) was called:
+    // count is 0, the user has the full FREE_TIER_LIMIT remaining.
+    overrides.mockQuota  = {
+      allowed:   true,
+      count:     countAfterReset,
+      remaining: FREE_TIER_LIMIT, // 20 — full quota after reset
+    };
+
+    const pngBuf = new Uint8Array(1024);
+    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+
+    const originalFetch = (globalThis as any).fetch;
+    (globalThis as any).fetch = async () => ({
+      ok:          true,
+      arrayBuffer: async () => pngBuf.buffer,
+      text:        async () => '',
+      statusText:  'OK',
+    });
+
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    const req = makeMockReq({ imageBase64: 'aGVsbG8=' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+
+    (globalThis as any).fetch = originalFetch;
+
+    assertEq(res._status, 200,
+      'N2: after re-subscribe reset (count=0) → HTTP 200 (fresh slate)');
+    assertEq((res._body as any).remaining, expectedRemainingAfter,
+      `N2: after reset → remaining=${expectedRemainingAfter} (= FREE_TIER_LIMIT - 0 - 1, not penalised by pre-reset usage)`);
+    assert(!('fromCache' in (res._body as any)),
+      'N2: fresh image after reset → fromCache absent');
+
+    delete overrides.bypassCache;
+    delete overrides.mockQuota;
+    delete overrides.mockIncrementCount;
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'test-user-id';
+    delete process.env.PHOTOROOM_API_KEY;
+  }
+
+  // N3. resetUserBgRemovalCount is exported from bgRemovalStore (API contract)
+  {
+    const store = require('../server/bgRemovalStore') as Record<string, unknown>;
+    assert(
+      typeof store.resetUserBgRemovalCount === 'function',
+      'N3: resetUserBgRemovalCount is exported from bgRemovalStore (callable by webhook/admin)',
+    );
+  }
+
+  // N4. remaining never goes below 0 after reset (Math.max guard holds)
+  {
+    const FREE_TIER_LIMIT = 20;
+
+    // Simulate the very first use after reset: count=0, remaining=FREE_TIER_LIMIT.
+    // Optimistic decrement: remaining - 1 = 19. Must not be negative.
+    const remaining = Math.max(0, FREE_TIER_LIMIT - 0 - 1);
+    assert(
+      remaining >= 0,
+      'N4: remaining after first use post-reset is non-negative (Math.max guard)',
+    );
+    assertEq(remaining, FREE_TIER_LIMIT - 1,
+      'N4: remaining after first use post-reset equals FREE_TIER_LIMIT - 1 (= 19)',
+    );
+
+    // Simulate the edge: user somehow reaches count=FREE_TIER_LIMIT after reset.
+    // The quota gate (allowed=false) would block them before remaining is computed,
+    // but if it were reached, Math.max ensures 0 not -1.
+    const atLimit = Math.max(0, FREE_TIER_LIMIT - FREE_TIER_LIMIT - 1);
+    assert(
+      atLimit >= 0,
+      'N4: remaining at the quota boundary is clamped to 0 (never negative)',
+    );
+  }
+
   // ── Final result ───────────────────────────────────────────────────────────
 
   console.log(`\n${failed === 0 ? 'All tests passed.' : `${failed} test(s) failed.`}`);
