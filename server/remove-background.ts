@@ -33,10 +33,19 @@ if (process.env.PHOTOROOM_API_KEY) {
  * Mutating properties on this exported object bypasses the ES-module
  * getter restriction — only property reassignment (supa.supabaseAdmin = …)
  * is blocked, not property mutation (_testOverrides.skipAuth = true).
+ *
+ * bypassCache   — when false, the cache check runs even in skipAuth mode
+ *                 (default: true, matching historical behaviour)
+ * mockCheckCache — injected cache lookup; used when bypassCache is false
+ * mockQuota     — injected quota status applied in skipAuth mode so tests
+ *                 can exercise the `remaining` field without real DB calls
  */
 export const _testOverrides: {
   skipAuth: boolean;
   testUserId: string;
+  bypassCache?: boolean;
+  mockCheckCache?: (hash: string) => Promise<string | null>;
+  mockQuota?: { allowed: boolean; count: number; remaining: number };
 } = { skipAuth: false, testUserId: "" };
 
 export async function removeBackground(req: Request, res: Response) {
@@ -61,6 +70,20 @@ export async function removeBackground(req: Request, res: Response) {
     // NM-1: auth bypass is only honoured when NODE_ENV === 'test' so that a
     // leaked or mutated _testOverrides object in production has no effect.
     userId = _testOverrides.testUserId || "test-user";
+    // Allow tests to inject a quota status so the `remaining` field can be
+    // verified without a real DB connection.
+    if (!isPremium && _testOverrides.mockQuota) {
+      const { allowed, count, remaining } = _testOverrides.mockQuota;
+      if (!allowed) {
+        return res.status(403).json({
+          error: BG_REMOVAL_LIMIT_REACHED,
+          limit: FREE_TIER_LIMIT,
+          count,
+          remaining: 0,
+        });
+      }
+      remainingAfterUse = Math.max(0, remaining - 1);
+    }
   } else {
     const authHeader = req.headers?.authorization;
     const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
@@ -111,10 +134,15 @@ export async function removeBackground(req: Request, res: Response) {
   // ── 5. Check image hash cache (avoids paying Photoroom for duplicate images) ──
   // checkCacheByHash handles its own DB errors internally and returns null on
   // failure, so no outer try/catch is needed here.
-  // Cache is bypassed in test mode (_testOverrides.skipAuth && NODE_ENV=test) so that mock fetch
+  // Cache is bypassed by default in test mode (skipAuth && NODE_ENV=test) so that mock fetch
   // calls are not short-circuited by stale DB entries from previous test runs.
-  const hash = (_testOverrides.skipAuth && process.env.NODE_ENV === 'test') ? null : computeImageHash(imageBase64);
-  const cached = hash ? await checkCacheByHash(hash) : null;
+  // Set _testOverrides.bypassCache = false (with an optional mockCheckCache) to test the
+  // cache hit path explicitly.
+  const isTestMode = _testOverrides.skipAuth && process.env.NODE_ENV === 'test';
+  const bypassCache = isTestMode && (_testOverrides.bypassCache !== false);
+  const hash = bypassCache ? null : computeImageHash(imageBase64);
+  const cacheCheck = (isTestMode && _testOverrides.mockCheckCache) ? _testOverrides.mockCheckCache : checkCacheByHash;
+  const cached = hash ? await cacheCheck(hash) : null;
   if (cached) {
     // Cache hits do NOT count against the user's quota
     return res.json({ imageBase64: cached, mimeType: "image/png", fromCache: true });

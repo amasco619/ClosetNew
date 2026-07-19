@@ -1171,6 +1171,131 @@ async function main() {
     }
   }
 
+  // ── I. Removals counter accuracy — cache hit returns no `remaining` ────────
+  //
+  // When the same photo is uploaded twice the second request is a cache hit.
+  // The handler returns early with { fromCache: true } and must NOT include a
+  // `remaining` field, because the user's quota was not consumed.
+  //
+  // Regression: an earlier design optimistically decremented `remaining` before
+  // the cache check.  A cached response carrying a stale `remaining` value
+  // would mislead the client into showing an inaccurate quota counter.
+
+  console.log('\nI. removals counter — cache hit path (same photo uploaded twice):');
+
+  {
+    const overrides = (require('../server/remove-background') as any)._testOverrides as {
+      skipAuth: boolean;
+      testUserId: string;
+      bypassCache?: boolean;
+      mockCheckCache?: (hash: string) => Promise<string | null>;
+      mockQuota?: { allowed: boolean; count: number; remaining: number };
+    };
+
+    const CACHED_BASE64 = 'ZmFrZUNhY2hlZFJlc3VsdA==';
+
+    overrides.skipAuth       = true;
+    overrides.testUserId     = 'user-cache-test';
+    overrides.bypassCache    = false; // allow the cache check to run
+    overrides.mockCheckCache = async (_hash: string) => CACHED_BASE64;
+    // mockQuota intentionally absent — quota must not be read on a cache hit
+
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    const req = makeMockReq({ imageBase64: 'aGVsbG8=' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+
+    assertEq(res._status, 200, 'cache hit → HTTP 200');
+    assertEq((res._body as any).fromCache, true, 'cache hit → fromCache is true');
+    assertEq(
+      (res._body as any).imageBase64,
+      CACHED_BASE64,
+      'cache hit → imageBase64 matches cached value',
+    );
+    assert(
+      !('remaining' in (res._body as any)),
+      'cache hit → `remaining` field is absent (quota was not consumed)',
+    );
+
+    // Restore
+    delete overrides.bypassCache;
+    delete overrides.mockCheckCache;
+    delete overrides.mockQuota;
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'test-user-id';
+  }
+
+  // ── J. Removals counter accuracy — fresh image carries correct `remaining` ─
+  //
+  // On a brand-new image (no cache hit), the handler calls Photoroom and must
+  // return `remaining: FREE_TIER_LIMIT - newCount` computed optimistically from
+  // the quota status read before the call.  This test fixes the value so the
+  // assertion is deterministic without a live DB connection.
+
+  console.log('\nJ. removals counter — fresh image (first upload) returns accurate `remaining`:');
+
+  {
+    const FREE_TIER_LIMIT   = 20;
+    const currentCount      = 5;
+    const expectedRemaining = FREE_TIER_LIMIT - currentCount - 1; // optimistic decrement = 14
+
+    const overrides = (require('../server/remove-background') as any)._testOverrides as {
+      skipAuth: boolean;
+      testUserId: string;
+      bypassCache?: boolean;
+      mockCheckCache?: (hash: string) => Promise<string | null>;
+      mockQuota?: { allowed: boolean; count: number; remaining: number };
+    };
+
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'user-fresh-test';
+    overrides.mockQuota  = {
+      allowed:   true,
+      count:     currentCount,
+      remaining: FREE_TIER_LIMIT - currentCount, // 15
+    };
+    // bypassCache left at default (true) → hash = null → cached = null (skip)
+
+    // Fake PNG body: 1024 bytes with correct PNG magic bytes so the PNG
+    // validation check inside the handler passes.
+    const pngBuf = new Uint8Array(1024);
+    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+    const fakePngArrayBuffer = pngBuf.buffer;
+
+    const originalFetch = (globalThis as any).fetch;
+    (globalThis as any).fetch = async () => ({
+      ok:          true,
+      arrayBuffer: async () => fakePngArrayBuffer,
+      text:        async () => '',
+      statusText:  'OK',
+    });
+
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    const req = makeMockReq({ imageBase64: 'aGVsbG8=' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+
+    (globalThis as any).fetch = originalFetch;
+
+    assertEq(res._status, 200, 'fresh image → HTTP 200');
+    assert(typeof (res._body as any).imageBase64 === 'string', 'fresh image → imageBase64 present');
+    assertEq((res._body as any).mimeType, 'image/png', 'fresh image → mimeType is image/png');
+    assert(!('fromCache' in (res._body as any)), 'fresh image → fromCache field is absent');
+    assertEq(
+      (res._body as any).remaining,
+      expectedRemaining,
+      `fresh image → remaining is FREE_TIER_LIMIT - count - 1 (${expectedRemaining})`,
+    );
+
+    // Restore
+    delete overrides.bypassCache;
+    delete overrides.mockCheckCache;
+    delete overrides.mockQuota;
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'test-user-id';
+    delete process.env.PHOTOROOM_API_KEY;
+  }
+
   // ── Final result ───────────────────────────────────────────────────────────
 
   console.log(`\n${failed === 0 ? 'All tests passed.' : `${failed} test(s) failed.`}`);
