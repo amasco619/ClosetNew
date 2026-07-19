@@ -1365,6 +1365,84 @@ async function main() {
     delete process.env.PHOTOROOM_API_KEY;
   }
 
+  // ── L. Premium user — quota is never checked, Photoroom is always reached ──
+  //
+  // When `isPremium === true` the handler skips `getUserBgRemovalStatus` entirely
+  // and proceeds straight to Photoroom even if the free-tier quota is exhausted.
+  // This test injects `mockPremium: true` alongside an exhausted `mockQuota` to
+  // confirm that:
+  //   1. The handler returns HTTP 200 (not 403).
+  //   2. Photoroom fetch is called exactly once.
+  //   3. The response body contains `imageBase64` and `mimeType`.
+  //   4. No `remaining` field is present (premium users have no quota counter).
+  //
+  // A future refactor that accidentally moves the premium gate below the quota
+  // check would return 403 here, catching the regression before it ships.
+
+  console.log('\nL. premium user — quota bypassed even when count >= FREE_TIER_LIMIT:');
+
+  {
+    const overrides = (require('../server/remove-background') as any)._testOverrides as {
+      skipAuth: boolean;
+      testUserId: string;
+      bypassCache?: boolean;
+      mockCheckCache?: (hash: string) => Promise<string | null>;
+      mockQuota?: { allowed: boolean; count: number; remaining: number };
+      mockPremium?: boolean;
+    };
+
+    overrides.skipAuth    = true;
+    overrides.testUserId  = 'user-premium-test';
+    overrides.mockPremium = true;
+    // Inject an exhausted quota — a non-premium user would receive 403 here.
+    overrides.mockQuota   = { allowed: false, count: 20, remaining: 0 };
+    // bypassCache left at default (true) → hash = null → cache block skipped
+
+    // Fake valid PNG body (1024 bytes with correct magic bytes).
+    const pngBuf = new Uint8Array(1024);
+    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+    const fakePngArrayBuffer = pngBuf.buffer;
+
+    let fetchCallCount = 0;
+    const originalFetch = (globalThis as any).fetch;
+    (globalThis as any).fetch = async (..._args: unknown[]) => {
+      fetchCallCount++;
+      return {
+        ok:          true,
+        arrayBuffer: async () => fakePngArrayBuffer,
+        text:        async () => '',
+        statusText:  'OK',
+      };
+    };
+
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    const req = makeMockReq({ imageBase64: 'aGVsbG8=' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+
+    (globalThis as any).fetch = originalFetch;
+
+    assertEq(res._status, 200,
+      'premium user with exhausted quota → HTTP 200 (not 403)');
+    assertEq(fetchCallCount, 1,
+      'premium user → Photoroom fetch called exactly once (quota guard skipped)');
+    assert(typeof (res._body as any).imageBase64 === 'string',
+      'premium user → imageBase64 present in response');
+    assertEq((res._body as any).mimeType, 'image/png',
+      'premium user → mimeType is image/png');
+    assert(!('remaining' in (res._body as any)),
+      'premium user → `remaining` field is absent (no quota applies)');
+
+    // Restore
+    delete overrides.bypassCache;
+    delete overrides.mockCheckCache;
+    delete overrides.mockQuota;
+    delete overrides.mockPremium;
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'test-user-id';
+    delete process.env.PHOTOROOM_API_KEY;
+  }
+
   // ── Final result ───────────────────────────────────────────────────────────
 
   console.log(`\n${failed === 0 ? 'All tests passed.' : `${failed} test(s) failed.`}`);

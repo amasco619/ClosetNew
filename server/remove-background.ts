@@ -39,6 +39,8 @@ if (process.env.PHOTOROOM_API_KEY) {
  * mockCheckCache — injected cache lookup; used when bypassCache is false
  * mockQuota     — injected quota status applied in skipAuth mode so tests
  *                 can exercise the `remaining` field without real DB calls
+ * mockPremium   — when true, isPremium is set to true in skipAuth mode so
+ *                 tests can verify the premium branch bypasses the quota guard
  */
 export const _testOverrides: {
   skipAuth: boolean;
@@ -46,6 +48,7 @@ export const _testOverrides: {
   bypassCache?: boolean;
   mockCheckCache?: (hash: string) => Promise<string | null>;
   mockQuota?: { allowed: boolean; count: number; remaining: number };
+  mockPremium?: boolean;
 } = { skipAuth: false, testUserId: "" };
 
 export async function removeBackground(req: Request, res: Response) {
@@ -70,6 +73,11 @@ export async function removeBackground(req: Request, res: Response) {
     // NM-1: auth bypass is only honoured when NODE_ENV === 'test' so that a
     // leaked or mutated _testOverrides object in production has no effect.
     userId = _testOverrides.testUserId || "test-user";
+    // Allow tests to inject a premium flag so the quota-bypass branch can be
+    // exercised without real auth/DB calls.
+    if (_testOverrides.mockPremium === true) {
+      isPremium = true;
+    }
     // Allow tests to inject a quota status so the `remaining` field can be
     // verified without a real DB connection.
     if (!isPremium && _testOverrides.mockQuota) {
@@ -201,7 +209,9 @@ export async function removeBackground(req: Request, res: Response) {
       void incrementUserBgRemovalCount(userId);
     }
 
-    return res.json({ imageBase64: resultBase64, mimeType: "image/png", remaining: remainingAfterUse });
+    const responseBody: Record<string, unknown> = { imageBase64: resultBase64, mimeType: "image/png" };
+    if (remainingAfterUse !== undefined) responseBody.remaining = remainingAfterUse;
+    return res.json(responseBody);
 
   } catch (err: any) {
     clearTimeout(timeoutId);
