@@ -28,6 +28,7 @@ import { resolveWardrobeUploadArg, stripDataUriPrefix } from '../lib/uploadArg';
 import {
   BACKGROUND_REMOVAL_FAILED,
   BACKGROUND_REMOVAL_UNAVAILABLE,
+  BG_REMOVAL_LIMIT_REACHED,
   PHOTOROOM_EMPTY_RESPONSE,
   PHOTOROOM_ERROR,
   PHOTOROOM_INVALID_RESPONSE,
@@ -1285,6 +1286,74 @@ async function main() {
       (res._body as any).remaining,
       expectedRemaining,
       `fresh image → remaining is FREE_TIER_LIMIT - count - 1 (${expectedRemaining})`,
+    );
+
+    // Restore
+    delete overrides.bypassCache;
+    delete overrides.mockCheckCache;
+    delete overrides.mockQuota;
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'test-user-id';
+    delete process.env.PHOTOROOM_API_KEY;
+  }
+
+  // ── K. Quota-exhausted path — handler returns 403, Photoroom is never called ──
+  //
+  // When the user has used all 20 free-tier removals the quota guard in the
+  // handler must:
+  //   1. Return HTTP 403 immediately (before any fetch call).
+  //   2. Set error: BG_REMOVAL_LIMIT_REACHED in the JSON body.
+  //   3. Set remaining: 0 in the JSON body.
+  //   4. Never call Photoroom (global fetch must not be invoked).
+  //
+  // This test exercises the mockQuota path (lines 75–85 of remove-background.ts)
+  // so the assertion is deterministic without a live DB connection.
+
+  console.log('\nK. quota-exhausted path — 403 returned, Photoroom fetch never called:');
+
+  {
+    const overrides = (require('../server/remove-background') as any)._testOverrides as {
+      skipAuth: boolean;
+      testUserId: string;
+      bypassCache?: boolean;
+      mockCheckCache?: (hash: string) => Promise<string | null>;
+      mockQuota?: { allowed: boolean; count: number; remaining: number };
+    };
+
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'user-quota-exhausted';
+    overrides.mockQuota  = { allowed: false, count: 20, remaining: 0 };
+    // bypassCache left at default (true) → cache block is skipped
+
+    let fetchCallCount = 0;
+    const originalFetch = (globalThis as any).fetch;
+    (globalThis as any).fetch = async (..._args: unknown[]) => {
+      fetchCallCount++;
+      return { ok: true, arrayBuffer: async () => new ArrayBuffer(0) };
+    };
+
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    const req = makeMockReq({ imageBase64: 'aGVsbG8=' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+
+    (globalThis as any).fetch = originalFetch;
+
+    assertEq(res._status, 403, 'quota exhausted → HTTP 403');
+    assertEq(
+      (res._body as any)?.error,
+      BG_REMOVAL_LIMIT_REACHED,
+      `quota exhausted → error: "${BG_REMOVAL_LIMIT_REACHED}"`,
+    );
+    assertEq(
+      (res._body as any)?.remaining,
+      0,
+      'quota exhausted → remaining: 0',
+    );
+    assertEq(
+      fetchCallCount,
+      0,
+      'quota exhausted → Photoroom fetch was NOT called (no network request)',
     );
 
     // Restore
