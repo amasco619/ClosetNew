@@ -22,6 +22,43 @@ const FREE_TIER_LIMIT = 20;
 const PHOTOROOM_SEGMENT_URL = "https://sdk.photoroom.com/v1/segment";
 const PHOTOROOM_TIMEOUT_MS = 15_000;
 
+/**
+ * Maximum age of a JWT premium claim before the handler re-validates against
+ * the database.  When a user cancels their subscription the JWT keeps reflecting
+ * premium=true until the token is refreshed — bounding how long a downgraded
+ * user can obtain unlimited removals during the stale-token window.
+ *
+ * Default: 24 hours.  Lowering this value forces more DB round-trips but
+ * tightens the window; raising it reduces DB load at the cost of a longer gap.
+ */
+export const PREMIUM_CLAIM_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/**
+ * Decodes the JWT payload (without re-verifying the signature — the caller
+ * has already validated the token via supabaseAdmin.auth.getUser) and returns
+ * true when the token's `iat` (issued-at) claim is within maxAgeMs of now.
+ *
+ * A fresh token can be trusted for the isPremium=true fast-path.
+ * A stale token triggers a DB check to catch subscription downgrades that
+ * occurred after the token was minted.
+ *
+ * Returns false on any parse failure — the caller falls back to DB.
+ */
+export function isJwtClaimFresh(token: string, maxAgeMs: number): boolean {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+    const payloadJson = Buffer.from(parts[1], "base64").toString("utf8");
+    const payload = JSON.parse(payloadJson) as Record<string, unknown>;
+    const iat = payload.iat;
+    if (typeof iat !== "number") return false;
+    const ageMs = Date.now() - iat * 1000;
+    return ageMs >= 0 && ageMs <= maxAgeMs;
+  } catch {
+    return false;
+  }
+}
+
 if (process.env.PHOTOROOM_API_KEY) {
   console.log("[remove-background] PHOTOROOM_API_KEY is set — background removal enabled");
 } else {
@@ -41,6 +78,9 @@ if (process.env.PHOTOROOM_API_KEY) {
  *                    can exercise the `remaining` field without real DB calls
  * mockPremium      — when true, isPremium is set to true in skipAuth mode so
  *                    tests can verify the premium branch bypasses the quota guard
+ * mockClaimFresh   — when false AND mockPremium is true, simulates a stale JWT
+ *                    premium claim so tests can verify the quota guard re-applies
+ *                    to a downgraded user whose token has not yet expired
  * mockIncrementCount — when set in skipAuth mode, called instead of the real
  *                    incrementUserBgRemovalCount so tests can assert that the
  *                    count is always recorded regardless of premium status
@@ -52,6 +92,7 @@ export const _testOverrides: {
   mockCheckCache?: (hash: string) => Promise<string | null>;
   mockQuota?: { allowed: boolean; count: number; remaining: number };
   mockPremium?: boolean;
+  mockClaimFresh?: boolean;
   mockIncrementCount?: () => Promise<void>;
 } = { skipAuth: false, testUserId: "" };
 
@@ -79,7 +120,11 @@ export async function removeBackground(req: Request, res: Response) {
     userId = _testOverrides.testUserId || "test-user";
     // Allow tests to inject a premium flag so the quota-bypass branch can be
     // exercised without real auth/DB calls.
-    if (_testOverrides.mockPremium === true) {
+    // When mockClaimFresh === false, the premium claim is treated as stale:
+    // isPremium stays false and the quota gate applies as if the user is
+    // free-tier — this models a downgraded user whose old token still carries
+    // premium=true but the subscription has already lapsed.
+    if (_testOverrides.mockPremium === true && _testOverrides.mockClaimFresh !== false) {
       isPremium = true;
     }
     // Allow tests to inject a quota status so the `remaining` field can be
@@ -111,12 +156,41 @@ export async function removeBackground(req: Request, res: Response) {
 
     // ── 4. Determine premium tier ────────────────────────────────────────────
     // Primary: read from JWT app_metadata claims (no extra round-trip).
+    // For isPremium=false claims: safe to trust regardless of age — a false
+    // claim can only restrict access, never grant it.
+    // For isPremium=true claims: only trust when the JWT is fresh (< 24 h old).
+    // If the token is stale the user may have cancelled their subscription since
+    // it was minted — fall back to a DB check to verify the current status.
     // Fallback: query user_profiles when the claim is absent (e.g. tokens
-    // issued before the premium flag was synced to app_metadata).
+    // issued before the premium flag was synced to app_metadata) or stale.
     const claimPremium = (user.app_metadata as Record<string, unknown> | undefined)?.premium;
-    if (claimPremium === true || claimPremium === false) {
-      isPremium = claimPremium === true;
+
+    if (claimPremium === false) {
+      // A false claim can only restrict access — safe to trust without age check.
+      isPremium = false;
+    } else if (claimPremium === true) {
+      // A true claim grants quota bypass — only trust when the JWT is fresh.
+      const claimFresh = isJwtClaimFresh(token, PREMIUM_CLAIM_MAX_AGE_MS);
+      if (claimFresh) {
+        isPremium = true;
+      } else {
+        // Stale premium claim: the user may have downgraded since this token
+        // was issued.  Verify the current subscription status in the DB.
+        // Treat as free-tier on any DB error (conservative but safe).
+        try {
+          const { data: profile } = await supabaseAdmin
+            .from("user_profiles")
+            .select("premium")
+            .eq("id", userId)
+            .single();
+          isPremium = profile?.premium === true;
+        } catch {
+          // Conservative: treat as free on DB error
+        }
+      }
     } else {
+      // Claim absent (e.g. token issued before premium flag was synced):
+      // fall back to DB to determine premium status.
       try {
         const { data: profile } = await supabaseAdmin
           .from("user_profiles")

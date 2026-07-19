@@ -1691,6 +1691,336 @@ async function main() {
     );
   }
 
+  // ── O. isJwtClaimFresh — JWT iat freshness helper ─────────────────────────
+  //
+  // isJwtClaimFresh decodes the JWT payload (middle segment, base64) and checks
+  // whether the token's `iat` (issued-at, Unix seconds) is within maxAgeMs of
+  // now.  It is used by step 4 of the handler to decide whether a premium=true
+  // claim in app_metadata can be trusted without a DB round-trip.
+  //
+  // A user who cancels their subscription retains the old premium=true claim in
+  // their JWT until the token is refreshed.  Bounding the trust window to
+  // PREMIUM_CLAIM_MAX_AGE_MS (24 h) limits how long they can bypass the quota.
+  //
+  // The signature is NOT re-verified here; supabaseAdmin.auth.getUser() has
+  // already done that before isJwtClaimFresh is called in production.
+
+  console.log('\nO. isJwtClaimFresh — unit tests (pure function, no I/O):');
+
+  {
+    // Helper: build a minimal JWT-shaped string with the given iat in the
+    // payload.  The header and signature are fake — only the payload matters
+    // for isJwtClaimFresh, which never re-verifies the signature.
+    function makeTestJwt(iat: number, extraPayload?: Record<string, unknown>): string {
+      const payload = JSON.stringify({ sub: 'test-user', iat, ...extraPayload });
+      const b64 = Buffer.from(payload).toString('base64');
+      return `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${b64}.fake-sig`;
+    }
+
+    const { isJwtClaimFresh, PREMIUM_CLAIM_MAX_AGE_MS } = require('../server/remove-background') as {
+      isJwtClaimFresh: (token: string, maxAgeMs: number) => boolean;
+      PREMIUM_CLAIM_MAX_AGE_MS: number;
+    };
+
+    // O0. PREMIUM_CLAIM_MAX_AGE_MS is exported and equals 24 hours
+    assertEq(
+      PREMIUM_CLAIM_MAX_AGE_MS,
+      24 * 60 * 60 * 1000,
+      'O0: PREMIUM_CLAIM_MAX_AGE_MS is exported and equals 24 h (86 400 000 ms)',
+    );
+
+    // O1. Token issued right now is fresh
+    {
+      const iatNow = Math.floor(Date.now() / 1000);
+      assert(
+        isJwtClaimFresh(makeTestJwt(iatNow), PREMIUM_CLAIM_MAX_AGE_MS),
+        'O1: token issued at now → fresh (true)',
+      );
+    }
+
+    // O2. Token issued 1 second ago is fresh
+    {
+      const iat = Math.floor(Date.now() / 1000) - 1;
+      assert(
+        isJwtClaimFresh(makeTestJwt(iat), PREMIUM_CLAIM_MAX_AGE_MS),
+        'O2: token issued 1 s ago → fresh (true)',
+      );
+    }
+
+    // O3. Token issued 1 second within the boundary is still fresh
+    // (The exact-boundary test is inherently racy because time passes between
+    //  computing iat and calling the function; 1 s of margin makes it deterministic.)
+    {
+      const iat = Math.floor((Date.now() - PREMIUM_CLAIM_MAX_AGE_MS + 2_000) / 1000);
+      assert(
+        isJwtClaimFresh(makeTestJwt(iat), PREMIUM_CLAIM_MAX_AGE_MS),
+        'O3: token 1 s within the maxAgeMs boundary → fresh (true)',
+      );
+    }
+
+    // O4. Token issued 25 hours ago is stale
+    {
+      const iat = Math.floor((Date.now() - 25 * 60 * 60 * 1000) / 1000);
+      assert(
+        !isJwtClaimFresh(makeTestJwt(iat), PREMIUM_CLAIM_MAX_AGE_MS),
+        'O4: token issued 25 h ago → stale (false)',
+      );
+    }
+
+    // O5. Token issued 1 ms past the boundary is stale
+    {
+      const iat = Math.floor((Date.now() - PREMIUM_CLAIM_MAX_AGE_MS - 1000) / 1000);
+      assert(
+        !isJwtClaimFresh(makeTestJwt(iat), PREMIUM_CLAIM_MAX_AGE_MS),
+        'O5: token 1 s past maxAgeMs boundary → stale (false)',
+      );
+    }
+
+    // O6. Malformed token (no dots) → false
+    assert(
+      !isJwtClaimFresh('notavalidjwt', PREMIUM_CLAIM_MAX_AGE_MS),
+      'O6: malformed token (no dots) → stale/invalid (false)',
+    );
+
+    // O7. Token with only two segments → false
+    assert(
+      !isJwtClaimFresh('header.payload', PREMIUM_CLAIM_MAX_AGE_MS),
+      'O7: token with 2 segments (no signature) → stale/invalid (false)',
+    );
+
+    // O8. Valid structure but payload is not JSON → false
+    assert(
+      !isJwtClaimFresh('header.bm90anNvbg==.sig', PREMIUM_CLAIM_MAX_AGE_MS),
+      'O8: payload segment decodes to non-JSON → stale/invalid (false)',
+    );
+
+    // O9. Payload is valid JSON but missing iat → false
+    {
+      const payloadNoIat = Buffer.from(JSON.stringify({ sub: 'user-x' })).toString('base64');
+      const token = `header.${payloadNoIat}.sig`;
+      assert(
+        !isJwtClaimFresh(token, PREMIUM_CLAIM_MAX_AGE_MS),
+        'O9: payload has no iat field → stale/invalid (false)',
+      );
+    }
+
+    // O10. Payload has iat as a string (non-numeric) → false
+    {
+      const payloadStrIat = Buffer.from(JSON.stringify({ sub: 'user-x', iat: 'not-a-number' })).toString('base64');
+      const token = `header.${payloadStrIat}.sig`;
+      assert(
+        !isJwtClaimFresh(token, PREMIUM_CLAIM_MAX_AGE_MS),
+        'O10: iat is a string (non-numeric) → stale/invalid (false)',
+      );
+    }
+
+    // O11. Payload has iat in the future (clock skew or bad token) → stale
+    // ageMs would be negative; the ageMs >= 0 guard rejects it.
+    {
+      const iatFuture = Math.floor(Date.now() / 1000) + 9999;
+      assert(
+        !isJwtClaimFresh(makeTestJwt(iatFuture), PREMIUM_CLAIM_MAX_AGE_MS),
+        'O11: iat is in the future → stale/invalid (false)',
+      );
+    }
+
+    // O12. Custom tight maxAgeMs (1 second) — a 2-second-old token is stale
+    {
+      const iat = Math.floor(Date.now() / 1000) - 2;
+      assert(
+        !isJwtClaimFresh(makeTestJwt(iat), 1_000),
+        'O12: token 2 s old with 1 s maxAge → stale (false)',
+      );
+    }
+
+    // O13. Custom tight maxAgeMs (1 second) — a brand-new token is fresh
+    {
+      const iat = Math.floor(Date.now() / 1000);
+      assert(
+        isJwtClaimFresh(makeTestJwt(iat), 1_000),
+        'O13: token issued now with 1 s maxAge → fresh (true)',
+      );
+    }
+  }
+
+  // ── P. Stale premium claim — quota gate re-applies after downgrade ─────────
+  //
+  // This section tests the handler behaviour when a user's JWT still carries
+  // premium=true but the claim is stale (>24 h old).  In production the handler
+  // calls isJwtClaimFresh and falls back to a DB check; in test mode the
+  // `mockClaimFresh: false` override simulates that DB-fallback returning
+  // isPremium=false so the normal free-tier quota gate applies.
+  //
+  // The key regression this guards against:
+  //   A cancelled subscriber keeps making unlimited removals until their token
+  //   expires because the server read premium=true from the JWT and skipped the
+  //   quota gate entirely — even the !isPremium check that gates the increment.
+
+  console.log('\nP. stale premium claim — downgraded user sees quota gate after claim expires:');
+
+  // P1. Stale premium claim + exhausted quota → 403 (Photoroom never called)
+  {
+    const overrides = (require('../server/remove-background') as any)._testOverrides as {
+      skipAuth: boolean;
+      testUserId: string;
+      bypassCache?: boolean;
+      mockPremium?: boolean;
+      mockClaimFresh?: boolean;
+      mockQuota?: { allowed: boolean; count: number; remaining: number };
+    };
+
+    overrides.skipAuth      = true;
+    overrides.testUserId    = 'user-stale-claim-exhausted';
+    overrides.mockPremium   = true;   // JWT says premium=true …
+    overrides.mockClaimFresh = false; // … but the claim is stale (>24 h old)
+    overrides.mockQuota     = { allowed: false, count: 20, remaining: 0 };
+
+    let fetchCallCount = 0;
+    const savedFetch = (globalThis as any).fetch;
+    (globalThis as any).fetch = async (..._args: unknown[]) => {
+      fetchCallCount++;
+      return { ok: true, arrayBuffer: async () => new ArrayBuffer(0) };
+    };
+
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    const req = makeMockReq({ imageBase64: 'aGVsbG8=' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+
+    (globalThis as any).fetch = savedFetch;
+
+    assertEq(res._status, 403,
+      'P1: stale premium claim + exhausted quota → HTTP 403 (not 200)');
+    assertEq((res._body as any)?.error, BG_REMOVAL_LIMIT_REACHED,
+      `P1: stale premium claim + exhausted quota → error: "${BG_REMOVAL_LIMIT_REACHED}"`);
+    assertEq((res._body as any)?.remaining, 0,
+      'P1: stale premium claim + exhausted quota → remaining: 0');
+    assertEq(fetchCallCount, 0,
+      'P1: stale premium claim + exhausted quota → Photoroom fetch NOT called');
+
+    delete overrides.mockPremium;
+    delete overrides.mockClaimFresh;
+    delete overrides.mockQuota;
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'test-user-id';
+    delete process.env.PHOTOROOM_API_KEY;
+  }
+
+  // P2. Stale premium claim + quota still available → 200 with remaining field
+  {
+    const overrides = (require('../server/remove-background') as any)._testOverrides as {
+      skipAuth: boolean;
+      testUserId: string;
+      bypassCache?: boolean;
+      mockPremium?: boolean;
+      mockClaimFresh?: boolean;
+      mockQuota?: { allowed: boolean; count: number; remaining: number };
+    };
+
+    const FREE_TIER_LIMIT   = 20;
+    const currentCount      = 10;
+    const expectedRemaining = FREE_TIER_LIMIT - currentCount - 1; // = 9
+
+    overrides.skipAuth       = true;
+    overrides.testUserId     = 'user-stale-claim-allowed';
+    overrides.mockPremium    = true;   // JWT says premium=true …
+    overrides.mockClaimFresh = false;  // … but stale — fall back to free-tier gate
+    overrides.mockQuota      = {
+      allowed:   true,
+      count:     currentCount,
+      remaining: FREE_TIER_LIMIT - currentCount,
+    };
+
+    const pngBuf = new Uint8Array(1024);
+    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+
+    const savedFetch = (globalThis as any).fetch;
+    (globalThis as any).fetch = async () => ({
+      ok:          true,
+      arrayBuffer: async () => pngBuf.buffer,
+      text:        async () => '',
+      statusText:  'OK',
+    });
+
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    const req = makeMockReq({ imageBase64: 'aGVsbG9zdGFsZQ==' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+
+    (globalThis as any).fetch = savedFetch;
+
+    assertEq(res._status, 200,
+      'P2: stale premium claim + quota available → HTTP 200');
+    assert(typeof (res._body as any).imageBase64 === 'string',
+      'P2: stale premium claim + quota available → imageBase64 present');
+    assertEq((res._body as any).remaining, expectedRemaining,
+      `P2: stale premium claim + quota available → remaining=${expectedRemaining} (quota is applied)`);
+    assert('remaining' in (res._body as any),
+      'P2: stale premium claim → `remaining` field IS present (free-tier quota applies)');
+
+    delete overrides.mockPremium;
+    delete overrides.mockClaimFresh;
+    delete overrides.mockQuota;
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'test-user-id';
+    delete process.env.PHOTOROOM_API_KEY;
+  }
+
+  // P3. Fresh premium claim (no mockClaimFresh override) still bypasses quota
+  // Regression guard: confirming the existing L-test behaviour is unaffected by
+  // the new mockClaimFresh mechanic when it is absent (default = trust premium).
+  {
+    const overrides = (require('../server/remove-background') as any)._testOverrides as {
+      skipAuth: boolean;
+      testUserId: string;
+      bypassCache?: boolean;
+      mockPremium?: boolean;
+      mockClaimFresh?: boolean;
+      mockQuota?: { allowed: boolean; count: number; remaining: number };
+    };
+
+    overrides.skipAuth    = true;
+    overrides.testUserId  = 'user-fresh-claim-premium';
+    overrides.mockPremium = true; // no mockClaimFresh → defaults to treating claim as fresh
+    overrides.mockQuota   = { allowed: false, count: 20, remaining: 0 };
+
+    const pngBuf = new Uint8Array(1024);
+    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+
+    let fetchCalled = false;
+    const savedFetch = (globalThis as any).fetch;
+    (globalThis as any).fetch = async () => {
+      fetchCalled = true;
+      return {
+        ok:          true,
+        arrayBuffer: async () => pngBuf.buffer,
+        text:        async () => '',
+        statusText:  'OK',
+      };
+    };
+
+    process.env.PHOTOROOM_API_KEY = 'test-key';
+    const req = makeMockReq({ imageBase64: 'aGVsbG8=' });
+    const res = makeMockRes();
+    await serverRemoveBackground(req as any, res as any);
+
+    (globalThis as any).fetch = savedFetch;
+
+    assertEq(res._status, 200,
+      'P3: fresh premium claim (no mockClaimFresh) + exhausted quota → HTTP 200 (quota bypassed)');
+    assert(fetchCalled,
+      'P3: fresh premium claim → Photoroom fetch called (quota gate skipped)');
+    assert(!('remaining' in (res._body as any)),
+      'P3: fresh premium claim → `remaining` field absent (no quota for premium users)');
+
+    delete overrides.mockPremium;
+    delete overrides.mockClaimFresh;
+    delete overrides.mockQuota;
+    overrides.skipAuth   = true;
+    overrides.testUserId = 'test-user-id';
+    delete process.env.PHOTOROOM_API_KEY;
+  }
+
   // ── Final result ───────────────────────────────────────────────────────────
 
   console.log(`\n${failed === 0 ? 'All tests passed.' : `${failed} test(s) failed.`}`);
