@@ -15,6 +15,39 @@ declare module "http" {
   }
 }
 
+/**
+ * Security headers applied to every response.
+ *
+ * X-Content-Type-Options  — blocks MIME-sniffing attacks
+ * X-Frame-Options         — blocks clickjacking via iframes
+ * X-XSS-Protection        — legacy browser XSS filter (belt + suspenders)
+ * Referrer-Policy         — limits referrer info sent to third parties
+ * Permissions-Policy      — locks down sensitive browser APIs this server
+ *                           never intentionally uses
+ *
+ * A strict Content-Security-Policy is applied only to /api routes (pure JSON
+ * endpoints) so it doesn't interfere with the HTML landing page.
+ */
+function setupSecurityHeaders(app: express.Application) {
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader(
+      "Permissions-Policy",
+      "geolocation=(), microphone=(), camera=(), payment=()",
+    );
+    next();
+  });
+
+  // JSON-only endpoints: forbid all resource loads, iframes, and inline scripts.
+  app.use("/api", (_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader("Content-Security-Policy", "default-src 'none'");
+    next();
+  });
+}
+
 function setupCors(app: express.Application) {
   app.use((req, res, next) => {
     const origins = new Set<string>();
@@ -294,6 +327,7 @@ function setupErrorHandler(app: express.Application) {
 
 (async () => {
   app.set("trust proxy", 1);
+  setupSecurityHeaders(app);
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);

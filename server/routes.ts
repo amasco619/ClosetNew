@@ -19,6 +19,81 @@ function withAiLimit(
   return (req, res) => { void _aiSlots(() => Promise.resolve(handler(req, res))); };
 }
 
+// ─── Input validation helpers ─────────────────────────────────────────────────
+
+/**
+ * Loose but sufficient email shape check.  The authoritative validation is
+ * Supabase's own; this guard prevents obviously malformed/oversized strings
+ * from ever reaching the downstream auth service.
+ *
+ * Max 254 chars per RFC 5321.  No Unicode normalisation — Supabase handles
+ * that.  The regex rejects strings without exactly one @-separated local-part
+ * and domain.
+ */
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_EMAIL_LEN = 254;
+/** 128-char ceiling stops timing attacks on pathologically long passwords. */
+const MAX_PASSWORD_LEN = 128;
+const MIN_PASSWORD_LEN = 8;
+
+function isValidEmail(val: unknown): val is string {
+  if (typeof val !== "string") return false;
+  const trimmed = val.trim();
+  return trimmed.length > 0 && trimmed.length <= MAX_EMAIL_LEN && EMAIL_REGEX.test(trimmed);
+}
+
+function isValidPassword(val: unknown): val is string {
+  return (
+    typeof val === "string" &&
+    val.length >= MIN_PASSWORD_LEN &&
+    val.length <= MAX_PASSWORD_LEN
+  );
+}
+
+/** Return the ALLOWED_RESET_ORIGINS allowlist, or null when not configured. */
+function getEnvAllowlist(): string[] | null {
+  return process.env.ALLOWED_RESET_ORIGINS
+    ? process.env.ALLOWED_RESET_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+    : null;
+}
+
+/**
+ * Validates a client-supplied redirect URL.
+ *
+ * Only accepts HTTPS origins that match either:
+ *   (a) the `ALLOWED_RESET_ORIGINS` env allowlist, or
+ *   (b) the request's own `Origin` header (same-origin).
+ *
+ * The pathname must be one of `allowedPaths`.  Anything that fails validation
+ * silently falls back to "auracloset://" so callers never receive a crafted
+ * open-redirect destination.
+ */
+function sanitizeRedirectUrl(
+  clientRedirectTo: unknown,
+  requestOrigin: string | null,
+  allowedPaths: string[],
+): string {
+  if (typeof clientRedirectTo !== "string") return "auracloset://";
+  const envAllowlist = getEnvAllowlist();
+  try {
+    const parsed = new URL(clientRedirectTo);
+    const isHttps =
+      parsed.protocol === "https:" ||
+      (parsed.protocol === "http:" &&
+        (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1"));
+    const hasAllowedPath = allowedPaths.includes(parsed.pathname);
+    const originAllowed = envAllowlist
+      ? envAllowlist.includes(parsed.origin)
+      : requestOrigin !== null && parsed.origin === new URL(requestOrigin).origin;
+    if (isHttps && hasAllowedPath && originAllowed) return clientRedirectTo;
+  } catch {
+    // Malformed URL — fall through to the native scheme default.
+  }
+  return "auracloset://";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface AuthenticatedRequest extends Request {
   authenticatedUser: { id: string; email?: string };
 }
@@ -55,13 +130,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/extract-color", colorLimiter, requireAuth, withAiLimit(extractColor));
   app.post("/api/remove-background", bgRemovalLimiter, withAiLimit(removeBackground));
 
+  // ── Sign-in ───────────────────────────────────────────────────────────────
+  // Rate-limited (5 req / 15 min per IP) + per-account lockout (5 failures →
+  // 15-min cooldown, Postgres-persisted, survives restarts).
+  //
+  // Error messages are always generic — never reveals whether the email
+  // exists or whether the password specifically was wrong.
   app.post("/api/auth/sign-in", authLimiter, async (req, res) => {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: "email and password are required." });
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: "invalid_email" });
+    }
+    if (!isValidPassword(password)) {
+      return res.status(400).json({ error: "invalid_password" });
     }
 
-    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedEmail = (email as string).trim().toLowerCase();
 
     const lockout = checkAccountLockout(normalizedEmail);
     if (lockout.locked) {
@@ -78,60 +163,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       if (error) {
         recordFailedAttempt(normalizedEmail);
-        return res.status(401).json({ error: error.message });
+        // Generic message — never reveals whether the email exists or whether
+        // the password was the problem.
+        return res.status(401).json({ error: "invalid_credentials" });
       }
       clearLockout(normalizedEmail);
       return res.json({ session: data.session });
-    } catch (err: any) {
-      console.error("[auth/sign-in]", err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[auth/sign-in]", msg);
       return res.status(500).json({ error: "sign_in_failed" });
     }
   });
 
-  app.post("/api/auth/reset-password", resetLimiter, async (req, res) => {
-    const { email, redirectTo: clientRedirectTo } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: "email is required." });
+  // ── Sign-up ───────────────────────────────────────────────────────────────
+  // Rate-limited (same authLimiter: 5 req / 15 min per IP).
+  //
+  // Always responds with { success: true } regardless of whether the email
+  // already exists — prevents email enumeration attacks.  The caller should
+  // display a fixed "check your email for a confirmation link" message.
+  app.post("/api/auth/sign-up", authLimiter, async (req, res) => {
+    const { email, password, emailRedirectTo: clientRedirectTo } = req.body;
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: "invalid_email" });
+    }
+    if (!isValidPassword(password)) {
+      return res.status(400).json({
+        error: `Password must be ${MIN_PASSWORD_LEN}–${MAX_PASSWORD_LEN} characters.`,
+      });
     }
 
-    const envAllowlist = process.env.ALLOWED_RESET_ORIGINS
-      ? process.env.ALLOWED_RESET_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
-      : null;
+    const normalizedEmail = (email as string).trim().toLowerCase();
+    const requestOrigin =
+      typeof req.headers.origin === "string" ? req.headers.origin : null;
 
-    let redirectTo = "auracloset://";
-    if (typeof clientRedirectTo === "string") {
-      try {
-        const parsed = new URL(clientRedirectTo);
-        const isHttps =
-          parsed.protocol === "https:" ||
-          (parsed.protocol === "http:" && (parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1"));
-        const hasCorrectPath = parsed.pathname === "/auth/update-password";
-
-        const requestOrigin = typeof req.headers.origin === "string" ? req.headers.origin : null;
-        const originAllowed = envAllowlist
-          ? envAllowlist.includes(parsed.origin)
-          : requestOrigin !== null && parsed.origin === new URL(requestOrigin).origin;
-
-        if (isHttps && hasCorrectPath && originAllowed) {
-          redirectTo = clientRedirectTo;
-        }
-      } catch {
-        // Malformed URL — fall through to the native auracloset:// default.
-      }
-    }
+    const redirectTo = sanitizeRedirectUrl(
+      clientRedirectTo,
+      requestOrigin,
+      ["/auth/callback"],
+    );
 
     try {
-      const { error } = await supabaseAuth.auth.resetPasswordForEmail(
-        String(email).trim().toLowerCase(),
+      await supabaseAuth.auth.signUp({
+        email: normalizedEmail,
+        password: String(password),
+        options: { emailRedirectTo: redirectTo },
+      });
+      // Always return success — never leak Supabase errors (e.g. "User already
+      // registered") that would reveal account existence.
+      return res.json({ success: true, needsConfirmation: true });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[auth/sign-up]", msg);
+      // Return success even on internal error to prevent enumeration.
+      return res.json({ success: true, needsConfirmation: true });
+    }
+  });
+
+  // ── Password reset ────────────────────────────────────────────────────────
+  // Rate-limited (3 req / hour per IP).
+  //
+  // Always returns { success: true } regardless of whether the email is
+  // registered — prevents email enumeration.
+  app.post("/api/auth/reset-password", resetLimiter, async (req, res) => {
+    const { email, redirectTo: clientRedirectTo } = req.body;
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: "invalid_email" });
+    }
+
+    const requestOrigin =
+      typeof req.headers.origin === "string" ? req.headers.origin : null;
+
+    const redirectTo = sanitizeRedirectUrl(
+      clientRedirectTo,
+      requestOrigin,
+      ["/auth/update-password"],
+    );
+
+    try {
+      await supabaseAuth.auth.resetPasswordForEmail(
+        (email as string).trim().toLowerCase(),
         { redirectTo }
       );
-      if (error) {
-        return res.status(400).json({ error: error.message });
-      }
+      // Always return success — never reveal whether the email is registered.
       return res.json({ success: true });
-    } catch (err: any) {
-      console.error("[auth/reset-password]", err.message);
-      return res.status(500).json({ error: "reset_failed" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[auth/reset-password]", msg);
+      // Return success even on internal error to prevent enumeration.
+      return res.json({ success: true });
     }
   });
 
@@ -162,9 +284,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .eq("id", userId);
       if (error) throw new Error(error.message);
       return res.json({ success: true });
-    } catch (err: any) {
-      console.error("[upgrade-premium]", err.message);
-      return res.status(500).json({ success: false, error: err.message });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[upgrade-premium]", msg);
+      return res.status(500).json({ success: false, error: "upgrade_failed" });
     }
   });
 
@@ -183,9 +306,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
       if (error) throw new Error(error.message);
       return res.json({ success: true });
-    } catch (err: any) {
-      console.error("[delete-account]", err.message);
-      return res.status(500).json({ success: false, error: err.message });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[delete-account]", msg);
+      return res.status(500).json({ success: false, error: "delete_failed" });
     }
   });
 
