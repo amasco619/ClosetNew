@@ -30,6 +30,7 @@
  */
 
 import { scoreOutfitCombo } from '../constants/outfitScoring';
+import { mapDbRowToWardrobeItem } from '../lib/wardrobeMapper';
 import type { OutfitComponent, WardrobeItem, UserProfile, Rise } from '../constants/types';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
@@ -270,6 +271,248 @@ describe('Score sensitivity: rise cannot overpower major signals', () => {
   assert(
     Math.abs(bigFormalityGap.riseHarmony) <= 1,
     `riseHarmony stays within ±1 regardless of other signals (got ${bigFormalityGap.riseHarmony})`,
+  );
+});
+
+// ── Integration: cold-reinstall / legacy wardrobe ─────────────────────────────
+//
+// These tests confirm two things:
+//
+//  1. SIGNAL ISOLATION: riseHarmony is the ONLY numeric contributor that
+//     changes when rise+fit are added to otherwise-identical items. If the
+//     riseHarmony block accidentally touches another sub-score (proportionBalance,
+//     patternSafety, etc.), the delta assertion will catch it.
+//
+//  2. HYDRATION PATH: items loaded from Supabase after a cold reinstall go
+//     through the AppContext mapper (contexts/AppContext.tsx lines 660-671),
+//     which does NOT copy `rise` or `fit` from the DB row. The test applies the
+//     same mapping inline and verifies the scored output is rise-neutral.
+//
+// Design of the differential assertion
+// ─────────────────────────────────────
+// We use baseProfile() (null bodyType, null heightBand, no contrastLevel) so
+// that bodyTypeProportion === 0 and heightProportion === 0 regardless of fit.
+// We add `fit` only to the TOP, never to the bottom — so proportionBalance
+// (which fires only when BOTH top.fit AND bottom.fit are present) stays 0.
+// Under these conditions, adding rise+topFit to an otherwise identical item
+// pair changes EXACTLY one sub-score: riseHarmony. This makes
+//   upgradedScore.total − legacyScore.total === upgradedScore.riseHarmony
+// a non-tautological assertion: it fails if riseHarmony accidentally bleeds
+// into any other scorer.
+
+// The cold-reinstall hydration path is the real production mapper from
+// lib/wardrobeMapper.ts (imported above), which is the same function used by
+// AppContext.tsx. Using the actual production function means a future change
+// to the mapper that accidentally copies `rise` or `fit` from the DB row will
+// break these tests rather than leaving them silently passing.
+
+describe('Integration: all-legacy pool (no rise on any bottom) — riseHarmony must be 0', () => {
+  // Simulate a full wardrobe that predates Phase 3.1: items saved without rise.
+  // None of these items has a `fit` field either, matching what the pre-3.1
+  // add-item screen produced.
+  const legacyTops: WardrobeItem[] = [
+    makeItem({ id: 'lt1', category: 'top', subType: 'blouse'     }), // no fit — pre-3.1 row
+    makeItem({ id: 'lt2', category: 'top', subType: 't-shirt'    }),
+    makeItem({ id: 'lt3', category: 'top', subType: 'turtleneck' }),
+    makeItem({ id: 'lt4', category: 'top', subType: 'sweater'    }),
+  ];
+
+  const legacyBottoms: WardrobeItem[] = [
+    makeItem({ id: 'lb1', category: 'bottom', subType: 'jeans'      }), // rise: undefined
+    makeItem({ id: 'lb2', category: 'bottom', subType: 'wide-leg'   }),
+    makeItem({ id: 'lb3', category: 'bottom', subType: 'midi-skirt' }),
+    makeItem({ id: 'lb4', category: 'bottom', subType: 'trousers'   }),
+  ];
+
+  const profile = baseProfile();
+
+  for (const top of legacyTops) {
+    for (const bottom of legacyBottoms) {
+      const components = [
+        makeComponent(top.id,    'top'),
+        makeComponent(bottom.id, 'bottom'),
+      ];
+      const result = scoreOutfitCombo(components, [...legacyTops, ...legacyBottoms], profile);
+      assert(
+        result.riseHarmony === 0,
+        `legacy ${top.subType}(no fit) + ${bottom.subType}(no rise) → riseHarmony 0 (got ${result.riseHarmony})`,
+      );
+    }
+  }
+});
+
+describe('Integration: riseHarmony is the ONLY score difference vs Phase-2 baseline', () => {
+  // For each representative pairing we:
+  //  (a) Score the LEGACY version (no rise, no fit on either piece) → legacyTotal
+  //  (b) Score the UPGRADED version (rise on bottom, fit on top only) → upgradedTotal
+  //  (c) Assert upgradedTotal − legacyTotal === expectedRise
+  //
+  // If riseHarmony accidentally affects another sub-score, (c) fails because the
+  // delta would differ from the isolated riseHarmony value.
+  //
+  // Invariants that keep the test non-tautological:
+  //  • baseProfile(): bodyType=null, heightBand absent → bodyTypeProportion=0, heightProportion=0
+  //  • bottom.fit is NOT set → proportionBalance requires both top.fit AND bottom.fit, stays 0
+  //  • No jewelry/shoes/outerwear → completeness signal identical for both
+  //  • Same colorFamily on both versions → palette/undertone signals identical
+
+  const profile = baseProfile();
+
+  const cases: Array<{
+    label: string;
+    topSub: string;
+    botSub: string;
+    topFit: string;      // added to upgraded only
+    bottomRise: Rise;    // added to upgraded only
+    expectedDelta: number;
+  }> = [
+    { label: 'blouse+wide-leg high-rise slim',     topSub: 'blouse',     botSub: 'wide-leg',  topFit: 'slim',     bottomRise: 'high', expectedDelta:  1 },
+    { label: 'blouse+wide-leg high-rise loose',    topSub: 'blouse',     botSub: 'wide-leg',  topFit: 'loose',    bottomRise: 'high', expectedDelta: -1 },
+    { label: 't-shirt+jeans low-rise loose',       topSub: 't-shirt',    botSub: 'jeans',     topFit: 'loose',    bottomRise: 'low',  expectedDelta: -1 },
+    { label: 'turtleneck+trousers low-rise slim',  topSub: 'turtleneck', botSub: 'trousers',  topFit: 'slim',     bottomRise: 'low',  expectedDelta:  0 },
+    { label: 'blouse+midi-skirt mid-rise slim',    topSub: 'blouse',     botSub: 'midi-skirt',topFit: 'slim',     bottomRise: 'mid',  expectedDelta:  0 },
+    { label: 'sweater+leggings low-rise oversized',topSub: 'sweater',    botSub: 'leggings',  topFit: 'oversized',bottomRise: 'low',  expectedDelta: -1 },
+    { label: 'blouse+wide-leg high-rise tailored', topSub: 'blouse',     botSub: 'wide-leg',  topFit: 'tailored', bottomRise: 'high', expectedDelta:  1 },
+  ];
+
+  for (const c of cases) {
+    // LEGACY: no rise on bottom, no fit on top (mirrors a pre-Phase-3.1 DB row)
+    const legacyTop    = makeItem({ id: 'dlgt', category: 'top',    subType: c.topSub as any, colorFamily: 'black' });
+    const legacyBottom = makeItem({ id: 'dlgb', category: 'bottom', subType: c.botSub as any, colorFamily: 'black' });
+    const components   = [makeComponent('dlgt', 'top'), makeComponent('dlgb', 'bottom')];
+    const legacyScore  = scoreOutfitCombo(components, [legacyTop, legacyBottom], profile);
+
+    // UPGRADED: same items but with rise on bottom + fit on top only
+    // (bottom.fit intentionally absent → proportionBalance stays 0)
+    const upgradedTop    = makeItem({ id: 'dlgt', category: 'top',    subType: c.topSub as any, colorFamily: 'black', fit: c.topFit as any });
+    const upgradedBottom = makeItem({ id: 'dlgb', category: 'bottom', subType: c.botSub as any, colorFamily: 'black', rise: c.bottomRise });
+    const upgradedScore  = scoreOutfitCombo(components, [upgradedTop, upgradedBottom], profile);
+
+    // riseHarmony must match the expected isolated value
+    assert(
+      upgradedScore.riseHarmony === c.expectedDelta,
+      `${c.label}: riseHarmony=${upgradedScore.riseHarmony}, expected ${c.expectedDelta}`,
+    );
+
+    // The ONLY numeric change between legacy and upgraded must be riseHarmony.
+    // Any other value means the riseHarmony block touched a second sub-score.
+    const actualDelta = upgradedScore.total - legacyScore.total;
+    assert(
+      actualDelta === c.expectedDelta,
+      `${c.label}: score delta legacy→upgraded=${actualDelta}, expected ${c.expectedDelta} (riseHarmony only)`,
+    );
+
+    // Legacy total is stable — zero riseHarmony contribution
+    assert(
+      legacyScore.riseHarmony === 0,
+      `${c.label}: legacy riseHarmony=0 (got ${legacyScore.riseHarmony})`,
+    );
+  }
+});
+
+describe('Integration: cold-reinstall via AppContext hydration — rise-absent DB rows score identically', () => {
+  // Simulates the Supabase cold-start load path used by AppContext.tsx.
+  // The mapper (contexts/AppContext.tsx lines 660-671) does NOT copy `rise`
+  // or `fit` from the DB row onto the WardrobeItem.
+  //
+  // Test confirms:
+  //  (a) A pre-3.1 DB row (no rise column) hydrates without rise and scores riseHarmony=0.
+  //  (b) A post-3.1 DB row (has rise column in DB) also hydrates without rise because the
+  //      mapper ignores unknown columns — riseHarmony=0 after reinstall (separate known issue,
+  //      documented in follow-up task #392).
+  //  (c) Score of hydrated item equals score of equivalent in-memory legacy item
+  //      (proves the mapper introduces no phantom fields that would skew scoring).
+
+  const profile = baseProfile();
+
+  // Simulated Supabase row for a pre-Phase-3.1 bottom (no `rise` column in the row)
+  const legacyDbRow = {
+    id: 'db-bot-legacy',
+    garment_type: 'bottom',
+    sub_type: 'wide-leg',
+    color_family: 'black',
+    occasion: [],
+    created_at: '2025-06-01T00:00:00Z',
+  };
+
+  // Simulated Supabase row for a post-Phase-3.1 bottom (has `rise` column in DB)
+  // The mapper should still NOT pass rise through to WardrobeItem.
+  const modernDbRow = {
+    id: 'db-bot-modern',
+    garment_type: 'bottom',
+    sub_type: 'wide-leg',
+    color_family: 'black',
+    occasion: [],
+    created_at: '2026-06-01T00:00:00Z',
+    rise: 'high',          // column exists in DB post-3.1 but mapper ignores it
+    fit: 'loose',          // same
+  };
+
+  // Top row (no fit — pre-3.1 add-item saved no fit)
+  const topDbRow = {
+    id: 'db-top',
+    garment_type: 'top',
+    sub_type: 'blouse',
+    color_family: 'black',
+    occasion: [],
+    created_at: '2025-06-01T00:00:00Z',
+  };
+
+  const hydratedLegacyBottom = mapDbRowToWardrobeItem(legacyDbRow);
+  const hydratedModernBottom = mapDbRowToWardrobeItem(modernDbRow);
+  const hydratedTop          = mapDbRowToWardrobeItem(topDbRow);
+
+  // (a) Hydrated item must not have a rise field
+  assert(
+    hydratedLegacyBottom.rise === undefined,
+    `mapDbRowToWardrobeItem: pre-3.1 DB row → rise is undefined (got ${hydratedLegacyBottom.rise})`,
+  );
+
+  // (b) Post-3.1 DB row: mapper must not propagate rise even when the column exists
+  assert(
+    hydratedModernBottom.rise === undefined,
+    `mapDbRowToWardrobeItem: post-3.1 DB row with rise='high' → rise still undefined after mapping (got ${hydratedModernBottom.rise})`,
+  );
+
+  // (c) Hydrated top must not have fit
+  assert(
+    hydratedTop.fit === undefined,
+    `mapDbRowToWardrobeItem: pre-3.1 top DB row → fit is undefined (got ${hydratedTop.fit})`,
+  );
+
+  // Score hydrated combos — all must produce riseHarmony = 0
+  const scoreLegacy = scoreOutfitCombo(
+    [makeComponent('db-top', 'top'), makeComponent('db-bot-legacy', 'bottom')],
+    [hydratedTop, hydratedLegacyBottom],
+    profile,
+  );
+  assert(
+    scoreLegacy.riseHarmony === 0,
+    `hydrated pre-3.1 combo → riseHarmony 0 (got ${scoreLegacy.riseHarmony})`,
+  );
+
+  const scoreModern = scoreOutfitCombo(
+    [makeComponent('db-top', 'top'), makeComponent('db-bot-modern', 'bottom')],
+    [hydratedTop, hydratedModernBottom],
+    profile,
+  );
+  assert(
+    scoreModern.riseHarmony === 0,
+    `hydrated post-3.1 DB row (mapper strips rise) → riseHarmony 0 (got ${scoreModern.riseHarmony})`,
+  );
+
+  // (d) Score of hydrated legacy item must equal score of equivalent in-memory legacy item
+  //     (proves mapper introduces no phantom fields that would skew scoring)
+  const inMemoryTop    = makeItem({ id: 'db-top',        category: 'top',    subType: 'blouse',   colorFamily: 'black' });
+  const inMemoryBottom = makeItem({ id: 'db-bot-legacy', category: 'bottom', subType: 'wide-leg', colorFamily: 'black' });
+  const scoreInMemory  = scoreOutfitCombo(
+    [makeComponent('db-top', 'top'), makeComponent('db-bot-legacy', 'bottom')],
+    [inMemoryTop, inMemoryBottom],
+    profile,
+  );
+  assert(
+    scoreLegacy.total === scoreInMemory.total,
+    `hydrated legacy score (${scoreLegacy.total}) === in-memory legacy score (${scoreInMemory.total})`,
   );
 });
 

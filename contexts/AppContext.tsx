@@ -28,6 +28,7 @@ import {
   insertAffinitySignal, insertPairAffinitySignal,
   getSavedLooks, upsertSavedLook, deleteSavedLook,
 } from '../lib/database';
+import { mapDbRowToWardrobeItem } from '../lib/wardrobeMapper';
 import { supabase } from '../lib/supabase';
 import { deleteWardrobeImage, recoverWardrobeImageUrl } from '../lib/storage';
 import { rebaseGuestPhotoUri } from '../lib/rebaseGuestPhotoUri';
@@ -657,18 +658,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       if (items && items.length > 0) {
-        const mapped: WardrobeItem[] = items.map((it: any) => ({
-          id: it.id,
-          photoUri: it.cleaned_image_url || it.image_url || '',
-          category: it.garment_type as ItemCategory,
-          subType: it.sub_type || '',
-          colorFamily: it.color_family || '',
-          description: it.description,
-          occasionTags: it.occasion || [],
-          seasonTags: [],
-          createdAt: it.created_at,
-          formalityLevel: 5,
-        }));
+        const mapped: WardrobeItem[] = items.map(mapDbRowToWardrobeItem);
         // ── Stale file:// URI recovery (DB path) ──────────────────────────────
         // If the DB row's image_url is a file:// URI (upload was interrupted
         // before the cleaned_image_url was written back), silently swap it for
