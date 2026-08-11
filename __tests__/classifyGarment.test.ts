@@ -39,6 +39,7 @@ import {
   buildDescription,
   rgbToHsl,
   rgbToLab,
+  validateDominantHsl,
   VALID_SUBTYPES_BY_CATEGORY,
   VALID_COLOR_FAMILIES,
   SERVER_FAMILY_CENTROID_HSL,
@@ -719,6 +720,225 @@ console.log('\nprocessGeminiResult — edge cases:');
   assert(
     extraInCentroid.length === 0,
     `SERVER_FAMILY_CENTROID_HSL has no extra keys not in VALID_COLOR_FAMILIES (extra: ${extraInCentroid.join(', ') || 'none'})`,
+  );
+}
+
+// ── validateDominantHsl — unit tests ─────────────────────────────────────────
+// Tests for the RGB/colorFamily consistency guard that prevents background-
+// contaminated pixels from corrupting outfit colour scoring.
+
+console.log('\nvalidateDominantHsl — unit tests:');
+
+// 1. Valid chromatic RGB matching its colorFamily → returned as-is, not corrected
+{
+  // Blue centroid is h:215. An HSL of h:210 is only 5° away → well within the 40° threshold.
+  const blueHsl = { h: 210, s: 0.65, l: 0.50 };
+  const { hsl, corrected } = validateDominantHsl(blueHsl, 'blue');
+  assert(!corrected, 'blue hsl h=210 (5° from centroid 215) → not corrected');
+  assert(hsl.h === blueHsl.h && hsl.s === blueHsl.s && hsl.l === blueHsl.l,
+    'blue hsl h=210 → original hsl returned unchanged');
+}
+
+// 2. Chromatic RGB whose hue is > 40° from stated colorFamily → corrected to centroid
+{
+  // Stated "red" (centroid h:0). An HSL of h:120 (green) is 120° away → must correct.
+  const greenHsl = { h: 120, s: 0.70, l: 0.45 };
+  const { hsl, corrected } = validateDominantHsl(greenHsl, 'red');
+  assert(corrected, 'green hsl (h=120) with colorFamily "red" → corrected');
+  const redCentroid = SERVER_FAMILY_CENTROID_HSL['red'];
+  assert(hsl.h === redCentroid.h && hsl.s === redCentroid.s && hsl.l === redCentroid.l,
+    'corrected hsl equals red centroid');
+}
+
+{
+  // Stated "navy" (centroid h:220). An HSL of h:60 (yellow) is 160° away → must correct.
+  const yellowHsl = { h: 60, s: 0.90, l: 0.60 };
+  const { hsl, corrected } = validateDominantHsl(yellowHsl, 'navy');
+  assert(corrected, 'yellow hsl (h=60) with colorFamily "navy" → corrected');
+  const navyCentroid = SERVER_FAMILY_CENTROID_HSL['navy'];
+  assert(hsl.h === navyCentroid.h, 'corrected hsl.h equals navy centroid h');
+}
+
+// 3. Achromatic family + high-saturation RGB → corrected (background contamination)
+{
+  // "black" but sampled pixel is saturated teal (s=0.7 > threshold 0.25) → correct.
+  const tealHsl = { h: 175, s: 0.70, l: 0.08 };
+  const { hsl, corrected } = validateDominantHsl(tealHsl, 'black');
+  assert(corrected, 'achromatic "black" + high-sat hsl (s=0.7) → corrected');
+  const blackCentroid = SERVER_FAMILY_CENTROID_HSL['black'];
+  assert(hsl.l === blackCentroid.l, 'corrected to black centroid lightness');
+}
+
+{
+  // "white" with a vivid red contamination (s=0.8 > 0.25) → correct.
+  const redHsl = { h: 0, s: 0.80, l: 0.96 };
+  const { hsl, corrected } = validateDominantHsl(redHsl, 'white');
+  assert(corrected, 'achromatic "white" + high-sat red hsl → corrected');
+  const whiteCentroid = SERVER_FAMILY_CENTROID_HSL['white'];
+  assert(hsl.s === whiteCentroid.s, 'corrected to white centroid saturation (0)');
+}
+
+{
+  // "grey" with vivid blue contamination (s=0.6 > 0.25) → correct.
+  const blueHsl2 = { h: 210, s: 0.60, l: 0.55 };
+  const { corrected } = validateDominantHsl(blueHsl2, 'grey');
+  assert(corrected, 'achromatic "grey" + high-sat hsl → corrected');
+}
+
+// 4. Achromatic family + low-saturation RGB → returned as-is (lightness preserved)
+{
+  // "black" with a near-neutral dark grey (s=0.10 < 0.25) → keep original.
+  const darkGrey = { h: 200, s: 0.10, l: 0.07 };
+  const { hsl, corrected } = validateDominantHsl(darkGrey, 'black');
+  assert(!corrected, 'achromatic "black" + low-sat hsl (s=0.10) → not corrected');
+  assert(hsl.l === darkGrey.l, 'original lightness preserved (not snapped to centroid)');
+}
+
+{
+  // "white" with very low saturation (s=0.05 < 0.25) → keep original lightness.
+  const nearWhite = { h: 30, s: 0.05, l: 0.94 };
+  const { hsl, corrected } = validateDominantHsl(nearWhite, 'white');
+  assert(!corrected, 'achromatic "white" + low-sat (s=0.05) → not corrected');
+  assert(hsl.l === nearWhite.l, 'original lightness 0.94 preserved');
+}
+
+{
+  // "grey" with saturation exactly at the threshold (0.25) — boundary is exclusive (>), so 0.25 is NOT corrected.
+  const atThreshold = { h: 0, s: 0.25, l: 0.55 };
+  const { corrected } = validateDominantHsl(atThreshold, 'grey');
+  assert(!corrected, 'achromatic "grey" + s=0.25 (at threshold, not over) → not corrected');
+}
+
+// 5. Colours near the 40° boundary — just inside and just outside
+{
+  // "green" centroid h:140. hue 179 is 39° away → must NOT be corrected (< 40°).
+  const nearBoundaryInside = { h: 179, s: 0.50, l: 0.40 };
+  const { corrected: c1 } = validateDominantHsl(nearBoundaryInside, 'green');
+  assert(!c1, 'hue 39° from green centroid (140) → NOT corrected (within 40° threshold)');
+}
+
+{
+  // "green" centroid h:140. hue 181 is 41° away → must be corrected (> 40°).
+  const nearBoundaryOutside = { h: 181, s: 0.50, l: 0.40 };
+  const { corrected: c2 } = validateDominantHsl(nearBoundaryOutside, 'green');
+  assert(c2, 'hue 41° from green centroid (140) → corrected (over 40° threshold)');
+}
+
+{
+  // Test the wraparound: "red" centroid h:0 / 360. hue 330 is 30° away (wraps) → NOT corrected.
+  const nearRedWrap = { h: 330, s: 0.80, l: 0.45 };
+  const { corrected: c3 } = validateDominantHsl(nearRedWrap, 'red');
+  assert(!c3, 'hue 330° is 30° from red centroid (wrap-around) → NOT corrected');
+}
+
+{
+  // "red" centroid h:0. hue 45 is 45° away → corrected.
+  const farFromRed = { h: 45, s: 0.80, l: 0.50 };
+  const { corrected: c4 } = validateDominantHsl(farFromRed, 'red');
+  assert(c4, 'hue 45° from red centroid → corrected');
+}
+
+// 6. null colorFamily → no correction, original hsl returned
+{
+  const anyHsl = { h: 90, s: 0.80, l: 0.50 };
+  const { hsl, corrected } = validateDominantHsl(anyHsl, null);
+  assert(!corrected, 'null colorFamily → no correction applied');
+  assert(hsl.h === anyHsl.h, 'null colorFamily → original hsl.h returned');
+}
+
+// 6b. Unknown colorFamily (not in SERVER_FAMILY_CENTROID_HSL) → no correction
+{
+  const anyHsl = { h: 90, s: 0.80, l: 0.50 };
+  const { hsl, corrected } = validateDominantHsl(anyHsl, 'purple');
+  assert(!corrected, 'unknown colorFamily "purple" → no correction');
+  assert(hsl.h === anyHsl.h, 'unknown colorFamily → original hsl returned');
+}
+
+// ── processGeminiResult — colour contamination integration tests ───────────────
+// These verify that dominantHsl/dominantLab in the output are consistent with
+// colorFamily even when dominantRgb is clearly contaminated.
+
+console.log('\nprocessGeminiResult — background-contamination integration:');
+
+{
+  // Contamination scenario: navy garment, but sampled RGB is green (background).
+  // Pixel: [0, 200, 80] → hue ~150 (green), 70° from navy centroid 220 → must correct.
+  const r = processGeminiResult({
+    category: 'top', subType: 'blouse', colorFamily: 'navy',
+    dominantRgb: [0, 200, 80],
+  }) as any;
+  assert(r.dominantHsl !== undefined, 'contaminated navy: dominantHsl still defined after correction');
+  assert(r.dominantLab !== undefined, 'contaminated navy: dominantLab still defined after correction');
+  const navyCentroid = SERVER_FAMILY_CENTROID_HSL['navy'];
+  // After correction the hsl must equal the navy centroid
+  assert(
+    Math.abs(r.dominantHsl.h - navyCentroid.h) < 1,
+    `contaminated navy: dominantHsl.h corrected to navy centroid (~${navyCentroid.h}°), got ${r.dominantHsl.h.toFixed(1)}°`,
+  );
+  assert(r.dominantHsl.l < 0.30, 'contaminated navy: corrected dominantHsl.l is dark (< 0.30)');
+  // colorFamily label must not be changed
+  assert(r.colorFamily === 'navy', 'contaminated navy: colorFamily label unchanged');
+}
+
+{
+  // Contamination scenario: "black" garment, but sampled pixel is bright cyan (background).
+  // Pixel: [0, 220, 200] → very high saturation → must correct to black centroid.
+  const r = processGeminiResult({
+    category: 'bottom', subType: 'trousers', colorFamily: 'black',
+    dominantRgb: [0, 220, 200],
+  }) as any;
+  assert(r.dominantHsl !== undefined, 'contaminated black: dominantHsl defined');
+  const blackCentroid = SERVER_FAMILY_CENTROID_HSL['black'];
+  assert(
+    Math.abs(r.dominantHsl.l - blackCentroid.l) < 0.05,
+    `contaminated black: dominantHsl.l corrected to black centroid (~${blackCentroid.l}), got ${r.dominantHsl.l.toFixed(3)}`,
+  );
+  assert(r.colorFamily === 'black', 'contaminated black: colorFamily label unchanged');
+}
+
+{
+  // Contamination scenario: "white" garment, near-neutral light grey pixel (s=0.08 < 0.25).
+  // Low saturation → NOT corrected; original lightness must be preserved.
+  const r = processGeminiResult({
+    category: 'top', subType: 'blouse', colorFamily: 'white',
+    dominantRgb: [248, 245, 240],  // warm near-white: s is low
+  }) as any;
+  assert(r.dominantHsl !== undefined, 'near-neutral white: dominantHsl defined');
+  // The original lightness should be preserved (close to the raw conversion)
+  const rawHsl = rgbToHsl(248, 245, 240);
+  assert(
+    Math.abs(r.dominantHsl.l - rawHsl.l) < 0.02,
+    `near-neutral white: lightness preserved (raw ${rawHsl.l.toFixed(3)}, got ${r.dominantHsl.l.toFixed(3)})`,
+  );
+}
+
+{
+  // Contamination scenario: "red" garment, but dominantRgb is clearly blue (background).
+  // Pixel: [30, 80, 200] → hue ~220 (blue), 140°+ from red centroid 0 → must correct.
+  const r = processGeminiResult({
+    category: 'dress', subType: 'mini-dress', colorFamily: 'red',
+    dominantRgb: [30, 80, 200],
+  }) as any;
+  const redCentroid = SERVER_FAMILY_CENTROID_HSL['red'];
+  assert(r.dominantHsl !== undefined, 'contaminated red: dominantHsl defined');
+  assert(
+    Math.abs(r.dominantHsl.h - redCentroid.h) < 1,
+    `contaminated red: dominantHsl.h corrected to red centroid (${redCentroid.h}°), got ${r.dominantHsl.h.toFixed(1)}°`,
+  );
+}
+
+{
+  // Clean scenario: "green" garment with a genuinely green pixel (h~140, 5° from centroid).
+  // dominantRgb should NOT be corrected; Lab is derived from the original RGB.
+  const r = processGeminiResult({
+    category: 'top', subType: 't-shirt', colorFamily: 'green',
+    dominantRgb: [50, 160, 80],   // hue ~135, close to green centroid 140
+  }) as any;
+  assert(r.dominantHsl !== undefined, 'clean green: dominantHsl defined');
+  const greenCentroid = SERVER_FAMILY_CENTROID_HSL['green'];
+  assert(
+    Math.abs(r.dominantHsl.h - 135) < 10,
+    `clean green: dominantHsl.h near original (~135°), not snapped to centroid (${greenCentroid.h}°), got ${r.dominantHsl.h.toFixed(1)}°`,
   );
 }
 

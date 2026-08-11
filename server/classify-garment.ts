@@ -357,7 +357,7 @@ function serverHueDist(a: number, b: number): number {
  * The correction is conservative: a 40° hue tolerance prevents over-correcting
  * legitimate colours near family boundaries (e.g. a warm burgundy near red).
  */
-function validateDominantHsl(
+export function validateDominantHsl(
   rgbHsl: { h: number; s: number; l: number },
   colorFamily: string | null,
 ): { hsl: { h: number; s: number; l: number }; corrected: boolean } {
