@@ -272,6 +272,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setRecommendationSlots([]);
           setSlotsInitialized(false);
         }
+
+        // Re-read premium status after a token refresh so subscription changes
+        // made on another device (e.g. upgrading via the web) take effect without
+        // requiring a full sign-out / sign-in cycle.
+        if (event === 'TOKEN_REFRESHED' && session?.user) {
+          const userId = session.user.id;
+          // Only update if this is still the active user (guard against stale events)
+          if (currentUserIdRef.current !== userId) return;
+          const dbProfile = await getUserProfile(userId).catch(() => null);
+          if (dbProfile?.premium !== undefined) {
+            setIsPremium(Boolean(dbProfile.premium));
+          }
+        }
       }
     );
     return () => subscription.unsubscribe();

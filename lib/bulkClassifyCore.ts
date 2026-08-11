@@ -503,3 +503,26 @@ export function applyAutoSavedEdits(
   }
   return items.length;
 }
+
+// ─── Cancel dialog message selection ─────────────────────────────────────────
+
+/**
+ * Select the correct cancel-dialog body text based on the current items state.
+ *
+ * Returns:
+ *   null         — no dialog needed; caller should router.back() immediately.
+ *   string       — the body text to show in the confirmation dialog.
+ *
+ * This pure function is the testable heart of handleCancel in bulk-review.tsx.
+ */
+export function selectCancelDialogBody(items: BulkItemCore[]): string | null {
+  const hasInProgress = items.some(
+    it => it.status === 'pending' || it.status === 'classifying',
+  );
+  if (!hasInProgress) return null; // nothing in flight — exit immediately
+
+  const hasAutoSaved = items.some(it => it.status === 'auto-saved');
+  return hasAutoSaved
+    ? 'Some items have already been saved to your wardrobe. Any items still analysing will be discarded.'
+    : 'AI analysis is still running. Leaving now will discard all pending results and you will need to re-upload the photos.';
+}

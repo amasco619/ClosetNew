@@ -130,6 +130,13 @@ export default function SignInScreen() {
   // event fires multiple times (e.g. app foregrounded twice with same URL).
   const handledDeepLink = useRef<string | null>(null)
 
+  // Mount guard: redirect immediately if the screen is reached while already
+  // authenticated (e.g. via a router.push from outside the intentional sign-in
+  // flow). The effect below handles the normal post-sign-in redirect;
+  // this one catches the edge case where the user was never meant to land here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (isAuthenticated) router.replace('/') }, [])
+
   useEffect(() => {
     if (isAuthenticated && intentionalSignIn.current) {
       router.replace('/')

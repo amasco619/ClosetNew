@@ -239,6 +239,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "invalid_email" });
     }
 
+    // Honour per-email account lockout: a locked account cannot use the
+    // reset-password flow to bypass the sign-in throttle.
+    // Return the standard success response to avoid revealing lockout status.
+    const normalizedEmail = (email as string).trim().toLowerCase();
+    const lockout = checkAccountLockout(normalizedEmail);
+    if (lockout.locked) {
+      return res.json({ success: true });
+    }
+
     const requestOrigin =
       typeof req.headers.origin === "string" ? req.headers.origin : null;
 

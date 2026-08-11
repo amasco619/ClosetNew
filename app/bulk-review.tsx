@@ -277,7 +277,7 @@ function BulkCard({
 
 export default function BulkReviewScreen() {
   const insets = useSafeAreaInsets();
-  const { addWardrobeItem, updateWardrobeItem, removeWardrobeItem } = useApp();
+  const { addWardrobeItem, updateWardrobeItem, removeWardrobeItem, isPremium } = useApp();
 
   const { uris: urisParam } = useLocalSearchParams<{ uris: string }>();
   const uris = useMemo<string[]>(() => {
@@ -299,6 +299,9 @@ export default function BulkReviewScreen() {
   // Limit-reached pill: shown once quota is exhausted (affects signed-in users too).
   const [bgLimitReached, setBgLimitReached] = useState(false);
   const [bgLimitDismissed, setBgLimitDismissed] = useState(false);
+  // Remaining-count pill: shown after the first successful BG removal so users
+  // know how many free uses they have left before hitting the limit.
+  const [bgRemaining, setBgRemaining] = useState<number | undefined>(undefined);
 
   // Redirect if no URIs were passed — single-item redirect is handled below.
   useEffect(() => {
@@ -537,6 +540,7 @@ export default function BulkReviewScreen() {
       removeBg: (b64) => removeBackground(b64).then(r => {
         if (r.status === 'not-authenticated') setBgNotAuthenticated(true);
         if (r.status === 'limit-reached') setBgLimitReached(true);
+        if (r.status === 'success' && r.remaining !== undefined) setBgRemaining(r.remaining);
         return r.status === 'success' ? (r.base64 ?? null) : null;
       }),
       reencodeAsJpeg: (pngB64) => ImageManipulator.manipulateAsync(
@@ -800,7 +804,7 @@ export default function BulkReviewScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          (bgNotAuthenticated && !bgUpsellDismissed) || (bgLimitReached && !bgLimitDismissed) ? (
+          (bgNotAuthenticated && !bgUpsellDismissed) || (bgLimitReached && !bgLimitDismissed) || (bgRemaining !== undefined && !isPremium) ? (
             <View style={styles.bgUpsellWrap}>
               {bgNotAuthenticated && !bgUpsellDismissed && (
                 <Animated.View entering={FadeInDown.duration(260)}>
@@ -819,6 +823,24 @@ export default function BulkReviewScreen() {
                       <Ionicons name="close" size={14} color={Colors.textSecondary} />
                     </Pressable>
                   </Pressable>
+                </Animated.View>
+              )}
+              {bgRemaining !== undefined && !isPremium && !bgLimitReached && (
+                <Animated.View entering={FadeInDown.duration(260)}>
+                  <View style={styles.bgRemainingPill}>
+                    <Ionicons name="images-outline" size={14} color={Colors.sage} />
+                    <Text style={styles.bgRemainingText}>
+                      {bgRemaining} of 20 background removals left
+                    </Text>
+                    {bgRemaining <= 3 && (
+                      <Pressable
+                        onPress={() => router.push('/premium')}
+                        style={({ pressed }) => [styles.bgRemainingCta, pressed && { opacity: 0.7 }]}
+                      >
+                        <Text style={styles.bgRemainingCtaText}>Upgrade</Text>
+                      </Pressable>
+                    )}
+                  </View>
                 </Animated.View>
               )}
               {bgLimitReached && !bgLimitDismissed && (
@@ -1057,6 +1079,28 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'Inter_500Medium', fontSize: rs(13),
     color: Colors.textSecondary, letterSpacing: -0.1,
+  },
+  bgRemainingPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.white, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 10,
+    marginTop: 8,
+    borderWidth: 1, borderColor: Colors.border,
+    borderLeftWidth: 3, borderLeftColor: Colors.sage,
+    shadowColor: Colors.primary, shadowOpacity: 0.04,
+    shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+  },
+  bgRemainingText: {
+    flex: 1,
+    fontFamily: 'Inter_500Medium', fontSize: rs(13),
+    color: Colors.textSecondary, letterSpacing: -0.1,
+  },
+  bgRemainingCta: {
+    backgroundColor: Colors.secondary + '22', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 4,
+  },
+  bgRemainingCtaText: {
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: Colors.secondary,
   },
 
   footer: {
