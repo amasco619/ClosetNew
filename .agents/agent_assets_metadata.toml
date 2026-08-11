@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "uvAAYwuQ37cVsIjrc3rV2"
@@ -132,3 +131,10 @@ id = "8ePGxI2huWdGCfqNJxQ32"
 uri = "file://assets/recommendations/black_leather_moto.png"
 type = "image"
 title = "black leather moto jacket"
+
+[[outputs]]
+id = "E8vvnhbk3F12-YCxo7tms"
+uri = "file://exports/phase3-audit.md"
+type = "text"
+title = "Phase 3 Forensic Audit"
+description = "Complete Phase 3 recommendation engine audit — all 18 sections, 72 KB."
