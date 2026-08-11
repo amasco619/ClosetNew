@@ -1,0 +1,349 @@
+# Legacy GCV Removal + Gemini Outfit Recommendation Audit
+
+Act as an **elite mobile application engineer, AI/LLM integration architect, prompt optimization engineer, and fashion recommendation systems specialist**.
+
+I need you to perform this task in **two strictly separated phases**.
+
+The objective is to remove obsolete legacy Google Cloud Vision (GCV) code safely, then rigorously evaluate the Gemini-powered outfit recommendation logic to determine whether it has everything required to produce the **best possible outfit combination for each user**.
+
+---
+
+# PHASE 1 — Remove Legacy GCV Code
+
+There is legacy **Google Cloud Vision (GCV)** code remaining in the application that is no longer required.
+
+Your first responsibility is to **identify and safely remove the obsolete GCV implementation and all genuinely unused code associated with it**.
+
+### Before making changes
+
+First inspect the codebase and determine:
+
+* Where GCV is currently referenced.
+* Which files, functions, imports, dependencies, environment variables, API routes, services, utilities, configuration, comments, and documentation exist solely because of GCV.
+* Whether any apparently GCV-related code is still required elsewhere.
+* Whether removing GCV could break another part of the application.
+* Whether any Gemini functionality currently depends on GCV-derived data.
+
+Do not assume that code is obsolete merely because it appears old. Verify its actual usage.
+
+### Then perform the cleanup
+
+Remove:
+
+* obsolete GCV imports
+* GCV API calls
+* GCV services/utilities
+* unused GCV-related functions
+* obsolete API routes/endpoints
+* unused dependencies
+* obsolete configuration/environment variables where appropriate
+* dead code that existed solely to support GCV
+* outdated comments/documentation relating to the removed implementation
+
+### Important constraint
+
+**Do not redesign the Gemini recommendation system during Phase 1.**
+
+Do not alter Gemini prompts, Gemini API calls, recommendation logic, outfit-ranking logic, recommendation schemas, or other unrelated functionality unless a change is strictly necessary to remove a direct GCV dependency.
+
+The goal of Phase 1 is:
+
+> **Cleanly remove the obsolete GCV implementation without unnecessarily changing the application's existing behaviour.**
+
+After making the Phase 1 changes, verify that:
+
+* the application still builds/runs
+* there are no remaining unintended GCV references
+* no required functionality has been broken
+* there are no obvious dead imports/dependencies resulting from the cleanup
+* the Gemini functionality remains intact
+
+---
+
+# PHASE 2 — Audit the Gemini Outfit Recommendation System
+
+**Once Phase 1 is complete, stop making code changes.**
+
+Now perform a **strictly read-only, forensic review** of the Gemini implementation responsible for helping the application determine which outfit combination should be recommended/displayed to the user.
+
+Do **NOT** modify the Gemini code during this phase.
+
+The purpose of this phase is to determine whether Gemini has sufficient information, instructions, constraints, and validation mechanisms to consistently produce an **exceptionally high-quality outfit recommendation from the user's actual wardrobe**.
+
+---
+
+## Trace the Entire Recommendation Pipeline
+
+Follow the actual implementation from beginning to end:
+
+**User profile → preferences/style goals → wardrobe → garment metadata → contextual information → candidate garments → Gemini prompt → Gemini request → Gemini response → response parsing → recommendation logic → selected outfit → UI**
+
+Do not infer functionality that is not actually present.
+
+Document what the code demonstrably does.
+
+---
+
+# Evaluate What Gemini Actually Receives
+
+Identify the exact information currently provided to Gemini.
+
+Evaluate whether Gemini has sufficient information about relevant factors such as:
+
+* user's style preferences
+* style goals
+* body type/proportions where relevant
+* wardrobe contents
+* garment category
+* garment colour
+* patterns
+* materials/fabrics
+* fit/silhouette
+* formality
+* season
+* weather
+* occasion
+* footwear
+* accessories
+* layering
+* colour harmony
+* proportion/balance
+* outfit coherence
+* practicality
+* previously recommended/worn outfits where relevant
+* wardrobe availability
+* other contextual information already available within the application
+
+**Do not assume all of these are required.**
+
+Determine which factors actually matter for this application's use case and identify what is genuinely missing.
+
+---
+
+# Evaluate the Gemini Prompt
+
+Perform a detailed audit of the instructions currently given to Gemini.
+
+Look specifically for:
+
+* ambiguity
+* conflicting instructions
+* insufficient context
+* weak decision criteria
+* missing ranking criteria
+* inadequate constraints
+* opportunities for hallucination
+* insufficient wardrobe restrictions
+* inability to distinguish owned garments from generated suggestions
+* insufficient personalisation
+* inconsistent output
+* inadequate handling of edge cases
+* poor output structure
+* lack of confidence/validation mechanisms
+* unnecessary information that could distract Gemini
+
+Determine whether the prompt actually instructs Gemini to:
+
+> **Select the strongest possible outfit combination from the user's available wardrobe**, rather than simply describe or invent an aesthetically pleasing outfit.
+
+---
+
+# Evaluate Recommendation Quality
+
+Judge the system against this standard:
+
+> If an expert personal stylist had access to exactly the same user information, wardrobe information, and contextual information available to Gemini, would they have enough information to make an excellent outfit recommendation?
+
+If the answer is no, explain precisely what is missing.
+
+Also determine whether Gemini can reliably answer:
+
+**"Of all viable combinations available in this user's wardrobe, which combination is the best choice for this particular user, at this particular time, for this particular context — and why?"**
+
+---
+
+# Identify Hallucination & Reliability Risks
+
+Look for ways Gemini could:
+
+* recommend clothing the user does not own
+* invent garment characteristics
+* alter garment attributes
+* recommend incompatible combinations
+* ignore user preferences
+* ignore the occasion
+* ignore weather/context
+* produce incomplete outfits
+* return duplicate garments
+* return invalid garment IDs
+* return malformed structured data
+* recommend garments that are unavailable
+* make recommendations that contradict the application's own data
+
+For every meaningful risk, explain how it should eventually be mitigated.
+
+---
+
+# Evaluate the Data Going Into Gemini
+
+Determine whether the wardrobe/garment information available to Gemini is sufficiently rich and reliable.
+
+Pay particular attention to whether the application's garment classification and metadata provide enough information for meaningful outfit compatibility decisions.
+
+Identify:
+
+### Available
+
+What Gemini currently knows.
+
+### Missing
+
+What Gemini does not currently know.
+
+### Unreliable
+
+What Gemini receives but cannot safely depend upon.
+
+### Unnecessary
+
+What Gemini receives but does not materially contribute to better recommendations.
+
+---
+
+# DO NOT Make Gemini Changes Yet
+
+This is extremely important.
+
+During Phase 2:
+
+**Do not change:**
+
+* Gemini prompts
+* Gemini API calls
+* Gemini model configuration
+* Gemini parameters
+* recommendation algorithms
+* outfit-ranking logic
+* data schemas
+* garment metadata structures
+* response parsing
+* validation logic
+* UI behaviour
+
+Your job at this stage is to **diagnose and recommend**, not implement.
+
+---
+
+# Required Final Report
+
+After completing both phases, provide the following:
+
+## 1. Phase 1 — GCV Cleanup Summary
+
+Tell me:
+
+* what GCV code was found
+* what was removed
+* what dependencies/configuration were removed
+* what was deliberately retained and why
+* whether any GCV references remain
+* whether the application still builds/runs successfully
+* whether you identified any risks from the cleanup
+
+## 2. Phase 2 — Gemini Executive Verdict
+
+Give one of:
+
+**READY**
+**NEEDS IMPROVEMENT**
+**FUNDAMENTALLY INCOMPLETE**
+
+Explain the reasoning.
+
+## 3. Current Gemini Pipeline
+
+Show me exactly how the current system decides what outfit to recommend.
+
+## 4. Gemini Input Audit
+
+Provide a clear breakdown of:
+
+| Input | Currently Available? | Sent to Gemini? | Quality | Importance |
+| ----- | -------------------- | --------------- | ------- | ---------- |
+
+## 5. Critical Missing Information
+
+Identify anything that is genuinely required to substantially improve recommendation quality.
+
+Classify each as:
+
+**P0 — Critical**
+**P1 — Important**
+**P2 — Enhancement**
+
+Explain the practical impact of each.
+
+## 6. Gemini Prompt Audit
+
+Explain exactly what is strong, weak, missing, ambiguous, or potentially dangerous in the current Gemini instructions.
+
+## 7. Recommendation Logic Audit
+
+Determine whether the current architecture actually enables Gemini to select the **best outfit combination from the user's real wardrobe**.
+
+## 8. Hallucination & Reliability Audit
+
+Identify the important failure modes and how they should eventually be prevented.
+
+## 9. Recommended Target Architecture
+
+Describe what the ideal recommendation pipeline should look like based on the **actual application**, not a generic fashion app.
+
+## 10. Proposed Changes
+
+Give me a prioritised implementation plan:
+
+**P0 — Must fix**
+**P1 — Should fix**
+**P2 — Nice to have**
+
+For every proposed change, explain:
+
+* what should change
+* why it should change
+* what problem it solves
+* how it should improve recommendation quality
+
+---
+
+# FINAL APPROVAL GATE
+
+At the very end, explicitly state:
+
+### "GCV CLEANUP: COMPLETE / INCOMPLETE"
+
+and
+
+### "GEMINI REVIEW: COMPLETE"
+
+Then state:
+
+### "GEMINI CODE CHANGES: NOT YET AUTHORISED"
+
+unless I have explicitly instructed you to proceed.
+
+**Do not make any Gemini-related code changes simply because you identified something that should be improved.**
+
+I want to review your findings and proposed improvements first.
+
+The priority hierarchy is:
+
+**1. Correctly remove obsolete GCV code.**
+**2. Preserve existing functionality.**
+**3. Thoroughly audit the Gemini recommendation pipeline.**
+**4. Identify everything Gemini genuinely needs to make superior outfit decisions.**
+**5. Only implement Gemini improvements after my explicit approval.**
+
+Do not optimise for merely "working code."
+
+Optimise for a recommendation engine that can make **high-quality, personalised, wardrobe-constrained outfit decisions reliably and consistently.**

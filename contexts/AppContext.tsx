@@ -91,7 +91,6 @@ interface AppContextValue {
   renameSavedLook: (lookId: string, name: string) => void;
   getSavedLookName: (lookId: string, fallback: string) => string;
   // Perceptual-colour migration progress (one-shot legacy backfill)
-  backfillProgress: { done: number; total: number } | null;
   // Personal calibration loop — affinity learned from reactions + wear
   affinityState: AffinityState;
   affinityActive: boolean;        // true once N≥5 signals have accumulated
@@ -155,7 +154,6 @@ const STORAGE_KEYS = {
   reactions: '@auracloset_reactions',
   mood: '@auracloset_mood',
   savedLooks: '@auracloset_saved_looks',
-  perceptualMigrated: '@auracloset_perceptual_migrated_v1',
 };
 
 // Sub-type chips are derived from the curated blueprints (single source
@@ -225,7 +223,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [reactions, setReactions] = useState<OutfitReaction[]>([]);
   const [moodOfDay, setMoodOfDay] = useState<MoodOfDay | null>(null);
   const [savedLooks, setSavedLooks] = useState<SavedLook[]>([]);
-  const [backfillProgress, setBackfillProgress] = useState<{ done: number; total: number } | null>(null);
   const [weather, setWeather] = useState<WeatherSnapshot | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [orphanedItems, setOrphanedItems] = useState<WardrobeItem[]>([]);
@@ -352,15 +349,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // thumbnails keep rendering. Paths that don't match the
       // `wardrobe_*.jpg|png` guest naming convention are left untouched.
       const currentDocDir = FileSystem.documentDirectory ?? '';
-      // ── Perceptual migration (two phase) ──────────────────────────────────
-      // Phase 1 (synchronous, instant): seed every legacy item's HSL/Lab
-      // from the colour-family centroid so the scorer never sees null while
-      // the app boots. Cheap pure math.
-      // Phase 2 (background, image-based): for items not yet migrated,
-      // re-fetch the photo and ask the server to compute precise HSL/Lab
-      // from the dominant garment pixel — same pipeline as new uploads.
-      // A persistent flag prevents this from ever running twice.
-      const legacyIds = new Set<string>();
+      // ── Startup data migrations ────────────────────────────────────────────
+      // Items missing dominantHsl/Lab are seeded from the colour-family centroid
+      // (cheap pure math) so the scorer never sees null values on first load.
+      // Texture and path migrations are also applied here before first render.
       const texturePersistIds = new Set<string>();
       const rebasedPathIds = new Set<string>();
       const seededItems = rawItems.map((it) => {
@@ -398,11 +390,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (withTexture.dominantHsl && withTexture.dominantLab) return withTexture;
         const hsl = withTexture.dominantHsl ?? centroidHsl(withTexture.colorFamily);
         const lab = withTexture.dominantLab ?? hslToLab(hsl.h, hsl.s, hsl.l);
-        legacyIds.add(withTexture.id);
         return { ...withTexture, dominantHsl: hsl, dominantLab: lab };
       });
       if (wardrobeData) setWardrobeItems(seededItems);
-      if (legacyIds.size > 0 || texturePersistIds.size > 0 || rebasedPathIds.size > 0) {
+      if (texturePersistIds.size > 0 || rebasedPathIds.size > 0) {
         AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(seededItems));
       }
       // ── Temp-cache URI integrity check ────────────────────────────────────
@@ -480,15 +471,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // current upload flow already carry precise per-pixel values and are
       // never reprocessed — that would burn API calls and risk overwriting
       // good values with marginally different ones.
-      const migratedFlag = await AsyncStorage.getItem(STORAGE_KEYS.perceptualMigrated);
-      if (!migratedFlag && legacyIds.size > 0) {
-        const legacyTargets = seededItems.filter(it => legacyIds.has(it.id));
-        // Defer slightly so the first paint is unblocked.
-        setTimeout(() => { runPerceptualMigration(legacyTargets); }, 800);
-      } else if (!migratedFlag) {
-        // Nothing to migrate — record the flag so we don't keep checking.
-        AsyncStorage.setItem(STORAGE_KEYS.perceptualMigrated, '1');
-      }
       if (premiumData) setIsPremium(JSON.parse(premiumData));
       if (rotationData) setRotationState(JSON.parse(rotationData));
       // Migrate persisted wear history + reactions from the legacy single
@@ -762,61 +744,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // ── Perceptual migration runner ──────────────────────────────────────────
-  // Walks legacy items, re-fetches each photo, and asks the server to compute
-  // precise HSL/Lab from the dominant garment pixel. Best-effort: items whose
-  // image can't be re-fetched (e.g. URI no longer valid) keep their centroid
-  // values silently. Persists progress through `setBackfillProgress` so the
-  // UI can surface a small banner. Marks a flag so we never re-run.
-  const runPerceptualMigration = async (items: WardrobeItem[]) => {
-    const targets = items.filter(it => !!it.photoUri);
-    if (targets.length === 0) {
-      AsyncStorage.setItem(STORAGE_KEYS.perceptualMigrated, '1');
-      return;
-    }
-    setBackfillProgress({ done: 0, total: targets.length });
-    let done = 0;
-    for (const it of targets) {
-      try {
-        const res = await fetch(it.photoUri);
-        const blob = await res.blob();
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            const idx = result.indexOf(',');
-            resolve(idx >= 0 ? result.slice(idx + 1) : result);
-          };
-          reader.onerror = () => reject(new Error('FileReader failed'));
-          reader.readAsDataURL(blob);
-        });
-        const apiRes = await authenticatedApiRequest('POST', '/api/extract-color', {
-          imageBase64: base64,
-          colorFamily: it.colorFamily,
-        });
-        const data = await apiRes.json();
-        if (data?.dominantHsl && data?.dominantLab) {
-          // Persist this single item's refined values; centralises through
-          // updateWardrobeItem so the consistency rule applies.
-          setWardrobeItems(prev => {
-            const next = prev.map(p => p.id === it.id
-              ? { ...p, dominantHsl: data.dominantHsl, dominantLab: data.dominantLab }
-              : p);
-            AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(next));
-            return next;
-          });
-        }
-      } catch (e) {
-        // Silent — item keeps its centroid values. Log for diagnostics.
-        console.warn(`[perceptual-migration] skipped item ${it.id}:`, (e as Error)?.message);
-      }
-      done += 1;
-      setBackfillProgress({ done, total: targets.length });
-    }
-    AsyncStorage.setItem(STORAGE_KEYS.perceptualMigrated, '1');
-    // Clear banner after a short delay so the user sees the final count.
-    setTimeout(() => setBackfillProgress(null), 1500);
-  };
 
   const updateProfile = useCallback((updates: Partial<UserProfile>) => {
     setProfile(prev => {
@@ -1357,7 +1284,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
     profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,
     savedLooks, toggleSavedLook, isLookSaved, renameSavedLook, getSavedLookName,
-    backfillProgress,
     affinityState, affinityActive,
     affinitySignalCount: affinityState.signalCount,
     topAffinityItems: topItems, topAffinityPairs: topPairs,
@@ -1371,7 +1297,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
        todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
        profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,
        savedLooks, toggleSavedLook, isLookSaved, renameSavedLook, getSavedLookName,
-       backfillProgress, affinityState, affinityActive, topItems, topPairs,
+       affinityState, affinityActive, topItems, topPairs,
        weather, weatherLoading, refreshWeather, setWeatherEnabled,
        orphanedItems, resolveOrphan]);
 

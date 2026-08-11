@@ -37,7 +37,6 @@ In Replit, go to **Tools > Secrets** and add the following (see [§7](#7-environ
 | Secret | Required |
 |--------|----------|
 | `GEMINI_API_KEY` | Yes |
-| `GCV_API_KEY` | Yes |
 | `SUPABASE_URL` | Yes |
 | `SUPABASE_SECRET_KEY` | Yes |
 | `EXPO_PUBLIC_SUPABASE_URL` | Yes |
@@ -141,7 +140,6 @@ Whenever you make a change that affects any section of this document — new API
 | Technology | Role |
 |-----------|------|
 | **Google Gemini API** | Garment classification from photos. Primary model: `gemini-flash-lite-latest`. Fallback model: `gemini-2.5-flash` (used when primary returns 429). Requires `GEMINI_API_KEY`. |
-| **Google Cloud Vision API** | Perceptual colour extraction via `IMAGE_PROPERTIES` feature (`POST /api/extract-color`). Used for the one-shot legacy-item migration that backfills `dominantHsl` / `dominantLab` for items uploaded before perceptual scoring was introduced. Requires `GCV_API_KEY`. |
 | **Open-Meteo** | Free weather forecast API (no API key required). Returns daily high/low temps and precipitation probability. |
 | **ipapi.co** | IP-geolocation fallback when the user has not granted device location permission. |
 
@@ -187,18 +185,17 @@ Whenever you make a change that affects any section of this document — new API
 │                                                         │
 │   POST /api/classify-garment  (aiLimiter: 10/min)       │
 │   POST /api/remove-background (bgRemovalLimiter: 30/min) │
-│   POST /api/extract-color     (colorLimiter: 30/min)    │
 │   POST /api/user/upgrade-premium (accountLimiter: 5/hr) │
 │   DELETE /api/user/delete-account (accountLimiter: 5/hr)│
-└──────┬────────────────┬───────────────────────────────┬─┘
-       │                │                               │
-       ▼                ▼                               ▼
-┌──────────────┐ ┌──────────────────┐     ┌────────────────────┐
-│  Gemini API  │ │  Google Cloud    │     │  Supabase          │
-│  (classify   │ │  Vision API      │     │  - Auth            │
-│   garments)  │ │  (extract-color, │     │  - Postgres DB     │
-└──────────────┘ │  legacy migration│     │  - Storage (photos)│
-                 └──────────────────┘     └────────────────────┘
+└──────┬────────────────────────────────────────────────┬─┘
+       │                                                │
+       ▼                                                ▼
+┌──────────────┐                           ┌────────────────────┐
+│  Gemini API  │                           │  Supabase          │
+│  (classify   │                           │  - Auth            │
+│   garments)  │                           │  - Postgres DB     │
+└──────────────┘                           │  - Storage (photos)│
+                                           └────────────────────┘
 ```
 
 ### Authentication Flow
@@ -307,10 +304,9 @@ server/
   routes.ts              Route registration (classifyGarment, removeBackground, extractColor, upgrade, delete)
   classify-garment.ts    POST /api/classify-garment — Gemini classifier
   remove-background.ts   POST /api/remove-background — Photoroom background removal; 15 s AbortController timeout; error codes from shared/photoroom-error-codes
-  extract-color.ts       POST /api/extract-color — perceptual colour extraction
   supabase.ts            Server-side Supabase admin client
   middleware/
-    rateLimiter.ts       aiLimiter, colorLimiter, accountLimiter exports
+    rateLimiter.ts       aiLimiter, bgRemovalLimiter, accountLimiter exports
 
 shared/
   photoroom-error-codes.ts  Shared error-code string constants (PHOTOROOM_TIMEOUT_ERROR, PHOTOROOM_ERROR, etc.) imported by both server/remove-background.ts and lib/photoroom.ts
@@ -391,7 +387,6 @@ All secrets are set in **Replit Secrets (Tools > Secrets)**. Never commit secret
 | Secret | Used by | Description |
 |--------|---------|-------------|
 | `GEMINI_API_KEY` | `server/classify-garment.ts` | Google Gemini API key. Needs access to `gemini-flash-lite-latest` and `gemini-2.5-flash` models. |
-| `GCV_API_KEY` | `server/extract-color.ts` | Google Cloud Vision API key. Required for `POST /api/extract-color`, which calls the `IMAGE_PROPERTIES` feature to extract perceptual colour data (`dominantHsl` / `dominantLab`) for legacy item migration. Without it the endpoint returns HTTP 500 with `missing_gcv_api_key`. |
 | `SUPABASE_URL` | `server/supabase.ts` | Your Supabase project URL (e.g. `https://xyzabc.supabase.co`). Used by the server-side admin client. |
 | `SUPABASE_SECRET_KEY` | `server/supabase.ts` | Supabase service-role (secret) key for server-side admin operations (upgrade-premium, delete-account). Keep confidential — bypasses RLS and has full database access. |
 | `EXPO_PUBLIC_SUPABASE_URL` | `lib/supabase.ts` | Your Supabase project URL. The `EXPO_PUBLIC_` prefix injects it into the Expo bundle for the client-side Supabase client. |
@@ -704,7 +699,7 @@ All Express API endpoints are protected by `express-rate-limit` using the centra
 |---------|----------|-----|--------|
 | `aiLimiter` | `POST /api/classify-garment` | 10 req | 60 sec |
 | `bgRemovalLimiter` | `POST /api/remove-background` | 8 req | 60 sec |
-| `colorLimiter` | `POST /api/extract-color` | 30 req | 60 sec |
+
 | `accountLimiter` | upgrade-premium, delete-account | 5 req | 60 min |
 | `authLimiter` | sign-in, sign-up | 5 req | 15 min |
 | `resetLimiter` | password-reset | 3 req | 60 min |
@@ -1149,15 +1144,6 @@ This section documents every security remediation applied to the codebase and th
 
 ---
 
-#### NH-2 — Outbound axios timeout on extract-color
-
-**Severity:** High  
-**File:** `server/extract-color.ts`
-
-The `axios.post` call to Google Cloud Vision now passes `{ timeout: 20_000 }` (20 seconds). Without a timeout, a slow or hung GCV response would stall the Node.js event loop for an unbounded duration, blocking all subsequent requests on the same thread.
-
----
-
 #### NM-1 — Test auth bypass gated by NODE_ENV
 
 **Severity:** Medium  
@@ -1203,7 +1189,7 @@ On the `web` platform, Supabase previously defaulted to `localStorage`, which pe
 **Severity:** Performance  
 **File:** `server/routes.ts`
 
-`p-limit` (v3, CJS-compatible, already a project dependency) caps simultaneous calls to `/api/classify-garment`, `/api/extract-color`, and `/api/remove-background` at 5 concurrent AI invocations. Requests beyond the limit are queued — not rejected (the per-endpoint rate limiters handle outright rejection). This prevents a burst of requests from simultaneously exhausting Gemini / GCV memory or connection limits.
+`p-limit` (v3, CJS-compatible, already a project dependency) caps simultaneous calls to `/api/classify-garment` and `/api/remove-background` at 5 concurrent AI invocations. Requests beyond the limit are queued — not rejected (the per-endpoint rate limiters handle outright rejection). This prevents a burst of requests from simultaneously exhausting Gemini quota or connection limits.
 
 ---
 
@@ -1216,7 +1202,7 @@ On the `web` platform, Supabase previously defaulted to `localStorage`, which pe
 | H-1 | OAuth relay allowlist — `nativeCallback` redirect only bounces to `exp://` scheme, not arbitrary URLs | `app/_layout.tsx` |
 | H-1b | OAuth relay allowlist extended: `exp://localhost` and `exp://127.0.0.1` are now valid relay targets alongside the Replit dev domain. Expo starts with `--localhost`, so `makeRedirectUri()` always returns `exp://localhost:<port>` in Expo Go (StoreClient). The previous check `nativeCallback.includes(REPLIT_DEV_DOMAIN)` always failed for localhost URLs, causing the server to serve the landing page instead of the 302 relay — leaving iOS ASWebAuth stuck and Android Chrome showing the web app instead of the native app. The PKCE verifier in native SecureStore is the real security gate. | `server/index.ts` |
 | H-1c | Android OAuth path switched from `Linking.openURL` (full system Chrome, separate process) to `WebBrowser.openBrowserAsync` (Chrome Custom Tab / CCT). A CCT slides in as a sheet over the app — no hard app-switch. When the server 302s to `exp://`, Android dispatches a VIEW intent, the CCT closes automatically and Expo Go comes to the foreground. Cancel detection uses the `openBrowserAsync` promise + 500 ms buffer (replacing the `AppState` background/active cycle which only fires with a full app-switch). `AppState` import and `buildAndroidCancelDetector` removed from `lib/auth.ts`. | `lib/auth.ts` |
-| H-2 | `requireAuth` on `POST /api/classify-garment` and `POST /api/extract-color`; `authenticatedApiRequest` on all client call-sites | `server/routes.ts`, `lib/query-client.ts` |
+| H-2 | `requireAuth` on `POST /api/classify-garment`; `authenticatedApiRequest` on all client call-sites | `server/routes.ts`, `lib/query-client.ts` |
 | H-4 | CVE upgrade: `drizzle-orm` (GHSA-2m91-8mvq-fwwg) | `package.json` |
 | H-5 | CVE upgrade: `http-proxy-middleware` (prototype pollution) | `package.json` |
 | M-1 | CORS `localhost` origin gated on `NODE_ENV !== 'production'` | `server/index.ts` |

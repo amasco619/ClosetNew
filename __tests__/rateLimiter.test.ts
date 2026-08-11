@@ -135,9 +135,6 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
   section(`aiLimiter — ${LIMITER_CONFIGS.aiLimiter.max} req / ${LIMITER_CONFIGS.aiLimiter.windowMs / 1000} sec window`);
   await assertLimiterBlocks("aiLimiter");
 
-  section(`colorLimiter — ${LIMITER_CONFIGS.colorLimiter.max} req / ${LIMITER_CONFIGS.colorLimiter.windowMs / 1000} sec window`);
-  await assertLimiterBlocks("colorLimiter");
-
   section(`resetLimiter — ${LIMITER_CONFIGS.resetLimiter.max} req / ${LIMITER_CONFIGS.resetLimiter.windowMs / 60000} min window`);
   await assertLimiterBlocks("resetLimiter");
 
@@ -317,7 +314,7 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
   section("LIMITER_CONFIGS — all expected route-limiter keys are present");
   {
     const expected: Array<keyof typeof LIMITER_CONFIGS> = [
-      "authLimiter", "accountLimiter", "aiLimiter", "bgRemovalLimiter", "colorLimiter", "resetLimiter",
+      "authLimiter", "accountLimiter", "aiLimiter", "bgRemovalLimiter", "resetLimiter",
     ];
     for (const key of expected) {
       assert(key in LIMITER_CONFIGS, `LIMITER_CONFIGS["${key}"] is defined`);
@@ -352,9 +349,9 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
     );
   }
 
-  section("LIMITER_CONFIGS — relative restrictiveness: auth ≤ ai ≤ color (wiring sanity)");
+  section("LIMITER_CONFIGS — relative restrictiveness: auth ≤ ai, reset ≤ auth (wiring sanity)");
   {
-    const { authLimiter, resetLimiter, aiLimiter, colorLimiter, accountLimiter } = LIMITER_CONFIGS;
+    const { authLimiter, resetLimiter, aiLimiter, accountLimiter } = LIMITER_CONFIGS;
     assert(
       resetLimiter.max <= authLimiter.max,
       `resetLimiter.max (${resetLimiter.max}) <= authLimiter.max (${authLimiter.max}) — password-reset is tightest`,
@@ -362,10 +359,6 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
     assert(
       authLimiter.max <= aiLimiter.max,
       `authLimiter.max (${authLimiter.max}) <= aiLimiter.max (${aiLimiter.max}) — auth is more restrictive than AI`,
-    );
-    assert(
-      colorLimiter.max >= aiLimiter.max,
-      `colorLimiter.max (${colorLimiter.max}) >= aiLimiter.max (${aiLimiter.max}) — color extraction is higher-volume`,
     );
     assert(
       accountLimiter.max <= aiLimiter.max,

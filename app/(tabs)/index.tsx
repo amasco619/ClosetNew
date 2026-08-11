@@ -45,7 +45,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const {
     profile, wardrobeItems, activeWardrobeItems, outfitSets, isPremium, canAddItem,
-    starterRecommendations, lifestyleSlotGroups, recommendationSlots, todaysWear, wearHistory, backfillProgress,
+    starterRecommendations, lifestyleSlotGroups, recommendationSlots, todaysWear, wearHistory,
     reactToOutfit, getOutfitReaction, logWear, undoWear, isWornToday,
     weather, weatherLoading, isGuest,
     orphanedItems, resolveOrphan,
@@ -190,23 +190,6 @@ export default function HomeScreen() {
             <Ionicons name="partly-sunny-outline" size={14} color={Colors.primary} />
             <Text style={styles.weatherChipText}>{weatherSummary}</Text>
           </Pressable>
-        )}
-
-        {backfillProgress && backfillProgress.total > 0 && (
-          <View style={styles.backfillBanner}>
-            <Ionicons name="color-palette-outline" size={16} color={Colors.secondary} />
-            <Text style={styles.backfillText}>
-              Refining colour analysis · {backfillProgress.done}/{backfillProgress.total}
-            </Text>
-            <View style={styles.backfillTrack}>
-              <View
-                style={[
-                  styles.backfillFill,
-                  { width: `${Math.round((backfillProgress.done / backfillProgress.total) * 100)}%` },
-                ]}
-              />
-            </View>
-          </View>
         )}
 
         {orphanedItems.length > 0 && (
@@ -632,16 +615,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.sage + '30',
   },
   weatherChipText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.primary },
-
-  backfillBanner: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginBottom: 16, paddingHorizontal: 14, paddingVertical: 10,
-    borderRadius: 12, backgroundColor: Colors.secondary + '10',
-    borderWidth: 1, borderColor: Colors.secondary + '20',
-  },
-  backfillText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary, flexShrink: 1 },
-  backfillTrack: { flex: 1, height: 3, borderRadius: 2, backgroundColor: Colors.secondary + '20', overflow: 'hidden', marginLeft: 4 },
-  backfillFill: { height: '100%', backgroundColor: Colors.secondary, borderRadius: 2 },
 
   orphanCard: {
     marginBottom: 16, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 8,

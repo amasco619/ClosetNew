@@ -1,13 +1,12 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
 import { classifyGarment } from "./classify-garment";
-import { extractColor } from "./extract-color";
 import { removeBackground } from "./remove-background";
 import { supabaseAdmin, supabaseAuth } from "./supabase";
-import { aiLimiter, bgRemovalLimiter, colorLimiter, accountLimiter, authLimiter, resetLimiter, checkAccountLockout, recordFailedAttempt, clearLockout } from "./middleware/rateLimiter";
-// P-E: cap simultaneous AI calls so a burst cannot exhaust Gemini / GCV
-// memory or connections. Extras are queued, not rejected (the rate limiter
-// above handles outright rejection). Max 5 concurrent AI invocations.
+import { aiLimiter, bgRemovalLimiter, accountLimiter, authLimiter, resetLimiter, checkAccountLockout, recordFailedAttempt, clearLockout } from "./middleware/rateLimiter";
+// P-E: cap simultaneous AI calls so a burst cannot exhaust Gemini quota
+// or connections. Extras are queued, not rejected (the rate limiters
+// above handle outright rejection). Max 5 concurrent AI invocations.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pLimit = require("p-limit");
 const _aiSlots = pLimit(5) as <T>(fn: () => Promise<T>) => Promise<T>;
@@ -127,7 +126,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── AI endpoints: authentication required ────────────────────────────────
   // Without auth, anyone can exhaust Gemini / Google Vision quota.
   app.post("/api/classify-garment", aiLimiter, requireAuth, withAiLimit(classifyGarment));
-  app.post("/api/extract-color", colorLimiter, requireAuth, withAiLimit(extractColor));
   app.post("/api/remove-background", bgRemovalLimiter, withAiLimit(removeBackground));
 
   // ── Sign-in ───────────────────────────────────────────────────────────────
