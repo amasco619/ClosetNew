@@ -1005,6 +1005,8 @@ export interface OutfitScoreBreakdown {
   undertoneHarmony: number;
   // Neckline × jewelry coordination (v8) — necklace and earring fit for neckline shape
   necklineJewelry: number;
+  // Rise × top-silhouette harmony (v9) — contextual proportion signal
+  riseHarmony: number;
 }
 
 export function scoreOutfitCombo(
@@ -1398,6 +1400,42 @@ export function scoreOutfitCombo(
     }
   }
 
+  // ─── Rise × top-silhouette harmony (v9) ─────────────────────────────────
+  // Rise is a contextual proportion signal on bottoms that interacts with how
+  // the top silhouette sits above the waistband. Conservative and additive:
+  //   +1  high-rise + slim/tailored top   — waist defined, proportions read clean
+  //   −1  high-rise + loose/oversized top — two volumes above the waist, reads boxy
+  //   −1  low-rise  + loose/oversized top — waist drops, torso reads undefined
+  //    0  mid-rise (always neutral)
+  //    0  missing or unknown rise          — no assumption, no penalty
+  //    0  top fit unknown                 — only fires when both signals are present
+  //
+  // Range: [−1, +1]. Cannot dominate major signals (occasion, palette, formality).
+  // Does NOT duplicate bodyTypeProportion or heightProportion — those use
+  // fit-volume balance and body-specific subtype rules, not rise directly.
+  let riseHarmony = 0;
+  if (resolved.length >= 2) {
+    const rhBottom = resolved.find(i => i.category === 'bottom');
+    const rhTop    = resolved.find(i => i.category === 'top');
+    if (rhBottom?.rise && rhTop?.fit) {
+      const rise = rhBottom.rise;
+      const fit  = rhTop.fit;
+      const isSlimTop   = fit === 'slim' || fit === 'tailored';
+      const isVolumeTop = fit === 'loose' || fit === 'oversized';
+
+      if (rise === 'high') {
+        if (isSlimTop)        riseHarmony += 1; // waist definition — strong proportion signal
+        else if (isVolumeTop) riseHarmony -= 1; // high waist + volume above reads boxy
+        // high + regular/crop: neutral (0)
+      } else if (rise === 'low') {
+        if (isVolumeTop) riseHarmony -= 1; // dropped waist + loose top — torso reads undefined
+        // low + slim/tailored: neutral (0) — valid intentional pairing
+        // low + regular: neutral (0)
+      }
+      // mid-rise: always 0 (universally neutral across body types and silhouettes)
+    }
+  }
+
   // ─── Perceptual colour signals ───────────────────────────────────────────
   // Three combo-level scorers that read the per-item HSL captured at upload
   // time (or backfilled from the colour-family centroid for legacy items).
@@ -1422,7 +1460,7 @@ export function scoreOutfitCombo(
     + contrastMatch + pieces + proportionBalance + metalCohesion
     + tempHarmonyScore + valueSpreadScore + saturationDomScore
     + textureScore + bodyTypeProportion + hemlineShoeHarmony
-    + heightProportion + undertoneHarmony + necklineJewelry;
+    + heightProportion + undertoneHarmony + necklineJewelry + riseHarmony;
 
   return {
     total, completeness, palette, paletteType,
@@ -1433,7 +1471,7 @@ export function scoreOutfitCombo(
     saturationDominance: saturationDomScore,
     textureHarmony: textureScore,
     bodyTypeProportion, hemlineShoeHarmony,
-    heightProportion, undertoneHarmony, necklineJewelry,
+    heightProportion, undertoneHarmony, necklineJewelry, riseHarmony,
   };
 }
 
@@ -1503,19 +1541,34 @@ export function adjustScoreForReactions(
 }
 
 /**
- * Worn-history positive weighting.
+ * Worn-history positive weighting with integrated freshness penalty.
  *
- * Per spec, outfits the user has actually worn remain the strongest positive
- * signal — stronger than a "love" tap — because the user has committed to them
- * in real life. This boost is additive on top of reaction adjustments, and is
- * applied by the rotation engine to the exact outfit fingerprint.
+ * Separates two distinct concepts:
  *
+ * PREFERENCE MEMORY — outfits the user has actually worn carry genuine affinity
+ * signal (stronger than a "love" tap — they committed in real life).
  *   +10 if worn in the last 60 days
  *   +6  if worn earlier than that
- *   +2 per additional wear (capped so a single look can't fully dominate)
+ *   +2 per additional wear (capped at +6 so a single look can't fully dominate)
  *
- * A mild recency damper (−2) kicks in only if worn in the last 2 days, so the
- * user still sees fresh ideas alongside reliable favourites.
+ * FRESHNESS PENALTY — knowing someone likes an outfit does NOT mean they want
+ * to see it again immediately. The penalty is applied as a score reduction
+ * (not a positional reorder) so it participates in the same ranking pass as
+ * all other signals.  A genuinely superior outfit still wins; a mediocre
+ * worn outfit is reliably demoted past fresh alternatives of equal quality.
+ *
+ *   0–1 days:  −8  strongly demoted — net ≈ +2 for a once-worn outfit,
+ *                    below a fresh outfit of equal inherent quality
+ *   2–4 days:  −5  moderate — still competes but fresh alternatives rank first
+ *   5–9 days:  −2  mild — wear history mostly back in play
+ *   10+ days:   0  no freshness effect — affinity signal fully restored
+ *
+ * Edge cases:
+ *   • Never worn → returns 0 (no boost, no penalty).
+ *   • Only viable outfit → still positive even with max penalty (+10 − 8 = +2),
+ *     so the engine does not produce a materially worse outfit to avoid repetition.
+ *   • Loved + old (>10 days) → full +10 boost with no penalty — surfaces normally.
+ *   • Loved + recent → boosted but penalised; surfaces when alternatives are weak.
  */
 export function wornHistoryBoost(
   fingerprint: string,
@@ -1535,10 +1588,18 @@ export function wornHistoryBoost(
     if (ageDays < mostRecentDays) mostRecentDays = ageDays;
   }
 
+  // Preference memory
   let boost = mostRecentDays <= 60 ? 10 : 6;
   boost += Math.min(6, Math.max(0, matches.length - 1) * 2);
-  if (mostRecentDays <= 2) boost -= 2;
-  return boost;
+
+  // Freshness penalty — score-based so it survives completeness-bias and tiered
+  // shuffle re-sorts that would undo a positional-only demotion.
+  const freshnessPenalty =
+    mostRecentDays <= 1 ? 8 :
+    mostRecentDays <= 4 ? 5 :
+    mostRecentDays <= 9 ? 2 : 0;
+
+  return boost - freshnessPenalty;
 }
 
 // ─── Utility ─────────────────────────────────────────────────────────────────

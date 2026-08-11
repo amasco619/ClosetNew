@@ -315,7 +315,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               26 test suites (see §11)
+__tests__/               28 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -584,6 +584,56 @@ Wardrobe health score (0–100, graded A–F), category balance analysis, colour
 Taste learns from every user signal: love taps, "not today" taps, and outfits logged as worn. Signals aggregate with 60-day half-life recency decay into per-item `affinity` multipliers (clamped [0.7, 1.3]) and per-pair `pairAffinity` multipliers (clamped [0.8, 1.2]). Cold-start safe: multipliers stay at 1.0 until ≥5 signals accumulated. Profile screen shows a "Why this changed" expandable card with top liked/disliked items and pairs.
 
 **Code:** `constants/affinity.ts`, `app/(tabs)/profile.tsx`
+
+---
+
+### Phase 3.1 — Recommendation Engine Improvements
+
+Two targeted P0 changes following the Phase 3 forensic audit. No other scoring dimensions were modified.
+
+#### P0-A — Freshness / Wear-History Conflict (resolved)
+
+**Problem:** `wornHistoryBoost` gave a worn outfit +10–16 score advantage. `applyFreshnessOrder` then moved it to the end of the pool positionally, but `applyCompletenessBias` and `tieredShuffle` immediately re-sorted by score — completely undoing the positional demotion. Result: recently-worn loved outfits resurfaced immediately.
+
+**Fix:** Freshness is now a **score reduction inside `wornHistoryBoost`**, not a positional reorder. The penalty participates in the same ranking pass as all other signals:
+
+| Worn | Freshness penalty | Net boost (once-worn) |
+|------|-------------------|-----------------------|
+| 0–1 days | −8 | +2 |
+| 2–4 days | −5 | +5 |
+| 5–9 days | −2 | +8 |
+| 10+ days | 0 | +10 (full preference signal) |
+
+Properties preserved:
+- Preference memory is not destroyed — the boost remains positive even at maximum penalty.
+- A genuinely better worn outfit still wins over a poor fresh alternative (score-based).
+- Only-viable-outfit case: net +2 minimum — engine never produces a worse outfit to avoid repetition.
+- `applyFreshnessOrder` retained as a secondary tiebreaker for equal-scored outfits.
+
+**Code:** `constants/outfitScoring.ts` — `wornHistoryBoost`
+
+#### P0-B — Rise Field Integrated into Proportion Scoring
+
+**Problem:** The `rise` field (`'low' | 'mid' | 'high'`) was captured by Gemini at classification time and stored on every bottom item, but was never consumed by the recommendation engine.
+
+**Fix:** New `riseHarmony` dimension added to `scoreOutfitCombo` and `OutfitScoreBreakdown`. Fires only when **both** the bottom's `rise` and the top's `fit` are known — unknown/legacy items return exactly 0 with no penalty.
+
+| Combination | Score |
+|-------------|-------|
+| high-rise + slim/tailored top | +1 (waist defined, clean proportions) |
+| high-rise + loose/oversized top | −1 (two volumes above the waist, reads boxy) |
+| low-rise + loose/oversized top | −1 (dropped waist, torso undefined) |
+| low-rise + slim/tailored | 0 (valid intentional pairing) |
+| mid-rise (any top) | 0 (universally neutral) |
+| rise = undefined or fit = undefined | 0 (no assumption, no penalty) |
+
+Range: [−1, +1]. Does not stack with `bodyTypeProportion` or `heightProportion` — those use fit-volume balance and body-specific subtype rules, not `rise` directly.
+
+**Code:** `constants/outfitScoring.ts` — `riseHarmony` block in `scoreOutfitCombo`, `OutfitScoreBreakdown` interface
+
+#### Tests
+- `__tests__/phase31-freshness.test.ts` — 15 groups covering all freshness edge cases
+- `__tests__/phase31-rise.test.ts` — 16 groups covering all rise × body-type × height combinations
 
 ---
 

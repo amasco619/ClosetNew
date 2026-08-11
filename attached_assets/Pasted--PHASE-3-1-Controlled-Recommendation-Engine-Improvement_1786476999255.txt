@@ -1,0 +1,675 @@
+# PHASE 3.1 — Controlled Recommendation-Engine Improvements
+
+You are continuing work on AuraCloset following the completed **Phase 3 — Outfit Intelligence & Recommendation Engine Forensic Audit**.
+
+The Phase 3 audit has been reviewed.
+
+Its overall conclusion was:
+
+> **Recommendation Engine Status: STRONG**
+
+The audit identified several genuine quality gaps, but we are **NOT authorising implementation of the entire Phase 3 recommendation list**.
+
+This phase is a **controlled implementation phase**.
+
+Your job is to implement only the explicitly authorised changes below, preserve the existing recommendation architecture, and provide evidence that the changes improve the intended behaviour without causing regressions.
+
+---
+
+# 1. ABSOLUTE RULES
+
+## Authorised code changes
+
+You are authorised to implement ONLY:
+
+### P0-A — Resolve the `wornHistoryBoost` ↔ freshness conflict
+
+### P0-B — Integrate `rise` into proportion scoring
+
+Everything else is either:
+
+* design-only,
+* deferred,
+* or explicitly prohibited from implementation in this phase.
+
+---
+
+# 2. DO NOT BLINDLY IMPLEMENT THE PHASE 3 REPORT
+
+The Phase 3 report contained several useful recommendations that require more careful modelling before implementation.
+
+Therefore:
+
+### DO NOT implement any of the following:
+
+* matching-set detection;
+* neutral monotony penalty;
+* visual-interest scoring;
+* `accentColor` palette weighting;
+* multiple-jewelry generation;
+* leather + silk special-case rules;
+* ankle boots + midi exceptions;
+* saturation-monochrome exceptions;
+* style relationship learning;
+* Gemini as an outfit evaluator;
+* Gemini as a scoring/ranking layer;
+* Gemini as a veto layer;
+* sleeve-length recommendation rules;
+* pattern-orientation rules;
+* sub-scenario recommendation logic;
+* changes to the hero threshold;
+* changes to hero distinctiveness logic;
+* changes to palette weights;
+* broad rebalancing of existing scoring weights.
+
+Do not "improve" unrelated areas while implementing the two authorised changes.
+
+If you discover another issue, document it instead of fixing it.
+
+---
+
+# 3. FIRST: READ-ONLY PRE-IMPLEMENTATION REVIEW
+
+Before modifying anything, inspect the current implementation again.
+
+At minimum inspect:
+
+* `outfitScoring.ts`
+* `outfitRotation.ts`
+* `WardrobeItem` type/schema
+* all functions involved in:
+
+  * `wornHistoryBoost`
+  * reaction adjustments
+  * freshness ordering
+  * completeness bias
+  * tiered shuffle
+  * cursor advancement
+  * candidate ranking
+  * proportion scoring
+  * body-type proportion scoring
+  * height proportion scoring
+  * top/bottom pairing
+  * `rise`
+
+Trace the actual implementation.
+
+Do not rely solely on the Phase 3 report.
+
+If the report and current code differ, **the current code is authoritative**.
+
+Before changing anything, provide a short implementation plan containing:
+
+1. exact files that will change;
+2. exact functions that will change;
+3. what behaviour will change;
+4. what behaviour must remain unchanged.
+
+Then proceed with implementation.
+
+Do not ask for approval again unless you discover that implementing either P0 requires architectural changes outside the authorised scope.
+
+---
+
+# 4. P0-A — FIX THE WEAR HISTORY / FRESHNESS CONFLICT
+
+## Problem
+
+The Phase 3 audit identified an architectural conflict:
+
+`wornHistoryBoost` increases an outfit's score based on previous wear, while `applyFreshnessOrder()` attempts to move recently worn outfits down.
+
+Subsequent score-based sorting can undo that freshness ordering.
+
+The result can be:
+
+> An outfit that the user wore recently receives a large score boost and resurfaces despite the system intending to prioritise fresh alternatives.
+
+This is a real recommendation-quality problem.
+
+---
+
+## Desired behaviour
+
+We want to preserve two different concepts:
+
+### Preference memory
+
+If the user has repeatedly worn/loved an outfit, that is valuable information.
+
+### Freshness
+
+That does NOT mean the same exact outfit should repeatedly appear immediately after being worn.
+
+The desired principle is:
+
+> **Remember what the user likes, but don't confuse liking something with wanting to see it again immediately.**
+
+---
+
+## IMPORTANT: DO NOT simply copy the Phase 3 suggested numbers
+
+The Phase 3 report suggested examples such as:
+
+* −5 within 2 days;
+* −3 within 4 days.
+
+These are illustrative only.
+
+**Do not blindly implement those exact values.**
+
+Before choosing the freshness adjustment, inspect the actual score distribution in the current engine.
+
+Determine:
+
+* typical `rawTotal` ranges;
+* typical `wornHistoryBoost` values;
+* typical reaction adjustments;
+* typical differences between top-ranked candidates;
+* how many points are generally required to move an outfit between ranking tiers.
+
+The freshness mechanism should be strong enough to prevent recent repetition but not so strong that it systematically suppresses genuinely excellent outfits.
+
+---
+
+## Preferred implementation principle
+
+Freshness should ultimately participate in the same ranking mechanism that determines final order.
+
+Avoid relying on a positional reorder that is subsequently undone by another score-based sort.
+
+However, preserve the distinction between:
+
+### Recommendation quality
+
+and
+
+### freshness.
+
+Do not simply destroy the existing wear-history signal.
+
+---
+
+## Important edge cases
+
+Explicitly test:
+
+### Case 1 — Never worn
+
+No freshness penalty.
+
+### Case 2 — Worn yesterday
+
+Should be meaningfully deprioritised unless the pool has very poor alternatives.
+
+### Case 3 — Worn several days ago
+
+Should receive a smaller freshness effect.
+
+### Case 4 — Worn weeks ago
+
+Freshness should have little or no negative effect.
+
+### Case 5 — Loved + recently worn
+
+The love signal should remain valuable, but recent wear should still prevent automatic resurfacing.
+
+### Case 6 — Loved + old
+
+A previously loved outfit that has not been worn recently should be allowed to rank highly.
+
+### Case 7 — Only viable outfit
+
+If the wardrobe has no reasonable alternatives, freshness must NOT cause the engine to produce a materially worse outfit simply to avoid repetition.
+
+### Case 8 — Recently worn but substantially better than alternatives
+
+Freshness should not blindly eliminate the best available outfit.
+
+The engine should prefer:
+
+> **excellent + reasonably fresh**
+
+over:
+
+> **poor + technically fresh**
+
+---
+
+## Preserve
+
+Do not remove or weaken:
+
+* item affinity;
+* pair affinity;
+* reaction learning;
+* positive wear history;
+* hero diversity;
+* cross-scenario deduplication;
+* tiered shuffle;
+* existing cold-start behaviour.
+
+---
+
+# 5. P0-B — INTEGRATE `rise` INTO PROPORTION INTELLIGENCE
+
+## Problem
+
+The Phase 3 audit established that `rise` is already captured and stored but is not currently consumed by the recommendation engine.
+
+This is a genuine data-utilisation gap.
+
+Examples:
+
+* high-rise + tucked/slim top can create strong waist definition;
+* high-rise + crop top can materially change perceived proportions;
+* low-rise + crop can create a very different silhouette;
+* rise interacts with wide-leg, slim, oversized and tailored bottoms.
+
+---
+
+# IMPORTANT: DO NOT TURN THIS INTO RIGID FASHION RULES
+
+Do NOT implement simplistic rules such as:
+
+> "high-rise = good"
+
+or:
+
+> "low-rise = bad"
+
+or:
+
+> "high-rise + slim top always gets +1."
+
+Rise is a **contextual proportion signal**.
+
+It interacts with:
+
+* body type;
+* height;
+* top silhouette;
+* bottom silhouette;
+* crop length;
+* tucked/untucked state if available;
+* overall silhouette;
+* occasion/style intent.
+
+The implementation should therefore be conservative and additive.
+
+---
+
+## First inspect available data
+
+Determine exactly what values `rise` can contain.
+
+For example, verify whether the actual system uses:
+
+* `high`
+* `mid`
+* `low`
+* `unknown`
+
+or other values.
+
+Do not invent new values.
+
+Determine whether the system captures any additional top-length/tuck information that can safely interact with rise.
+
+If that information does not exist, **do not pretend it does**.
+
+---
+
+# Desired implementation philosophy
+
+`rise` should provide an additional proportion signal rather than becoming a dominant factor.
+
+The rule should:
+
+* improve obviously strong proportion combinations;
+* mildly penalise genuinely problematic combinations;
+* remain neutral when insufficient information exists;
+* never override strong evidence from the rest of the outfit;
+* avoid discriminating against a valid fashion choice simply because it is unconventional.
+
+---
+
+# Body-type and height interaction
+
+Evaluate how rise can safely interact with the existing:
+
+* `bodyTypeProportion`;
+* `heightProportion`;
+* `proportionBalance`.
+
+Avoid duplicating the same bonus across multiple functions.
+
+For example, do not accidentally create:
+
+`rise bonus + body-type rise bonus + height rise bonus`
+
+that produces an artificial large score advantage.
+
+The combined influence of rise should remain modest relative to major signals such as:
+
+* occasion;
+* style goal;
+* formality;
+* colour harmony;
+* overall outfit coherence.
+
+---
+
+# Unknown/missing rise
+
+This is critical.
+
+Legacy wardrobe items may have:
+
+* `rise = undefined`;
+* missing metadata;
+* values that the current system doesn't recognise.
+
+These items must continue to work.
+
+Unknown rise should mean:
+
+> **No rise-based adjustment**
+
+not:
+
+> **Penalty**
+
+and not:
+
+> **Assume mid-rise**
+
+unless the current code already explicitly defines that behaviour.
+
+---
+
+# 6. REGRESSION PROTECTION
+
+After implementation, verify that you have NOT unintentionally changed:
+
+* candidate generation;
+* hero selection;
+* colour scoring;
+* formality scoring;
+* texture scoring;
+* pattern scoring;
+* weather logic;
+* mood logic;
+* completeness;
+* reaction adjustments;
+* item affinity;
+* pair affinity;
+* premium differentiation;
+* cross-scenario deduplication;
+* rationale generation.
+
+The purpose of this phase is **two targeted improvements**, not a general rewrite.
+
+---
+
+# 7. TESTING REQUIREMENTS
+
+Do not merely run the existing test suite.
+
+Add or update focused tests for the new behaviour.
+
+## Freshness tests
+
+At minimum test:
+
+1. recently worn outfit vs equally strong fresh outfit;
+2. recently worn excellent outfit vs substantially weaker fresh outfit;
+3. loved + recently worn;
+4. loved + old;
+5. never worn;
+6. no viable fresh alternatives;
+7. multiple recently worn outfits;
+8. different wear ages;
+9. reaction adjustments interacting with freshness;
+10. tiered shuffle preserving the intended ranking effect.
+
+Tests should demonstrate that the original regression is actually fixed.
+
+---
+
+## Rise tests
+
+At minimum test:
+
+1. high-rise + appropriate top;
+2. mid-rise;
+3. low-rise;
+4. missing rise;
+5. unknown rise;
+6. petite user;
+7. tall user;
+8. pear body type;
+9. apple body type;
+10. inverted triangle;
+11. rectangle;
+12. hourglass;
+13. compatible wide-leg + rise combination;
+14. potentially conflicting rise + silhouette combination.
+
+The tests should demonstrate that rise influences recommendations **without becoming dominant**.
+
+---
+
+# 8. SCORE-SENSITIVITY CHECK
+
+After implementation, inspect several representative scoring examples.
+
+Show how much the new freshness and rise logic can change an outfit's score.
+
+I want to know:
+
+* minimum possible impact;
+* maximum possible impact;
+* typical impact;
+* whether either signal can overpower the main styling signals.
+
+If either new mechanism can materially overwhelm major factors such as occasion, formality, colour harmony, or overall coherence, reconsider the implementation before finalising it.
+
+Do not simply proceed because the tests pass.
+
+---
+
+# 9. DO NOT IMPLEMENT THE FOLLOWING PHASE 3 FINDINGS — BUT DOCUMENT THEM
+
+The following remain intentionally deferred.
+
+Create a concise backlog section documenting them without modifying code:
+
+### Deferred P1/P2
+
+* visual-interest / intentionality model;
+* neutral sophistication;
+* tonal dressing;
+* `accentColor` palette integration;
+* matching-set / coordinate awareness;
+* intentional texture-contrast intelligence;
+* context-aware ankle-boot + midi handling;
+* mono high-saturation handling;
+* multiple-jewelry generation;
+* improved hero selection for quiet-luxury wardrobes;
+* style relationship learning;
+* occasion sub-context;
+* pattern orientation;
+* sleeve-length usage;
+* `dominantLab` utilisation;
+* improved rationale reasoning.
+
+Do not implement any of these.
+
+---
+
+# 10. IMPORTANT DESIGN TASK — DO NOT IMPLEMENT
+
+Before closing Phase 3.1, provide a short **design-only proposal** for the next recommendation-quality problem:
+
+## "Visual Interest vs Quiet-Luxury Sophistication"
+
+The goal is NOT to make neutral outfits more colourful.
+
+The goal is to teach the system to distinguish:
+
+### A — Neutral but boring
+
+from
+
+### B — Neutral but sophisticated
+
+from
+
+### C — Neutral and intentionally minimalist
+
+from
+
+### D — Monochromatic but visually rich
+
+from
+
+### E — Over-coordinated
+
+The proposal should consider:
+
+* tonal variation;
+* texture variation;
+* silhouette;
+* visual hierarchy;
+* material contrast;
+* accent pieces;
+* pattern;
+* value contrast;
+* colour restraint.
+
+Do not implement this model.
+
+I want the conceptual design first.
+
+---
+
+# 11. QUALITY GATE
+
+Before declaring the phase complete, answer:
+
+### A. Did the freshness conflict actually disappear?
+
+### B. Does rise now influence proportion decisions appropriately?
+
+### C. Can either change produce obviously worse recommendations?
+
+### D. Are legacy items without rise still safe?
+
+### E. Did any unrelated recommendation behaviour change?
+
+### F. Did the existing test suite remain green?
+
+### G. Were new tests added for both P0 changes?
+
+### H. Are there any unresolved risks?
+
+---
+
+# 12. FINAL REPORT FORMAT
+
+Return the final report in exactly this structure:
+
+## PHASE 3.1 IMPLEMENTATION REPORT
+
+### 1. Executive Summary
+
+Maximum 10 bullet points.
+
+### 2. Files Changed
+
+| File | Change | Reason |
+
+### 3. P0-A — Freshness / Wear History
+
+* Previous behaviour
+* Root cause
+* Implementation
+* Why the new approach works
+* Score impact
+* Edge cases
+* Tests
+
+### 4. P0-B — Rise
+
+* Previous behaviour
+* Implementation
+* Values supported
+* Interaction with body type
+* Interaction with height
+* Score impact
+* Missing-data behaviour
+* Tests
+
+### 5. Regression Analysis
+
+Explicitly confirm what was NOT changed.
+
+### 6. Test Results
+
+Include:
+
+* existing tests;
+* new tests;
+* TypeScript;
+* lint;
+* any integration tests.
+
+Do not claim tests passed unless they were actually run.
+
+### 7. Deferred Recommendations
+
+List the Phase 3 recommendations deliberately NOT implemented.
+
+### 8. Next Design Proposal
+
+Provide the design-only proposal for:
+
+**Visual Interest vs Quiet-Luxury Sophistication**
+
+### 9. Final Verdict
+
+Choose exactly one:
+
+**SAFE TO PROCEED TO PHASE 3.2**
+
+or
+
+**REQUIRES CORRECTION BEFORE PROCEEDING**
+
+---
+
+# FINAL NON-NEGOTIABLE CONSTRAINT
+
+Do not:
+
+* refactor unrelated code;
+* redesign the recommendation engine;
+* add Gemini;
+* change colour taxonomy;
+* change hero architecture;
+* change scoring weights unrelated to `rise` or freshness;
+* implement deferred Phase 3 recommendations;
+* introduce new wardrobe metadata;
+* change the database schema;
+* change the UI;
+* change recommendation rationale;
+* alter premium/free functionality.
+
+If you identify a problem outside the authorised scope:
+
+**REPORT IT — DO NOT FIX IT.**
+
+The purpose of Phase 3.1 is to make two carefully controlled improvements and establish a stable foundation for the next round of recommendation-quality benchmarking.
+
+**IMPLEMENT ONLY THE AUTHORISED P0 CHANGES.**
