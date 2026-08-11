@@ -41,6 +41,7 @@ import {
   rgbToLab,
   VALID_SUBTYPES_BY_CATEGORY,
   VALID_COLOR_FAMILIES,
+  SERVER_FAMILY_CENTROID_HSL,
 } from '../server/classify-garment';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
@@ -697,6 +698,28 @@ console.log('\nprocessGeminiResult — edge cases:');
       `modelConfidence=1 stays in [0,1] (got ${r1.modelConfidence})`,
     );
   }
+}
+
+// ── SERVER_FAMILY_CENTROID_HSL ↔ VALID_COLOR_FAMILIES sync ───────────────────
+// These two sets must always contain exactly the same keys.  If a new colour
+// family is added to VALID_COLOR_FAMILIES but not to SERVER_FAMILY_CENTROID_HSL
+// (or vice-versa), the RGB-validation path silently falls back and outfit
+// colour scoring becomes unreliable.
+{
+  const centroidKeys = Object.keys(SERVER_FAMILY_CENTROID_HSL).sort();
+  const validKeys    = [...VALID_COLOR_FAMILIES].sort();
+
+  const missingFromCentroid = validKeys.filter(k => !SERVER_FAMILY_CENTROID_HSL[k]);
+  const extraInCentroid     = centroidKeys.filter(k => !VALID_COLOR_FAMILIES.has(k));
+
+  assert(
+    missingFromCentroid.length === 0,
+    `SERVER_FAMILY_CENTROID_HSL covers every VALID_COLOR_FAMILIES key (missing: ${missingFromCentroid.join(', ') || 'none'})`,
+  );
+  assert(
+    extraInCentroid.length === 0,
+    `SERVER_FAMILY_CENTROID_HSL has no extra keys not in VALID_COLOR_FAMILIES (extra: ${extraInCentroid.join(', ') || 'none'})`,
+  );
 }
 
 // ── Summary ───────────────────────────────────────────────────────────────────

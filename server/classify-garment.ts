@@ -318,7 +318,7 @@ const DOMINANT_RGB_ACHROMATIC_SAT_THRESHOLD = 0.25;
 // Representative HSL per valid colour family. Mirrors the FAMILY_CENTROID_HSL
 // table in constants/colorPerceptual.ts (kept separate — server cannot import
 // client constants). Only the 18 families accepted by the classifier are listed.
-const SERVER_FAMILY_CENTROID_HSL: Record<string, { h: number; s: number; l: number }> = {
+export const SERVER_FAMILY_CENTROID_HSL: Record<string, { h: number; s: number; l: number }> = {
   black:    { h:   0, s: 0.00, l: 0.05 },
   white:    { h:   0, s: 0.00, l: 0.97 },
   grey:     { h:   0, s: 0.00, l: 0.55 },
