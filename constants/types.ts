@@ -114,7 +114,14 @@ export interface WardrobeItem {
   // saturation harmony across a look. Family labels still drive UI.
   dominantHsl?: { h: number; s: number; l: number };  // h: 0-360, s/l: 0-1
   dominantLab?: { L: number; a: number; b: number };  // CIE Lab
+  // Classifier confidence returned by Gemini (0–1). Stored at upload time only —
+  // not updated when the user edits fields manually. Values below
+  // LOW_CONFIDENCE_THRESHOLD trigger a subtle "Review classification" indicator.
+  modelConfidence?: number;
 }
+
+/** Items with modelConfidence below this threshold show a "Review" indicator. */
+export const LOW_CONFIDENCE_THRESHOLD = 0.65;
 
 export interface OutfitComponent {
   category: ItemCategory;

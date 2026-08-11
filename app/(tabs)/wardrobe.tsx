@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useApp, WardrobeItem } from '@/contexts/AppContext';
+import { LOW_CONFIDENCE_THRESHOLD } from '@/constants/types';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -102,6 +103,12 @@ export default function WardrobeScreen() {
                 <Text style={styles.blushPillText}>{t.replace(/-/g, ' ')}</Text>
               </View>
             ))}
+            {item.modelConfidence !== undefined && item.modelConfidence < LOW_CONFIDENCE_THRESHOLD && (
+              <View style={styles.reviewPill}>
+                <Ionicons name="alert-circle-outline" size={9} color="#C9A14C" />
+                <Text style={styles.reviewPillText}>Review</Text>
+              </View>
+            )}
           </View>
         </View>
         <Ionicons name="chevron-forward" size={14} color={Colors.border} style={styles.listChevron} />
@@ -125,6 +132,11 @@ export default function WardrobeScreen() {
           <View style={styles.gridBadge}>
             <Text style={styles.gridBadgeText}>{initial}</Text>
           </View>
+          {item.modelConfidence !== undefined && item.modelConfidence < LOW_CONFIDENCE_THRESHOLD && (
+            <View style={styles.reviewBadge}>
+              <Ionicons name="alert-circle-outline" size={11} color="#C9A14C" />
+            </View>
+          )}
           <View style={styles.gridLabel}>
             <Text style={styles.gridLabelText} numberOfLines={1}>
               {item.subType.replace(/-/g, ' ')}
@@ -398,5 +410,22 @@ const styles = StyleSheet.create({
   gridLabelText: {
     fontFamily: 'Inter_600SemiBold', fontSize: rs(9), color: Colors.white,
     textAlign: 'center', textTransform: 'capitalize', letterSpacing: 0.2,
+  },
+
+  // Low-confidence classification indicators
+  reviewBadge: {
+    position: 'absolute', top: 6, right: 6,
+    width: 18, height: 18, borderRadius: 5,
+    backgroundColor: 'rgba(16,24,38,0.60)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  reviewPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 20,
+    backgroundColor: '#C9A14C18',
+    borderWidth: 1, borderColor: '#C9A14C30',
+  },
+  reviewPillText: {
+    fontFamily: 'Inter_500Medium', fontSize: rs(10), color: '#C9A14C',
   },
 });

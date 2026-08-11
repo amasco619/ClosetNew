@@ -324,6 +324,7 @@ export default function AddItemScreen() {
   const [accentColor,     setAccentColor]     = useState<string | undefined>(hasPreClassified && pcAccentColor ? pcAccentColor : undefined);
   const [dominantHsl,     setDominantHsl]     = useState<{ h: number; s: number; l: number } | undefined>(initDominantHsl);
   const [dominantLab,     setDominantLab]     = useState<{ L: number; a: number; b: number } | undefined>(initDominantLab);
+  const [modelConfidence, setModelConfidence] = useState<number | undefined>(undefined);
   const [fit,             setFit]             = useState<string | undefined>(hasPreClassified && pcFit ? pcFit : undefined);
   const [metalTone,       setMetalTone]       = useState<string | undefined>(undefined);
   const [neckline,        setNeckline]        = useState<string | undefined>(hasPreClassified && pcNeckline ? pcNeckline : undefined);
@@ -511,6 +512,7 @@ export default function AddItemScreen() {
     sleeveLength?: string;
     rise?: string;
     warmthBand?: string;
+    modelConfidence?: number;
   }> => {
     try {
       const res  = await authenticatedApiRequest('POST', '/api/classify-garment', { imageBase64: base64 });
@@ -535,6 +537,9 @@ export default function AddItemScreen() {
         sleeveLength: data.sleeveLength,
         rise:         data.rise,
         warmthBand:   data.warmthBand,
+        modelConfidence: typeof data.modelConfidence === 'number'
+          ? Math.min(1, Math.max(0, data.modelConfidence))
+          : undefined,
       };
     } catch (err: any) {
       // apiRequest throws "<status>: {json body}" for non-2xx responses
@@ -719,6 +724,7 @@ export default function AddItemScreen() {
             if (classified.accentColor)  setAccentColor(classified.accentColor);
             if (classified.dominantHsl)  setDominantHsl(classified.dominantHsl);
             if (classified.dominantLab)  setDominantLab(classified.dominantLab);
+            if (classified.modelConfidence !== undefined) setModelConfidence(classified.modelConfidence);
 
             // Apply Gemini-returned detail fields (fit/neckline/sleeveLength/rise/warmthBand)
             if (classified.fit)          setFit(classified.fit);
@@ -776,6 +782,7 @@ export default function AddItemScreen() {
                       warmthBand: asWarmth(classified.warmthBand) ?? asWarmth(SUBTYPE_WARMTH[validSub]),
                       dominantHsl: classified.dominantHsl,
                       dominantLab: classified.dominantLab,
+                      modelConfidence: classified.modelConfidence,
                     });
                     setPersistedItemId(autoItemId);
                     setAutoSaved(true);
@@ -909,6 +916,7 @@ export default function AddItemScreen() {
           warmthBand:   asWarmth(warmthBand),
           dominantHsl,
           dominantLab,
+          modelConfidence,
         });
         if (replaceItemId) removeWardrobeItem(replaceItemId);
         router.back();
@@ -1015,6 +1023,7 @@ export default function AddItemScreen() {
           warmthBand:   asWarmth(warmthBand),
           dominantHsl,
           dominantLab,
+          modelConfidence,
         },
         replaceItemId,
       );

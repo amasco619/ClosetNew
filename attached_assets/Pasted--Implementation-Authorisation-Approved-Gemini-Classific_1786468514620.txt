@@ -1,0 +1,221 @@
+# Implementation Authorisation — Approved Gemini/Classification Improvements
+
+I have reviewed your Phase 2 audit and approve implementation of the **P0 and P1 improvements**, subject to the constraints below.
+
+Do NOT implement the P2 enhancements yet.
+
+## Approved Change 1 — P0
+
+### Validate `dominantRgb` against `colorFamily`
+
+Implement the server-side consistency validation identified in your audit.
+
+Before making the change:
+
+1. Inspect the existing `processGeminiResult()` implementation.
+2. Confirm exactly how `dominantRgb`, `dominantHsl`, `dominantLab`, and `colorFamily` currently flow through the system.
+3. Reuse existing colour utilities/constants wherever possible rather than creating duplicate colour logic.
+4. Ensure the validation cannot introduce regressions for legitimate colours, especially colours near family boundaries.
+5. Keep the threshold configurable rather than scattering a magic number through the code.
+6. Preserve the existing Gemini response contract.
+
+The desired behaviour is:
+
+**Gemini classification → validate RGB/colourFamily consistency → normalise/correct if necessary → derive perceptual colour values → store wardrobe item**
+
+Do not blindly overwrite valid Gemini data. The correction mechanism should be deterministic, explainable, and safe.
+
+---
+
+## Approved Change 2 — P1
+
+### Correct the background-removal/classification sequence
+
+Inspect the existing image-processing flow in:
+
+* `app/add-item.tsx`
+* `app/bulk-review.tsx`
+* related classification/background-removal services
+
+The objective is:
+
+**Original image → background removal where available/successful → classify the cleaned garment image**
+
+However, before implementing this, determine whether the current architecture allows the cleaned image to be passed into the existing classification call without introducing an additional Gemini API call.
+
+### Important
+
+Do NOT implement a solution that unnecessarily doubles Gemini API usage.
+
+If the proposed architecture would require an additional Gemini classification call, STOP and report:
+
+* why the additional call is required
+* estimated impact on API usage
+* latency implications
+* whether there is a cheaper alternative
+* exactly what would need to change
+
+Do not make that additional-cost change without my explicit approval.
+
+Graceful fallback is required:
+
+**If background removal fails → classify the original image rather than breaking garment ingestion.**
+
+---
+
+## Approved Change 3 — P1
+
+### Surface low-confidence classifications
+
+Implement the low-confidence classification feedback mechanism.
+
+The current proposal is:
+
+**`modelConfidence < 0.65` → subtle "Review classification" indication**
+
+Before implementing it:
+
+1. Verify how `modelConfidence` is currently stored.
+2. If it is not persisted with the wardrobe item, add the minimum required data support.
+3. Avoid redesigning the wardrobe data model unnecessarily.
+4. Make the `0.65` threshold easy to change later.
+5. Do not prevent the user from using the garment merely because confidence is low.
+6. Ensure the UI remains consistent with AuraCloset's existing premium/quiet-luxury design language.
+
+The goal is to give users an opportunity to correct potentially incorrect classifications before those classifications negatively affect outfit recommendations.
+
+---
+
+# IMPORTANT — Do Not Implement P2 Yet
+
+Do NOT implement:
+
+* multi-garment photo guardrails
+* Gemini-generated outfit rationale
+* a second Gemini call for assembled outfits
+* changes to the core outfit recommendation algorithm
+* changes to `outfitRotation.ts`
+* changes to `outfitScoring.ts`
+* any LLM-based outfit ranking/evaluation layer
+
+These remain deferred until separately approved.
+
+---
+
+# Preserve the Current Architecture
+
+The audit established that:
+
+**Gemini = garment classification**
+
+**Algorithmic engine = outfit recommendation**
+
+Do not change this architecture as part of this implementation.
+
+The existing algorithmic recommendation system should remain responsible for:
+
+* candidate generation
+* outfit compatibility
+* scenario matching
+* colour harmony
+* formality
+* pattern safety
+* texture
+* proportion
+* weather
+* body-type considerations
+* wear history
+* affinity/reaction signals
+* final outfit ranking
+
+Do not replace deterministic recommendation logic with Gemini.
+
+---
+
+# Implementation Quality Requirements
+
+Before modifying anything:
+
+1. Inspect the relevant implementation completely.
+2. Identify all affected call paths.
+3. Identify existing tests.
+4. Identify any assumptions that could be invalidated.
+5. Make the smallest safe changes necessary.
+
+After implementation:
+
+### Verify
+
+* TypeScript/build passes.
+* No lint/type errors are introduced.
+* No obsolete imports remain.
+* Existing garment classification still works.
+* Existing wardrobe ingestion still works.
+* Background-removal failure still falls back gracefully.
+* Gemini response validation still works.
+* Existing outfit generation still works.
+* Existing outfit scoring is not unintentionally changed.
+* Existing premium/free behaviour is preserved.
+* No unnecessary additional Gemini API calls were introduced.
+* No unnecessary Photoroom calls were introduced.
+
+### Specifically test
+
+At minimum test:
+
+1. Clean garment image + successful background removal.
+2. Clean garment image + failed background removal.
+3. Garment with a neutral background.
+4. Garment with a strongly coloured background.
+5. Valid RGB + matching colourFamily.
+6. RGB + conflicting colourFamily.
+7. Low-confidence classification.
+8. High-confidence classification.
+9. Existing wardrobe items created before this change.
+10. Normal outfit generation after the changes.
+
+---
+
+# Report Before Any Further Changes
+
+Once implementation and verification are complete, provide:
+
+### 1. Files changed
+
+List every file modified and why.
+
+### 2. Exact behaviour changes
+
+Explain what changed from the user's perspective.
+
+### 3. API impact
+
+State whether Gemini or Photoroom call volume changed.
+
+### 4. Data-model impact
+
+State whether the wardrobe item schema changed.
+
+### 5. Tests performed
+
+List the tests and their results.
+
+### 6. Remaining recommendations
+
+Repeat the deferred P2 recommendations, but DO NOT implement them.
+
+### 7. Final status
+
+Provide:
+
+**P0: COMPLETE / FAILED**
+
+**P1 Background Removal: COMPLETE / FAILED / BLOCKED**
+
+**P1 Confidence UI: COMPLETE / FAILED**
+
+**P2: DEFERRED**
+
+**Core Outfit Recommendation Algorithm: UNCHANGED**
+
+Do not proceed beyond these approved changes without asking for further authorisation.

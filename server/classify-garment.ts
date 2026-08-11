@@ -286,6 +286,100 @@ export function rgbToLab(r: number, g: number, b: number): { L: number; a: numbe
   return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
 }
 
+// sRGB HSL → RGB (inverse of rgbToHsl). Used by the centroid correction path
+// to re-derive Lab from a corrected HSL value.
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = h / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r1 = 0, g1 = 0, b1 = 0;
+  if      (hp < 1) { r1 = c; g1 = x; }
+  else if (hp < 2) { r1 = x; g1 = c; }
+  else if (hp < 3) { g1 = c; b1 = x; }
+  else if (hp < 4) { g1 = x; b1 = c; }
+  else if (hp < 5) { r1 = x; b1 = c; }
+  else             { r1 = c; b1 = x; }
+  const m = l - c / 2;
+  return [Math.round((r1 + m) * 255), Math.round((g1 + m) * 255), Math.round((b1 + m) * 255)];
+}
+
+// ─── RGB/colorFamily consistency validation ───────────────────────────────────
+// When Gemini provides a dominantRgb that is clearly inconsistent with the
+// stated colorFamily (e.g. because the background contaminated the sampled
+// pixel), we substitute the family centroid so perceptual scoring remains
+// meaningful. The colorFamily label itself is never changed — only the derived
+// HSL/Lab values used for combo scoring.
+//
+// Thresholds are intentionally loose to avoid over-correcting colours near
+// family boundaries. Adjust here rather than scattering magic numbers.
+const DOMINANT_RGB_HUE_THRESHOLD_DEG = 40;
+const DOMINANT_RGB_ACHROMATIC_SAT_THRESHOLD = 0.25;
+
+// Representative HSL per valid colour family. Mirrors the FAMILY_CENTROID_HSL
+// table in constants/colorPerceptual.ts (kept separate — server cannot import
+// client constants). Only the 18 families accepted by the classifier are listed.
+const SERVER_FAMILY_CENTROID_HSL: Record<string, { h: number; s: number; l: number }> = {
+  black:    { h:   0, s: 0.00, l: 0.05 },
+  white:    { h:   0, s: 0.00, l: 0.97 },
+  grey:     { h:   0, s: 0.00, l: 0.55 },
+  cream:    { h:  42, s: 0.45, l: 0.92 },
+  beige:    { h:  36, s: 0.30, l: 0.78 },
+  camel:    { h:  33, s: 0.45, l: 0.55 },
+  brown:    { h:  25, s: 0.50, l: 0.30 },
+  red:      { h:   0, s: 0.85, l: 0.45 },
+  burgundy: { h: 345, s: 0.65, l: 0.30 },
+  coral:    { h:  10, s: 0.80, l: 0.65 },
+  orange:   { h:  25, s: 0.85, l: 0.55 },
+  yellow:   { h:  55, s: 0.90, l: 0.60 },
+  olive:    { h:  75, s: 0.45, l: 0.35 },
+  green:    { h: 140, s: 0.50, l: 0.40 },
+  blue:     { h: 215, s: 0.70, l: 0.50 },
+  navy:     { h: 220, s: 0.55, l: 0.20 },
+  lavender: { h: 265, s: 0.40, l: 0.75 },
+  pink:     { h: 340, s: 0.55, l: 0.75 },
+};
+
+// Families where hue is meaningless — only saturation/lightness matter.
+const ACHROMATIC_FAMILIES = new Set(["black", "white", "grey"]);
+
+function serverHueDist(a: number, b: number): number {
+  const diff = Math.abs(a - b);
+  return Math.min(diff, 360 - diff);
+}
+
+/**
+ * Validates the RGB-derived HSL against the Gemini-stated colorFamily.
+ *
+ * Returns:
+ *   hsl      — the HSL to use (original if consistent, centroid if corrected)
+ *   corrected — true when a correction was applied (for logging only)
+ *
+ * The correction is conservative: a 40° hue tolerance prevents over-correcting
+ * legitimate colours near family boundaries (e.g. a warm burgundy near red).
+ */
+function validateDominantHsl(
+  rgbHsl: { h: number; s: number; l: number },
+  colorFamily: string | null,
+): { hsl: { h: number; s: number; l: number }; corrected: boolean } {
+  if (!colorFamily) return { hsl: rgbHsl, corrected: false };
+  const centroid = SERVER_FAMILY_CENTROID_HSL[colorFamily];
+  if (!centroid) return { hsl: rgbHsl, corrected: false };
+
+  if (ACHROMATIC_FAMILIES.has(colorFamily)) {
+    // black/white/grey: hue is irrelevant — flag only if the RGB is clearly chromatic
+    if (rgbHsl.s > DOMINANT_RGB_ACHROMATIC_SAT_THRESHOLD) {
+      return { hsl: centroid, corrected: true };
+    }
+    return { hsl: rgbHsl, corrected: false };
+  }
+
+  // Chromatic and near-neutral families (cream/beige/navy/olive etc.): hue check
+  if (serverHueDist(rgbHsl.h, centroid.h) > DOMINANT_RGB_HUE_THRESHOLD_DEG) {
+    return { hsl: centroid, corrected: true };
+  }
+  return { hsl: rgbHsl, corrected: false };
+}
+
 // ─── Valid value sets (used for validation after Gemini response) ─────────────
 
 export const VALID_CATEGORIES = new Set<string>(["top", "bottom", "dress", "outerwear", "shoes", "bag", "jewelry"]);
@@ -463,8 +557,22 @@ export function processGeminiResult(parsed: GeminiResult): ClassificationResult 
     parsed.dominantRgb.every((v: unknown) => typeof v === "number" && v >= 0 && v <= 255)
   ) {
     const [r, g, b] = parsed.dominantRgb as [number, number, number];
-    dominantHsl = rgbToHsl(r, g, b);
-    dominantLab = rgbToLab(r, g, b);
+    const rawHsl = rgbToHsl(r, g, b);
+    const { hsl: validatedHsl, corrected } = validateDominantHsl(rawHsl, colorFamily);
+    if (corrected) {
+      const centroidH = SERVER_FAMILY_CENTROID_HSL[colorFamily!]?.h ?? "n/a";
+      console.warn(
+        `[classify] dominantRgb corrected to ${colorFamily} centroid ` +
+        `(derived-hue=${rawHsl.h.toFixed(0)}° centroid-hue=${centroidH}° ` +
+        `derived-sat=${rawHsl.s.toFixed(2)})`
+      );
+      const [cr, cg, cb] = hslToRgb(validatedHsl.h, validatedHsl.s, validatedHsl.l);
+      dominantHsl = validatedHsl;
+      dominantLab = rgbToLab(cr, cg, cb);
+    } else {
+      dominantHsl = rawHsl;
+      dominantLab = rgbToLab(r, g, b);
+    }
   }
 
   return {

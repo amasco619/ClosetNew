@@ -33,6 +33,7 @@ export interface ClassifyResult {
   sleeveLength?: string;
   rise?: string;
   warmthBand?: string;
+  modelConfidence?: number;
 }
 
 export interface BulkItemCore {
@@ -99,10 +100,15 @@ export async function runClassifyUri(
     if (!mountedRef.current) return;
 
     if (cleanPngBase64) {
-      classifyBase64 = cleanPngBase64;
+      // Re-encode the background-removed PNG back to JPEG so the classify
+      // endpoint always receives data that matches its hardcoded "image/jpeg"
+      // MIME type. The re-encoded JPEG is used for classification; the original
+      // JPEG (resized.base64) is the fallback if re-encoding fails.
+      let cleanJpegBase64: string | undefined;
       try {
         const reencoded = await deps.reencodeAsJpeg(cleanPngBase64);
         if (!mountedRef.current) return;
+        cleanJpegBase64 = reencoded?.base64;
         const safeDisplayUri = deps.resolvePhotoUri(uri, reencoded?.uri ?? null);
         deps.setItems(prev =>
           prev.map(it =>
@@ -122,6 +128,9 @@ export async function runClassifyUri(
           );
         }
       }
+      // Use the clean JPEG for Gemini; if re-encode failed, keep the original
+      // JPEG rather than sending raw PNG (MIME type mismatch).
+      if (cleanJpegBase64) classifyBase64 = cleanJpegBase64;
     }
 
     const data = await deps.classify(classifyBase64);
@@ -142,10 +151,13 @@ export async function runClassifyUri(
       dominantHsl:  data.dominantHsl  as ClassifyResult['dominantHsl'],
       dominantLab:  data.dominantLab  as ClassifyResult['dominantLab'],
       fit:          data.fit          as string | undefined,
-      neckline:     data.neckline     as string | undefined,
-      sleeveLength: data.sleeveLength as string | undefined,
-      rise:         data.rise         as string | undefined,
-      warmthBand:   data.warmthBand   as string | undefined,
+      neckline:        data.neckline        as string | undefined,
+      sleeveLength:    data.sleeveLength    as string | undefined,
+      rise:            data.rise            as string | undefined,
+      warmthBand:      data.warmthBand      as string | undefined,
+      modelConfidence: typeof data.modelConfidence === 'number'
+        ? Math.min(1, Math.max(0, data.modelConfidence))
+        : undefined,
     };
 
     deps.setItems(prev =>

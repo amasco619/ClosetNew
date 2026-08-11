@@ -979,19 +979,21 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
 
   // ── Photo preview timing ──────────────────────────────────────────────────
   //
-  // After removeBg resolves, the pipeline immediately sets
-  //   classifyBase64 = cleanPngBase64
-  // so Gemini receives the clean image — but displayUri is NOT written to
-  // state until reencodeAsJpeg resolves.  These two sections lock in that
-  // ordering so a future refactor cannot silently break either invariant.
+  // After removeBg resolves, the pipeline waits for reencodeAsJpeg before
+  // deciding what to send to Gemini:
+  //   - If reencodeAsJpeg succeeds  → classify receives the clean JPEG
+  //   - If reencodeAsJpeg fails     → classify receives the original JPEG
+  // displayUri is NOT written to state until reencodeAsJpeg resolves.
+  // These two sections lock in that ordering so a future refactor cannot
+  // silently break either invariant.
 
   section('Photo preview timing — 25. displayUri not set while reencodeAsJpeg is in-flight');
   {
     // After removeBg resolves (and before reencodeAsJpeg resolves), the
-    // pipeline has updated its internal classifyBase64 = cleanPngBase64
-    // but must NOT have called setItems with displayUri yet.
-    // A second assertion verifies that classify is eventually invoked
-    // with the clean PNG base64, not the resized JPEG.
+    // pipeline is inside the try block for reencodeAsJpeg and must NOT have
+    // called setItems with displayUri yet.
+    // A second assertion verifies that classify is eventually invoked with
+    // the re-encoded JPEG (not the raw PNG or the original JPEG).
     const mountedRef = { current: true };
     const itemSnapshots: BulkItemCore[] = [];
     let classifyCalledWith = '';
@@ -1038,8 +1040,8 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
     await classifyPromise;
 
     assert(
-      classifyCalledWith === 'clean-png-b64',
-      'classify receives cleanPngBase64 (not the original resized JPEG)',
+      classifyCalledWith === 'reenc-b64',
+      'classify receives re-encoded JPEG (not raw PNG or original JPEG)',
     );
   }
 

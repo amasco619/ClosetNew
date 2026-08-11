@@ -528,7 +528,11 @@ The original full-resolution asset is never sent over the network. Both resize c
 ### Gemini Garment Classification
 A resized base64 image (≤1024 px, ~100–300 KB) is sent to `POST /api/classify-garment`. Gemini classifies the item into category, subType, colourFamily, fabric, pattern, fit, neckline, sleeveLength, rise, warmthBand, and returns a dominant RGB for perceptual colour scoring. The server applies deterministic occasion and season rules on top of Gemini's output for consistency. Two-model fallback: `gemini-flash-lite-latest` → `gemini-2.5-flash` on 429. Content guardrails reject selfies, blurry images, non-clothing subjects. A `[classify] payload N KB` log line is emitted at the start of each request for observability.
 
-**Code:** `server/classify-garment.ts`, `server/routes.ts`
+**RGB/colourFamily consistency validation:** `processGeminiResult` validates that `dominantRgb`-derived HSL is consistent with the stated `colorFamily` before storing perceptual colour values. Truly achromatic families (`black`, `white`, `grey`) are checked for saturation contamination (threshold: 0.25). All other families are checked for hue distance against a centroid lookup (threshold: 40°). When the RGB is inconsistent — e.g. because background contamination skewed the sampled pixel — both `dominantHsl` and `dominantLab` are corrected to the family centroid rather than discarding the classification. A `[classify] dominantRgb corrected…` warning is logged. The `colorFamily` label itself is never changed. Constants: `DOMINANT_RGB_HUE_THRESHOLD_DEG = 40`, `DOMINANT_RGB_ACHROMATIC_SAT_THRESHOLD = 0.25`, `SERVER_FAMILY_CENTROID_HSL` (18-family lookup).
+
+**Low-confidence indicator:** Gemini's `modelConfidence` (0–1) is now stored on `WardrobeItem`. Items classified with `modelConfidence < LOW_CONFIDENCE_THRESHOLD (0.65)` display a subtle amber "Review" badge/pill in the wardrobe grid and list views, giving users an opportunity to correct potentially wrong classifications before they affect outfit recommendations. The threshold is exported from `constants/types.ts`.
+
+**Code:** `server/classify-garment.ts`, `server/routes.ts`, `constants/types.ts`, `app/(tabs)/wardrobe.tsx`
 
 ---
 
@@ -999,6 +1003,8 @@ An `AppState` listener re-syncs the `saving` React state from `savingRef.current
 
 **Background-removed photo preview (`displayUri`):**
 Each `BulkItem` carries an optional `displayUri` field — a JPEG re-encode of the Photoroom-cleaned PNG. The card thumbnail displays `item.displayUri ?? item.uri` so users see the background-removed version (when available) while the item is still being saved. The original `item.uri` is never mutated.
+
+**Bulk classify JPEG pipeline:** `runClassifyUri` (in `lib/bulkClassifyCore.ts`) re-encodes the background-removed PNG to JPEG before forwarding to Gemini. The re-encoded JPEG base64 (`cleanJpegBase64`) is captured inside the re-encode try-block and assigned to `classifyBase64` only when the re-encode succeeds. If re-encoding fails, `classifyBase64` remains as the original resized JPEG — never the raw PNG — ensuring the payload always matches the hardcoded `"image/jpeg"` MIME type on the classify endpoint. This mirrors the logic in `app/add-item.tsx` which already used `resolveClassifyBase64` for the same purpose.
 
 **Code:** `app/bulk-review.tsx`
 
