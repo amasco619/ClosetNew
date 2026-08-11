@@ -37,7 +37,9 @@ In Replit, go to **Tools > Secrets** and add the following (see [§7](#7-environ
 | Secret | Required |
 |--------|----------|
 | `GEMINI_API_KEY` | Yes |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes |
+| `GCV_API_KEY` | Yes |
+| `SUPABASE_URL` | Yes |
+| `SUPABASE_SECRET_KEY` | Yes |
 | `EXPO_PUBLIC_SUPABASE_URL` | Yes |
 | `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Yes |
 | `PHOTOROOM_API_KEY` | Yes |
@@ -131,7 +133,7 @@ Whenever you make a change that affects any section of this document — new API
 | **Supabase Postgres** | User profile storage (`user_profiles` table) |
 | **Supabase Storage** | Wardrobe item photos stored as `{userId}/{itemId}.jpg` |
 | **@supabase/supabase-js** | Supabase client library |
-| **Supabase Admin client** | Server-side operations (upgrade-premium, delete-account) using `SUPABASE_SERVICE_ROLE_KEY` |
+| **Supabase Admin client** | Server-side operations (upgrade-premium, delete-account) using `SUPABASE_SECRET_KEY` |
 | **@react-native-async-storage/async-storage** | Session token storage (native) and all offline-first local persistence: wardrobe items, outfit reactions, wear log, blueprint slots, weather cache, affinity data, rotation cursors |
 
 ### AI & External APIs
@@ -139,6 +141,7 @@ Whenever you make a change that affects any section of this document — new API
 | Technology | Role |
 |-----------|------|
 | **Google Gemini API** | Garment classification from photos. Primary model: `gemini-flash-lite-latest`. Fallback model: `gemini-2.5-flash` (used when primary returns 429). Requires `GEMINI_API_KEY`. |
+| **Google Cloud Vision API** | Perceptual colour extraction via `IMAGE_PROPERTIES` feature (`POST /api/extract-color`). Used for the one-shot legacy-item migration that backfills `dominantHsl` / `dominantLab` for items uploaded before perceptual scoring was introduced. Requires `GCV_API_KEY`. |
 | **Open-Meteo** | Free weather forecast API (no API key required). Returns daily high/low temps and precipitation probability. |
 | **ipapi.co** | IP-geolocation fallback when the user has not granted device location permission. |
 
@@ -187,15 +190,15 @@ Whenever you make a change that affects any section of this document — new API
 │   POST /api/extract-color     (colorLimiter: 30/min)    │
 │   POST /api/user/upgrade-premium (accountLimiter: 5/hr) │
 │   DELETE /api/user/delete-account (accountLimiter: 5/hr)│
-└──────┬────────────────────────────────────────────────┬─┘
-       │                                                │
-       ▼                                                ▼
-┌──────────────┐                           ┌────────────────────┐
-│  Gemini API  │                           │  Supabase          │
-│  (classify   │                           │  - Auth            │
-│   garments)  │                           │  - Postgres DB     │
-└──────────────┘                           │  - Storage (photos)│
-                                           └────────────────────┘
+└──────┬────────────────┬───────────────────────────────┬─┘
+       │                │                               │
+       ▼                ▼                               ▼
+┌──────────────┐ ┌──────────────────┐     ┌────────────────────┐
+│  Gemini API  │ │  Google Cloud    │     │  Supabase          │
+│  (classify   │ │  Vision API      │     │  - Auth            │
+│   garments)  │ │  (extract-color, │     │  - Postgres DB     │
+└──────────────┘ │  legacy migration│     │  - Storage (photos)│
+                 └──────────────────┘     └────────────────────┘
 ```
 
 ### Authentication Flow
@@ -388,10 +391,12 @@ All secrets are set in **Replit Secrets (Tools > Secrets)**. Never commit secret
 | Secret | Used by | Description |
 |--------|---------|-------------|
 | `GEMINI_API_KEY` | `server/classify-garment.ts` | Google Gemini API key. Needs access to `gemini-flash-lite-latest` and `gemini-2.5-flash` models. |
-| `SUPABASE_SERVICE_ROLE_KEY` | `server/supabase.ts` | Supabase service role key for admin operations (upgrade-premium, delete-account). Keep confidential — has full database access. |
-| `EXPO_PUBLIC_SUPABASE_URL` | `lib/supabase.ts` | Your Supabase project URL (e.g. `https://xyzabc.supabase.co`). Prefix `EXPO_PUBLIC_` makes it available in the Expo bundle. |
-| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `lib/supabase.ts` | Supabase anonymous/publishable key. Safe to include in the app bundle; RLS policies enforce access control. |
-| `PHOTOROOM_API_KEY` | `server/remove-background.ts` | Photoroom background-removal API key. Required for the background-removal pipeline (`POST /api/remove-background`). Without it the endpoint returns HTTP 503 and the app falls back to the original photo. |
+| `GCV_API_KEY` | `server/extract-color.ts` | Google Cloud Vision API key. Required for `POST /api/extract-color`, which calls the `IMAGE_PROPERTIES` feature to extract perceptual colour data (`dominantHsl` / `dominantLab`) for legacy item migration. Without it the endpoint returns HTTP 500 with `missing_gcv_api_key`. |
+| `SUPABASE_URL` | `server/supabase.ts` | Your Supabase project URL (e.g. `https://xyzabc.supabase.co`). Used by the server-side admin client. |
+| `SUPABASE_SECRET_KEY` | `server/supabase.ts` | Supabase service-role (secret) key for server-side admin operations (upgrade-premium, delete-account). Keep confidential — bypasses RLS and has full database access. |
+| `EXPO_PUBLIC_SUPABASE_URL` | `lib/supabase.ts` | Your Supabase project URL. The `EXPO_PUBLIC_` prefix injects it into the Expo bundle for the client-side Supabase client. |
+| `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `lib/supabase.ts` | Supabase anonymous/publishable key. Safe to bundle; RLS policies enforce row-level access control. |
+| `PHOTOROOM_API_KEY` | `server/remove-background.ts` | Photoroom background-removal API key. Required for `POST /api/remove-background`. Without it the endpoint returns HTTP 503 and the app falls back to the original photo. |
 
 ### Runtime Environment Variables (auto-set by Replit workflows)
 
@@ -427,7 +432,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 26 test suites once |
+| `npm test` | Run all 36 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -895,14 +900,13 @@ At upload time, both `app/add-item.tsx` and `app/bulk-review.tsx` attempt to str
 **Client return type (`lib/photoroom.ts`):**
 `removeBackground()` now returns `Promise<BgRemovalResult>` instead of `Promise<string | null>`:
 ```typescript
-type BgRemovalResult =
-  | { status: 'success'; base64: string }
-  | { status: 'not-authenticated' }
-  | { status: 'limit-reached' }
-  | { status: 'unavailable' }
-  | { status: 'failed' };
+export interface BgRemovalResult {
+  status: 'success' | 'not-authenticated' | 'limit-reached' | 'unavailable' | 'failed';
+  base64?: string;      // present on status === 'success'
+  remaining?: number;   // present on success (quota remaining) and limit-reached (always 0)
+}
 ```
-`app/add-item.tsx` stores the result status in `bgStatus` state. `app/bulk-review.tsx` adapts with a `.then(r => r.status === 'success' ? r.base64 ?? null : null)` wrapper to remain compatible with the `ClassifyDeps.removeBg` interface in `lib/bulkClassifyCore.ts`.
+`app/add-item.tsx` stores the result status in `bgStatus` state and captures `remaining` to display the "X of 20 background removals left" pill. `app/bulk-review.tsx` captures `remaining` from the result and adapts with `.then(r => r.status === 'success' ? r.base64 ?? null : null)` to remain compatible with the `ClassifyDeps.removeBg` interface in `lib/bulkClassifyCore.ts`.
 
 **Pipeline (single-item add flow):**
 1. Photo selected → original JPEG base64 captured
@@ -1055,7 +1059,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (31 total)
+### Test Suites (36 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1068,8 +1072,11 @@ These features are **not yet implemented**. They are the next development priori
 | `bulkCarousel.test.ts` | Bulk-review carousel scroll contract: index clamping, null FlatList ref guard, empty-list safety |
 | `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard in bulk-review: async state setters are not called after the component unmounts |
 | `bulkSaveLock.test.ts` | Save-lock ref in bulk-review: concurrent save attempts are blocked by the `saveLockRef` guard |
+| `bulkSaveNoShrunk.test.ts` | Missing/null/data-URI `shrunk.base64` never silently drops a bulk-upload item; `addItem` always fires with the local URI as fallback when `resolveUploadArg` returns null |
+| `cancelDialogMessages.test.ts` | `selectCancelDialogBody()` branch selection across all batch states: all-settled → null, in-progress + no auto-saved → running message, in-progress + auto-saved → auto-saved-wins message |
 | `classifyGarment.test.ts` | `processGeminiResult` parsing, field validation (subType, colorFamily, modelConfidence), colour conversion helpers, edge cases (empty `{}`, null subType, mismatched category, boundary `modelConfidence`) |
 | `classifyGarmentIntegration.test.ts` | HTTP-layer tests for `POST /api/classify-garment`: 400 for missing/ambiguous image input, 500 for absent `GEMINI_API_KEY`, 429 after aiLimiter cap, JSON response shape |
+| `forgotPasswordSilent.test.ts` | `requestPasswordReset()` never swallows errors: throws on network failure and non-2xx; resolves on 200; non-JSON body propagates; email normalised before send |
 | `getProfileBlueprint.test.ts` | Algorithm tests calling `buildProfileBlueprintSlots()` directly (no mocking) |
 | `ghostItemRecovery.test.ts` | `detectNoPhotoOrphans`, `isGuestPhotoUri`, `detectFileOrphans` (file-exists/missing/throws/cloud-recovery/rebase-path), and `applyOrphanResolution` action routing; also exercises `applyRePhotographSave` |
 | `guestPhotoCleanup.test.ts` | `deleteGuestPhoto`, `runGuestRemoval`, `buildGuestPhotoDestPath` — cleanup guard (URI must start with documentDirectory), idempotent delete, rejection propagation, per-deletion isolation |
@@ -1084,10 +1091,12 @@ These features are **not yet implemented**. They are the next development priori
 | `perceptualScoring.test.ts` | HSL/Lab perceptual colour scoring |
 | `photoroomRetry.test.ts` | `removeBackground()` retry contract: timeout→success, timeout→timeout, no-retry error codes (photoroom_error/invalid/empty), network error, cross-layer import assertion (server + client reference shared constants) |
 | `rateLimiter.test.ts` | Per-limiter blocking + 429 response shape, standard headers, `PgRateLimitStore` fallback behaviour, `LIMITER_CONFIGS` key completeness and security bounds, `loadFromDb()` no-throw contract, `_consecutiveDbFailuresForTesting` counter |
+| `rateLimiterDbFallback.test.ts` | `PgRateLimitStore` in-memory fallback: sequential counting, window expiry reset, key isolation, decrement, resetKey, resetAll, resetTime contract, instance isolation |
 | `rebaseGuestPhotoUri.test.ts` | `rebaseGuestPhotoUri()`: prefix unchanged, old prefix rebased, non-guest URIs untouched, malformed filenames untouched, edge cases (empty currentDocDir, same prefix) |
 | `removeBackground.test.ts` | `resolveClassifyBase64`/`selectClassifyPayload`/`resolvePhotoUri` pipeline helpers; server handler error codes (503 missing key, 400 missing body, 502 non-OK/empty-body/network-error/AbortError/mid-stream AbortError); `resolveWardrobeUploadArg`/`stripDataUriPrefix` |
 | `signInWithEmail.test.ts` | Email sign-in flow: credential validation, Supabase auth call, error propagation |
 | `signUpWithEmail.test.ts` | Email sign-up flow: input validation, Supabase account creation, error handling |
+| `supabaseUrlStability.test.ts` | Supabase Storage public URL is deterministic from (userId, itemId, ext) alone — no session token embedded, no query parameters, stable across app reinstalls |
 | `wardrobeDiagnostics.test.ts` | `computeDiagnostics` health score, category stats, scenario coverage; `ALL_SCENARIOS` export integrity and alignment with `computeDiagnostics` output |
 | `weather.test.ts` | Weather-aware outerwear rules (temperature gating, rain-friendly subtype bias) |
 
@@ -1123,7 +1132,7 @@ This section documents every security remediation applied to the codebase and th
 **Severity:** Critical  
 **File:** `lib/database.ts`, `contexts/AppContext.tsx`
 
-`upsertUserProfile()` no longer accepts a `premium` field. The parameter type explicitly omits it. The `togglePremium` function in `AppContext` writes only to AsyncStorage (local dev toggle) — it does not write to Supabase. The **only** authoritative write path for the `premium` column is the server-side `POST /api/user/upgrade-premium` endpoint, which is protected by `requireAuth` and uses the Supabase Admin client with `SUPABASE_SERVICE_ROLE_KEY`.
+`upsertUserProfile()` no longer accepts a `premium` field. The parameter type explicitly omits it. The `togglePremium` function in `AppContext` writes only to AsyncStorage (local dev toggle) — it does not write to Supabase. The **only** authoritative write path for the `premium` column is the server-side `POST /api/user/upgrade-premium` endpoint, which is protected by `requireAuth` and uses the Supabase Admin client with `SUPABASE_SECRET_KEY`.
 
 **Rule:** Never add `premium` back to `upsertUserProfile`. Any premium-setting logic must go through the server endpoint.
 

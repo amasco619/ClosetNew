@@ -225,7 +225,7 @@ Every list/grid empty state must include:
 ## Testing & Quality Automation
 
 ### Running tests
-- **Single run**: `npm test` — runs all `__tests__/*.test.ts` files via `scripts/run-tests.mjs` (9 suites)
+- **Single run**: `npm test` — runs all `__tests__/*.test.ts` files via `scripts/run-tests.mjs` (36 suites)
 - **Watch mode**: `npm run test:watch` — re-runs affected tests automatically whenever a `.ts`, `.tsx`, or `.mjs` file changes in `__tests__/`, `constants/`, `contexts/`, `app/`, `components/`, `lib/`, `server/`, or `shared/`. Uses a 400 ms debounce. Script: `scripts/watch-tests.mjs`
 
 ### Pre-commit hook
