@@ -131,7 +131,7 @@ export default function ItemDetailScreen() {
                   key={st}
                   style={[styles.editChip, item.subType === st && styles.editChipActive]}
                   onPress={() => {
-                    updateWardrobeItem(item.id, { subType: st });
+                    updateWardrobeItem(item.id, { subType: st, modelConfidence: undefined });
                     Haptics.selectionAsync();
                     setEditingType(false);
                   }}
@@ -155,7 +155,7 @@ export default function ItemDetailScreen() {
                   key={cf}
                   style={[styles.editColorChip, item.colorFamily === cf && styles.editColorChipActive]}
                   onPress={() => {
-                    updateWardrobeItem(item.id, { colorFamily: cf });
+                    updateWardrobeItem(item.id, { colorFamily: cf, modelConfidence: undefined });
                     Haptics.selectionAsync();
                     setEditingColor(false);
                   }}
