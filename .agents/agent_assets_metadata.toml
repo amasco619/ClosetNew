@@ -138,3 +138,10 @@ uri = "file://exports/phase3-audit.md"
 type = "text"
 title = "Phase 3 Forensic Audit"
 description = "Complete Phase 3 recommendation engine audit — all 18 sections, 72 KB."
+
+[[outputs]]
+id = "1Trl3PpAf_8kaBm66kpv-"
+uri = "file://PHASE_3.2_BENCHMARK_REPORT.md"
+type = "text"
+title = "Phase 3.2 — Recommendation Quality Benchmark Report"
+description = "Full benchmark report: 55 scenarios, 54 outfits evaluated, 10-dimension external rubric, false positives/negatives, Phase 3.1 evaluation, Task #389/#391 investigation, top 3 quality gaps, and regression specification."
