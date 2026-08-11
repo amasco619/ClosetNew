@@ -1,0 +1,81 @@
+The implementation report looks good overall. Before I consider this phase closed, perform one final **read-only verification pass**. Do not make any additional code changes.
+
+I want you to specifically validate the two areas where the new logic could potentially introduce false corrections.
+
+### 1. `dominantRgb` ↔ `colorFamily` validation
+
+Inspect the actual implementation of `validateDominantHsl` and its associated constants/utilities.
+
+Explain precisely:
+
+* How hue distance is calculated.
+* How achromatic colours are handled.
+* Why the selected threshold is appropriate.
+* How colour-family boundaries are handled.
+* Whether the correction could incorrectly alter legitimate colours.
+* Whether `dominantLab` remains internally consistent after correction.
+
+Then provide a small conceptual test matrix covering at least:
+
+* black
+* white
+* grey
+* silver
+* beige
+* cream
+* brown
+* tan
+* red
+* burgundy
+* orange
+* yellow
+* green
+* teal
+* blue
+* navy
+* purple
+* pink
+
+For each, state whether a valid RGB representative of that family would be preserved and whether a clearly contradictory RGB would be corrected.
+
+Do not change the code. I only want the analysis.
+
+### 2. `modelConfidence < 0.65`
+
+Verify exactly where `modelConfidence` originates and how it is used.
+
+I want you to confirm:
+
+* whether it is Gemini's self-reported confidence;
+* whether it is calibrated anywhere;
+* whether 0.65 has any empirical/statistical basis;
+* whether the UI wording could accidentally imply that 0.65 represents a true probability of correctness.
+
+If it is merely Gemini's self-reported confidence, confirm that the UI should be understood as a **review signal**, not a statistically validated confidence score.
+
+Again, do not modify the code.
+
+### 3. Regression verification
+
+Confirm that:
+
+* P0 does not alter valid colour classifications unnecessarily.
+* P1 background removal does not increase Gemini calls.
+* P1 background removal does not increase Photoroom calls.
+* Existing wardrobe items remain compatible.
+* Existing outfit generation/scoring behaviour remains unchanged.
+* No changes were made to `outfitRotation.ts` or `outfitScoring.ts`.
+
+### Final verdict
+
+Conclude with exactly one of:
+
+**SAFE TO CLOSE THIS PHASE**
+
+or
+
+**REQUIRES CORRECTION BEFORE CLOSING**
+
+If you identify a potential issue, explain it clearly but do not fix it yet.
+
+Do not implement any new features or P2 recommendations.
