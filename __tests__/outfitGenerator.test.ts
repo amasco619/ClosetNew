@@ -225,7 +225,8 @@ console.log('\neffectiveFormality:');
 
 // Known sub-type values from SUBTYPE_FORMALITY
 assert(effectiveFormality(item({ subType: 't-shirt' })) === 2,      't-shirt → formality 2');
-assert(effectiveFormality(item({ subType: 'blouse' })) === 6,       'blouse → formality 6');
+// blouse is the smart-casual centre of the F3–F7 blouse range; corrected from F6.
+assert(effectiveFormality(item({ subType: 'blouse' })) === 4,       'blouse → formality 4');
 assert(effectiveFormality(item({ subType: 'hoodie' })) === 1,       'hoodie → formality 1');
 assert(effectiveFormality(item({ subType: 'cocktail-dress' })) === 7,'cocktail-dress → formality 7');
 assert(effectiveFormality(item({ subType: 'heels' })) === 6,        'heels → formality 6');
@@ -604,11 +605,12 @@ const fallbackScenarios = ALL_SCENARIOS_REF.filter(s => scoreItemForProfile(tshi
 assert(fallbackScenarios.includes('casual'), 'casual in fallback scenario set for t-shirt/coral');
 assert(!fallbackScenarios.includes('wedding'), 'wedding not in fallback scenario set for t-shirt/coral');
 
-// blouse / coral: formality 6 → work [4,7] ✓, interview [6,9] ✓, casual [1,5] ✗
+// blouse / coral: formality 4 (corrected from 6) → work [4,7] ✓, casual [1,5] ✓,
+//   interview (corporate, [6,9]) ✗ (blouse F4 < 6).
 const blouseNoTag = item({ subType: 'blouse', colorFamily: 'coral', occasionTags: [] });
 const blouseFallback = ALL_SCENARIOS_REF.filter(s => scoreItemForProfile(blouseNoTag, s, fallbackProfile) > 0);
-assert(blouseFallback.includes('work'),      'work in fallback scenarios for blouse/coral');
-assert(blouseFallback.includes('interview'), 'interview in fallback scenarios for blouse/coral');
+assert(blouseFallback.includes('work'),   'work in fallback scenarios for blouse/coral');
+assert(blouseFallback.includes('casual'), 'casual in fallback scenarios for blouse/coral (F4 within [1,5])');
 
 // ── Step 3: formality gate (fitsScenarioFormality equivalent) ─────────────────
 // The generator calls fitsScenarioFormality([newItem], scenario, profile) and
@@ -628,10 +630,12 @@ assert(passesFormality(tshirtItem, 'casual',  profile()), 't-shirt passes casual
 assert(!passesFormality(tshirtItem, 'wedding', profile()), 't-shirt blocked by wedding formality gate [6,9]');
 assert(!passesFormality(tshirtItem, 'interview', profile()), 't-shirt blocked by interview formality gate [6,9]');
 
-// blouse (formality 6) — work [4,7] ✓, casual [1,5] ✗
+// blouse (formality 4, corrected from 6) — work [4,7] ✓, casual [1,5] ✓,
+//   interview (corporate [6,9]) ✗ because F4 < 6.
 const blouseItem = item({ subType: 'blouse', colorFamily: 'white' });
-assert(passesFormality(blouseItem, 'work',   profile()), 'blouse passes work formality gate [4,7]');
-assert(!passesFormality(blouseItem, 'casual', profile()), 'blouse blocked by casual formality gate (formality 6 > 5)');
+assert(passesFormality(blouseItem, 'work',      profile()), 'blouse passes work formality gate [4,7]');
+assert(passesFormality(blouseItem, 'casual',    profile()), 'blouse passes casual formality gate (formality 4 within [1,5])');
+assert(!passesFormality(blouseItem, 'interview', profile()), 'blouse blocked by interview formality gate (formality 4 < 6)');
 
 // ── Full pipeline: tagged scenarios filtered by formality gate ─────────────────
 // Simulate the complete path for a hero tagged with ['casual', 'wedding']:
@@ -812,7 +816,8 @@ assert(
 // ── Step 3: formality gate for brunch [3,5] and active [1,2] ──────────────────
 // brunch band: [3, 5]
 assert(passesFormality(item({ subType: 'jeans',    colorFamily: 'navy'  }), 'brunch', profile()), 'jeans passes brunch formality gate [3,5]');
-assert(!passesFormality(item({ subType: 'blouse',  colorFamily: 'white' }), 'brunch', profile()), 'blouse (formality 6) blocked by brunch formality gate [3,5]');
+// blouse corrected to F4 — now passes brunch [3,5] as intended.
+assert(passesFormality(item({ subType: 'blouse',  colorFamily: 'white' }), 'brunch', profile()), 'blouse (formality 4) passes brunch formality gate [3,5]');
 assert(!passesFormality(item({ subType: 't-shirt', colorFamily: 'white' }), 'brunch', profile()), 't-shirt (formality 2) blocked by brunch formality gate [3,5]');
 
 // active band: [1, 2]

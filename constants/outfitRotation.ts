@@ -392,13 +392,16 @@ export function generateOutfitPool(
         const dressOpt = [...dresses]
           .filter(d => colorsHarmonize(hero.colorFamily, d.colorFamily))
           .sort((a, b) => recedeScore(b, hero) - recedeScore(a, hero))[0];
-        if (dressOpt && coreFitsScenario([dressOpt]) && coreFitsMood([dressOpt])) {
+        // Include the hero itself in the formality check: a blazer (F6) or
+        // stilettos (F7) elevates the outfit's effective formality band, so
+        // the core should be judged as a unit rather than just the base items.
+        if (dressOpt && coreFitsScenario([dressOpt, hero]) && coreFitsMood([dressOpt])) {
           cores.push({ coreItems: [dressOpt], baseColor: dressOpt.colorFamily, hero });
         }
         const topOpt = pickSupport(hero, tops, heroIds);
         if (topOpt) {
           const bottomOpt = pickSupport(hero, bottoms, new Set([...heroIds, topOpt.id]));
-          if (bottomOpt && coreFitsScenario([topOpt, bottomOpt]) && coreFitsMood([topOpt, bottomOpt])) {
+          if (bottomOpt && coreFitsScenario([topOpt, bottomOpt, hero]) && coreFitsMood([topOpt, bottomOpt])) {
             cores.push({ coreItems: [topOpt, bottomOpt], baseColor: topOpt.colorFamily, hero });
           }
         }
@@ -407,7 +410,11 @@ export function generateOutfitPool(
 
     // ── Fallback cores when no heroes qualify ────────────────────────────
     // Ensures wardrobes light on statement pieces still get a populated pool.
+    // Outfits built here are marked generationPath:'relaxed' so callers know
+    // the look was constructed without a distinctive focal piece.
+    let usingFallbackCores = false;
     if (cores.length === 0) {
+      usingFallbackCores = true;
       for (const dress of dresses.slice(0, 6)) {
         if (!coreFitsScenario([dress])) continue;
         if (!coreFitsMood([dress])) continue;
@@ -584,6 +591,11 @@ export function generateOutfitPool(
             rationale,
             confidenceScore: Math.round(totalScore),
             heroId: hero.id,
+            // Mark outfits that came from the no-hero fallback path so callers
+            // can distinguish "best available" recommendations from fully
+            // hero-seeded ones.  Hero-seeded outfits omit the field (undefined
+            // is treated as 'strict' by all consumers).
+            ...(usingFallbackCores ? { generationPath: 'relaxed' as const } : {}),
           },
         });
       }

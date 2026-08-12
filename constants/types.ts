@@ -142,6 +142,21 @@ export interface OutfitSet {
                                 //   was built around (see pickHero). Used by
                                 //   the rationale to name the focal piece and
                                 //   by the rotation to diversify across days.
+  /**
+   * Generation path — records which stage of the candidate pipeline produced
+   * this outfit so the UI layer can distinguish strict from relaxed results.
+   *
+   *   'strict'       Hero-seeded: a distinctive hero piece anchors the outfit
+   *                  and all formality/mood gates passed at Level 0.
+   *   'relaxed'      Fallback-core: no hero qualified for the scenario (small
+   *                  wardrobe, no distinctive items), so the engine fell back
+   *                  to building a core from the top-rated tops/dresses.  All
+   *                  hard constraints (weather, formality, volume) still hold.
+   *
+   * Absent/undefined should be treated as 'strict' by consumers.
+   * Do NOT surface the raw value in user-facing copy without translation.
+   */
+  generationPath?: 'strict' | 'relaxed';
 }
 
 export interface WearEntry {

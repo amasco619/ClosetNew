@@ -88,33 +88,35 @@ function baseProfile(overrides: Partial<UserProfile> = {}): UserProfile {
 console.log('\nformalityCohesion:');
 
 // Tight spread (≤1) → +3
-// blouse = 6, trousers = 6 → spread 0
+// shirt = 6, trousers = 6 → spread 0
 {
   const items: WardrobeItem[] = [
-    makeItem({ id: 'a', category: 'top',    subType: 'blouse',   colorFamily: 'black' }),
+    makeItem({ id: 'a', category: 'top',    subType: 'shirt',    colorFamily: 'white' }),
     makeItem({ id: 'b', category: 'bottom', subType: 'trousers', colorFamily: 'navy'  }),
   ];
   const components: OutfitComponent[] = [
-    makeComponent('a', 'top', 'black'),
+    makeComponent('a', 'top', 'white'),
     makeComponent('b', 'bottom', 'navy'),
   ];
   const result = scoreOutfitCombo(components, items);
-  assert(result.formalityCohesion === 3, `tight spread (blouse+trousers, spread=0) → formalityCohesion +3 (got ${result.formalityCohesion})`);
+  assert(result.formalityCohesion === 3, `tight spread (shirt+trousers, spread=0) → formalityCohesion +3 (got ${result.formalityCohesion})`);
 }
 
 // Spread of 2 → +2
-// blouse = 6, jeans = 3 → spread 3... let's use blouse(6) + chinos(4) → spread 2
+// shirt = 6, chinos = 4 → spread 2
+// (blouse was used here previously at F6; blouse is now F4 — the correct
+//  centre for its range — so shirt is the right F6 anchor for this test.)
 {
   const items: WardrobeItem[] = [
-    makeItem({ id: 'a', category: 'top',    subType: 'blouse', colorFamily: 'black' }),
+    makeItem({ id: 'a', category: 'top',    subType: 'shirt',  colorFamily: 'white' }),
     makeItem({ id: 'b', category: 'bottom', subType: 'chinos', colorFamily: 'navy'  }),
   ];
   const components: OutfitComponent[] = [
-    makeComponent('a', 'top', 'black'),
+    makeComponent('a', 'top', 'white'),
     makeComponent('b', 'bottom', 'navy'),
   ];
   const result = scoreOutfitCombo(components, items);
-  assert(result.formalityCohesion === 2, `spread=2 (blouse f=6, chinos f=4) → formalityCohesion +2 (got ${result.formalityCohesion})`);
+  assert(result.formalityCohesion === 2, `spread=2 (shirt f=6, chinos f=4) → formalityCohesion +2 (got ${result.formalityCohesion})`);
 }
 
 // Wide spread (>3) → -2

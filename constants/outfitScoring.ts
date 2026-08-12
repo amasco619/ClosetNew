@@ -168,7 +168,12 @@ export const SUBTYPE_FORMALITY: Record<string, number> = {
   'tank-top': 2, 't-shirt': 2, 'tee': 2, 'henley': 2, 'long-sleeve': 3,
   'polo-shirt': 3, 'rugby-shirt': 3, 'hoodie': 1, 'sweatshirt': 1,
   'sweater': 4, 'knit-top': 4, 'cardigan': 4, 'turtleneck': 5,
-  'shirt': 5, 'button-down': 5, 'blouse': 6, 'camisole': 5, 'crop-top': 3,
+  // 'blouse' spans casual linen (F3) to silk office (F7); F4 is the smart-casual
+  // centre of that range.  Using F6 excluded all blouses from brunch [3–5]
+  // regardless of the actual garment — a false empty state.
+  // 'shirt' (dress shirt / Oxford) is business-formal and belongs at F6;
+  // F5 dragged avg(shirt, trousers) = 5.5 below the corporate-interview floor.
+  'shirt': 6, 'button-down': 5, 'blouse': 4, 'camisole': 5, 'crop-top': 3,
   // activewear tops
   'sports-bra': 1, 'sports-hoodie': 1, 'windbreaker': 2, 'rashguard': 1,
   // holiday tops
@@ -205,9 +210,13 @@ export const SUBTYPE_FORMALITY: Record<string, number> = {
  * Returns the most reliable formality level for an item: the sub-type default
  * if known, otherwise the user-tagged value, otherwise 5 (mid).
  *
- * The stored `formalityLevel` field has historically been hard-coded to 3 for
- * every item, which makes it useless for scenario filtering. The sub-type is a
- * far more reliable signal, so we prefer it.
+ * SUBTYPE_FORMALITY takes priority over formalityLevel because early app
+ * versions hard-coded formalityLevel=3 for every item, making it unreliable
+ * for scenario filtering.  The sub-type table represents the typical formality
+ * band for each garment archetype and provides consistent cross-item comparisons.
+ * Individual items that genuinely sit at the formal or casual extreme of their
+ * sub-type range should be characterised by pairing with appropriate scenario
+ * tags (occasionTags) rather than by overriding the formality number.
  */
 export function effectiveFormality(item: WardrobeItem): number {
   return SUBTYPE_FORMALITY[item.subType] ?? item.formalityLevel ?? 5;

@@ -587,6 +587,51 @@ Taste learns from every user signal: love taps, "not today" taps, and outfits lo
 
 ---
 
+### Phase 3.3A — Candidate Generation Robustness
+
+Targeted fix for 7 false-empty scenarios identified in the Phase 3.2 audit. Only two constants and one hero-inclusion step were changed; no weather/safety gates or hard formality rules were touched. Full report: `docs/phase-33a-report.md`.
+
+#### Root Causes Fixed
+
+**1. `SUBTYPE_FORMALITY['blouse']` corrected 6 → 4** (`constants/outfitScoring.ts`)  
+The old value of 6 placed every blouse-seeded core above the brunch ceiling (F5), above the casual spread limit when paired with sneakers (spread = 5 > 3), and inside the interview range — causing false empties in C2, C3, P6, P8, F1, F5, AD1. Correct value is 4 (smart-casual centre of the F3–F7 blouse range).
+
+**2. `SUBTYPE_FORMALITY['shirt']` corrected 5 → 6** (`constants/outfitScoring.ts`)  
+F5 caused interview-scenario floor (F6) to reject shirt+trouser cores: avg(5,6)=5.5 < 6. A dress shirt / Oxford is business-formal (F6); avg(6,6)=6 correctly meets the interview floor.
+
+**3. Hero-inclusion in outerwear/shoe `coreFitsScenario` check** (`constants/outfitRotation.ts`)  
+When an outerwear or shoe item acts as the hero, its formality now participates in the `coreFitsScenario` average alongside top and bottom. A blazer (F6) or stilettos (F7) elevates the outfit mean, allowing it to clear a higher-floor scenario that the bare top+bottom pair would miss.
+
+#### Fallback-Cores Path & Metadata
+
+A fallback-cores path activates only when the hero-seeding loop produces zero qualifying cores. It sweeps ranked top+bottom combinations through the same formality gate, with no hero distinctiveness requirement. Outfits generated this way are marked `generationPath: 'relaxed'` on the `OutfitSet` object; hero-seeded outfits leave `generationPath` undefined (treated as strict). Honest empties (wardrobe genuinely insufficient) still return `[]`.
+
+**`OutfitSet.generationPath?: 'strict' | 'relaxed'`** — added to `constants/types.ts`.
+
+#### Phase 3.3A Benchmark Results
+
+| Metric | Phase 3.2 | Phase 3.3A |
+|---|---:|---:|
+| Outfits evaluated | 54 | 65 |
+| Mean quality | 77.3 | 77.4 |
+| Median quality | 78 | 78 |
+| Zero candidates | 14 | 8 |
+| False empty states | 7 | 0 |
+| Excellent (≥85) | 16 | 21 |
+| Strong (70–84) | 35 | 41 |
+| Acceptable (50–69) | 3 | 3 |
+
+8 remaining zeros are correct empties (wardrobe formality insufficient for the scenario): P2, F4, PT2, SC2, SC3, SC4, AD4, AD5.
+
+#### Tests
+- `__tests__/phase33a-candidate-gen.test.ts` — 18 assertions: 7 false-empty fixes, 4 correct-empty guards, 2 Phase 3.1 signal checks, 2 generationPath metadata checks, 5 `SUBTYPE_FORMALITY` spot-checks
+- `__tests__/outfitGenerator.test.ts` — 5 updated assertions (blouse F4)
+- `__tests__/outfitComboScorer.test.ts` — 2 updated assertions (spread test cases)
+
+**Code:** `constants/outfitScoring.ts`, `constants/outfitRotation.ts`, `constants/types.ts`
+
+---
+
 ### Phase 3.1 — Recommendation Engine Improvements
 
 Two targeted P0 changes following the Phase 3 forensic audit. No other scoring dimensions were modified.
