@@ -587,6 +587,78 @@ Taste learns from every user signal: love taps, "not today" taps, and outfits lo
 
 ---
 
+### Phase 3.4 — Gold-Standard Benchmark V2: Ranking Calibration
+
+Evaluation-only phase — no production code changes. Built a comprehensive ranking benchmark (`__tests__/benchmark-phase34.ts`, run via `npx tsx`) to measure how accurately AuraCloset's internal `scoreOutfitCombo` engine ranks outfits against expert external assessment. Full report: `docs/phase-34-report.md`.
+
+#### Benchmark Design
+
+- **30 competitive scenarios** (3–6 viable candidates each) covering 10 quality categories: Colour, Pattern, Material, Minimalism, Silhouette, Formality, Practicality, Tonal, Visual Hierarchy, Quiet Luxury
+- **20 pairwise adversarial comparisons** (inferior A vs superior B; engine must rank B above A)
+- **163 candidate outfits** evaluated total
+- External scores (0–100) assigned via 10-dimension rubric **before** running internal scoring (prevents evaluator bias)
+- 5 ranking metrics: Top-1 Accuracy, Top-3 Capture Rate, Pairwise Accuracy, Recommendation Regret, Kendall's τ
+
+#### Results
+
+| Metric | Result |
+|---|---|
+| Top-1 Accuracy | 16/30 (53%) |
+| Top-3 Capture Rate | **29/30 (97%)** |
+| Pairwise Accuracy | **17/20 (85%)** |
+| Mean Regret | 4.2 pts |
+| Median Regret | 0 pts |
+| Max Regret | 22 pts (CS29 quiet-luxury casual) |
+| Mean Kendall's τ | 0.413 |
+
+#### Category Breakdown
+
+| Category | Top-1 | Pairwise | Mean Regret |
+|---|---|---|---|
+| Material | 3/3 (100%) | 2/2 (100%) | 0.0 |
+| Minimalism | 3/3 (100%) | 2/2 (100%) | 0.0 |
+| Tonal | 2/3 (67%) | 2/2 (100%) | 1.0 |
+| Colour | 2/3 (67%) | 1/1 (100%) | 0.3 |
+| Quiet Luxury | 2/3 (67%) | 1/1 (100%) | 7.3 |
+| Formality | 1/3 (33%) | 2/3 (67%) | 2.7 |
+| Pattern | 1/3 (33%) | 3/3 (100%) | 5.7 |
+| Practicality | 1/3 (33%) | 0/1 (0%) | 4.3 |
+| Visual Hierarchy | 1/3 (33%) | 0/1 (0%) | 13.3 |
+| Silhouette | 0/3 (0%) | 3/3 (100%) | 7.0 |
+
+#### Key Findings
+
+**What works:**
+- Phase 3.3B texture fix confirmed in ranking: silk+cashmere > silk+satin in all competitive and pairwise tests
+- Material stack discrimination: silk+wool+leather > cotton+cotton+synthetic (100% pairwise)
+- Warm tonal coherence correctly identified; multicolour chaos correctly penalised
+- Pattern safety signals correct: stripe+check, floral+stripe, three-pattern outfits all score below clean solids
+
+**Systematic gaps (no production fixes in this phase):**
+1. **Focal-point competition** — adding more statement accessories/pieces always increases score (completeness bonus fires regardless of visual noise). CS26/CS27/AP14 affected.
+2. **Hero-pattern + solid-ground hierarchy** — floral top + solid black midi scores *lower* than solid+solid because patternSafety penalises the floral even with a neutral ground. CS05 affected.
+3. **Silhouette signals too weak** — `heightProportion` and `bodyTypeProportion` generate ±1–2pt signals; fabric/completeness generates ±5–10pt swings. Silhouette-appropriate choices are consistently overruled. All 3 silhouette scenarios missed Top-1.
+4. **Weather-blindness** (by design) — `scoreOutfitCombo` has no temperature/weather parameter; weather gates live in `generateOutfitPool`. Practicality failures (AP11, CS20) are architecture-level, not signal bugs.
+
+#### Future Enhancement Candidates (not implemented)
+
+| ID | Enhancement | Relevant Failures |
+|----|-------------|-------------------|
+| FE-1 | Hero-pattern + solid-ground bonus signal | CS05, AP13 |
+| FE-2 | Statement-piece competition / visual-weight budget | CS26, CS27, AP14 |
+| FE-3 | Silhouette signal weight increase (×2–3) | CS13, CS14, CS15 |
+| FE-4 | Outerwear quality-tier distinction (structured tailored vs casual) | CS04, CS16, CS29 |
+
+#### Verdict
+
+```
+COMPETENT RANKING — Phase 3.4 STATUS: COMPLETE — PRODUCTION CHANGES: NONE
+```
+
+The engine reliably avoids the worst outfits (pairwise 85%) and captures the best outfit in the top 3 in 97% of scenarios. It is appropriate for production use. Fine-grained top-1 precision within the top quality tier is the next improvement frontier.
+
+---
+
 ### Phase 3.3B — Recommendation Quality Intelligence
 
 Targeted refinement to `textureHarmony` in `constants/outfitScoring.ts` to distinguish sophisticated material contrasts from genuinely problematic texture combinations. No candidate generation, formality gates, weather gates, or other scoring dimensions were changed. Full report: `docs/phase-33b-report.md`.

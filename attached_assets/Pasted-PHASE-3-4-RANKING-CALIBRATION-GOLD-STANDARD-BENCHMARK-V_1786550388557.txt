@@ -1,0 +1,1034 @@
+PHASE 3.4 — RANKING CALIBRATION & GOLD-STANDARD BENCHMARK V2
+
+You are continuing AuraCloset recommendation-engine development following:
+
+Phase 3 — Recommendation Engine Forensic Audit
+Phase 3.1 — Controlled P0 Improvements
+Phase 3.2 — Recommendation Quality Benchmark
+Phase 3.3A — Candidate Generation Robustness
+Phase 3.3B — Recommendation Quality Intelligence
+
+Phase 3.3B is complete.
+
+The current production baseline is the Phase 3.3B engine.
+
+The Phase 3.3B implementation successfully corrected a specific texture/material relationship problem, particularly the incorrect blanket penalty applied to intentional combinations such as silk + cashmere. The implementation was deliberately bounded and did not modify candidate generation, freshness, rise, weather, formality, or other unrelated mechanisms.
+
+However, the Phase 3.3B benchmark exposed a more important question:
+
+When multiple viable outfits are available, does AuraCloset actually rank the highest-quality outfit first?
+
+Phase 3.4 exists to answer that question.
+
+1. PRIMARY OBJECTIVE
+
+Do NOT begin by changing the recommendation engine.
+
+The primary objective of Phase 3.4 is:
+
+Build and execute Gold-Standard Benchmark v2 to measure AuraCloset's ranking quality.
+
+We specifically want to measure whether:
+
+The outfit AuraCloset ranks #1 is actually the best available outfit according to the independent external-quality evaluation.
+
+This phase is therefore primarily:
+
+MEASURE → COMPARE → DIAGNOSE → CALIBRATE
+
+and NOT:
+
+ADD MORE RULES.
+
+2. ABSOLUTE RULE — NO PRODUCTION SCORING CHANGES INITIALLY
+
+Before the benchmark is complete, DO NOT modify:
+
+scoreOutfitCombo;
+textureHarmony;
+palette scoring;
+formality scoring;
+proportion scoring;
+height scoring;
+rise scoring;
+pattern scoring;
+completeness;
+style affinity;
+item affinity;
+pair affinity;
+freshness;
+wear history;
+candidate generation;
+fallback-cores;
+hero selection;
+weather gates;
+scenario gates;
+confidence presentation;
+Gemini;
+any existing scoring weight.
+
+The Phase 3.3B engine is the baseline.
+
+3. IMPORTANT DISTINCTION
+
+Do not confuse:
+
+Internal score
+
+with:
+
+External stylistic-quality score.
+
+The internal score is the application's current ranking mechanism.
+
+The external score is our independent evaluation of the outfit.
+
+The purpose of this phase is to determine how well the former predicts the latter.
+
+4. VERIFY THE CURRENT BASELINE
+
+Before benchmarking:
+
+Confirm Phase 3.3B is present.
+Confirm the Phase 3.3B texture tests pass.
+Confirm Phase 3.3A candidate-generation behaviour remains intact.
+Confirm Task #390 status.
+Confirm Tasks #389 and #391 remain unchanged unless they were previously explicitly authorised.
+Run the complete test suite.
+Record the exact current benchmark state.
+
+The current reference point is:
+
+65 outfits evaluated;
+Phase 3.3A mean external quality = 77.4;
+Phase 3.3B mean external quality = 77.4;
+Excellent = 21;
+Strong = 41;
+Acceptable = 3;
+Poor = 0.
+
+Do not assume these figures remain identical until verified.
+
+5. DO NOT ALTER THE EXISTING PHASE 3.2 BENCHMARK
+
+The original benchmark must remain intact.
+
+Do NOT rewrite existing scenarios to make ranking easier.
+
+Instead:
+
+Create Benchmark v2 as an extension.
+
+Benchmark v1 remains the historical baseline.
+
+Benchmark v2 adds scenarios specifically designed to test:
+
+ranking discrimination.
+
+6. GOLD-STANDARD BENCHMARK V2 — CORE DESIGN
+
+The fundamental unit of Benchmark v2 should be a:
+
+COMPETITIVE OUTFIT SET
+
+A competitive outfit set contains multiple outfits that are all technically viable but differ meaningfully in stylistic quality.
+
+The objective is NOT merely:
+
+"Can the engine generate something acceptable?"
+
+The objective is:
+
+"Can the engine correctly rank the best viable option above its competitors?"
+
+7. REQUIRED COMPETITIVE SET STRUCTURE
+
+Create at least:
+
+30 competitive ranking scenarios
+
+Each scenario should contain:
+
+Minimum
+
+3 viable competing outfits.
+
+Preferred
+
+4–6 viable competing outfits.
+
+The candidates should be sufficiently different that meaningful ranking decisions are required.
+
+Do NOT artificially construct candidates that are obviously terrible.
+
+8. EACH COMPETITIVE SCENARIO MUST INCLUDE
+User profile
+
+Include:
+
+body type;
+height category;
+style goal;
+relevant preferences;
+affinity where appropriate.
+Wardrobe
+
+Use a realistic wardrobe large enough to produce competing outfits.
+
+Prefer:
+
+12–25 relevant items
+
+rather than enormous synthetic wardrobes.
+
+Context
+
+Include:
+
+occasion;
+weather;
+temperature;
+season;
+style objective;
+mood where supported.
+Wear history
+
+Where relevant include:
+
+recently worn;
+favourite;
+disliked;
+rarely worn;
+neutral.
+9. CREATE PURPOSEFUL RANKING CONFLICTS
+
+Each scenario should test a specific trade-off.
+
+Required categories:
+
+A. Colour vs sophistication
+
+Example:
+
+colourful but less refined;
+neutral but beautifully composed.
+
+Question:
+
+Does the engine mistake colourfulness for quality?
+
+B. Pattern variety vs elegance
+
+Example:
+
+stripe + check;
+solid navy;
+subtle pinstripe.
+
+Question:
+
+Does the engine over-reward pattern variety?
+
+This specifically investigates the Phase 3.3B PT3 reversal.
+
+C. Material richness vs material competition
+
+Example:
+
+silk + cashmere;
+silk + satin;
+cotton + synthetic.
+
+Question:
+
+Does the engine distinguish sophisticated material contrast from competing materials?
+
+D. Minimalism vs completeness
+
+Example:
+
+elegant three-piece outfit;
+six-piece heavily accessorised outfit.
+
+Question:
+
+Does completeness incorrectly mean "more pieces"?
+
+This specifically investigates W2, AD6 and SC1.
+
+E. Silhouette balance
+
+Example:
+
+petite + slim trousers;
+petite + wide-leg;
+oversized top + balanced bottom;
+oversized + oversized.
+
+Question:
+
+Does the engine correctly evaluate overall silhouette?
+
+F. Formality vs sophistication
+
+Example:
+
+technically correct formality but visually mediocre;
+slightly less formal but aesthetically stronger where context permits.
+
+Question:
+
+Can the engine distinguish "appropriate" from "excellent"?
+
+Do not weaken hard formality constraints.
+
+G. Contextual practicality vs aesthetic quality
+
+Example:
+
+beautiful but weather-inappropriate;
+slightly less beautiful but properly weather-ready.
+
+Question:
+
+Does the engine correctly prioritise practical constraints?
+
+H. Tonal sophistication
+
+Example:
+
+rich tonal neutral;
+flat neutral;
+high-contrast colourful outfit.
+
+Question:
+
+Can the engine distinguish intentional tonal sophistication?
+
+I. Focal-point hierarchy
+
+Example:
+
+one clear hero;
+two competing heroes;
+no hero but strong overall composition.
+
+Question:
+
+Does the engine understand visual hierarchy?
+
+J. Quiet luxury
+
+Include multiple candidates such as:
+
+sophisticated neutral;
+colourful statement outfit;
+highly patterned outfit;
+minimalist but flat outfit;
+material-rich tonal outfit.
+
+Question:
+
+Can the engine select the sophisticated restrained option when appropriate?
+
+10. ADD EXPLICIT "ADVERSARIAL PAIRS"
+
+In addition to the 30 competitive scenarios, create at least:
+
+20 pairwise comparisons
+
+Each pair should contain:
+
+Outfit A
+
+Technically valid but subtly inferior.
+
+Outfit B
+
+Technically valid and stylistically superior.
+
+The engine must rank B above A.
+
+Examples:
+
+pattern mixing vs elegant solid;
+excessive accessories vs restrained styling;
+high contrast vs refined tonal;
+oversized + oversized vs balanced silhouette;
+multiple gloss fabrics vs intentional material contrast;
+colourful vs sophisticated neutral;
+six pieces vs elegant three pieces;
+trendy vs timeless;
+visually distinctive vs genuinely coherent.
+11. EXTERNAL EVALUATION MUST HAPPEN BEFORE LOOKING AT INTERNAL RANKING
+
+This is critical.
+
+For every competitive set:
+
+Step 1
+
+Generate all viable candidates.
+
+Step 2
+
+Evaluate each candidate externally using the independent 0–100 stylistic rubric.
+
+Step 3
+
+Rank candidates by external quality.
+
+Only AFTER this:
+
+Step 4
+
+Inspect AuraCloset's internal ranking.
+
+This prevents evaluator bias.
+
+Do not decide what the "best" outfit is after seeing AuraCloset's score.
+
+12. EXTERNAL QUALITY RUBRIC
+
+Continue using the existing dimensions:
+
+Colour Harmony;
+Silhouette & Proportion;
+Occasion;
+Formality;
+Visual Coherence;
+Texture & Material;
+Visual Interest;
+Practicality;
+Personalisation;
+Quiet-Luxury / Premium Styling.
+
+Each:
+
+0–10
+
+Total:
+
+0–100
+
+Do not change the rubric during the benchmark.
+
+13. NEW PRIMARY METRIC — TOP-1 SELECTION ACCURACY
+
+For every competitive scenario:
+
+Determine the externally highest-quality viable outfit.
+
+Then ask:
+
+Did AuraCloset rank that outfit #1?
+
+Calculate:
+
+Top-1 Accuracy = scenarios where AuraCloset's #1 = external #1 / total competitive scenarios
+
+This is now one of the most important AuraCloset recommendation metrics.
+
+14. NEW SECONDARY METRIC — TOP-3 CAPTURE
+
+Determine whether the externally best outfit appears in AuraCloset's top 3.
+
+Calculate:
+
+Top-3 Capture Rate
+
+This tells us whether the engine is at least discovering the right answer even when it fails to place it first.
+
+15. NEW METRIC — PAIRWISE RANKING ACCURACY
+
+For every pairwise comparison:
+
+Determine whether AuraCloset correctly ranks the externally superior outfit above the inferior one.
+
+Calculate:
+
+Pairwise Accuracy
+
+This is especially useful for diagnosing ranking reversals.
+
+16. NEW METRIC — RANKING REGRET
+
+For every competitive set:
+
+Calculate the difference between:
+
+External quality of best available outfit
+
+and
+
+External quality of AuraCloset's #1.
+
+Call this:
+
+Recommendation Regret
+
+Example:
+
+External best = 88
+
+AuraCloset #1 = 76
+
+Regret = 12 points.
+
+Lower is better.
+
+Also report:
+
+mean regret;
+median regret;
+maximum regret.
+17. NEW METRIC — RANK CORRELATION
+
+Where enough candidates exist, calculate whether AuraCloset's internal ranking broadly agrees with external ranking.
+
+Use an appropriate rank-correlation measure if available.
+
+If the sample size is insufficient for a meaningful statistical interpretation, report the limitation rather than pretending the result is statistically robust.
+
+18. INVESTIGATE THE INTERNAL SCORE DISTRIBUTION
+
+Specifically investigate:
+
+QL3
+
+Internal ≈104 / external 76.
+
+SC1
+
+Internal ≈103 / external 79.
+
+Determine:
+
+why the scores exceed 100;
+which components accumulate;
+whether those components represent independent quality;
+whether diminishing returns should eventually be introduced.
+
+Do NOT implement a score ceiling yet.
+
+Do NOT simply clamp:
+
+Math.min(score, 100)
+
+That would conceal score inflation rather than solve it.
+
+19. INVESTIGATE COMPLETENESS
+
+Use W2, AD6 and SC1 as a controlled test family.
+
+Determine whether:
+
+completeness = number of components
+
+is an inaccurate model.
+
+Compare:
+
+3-piece sophisticated outfit
+4-piece balanced outfit
+6-piece overbuilt outfit
+
+Determine whether the scoring system understands:
+
+styling completeness
+
+rather than:
+
+item count.
+
+Do NOT modify completeness scoring yet.
+
+20. INVESTIGATE PT3
+
+Specifically test:
+
+pattern-mixed outfit vs solid navy outfit.
+
+Determine whether the pattern-affinity system:
+
+correctly reflects the user's style preference;
+over-rewards pattern variety;
+ignores overall coherence;
+improperly dominates other quality signals.
+
+Do NOT modify patternAffinity yet.
+
+21. INVESTIGATE PETITE PROPORTION RANKING
+
+Create multiple controlled scenarios involving:
+
+petite + slim trousers;
+petite + wide-leg;
+petite + straight-leg;
+petite + cropped trousers;
+petite + oversized top;
+petite + oversized + wide-leg.
+
+Determine whether the current heightProportion signal consistently behaves as intended.
+
+Do not change its weighting yet.
+
+A single example is insufficient evidence for a new rule.
+
+22. INVESTIGATE SCORE INFLATION
+
+Look for situations where multiple positive signals stack:
+
+palette;
+completeness;
+formality;
+hero;
+texture;
+style affinity.
+
+Determine whether the resulting score reflects genuine additional quality or simply repeated evidence of the same underlying property.
+
+This is an important investigation into:
+
+double-counting and diminishing returns.
+
+23. IDENTIFY RANKING FAILURE CLASSES
+
+Every significant ranking failure must be classified as:
+
+1. Candidate-generation failure
+
+Best outfit never reached scoring.
+
+2. Hard-constraint failure
+
+A valid outfit was incorrectly rejected.
+
+3. Scoring failure
+
+The best candidate was scored incorrectly.
+
+4. Weighting failure
+
+The correct signals exist but one is over/under-weighted.
+
+5. Double-counting
+
+The same quality is rewarded multiple times.
+
+6. Missing relationship
+
+The engine lacks the concept entirely.
+
+7. Personalisation conflict
+
+The engine follows generic quality over the user's preferences.
+
+8. Context conflict
+
+The engine misinterprets occasion/weather/mood.
+
+9. Data limitation
+
+Required information isn't available.
+
+10. Potential LLM/visual-judgement problem
+
+The failure genuinely requires nuanced visual or semantic interpretation beyond the available deterministic signals.
+
+24. DO NOT FIX FAILURES DURING THE INITIAL BENCHMARK
+
+This is non-negotiable.
+
+The first Benchmark v2 run must be:
+
+diagnostic only.
+
+Do not modify the engine because you see:
+
+"PT3 is wrong."
+
+Record it.
+
+Do not modify it.
+
+Do not modify the engine because:
+
+"SC1 is over 100."
+
+Record it.
+
+Do not modify it.
+
+Do not modify the engine because:
+
+"petite wide-leg ranks too highly."
+
+Record it.
+
+Do not modify it.
+
+25. THEN DETERMINE THE THREE HIGHEST-LEVERAGE CALIBRATION PROBLEMS
+
+After completing Benchmark v2, identify only:
+
+Top 3 ranking problems
+
+Prioritise based on:
+
+frequency;
+severity;
+user impact;
+number of scenarios affected;
+confidence in diagnosis;
+expected improvement;
+implementation risk.
+
+Do not produce a list of 20 potential tweaks.
+
+26. DETERMINE WHETHER THE PROBLEM IS WEIGHTING OR MODEL STRUCTURE
+
+For each top problem answer:
+
+Is the required information already present in the engine?
+
+If YES:
+
+Likely deterministic calibration/weighting problem.
+
+If NO:
+
+Likely data/model limitation.
+
+If the information exists but is being counted incorrectly:
+
+Likely double-counting/interaction problem.
+
+This distinction will determine Phase 3.5.
+
+27. DO NOT IMPLEMENT THE THREE REMAINING PHASE 3.3B RECOMMENDATIONS AUTOMATICALLY
+
+The following remain investigation targets:
+
+PT3 pattern-ranking reversal
+P1 petite ranking reversal
+SC1/QL3 score inflation
+
+Do not implement any of them merely because they appear in the Phase 3.3B report.
+
+Benchmark first.
+
+28. GEMINI
+
+Do NOT implement Gemini.
+
+However, classify remaining failures into:
+
+Deterministically solvable
+
+versus
+
+Potentially requiring visual/semantic AI judgement.
+
+The purpose is to determine whether a future Gemini critic would solve a genuine residual problem.
+
+Do not assume that every subtle styling issue requires Gemini.
+
+29. GOLD-STANDARD BENCHMARK V2 SHOULD BECOME REUSABLE
+
+Create the benchmark as a reusable test/evaluation asset.
+
+It must be possible to run:
+
+Version A
+
+Current engine.
+
+Version B
+
+Future engine modification.
+
+and compare:
+
+Top-1 accuracy;
+Top-3 capture;
+Pairwise accuracy;
+Recommendation regret;
+rank correlation;
+external quality;
+category-specific performance.
+
+The benchmark must remain unchanged between future experiments unless a new benchmark version is explicitly created.
+
+30. AVOID BENCHMARK OVERFITTING
+
+Do not create rules that specifically target:
+
+QL3
+
+or:
+
+PT3
+
+or:
+
+P1
+
+by scenario ID.
+
+The benchmark is for discovering generalisable problems.
+
+Any future fix must be evaluated against:
+
+target scenarios;
+unrelated scenarios;
+adversarial scenarios;
+regression scenarios.
+31. BENCHMARK SIZE
+
+Minimum:
+
+30 competitive sets
+20 pairwise tests
+
+Target:
+
+50+ competitive comparisons
+
+if the existing architecture makes this practical.
+
+Do not sacrifice scenario quality merely to reach a large number.
+
+A smaller set of carefully designed competitive scenarios is preferable to hundreds of trivial comparisons.
+
+32. REQUIRED OUTPUT DATA
+
+For every competitive scenario record:
+
+scenario ID;
+user profile;
+context;
+wardrobe;
+candidate count;
+all candidate outfits;
+internal score;
+internal rank;
+external score;
+external rank;
+Top-1 result;
+Top-3 result;
+recommendation regret;
+ranking failure category if applicable.
+33. REQUIRED SUMMARY TABLE
+
+Produce:
+
+Metric	Result
+Competitive scenarios	
+Pairwise comparisons	
+Candidate outfits evaluated	
+Top-1 accuracy	
+Top-3 capture	
+Pairwise accuracy	
+Mean regret	
+Median regret	
+Maximum regret	
+Rank correlation	
+Mean external quality	
+Median external quality	
+34. REQUIRED CATEGORY BREAKDOWN
+
+Report ranking performance separately for:
+
+Colour;
+Pattern;
+Material;
+Quiet luxury;
+Minimalism;
+Silhouette;
+Formality;
+Practicality;
+Personalisation;
+Visual hierarchy.
+
+This will show whether AuraCloset has a general ranking problem or only specific weaknesses.
+
+35. REQUIRED RANKING REVERSALS
+
+Provide at least the:
+
+Top 10 most important ranking reversals
+
+For each:
+
+scenario;
+AuraCloset #1;
+external #1;
+internal scores;
+external scores;
+score difference;
+why AuraCloset preferred the wrong outfit;
+root-cause classification.
+36. REQUIRED SUCCESS THRESHOLDS
+
+Do not invent arbitrary "excellent" thresholds without explaining their basis.
+
+However, provide a reasoned interpretation of the results.
+
+At minimum classify the engine as:
+
+Strong ranking
+
+Generally identifies the best available outfit.
+
+Competent ranking
+
+Usually identifies good candidates but has meaningful ranking reversals.
+
+Weak ranking
+
+Frequently ranks inferior outfits above stronger options.
+
+Unreliable ranking
+
+Internal scores have little relationship to stylistic quality.
+
+Use the actual benchmark evidence.
+
+37. PRODUCTION CODE CHANGES
+
+During the initial Benchmark v2 run:
+
+NONE.
+
+You may create:
+
+benchmark fixtures;
+evaluation scripts;
+test utilities;
+documentation;
+analysis tooling.
+
+Do not modify production recommendation behaviour.
+
+38. FINAL REPORT FORMAT
+
+Return:
+
+PHASE 3.4 — RANKING CALIBRATION & GOLD-STANDARD BENCHMARK V2
+1. Executive Summary
+
+Maximum 15 bullets.
+
+2. Baseline Verification
+
+Confirm exact Phase 3.3B state.
+
+3. Benchmark V2 Methodology
+
+Explain:
+
+competitive sets;
+pairwise comparisons;
+external evaluation;
+ranking methodology.
+4. Benchmark Catalogue
+
+List all scenarios.
+
+5. Overall Ranking Results
+
+Include the required summary table.
+
+6. Category Results
+
+Ranking performance by category.
+
+7. Top-1 Analysis
+8. Top-3 Analysis
+9. Pairwise Accuracy
+10. Recommendation Regret
+11. Rank Correlation
+12. Top 10 Ranking Reversals
+13. PT3 Investigation
+14. Petite/P1 Investigation
+15. SC1 / QL3 Score Inflation Investigation
+16. Completeness Investigation
+17. Root-Cause Taxonomy
+18. Top Three Calibration Problems
+
+Only three.
+
+19. Deterministic vs AI-Suitable Problems
+20. Gemini Assessment
+
+Do not implement Gemini.
+
+21. Recommended Phase 3.5 Priorities
+
+Do NOT implement them.
+
+22. Benchmark V2 Reusability
+
+Explain how future engine versions can be compared.
+
+23. Final Verdict
+
+Choose:
+
+STRONG RANKING
+
+COMPETENT RANKING
+
+WEAK RANKING
+
+UNRELIABLE RANKING
+
+Then state:
+
+PHASE 3.4 STATUS: COMPLETE
+
+PRODUCTION RECOMMENDATION CHANGES: NONE
+
+FINAL NON-NEGOTIABLE PRINCIPLE
+
+Phase 3.4 is not a scoring-tuning exercise.
+
+It is an experiment.
+
+We need to discover:
+
+Does AuraCloset actually know which valid outfit is best?
+
+Do not change the engine to make the answer look better.
+
+Do not optimise specifically for benchmark scenarios.
+
+Do not hide ranking reversals.
+
+Do not treat a higher internal score as proof of better styling.
+
+Do not use raw score magnitude as a proxy for quality.
+
+If the benchmark reveals that the current ranking engine is weak:
+
+that is a successful Phase 3.4 outcome.
+
+The purpose of this phase is to establish a trustworthy ranking baseline so that Phase 3.5 can make evidence-based calibration changes.
+
+Measure first. Calibrate second.
+One important change from our earlier benchmark
+
+I deliberately want competitive sets and pairwise comparisons rather than simply generating another 50–100 scenarios.
+
+The question has changed.
+
+We're no longer primarily asking:
+
+"Is this outfit good?"
+
+We're asking:
+
+"Is Outfit A better than Outfit B, and did AuraCloset know that?"
+
+That gives us much more actionable metrics.
