@@ -258,6 +258,79 @@ All 43 tests pass (40 legacy + 3 new test files).
 
 ---
 
+---
+
+## 12. Gemini Assessment
+
+> **No Gemini implementation.** This section assesses whether remaining reversals are deterministic scoring gaps or require AI-level judgment.
+
+### Remaining reversal classification
+
+| Scenario | Reversal type | Deterministic fix available? |
+|---|---|---|
+| **CS29** Elevated casual (regret 22) | **AI-suitable** — distinguishing a cashmere crew-neck + tailored chinos + suede loafers from a logo tee + joggers requires *material quality inference* (fabric hand, brand tier, construction) that no deterministic rule can derive from subtype + colorFamily alone. This is the clearest candidate for a Gemini-backed quality signal (FE-4). | No — requires material quality perception |
+| **CS26 / AP14** Hero competition (regret 21) | **Deterministic** — the reversal is caused by the formality cohesion signal rewarding `heels` (F=6) in outfit A while penalising the spread in outfit B (heels=6 / tee=2 → −2). The fix is a calibration decision (weight adjustment or a "single-hero exemption" on formality cohesion), not a judgment call. | Yes — FP-1 weight re-calibration |
+| **CS05** Floral hero (regret 12) | **Deterministic** — `colorFamily:'multicolour'` maps to an achromatic HSL centroid (s=0), making the floral top invisible to saturationDominance and temperatureHarmony. The fix is to compute a non-trivial centroid for multicolour items (e.g., dominant hue inference or a fixed vivid proxy). | Yes — FP-2 multicolour centroid |
+| **CS13** Petite silhouette (regret 7) | **Deterministic** — cream + navy triggers a warm/cool temperatureHarmony penalty (−1 vs +2 for cream + grey = 3-point structural gap). The outfit IS better by silhouette rules, but colour harmony score dominates. Fix: increase the silhouette signal ceiling or introduce a "silhouette trumps minor colour mismatch" multiplier for body-type-targeted outfits. | Yes — silhouette weight increase |
+| **CS14** Pear proportion (regret 11) | **Deterministic** — A-line midi bonus (+1 new from 3.5B) is insufficient against formality and completeness differences. Fix requires either a larger A-line bonus or a competing signal re-examination. | Yes — further weight calibration |
+| **CS15** Rectangle mono (regret 3) | **Deterministic** — slim silk monochrome vs wide-leg + slim combo; the multi-piece outfit earns higher completeness and tH bonuses. Gap is small and may self-resolve with CS29/FE-4 changes. | Yes — minor; likely resolves collaterally |
+
+**Summary:** 1 of 6 remaining reversals (CS29) is genuinely AI-suitable. The other 5 are deterministic scoring calibration problems addressable within Phase 3.6 without model inference.
+
+---
+
+## 13. Production Readiness Assessment
+
+The engine is **NOT declared production-ready** on the basis of Phase 3.5 improvements alone.
+
+### Current state
+
+| Dimension | Status |
+|---|---|
+| Top-1 accuracy | 57% — below a viable production threshold (target: ≥70%) |
+| Mean regret | 3.5 pts — acceptable drift on average, but max regret of 22 pts means users can still encounter badly wrong recommendations |
+| Coverage of body-type signals | Partial — pear and petite addressed; hourglass, rectangle, inverted-triangle remain weakly tuned |
+| Material quality signal (FE-4) | Missing — engine cannot distinguish elevated casual from logo casual |
+| Multicolour centroid (FP-2) | Missing — floral and mixed-print tops are invisible to saturation-based scoring |
+| Formality cohesion calibration (FP-1) | Pending — hero-formality exemption not yet implemented |
+| End-to-end benchmark | Not yet run — Phase 3.6 spec defines the full E2E production readiness benchmark |
+
+### Assessment
+
+The engine has made measurable, documented progress through Phases 3–3.5 (τ from 0.31 to 0.447; Top-1 from 37% to 57%). The remaining failures are understood, classified, and have deterministic fix paths. However:
+
+- **57% Top-1** means 4 in 10 top recommendations are wrong. This is insufficient for a production recommendation engine where the first result is the default user action.
+- **Max regret of 22 pts** is an unacceptable tail — users with elevated casual wardrobes will receive notably wrong recommendations.
+- **FE-4 (material quality)** and **FP-2 (multicolour centroid)** are unimplemented signals with known reversal cases. Neither is a minor calibration; both require new scoring infrastructure.
+
+**The engine is ready to proceed to Phase 3.6 as the structured end-to-end production readiness benchmark** — not as a claim of production fitness, but as the next required validation gate.
+
+---
+
+## 14. Final Status
+
+### **PASS WITH CONCERNS**
+
+**Rationale:**
+
+✅ All three Phase 3.5 calibrations implemented correctly  
+✅ `focalCompetition` fires in the correct direction with no regressions  
+✅ CS27 reversed (accessory overload correctly penalised)  
+✅ 43/43 unit tests pass  
+✅ Top-1 +4pp, mean regret −0.7, τ +0.034 vs Phase 3.4  
+✅ Remaining failures classified: 5 deterministic, 1 AI-suitable  
+
+⚠️ Top-1 accuracy (57%) below production threshold  
+⚠️ Max regret (22 pts, CS29) is an unacceptable tail  
+⚠️ FE-4 (material quality) and FP-2 (multicolour centroid) are unimplemented  
+⚠️ CS26 / AP14 not fully resolved — focal competition penalty insufficient alone  
+⚠️ CS05 not resolved — structural multicolour centroid limitation  
+
+**Ready for Phase 3.6 — End-to-End Production Readiness Benchmark:** YES  
+**Declared production-ready:** NO
+
+---
+
 ## Future Candidates (Phase 3.6)
 
 - **FP-1 (CS26 / AP14):** Increase focal competition penalty weight OR introduce a "hierarchy clarity" bonus for outfits with one focal garment + high-recede supporting pieces. Requires careful calibration against the formality cohesion structural advantage.
