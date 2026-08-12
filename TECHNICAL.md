@@ -1445,7 +1445,81 @@ These require Supabase dashboard changes and cannot be enforced from application
 
 ---
 
-## 13. Key Conventions
+## 13. Phase 3.5 — Targeted Ranking Calibration
+
+### Summary
+
+Three targeted calibrations applied on top of the Phase 3.4 engine, each isolated and benchmarked:
+
+| Sub-phase | Signal | Mechanism |
+|---|---|---|
+| 3.5A | `focalCompetition` (new) | −2 for 2+ focal garments competing; −2 for 3+ vivid accessories |
+| 3.5B | `heightProportion` + `bodyTypeProportion` | New petite slim+heels rule (+1); new pear A-line midi + slim top rule (+1) |
+| 3.5C | `patternSafety` (refined) | Bold hero + all-solid core garments → +3 (was +2 flat) |
+
+### Benchmark results (combined)
+
+| Metric | Phase 3.4 | Phase 3.5 | Δ |
+|---|---|---|---|
+| Top-1 accuracy | 53% | **57%** | +4pp |
+| Top-3 capture | 97% | 97% | 0 |
+| Pairwise accuracy | 85% | 85% | 0 |
+| Mean regret | 4.2 | **3.5** | −0.7 |
+| Kendall τ | 0.413 | **0.447** | +0.034 |
+
+### New field: `focalCompetition`
+
+Added to `OutfitScoreBreakdown`. Computed in `scoreOutfitCombo` after all other signals.
+
+A garment is "focal" when it meets any of:
+- colour-led: statement fabric + sat ≥ 0.55
+- structure-led: statement fabric + in `HERO_SIGNATURE_SUBTYPES`
+- pattern-led: bold pattern (large-scale / animal / floral)
+
+Two penalty conditions (each −2, max −4):
+1. `focalGarmentCount >= 2` — two garments competing for focal attention
+2. `vividAccCount >= 3` — three accessories all with sat ≥ 0.55
+
+### heightProportion additions (petite)
+
+New rule: slim/tailored bottom + elongating shoe (heels, mules, loafers…) + NOT a maxi/wide-leg bottom → `heightProportion += 1`. ELONGATING_SHOES set defined inline.
+
+### bodyTypeProportion additions (pear/apple)
+
+New rule: A-line subtype (midi-skirt, a-line-skirt, flared, etc.) that is NOT in WIDE_BOTTOM (already handled by the anchor rule) + slim/tailored top → `bodyTypeProportion += 1`.
+
+### patternSafety refinement
+
+`patterned.length === 1` + `isBoldPattern` branch now checks whether all other core garments (top/bottom/dress/outerwear) are solid:
+- All other solid → `patternSafety = 3` ("hero + solid ground")
+- Not fully solid → `patternSafety = 2` (bold hero, ungrounded)
+- `patterned.length === 0` (all solid) remains → `patternSafety = 2`
+
+Accessories (shoes/bag/jewelry) are excluded from the solid-ground check.
+
+### Test coverage
+
+| File | Assertions |
+|---|---|
+| `__tests__/phase35-visual-hierarchy.test.ts` | 11 (3.5A focalCompetition) |
+| `__tests__/phase35-silhouette.test.ts` | 15 (3.5B height + bodyType) |
+| `__tests__/phase35-pattern.test.ts` | 14 (3.5C patternSafety) |
+
+Full report: `docs/phase-35-report.md`
+
+### Known remaining reversals
+
+| Scenario | Regret | Root cause |
+|---|---|---|
+| CS29 Elevated casual | 22 | Material quality signal missing (FE-4) |
+| CS26 Hero competition | 21 | Formality cohesion +4 swing (heels F=6 / tee F=2) overpowers focal penalty |
+| CS05 Floral hero | 12 | multicolour→achromatic HSL centroid; floral invisible to saturation scorers |
+| CS13 Petite | 7 | Temperature harmony structural gap (cream+navy warm/cool vs cream+grey neutral) |
+| CS14 Pear | 11 | A-line bonus (+1) insufficient against other signal differences |
+
+---
+
+## 14. Key Conventions
 
 | Convention | Rule |
 |-----------|------|

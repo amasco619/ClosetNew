@@ -1040,6 +1040,9 @@ export interface OutfitScoreBreakdown {
   necklineJewelry: number;
   // Rise × top-silhouette harmony (v9) — contextual proportion signal
   riseHarmony: number;
+  // Visual-weight / focal competition (v10, Phase 3.5A) — penalises outfits where
+  // multiple garments simultaneously compete for the focal-point role.
+  focalCompetition: number;
 }
 
 export function scoreOutfitCombo(
@@ -1090,7 +1093,24 @@ export function scoreOutfitCombo(
     if (patterned.length === 0) {
       patternSafety = 2;                                   // clean, all solid
     } else if (patterned.length === 1) {
-      patternSafety = isBoldPattern(patterned[0]) ? 2 : 1; // hero vs small accent
+      if (isBoldPattern(patterned[0])) {
+        // Hero-pattern + solid-ground hierarchy (Phase 3.5C): a single bold
+        // pattern is a stylistically successful technique ONLY when every other
+        // core garment (top / bottom / dress / outerwear) is solid. That
+        // combination earns an extra point over a plain all-solid look because
+        // the pattern's impact is amplified by the quiet ground beneath it —
+        // the design-school rule "one statement, one canvas". When the ground
+        // is not fully solid the hero is merely un-penalised, not rewarded.
+        const allOtherSolid = resolved
+          .filter(i =>
+            i !== patterned[0] &&
+            (i.category === 'top' || i.category === 'bottom' ||
+             i.category === 'dress' || i.category === 'outerwear'))
+          .every(i => !i.pattern || i.pattern === 'solid');
+        patternSafety = allOtherSolid ? 3 : 2; // hero+solid-ground vs hero-only
+      } else {
+        patternSafety = 1;                                 // small accent pattern
+      }
     } else if (patterned.length === 2) {
       const [a, b] = patterned;
       const aLarge = isBoldPattern(a);
@@ -1234,6 +1254,15 @@ export function scoreOutfitCombo(
           if (isSlimFit(btpTop.fit))    bodyTypeProportion += 2;  // correct: slim top balances wide hip
           else if (isVolumeFit(btpTop.fit)) bodyTypeProportion -= 2; // wrong: two volumes overwhelm
         }
+        // A-line and midi silhouettes with a fitted top — gently skim the hip
+        // without adding volume, the hallmark pear-flattering technique.
+        // (Distinct from WIDE_BOTTOM which penalises tops that don't anchor it.)
+        if (btpTop && btpBottom &&
+            A_LINE_SUBTYPES.has(btpBottom.subType) &&
+            !WIDE_BOTTOM.has(btpBottom.subType) &&          // already handled above
+            isSlimFit(btpTop.fit)) {
+          bodyTypeProportion += 1;
+        }
         break;
       }
       case 'inverted-triangle': {
@@ -1315,6 +1344,23 @@ export function scoreOutfitCombo(
         (i.category === 'top' || i.category === 'bottom' || i.category === 'dress'),
       );
       if (hasHorizStripe) heightProportion -= 1;
+
+      // Slim / tailored bottom + non-flat shoes — the classic petite elongation
+      // technique: a close-fitting leg line continued by a heel creates an
+      // unbroken vertical that reads taller than any wide-leg silhouette.
+      // Only fires when neither of the above penalties has already fired for
+      // this bottom (wide-leg / maxi already penalised; this rewards the
+      // opposing silhouette choice).
+      const ELONGATING_SHOES = new Set([
+        'heels', 'stilettos', 'block-heels', 'kitten-heels',
+        'mules', 'pumps', 'loafers', 'strappy-heels',
+      ]);
+      if (hpBottom &&
+          (hpBottom.fit === 'slim' || hpBottom.fit === 'tailored') &&
+          hpShoes && ELONGATING_SHOES.has(hpShoes.subType) &&
+          !MAXI_LENGTHS.has(hpBottom.subType)) {   // not contradicted by maxi penalty
+        heightProportion += 1;
+      }
 
     } else if (profile.heightBand === 'tall') {
       // Maxi lengths that tall frames can carry effortlessly.
@@ -1489,11 +1535,68 @@ export function scoreOutfitCombo(
   // statement-texture / weight-progression rules a stylist follows.
   const textureScore = textureHarmony(resolved, season);
 
+  // ─── Visual-weight / focal competition (Phase 3.5A) ─────────────────────
+  // A well-composed outfit has ONE dominant focal point (the "hero") and
+  // supporting pieces that quietly recede around it. When two or more core
+  // garments simultaneously compete for focal attention, the look reads
+  // confused even when the individual pieces are excellent. This signal
+  // detects two distinct failure modes:
+  //
+  //  1. GARMENT COMPETITION — two core garments (top/bottom/dress/outerwear)
+  //     each carrying strong focal weight at the same time. A garment is
+  //     "focal" when it meets any of:
+  //       • color-led:     statement fabric + vivid saturation (≥ 0.55)
+  //       • structure-led: statement fabric + signature hero silhouette
+  //       • pattern-led:   bold statement pattern (large/animal/floral)
+  //     Two focal garments fight for the eye rather than one leading and the
+  //     other supporting. Range: −2.
+  //
+  //  2. ACCESSORY OVERLOAD — three or more accessories (shoes/bag/jewelry)
+  //     all with high saturation (≥ 0.55) each pulling focus simultaneously.
+  //     One vivid accent is intentional; three competing vivid accessories is
+  //     clutter. Range: −2.
+  //
+  // Maximum penalty: −4 if both conditions fire (unusual).
+  // Neither condition fires on clear single-hero outfits or on premium
+  // quiet-material pairings (silk + cashmere, leather + wool) because those
+  // involve at most one focal garment even though both have statement fabrics.
+  let focalCompetition = 0;
+  if (resolved.length >= 2) {
+    const isBoldPat = (i: WardrobeItem) =>
+      Boolean(i.pattern && i.pattern !== 'solid' &&
+        (i.patternScale === 'large' || i.pattern === 'animal' || i.pattern === 'floral'));
+
+    const isFocalGarment = (i: WardrobeItem): boolean => {
+      if (i.category !== 'top' && i.category !== 'bottom' &&
+          i.category !== 'dress' && i.category !== 'outerwear') return false;
+      const fab      = effectiveFabric(i);
+      const hasStat  = !!(fab && STATEMENT_FABRICS.has(fab));
+      const hasBold  = isBoldPat(i);
+      const hasSig   = HERO_SIGNATURE_SUBTYPES.has(i.subType);
+      const sat      = itemHsl(i).s;
+      if (hasBold)                 return true; // bold pattern is inherently focal
+      if (hasStat && sat >= 0.55)  return true; // statement + vivid colour
+      if (hasStat && hasSig)       return true; // statement + architectural silhouette
+      return false;
+    };
+
+    const focalGarmentCount = resolved.filter(isFocalGarment).length;
+    if (focalGarmentCount >= 2) focalCompetition -= 2;
+
+    // Accessory overload: 3+ vivid (sat ≥ 0.55) accessories demand attention
+    const vividAccCount = resolved.filter(i =>
+      (i.category === 'shoes' || i.category === 'bag' || i.category === 'jewelry') &&
+      itemHsl(i).s >= 0.55,
+    ).length;
+    if (vividAccCount >= 3) focalCompetition -= 2;
+  }
+
   const total = completeness + palette + formalityCohesion + patternSafety
     + contrastMatch + pieces + proportionBalance + metalCohesion
     + tempHarmonyScore + valueSpreadScore + saturationDomScore
     + textureScore + bodyTypeProportion + hemlineShoeHarmony
-    + heightProportion + undertoneHarmony + necklineJewelry + riseHarmony;
+    + heightProportion + undertoneHarmony + necklineJewelry + riseHarmony
+    + focalCompetition;
 
   return {
     total, completeness, palette, paletteType,
@@ -1505,6 +1608,7 @@ export function scoreOutfitCombo(
     textureHarmony: textureScore,
     bodyTypeProportion, hemlineShoeHarmony,
     heightProportion, undertoneHarmony, necklineJewelry, riseHarmony,
+    focalCompetition,
   };
 }
 

@@ -178,7 +178,8 @@ console.log('\npatternSafety:');
     makeComponent('b', 'bottom', 'black'),
   ];
   const result = scoreOutfitCombo(components, items);
-  assert(result.patternSafety === 2, `one bold pattern (floral large) → patternSafety +2 (got ${result.patternSafety})`);
+  // Phase 3.5C: bold hero + all other core garments solid → patternSafety = 3 (hero+solid-ground)
+  assert(result.patternSafety === 3, `one bold pattern (floral large) + solid ground → patternSafety +3 (got ${result.patternSafety})`);
 }
 
 // No bold patterns → +2 (solid items)

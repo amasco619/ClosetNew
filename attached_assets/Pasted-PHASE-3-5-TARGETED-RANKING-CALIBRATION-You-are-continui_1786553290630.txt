@@ -1,0 +1,965 @@
+PHASE 3.5 — TARGETED RANKING CALIBRATION
+
+You are continuing AuraCloset recommendation-engine development following:
+
+Phase 3 — Recommendation Engine Forensic Audit
+Phase 3.1 — Controlled P0 Improvements
+Phase 3.2 — Recommendation Quality Benchmark
+Phase 3.3A — Candidate Generation Robustness
+Phase 3.3B — Recommendation Quality Intelligence
+Phase 3.4 — Ranking Calibration & Gold-Standard Benchmark V2
+
+Phase 3.4 is complete.
+
+The current production baseline is the Phase 3.3B engine.
+
+Phase 3.4 established that the engine has competent ranking capability, but also identified three systematic ranking weaknesses that are sufficiently evidenced to justify controlled calibration:
+
+Focal-point competition / visual-weight overload
+Weak silhouette/body-proportion weighting
+Hero-pattern + solid-ground hierarchy
+
+Phase 3.5 is the final targeted deterministic calibration phase before the end-to-end production-readiness benchmark.
+
+1. CURRENT BASELINE
+
+Phase 3.4 Benchmark V2 produced:
+
+Metric	Phase 3.4
+Competitive scenarios	30
+Pairwise comparisons	20
+Candidate outfits	163
+Top-1 accuracy	53%
+Top-3 capture	97%
+Pairwise accuracy	85%
+Mean regret	4.2 pts
+Median regret	0 pts
+Maximum regret	22 pts
+Mean Kendall's τ	0.413
+
+The strongest categories were:
+
+Material;
+Minimalism;
+Tonal.
+
+The weakest were:
+
+Silhouette;
+Visual Hierarchy;
+selected Practicality/Context cases.
+
+Phase 3.4 also confirmed that the Phase 3.3B silk + cashmere improvement is working correctly in ranking.
+
+2. ABSOLUTE OBJECTIVE
+
+Improve ranking quality without redesigning the recommendation engine.
+
+The goal is:
+
+When multiple outfits are valid, rank the outfit with the strongest overall composition higher than an outfit that merely accumulates more individual positive signals.
+
+This phase is specifically about correcting three evidenced ranking distortions.
+
+3. ABSOLUTE RULES
+
+Do NOT:
+
+integrate Gemini;
+call an LLM;
+modify candidate generation;
+modify fallback-cores;
+modify hard weather gates;
+modify safety gates;
+modify hard formality gates;
+modify freshness;
+modify rise logic;
+modify textureHarmony except where a new signal genuinely depends on it;
+introduce a global score ceiling;
+clamp scores;
+rewrite the scoring engine;
+introduce arbitrary luxury/fabric bonuses;
+introduce scenario-specific hacks;
+hard-code benchmark scenario IDs;
+create special rules for CS05, CS13, CS26, CS27, etc.;
+implement all recommendations from earlier reports automatically.
+
+The following Phase 3.4 proposal is NOT authorised at this time:
+
+FE-4 — outerwear quality-tier distinction.
+
+Do not implement it unless investigation proves that it remains necessary after the three authorised calibrations.
+
+4. REQUIRED IMPLEMENTATION STRATEGY
+
+For each of the three areas:
+
+Step 1
+
+Reproduce the relevant Phase 3.4 failures.
+
+Step 2
+
+Inspect the current production code.
+
+Step 3
+
+Identify the smallest generalisable change.
+
+Step 4
+
+Implement the change in isolation.
+
+Step 5
+
+Run focused tests.
+
+Step 6
+
+Run the complete Phase 3.4 benchmark.
+
+Step 7
+
+Compare against the Phase 3.4 baseline.
+
+Do not combine multiple speculative changes before measuring their effects.
+
+Where practical, implement and measure:
+
+A → B → C
+
+rather than:
+
+A + B + C → unknown result.
+
+5. CALIBRATION #1 — VISUAL-WEIGHT / FOCAL-POINT COMPETITION
+Problem
+
+Phase 3.4 identified a systematic problem where adding additional visually dominant elements can increase the score even when the resulting outfit is stylistically inferior.
+
+Key examples:
+
+CS26
+
+Leather jacket + gold satin skirt + nude heels
+
+Internal: 21
+
+External: 63
+
+versus:
+
+Leather jacket + black jeans + white tee + black heels
+
+Internal: 16
+
+External: 84
+
+CS27
+
+Accessory-heavy five-piece outfit
+
+Internal: 24
+
+External: 61
+
+versus restrained four-piece outfit
+
+Internal: 23
+
+External: 80
+
+AP14
+
+Same underlying reversal.
+
+CS29
+
+Leather outerwear outfit
+
+Internal: 24
+
+External: 63
+
+versus cashmere + wool outfit
+
+Internal: 22
+
+External: 85
+
+Phase 3.4 identified the common principle:
+
+The engine has no concept of competing visual focal points or diminishing returns from additional statement elements.
+
+6. DO NOT IMPLEMENT A SIMPLE "STATEMENT COUNT -X"
+
+Do NOT blindly implement:
+
+if statementPieces >= 2:
+    score -= 3
+
+or:
+
+statementPieceCount * -2
+
+That is too crude.
+
+Some outfits legitimately contain:
+
+statement jacket;
+statement shoe;
+statement bag;
+
+and can still be excellent.
+
+The problem is not simply the number of "interesting" pieces.
+
+The problem is:
+
+visual competition.
+
+7. INVESTIGATE VISUAL WEIGHT
+
+Determine whether the existing garment data can distinguish meaningful visual dominance through combinations of:
+
+pattern;
+gloss/lustre;
+saturated colour;
+high contrast;
+statement texture;
+silhouette prominence;
+hero designation;
+accessory prominence;
+material richness.
+
+Do not assume every one of these signals should count equally.
+
+Determine which signals already exist.
+
+8. PREFER RELATIONSHIP LOGIC
+
+If the existing architecture supports it, favour something conceptually like:
+
+visualWeight(item)
+
+and:
+
+focalCompetition(outfit)
+
+rather than simply:
+
+statementPieceCount(outfit)
+
+The objective is to detect situations such as:
+
+strong hero + strong secondary hero
+
+or:
+
+hero + multiple competing statement accessories
+
+rather than penalising all visually interesting outfits.
+
+9. PROTECT INTENTIONAL LAYERING
+
+A good outfit may legitimately contain:
+
+textured hero;
+premium material;
+restrained accessory.
+
+Do not penalise the combination merely because multiple items contribute visual interest.
+
+The desired behaviour is:
+
+one dominant focal point + supporting elements
+
+rather than:
+
+one dominant focal point + multiple competing focal points.
+
+10. CONTROLLED BOUNDS
+
+Any new focal-competition adjustment must be bounded.
+
+It must not overpower:
+
+occasion;
+formality;
+weather;
+personalisation;
+colour compatibility;
+proportion.
+
+Document:
+
+minimum adjustment;
+maximum adjustment;
+typical adjustment.
+11. TEST VISUAL-HIERARCHY CASES
+
+At minimum test:
+
+A
+
+One statement hero + neutral supporting pieces.
+
+B
+
+One statement hero + one subtle accent.
+
+C
+
+Two statement pieces.
+
+D
+
+Three statement pieces.
+
+E
+
+Statement garment + statement accessory.
+
+F
+
+Statement garment + premium but visually quiet material.
+
+G
+
+Multiple accessories with one clear hero.
+
+H
+
+Multiple accessories with no clear hero.
+
+The engine should NOT simply prefer fewer items.
+
+It should prefer:
+
+better visual hierarchy.
+
+12. CALIBRATION #2 — SILHOUETTE / BODY-PROPORTION WEIGHTING
+Problem
+
+Phase 3.4 produced:
+
+0/3 Top-1 in Silhouette
+
+with mean regret of 7 points.
+
+Phase 3.4 identified that:
+
+heightProportion;
+bodyTypeProportion;
+
+currently operate in approximately a ±1–2 point range.
+
+Meanwhile:
+
+fabric;
+completeness;
+palette;
+
+can create 5–10 point swings.
+
+Therefore legitimate body-proportion signals can be overwhelmed.
+
+13. DO NOT BLINDLY MULTIPLY BY 3
+
+The report suggested ×2–3.
+
+Do not simply implement:
+
+heightProportion *= 3
+
+Instead perform controlled sensitivity analysis.
+
+Test:
+
+Baseline
+
+Current weighting.
+
+Variant A
+
+~1.5×.
+
+Variant B
+
+~2×.
+
+Variant C
+
+~2.5×.
+
+Variant D
+
+~3×.
+
+Use the benchmark to determine the appropriate range.
+
+14. BODY-TYPE TESTS
+
+At minimum evaluate:
+
+Petite
+slim;
+straight;
+cropped;
+wide-leg.
+Pear
+A-line;
+wide-leg;
+slim;
+oversized.
+Rectangle
+balanced;
+all-volume;
+fitted;
+structured.
+
+Also test other existing supported body types where the current engine contains dedicated logic.
+
+Do not improve petite recommendations at the expense of:
+
+pear;
+rectangle;
+hourglass;
+inverted triangle;
+apple;
+athletic.
+15. PROPORTION SIGNAL MUST REMAIN CONTEXTUAL
+
+Do not encode:
+
+slim = always better.
+
+Do not encode:
+
+wide-leg = always worse for petite.
+
+Do not encode:
+
+A-line = always better for pear.
+
+Body-proportion recommendations depend on:
+
+garment combination;
+footwear;
+top length;
+rise;
+overall silhouette.
+
+The objective is to make the existing body-aware intelligence meaningfully influential, not to turn it into rigid fashion rules.
+
+16. CALIBRATION #3 — HERO PATTERN + SOLID GROUND
+Problem
+
+Phase 3.4 identified CS05:
+
+Floral hero + solid black midi
+
+External: 78
+
+was ranked below:
+
+Solid navy + solid black
+
+External: 66
+
+because pattern presence triggered a penalty.
+
+The current engine treats pattern largely as:
+
+risk
+
+rather than:
+
+potentially useful focal interest when properly grounded.
+
+17. DO NOT IMPLEMENT "PATTERN = GOOD"
+
+Do NOT simply add:
+
+patternedHero += 3
+
+That would reverse the problem.
+
+The desired relationship is:
+
+one intentional pattern + solid supporting garments + no competing pattern = potentially positive
+
+not:
+
+pattern = positive.
+
+18. DEFINE HERO-PATTERN CONDITIONS
+
+Investigate whether the engine can identify:
+
+Patterned hero
+
+AND
+
+predominantly solid supporting pieces
+
+AND
+
+no competing pattern
+
+AND
+
+appropriate occasion/formality
+
+AND
+
+acceptable colour relationship.
+
+Only where those conditions are satisfied should the pattern-safety penalty be reduced or transformed.
+
+19. PROTECT PATTERN SAFETY
+
+The existing pattern safety logic must continue to penalise:
+
+stripe + check;
+floral + stripe;
+multiple competing patterns;
+visually chaotic combinations.
+
+Phase 3.4 demonstrated that pattern safety currently performs well in pairwise tests.
+
+Do not damage that success.
+
+20. DO NOT MODIFY PT3 DIRECTLY WITHOUT CONTROLLED COMPARISON
+
+Run:
+
+Baseline
+
+Existing pattern behaviour.
+
+Variant
+
+Hero-pattern + solid-ground logic.
+
+Compare:
+
+CS05;
+other pattern scenarios;
+existing pattern pairwise tests;
+unrelated categories.
+
+The objective is to fix the specific hierarchy problem without reducing the accuracy of the existing pattern-safety model.
+
+21. IMPLEMENTATION ORDER
+
+Implement in this exact order:
+
+3.5A
+
+Visual-weight / focal competition.
+
+Run full benchmark.
+
+↓
+
+3.5B
+
+Silhouette weighting.
+
+Run full benchmark.
+
+↓
+
+3.5C
+
+Hero-pattern + solid-ground.
+
+Run full benchmark.
+
+Only after each individual experiment has been evaluated may the changes be combined.
+
+22. REQUIRED BASELINE
+
+Before any change, capture:
+
+Phase 3.4 Top-1;
+Top-3;
+Pairwise;
+mean regret;
+median regret;
+max regret;
+Kendall τ.
+
+Baseline:
+
+Top-1: 53%
+Top-3: 97%
+Pairwise: 85%
+Mean regret: 4.2
+Median regret: 0
+Max regret: 22
+Kendall τ: 0.413
+
+Verify these by actually running the benchmark.
+
+Do not assume the historical figures remain unchanged.
+
+23. REQUIRED EXPERIMENT TABLE
+
+For each intervention produce:
+
+Metric	Phase 3.4	3.5A	3.5B	3.5C	Combined
+Top-1					
+Top-3					
+Pairwise					
+Mean regret					
+Median regret					
+Max regret					
+Kendall τ					
+
+Do not only report the final result.
+
+We need to know which intervention actually helped.
+
+24. REQUIRED TARGET-SCENARIO ANALYSIS
+
+For visual hierarchy:
+
+CS26;
+CS27;
+AP14;
+CS29.
+
+For silhouette:
+
+CS13;
+CS14;
+CS15.
+
+For pattern:
+
+CS05;
+AP13;
+existing pattern tests.
+
+Report before/after internal scores and rankings.
+
+25. REGRESSION ANALYSIS
+
+The following must not materially regress:
+
+Material
+
+Phase 3.3B silk + cashmere behaviour.
+
+Minimalism
+
+Existing strong ranking.
+
+Tonal
+
+Existing strong ranking.
+
+Candidate generation
+
+Phase 3.3A behaviour.
+
+Freshness
+
+Phase 3.1.
+
+Rise
+
+Phase 3.1.
+
+Weather
+
+Existing generator gates.
+
+Formality
+
+Existing hard gates.
+
+Personalisation
+
+Existing affinity/reaction behaviour.
+
+26. DO NOT FIX WEATHER OR OCCASION IN THIS PHASE
+
+Phase 3.4 identified:
+
+AP11;
+CS20;
+CS21;
+AP18
+
+as context-related issues.
+
+Do NOT modify scoreOutfitCombo to make it weather-aware or occasion-aware.
+
+The established architecture is:
+
+generator handles hard contextual eligibility;
+
+scorer ranks eligible candidates.
+
+Preserve that separation.
+
+We will validate it in the later end-to-end production benchmark.
+
+27. DO NOT IMPLEMENT FE-4 YET
+
+Do not implement:
+
+structured outerwear vs casual outerwear quality tier.
+
+The outerwear problem may disappear partly or entirely once:
+
+focal competition;
+visual weight;
+hero hierarchy;
+
+are corrected.
+
+Only revisit FE-4 if the benchmark demonstrates that a separate outerwear distinction remains necessary after 3.5A–C.
+
+28. SUCCESS CRITERIA
+
+Phase 3.5 is successful only if the combined changes produce:
+
+Primary
+
+Improvement in Top-1 ranking accuracy.
+
+Secondary
+
+Improvement in mean recommendation regret.
+
+Secondary
+
+Improvement in maximum regret.
+
+Secondary
+
+Improved silhouette Top-1 performance.
+
+Secondary
+
+Improved visual-hierarchy ranking.
+
+Secondary
+
+Improved hero-pattern ranking.
+
+No major regression
+
+in:
+
+Top-3 capture;
+pairwise accuracy;
+material;
+minimalism;
+tonal;
+candidate generation;
+formality;
+weather;
+personalisation.
+29. IMPORTANT — DON'T GAME THE METRICS
+
+Do not optimise solely for Top-1.
+
+For example, a change that produces:
+
+Top-1 53% → 60%
+
+but causes:
+
+Top-3 97% → 80%
+
+is NOT automatically an improvement.
+
+Likewise:
+
+Top-1 +5%
+
+with:
+
+mean regret +3
+
+may be a regression.
+
+Evaluate the full metric profile.
+
+30. QUALITY OVER SCORE MAGNITUDE
+
+Do not attempt to make internal scores numerically resemble the external 0–100 scores.
+
+The internal scoring system and external rubric measure different things.
+
+Phase 3.4 established that the internal scores currently operate on a much smaller scale and that the score ceiling concern is not valid.
+
+Do not introduce score normalisation or clamping.
+
+31. STOP CONDITIONS
+
+STOP and report rather than implementing further changes if:
+
+one proposed calibration improves its target but materially damages another category;
+the required change cannot be expressed without large architectural modification;
+silhouette improvements require rigid body-type rules;
+visual-weight detection cannot be reliably inferred from existing garment data;
+pattern hierarchy requires information not currently available;
+Gemini appears necessary.
+
+Do not use Gemini as a workaround.
+
+32. TESTING REQUIREMENTS
+
+Run:
+
+full existing unit tests;
+Phase 3.1 tests;
+Phase 3.3A tests;
+Phase 3.3B tests;
+Phase 3.4 benchmark;
+new Phase 3.5 focused tests;
+TypeScript;
+lint.
+
+All existing tests must remain green unless a changed expectation is explicitly justified.
+
+33. REQUIRED NEW TESTS
+Visual hierarchy
+single hero;
+hero + subtle accent;
+two competing heroes;
+three competing heroes;
+accessory overload;
+hero + premium quiet material.
+Silhouette
+petite;
+pear;
+rectangle;
+supported remaining body types.
+Pattern
+hero pattern + solid ground;
+hero pattern + competing pattern;
+multiple patterns;
+solid + solid;
+pattern accent only.
+34. REPORT FORMAT
+
+Return:
+
+PHASE 3.5 — TARGETED RANKING CALIBRATION REPORT
+1. Executive Summary
+
+Maximum 15 bullets.
+
+2. Baseline Verification
+
+Confirm Phase 3.4 metrics.
+
+3. 3.5A — Visual-Weight Calibration
+Root cause
+Design
+Implementation
+Tests
+Benchmark impact
+Regression analysis
+4. 3.5B — Silhouette Calibration
+
+Same structure.
+
+5. 3.5C — Hero-Pattern Calibration
+
+Same structure.
+
+6. Individual Experiment Comparison
+
+Use the required table.
+
+7. Combined Result
+
+Report:
+
+Top-1;
+Top-3;
+Pairwise;
+Mean regret;
+Median regret;
+Max regret;
+Kendall τ.
+8. Target Scenario Results
+
+Before/after for all required scenarios.
+
+9. Regression Analysis
+10. Remaining Ranking Failures
+
+Identify the most important remaining failures.
+
+11. FE-4 Assessment
+
+Explicitly state whether structured-outerwear quality tier is still necessary.
+
+12. Gemini Assessment
+
+Do not implement Gemini.
+
+State whether remaining failures appear deterministic or potentially AI-suitable.
+
+13. Production Readiness Assessment
+
+Do NOT declare the system production-ready merely because this phase improved.
+
+State whether the engine is now ready for:
+
+Phase 3.6 — End-to-End Production Readiness Benchmark
+
+14. Final Status
+
+Choose:
+
+PASS — READY FOR PHASE 3.6
+
+PASS WITH CONCERNS
+
+REVISION REQUIRED
+
+REGRESSION
+
+FINAL NON-NEGOTIABLE PRINCIPLE
+
+Phase 3.5 is not about making AuraCloset score more.
+
+It is about making AuraCloset make better choices.
+
+The ideal result is not:
+
+"The scoring formula became more sophisticated."
+
+The ideal result is:
+
+"When two outfits are both valid, the engine now more reliably understands why one is the better composition."
+
+Do not add complexity unless the benchmark demonstrates measurable improvement.
+
+Do not fix symptoms with arbitrary bonuses.
+
+Do not sacrifice generalisation for benchmark performance.
+
+Do not introduce Gemini.
+
+After Phase 3.5, the next step will be:
+
+Phase 3.6 — End-to-End Production Readiness Benchmark
+
+That phase will test the actual production pipeline:
+
+user → wardrobe → candidate generation → hard gates → fallback → scoring → ranking → recommendation
+
+rather than bypassing candidate generation with predetermined outfits.
+
+Only after Phase 3.6 will we make the final GO / NO-GO production decision.
