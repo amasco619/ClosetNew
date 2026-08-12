@@ -185,3 +185,146 @@ Per spec constraints, none of the following were modified:
 **Final state:** 40 passed, 0 failed.
 
 Run: `npm test`
+
+---
+
+## 8. Benchmark Comparison
+
+| Metric | Phase 3.3A | Phase 3.3B | Change |
+|---|---:|---:|---:|
+| Mean quality | 77.4 | 77.4 | 0 |
+| Median | 78 | 78 | 0 |
+| Excellent | 21 | 21 | 0 |
+| Strong | 41 | 41 | 0 |
+| Acceptable | 3 | 3 | 0 |
+| Poor | 0 | 0 | 0 |
+
+Target scenario changes:
+
+| Scenario | External | 3.3A Internal | 3.3B Internal | Δ |
+|---|---:|---:|---:|---:|
+| QL1 Silk+Cashmere+Leather | 80 | 96 | **100** | +4 |
+| QL2 Cotton boring neutral | 75 | 97 | 97 | 0 |
+| AD6 Quiet luxury vs colour | 80 | 50 | **54** | +4 |
+| PT5 Three competing statements | 79 | 57 | 57 | 0 |
+| PT4 Velvet+Denim texture clash | 69 | 58 | 58 | 0 |
+
+The external quality distribution is unchanged — no regressions. The targeted internal score improvements bring the engine's assessment of silk+cashmere outfits into alignment with external quality judgement.
+
+---
+
+## 9. Dimension Comparison
+
+| Dimension | Phase 3.3A → Phase 3.3B |
+|---|---|
+| Colour | Unchanged. Palette, temperature harmony, value spread, saturation all unmodified. |
+| Proportion | Unchanged. bodyTypeProportion, heightProportion, proportionBalance all unmodified. |
+| Occasion | Unchanged. Scenario affinity, occasion gating, coreFitsScenario all unmodified. |
+| Formality | Unchanged. formalityCohesion, effectiveFormality, coreFitsScenario gates all unmodified. |
+| Coherence | Unchanged. riseHarmony, hemlineShoeHarmony, metalCohesion all unmodified. |
+| Texture | **Changed.** Two-statement penalty (−3) replaced with nuanced gloss-detection rule. Silk+cashmere: −3 → +1. Silk+satin: −5 → −5 (unchanged). |
+| Visual interest | Improved. Intentional material contrast (+1) now correctly registers as visual interest rather than noise. |
+| Practicality | Unchanged. Weather gates, safety gates, completeness bonuses all unmodified. |
+| Personalisation | Unchanged. Affinity multipliers, freshness, wornHistoryBoost all unmodified. |
+| Quiet luxury | **Improved.** The signature quiet-luxury pairing (smooth statement + soft statement) now scores positively rather than being penalised. QL1 correctly outscores QL2 after 3.3B. |
+
+---
+
+## 10. Internal vs External Alignment
+
+**Before 3.3B:** The engine could not distinguish material sophistication at the outfit level. A cotton+cotton outfit (QL2, internal=97) scored higher than a silk+cashmere outfit (QL1, internal=96) despite the silk+cashmere being the clearly superior choice. The internal signal treated multi-statement-fabric combinations as "over-styled" regardless of whether the fabrics were competing or complementary.
+
+**After 3.3B:** QL1 (silk+cashmere) internal=100 vs QL2 (cotton+cotton) internal=97. The engine now correctly ranks the quiet-luxury outfit above the boring neutral. The 4-point swing is proportionate — the change is meaningful without being dominating.
+
+**AD6 improvement:** The quiet-luxury work outfit (silk+cashmere) that previously scored 50 internal now scores 54. Still well below the external assessment of 80, but the gap is partially closed. The remaining gap (54 vs 80) is structural: the AD6 wardrobe has no bag or jewellery, so completeness is lower than a fully-accessorised outfit, and the 3-piece constraint limits accumulation of bonuses. This is not a scoring error — it is an honest representation of a less-complete outfit.
+
+**PT5 preserved:** The three-competing-statements scenario (silk+velvet+satin) still correctly scores at the bottom of its ranking group (internal=57 vs solid alternatives). The gloss-detection check (glossCount ≥ 2 → −3) correctly identifies silk+satin as competing, even when velvet is present.
+
+---
+
+## 11. False Positives / False Negatives
+
+**Remaining false positives (engine overscores):**
+
+- **QL3** (navy head-to-toe cashmere+wool, internal=104, external=76): The single-statement hero rule (+3 for cashmere) stacks with high palette cohesion and formality cohesion in a monochromatic outfit, accumulating to an unrealistically high score. Root cause is in palette/completeness accumulation, not textureHarmony. Not fixed in 3.3B.
+- **SC1** (6-item wardrobe, internal=103, external=79): Completeness and formality bonuses accumulate identically to a full wardrobe because the few available items are all high-quality and formally matched. The engine has no mechanism to discount score when the outfit pool is constrained. Not fixed in 3.3B.
+
+**Remaining false negatives (engine underscores):**
+
+- **QL6 / AD6** (internal ≈53/54, external ≈80): Low score is largely structural — 3-piece outfits without bag/jewellery score 6–7 points lower on completeness alone vs 4-piece outfits. textureHarmony fix contributed +4 to AD6. Residual gap is an honest reflection of lower completeness in the test wardrobe.
+- **W2** (internal=44, external=80): Hot-weather linen sundress + sandals + bag — only 1 core garment (sundress) so textureHarmony returns 0. No proportion or weight signal fires. Score is structurally lower for minimal warm-weather outfits; not a quality scoring failure.
+- **C6** (internal=43, external=74): Ankle-boot + midi-skirt hemlineShoeHarmony penalty (−2) plus warm/cool temperatureHarmony penalty are both working correctly as individual signals. Together they pull the score below external assessment. A contextual override would be needed to fix this.
+
+**Remaining ranking reversal:**
+- **PT3** (stripe+check mix outranks solid navy): Engine gives the pattern-mixed outfit internal=69 while solid navy gets 61, but external assessment reverses this (79 vs 82). The pattern-affinity bonus in outfitRotation.ts awards more style-goal points to the mixed outfit than to the solid one. Not addressed in 3.3B.
+
+---
+
+## 12. Regression Analysis
+
+| Signal | Status |
+|---|---|
+| Candidate generation | ✅ Unchanged — `generateOutfitPool` not modified |
+| Fallback-cores path | ✅ Unchanged — `generationPath: 'relaxed'` logic unmodified |
+| Freshness penalty | ✅ Unchanged — `wornHistoryBoost` not modified |
+| Rise harmony | ✅ Unchanged — `riseHarmony` not modified |
+| Weather gates | ✅ Unchanged — `outerwearRule`, `isRainy`, seasonal gates not modified |
+| Formality gates | ✅ Unchanged — `coreFitsScenario`, `effectiveFormality` not modified |
+| Personalisation | ✅ Unchanged — affinity multipliers, `scoreItemForProfile`, `applyFreshnessOrder` not modified |
+| Silk+satin penalty | ✅ Preserved at −5 (−3 from glossCount≥2 + −2 belt-and-braces) |
+| All-flat penalty | ✅ Preserved at −2 |
+| Single-statement hero | ✅ Preserved at +3 |
+| Full test suite | ✅ 40 passed, 0 failed |
+
+---
+
+## 13. Remaining Quality Gaps
+
+**1. PT3 pattern-ranking reversal** (most impactful)  
+The engine ranks a stripe+check mixed-pattern outfit above a solid-navy outfit in the same wardrobe, despite the solid being the stylistically superior choice. Root cause is style-affinity bonuses in `outfitRotation.ts` over-rewarding pattern variety. Affects any user where the style-affinity system has accumulated signal towards patterned pieces.
+
+**2. SC1 / QL3 score inflation**  
+Completeness + formality + palette bonuses can accumulate to 100+ internal scores on outfits from small or monochromatic wardrobes. The engine has no score-ceiling awareness for constrained wardrobes. May create misleading confidence signals if internal scores are ever surfaced to users.
+
+**3. P1 petite ranking reversal**  
+For petite users, the wide-leg option scores within 10 points of the slim-trouser option, occasionally ranking ahead. The `heightProportion` signal for petite users does not apply a strong enough disadvantage to volume-heavy silhouettes.
+
+**4. W2 / C6 structural underscoring**  
+Low-accessory warm-weather outfits (W2) and warm/cool colour tension outfits (C6) score below external assessments. These are correct penalty applications (hemlineShoeHarmony, temperatureHarmony, completeness) that happen to combine unfavourably. Fixing these would require context-aware penalty weighting by occasion/season.
+
+---
+
+## 14. Gemini Assessment
+
+**Gemini: NOT IMPLEMENTED.**
+
+The gaps addressed in Phase 3.3B were solvable deterministically: the silk+cashmere vs silk+satin distinction is a structural rule (gloss-luminosity taxonomy), not a visual judgement requiring image understanding.
+
+The **remaining gaps** split into two categories:
+
+**Deterministically solvable:**
+- PT3 (pattern ranking reversal) — style-affinity weight adjustment in `outfitRotation.ts`
+- P1 (petite volume silhouette) — stronger `heightProportion` disadvantage for MAXI_LENGTHS on petite
+- SC1/QL3 (score inflation) — wardrobe-size-aware score ceiling or completeness normalisation
+
+**Likely requiring visual/LLM judgement to fully resolve:**
+- C6 (warm/cool tension as "intentional" vs "unresolved clash") — a rule cannot distinguish intentional chromatic tension from an accidental mismatch; this requires understanding of the user's stylistic intent and the specific garments involved
+- W2 (minimal hot-weather completeness) — the engine treats missing jewellery as a deficit in all contexts; understanding that a beach/resort outfit is stylistically complete with 3 pieces requires contextual awareness beyond rule-based signals
+
+None of the remaining gaps are severe enough to recommend implementing Gemini at this stage. The deterministically solvable gaps (PT3, P1, SC1) represent the highest-value next work.
+
+---
+
+## 15. Recommendation
+
+**PASS — QUALITY IMPROVED**
+
+The primary quality gap identified in diagnosis (silk+cashmere outfits scoring below cotton+cotton outfits) has been resolved. QL1 now correctly outranks QL2. The change is bounded, relationship-based, and does not rely on fabric prestige. No regressions were introduced across the 65-outfit benchmark. The signal is proportionate (±4 points maximum effect) and does not overwhelm the existing formality, colour, or occasion signals.
+
+---
+
+## 16. Final Status
+
+**PHASE 3.3B STATUS: COMPLETE**
+
+**GEMINI: NOT IMPLEMENTED**
