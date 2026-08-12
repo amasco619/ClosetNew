@@ -1,0 +1,1026 @@
+PHASE 3.6 — END-TO-END PRODUCTION READINESS BENCHMARK
+
+You are continuing AuraCloset recommendation-engine development following:
+
+Phase 3 — Recommendation Engine Forensic Audit
+Phase 3.1 — Controlled P0 Improvements
+Phase 3.2 — Recommendation Quality Benchmark
+Phase 3.3A — Candidate Generation Robustness
+Phase 3.3B — Recommendation Quality Intelligence
+Phase 3.4 — Ranking Calibration & Gold-Standard Benchmark V2
+Phase 3.5 — Targeted Ranking Calibration
+
+Phase 3.5 is complete with PASS WITH CONCERNS.
+
+The current production baseline is the combined Phase 3.5 engine.
+
+Phase 3.5 produced:
+
+Metric	Phase 3.4	Phase 3.5
+Top-1 accuracy	53%	57%
+Top-3 capture	97%	97%
+Pairwise accuracy	85%	85%
+Mean regret	4.2	3.5
+Median regret	0	0
+Maximum regret	22	22
+Kendall τ	0.413	0.447
+
+The remaining known ranking concerns include:
+
+CS29 elevated-casual/material-quality failure;
+CS26/AP14 focal competition/formality interaction;
+CS14 pear/silhouette weakness;
+CS05 hero-pattern/multicolour representation issue;
+CS13 petite/colour-harmony interaction.
+
+Phase 3.5 explicitly did not implement FE-4, FP-1 or FP-2.
+
+Do NOT implement them now.
+
+1. PRIMARY OBJECTIVE
+
+Phase 3.6 is the End-to-End Production Readiness Benchmark.
+
+The objective is to determine:
+
+When AuraCloset receives a realistic user profile and realistic wardrobe, does the complete production recommendation pipeline produce an appropriate, personalised, contextually valid and high-quality outfit recommendation?
+
+This phase must test the actual production path:
+
+User profile
+    ↓
+Wardrobe
+    ↓
+Candidate generation
+    ↓
+Candidate filtering / hard gates
+    ↓
+Fallback logic
+    ↓
+Scoring
+    ↓
+Ranking
+    ↓
+Final recommendation
+
+Do NOT bypass candidate generation.
+
+Do NOT call scoreOutfitCombo() directly as the primary benchmark path.
+
+Phase 3.4/3.5 already tested the scorer in isolation.
+
+Phase 3.6 tests the actual product behaviour.
+
+2. ABSOLUTE RULE — NO PRODUCTION CALIBRATION CHANGES
+
+Before the benchmark is complete:
+
+DO NOT modify recommendation behaviour.
+
+Do NOT implement:
+
+FE-4;
+FP-1;
+FP-2;
+Gemini;
+new scoring bonuses;
+new penalties;
+new weighting;
+score ceilings;
+score normalisation;
+candidate-generation changes;
+fallback changes;
+weather changes;
+formality changes;
+silhouette changes;
+material taxonomy changes.
+
+The purpose of this phase is diagnosis and validation.
+
+3. FREEZE THE PHASE 3.5 BASELINE
+
+Before testing:
+
+Run the full existing test suite.
+Run Phase 3.4 benchmark.
+Confirm Phase 3.5 combined state.
+Confirm 43/43 Phase 3.5 tests pass.
+Record the exact baseline.
+
+Expected Phase 3.5 reference:
+
+Top-1 = 57%
+Top-3 = 97%
+Pairwise = 85%
+Mean regret = 3.5
+Median regret = 0
+Max regret = 22
+Kendall τ = 0.447
+
+If these differ, investigate the discrepancy before proceeding.
+
+Do not silently update the baseline.
+
+4. BENCHMARK ARCHITECTURE
+
+Create:
+
+__tests__/benchmark-phase36.ts
+
+or an equivalent clearly named Phase 3.6 benchmark file.
+
+It must execute the real production recommendation path.
+
+If the existing application exposes a production recommendation function, use it.
+
+If not, identify the smallest production-equivalent entry point that executes:
+
+profile → wardrobe → candidate generation → filtering → fallback → scoring → ranking → recommendation.
+
+Do not duplicate the recommendation algorithm inside the benchmark.
+
+The benchmark must call the actual implementation.
+
+5. BENCHMARK STRUCTURE
+
+Create three layers.
+
+Layer A — Deterministic regression scenarios
+
+Reuse important cases from:
+
+Phase 3.2;
+Phase 3.3A;
+Phase 3.3B;
+Phase 3.4;
+Phase 3.5.
+
+Purpose:
+
+Ensure the full production pipeline does not regress known behaviour.
+
+6. LAYER B — END-TO-END REALISTIC USER SCENARIOS
+
+Create at least:
+
+30 realistic end-to-end scenarios
+
+Each must include:
+
+User
+body type;
+height category;
+style goal;
+style preferences;
+relevant affinities/reactions;
+other supported profile attributes.
+Wardrobe
+
+Prefer realistic wardrobes of approximately:
+
+12–25 relevant items
+
+rather than artificial combinations.
+
+Context
+
+Include:
+
+occasion;
+weather;
+temperature;
+season;
+formality;
+relevant style objective.
+Wear history
+
+Where supported:
+
+recently worn;
+favourite;
+disliked;
+rarely worn.
+7. REQUIRED END-TO-END SCENARIO CATEGORIES
+
+Ensure the 30 scenarios collectively cover:
+
+A. Everyday casual
+B. Smart casual
+C. Office / work
+D. Elevated casual
+E. Date / evening
+F. Formal / event
+G. Hot weather
+H. Cold weather
+I. Transitional weather
+J. Rain-prone weather
+K. Minimal wardrobe
+L. Large wardrobe
+M. Petite body type
+N. Pear
+O. Apple
+P. Rectangle
+Q. Hourglass
+R. Inverted triangle
+S. Athletic
+T. Quiet-luxury goal
+8. DO NOT MAKE EVERY SCENARIO ADVERSARIAL
+
+Phase 3.4/3.5 already tested adversarial ranking.
+
+Phase 3.6 must be more representative of real users.
+
+The majority of scenarios should be:
+
+realistic rather than deliberately pathological.
+
+Include some difficult cases, but don't make the entire benchmark a collection of traps.
+
+We are testing the product, not trying to make it fail.
+
+9. LAYER C — HUMAN SANITY-CHECK SCENARIOS
+
+Create at least:
+
+10 high-value stylistic judgement scenarios
+
+These should deliberately test situations where deterministic scoring may approach its limits.
+
+Examples:
+
+premium material quality;
+quiet-luxury styling;
+elevated casual;
+subtle visual hierarchy;
+sophisticated minimalism;
+premium vs merely fashionable;
+tonal dressing;
+statement piece with restrained support;
+sophisticated pattern use;
+constrained wardrobe.
+
+For each, identify the expected strongest recommendation before inspecting AuraCloset's result.
+
+10. EXTERNAL EVALUATION BIAS PREVENTION
+
+For every scenario:
+
+Step 1
+
+Define the user profile, wardrobe and context.
+
+Step 2
+
+Run the actual production recommendation pipeline.
+
+Step 3
+
+Capture:
+
+candidates generated;
+candidates rejected;
+rejection reasons;
+fallback activation;
+final ranked candidates;
+final recommendation.
+Step 4
+
+Only after the production result has been captured, perform external quality evaluation.
+
+Do not alter the scenario after seeing the result.
+
+11. EXTERNAL QUALITY RUBRIC
+
+Continue the established 0–100 rubric:
+
+Colour Harmony;
+Silhouette & Proportion;
+Occasion;
+Formality;
+Visual Coherence;
+Texture & Material;
+Visual Interest;
+Practicality;
+Personalisation;
+Quiet-Luxury / Premium Styling.
+
+Each dimension:
+
+0–10
+
+Total:
+
+0–100
+
+Do not change the rubric.
+
+12. NEW END-TO-END METRICS
+
+Calculate at minimum:
+
+Candidate-generation success
+
+Percentage of scenarios where at least one valid recommendation is generated.
+
+False-empty rate
+
+Scenarios where the system returns no recommendation despite a viable outfit existing.
+
+Hard-constraint violation rate
+
+Percentage of final recommendations violating a hard contextual requirement.
+
+Target:
+
+0%
+
+Top-1 external quality
+
+Mean and median external quality of the final production recommendation.
+
+Top-3 capture
+
+Where multiple candidates are available, determine whether the externally best candidate was among the top three.
+
+Recommendation regret
+
+External best quality minus final recommendation quality.
+
+Mean regret
+Median regret
+Maximum regret
+Personalisation sensitivity
+
+Determine whether materially changing the user profile produces materially appropriate recommendation changes.
+
+Context sensitivity
+
+Determine whether changing weather/occasion appropriately changes the recommendation.
+
+Freshness sensitivity
+
+Determine whether wear history influences recommendations appropriately.
+
+13. HARD-CONSTRAINT GATE
+
+Explicitly test:
+
+Weather
+
+Examples:
+
+hot weather + heavy wool coat;
+freezing weather + minimal summer outfit;
+rain + obviously impractical footwear where the system has sufficient information.
+Occasion
+
+Examples:
+
+formal event;
+office;
+casual weekend;
+evening/date.
+Formaility
+
+Ensure the system does not simply select aesthetically attractive but contextually inappropriate outfits.
+
+Record:
+
+hard rejection
+
+versus:
+
+soft scoring preference.
+
+Do not fix any failures yet.
+
+14. CANDIDATE-GENERATION ANALYSIS
+
+For every scenario, record:
+
+number of wardrobe items;
+number of raw candidate combinations if available;
+number surviving hard gates;
+number surviving contextual filters;
+number entering scoring;
+number finally ranked.
+
+This is important.
+
+A recommendation can fail because:
+
+A
+
+The best outfit was never generated.
+
+or:
+
+B
+
+It was generated but filtered incorrectly.
+
+or:
+
+C
+
+It survived but was ranked incorrectly.
+
+These are fundamentally different problems.
+
+15. CLASSIFY EVERY SIGNIFICANT FAILURE
+
+Use this taxonomy:
+
+CG — Candidate generation
+
+The right outfit never existed in the candidate pool.
+
+HG — Hard gate
+
+A valid outfit was incorrectly rejected.
+
+FB — Fallback
+
+Fallback activated incorrectly or failed to find a sensible result.
+
+SC — Scoring
+
+Correct candidate existed but scored incorrectly.
+
+RK — Ranking
+
+Scoring was broadly reasonable but ranking order was wrong.
+
+CT — Context
+
+Weather/occasion/formality was mishandled.
+
+PE — Personalisation
+
+User preferences/profile were insufficiently reflected.
+
+FR — Freshness
+
+Wear history/repetition behaviour was inappropriate.
+
+SQ — Semantic quality
+
+The deterministic representation cannot capture the relevant quality.
+
+AI — Potential AI-suitable
+
+The failure requires nuanced visual/semantic judgement not represented in current structured data.
+
+16. IMPORTANT — DISTINGUISH PRODUCTION FAILURE FROM BENCHMARK FAILURE
+
+If the production pipeline chooses an outfit that was externally rated lower than another candidate, do not automatically call it a production defect.
+
+First determine:
+
+Was the superior outfit generated?
+Was it eligible?
+Was it filtered?
+Was it scored?
+Was it ranked?
+Was the ranking difference meaningful?
+Was the external difference within evaluator noise?
+
+Only then classify the failure.
+
+17. PERSONALISATION TESTING
+
+Create paired scenarios where only one user attribute changes.
+
+Examples:
+
+Pair A
+
+Same wardrobe/context.
+
+User style:
+
+minimalist
+
+versus:
+
+expressive.
+
+Pair B
+
+Same wardrobe/context.
+
+User preference:
+
+quiet luxury
+
+versus:
+
+trend-forward.
+
+Pair C
+
+Same wardrobe/context.
+
+Different body type.
+
+Pair D
+
+Same wardrobe/context.
+
+Different formality preference where supported.
+
+The recommendation should change when the changed preference materially warrants it.
+
+Do not require a different outfit for every tiny profile change.
+
+The test is:
+
+Does the engine respond meaningfully and appropriately to relevant personalisation?
+
+18. CONTEXT-SENSITIVITY TESTING
+
+Create paired scenarios:
+
+Same user + wardrobe.
+
+Only change:
+
+Weather
+
+Hot → cold.
+
+Occasion
+
+Casual → office.
+
+Formality
+
+Smart casual → formal.
+
+Determine whether the production recommendation changes appropriately.
+
+Again:
+
+Do not demand change when the same outfit remains appropriate.
+
+19. FRESHNESS TESTING
+
+Create paired scenarios:
+
+Same user + wardrobe + context.
+
+Only change:
+
+wear history.
+
+Test whether:
+
+recently worn outfits become appropriately less favoured;
+unworn alternatives gain appropriate opportunity;
+freshness does not overpower much stronger outfit quality.
+20. FALLBACK TESTING
+
+Include constrained wardrobes:
+
+Case 1
+
+Excellent outfit exists.
+
+Case 2
+
+Only acceptable outfit exists.
+
+Case 3
+
+No genuinely suitable outfit exists.
+
+Determine whether AuraCloset:
+
+finds the excellent outfit;
+gracefully recommends the acceptable outfit;
+honestly reports the lack of suitable options when appropriate.
+
+Do NOT force a recommendation merely to avoid an empty result.
+
+21. MINIMAL WARDROBE TESTING
+
+Include wardrobes containing approximately:
+
+5–8 items;
+9–12 items;
+13–20 items;
+20+ items.
+
+Determine whether recommendation quality degrades gracefully.
+
+Do not assume:
+
+more wardrobe items = better recommendation.
+
+22. QUIET-LUXURY TESTING
+
+Create at least five end-to-end quiet-luxury scenarios.
+
+Test:
+
+restrained palette;
+premium material combinations;
+visual hierarchy;
+minimalism;
+sophisticated tonal dressing;
+statement piece restraint;
+elevated casual.
+
+This is one of AuraCloset's core product differentiators.
+
+23. MATERIAL-QUALITY LIMITATION
+
+Include CS29-like realistic scenarios.
+
+Do not implement FE-4.
+
+Instead determine:
+
+How frequently does the production pipeline encounter cases where material/construction quality cannot be inferred from the current garment representation?
+
+If this occurs repeatedly, quantify it.
+
+Do not classify a single CS29-like scenario as sufficient evidence by itself.
+
+24. GEMINI ASSESSMENT
+
+Do not implement Gemini.
+
+Instead identify whether any recurring failures are genuinely:
+
+AI-suitable
+
+Examples:
+
+fabric quality;
+visual construction;
+subtle premium-vs-basic distinction;
+nuanced visual hierarchy;
+complex aesthetic coherence.
+
+For every potential AI-suitable failure report:
+
+frequency;
+severity;
+whether deterministic metadata could solve it;
+whether adding metadata would be practical;
+whether an AI critic would likely add meaningful value.
+25. DO NOT IMPLEMENT FE-4 / FP-1 / FP-2 DURING PHASE 3.6
+
+These remain frozen.
+
+Phase 3.6 is a validation phase.
+
+Even if the benchmark reproduces:
+
+CS29;
+CS26;
+CS05;
+
+do not fix them.
+
+Record them.
+
+26. REQUIRED END-TO-END RESULT TABLE
+
+Produce:
+
+Metric	Result
+Total scenarios	
+Valid recommendation generated	
+False-empty rate	
+Hard-constraint violations	
+Mean external quality	
+Median external quality	
+Mean regret	
+Median regret	
+Maximum regret	
+Top-3 capture	
+Personalisation sensitivity	
+Context sensitivity	
+Freshness sensitivity	
+Fallback success	
+27. REQUIRED FAILURE TABLE
+
+Provide the most important failures:
+
+Rank	Scenario	Failure Type	External Best	Actual Recommendation	Regret	Root Cause	Deterministic?	AI-suitable?
+
+Prioritise by:
+
+severity;
+frequency;
+user impact;
+confidence of diagnosis.
+28. REQUIRED PIPELINE FUNNEL
+
+Produce:
+
+Total wardrobe items
+        ↓
+Candidate combinations
+        ↓
+Hard-gate survivors
+        ↓
+Context survivors
+        ↓
+Scored candidates
+        ↓
+Ranked candidates
+        ↓
+Final recommendation
+
+Provide aggregate counts and representative examples.
+
+This is essential for distinguishing candidate-generation failures from ranking failures.
+
+29. REQUIRED PHASE COMPARISON
+
+Compare:
+
+Metric	Phase 3.2	Phase 3.4	Phase 3.5	Phase 3.6
+Top-1		53%	57%	
+Top-3		97%	97%	
+Pairwise		85%	85%	
+Mean regret		4.2	3.5	
+Kendall τ		0.413	0.447	
+False-empty rate				
+Hard-constraint violations				
+
+Do not invent historical figures that were not measured.
+
+Use "N/A" where a metric was not available.
+
+30. PRODUCTION-READINESS GATES
+
+Evaluate the following independently.
+
+Gate 1 — Candidate generation
+
+Does the real pipeline reliably find viable outfits?
+
+Gate 2 — Hard constraints
+
+Does it avoid clearly inappropriate recommendations?
+
+Gate 3 — Ranking
+
+Does the final recommendation represent a strong available option?
+
+Gate 4 — Personalisation
+
+Does it meaningfully respond to the user?
+
+Gate 5 — Context
+
+Does weather/occasion/formality work correctly?
+
+Gate 6 — Freshness
+
+Does the system avoid unnecessary repetition?
+
+Gate 7 — Fallbacks
+
+Does it behave gracefully under constrained wardrobes?
+
+Gate 8 — Quality tail
+
+Does it avoid catastrophic ranking errors?
+
+Gate 9 — Regression
+
+Do all previous phases remain green?
+
+Gate 10 — Operational suitability
+
+Confirm:
+
+no unhandled runtime errors;
+deterministic failure behaviour;
+reasonable execution time;
+no excessive candidate explosion;
+no uncontrolled API calls;
+no hidden dependency on benchmark fixtures.
+31. PRODUCTION READINESS MUST NOT BE BASED ON ONE NUMBER
+
+Do not declare production-ready merely because:
+
+Top-1 ≥ X%.
+
+The final decision must consider:
+
+quality;
+hard constraints;
+candidate generation;
+personalisation;
+context;
+fallback behaviour;
+failure severity;
+operational stability.
+
+A single catastrophic failure class may justify NO-GO even if the average metrics look strong.
+
+Conversely, a moderate Top-1 score may be acceptable if the failures are low-severity and the top recommendation is consistently strong.
+
+32. RECOMMENDED INTERPRETATION
+
+Classify the final system as:
+
+🟢 PRODUCTION READY
+
+The full pipeline reliably produces useful recommendations with no material unresolved safety/context failures and no unacceptable quality tail.
+
+🟡 PRODUCTION READY WITH MONITORING
+
+The system is usable but has known, bounded quality limitations that can be monitored and improved post-launch.
+
+🟠 NOT YET PRODUCTION READY
+
+The engine is promising but has material recommendation failures requiring another targeted calibration phase.
+
+🔴 NO-GO
+
+Material candidate-generation, hard-constraint, runtime or recommendation-quality failures remain.
+
+33. IF PRODUCTION-READY WITH MONITORING
+
+If you believe the system qualifies for this category, explicitly state:
+
+what can safely launch;
+what remains imperfect;
+what telemetry should be captured;
+what failures should trigger investigation;
+whether Gemini should be introduced post-launch.
+
+Do not hide known limitations.
+
+34. IF NOT PRODUCTION READY
+
+Do NOT implement fixes automatically.
+
+Instead provide:
+
+Maximum 3 recommended next interventions
+
+For each:
+
+problem;
+evidence;
+frequency;
+expected benefit;
+implementation complexity;
+regression risk;
+deterministic vs AI;
+recommended priority.
+
+Do not propose a broad rewrite.
+
+35. GEMINI DECISION FRAMEWORK
+
+At the end answer:
+
+Does AuraCloset now have enough deterministic intelligence to launch without Gemini?
+
+and separately:
+
+Would Gemini materially improve the remaining user-visible failures?
+
+Possible conclusions:
+
+A
+
+Gemini unnecessary.
+
+B
+
+Gemini useful as a post-ranking critic.
+
+C
+
+Gemini required before launch.
+
+Do not select C merely because one scenario such as CS29 is difficult.
+
+Evidence must show that the problem is recurrent and materially affects users.
+
+36. REQUIRED TESTING
+
+Run:
+
+all existing unit tests;
+Phase 3.3A tests;
+Phase 3.3B tests;
+Phase 3.5 tests;
+Phase 3.4 benchmark;
+Phase 3.6 benchmark;
+TypeScript;
+lint;
+relevant integration tests.
+
+Report exact results.
+
+37. NO PRODUCTION CODE CHANGES
+
+Unless the benchmark itself requires a tiny non-behavioural test harness adaptation, do not modify production recommendation behaviour during Phase 3.6.
+
+If such an adaptation is necessary:
+
+document it;
+prove it does not alter recommendation behaviour;
+keep it isolated.
+38. REQUIRED FINAL REPORT
+
+Return:
+
+PHASE 3.6 — END-TO-END PRODUCTION READINESS REPORT
+1. Executive Summary
+
+Maximum 15 bullets.
+
+2. Baseline Verification
+3. Benchmark Architecture
+4. Layer A — Regression Results
+5. Layer B — End-to-End Results
+6. Layer C — Human Sanity Checks
+7. Overall Metrics
+8. Pipeline Funnel
+9. Candidate Generation Analysis
+10. Hard-Constraint Analysis
+11. Ranking Analysis
+12. Personalisation Analysis
+13. Context Analysis
+14. Freshness Analysis
+15. Fallback Analysis
+16. Quiet-Luxury Analysis
+17. Material-Quality Analysis
+18. Top Failure Cases
+19. Failure Taxonomy
+20. Gemini Assessment
+21. FE-4 / FP-1 / FP-2 Assessment
+
+Do not implement them.
+
+22. Production-Readiness Gate
+
+Evaluate all 10 gates.
+
+23. Final Recommendation
+
+Choose exactly one:
+
+PRODUCTION READY
+
+PRODUCTION READY WITH MONITORING
+
+NOT YET PRODUCTION READY
+
+NO-GO
+
+24. If Not Ready
+
+Maximum three next interventions.
+
+25. Final Status
+
+Choose:
+
+PASS — PRODUCTION READY
+
+PASS — PRODUCTION READY WITH MONITORING
+
+PASS WITH CONCERNS — FURTHER CALIBRATION REQUIRED
+
+FAIL — MAJOR ISSUES REMAIN
+
+FINAL NON-NEGOTIABLE PRINCIPLE
+
+Phase 3.6 is the production-readiness experiment.
+
+Do not make the benchmark pass by changing the engine.
+
+Do not implement fixes because a known scenario fails.
+
+Do not optimise against individual scenario IDs.
+
+Do not introduce Gemini simply because a deterministic representation has a known limitation.
+
+Do not confuse:
+
+"the scorer can rank predetermined candidates"
+
+with:
+
+"the complete AuraCloset recommendation system works correctly for users."
+
+The question we need to answer now is:
+
+If a real AuraCloset user opens the app, has a realistic wardrobe, provides their preferences and context, and asks "What should I wear?", can the complete production pipeline reliably give them an outfit that is appropriate, personalised, coherent and genuinely good?
+
+Measure that first.
+
+Only after this benchmark is complete should any further recommendation-engine changes be authorised.

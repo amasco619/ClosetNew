@@ -1519,7 +1519,74 @@ Full report: `docs/phase-35-report.md`
 
 ---
 
-## 14. Key Conventions
+## 14. Phase 3.6 — End-to-End Production Readiness Benchmark
+
+### Summary
+
+Phase 3.6 tests the complete production recommendation pipeline (`generateOutfitPool`) end-to-end across 45 scenarios — not the scorer in isolation. No production code was modified.
+
+| Layer | Scenarios | Passed | Failed |
+|---|---|---|---|
+| A — Regression | 5 | 5 | 0 |
+| B — Realistic E2E | 30 | 27 | 3 |
+| C — Human sanity | 10 | 9 | 1 |
+| **Total** | **45** | **41 (91%)** | **4** |
+
+### Benchmark results
+
+| Metric | Phase 3.5 (isolated) | Phase 3.6 (E2E) |
+|---|---|---|
+| Mean regret | 3.5 | **2.0** |
+| Median regret | 0 | **1** |
+| Maximum regret | 22 | **14** |
+| Top-3 capture | 97% | **87% (regret ≤ 5)** |
+| False-empty rate | N/A | **7% (3/45)** |
+| Hard-constraint violations | N/A | **1** |
+| Mean external quality | N/A | **88.5/100** |
+| Personalisation sensitivity | N/A | **YES** |
+| Context sensitivity | N/A | **YES** |
+| Freshness sensitivity | N/A | **YES** |
+
+### Production-readiness gate summary
+
+| Gate | Result |
+|---|---|
+| 1 Candidate generation | 🟡 PARTIAL (7% false-empty; all edge cases) |
+| 2 Hard constraints | 🟡 PARTIAL (1 weather-accessory miss in 42 recommendations) |
+| 3 Ranking quality | 🟢 PASS |
+| 4 Personalisation | 🟢 PASS |
+| 5 Context | 🟢 PASS |
+| 6 Freshness | 🟢 PASS |
+| 7 Fallback | 🟢 PASS |
+| 8 Quality tail | 🟢 PASS (max regret 14; threshold 20) |
+| 9 Regression | 🟢 PASS (5/5 Layer A; 43/43 unit tests) |
+| 10 Operational | 🟢 PASS |
+
+### Failure taxonomy
+
+| Code | Count | Description |
+|---|---|---|
+| CG | 3 | Empty pool — B03 hourglass brunch, B24 inverted-triangle brunch, C09 6-item event wardrobe |
+| CT | 1 | Weather-inappropriate accessory in top-1 — B15 rain scenario |
+
+### Known remaining limitations (Phase 3.7 targets)
+
+| Code | Description | Priority |
+|---|---|---|
+| FP-1 | Hero-formality exemption — leather-jacket + jeans + heels over-penalised by cohesion signal | 1 |
+| FP-2 | Multicolour HSL centroid — floral/printed items invisible to colour temperature signals | 2 |
+| FE-4 | Material quality signal — cashmere vs cotton indistinguishable when same subType | 3 |
+
+### Final status
+
+**PASS — PRODUCTION READY WITH MONITORING**
+
+Full report: `docs/phase-36-report.md`  
+Benchmark file: `__tests__/benchmark-phase36.ts`
+
+---
+
+## 15. Key Conventions
 
 | Convention | Rule |
 |-----------|------|
