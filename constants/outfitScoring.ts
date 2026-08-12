@@ -308,20 +308,36 @@ const STATEMENT_FABRICS: Set<Fabric> = new Set(['leather', 'silk', 'satin', 'cas
 // corduroy are similarly flat in a stylist's eye — jersey is a stretch knit
 // that reads plain, corduroy has subtle ridges but no strong visual weight.
 const FLAT_FABRICS: Set<Fabric> = new Set(['cotton', 'synthetic', 'denim', 'jersey', 'corduroy']);
-// "Shiny" subset of statement textures — two shinies side-by-side reads
-// over-the-top (silk top + satin skirt = bridal/costume).
-const SHINY_FABRICS: Set<Fabric> = new Set(['silk', 'satin', 'leather']);
+// "High-gloss" subset of statement textures — two gloss-lustrous pieces in
+// the same outfit read as over-the-top / bridal / costume (silk blouse + satin
+// skirt = too much sheen). Note: leather is NOT included here; despite being
+// a statement texture, most leather garments are structured and matte rather
+// than gloss-lustrous, so silk + leather reads as intentional hard/soft
+// contrast rather than competing shininess.
+const GLOSS_FABRICS: Set<Fabric> = new Set(['silk', 'satin']);
 
 /**
- * Texture-harmony scorer. Returns a small integer [-3, +4] applied to the
- * combo total. Rules a stylist actually obeys:
- *   +3  exactly one statement texture in the look (the "hero")
- *   -3  two or more statement textures (over-styled / loud)
- *   -2  every piece is flat (no tactile interest)
- *   -2  two shiny pieces side-by-side (silk-on-satin etc.)
- *   +1  cool-season weight progression: lighter top + heavier bottom or
+ * Texture-harmony scorer. Returns a small integer in roughly [−5, +4] applied
+ * to the combo total. Rules a stylist actually obeys:
+ *
+ *   +3  exactly one statement texture in the look (clear material hero)
+ *   +1  two statement textures with ≤1 high-gloss — intentional material
+ *        contrast (silk + cashmere, leather + velvet, leather + cashmere)
+ *   −3  two or more statement textures AND both/all are high-gloss —
+ *        competing lustrous fabrics (silk + satin = bridal / costume)
+ *   −2  every core piece is a flat fabric (cotton / synthetic / denim / jersey)
+ *        — no tactile interest at all; outfit reads underdeveloped
+ *   −2  two or more gloss fabrics present regardless of statement count
+ *        (belt-and-braces guard for sheen overload)
+ *   +1  cool-season weight progression: lighter top + heavier bottom, or
  *        heavier outerwear over a lighter base. Awarded once.
- *   -1  identical-weight stack across all 3+ core pieces (looks lumpy).
+ *   −1  identical-weight stack across all 3+ core pieces (reads lumpy).
+ *
+ * The key distinction: two statement fabrics are NOT automatically bad.
+ * A smooth/fluid fabric (silk) paired with a soft/matte statement (cashmere)
+ * or a structured statement (leather) is the foundation of quiet-luxury
+ * dressing. Only gloss-on-gloss (silk + satin) competes.
+ *
  * Items without a captured fabric fall back to sub-type inference, so even
  * legacy wardrobes get useful texture reasoning.
  */
@@ -341,16 +357,24 @@ export function textureHarmony(
   let score = 0;
 
   const statementCount = fabrics.filter(f => f && STATEMENT_FABRICS.has(f)).length;
-  if (statementCount === 1) score += 3;
-  else if (statementCount >= 2) score -= 3;
+  if (statementCount === 1) {
+    score += 3; // clear single material hero
+  } else if (statementCount >= 2) {
+    const glossCount = fabrics.filter(f => f && GLOSS_FABRICS.has(f)).length;
+    if (glossCount >= 2) {
+      score -= 3; // two gloss-lustrous fabrics compete (silk + satin = bridal)
+    } else {
+      score += 1; // intentional material contrast (silk + cashmere, leather + velvet, etc.)
+    }
+  }
 
   const knownFabrics = fabrics.filter((f): f is Fabric => Boolean(f));
   if (knownFabrics.length >= 2 && knownFabrics.every(f => FLAT_FABRICS.has(f))) {
     score -= 2;
   }
 
-  const shinyCount = fabrics.filter(f => f && SHINY_FABRICS.has(f)).length;
-  if (shinyCount >= 2) score -= 2;
+  const glossCount2 = fabrics.filter(f => f && GLOSS_FABRICS.has(f)).length;
+  if (glossCount2 >= 2) score -= 2; // belt-and-braces: gloss overload compounds
 
   const top = core.find(i => i.category === 'top');
   const bottom = core.find(i => i.category === 'bottom');

@@ -587,6 +587,61 @@ Taste learns from every user signal: love taps, "not today" taps, and outfits lo
 
 ---
 
+### Phase 3.3B — Recommendation Quality Intelligence
+
+Targeted refinement to `textureHarmony` in `constants/outfitScoring.ts` to distinguish sophisticated material contrasts from genuinely problematic texture combinations. No candidate generation, formality gates, weather gates, or other scoring dimensions were changed. Full report: `docs/phase-33b-report.md`.
+
+#### Root Cause Fixed
+
+**`textureHarmony` blanket "two-statement = bad" rule** (`constants/outfitScoring.ts`)
+
+The pre-3.3B rule applied −3 whenever ≥2 fabrics from `STATEMENT_FABRICS` (leather, silk, satin, cashmere, velvet) appeared in core garments. This treated silk+cashmere (quintessential quiet-luxury) identically to silk+satin (competing lustrous fabrics = bridal/costume). A boring cotton+cotton outfit scored *higher* than a silk+cashmere one, which is precisely wrong.
+
+Additionally, `leather` was incorrectly listed in the "shiny" set. Leather is structured and matte; it is not gloss-lustrous like silk or satin.
+
+#### What Changed
+
+| Combination | Before | After |
+|---|---:|---:|
+| Single statement hero (silk+wool, cashmere+wool, etc.) | +3 | +3 |
+| Intentional contrast — 1 gloss + 1 matt statement (silk+cashmere, leather+velvet, etc.) | −3 | **+1** |
+| Competing gloss — 2 high-gloss statements (silk+satin) | −5 | −5 |
+| All-flat fabrics (cotton+cotton, denim+synthetic) | −2 | −2 |
+
+The distinction: a **matt statement** (cashmere, velvet) paired with a **gloss statement** (silk, satin) or another **matt statement** (leather, cashmere) is the foundation of quiet-luxury dressing — it should be rewarded, not penalised. Only gloss-on-gloss (silk+satin) competes for the same visual frequency and should remain negative.
+
+`SHINY_FABRICS` was renamed `GLOSS_FABRICS` and corrected to `['silk', 'satin']` (leather removed).
+
+#### Phase 3.3B Benchmark Results
+
+| Metric | Phase 3.3A | Phase 3.3B |
+|---|---:|---:|
+| Outfits evaluated | 65 | 65 |
+| Mean quality | 77.4 | 77.4 |
+| Median quality | 78 | 78 |
+| Excellent (≥85) | 21 | 21 |
+| Strong (70–84) | 41 | 41 |
+| Acceptable (50–69) | 3 | 3 |
+
+Target scenario improvements:
+
+| Scenario | External | Phase 3.3A | Phase 3.3B | Δ |
+|---|---:|---:|---:|---:|
+| QL1 Silk+Cashmere+Leather | 80 | 96 | **100** | +4 |
+| QL2 Cotton boring neutral | 75 | 97 | 97 | 0 |
+| AD6 Quiet luxury vs colour | 80 | 50 | **54** | +4 |
+| PT5 Three competing statements | 79 | 57 | 57 | 0 |
+
+QL1 now scores higher than QL2 (100 vs 97). The engine correctly identifies a silk+cashmere outfit as more sophisticated than a cotton+cotton one.
+
+#### Tests
+- `__tests__/phase33b-quality-intelligence.test.ts` — 18 assertions: 5 material-relationship checks (intentional contrast), 2 competing-gloss guards, 2 all-flat guards, 4 single-hero regression guards, 2 QL1-vs-QL2 tonal-sophistication checks, 1 `scoreOutfitCombo` visual-hierarchy round-trip, 1 context/pool check
+- `__tests__/outfitComboScorer.test.ts` — 2 assertions updated (cashmere+silk and velvet+silk corrected from −3 to +1)
+
+**Code:** `constants/outfitScoring.ts`
+
+---
+
 ### Phase 3.3A — Candidate Generation Robustness
 
 Targeted fix for 7 false-empty scenarios identified in the Phase 3.2 audit. Only two constants and one hero-inclusion step were changed; no weather/safety gates or hard formality rules were touched. Full report: `docs/phase-33a-report.md`.

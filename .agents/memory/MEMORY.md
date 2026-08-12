@@ -10,3 +10,4 @@
 - [_testOverrides mutable export pattern](test-overrides-pattern.md) — export const _testOverrides = {} and mutate its properties to bypass auth/I-O in tests; avoids ESM getter-only reassignment issues.
 - [Expo Go OAuth relay](expo-go-oauth-relay.md) — makeRedirectUri always returns exp:// in StoreClient; relay via HTTPS domain (already Supabase-allowed) + _layout.tsx useEffect to bounce to exp:// inside ASWebAuth.
 - [Security audit remediations](security-audit-remediations.md) — NC-1/NH-1/NH-2/NM-1/NM-2/NM-3/P-A/P-E all applied; rules in TECHNICAL.md §12
+- [textureHarmony gloss vs matt distinction](texture-harmony-gloss.md) — silk+cashmere is +1 (contrast), silk+satin is −5 (competing gloss); GLOSS_FABRICS=['silk','satin'] excludes leather

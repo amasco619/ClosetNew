@@ -229,8 +229,10 @@ console.log('\ntextureHarmony:');
   assert(result.textureHarmony === 3, `one statement fabric (silk top) → textureHarmony +3 (got ${result.textureHarmony})`);
 }
 
-// Two statement fabrics (cashmere + silk) → -3
-// cashmere is a statement fabric but NOT in SHINY_FABRICS, so no shiny penalty
+// Two statement fabrics (cashmere + silk) → +1 (intentional material contrast)
+// cashmere is a matt statement; silk is a gloss statement. Only 1 gloss fabric
+// (silk) so this reads as deliberate soft/fluid contrast, not competing shininess.
+// Phase 3.3B: changed from -3 to +1 to correctly reward quiet-luxury pairings.
 {
   const items: WardrobeItem[] = [
     makeItem({ id: 'a', category: 'top',    subType: 'sweater',  colorFamily: 'cream', fabric: 'cashmere' }),
@@ -241,7 +243,7 @@ console.log('\ntextureHarmony:');
     makeComponent('b', 'bottom', 'ivory'),
   ];
   const result = scoreOutfitCombo(components, items);
-  assert(result.textureHarmony === -3, `two statement fabrics (cashmere + silk) → textureHarmony -3 (got ${result.textureHarmony})`);
+  assert(result.textureHarmony === 1, `two statement fabrics (cashmere + silk) → textureHarmony +1 intentional contrast (got ${result.textureHarmony})`);
 }
 
 // All-flat fabrics (cotton + denim) → -2
@@ -303,7 +305,10 @@ console.log('\ntextureHarmony:');
   assert(result.textureHarmony === 3, `velvet top + wool trousers (one statement) → textureHarmony +3 (got ${result.textureHarmony})`);
 }
 
-// Velvet + silk → two statement fabrics → textureHarmony -3
+// Velvet + silk → two statement fabrics, 1 gloss → +1 (intentional contrast)
+// velvet is matt statement; silk is gloss statement. Only 1 gloss fabric so
+// this reads as deliberate plush/fluid contrast, not competing shininess.
+// Phase 3.3B: changed from -3 to +1 to correctly reward rich material pairings.
 {
   const items: WardrobeItem[] = [
     makeItem({ id: 'a', category: 'top',    subType: 'blouse',     colorFamily: 'navy',  fabric: 'velvet' }),
@@ -314,7 +319,7 @@ console.log('\ntextureHarmony:');
     makeComponent('b', 'bottom', 'ivory'),
   ];
   const result = scoreOutfitCombo(components, items);
-  assert(result.textureHarmony === -3, `velvet top + silk skirt (two statement fabrics) → textureHarmony -3 (got ${result.textureHarmony})`);
+  assert(result.textureHarmony === 1, `velvet top + silk skirt (intentional contrast) → textureHarmony +1 (got ${result.textureHarmony})`);
 }
 
 // jersey + corduroy → both flat → all-flat penalty → textureHarmony -2
