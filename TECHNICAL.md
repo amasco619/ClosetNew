@@ -1626,7 +1626,49 @@ Full report: `docs/phase-37-report.md`
 
 ---
 
-## 16. Key Conventions
+## 16. Phase 4 — Production Release Candidate & Engine Freeze
+
+**Date:** 2026-08-13 | **Status:** ✅ GO WITH MINOR RELEASE-HARDENING ITEMS
+
+Phase 4 establishes production readiness for the frozen Recommendation Engine v3.7. No recommendation behaviour was modified.
+
+### Changes
+
+**Production resilience (`constants/outfitScoring.ts`):**
+- Added null-guard to `passesConstraints`: `if (!profile.constraints) return true;` — prevents crash when constraints is null.
+- Added null-guard to `scoreItemForProfile`: `STYLE_PREFERRED_COLORS[styleGoalPrimary] ?? []` — prevents crash if runtime data contains an unknown `styleGoalPrimary` value.
+
+**Engine versioning (`constants/recommendationVersion.ts`):** New file. `RECOMMENDATION_ENGINE_VERSION = '3.7'`. Must be incremented only after a new benchmark run and regression comparison.
+
+**Structured telemetry (`lib/telemetry.ts`):** New file. Emits `[TELEMETRY]` JSON lines to stdout for all recommendation pipeline events. Compatible with any log aggregator. No-op in test environments. Required events: `recommendation_requested`, `recommendation_generated`, `recommendation_empty`, `user_reaction`.
+
+**TypeScript cleanup (test files only):** 15 type errors resolved across 6 benchmark files (`benchmark-phase32.ts`, `benchmark-phase34.ts`, `phase33b-quality-intelligence.test.ts`, `phase37-b20-assess.ts`, `phase37-tracks-cde.test.ts`, `phase37-weather-matrix.ts`). All errors were outdated interface references from Phases 3.2–3.4. Zero production code type changes.
+
+**New tests:**
+- `__tests__/recommendation-golden-set.ts` — permanent immutable regression guard, 35 assertions covering all 17 engine dimensions. Must pass before any future engine change.
+- `__tests__/phase4-resilience.test.ts` — error-handling, resilience, performance, and idempotency tests. 29 assertions.
+
+### Final Baseline
+
+| Metric | Phase 4 Final |
+|---|---|
+| Unit tests (`npm test`) | **45/45** |
+| TypeScript (`npm run typecheck`) | **0 errors** |
+| Server build | **✅ 69.8 KB** |
+| Expo web build | **✅ 4.03 MB** |
+| E2E benchmark | **45/45** (unchanged from Phase 3.7) |
+| Golden regression set | **35/35** |
+| Resilience tests | **29/29** |
+| Weather matrix | **8/8** |
+| Performance (100-item wardrobe) | **43 ms** |
+| GCV legacy dependencies | **0** |
+| Exposed secrets | **0** |
+
+Full report: `docs/phase-4-report.md`
+
+---
+
+## 17. Key Conventions
 
 | Convention | Rule |
 |-----------|------|

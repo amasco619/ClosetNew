@@ -226,7 +226,7 @@ function runFP2() {
       target: 'work',
       minPool: 1,
       items: [
-        mk('mc-b-o1','outerwear','blazer','camel',['work','casual'],{ fabric:'wool', pattern:'plaid' }),
+        mk('mc-b-o1','outerwear','blazer','camel',['work','casual'],{ fabric:'wool', pattern:'check' }),
         mk('mc-b-t1','top','blouse','cream',['work'],{ fabric:'silk' }),
         mk('mc-b-b1','bottom','trousers','black',['work'],{ fabric:'wool', fit:'tailored' }),
         mk('mc-b-b2','bottom','midi-skirt','black',['work','casual'],),
@@ -295,7 +295,7 @@ function runFP2() {
       target: 'night-out',
       minPool: 1,
       items: [
-        mk('mc-f-t1','top','camisole','black',['night-out','date-dressy'],{ fabric:'silk', pattern:'animal-print' }),
+        mk('mc-f-t1','top','camisole','black',['night-out','date-dressy'],{ fabric:'silk', pattern:'animal' }),
         mk('mc-f-b1','bottom','midi-skirt','black',['night-out','date-dressy'],{ fabric:'satin', fit:'slim' }),
         mk('mc-f-b2','bottom','wide-leg','black',['night-out','date-dressy'],{ fabric:'satin' }),
         mk('mc-f-s1','shoes','heels','black',['night-out','event'],{ fabric:'suede' }),
@@ -312,7 +312,7 @@ function runFP2() {
       target: 'resort',
       minPool: 1,
       items: [
-        mk('mc-g-t1','top','t-shirt','blue',['casual','resort'],{ pattern:'tie-dye' }),
+        mk('mc-g-t1','top','t-shirt','blue',['casual','resort'],{ pattern:'print' }),
         mk('mc-g-b1','bottom','shorts','white',['casual','resort'],),
         mk('mc-g-b2','bottom','jeans','blue',['casual'],),
         mk('mc-g-s1','shoes','sandals','white',['casual','resort'],),

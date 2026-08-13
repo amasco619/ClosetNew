@@ -4,7 +4,8 @@
  * Determine root cause without implementing a B20-specific fix.
  */
 import { generateOutfitPool } from '../constants/outfitRotation';
-import { scoreOutfitCombo, type OutfitComponent } from '../constants/outfitScoring';
+import { scoreOutfitCombo } from '../constants/outfitScoring';
+import type { OutfitComponent } from '../constants/types';
 import type { WardrobeItem, UserProfile, OccasionTag } from '../constants/types';
 
 const PH = 'test://ph';

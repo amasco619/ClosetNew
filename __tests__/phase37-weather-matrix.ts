@@ -2,7 +2,8 @@
  * Phase 3.7 §12 — Required Weather Test Matrix
  * Heavy rain / Moderate rain / Light rain / Dry / Cold+rain / Warm+rain / Cold+dry / Hot+dry
  */
-import { generateOutfitPool, EMPTY_AFFINITY } from '../constants/outfitRotation';
+import { generateOutfitPool } from '../constants/outfitRotation';
+import { EMPTY_AFFINITY } from '../constants/affinity';
 import type { WardrobeItem, UserProfile, OccasionTag, WeatherSnapshot } from '../constants/types';
 
 const PH = 'test://ph';

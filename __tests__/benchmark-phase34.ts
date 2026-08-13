@@ -23,8 +23,8 @@
  * Future comparison: run against modified engine, compare output metrics.
  */
 
-import { WardrobeItem, UserProfile, OutfitComponent, Season, Fabric, OccasionTag } from '../constants/types';
-import { scoreOutfitCombo } from '../constants/outfitScoring';
+import { WardrobeItem, UserProfile, OutfitComponent, Fabric, OccasionTag } from '../constants/types';
+import { scoreOutfitCombo, type Season } from '../constants/outfitScoring';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -98,7 +98,7 @@ function mkp(o: Partial<UserProfile> = {}): UserProfile {
 
 function internalScore(outfit: WardrobeItem[], profile: UserProfile, season: Season = 'spring'): number {
   const comps: OutfitComponent[] = outfit.map(i => ({
-    id: i.id, category: i.category, colorFamily: i.colorFamily, matchedItemId: i.id,
+    category: i.category, subType: i.subType, colorFamily: i.colorFamily, matchedItemId: i.id, owned: true,
   }));
   return scoreOutfitCombo(comps, outfit, profile, season).total;
 }
@@ -541,7 +541,7 @@ const SETS: CompSet[] = [
     id: 'CS08', cat: 'material',
     desc: 'Velvet blazer: wool vs leather vs denim — material companions for statement piece',
     tradeoff: 'Can the engine rank material-appropriate companions for velvet?',
-    prof: mkp({ styleGoalPrimary: 'classic' }), season: 'autumn',
+    prof: mkp({ styleGoalPrimary: 'classic' }), season: 'fall',
     candidates: [
       { id: 'A', desc: 'Velvet blazer + slim wool trousers + black pumps (rich contrast)', items: [c_velv_blz, c_wool_slim, c_blk_pump], ext: 84 },
       { id: 'B', desc: 'Velvet blazer + leather trousers + pumps (two bold textures)',     items: [c_velv_blz, c_lth_tr,   c_blk_pump], ext: 72 },
@@ -553,7 +553,7 @@ const SETS: CompSet[] = [
     id: 'CS09', cat: 'material',
     desc: 'Cashmere sweater: wool midi vs denim vs jersey/leggings vs silk+velvet',
     tradeoff: 'Does material richness stack correctly?',
-    prof: mkp({ styleGoalPrimary: 'classic' }), season: 'autumn',
+    prof: mkp({ styleGoalPrimary: 'classic' }), season: 'fall',
     candidates: [
       { id: 'A', desc: 'Cashmere sweater + wool midi + leather ankle boots',     items: [c_cash_sw2, c_wool_midi, c_lth_boots], ext: 84 },
       { id: 'B', desc: 'Cashmere sweater + slim denim + sneakers',               items: [c_cash_sw2, c_denim_jn,  c_sn], ext: 69 },
@@ -667,7 +667,7 @@ const SETS: CompSet[] = [
     id: 'CS18', cat: 'formality',
     desc: 'Evening: ivory satin gown vs black velvet midi vs satin blazer+silk vs synthetic cocktail',
     tradeoff: 'Does the engine distinguish appropriate evening elegance from over-the-top?',
-    prof: mkp({ styleGoalPrimary: 'romantic' }), season: 'autumn',
+    prof: mkp({ styleGoalPrimary: 'romantic' }), season: 'fall',
     candidates: [
       { id: 'A', desc: 'Ivory satin gown + nude heels (over-the-top for dinner)',              items: [f_gown,     f_nude_h], ext: 70 },
       { id: 'B', desc: 'Black velvet midi + nude heels + gold earrings (refined evening)',     items: [f_velv_midi, f_nude_h,  f_gold_ear2], ext: 88 },
@@ -696,7 +696,7 @@ const SETS: CompSet[] = [
     id: 'CS20', cat: 'practicality',
     desc: 'Rainy day: trench+boots vs exposed silk+suede vs wax jacket vs leather jacket',
     tradeoff: 'Does the engine rank rain-appropriate footwear and outerwear correctly?',
-    prof: mkp({ styleGoalPrimary: 'classic' }), season: 'autumn',
+    prof: mkp({ styleGoalPrimary: 'classic' }), season: 'fall',
     candidates: [
       { id: 'A', desc: 'Camel trench + wool turtleneck + black wool trousers + leather boots (rain-ready)', items: [g_trench, g_wool_tnk, g_blk_wool_t, g_lth_boot2], ext: 86 },
       { id: 'B', desc: 'Blush silk dress + suede loafers, no outerwear (rain disaster)',                    items: [g_silk_dress2, g_suede_lf], ext: 48 },
@@ -734,7 +734,7 @@ const SETS: CompSet[] = [
     id: 'CS23', cat: 'tonal',
     desc: 'Warm tonal stack vs warm+cool break vs cool mix vs warm clash',
     tradeoff: 'Does temperature harmony correctly reward warm-tonal cohesion?',
-    prof: mkp({ styleGoalPrimary: 'classic' }), season: 'autumn',
+    prof: mkp({ styleGoalPrimary: 'classic' }), season: 'fall',
     candidates: [
       { id: 'A', desc: 'Camel coat + cream cashmere + tan trousers + tan boots (warm tonal)', items: [h_cam_coat, h_cr_cash, h_tan_tr, h_tan_boot], ext: 89 },
       { id: 'B', desc: 'Camel coat + white shirt + blue jeans + tan boots (warm coat, cool break)', items: [h_cam_coat, h_wht_shirt, h_blue_jn, h_tan_boot], ext: 71 },
@@ -772,7 +772,7 @@ const SETS: CompSet[] = [
     id: 'CS26', cat: 'visual-hierarchy',
     desc: 'Hero competition: two loud heroes vs leather sole hero vs two statement vs satin sole hero',
     tradeoff: 'Does the engine understand that two statement pieces compete rather than combine?',
-    prof: mkp({ styleGoalPrimary: 'romantic' }), season: 'autumn',
+    prof: mkp({ styleGoalPrimary: 'romantic' }), season: 'fall',
     candidates: [
       { id: 'A', desc: 'Leather jacket + gold satin skirt + nude heels (two competing heroes)',        items: [i_lth_jkt, i_gold_satin, i_nude_heel2], ext: 63 },
       { id: 'B', desc: 'Leather jacket + black slim jeans + white tee + black heels (leather hero)',  items: [i_lth_jkt, i_blk_jn, i_blk_tee, i_blk_heel], ext: 84 },
@@ -811,7 +811,7 @@ const SETS: CompSet[] = [
     id: 'CS29', cat: 'quiet-luxury',
     desc: 'Elevated casual: cashmere+wool+loafers vs logo-casual vs silk cami vs merino turtleneck vs denim+leather',
     tradeoff: 'Does the engine recognise elevated casual quality over branded/trend-led casual?',
-    prof: mkp({ styleGoalPrimary: 'minimal' }), season: 'autumn',
+    prof: mkp({ styleGoalPrimary: 'minimal' }), season: 'fall',
     candidates: [
       { id: 'A', desc: 'Camel cashmere sweater + black wool trousers + tan leather loafers',     items: [j_cam_cash, j_blk_wool_t, j_tan_lf], ext: 85 },
       { id: 'B', desc: 'Oversized cotton hoodie + loose denim + white sneakers (branded casual)', items: [j_ov_cot,   j_loose_jn,   j_wht_sn], ext: 56 },
@@ -824,7 +824,7 @@ const SETS: CompSet[] = [
     id: 'CS30', cat: 'quiet-luxury',
     desc: 'Evening quiet luxury: velvet midi vs gold sequin mini vs synthetic cocktail vs satin blazer vs jersey wrap',
     tradeoff: 'Does the engine distinguish refined velvet from overtly glittery alternatives?',
-    prof: mkp({ styleGoalPrimary: 'romantic' }), season: 'autumn',
+    prof: mkp({ styleGoalPrimary: 'romantic' }), season: 'fall',
     candidates: [
       { id: 'A', desc: 'Black velvet midi + nude heels + gold earrings (refined evening)',       items: [j_velv_dr, j_nude_heel2, j_gold_ear], ext: 88 },
       { id: 'B', desc: 'Gold sequin mini dress + gold strappy heels (overtly glittery)',         items: [j_seq_mini, j_gold_heel], ext: 66 },
@@ -896,7 +896,7 @@ const PAIRS: Pair[] = [
          items: [mk('ap07bdr','dress','slip-dress','cream','silk',5,['date-dressy','brunch']), mk('ap07bj','jewelry','earrings','gold','leather',4,['brunch']), mk('ap07bs','shoes','heels','nude','leather',5,['brunch'])] },
   },
   {
-    id: 'AP08', cat: 'formality', prof: mkp(), season: 'autumn',
+    id: 'AP08', cat: 'formality', prof: mkp(), season: 'fall',
     desc: 'Puffer+cargo (trend-led) vs camel wool coat+slim trousers (timeless)',
     a: { desc: 'Oversized synthetic puffer + olive cargo trousers + chunky sneakers', ext: 58,
          items: [mk('ap08aow','outerwear','coat','black','synthetic',2,['casual']), mk('ap08ab','bottom','trousers','olive','cotton',2,['casual'],{fit:'loose'}), mk('ap08as','shoes','sneakers','white','synthetic',1,['casual'])] },
@@ -944,7 +944,7 @@ const PAIRS: Pair[] = [
          items: [mk('ap13bt','top','blouse','multicolour','cotton',3,['casual'],{pattern:'floral',patternScale:'large'} as any), mk('ap13bb','bottom','midi-skirt','black','cotton',3,['casual']), mk('ap13bs','shoes','sandals','tan','leather',3,['casual'])] },
   },
   {
-    id: 'AP14', cat: 'visual-hierarchy', prof: mkp(), season: 'autumn',
+    id: 'AP14', cat: 'visual-hierarchy', prof: mkp(), season: 'fall',
     desc: 'Leather jacket + gold satin skirt (two heroes) vs leather jacket + black jeans (one hero)',
     a: { desc: 'Leather jacket + gold satin skirt + black heels (two competing statement heroes)', ext: 62,
          items: [mk('ap14aow','outerwear','leather-jacket','black','leather',4,['casual']), mk('ap14ab','bottom','midi-skirt','gold','satin',5,['date-dressy']), mk('ap14as','shoes','heels','black','leather',4,['date-dressy'])] },

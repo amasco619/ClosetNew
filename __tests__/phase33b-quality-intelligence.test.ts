@@ -47,7 +47,7 @@ function item(overrides: Partial<WardrobeItem> & Pick<WardrobeItem, 'category' |
 }
 
 function component(id: string, category: WardrobeItem['category']): OutfitComponent {
-  return { id, category, colorFamily: 'black' };
+  return { matchedItemId: id, category, subType: '', colorFamily: 'black', owned: true };
 }
 
 function profile(overrides: Partial<UserProfile> = {}): UserProfile {
@@ -210,8 +210,8 @@ function profile(overrides: Partial<UserProfile> = {}): UserProfile {
   ];
 
   // matchedItemId is required for scoreOutfitCombo to resolve item fabrics
-  const ql1Comps: OutfitComponent[] = ql1Items.map(i => ({ id: i.id, category: i.category, colorFamily: i.colorFamily, matchedItemId: i.id }));
-  const ql2Comps: OutfitComponent[] = ql2Items.map(i => ({ id: i.id, category: i.category, colorFamily: i.colorFamily, matchedItemId: i.id }));
+  const ql1Comps: OutfitComponent[] = ql1Items.map(i => ({ category: i.category, subType: i.subType, colorFamily: i.colorFamily, matchedItemId: i.id, owned: true }));
+  const ql2Comps: OutfitComponent[] = ql2Items.map(i => ({ category: i.category, subType: i.subType, colorFamily: i.colorFamily, matchedItemId: i.id, owned: true }));
 
   const ql1Score = scoreOutfitCombo(ql1Comps, ql1Items);
   const ql2Score = scoreOutfitCombo(ql2Comps, ql2Items);
@@ -243,7 +243,7 @@ function profile(overrides: Partial<UserProfile> = {}): UserProfile {
     id: 'f-jns', category: 'bottom', subType: 'jeans',
     fabric: 'denim', colorFamily: 'blue', formalityLevel: 2, occasionTags: ['casual'], weight: 'mid',
   });
-  const comps: OutfitComponent[] = [leather, tee, jeans].map(i => ({ id: i.id, category: i.category, colorFamily: i.colorFamily, matchedItemId: i.id }));
+  const comps: OutfitComponent[] = [leather, tee, jeans].map(i => ({ category: i.category, subType: i.subType, colorFamily: i.colorFamily, matchedItemId: i.id, owned: true }));
   const result = scoreOutfitCombo(comps, [leather, tee, jeans]);
   assert(result.textureHarmony === 3, `F1: leather hero + flat pieces → textureHarmony +3 (got ${result.textureHarmony})`);
 }

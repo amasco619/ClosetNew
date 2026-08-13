@@ -9,8 +9,9 @@ import { EMPTY_AFFINITY } from '../constants/affinity';
 import type {
   WardrobeItem, UserProfile, OccasionTag, SeasonTag,
   OutfitSet, OutfitComponent, WearEntry, OutfitReaction,
-  WeatherSnapshot, AffinityState,
+  WeatherSnapshot,
 } from '../constants/types';
+import type { AffinityState } from '../constants/affinity';
 import type { OutfitScoreBreakdown } from '../constants/outfitScoring';
 
 // ─── Fixture helpers ────────────────────────────────────────────────────────
@@ -138,7 +139,7 @@ function proportionScore(items: WardrobeItem[], prof: UserProfile): { score: num
   }
 
   // Body-type considerations
-  if (prof.bodyType === 'petite' && prof.heightBand === 'petite') {
+  if (prof.heightBand === 'petite') {
     if (bot.subType === 'wide-leg' && (topFit === 'oversized' || topFit === 'loose')) {
       score -= 1; reasons.push('wide-leg + oversized shortens petite frame');
     }
@@ -1039,7 +1040,7 @@ const mildWeather = weather({ currentTempC: 18, highC: 22, lowC: 14, precipProba
   const s = item({ id: 'ad4-shoe1', category: 'shoes', subType: 'loafers', colorFamily: 'tan', fabric: 'leather', formalityLevel: 4, occasionTags: ['work','casual'] });
   results.push(runScenario('AD4','Adversarial','Adversarial: Beautiful colour, terrible proportion','Cream silk oversized + camel linen oversized + low rise — palette scores high, proportion fails',
     'Double-volume oversized + low-rise creates shapeless silhouette despite harmonious palette. Rubric divergence expected.',
-    [t,b,s], profile({ bodyType:'petite', heightBand:'petite', styleGoalPrimary:'minimal' }), 'brunch'));
+    [t,b,s], profile({ bodyType: null, heightBand:'petite', styleGoalPrimary:'minimal' }), 'brunch'));
 }
 {
   // AD5: Excellent individual garments, incoherent overall (formality mismatch)
@@ -1275,6 +1276,6 @@ const occasions391: OccasionTag[] = ['work', 'casual', 'date-casual', 'brunch'];
 occasions391.forEach(occ => {
   const occPool = pool391[occ] ?? [];
   const match = occPool.find(o => o.components.map(c => c.matchedItemId).filter(Boolean).sort().join('|') === targetFp391);
-  console.log(`Occasion ${occ}: outfit score=${match ? match.confidenceScore.toFixed(2) : 'not in pool'}`);
+  console.log(`Occasion ${occ}: outfit score=${match ? (match.confidenceScore ?? 0).toFixed(2) : 'not in pool'}`);
 });
 console.log('#391 CONCLUSION: If the same outfit appears in multiple occasion pools, its confidenceScore LEGITIMATELY differs because scoreOutfitCombo receives the season context but the formality/occasion gating varies by scenario. The first-occurrence-wins dedup then arbitrarily picks one score. This is a real (not theoretical) inconsistency, but whether it harms users depends on which occasion pool first encounters the outfit.');

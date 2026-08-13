@@ -1,0 +1,952 @@
+PHASE 4 — PRODUCTION RELEASE CANDIDATE & RECOMMENDATION ENGINE FREEZE
+
+You are continuing AuraCloset development after completion of:
+
+Phase 3.1 — Controlled P0 Improvements
+Phase 3.2 — Recommendation Quality Benchmark
+Phase 3.3A — Candidate Generation Robustness
+Phase 3.3B — Recommendation Quality Intelligence
+Phase 3.4 — Ranking Calibration & Gold-Standard Benchmark V2
+Phase 3.5 — Targeted Ranking Calibration
+Phase 3.6 — End-to-End Production Readiness Benchmark
+Phase 3.7 — Final Targeted Calibration & Launch Hardening
+CURRENT STATUS
+
+Phase 3.7 is complete.
+
+The recommendation engine has been classified:
+
+FREEZE WITH MONITORING — READY FOR PRODUCTION RELEASE CANDIDATE
+
+Phase 3.7 final E2E results:
+
+45/45 scenarios passing
+100% recommendation generation
+0% empty-pool rate in the benchmark
+Mean external quality: 88.8/100
+Median external quality: 91/100
+Mean regret: 2.0
+Median regret: 1
+Maximum regret: 14
+0 hard-constraint violations
+42/45 top-3 capture using the Phase 3.6 definition (regret ≤5)
+Personalisation confirmed
+Context sensitivity confirmed
+Freshness confirmed
+Weather matrix: 8/8 passing
+Unit tests: 44/44 according to the Phase 3.7 execution summary
+
+The only production recommendation-engine change made in Phase 3.7 was the targeted rain-suitability fix:
+
+constants/weatherPure.ts
+constants/outfitRotation.ts
+
+FP-1 was investigated and not reproduced E2E.
+
+FP-2 was investigated and not reproduced as a production problem.
+
+FE-4/material-quality perception was investigated and Gemini was deferred.
+
+B20 was investigated and classified as a bounded evaluator disagreement rather than a justified scoring defect.
+
+Therefore:
+
+THE RECOMMENDATION ENGINE IS NOW FROZEN.
+
+1. PRIMARY OBJECTIVE
+
+Phase 4 is:
+
+Production Release Candidate & Recommendation Engine Freeze
+
+The objective is no longer to improve recommendation quality.
+
+The objective is to establish that the current AuraCloset implementation is:
+
+buildable;
+testable;
+reliable;
+observable;
+performant;
+operationally safe;
+resilient to malformed/incomplete data;
+free of unintended legacy dependencies;
+ready to become the Production Release Candidate.
+2. ABSOLUTE NON-NEGOTIABLE RULE
+DO NOT MODIFY RECOMMENDATION BEHAVIOUR.
+
+During Phase 4, you must NOT change:
+
+scoring weights;
+scoring formulas;
+ranking logic;
+candidate-generation logic;
+hard constraints;
+fallback logic;
+weather recommendation logic;
+silhouette logic;
+formality logic;
+material scoring;
+colour scoring;
+pattern scoring;
+visual hierarchy;
+freshness scoring;
+personalisation scoring;
+recommendation thresholds;
+candidate ordering;
+recommendation selection;
+Gemini recommendation logic.
+
+Do not "clean up" recommendation logic.
+
+Do not refactor recommendation logic unless the refactor is provably behaviour-preserving and required for release engineering.
+
+Do not improve any benchmark result.
+
+Do not add a new styling heuristic.
+
+Do not implement FE-4.
+
+Do not implement FP-1.
+
+Do not implement FP-2.
+
+Do not introduce Gemini into ranking.
+
+3. WHAT COUNTS AS A PRODUCTION-CODE CHANGE?
+
+A production-code change is permitted only if it addresses:
+
+reliability;
+error handling;
+observability;
+performance;
+build/deployment;
+security;
+type safety;
+resource management;
+logging;
+testability;
+operational resilience;
+
+and does not alter recommendation semantics.
+
+If you discover a recommendation-quality issue during Phase 4:
+
+DO NOT FIX IT.
+
+Document it in the report and add it to the post-launch backlog.
+
+4. FIRST TASK — ESTABLISH THE RELEASE BASELINE
+
+Before making changes, capture:
+
+Repository state
+git status;
+current commit/hash if available;
+package version;
+Node/runtime version;
+dependency versions;
+build configuration.
+Tests
+
+Run:
+
+unit tests;
+integration tests;
+Phase 3.4 benchmark;
+Phase 3.5 benchmark;
+Phase 3.6 benchmark;
+Phase 3.7 tests.
+
+Record exact results.
+
+Do not assume the report's numbers are current.
+
+5. RESOLVE THE PHASE 3.7 REPORTING INCONSISTENCY
+
+Phase 3.7 contains a minor reporting inconsistency:
+
+The execution summary states:
+
+44 tests passed
+
+but the final regression matrix states:
+
+43/43
+
+and indicates that a new Phase 3.7 test file was added.
+
+Determine the actual current test count.
+
+Then establish one authoritative number.
+
+Do not modify tests merely to make the number look better.
+
+The goal is accurate reporting.
+
+6. TYPECHECK CLEANUP
+
+Phase 3.7 identified 10 pre-existing TypeScript errors in:
+
+benchmark-phase32.ts
+benchmark-phase34.ts
+phase33b-quality-intelligence.test.ts
+
+These currently prevent a clean npm run typecheck.
+
+This needs to be investigated.
+
+IMPORTANT
+
+Do not "fix" these by weakening TypeScript configuration.
+
+Do not:
+
+disable strict mode;
+suppress all errors;
+add broad any;
+exclude files from typechecking without justification;
+hide errors.
+
+Determine whether these are:
+
+A
+
+Test/benchmark-only typing defects.
+
+B
+
+Production code typing defects.
+
+C
+
+Outdated benchmark interfaces.
+
+If they are test/benchmark-only:
+
+clean them up safely.
+
+If they expose a production typing issue:
+
+fix the underlying issue without altering recommendation behaviour.
+
+At the end, aim for:
+
+clean production typecheck
+
+and document any intentionally excluded benchmark-only scripts if they genuinely cannot be brought under the same configuration.
+
+7. PRODUCTION BUILD
+
+Establish the exact production build process.
+
+Run:
+
+application build;
+backend build;
+frontend build;
+relevant Expo/React Native production checks;
+server build if applicable.
+
+Identify:
+
+build errors;
+warnings;
+unresolved imports;
+dead modules;
+environment-variable dependencies;
+platform-specific problems.
+
+Do not alter recommendation behaviour to resolve build problems.
+
+8. LEGACY CODE AUDIT
+
+Perform a final targeted audit for the legacy GCV implementation that was intentionally removed earlier.
+
+Search the repository for:
+
+Google Cloud Vision imports;
+GCV API calls;
+legacy classification endpoints;
+unused GCV configuration;
+GCV environment variables;
+stale comments;
+dead dependencies;
+obsolete classification helpers.
+
+Do not remove unrelated code.
+
+The objective is:
+
+No active production dependency on legacy GCV classification.
+
+If remnants exist:
+
+If dead and clearly obsolete:
+
+Remove them.
+
+If still referenced:
+
+Determine why before deleting.
+
+Do not blindly remove anything that could break production.
+
+9. GEMINI ARCHITECTURE AUDIT
+
+Confirm the current architecture is consistent with our decision.
+
+Gemini must NOT be responsible for:
+
+choosing the final outfit;
+ranking outfits;
+overriding deterministic ranking;
+deciding whether an outfit is appropriate;
+making per-ranking inference calls.
+
+If Gemini is currently used for garment analysis, document:
+
+when it is called;
+what data it returns;
+where the result is stored;
+what happens when it fails;
+whether the recommendation engine can function without it.
+
+The preferred architecture remains:
+
+Garment image
+      ↓
+Gemini / garment perception
+      ↓
+Structured metadata
+      ↓
+Deterministic recommendation engine
+      ↓
+Ranked recommendation
+
+If the current implementation differs, do not redesign it automatically.
+
+Report the discrepancy.
+
+10. ENVIRONMENT / SECRET AUDIT
+
+Check for:
+
+Gemini API keys;
+Supabase credentials;
+backend secrets;
+service-role keys;
+API tokens;
+development-only credentials;
+hard-coded secrets;
+accidentally committed .env values.
+
+Ensure secrets are not bundled into client-side code.
+
+Do not print secret values in logs or the final report.
+
+11. ERROR-HANDLING RESILIENCE
+
+Test the recommendation pipeline against incomplete or malformed data.
+
+At minimum:
+
+User profile
+missing body type;
+missing style goal;
+missing preferences;
+incomplete profile.
+Wardrobe
+empty wardrobe;
+one garment;
+incomplete garment;
+missing colour;
+missing fabric;
+missing subtype;
+missing pattern;
+malformed garment metadata;
+duplicate garment IDs.
+Context
+missing weather;
+missing occasion;
+unknown occasion;
+malformed weather;
+unavailable weather service.
+AI metadata
+Gemini unavailable;
+Gemini timeout;
+malformed Gemini response;
+missing confidence;
+null fabric;
+unexpected classification.
+
+The system should:
+
+fail gracefully rather than crash or produce an obviously invalid recommendation.
+
+Do not change recommendation scoring to make these tests pass.
+
+12. EMPTY-WARDROBE BEHAVIOUR
+
+Explicitly test:
+
+Zero wardrobe items
+
+Expected:
+
+no recommendation + appropriate empty state.
+
+Do not fabricate an outfit.
+
+Insufficient wardrobe
+
+Expected:
+
+sensible fallback/empty behaviour according to existing product logic.
+
+Legitimate contextual impossibility
+
+Example:
+
+cold + rain + no suitable waterproof warm outerwear.
+
+Expected:
+
+no inappropriate outfit should be fabricated.
+
+The app should eventually be able to explain the wardrobe gap.
+
+Do not weaken hard constraints.
+
+13. PERFORMANCE BENCHMARK
+
+Measure recommendation performance with:
+
+4-item wardrobe
+10-item wardrobe
+20-item wardrobe
+30-item wardrobe
+50-item wardrobe
+100-item stress test
+
+Measure:
+
+candidate-generation latency;
+scoring latency;
+ranking latency;
+total recommendation latency;
+memory if practical;
+number of candidate combinations;
+API/database calls.
+
+Identify whether candidate growth is:
+
+linear;
+polynomial;
+combinatorial;
+bounded by existing limits.
+
+Do not optimise prematurely.
+
+If performance is already acceptable:
+
+document it and move on.
+
+14. PERFORMANCE SUCCESS CRITERIA
+
+Establish actual measured values.
+
+Do not invent targets.
+
+Report:
+
+Wardrobe size	Candidate count	Generation ms	Ranking ms	Total ms
+4				
+10				
+20				
+30				
+50				
+100				
+
+If a serious performance cliff appears:
+
+document it first.
+
+Do not rewrite the engine automatically.
+
+15. API / DATABASE RESILIENCE
+
+Test relevant failures:
+
+Supabase unavailable
+Database timeout
+Network timeout
+Gemini timeout
+Gemini rate limit
+Weather API failure
+Partial wardrobe retrieval
+Duplicate response
+Retry scenario
+
+Confirm that the application:
+
+does not crash;
+does not create duplicate wardrobe entries;
+does not create duplicate recommendations;
+does not silently corrupt data;
+fails gracefully.
+16. IDEMPOTENCY
+
+Where relevant, verify:
+
+Upload
+
+Repeated upload doesn't create unintended duplicates.
+
+Gemini analysis
+
+Repeated analysis doesn't corrupt metadata.
+
+Recommendation request
+
+Repeated request doesn't create inconsistent state.
+
+Retry
+
+Network retry doesn't duplicate persisted records.
+
+17. OBSERVABILITY
+
+Introduce or verify structured telemetry for the recommendation pipeline.
+
+At minimum capture:
+
+recommendation_requested
+recommendation_generated
+recommendation_empty
+candidate_pool_size
+generation_path
+hard_gate_rejection_count
+recommendation_latency
+ranking_latency
+recommendation_id
+user_reaction
+
+Where supported, also capture:
+
+weather_context
+occasion
+wardrobe_size
+body_type
+style_goal
+
+Do NOT log:
+
+secrets;
+access tokens;
+unnecessary personal data;
+raw garment images.
+18. RECOMMENDATION VERSIONING
+
+Introduce a clear recommendation-engine version identifier if one does not already exist.
+
+For example:
+
+recommendationEngineVersion = "3.7"
+
+or another appropriate versioning scheme.
+
+The exact implementation is up to you.
+
+The important requirement is:
+
+We must be able to identify which recommendation-engine version produced a recommendation.
+
+This will be critical after launch.
+
+Do not alter recommendation behaviour.
+
+19. GOLDEN REGRESSION SET
+
+Create or formalise a permanent:
+
+__tests__/recommendation-golden-set.ts
+
+or equivalent.
+
+It should preserve representative cases covering:
+
+candidate generation;
+weather;
+hard constraints;
+body shape;
+silhouette;
+material;
+minimalism;
+tonal dressing;
+pattern safety;
+visual hierarchy;
+personalisation;
+freshness;
+fallback;
+quiet luxury;
+B15 rain case;
+B20 monitoring case;
+FP-1 regression;
+FP-2 regression.
+
+The golden set should be treated as:
+
+immutable recommendation-engine regression coverage.
+
+Future recommendation changes must pass it.
+
+Do not optimise the golden set itself to accommodate future failures.
+
+20. RELEASE-CANDIDATE TEST MATRIX
+
+Create a final matrix:
+
+Area	Test	Result
+Unit	All unit tests	
+Integration	Integration suite	
+TypeScript	Typecheck	
+Build	Production build	
+Recommendation	Phase 3.4	
+Recommendation	Phase 3.5	
+Recommendation	Phase 3.6	
+Recommendation	Phase 3.7	
+Golden set	All scenarios	
+Error handling	Malformed data	
+API resilience	Failure scenarios	
+Performance	4–100 item wardrobes	
+Secrets	Secret audit	
+Legacy GCV	Dependency audit	
+Gemini	Architecture audit	
+21. SECURITY CHECK
+
+Perform a targeted production-readiness security review.
+
+Check:
+
+secrets;
+authentication boundaries;
+authorisation;
+Supabase Row Level Security if applicable;
+API input validation;
+file/image upload validation;
+malicious/oversized input;
+logging;
+exposed development endpoints;
+debug mode;
+CORS;
+rate limiting where relevant.
+
+Do not expand this into a complete security audit unless a material issue is discovered.
+
+22. LOGGING QUALITY
+
+Check for:
+
+console.log debugging;
+sensitive information in logs;
+excessive recommendation logging;
+unstructured errors;
+swallowed exceptions.
+
+Replace only where appropriate.
+
+Do not remove useful operational diagnostics.
+
+23. DEAD CODE / DEPENDENCY AUDIT
+
+Identify:
+
+unused packages;
+obsolete GCV packages;
+dead recommendation helpers;
+abandoned experimental Gemini code;
+unused environment variables;
+duplicate implementations.
+
+Do not remove a dependency solely because it looks unused.
+
+Verify it first.
+
+24. MOBILE-SPECIFIC RELEASE CHECKS
+
+Because AuraCloset is an Expo/React Native application, verify:
+
+production bundle;
+navigation;
+AsyncStorage persistence;
+image upload;
+camera/gallery permissions;
+offline/poor-network behaviour;
+app restart behaviour;
+state restoration;
+recommendation loading states;
+recommendation error states.
+
+Do not redesign UI in Phase 4.
+
+25. NO FEATURE CREEP
+
+Do NOT add:
+
+new recommendation features;
+new scoring dimensions;
+new AI features;
+new wardrobe features;
+new social features;
+new commerce features;
+new gamification;
+new ranking heuristics.
+
+If you identify a useful idea:
+
+add it to the backlog.
+
+Do not implement it.
+
+26. POST-LAUNCH BACKLOG
+
+Create/update a documented backlog containing the following known items.
+
+Conditional
+FE-4 — Material quality perception
+
+Trigger:
+
+recurring production failures caused by same-subtype garments with missing/insufficient fabric metadata.
+
+Potential future architecture:
+
+Gemini upload-time perception → structured metadata → deterministic ranking.
+
+B20-class silhouette/evaluator disagreement
+
+Trigger:
+
+materially poor adoption for pear/A-line recommendations or repeated >20-point equivalent regret.
+
+Do not modify now.
+
+Post-launch intelligence
+
+Track:
+
+recommendation acceptance;
+Love / Not Today reactions;
+outfit adoption;
+outfit repeat rate;
+recommendation diversity;
+user-specific preference learning;
+wardrobe gaps;
+underused wardrobe items;
+style evolution;
+explainable recommendations.
+27. INITIAL PRODUCTION MONITORING THRESHOLDS
+
+Carry forward these Phase 3.7 thresholds as initial operational alerts, not immutable product KPIs:
+
+Signal	Initial threshold
+Empty generation with ≥10 wardrobe items	Immediate investigation
+Hard-constraint violation	Immediate investigation
+Outfit repeat rate	>30% within 7 days
+Love reaction rate	<15%
+Relaxed-path rate	>20%
+B20-class regret	>20
+
+Do not present these as statistically validated production thresholds.
+
+They are initial guardrails.
+
+After sufficient real-user data, recalibrate them.
+
+28. RELEASE-CANDIDATE CRITERIA
+
+The RC is acceptable if:
+
+Build
+
+Production build succeeds.
+
+Type safety
+
+No unresolved production TypeScript errors.
+
+Tests
+
+All required tests pass.
+
+Recommendation
+
+Golden set passes.
+
+Regression
+
+No Phase 3.7 regression.
+
+Security
+
+No critical/high-risk release blocker discovered.
+
+Secrets
+
+No exposed production secrets.
+
+Reliability
+
+Known failure modes degrade gracefully.
+
+Performance
+
+No unacceptable latency cliff.
+
+Observability
+
+Recommendation outcomes can be monitored.
+
+Legacy
+
+No active legacy GCV dependency remains.
+
+29. IF SOMETHING FAILS
+
+Do NOT immediately fix it.
+
+Classify it:
+
+RELEASE BLOCKER
+
+Security, data corruption, crash, broken production build, invalid recommendation caused by a hard constraint, or serious reliability issue.
+
+RELEASE-HARDENING FIX
+
+Small behaviour-preserving engineering fix.
+
+POST-LAUNCH
+
+Quality improvement that does not prevent launch.
+
+BACKLOG
+
+Feature/improvement opportunity.
+
+Every finding must receive one classification.
+
+30. RECOMMENDATION ENGINE FREEZE
+
+At the end of Phase 4, explicitly state:
+
+Recommendation Engine v3.7 is frozen.
+
+No recommendation-quality modification should be made after this point without:
+
+a new hypothesis;
+a benchmark;
+a controlled experiment;
+regression comparison;
+explicit approval.
+
+This is critical.
+
+We are moving from:
+
+optimisation
+
+to:
+
+controlled production operation.
+
+31. REQUIRED FINAL REPORT
+
+Return:
+
+PHASE 4 — PRODUCTION RELEASE CANDIDATE REPORT
+1. Executive Summary
+
+Maximum 15 bullets.
+
+2. Current Version / Repository State
+3. Test Baseline
+4. TypeScript / Typecheck
+5. Production Build
+6. Legacy GCV Audit
+7. Gemini Architecture Audit
+8. Secrets / Environment Audit
+9. Error-Handling & Resilience
+10. Empty-Wardrobe / Edge Cases
+11. API / Database Resilience
+12. Idempotency
+13. Performance Benchmark
+14. Observability
+15. Recommendation Versioning
+16. Golden Regression Set
+17. Security Review
+18. Dead Code / Dependency Audit
+19. Mobile Release Checks
+20. Final Test Matrix
+21. Findings
+
+For every finding:
+
+Finding	Severity	Classification	Action
+
+Classification must be one of:
+
+RELEASE BLOCKER
+RELEASE-HARDENING FIX
+POST-LAUNCH
+BACKLOG
+22. Post-Launch Recommendation Backlog
+23. Recommendation Engine Freeze
+
+Confirm whether:
+
+Recommendation Engine v3.7 is frozen.
+
+24. Production Release Candidate Decision
+
+Choose exactly one:
+
+GO — READY FOR PRODUCTION RELEASE CANDIDATE
+GO WITH MINOR RELEASE-HARDENING ITEMS
+NO-GO — RELEASE BLOCKERS REMAIN
+FINAL NON-NEGOTIABLE PRINCIPLE
+
+Do not improve the recommendation engine during Phase 4.
+
+We have spent Phases 3.1–3.7 establishing, testing, calibrating and validating it.
+
+The current evidence is:
+
+45/45 E2E scenarios, mean quality 88.8, median 91, mean regret 2.0, max regret 14, zero hard-constraint violations.
+
+The Phase 3.7 report itself concludes that all ten production gates pass and recommends freezing the engine.
+
+The job now is to make sure the software surrounding that engine is production-grade.
+
+If you discover a way to make an outfit recommendation "better":
+
+DO NOT IMPLEMENT IT.
+
+Document it.
+
+If you discover a crash, security problem, data-integrity issue, broken build, unacceptable latency problem, or production reliability issue:
+
+Investigate and fix it appropriately.
+
+At the end of Phase 4, we should have a clear answer to:
+
+"Can we safely ship the current AuraCloset recommendation engine as a production release candidate?"
+
+If yes, freeze it and move to controlled launch.
+
+The next source of truth after that should no longer be another synthetic scoring phase.
+
+It should be:
+
+real AuraCloset users → real recommendations → real reactions → real outfit adoption.

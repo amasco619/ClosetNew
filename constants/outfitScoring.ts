@@ -797,6 +797,7 @@ const METAL_FOR_UNDERTONE: Record<string, Set<string>> = {
 // ─── Constraint checks ────────────────────────────────────────────────────────
 
 export function passesConstraints(item: WardrobeItem, profile: UserProfile): boolean {
+  if (!profile.constraints) return true; // null-guard: no constraints = no restrictions
   if (profile.constraints.noSleeveless && item.subType === 'tank-top') return false;
   if (profile.constraints.noShortSkirts &&
     (item.subType === 'mini-skirt' || item.subType === 'mini-dress')) return false;
@@ -904,7 +905,7 @@ export function scoreItemForProfile(
 
   // 3. Style goal — colour (max +6)
   const primaryColors = profile.styleGoalPrimary
-    ? STYLE_PREFERRED_COLORS[profile.styleGoalPrimary]
+    ? (STYLE_PREFERRED_COLORS[profile.styleGoalPrimary] ?? [])
     : [];
   const matchesPrimaryColor = primaryColors.includes(item.colorFamily);
   if (matchesPrimaryColor) score += 5;
