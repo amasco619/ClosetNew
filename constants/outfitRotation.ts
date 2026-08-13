@@ -449,10 +449,12 @@ export function generateOutfitPool(
       } else if (hero.category === 'shoes' && coreIds.has(hero.id)) {
         shoeOptions = [];   // already in core (shouldn't happen, defensive)
       } else {
-        const harmShoes = shoesAll.filter(
+        // Rain gate: on a wet day only serve rain-appropriate shoes.
+        const rainOkShoes = wxRainy ? shoesAll.filter(isRainFriendly) : shoesAll;
+        const harmShoes = rainOkShoes.filter(
           s => !coreIds.has(s.id) && colorsHarmonize(core.baseColor, s.colorFamily),
         );
-        const otherShoes = shoesAll.filter(
+        const otherShoes = rainOkShoes.filter(
           s => !coreIds.has(s.id) && !harmShoes.includes(s),
         );
         const pool = harmShoes.length > 0 ? harmShoes : otherShoes;
@@ -489,8 +491,9 @@ export function generateOutfitPool(
         if (wxRule === 'required' && !coat) continue;
 
         // Bag — recede-aware. No bag-as-hero today (out of scope), so bag
-        // always plays a supporting role.
-        const allBags = bagsAll.filter(b => !usedIds.has(b.id));
+        // always plays a supporting role. On a wet day exclude open-weave
+        // bags (wicker-bag) that absorb rain — same rain logic as shoes.
+        const allBags = bagsAll.filter(b => !usedIds.has(b.id) && (!wxRainy || isRainFriendly(b)));
         // When the outfit is anchored by a signature active piece
         // (windbreaker / training-shoes / sports-hoodie), prefer gym-bag or
         // backpack so the complete kit reads sport-appropriate. Falls back to

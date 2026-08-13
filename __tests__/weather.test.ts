@@ -110,6 +110,15 @@ assert(isRainFriendly({ subType: 'raincoat', fabric: undefined }), 'raincoat wit
 assert(isRainFriendly({ subType: 'blazer', fabric: undefined }), 'blazer no fabric → default friendly');
 assert(isRainFriendly({ subType: 'blazer', fabric: 'linen'   }), 'blazer linen → default friendly');
 
+// Rain-averse subtypes (RAIN_AVERSE_SUBTYPES) — open-toed / woven items
+assert(!isRainFriendly({ subType: 'sandals',    fabric: undefined }), 'sandals → not rain friendly');
+assert(!isRainFriendly({ subType: 'espadrilles', fabric: undefined }), 'espadrilles → not rain friendly');
+assert(!isRainFriendly({ subType: 'flip-flops',  fabric: undefined }), 'flip-flops → not rain friendly');
+assert(!isRainFriendly({ subType: 'wicker-bag',  fabric: undefined }), 'wicker-bag → not rain friendly');
+// RAIN_FRIENDLY_SUBTYPES wins even if subType is in neutral/averse zone (not applicable here,
+// but confirm rain-friendly subtype beats rain-averse fabric)
+assert(isRainFriendly({ subType: 'trench', fabric: 'cotton' }), 'trench+cotton → friendly (friendly subtype wins)');
+
 // ── neededWarmth ──────────────────────────────────────────────────────────────
 
 console.log('\nneededWarmth:');

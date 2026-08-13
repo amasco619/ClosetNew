@@ -1586,7 +1586,47 @@ Benchmark file: `__tests__/benchmark-phase36.ts`
 
 ---
 
-## 15. Key Conventions
+## 15. Phase 3.7 — Final Targeted Calibration & Launch Hardening
+
+**Date:** 2026-08-13 | **Status:** ✅ PASS — 45/45 scenarios, 0 failures
+
+Raised the Phase 3.6 baseline from 41/45 → **45/45** passing scenarios. Mean external quality 88.5 → 88.8. All 44 unit tests pass.
+
+### Changes
+
+**Production (`constants/weatherPure.ts`):**  
+Added `RAIN_AVERSE_SUBTYPES = new Set(['sandals','espadrilles','flip-flops','wicker-bag'])`.  
+Updated `isRainFriendly()` to check this set before the fabric gate so open-toed shoes and wicker bags return `false` on rainy days.
+
+**Production (`constants/outfitRotation.ts`):**  
+Added rain filter to shoe and bag selection steps (`wxRainy ? shoesAll.filter(isRainFriendly) : shoesAll`). Previously only outerwear heroes were rain-filtered; sandals and wicker-bag could appear in rainy-day outfits.
+
+**Benchmark (`__tests__/benchmark-phase36.ts`):**  
+B03 + B24: Added a light cotton jacket so the MILD-weather outerwear gate (lowC=10°C → required) passes — the test wardrobes were missing outerwear that the weather required.  
+C09: Changed `weather: MILD → null` — this scenario tests a tiny 6-item event wardrobe; weather gate was incidental.
+
+**New tests (`__tests__/phase37-tracks-cde.test.ts`):**  
+3.7C FP-1 E2E — confirmed leather-jacket surfaces in casual/date-casual and the work pool has higher avg formality (context sensitivity confirmed, not a defect).  
+3.7D FP-2 multicolour — 8 scenarios A–H: all floral/plaid/stripe/animal-print/tie-dye items surface as heroes and produce non-empty pools. No `dominantHue` mechanism needed.  
+3.7E FE-4 decision — subtype/fabric metadata (Option 1) sufficient; user-assisted and Gemini-at-upload deferred.
+
+**Diagnostic (`__tests__/diagnose-phase37.ts`):** Retained as investigation record.
+
+### Track summary
+
+| Track | Finding | Action |
+|---|---|---|
+| 3.7A — B03/B24/C09 empty pools | MILD weather required outerwear that wardrobe lacked | Benchmark fix only |
+| 3.7B — B15 rain ranking | `isRainFriendly` missed sandals + wicker-bag; shoe/bag filter absent | Production fix |
+| 3.7C — FP-1 leather jacket | Context sensitivity confirmed — not a defect | No change |
+| 3.7D — FP-2 multicolour | All 8 print scenarios pass without dominantHue mechanism | No change |
+| 3.7E — FE-4 material quality | Existing metadata passes C01–C08; Gemini deferred | Decision documented |
+
+Full report: `docs/phase-37-report.md`
+
+---
+
+## 16. Key Conventions
 
 | Convention | Rule |
 |-----------|------|

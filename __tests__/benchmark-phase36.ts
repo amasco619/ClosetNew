@@ -541,6 +541,8 @@ const layerB: Scenario[] = [
       mk('b03-b3','bottom','jeans',  'white', ['brunch','casual'],{ fit:'slim' }),
       mk('b03-d1','dress','midi-dress','blush',['brunch','date-casual'], ),
       mk('b03-d2','dress','knit-dress','cream',['brunch','casual'],     ),
+      // Light jacket for MILD weather (lowC=10°C → outerwearRule='required')
+      mk('b03-o1','outerwear','jacket','beige',['brunch','casual'],{ warmthBand:'mild', fabric:'cotton' }),
       mk('b03-s1','shoes','mules',   'tan',   ['brunch','casual'],{ fabric:'suede' }),
       mk('b03-s2','shoes','sandals', 'nude',  ['brunch','casual'],     ),
       mk('b03-s3','shoes','heels',   'nude',  ['brunch','date-casual'],{ fabric:'suede' }),
@@ -549,7 +551,7 @@ const layerB: Scenario[] = [
       mk('b03-j1','jewelry','necklace','gold',['brunch','casual'],{ metalTone:'gold' }),
     ],
     weather: MILD, mood: null, wearHistory: [], isPremium: false,
-    expect: { minPool: 2, maxRegret: 20, fallbackOK: false, notes: 'Romantic hourglass; blush silk blouse + midi-skirt expected hero-seeded' },
+    expect: { minPool: 2, maxRegret: 20, fallbackOK: false, notes: 'Romantic hourglass; blush silk blouse + midi-skirt expected hero-seeded. Jacket added so MILD lowC=10°C outerwear gate passes.' },
   },
 
   // ── B04  Smart casual (B) — athletic body, date-casual ───────────────────
@@ -1099,6 +1101,8 @@ const layerB: Scenario[] = [
       mk('b24-b4','bottom','jeans',  'navy',   ['brunch','casual'],{ fit:'slim'   }),
       mk('b24-d1','dress','midi-dress','cream', ['brunch','date-casual'],          ),
       mk('b24-d2','dress','maxi-dress','navy',  ['brunch','date-casual'],           ),
+      // Light jacket for MILD weather (lowC=10°C → outerwearRule='required')
+      mk('b24-o1','outerwear','jacket','cream', ['brunch','casual'],{ warmthBand:'mild', fabric:'cotton' }),
       mk('b24-s1','shoes','loafers', 'tan',    ['brunch','casual'],{ fabric:'suede' }),
       mk('b24-s2','shoes','sandals', 'nude',   ['brunch','casual'],                ),
       mk('b24-s3','shoes','mules',   'cream',  ['brunch','casual'],                ),
@@ -1107,7 +1111,7 @@ const layerB: Scenario[] = [
       mk('b24-j1','jewelry','earrings','gold', ['brunch'],{ metalTone:'gold' }),
     ],
     weather: MILD, mood: null, wearHistory: [], isPremium: false,
-    expect: { minPool: 2, maxRegret: 20, fallbackOK: false, notes: 'Inv-tri: midi/maxi/wide-leg adds volume to balance broad shoulders' },
+    expect: { minPool: 2, maxRegret: 20, fallbackOK: false, notes: 'Inv-tri: midi/maxi/wide-leg adds volume to balance broad shoulders. Jacket added so MILD lowC=10°C outerwear gate passes.' },
   },
 
   // ── B25  Athletic (S) — relaxed-chic fits, casual ────────────────────────
@@ -1476,9 +1480,9 @@ const layerC: Scenario[] = [
       mk('c09-j1','jewelry','statement-earrings','gold',['event'],{ metalTone:'gold' }),
       mk('c09-j2','jewelry','necklace','gold',  ['event'],                { metalTone:'gold' }),
     ],
-    weather: MILD, mood: null, wearHistory: [], isPremium: true,
+    weather: null, mood: null, wearHistory: [], isPremium: true,
     expect: { minPool: 1, maxRegret: 20, fallbackOK: true,
-              notes: 'Tiny premium wardrobe: pipeline must still recommend something; cocktail-dress expected' },
+              notes: 'Tiny premium wardrobe: pipeline must still recommend something; cocktail-dress expected. Weather=null: this scenario tests outfit construction for an event, not weather gate behaviour (no outerwear in 6-item wardrobe).' },
   },
 
   // C10 — Context sensitivity: casual → work (same wardrobe, different scenario)

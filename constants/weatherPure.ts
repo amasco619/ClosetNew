@@ -30,13 +30,31 @@ export const RAIN_FRIENDLY_SUBTYPES = new Set(['trench', 'raincoat', 'jacket', '
 export const RAIN_AVERSE_FABRICS = new Set(['wool', 'cashmere', 'suede']);
 
 /**
- * Whether an outerwear item is reasonable for a wet day. Rain-tough subtypes
- * (trench / raincoat / parka / mac) read as "yes, of course"; pieces in
- * rain-averse fabrics (wool / cashmere / suede) read as "no, not today".
- * Everything else is neutral.
+ * Open-toed footwear and woven accessories that get ruined in the rain.
+ * Checked before the fabric gate so a sandal with no fabric field is still
+ * correctly rejected on a wet day.
+ */
+export const RAIN_AVERSE_SUBTYPES = new Set([
+  'sandals', 'espadrilles', 'flip-flops',   // open-toed — will get soaked
+  'wicker-bag',                              // woven natural fibre — absorbs rain
+]);
+
+/**
+ * Whether an item is appropriate for a wet day.
+ *
+ * Cascading rules:
+ *  1. Rain-tough subtypes (trench / raincoat / parka / mac): always yes.
+ *  2. Open-toed / woven accessories (sandals / espadrilles / wicker-bag): always no.
+ *  3. Rain-averse fabrics (wool / cashmere / suede): no.
+ *  4. Everything else: neutral (yes).
+ *
+ * Originally this function only covered outerwear. It is now also applied to
+ * shoes and bags during outfit assembly (constants/outfitRotation.ts) so that
+ * rain-averse non-clothing pieces are never served on a wet day.
  */
 export function isRainFriendly(item: Pick<WardrobeItem, 'subType' | 'fabric'>): boolean {
   if (RAIN_FRIENDLY_SUBTYPES.has(item.subType)) return true;
+  if (RAIN_AVERSE_SUBTYPES.has(item.subType)) return false;
   if (item.fabric && RAIN_AVERSE_FABRICS.has(item.fabric)) return false;
   return true;
 }
