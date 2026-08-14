@@ -1,0 +1,908 @@
+PHASE 5A — AMODKA PREMIUM EXPERIENCE FOUNDATION
+
+You are the lead mobile application engineer working on Amodka, a premium AI wardrobe and personal styling application.
+
+You are continuing from the completed:
+
+Phase 3.1
+Phase 3.2
+Phase 3.3A
+Phase 3.3B
+Phase 3.4
+Phase 3.5
+Phase 3.6
+Phase 3.7
+Phase 4 — Production Release Candidate & Recommendation Engine Freeze
+CURRENT ENGINE STATUS — IMPORTANT
+
+The recommendation engine is production-ready and frozen at v3.7.
+
+Current validated state:
+
+45/45 unit tests
+0 TypeScript errors
+45/45 E2E benchmark scenarios
+35/35 golden regression assertions
+29/29 resilience/performance assertions
+8/8 weather matrix
+0 hard-constraint violations
+Mean external quality: 88.8
+Median external quality: 91
+Mean regret: 2.0
+Maximum regret: 14
+43ms total recommendation time for a 100-item wardrobe
+0 active legacy GCV references
+Gemini is upload-time only and is not used to rank outfits
+
+The recommendation engine must remain frozen.
+
+PHASE 5A OBJECTIVE
+
+The objective of this phase is:
+
+Transform the existing technically strong application into a noticeably more premium, trustworthy and concierge-like product experience while preserving all validated recommendation behaviour.
+
+This phase covers:
+
+Amodka rebrand foundation
+Premium logo treatment
+Premium startup/splash experience
+Premium wardrobe garment tiles
+PhotoRoom → Gemini garment-analysis pipeline
+Graceful error handling
+Cold/rain wardrobe-gap intelligence
+Explicit fallback-path regression test
+Final visual consistency review
+CRITICAL RULE #1 — DO NOT MODIFY THE RECOMMENDATION ENGINE
+
+This is non-negotiable.
+
+Do NOT change:
+
+scoring weights;
+scoring formulas;
+ranking logic;
+candidate generation;
+candidate ordering;
+hard constraints;
+fallback semantics;
+weather scoring;
+silhouette scoring;
+colour scoring;
+pattern scoring;
+material scoring;
+formality scoring;
+freshness;
+personalisation;
+ranking thresholds;
+recommendation selection.
+
+If a UI requirement appears to require a recommendation-engine change:
+
+STOP.
+
+Document the issue instead of modifying the engine.
+
+The frozen engine is the source of truth.
+
+CRITICAL RULE #2 — DO NOT IMPLEMENT UNRELATED PHASE 5 WORK
+
+Do NOT implement:
+
+Apple IAP;
+Google Play Billing;
+subscription entitlement changes;
+Google OAuth;
+Apple Sign-In;
+admin panel;
+production telemetry architecture;
+push notifications;
+virtual try-on;
+Travel Concierge;
+Android production pipeline;
+legal documents.
+
+Those belong to later controlled phases.
+
+You may identify dependencies for those future phases, but do not implement them now.
+
+CRITICAL RULE #3 — PRESERVE FUNCTIONALITY
+
+This is a refinement phase, not a rewrite.
+
+Before changing anything:
+
+inspect the existing implementation;
+understand current data flow;
+identify reusable components;
+identify existing design tokens;
+identify existing image-processing flow;
+identify current garment metadata schema;
+identify current recommendation interfaces;
+identify existing error handling.
+
+Do not rewrite functioning systems simply to make them aesthetically cleaner.
+
+TRACK A — AMODKA REBRAND FOUNDATION
+A1. Rename AuraCloset → Amodka
+
+Before changing the codebase, perform a repository-wide impact audit.
+
+Identify all occurrences of:
+
+AuraCloset
+Aura Closet
+aura-closet
+auracloset
+related app identifiers
+package identifiers
+display names
+metadata
+titles
+descriptions
+documentation
+environment variables
+API strings
+analytics identifiers
+notification strings
+
+Classify each occurrence:
+
+Production-visible
+Internal-only
+Platform identifier
+Historical/documentation
+Third-party configuration
+
+Do NOT blindly replace everything.
+
+Produce an impact list first.
+
+Then implement the rename safely.
+
+A2. Product naming
+
+The visible application name should become:
+
+Amodka
+
+Do not use:
+
+Amodka Closet
+
+unless there is a technical/platform requirement.
+
+The brand should feel like an independent premium brand rather than a descriptive wardrobe utility.
+
+A3. Tagline
+
+Use the existing strategic positioning:
+
+Your quiet-luxury stylist in your pocket.
+
+Do not place the tagline everywhere.
+
+It should be reserved for appropriate onboarding, marketing/splash contexts.
+
+TRACK B — PREMIUM BRAND IDENTITY
+B1. Logo
+
+Create/implement a premium logo treatment.
+
+Design principles:
+
+wordmark-first;
+restrained;
+sophisticated;
+minimal;
+timeless;
+premium;
+excellent at small sizes.
+
+Avoid:
+
+generic hanger iconography;
+dress icons;
+wardrobe icons;
+generic AI sparkle;
+overly complicated monograms;
+excessive gradients;
+cartoon aesthetics.
+
+The logo should work in:
+
+splash screen;
+app icon;
+authentication;
+onboarding;
+empty states;
+marketing materials.
+B2. Startup/splash experience
+
+Implement a premium startup experience.
+
+Desired feeling:
+
+The app is preparing a private styling service for me.
+
+Avoid:
+
+"Loading..."
+
+Avoid a busy animation.
+
+The experience should be:
+
+restrained background;
+Amodka wordmark/logo;
+subtle, fast animation;
+transition into the application.
+
+The animation must not create unnecessary startup latency.
+
+Measure startup impact.
+
+If the native platform already controls the actual launch/splash screen, respect the platform architecture rather than creating a duplicate splash that causes visible flicker.
+
+TRACK C — PREMIUM WARDROBE EXPERIENCE
+
+This is one of the most important visual changes.
+
+Current issue
+
+Garment tiles currently use the garment's primary colour as the major background treatment.
+
+This is visually interesting but can become:
+
+noisy;
+inconsistent;
+less premium as the wardrobe grows;
+more like an inventory catalogue than a luxury digital wardrobe.
+
+We want the garment itself to become the visual hero.
+
+C1. New wardrobe tile philosophy
+
+Use:
+
+clean garment + quiet neutral canvas + restrained metadata
+
+The background should generally be a consistent premium neutral.
+
+Do NOT use a different saturated background for every garment.
+
+C2. Primary colour becomes an accent
+
+Do not discard primary-colour information.
+
+Instead use it subtly through:
+
+tiny colour indicator;
+accent line;
+metadata dot;
+restrained visual cue.
+
+The garment itself should remain dominant.
+
+C3. Garment presentation
+
+Where a processed/background-removed garment image is available:
+
+centre it;
+give it generous breathing room;
+maintain consistent visual scale;
+use subtle shadow/depth;
+preserve garment proportions;
+avoid aggressive cropping;
+avoid unnecessary borders.
+
+The wardrobe should feel like:
+
+a private luxury showroom
+
+rather than:
+
+a database of uploaded photographs.
+
+C4. Metadata
+
+Keep metadata restrained.
+
+Example:
+
+Cashmere Knit
+
+Cashmere · Cream
+
+Avoid excessive badges.
+
+The user should understand the garment at a glance.
+
+C5. Image consistency
+
+Different source photos will have wildly different:
+
+lighting;
+framing;
+garment scale;
+camera angles.
+
+Create a consistent presentation layer.
+
+Do NOT distort garments.
+
+If necessary:
+
+calculate aspect ratio;
+use object-fit/contain equivalent;
+establish safe visual bounds;
+normalise presentation scale.
+C6. Loading state
+
+Do not show ugly generic skeletons if they conflict with the premium design.
+
+Consider a restrained:
+
+soft neutral placeholder + subtle shimmer
+
+while the garment image loads.
+
+TRACK D — PHOTOROOM → GEMINI PIPELINE
+
+This is an architectural improvement that must be implemented carefully.
+
+Desired flow
+User image
+    ↓
+PhotoRoom background removal
+    ↓
+Clean garment image
+    ↓
+Gemini garment analysis
+    ↓
+Structured metadata
+    ↓
+Supabase wardrobe record
+    ↓
+Amodka recommendation engine
+
+Gemini must remain:
+
+garment perception / metadata enrichment
+
+not:
+
+outfit ranking.
+
+D1. Do not blindly migrate
+
+Before changing the production flow:
+
+Create a small comparison benchmark.
+
+Compare:
+
+Pipeline A
+
+Original image → Gemini
+
+against:
+
+Pipeline B
+
+PhotoRoom-cleaned image → Gemini
+
+Evaluate representative garments across:
+
+garment type;
+subtype;
+primary colour;
+secondary colour;
+pattern;
+fabric;
+fit;
+silhouette;
+confidence;
+failure rate.
+D2. Decision rule
+
+Only adopt the PhotoRoom → Gemini pipeline if it demonstrates a meaningful improvement or operational advantage.
+
+If results are equivalent or worse:
+
+do not force the migration.
+
+Document the result.
+
+D3. Failure handling
+
+The pipeline must tolerate:
+
+PhotoRoom failure
+
+Do not destroy the original garment.
+
+Gemini failure
+
+The garment must not disappear.
+
+Timeout
+
+Gracefully retry according to existing safe retry policy.
+
+Malformed Gemini response
+
+Validate before persistence.
+
+Missing metadata
+
+Persist valid fields and leave unsupported fields null/default according to the existing schema.
+
+Do not invent metadata.
+
+D4. Data preservation
+
+Always preserve:
+
+original uploaded image;
+processed image where applicable;
+garment metadata;
+ownership;
+timestamps.
+
+Do not make the original image unrecoverable simply because the processed version exists.
+
+D5. Cost awareness
+
+Measure:
+
+PhotoRoom latency;
+Gemini latency;
+calls per garment;
+failure/retry count.
+
+Do not create accidental duplicate AI calls.
+
+The target architecture should be:
+
+one controlled enrichment operation per garment, with caching/idempotency where appropriate.
+
+TRACK E — GRACEFUL ERROR HANDLING
+
+Create a consistent error-handling experience.
+
+Do NOT simply expose:
+
+Error 500
+
+or:
+
+Something went wrong.
+
+Different failure types should communicate differently.
+
+E1. Recommendation failure
+
+Use language such as:
+
+We couldn't curate a look right now.
+
+Your wardrobe is safe. Please try again.
+
+Provide a clear action.
+
+E2. Legitimate wardrobe gap
+
+Do NOT call this an error.
+
+Use the wardrobe-intelligence experience described in Track F.
+
+E3. Garment classification failure
+
+Example:
+
+We couldn't identify this piece just yet.
+
+Your photo is safe. You can try again or review the details manually.
+
+E4. Background-removal failure
+
+Example:
+
+We couldn't prepare this garment image.
+
+Let's try processing it again.
+
+E5. Network failure
+
+Example:
+
+You're currently offline.
+
+Your saved wardrobe remains available.
+
+Do not imply that the user's wardrobe has been lost.
+
+E6. Generic fallback
+
+Create a reusable error component/system so error states remain visually and linguistically consistent.
+
+TRACK F — COLD/RAIN WARDROBE GAP INTELLIGENCE
+
+This should now become a product feature, not an error state.
+
+The recommendation engine must remain unchanged.
+
+The product layer interprets a legitimate inability to construct an outfit.
+
+F1. Detect the existing condition
+
+Use the existing recommendation engine's output.
+
+Do NOT create a parallel scoring system.
+
+If the engine correctly determines:
+
+no valid outfit can be constructed under the current constraints/context
+
+the UI should explain why.
+
+F2. Example
+
+For cold/rain conditions:
+
+Your wardrobe needs one more layer.
+
+Today's weather is cold and wet, but your wardrobe doesn't currently contain a suitable warm waterproof outer layer.
+
+Then provide:
+
+Missing
+
+Warm waterproof outerwear
+
+Potential examples:
+
+waterproof trench;
+insulated jacket;
+weatherproof parka.
+
+Do NOT pretend the user owns these items.
+
+F3. Unlock potential
+
+If the existing wardrobe-analysis infrastructure can safely calculate this without changing recommendation logic, show:
+
+Adding one suitable outer layer could unlock additional outfit combinations.
+
+Only show a numerical count if the calculation is reliable.
+
+Do not fabricate:
+
+"8 outfits"
+
+unless the system has actually calculated eight valid combinations.
+
+F4. Product tone
+
+The tone should feel like a stylist identifying a wardrobe gap:
+
+Not:
+
+❌ No outfits found.
+
+Instead:
+
+Your wardrobe is missing one piece for today's conditions.
+
+That is a fundamentally better product experience.
+
+F5. Future commerce readiness
+
+Design the component so that a future version can support:
+
+Shop this gap
+
+but DO NOT implement commerce/product recommendations in Phase 5A.
+
+The current release should simply identify the wardrobe capability gap.
+
+TRACK G — FALLBACK PATH REGRESSION TEST
+
+Phase 3.7 showed that the strict generator is robust, but the benchmark did not meaningfully exercise a genuine strict-generation failure.
+
+Add one deterministic test.
+
+The test must construct a case where:
+
+strict generation genuinely produces no valid candidate;
+relaxed generation has a legitimate candidate;
+relaxed generation activates;
+the resulting outfit remains valid;
+no hard constraint is violated;
+no garment is fabricated.
+
+This is a test-only addition unless a genuine production defect is discovered.
+
+Do not change fallback semantics merely to make the test pass.
+
+TRACK H — VISUAL QA
+
+After implementation, inspect all major screens against the existing Amodka design language.
+
+At minimum:
+
+startup;
+authentication;
+Home;
+Outfit;
+Wardrobe;
+Profile;
+garment upload;
+garment processing;
+garment detail;
+recommendation loading;
+recommendation result;
+recommendation failure;
+wardrobe-gap state;
+empty wardrobe.
+
+Check:
+
+typography;
+spacing;
+shadows;
+border radii;
+animation;
+alignment;
+icon consistency;
+accessibility;
+dark/light appearance if supported;
+small-screen layouts;
+large-screen layouts.
+H1. Premium-quality test
+
+Ask of every screen:
+
+Would this feel at home in an Apple keynote?
+
+and:
+
+Would a luxury personal stylist be comfortable showing this interface to a client?
+
+If the answer is no:
+
+document the issue and improve it if it is within Phase 5A scope.
+
+Do not add unrelated features.
+
+TRACK I — ACCESSIBILITY
+
+Premium does not mean inaccessible.
+
+Verify:
+
+adequate contrast;
+touch target sizes;
+screen-reader labels;
+dynamic text;
+keyboard navigation where applicable;
+meaningful loading/error states;
+no information conveyed only by colour.
+
+Do not sacrifice usability for visual aesthetics.
+
+TRACK J — REGRESSION PROTECTION
+
+Before and after changes, run:
+
+npm test;
+npm run typecheck;
+Phase 3.6 E2E benchmark;
+Phase 3.7 suite;
+golden regression set;
+resilience suite.
+
+Expected recommendation-engine result:
+
+No behavioural regression.
+
+If any recommendation benchmark changes unexpectedly:
+
+STOP.
+
+Do not automatically fix the benchmark.
+
+Investigate and report the cause.
+
+TRACK K — CHANGE CONTROL
+
+Every change must be classified:
+
+Product/UI
+Infrastructure
+Reliability
+Behaviour-preserving refactor
+Recommendation behaviour
+
+If a change falls into:
+
+Recommendation behaviour
+
+it is OUT OF SCOPE.
+
+Do not implement it.
+
+REQUIRED FINAL REPORT
+
+Return:
+
+PHASE 5A — AMODKA PREMIUM EXPERIENCE FOUNDATION REPORT
+1. Executive Summary
+
+Maximum 15 bullets.
+
+2. Rebrand Audit
+
+Include:
+
+occurrences found;
+occurrences changed;
+occurrences intentionally retained;
+app/package identifiers affected.
+3. Brand Implementation
+logo;
+splash;
+startup performance;
+typography;
+design tokens.
+4. Wardrobe UI
+
+Show:
+
+before;
+after;
+design decisions;
+responsive behaviour.
+5. PhotoRoom → Gemini
+
+Include:
+
+Metric	Original → Gemini	PhotoRoom → Gemini
+Type accuracy		
+Subtype accuracy		
+Colour accuracy		
+Pattern accuracy		
+Fabric accuracy		
+Confidence		
+Failure rate		
+Latency		
+
+Then explicitly recommend:
+
+ADOPT / DO NOT ADOPT
+
+with evidence.
+
+6. Error Handling
+
+List every failure path tested.
+
+7. Cold/Rain Wardrobe Intelligence
+
+Show:
+
+detection logic used;
+UI behaviour;
+examples;
+confirmation that recommendation scoring was untouched.
+8. Fallback Test
+
+Show:
+
+strict result;
+fallback activation;
+final result;
+assertions.
+9. Visual QA
+10. Accessibility
+11. Regression Results
+
+Include:
+
+Suite	Before	After
+Unit		
+Typecheck		
+Phase 3.6		
+Phase 3.7		
+Golden		
+Resilience		
+12. Performance
+
+Include:
+
+app startup impact;
+image processing latency;
+PhotoRoom latency;
+Gemini latency;
+recommendation latency.
+13. Findings
+
+For every finding:
+
+Finding	Severity	Classification	Action
+
+Classification:
+
+RELEASE BLOCKER
+RELEASE-HARDENING
+FUTURE PHASE
+BACKLOG
+14. Explicit Recommendation Engine Integrity Statement
+
+State:
+
+Recommendation Engine v3.7 remains behaviourally unchanged.
+
+or, if anything changed unexpectedly:
+
+STOP — recommendation behaviour changed.
+
+Do not conceal behavioural changes.
+
+15. Phase 5A Decision
+
+Choose exactly one:
+
+GO — Phase 5A complete
+GO WITH MINOR HARDENING
+NO-GO
+FINAL NON-NEGOTIABLE PRINCIPLE
+
+The purpose of this phase is not to make AuraCloset's recommendation engine smarter.
+
+It is to make the product surrounding the engine feel:
+
+premium, intelligent, trustworthy and effortless.
+
+The engine is already frozen.
+
+If you discover a way to improve recommendation quality:
+
+DO NOT IMPLEMENT IT.
+
+Put it into the future evidence-driven backlog.
+
+If you discover:
+
+data loss;
+security vulnerability;
+crash;
+payment issue;
+privacy issue;
+broken authentication;
+broken build;
+severe performance problem;
+
+that belongs to the appropriate later release-hardening track and must be documented.
+
+DEFINITION OF DONE
+
+Phase 5A is complete only when:
+
+ Amodka branding is implemented safely
+ Premium logo treatment is implemented
+ Startup/splash experience is implemented
+ Wardrobe tiles have the premium garment-first treatment
+ PhotoRoom → Gemini has been benchmarked
+ The better pipeline has been selected based on evidence
+ AI failures are graceful
+ Recommendation failures are graceful
+ Cold/rain wardrobe gaps are presented as intelligence, not errors
+ Genuine fallback path has an explicit regression test
+ Accessibility checks pass
+ Existing recommendation behaviour is unchanged
+ Phase 3.6/3.7/golden/resilience suites remain green
+ No unrelated Phase 5 features have been implemented
+
+Do not proceed to payment, authentication, admin, push notification, native production builds or Travel Concierge as part of this task. Those will be handled in subsequent controlled phases.
