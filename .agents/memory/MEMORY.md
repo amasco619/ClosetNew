@@ -15,3 +15,4 @@
 - [Phase 4 production hardening](phase4-hardening.md) — Engine v3.7 frozen; 2 null guards added to outfitScoring.ts; telemetry in lib/telemetry.ts; version in constants/recommendationVersion.ts; golden set in __tests__/recommendation-golden-set.ts
 - [Amodka rebrand](amodka-rebrand.md) — App renamed AuraCloset→Amodka in Phase 5A; all new identifiers use "amodka"/"com.amodka"; storage migration in _layout.tsx
 - [Wardrobe gap diagnosis](wardrobe-gap-diagnosis.md) — diagnoseWeatherGap() gates on engineFound===false first; uses item metadata (warmthBand/weight/fabric), never category alone
+- [Phase 5B storage + compliance](phase5b-hardening.md) — signed URLs for wardrobe-images; storagePath threaded through all upload paths; RLS migration; account deletion fixed; 7 compliance docs in docs/compliance/

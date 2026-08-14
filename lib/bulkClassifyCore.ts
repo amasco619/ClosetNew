@@ -187,6 +187,9 @@ export interface BulkSavePayload {
   id: string;
   photoUri: string;
   classification: ClassifyResult;
+  /** Storage path (e.g. "userId/itemId.jpg") for durable DB persistence.
+   *  Absent when the item was not uploaded (guest / upload failure). */
+  storagePath?: string;
 }
 
 export interface SaveAllDeps {
@@ -255,6 +258,7 @@ export async function runSaveAll(
     try {
       const itemId = deps.generateId();
       let finalUri = item.uri;
+      let itemStoragePath: string | undefined;
 
       if (userId) {
         try {
@@ -266,16 +270,20 @@ export async function runSaveAll(
           }
           const uploadArg = deps.resolveUploadArg(item.cleanBase64, shrunkBase64);
           if (uploadArg) {
+            // Compute the durable storage path before upload (formula is deterministic)
+            const ext = uploadArg.mimeType === 'image/png' ? 'png' : 'jpg';
+            itemStoragePath = `${userId}/${itemId}.${ext}`;
             finalUri = await deps.upload(userId, uploadArg.base64, itemId, uploadArg.mimeType);
             if (!mountedRef.current) return;
           }
         } catch {
-          // Upload failed — fall back to local URI
+          // Upload failed — fall back to local URI; storagePath stays undefined
+          itemStoragePath = undefined;
         }
       }
 
       if (!mountedRef.current) break;
-      deps.addItem({ id: itemId, photoUri: finalUri, classification: item.classification });
+      deps.addItem({ id: itemId, photoUri: finalUri, classification: item.classification, storagePath: itemStoragePath });
       deps.setItems(prev =>
         prev.map(it => it.uri === item.uri ? { ...it, status: 'saved' } : it),
       );
@@ -411,7 +419,11 @@ export async function runAutoPersistItem(
     const itemId = deps.generateId();
     const uploadArg = deps.resolveUploadArg(item.cleanBase64);
     let finalUri = item.uri;
+    let itemStoragePath: string | undefined;
     if (uploadArg) {
+      // Compute the durable storage path before upload (formula is deterministic)
+      const ext = uploadArg.mimeType === 'image/png' ? 'png' : 'jpg';
+      itemStoragePath = `${userId}/${itemId}.${ext}`;
       finalUri = await deps.upload(userId, uploadArg.base64, itemId, uploadArg.mimeType);
       if (!mountedRef.current) return null;
     }
@@ -420,7 +432,7 @@ export async function runAutoPersistItem(
     const afterUpload = itemsRef.current.find(it => it.uri === item.uri);
     if (!afterUpload || afterUpload.status === 'removed') return null;
 
-    deps.addItem({ id: itemId, photoUri: finalUri, classification: item.classification });
+    deps.addItem({ id: itemId, photoUri: finalUri, classification: item.classification, storagePath: itemStoragePath });
 
     if (!mountedRef.current) return null;
     deps.setItems(prev => prev.map(it =>

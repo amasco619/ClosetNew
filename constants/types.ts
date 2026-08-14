@@ -118,6 +118,11 @@ export interface WardrobeItem {
   // not updated when the user edits fields manually. Values below
   // LOW_CONFIDENCE_THRESHOLD trigger a subtle "Review classification" indicator.
   modelConfidence?: number;
+  /** Durable Supabase Storage path (e.g. "userId/itemId.jpg").
+   *  Present for items uploaded after Phase 5B; absent for legacy items whose
+   *  photoUri is already a full public URL.  Used by AppContext to persist the
+   *  path (not the signed URL) in the DB. */
+  storagePath?: string;
 }
 
 /** Items with modelConfidence below this threshold show a "Review" indicator. */

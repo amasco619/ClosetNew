@@ -1807,7 +1807,90 @@ All in-codebase identifiers confirmed consistent: scheme `amodka`, bundle ID `co
 
 ---
 
-## 19. Key Conventions
+## 19. Phase 5B — Trust, Privacy & Business-Risk Hardening
+
+**Date:** 2026-08-14 | **Status:** ✅ GO WITH PRE-LAUNCH HARDENING
+
+Objective: make Amodka safe to operate as a real commercial product — money, data, privacy, security, third-party processing, account lifecycle, abuse, and regulatory/platform risk.
+
+### Implemented This Phase (Track T)
+
+#### Private Wardrobe Storage — Signed URL Architecture (Track C)
+
+`lib/storage.ts` restructured:
+- `uploadWardrobeImage` now returns `{signedUrl, storagePath}` — callers receive a short-lived signed URL for display and a durable path for DB persistence.
+- `getSignedWardrobeUrl(storagePath)` — in-memory cache (1h TTL, 60s refresh buffer) generates Supabase signed URLs.
+- `isStoragePath(value)` — detects storage paths vs full URLs.
+- `resolveWardrobeImageUrl(pathOrUrl)` — dual-mode: paths → signed URL; legacy https:// URLs → returned as-is.
+- `recoverWardrobeImageUrl` updated to return signed URLs.
+
+`app/add-item.tsx`, `app/bulk-review.tsx` — all `uploadWardrobeImage` call sites updated to destructure `{signedUrl, storagePath}` and pass `storagePath` for DB storage.
+
+`lib/bulkClassifyCore.ts` — `BulkSavePayload` gains `storagePath?: string`; `runSaveAll` and `runAutoPersistItem` compute storage path before calling upload and thread it to `addItem`.
+
+`contexts/AppContext.tsx` — new items store `storagePath` in `image_url` DB column; storage-path resolution pass added after DB load; stale "AuraCloset" log messages corrected.
+
+`constants/types.ts` — `WardrobeItem` gains `storagePath?: string`.
+
+**Operator actions still required:**
+1. Set `wardrobe-images` bucket to **PRIVATE** in Supabase dashboard.
+2. Apply migration `supabase/migrations/20260814000000_rls_all_tables.sql` to Supabase project.
+3. Run a one-time DB migration to convert legacy public URLs in `image_url` / `cleaned_image_url` to storage paths (required before bucket goes private, or existing items lose photos).
+
+#### RLS Migration — All User Tables (Track D)
+
+`supabase/migrations/20260814000000_rls_all_tables.sql` — RLS enabled and ownership policies created for:
+`wardrobe_items`, `wear_logs`, `affinity_signals`, `pair_affinity_signals`, `rotation_cursors`, `slot_statuses`, `tryon_profiles`, `saved_looks`.
+
+Storage policies: path-prefix ownership enforcement for `wardrobe-images` and `tryon-photos` (first path segment must match `auth.uid()`).
+
+**Operator action required:** Apply migration to Supabase project.
+
+#### Account Deletion — Explicit Cleanup (Track E)
+
+`server/routes.ts` `DELETE /api/user/delete-account` now explicitly:
+1. Lists and removes all `wardrobe-images/{userId}/*` Storage objects.
+2. Lists and removes all `tryon-photos/{userId}/*` Storage objects.
+3. Deletes all DB records from: `affinity_signals`, `pair_affinity_signals`, `rotation_cursors`, `wear_logs`, `slot_statuses`, `tryon_profiles`, `saved_looks`, `wardrobe_items`, `user_profiles`.
+4. Deletes the Supabase Auth user.
+
+#### Compliance Documents Created
+
+| Document | Path |
+|---|---|
+| Complete data inventory | `docs/compliance/data-inventory.md` |
+| Data flow map | `docs/compliance/data-flow.md` |
+| DPIA screening assessment | `docs/compliance/dpia-screening.md` |
+| Privacy policy source material | `docs/compliance/privacy-policy-source.md` |
+| Terms of use source material | `docs/compliance/terms-source.md` |
+| Store compliance matrix | `docs/compliance/store-compliance-matrix.md` |
+| Business risk register | `docs/compliance/business-risk-register.md` |
+
+### Critical Findings Requiring Operator/Legal Action Before Launch
+
+| Finding | Risk | Severity |
+|---|---|---|
+| wardrobe-images bucket is PUBLIC | DATA/SECURITY | 🔴 CRITICAL |
+| RLS not applied to application tables | DATA/SECURITY | 🔴 CRITICAL |
+| Premium upgrade endpoint not payment-gated | MONEY/SECURITY | 🔴 CRITICAL |
+| Skin tone data — legal basis unconfirmed | LEGAL | 🔴 CRITICAL |
+| No DPIA conducted | LEGAL | 🔴 CRITICAL |
+| No Privacy Policy published | LEGAL/PLATFORM | 🔴 CRITICAL |
+| No age gate — Children's Code applicability | LEGAL | 🟠 HIGH |
+| International data transfers undocumented | LEGAL | 🟠 HIGH |
+| No external account deletion URL (Play) | PLATFORM | 🟠 HIGH |
+
+### Final Baseline
+
+| Metric | Phase 5B Final |
+|---|---|
+| Unit tests (`npm test`) | **47/47** |
+| TypeScript (`npm run typecheck`) | **0 errors** |
+| Recommendation engine | **Unchanged (v3.7 frozen)** |
+
+---
+
+## 20. Key Conventions
 
 | Convention | Rule |
 |-----------|------|

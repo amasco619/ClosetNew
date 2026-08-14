@@ -30,7 +30,7 @@ import {
 } from '../lib/database';
 import { mapDbRowToWardrobeItem } from '../lib/wardrobeMapper';
 import { supabase } from '../lib/supabase';
-import { deleteWardrobeImage, recoverWardrobeImageUrl } from '../lib/storage';
+import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl } from '../lib/storage';
 import { rebaseGuestPhotoUri } from '../lib/rebaseGuestPhotoUri';
 import {
   RotationState, INITIAL_ROTATION_STATE,
@@ -673,17 +673,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 if (remoteUrl) {
                   recoveryMap[it.id] = remoteUrl;
                   console.log(
-                    `[AuraCloset] Recovered DB wardrobe photo from Storage — ` +
+                    `[Amodka] Recovered DB wardrobe photo from Storage — ` +
                     `item id=${it.id} subType=${it.subType}`,
                   );
                 } else {
                   console.warn(
-                    `[AuraCloset] DB wardrobe photo missing and not found in Storage — ` +
+                    `[Amodka] DB wardrobe photo missing and not found in Storage — ` +
                     `item id=${it.id} subType=${it.subType}`,
                   );
                 }
               } catch (err) {
-                console.warn(`[AuraCloset] Could not recover DB wardrobe photo — item id=${it.id}`, err);
+                console.warn(`[Amodka] Could not recover DB wardrobe photo — item id=${it.id}`, err);
               }
             }),
           );
@@ -702,6 +702,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
               return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
             });
           }
+        }
+        // Resolve storage paths (new items stored with path instead of public URL)
+        // to short-lived signed URLs for display. Must run after file:// recovery
+        // so the two passes do not overlap.
+        const storagePathItems = mapped.filter(it => isStoragePath(it.photoUri));
+        if (storagePathItems.length > 0) {
+          await Promise.all(
+            storagePathItems.map(async it => {
+              try {
+                it.photoUri = await resolveWardrobeImageUrl(it.photoUri);
+              } catch (err) {
+                console.warn(`[Amodka] Could not resolve signed URL for item id=${it.id}`, err);
+              }
+            }),
+          );
         }
         setWardrobeItems(mapped);
         AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(mapped));
@@ -1007,7 +1022,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           color_family: newItem.colorFamily,
           description: newItem.description,
           occasion: newItem.occasionTags,
-          image_url: newItem.photoUri,
+          image_url: (newItem as any).storagePath ?? newItem.photoUri,
           cleaned_image_url: (newItem as any).cleanedImageUrl,
         }).catch(console.error);
       }

@@ -316,6 +316,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
+      // 1. Delete wardrobe-images storage objects for this user
+      const { data: wardrobeFiles } = await supabaseAdmin.storage
+        .from("wardrobe-images")
+        .list(userId);
+      if (wardrobeFiles && wardrobeFiles.length > 0) {
+        await supabaseAdmin.storage
+          .from("wardrobe-images")
+          .remove(wardrobeFiles.map((f) => `${userId}/${f.name}`));
+      }
+
+      // 2. Delete tryon-photos storage objects for this user
+      const { data: tryonFiles } = await supabaseAdmin.storage
+        .from("tryon-photos")
+        .list(userId);
+      if (tryonFiles && tryonFiles.length > 0) {
+        await supabaseAdmin.storage
+          .from("tryon-photos")
+          .remove(tryonFiles.map((f) => `${userId}/${f.name}`));
+      }
+
+      // 3. Explicitly delete all user DB records (defence-in-depth; independent
+      //    of whether cascade deletes are configured in the Supabase schema).
+      //    Delete child tables before parent tables.
+      const userIdTables = [
+        "affinity_signals",
+        "pair_affinity_signals",
+        "rotation_cursors",
+        "wear_logs",
+        "slot_statuses",
+        "tryon_profiles",
+        "saved_looks",
+        "wardrobe_items",
+      ];
+      for (const table of userIdTables) {
+        const { error: tblErr } = await supabaseAdmin
+          .from(table)
+          .delete()
+          .eq("user_id", userId);
+        if (tblErr) {
+          // Non-fatal: log and continue so other tables still get cleaned up
+          console.warn(`[delete-account] Failed to delete ${table}:`, tblErr.message);
+        }
+      }
+      // user_profiles uses 'id' (not 'user_id') as its PK tied to auth.users.id
+      await supabaseAdmin.from("user_profiles").delete().eq("id", userId);
+
+      // 4. Delete the auth user (cascades any remaining references)
       const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
       if (error) throw new Error(error.message);
       return res.json({ success: true });

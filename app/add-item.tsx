@@ -757,12 +757,13 @@ export default function AddItemScreen() {
                   const autoItemId = Crypto.randomUUID();
                   setAutoPersisting(true);
                   try {
-                    const uploadedUri = await uploadWardrobeImage(
+                    const { signedUrl: uploadedSignedUrl, storagePath: uploadedPath } = await uploadWardrobeImage(
                       autoSession.user.id, bgUploadBase64, autoItemId, 'image/png',
                     );
                     addWardrobeItem({
                       id: autoItemId,
-                      photoUri: uploadedUri,
+                      photoUri: uploadedSignedUrl,
+                      storagePath: uploadedPath,
                       category: classified.category,
                       subType: validSub,
                       colorFamily: validCol,
@@ -925,6 +926,7 @@ export default function AddItemScreen() {
 
       const itemId = Crypto.randomUUID();
       let finalUri = photoUri;
+      let finalStoragePath: string | undefined;
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user && photoBase64) {
         try {
@@ -963,7 +965,9 @@ export default function AddItemScreen() {
             }
           }
           setSaveStage('uploading');
-          finalUri = await uploadWardrobeImage(session.user.id, uploadBase64, itemId, uploadMime);
+          const { signedUrl: _signedUrl, storagePath: _sp } = await uploadWardrobeImage(session.user.id, uploadBase64, itemId, uploadMime);
+          finalUri = _signedUrl;
+          finalStoragePath = _sp;
         } catch (uploadErr) {
           // Upload failed — copy to documentDirectory so the photo at least survives
           // app restarts. The existing AppContext recovery logic will re-attempt the
@@ -1002,6 +1006,7 @@ export default function AddItemScreen() {
         {
           id: itemId,
           photoUri: finalUri,
+          storagePath: finalStoragePath,
           category,
           subType,
           colorFamily,

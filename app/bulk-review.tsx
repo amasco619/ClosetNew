@@ -492,12 +492,15 @@ export default function BulkReviewScreen() {
             return session?.user?.id ?? null;
           },
           resolveUploadArg: (cleanBase64) => resolveWardrobeUploadArg(cleanBase64, undefined),
-          upload: (userId, base64, itemId, mimeType) =>
-            uploadWardrobeImage(userId, base64, itemId, mimeType as 'image/jpeg' | 'image/png'),
-          addItem: ({ id: itemId, photoUri: finalUri, classification: c }) => {
+          upload: async (userId, base64, itemId, mimeType) => {
+            const { signedUrl } = await uploadWardrobeImage(userId, base64, itemId, mimeType as 'image/jpeg' | 'image/png');
+            return signedUrl;
+          },
+          addItem: ({ id: itemId, photoUri: finalUri, classification: c, storagePath }) => {
             addWardrobeItem({
               id: itemId,
               photoUri:        finalUri,
+              storagePath,
               category:        c.category,
               subType:         c.subType      || 'top',
               colorFamily:     c.colorFamily  || 'black',
@@ -664,14 +667,17 @@ export default function BulkReviewScreen() {
             [{ resize: { width: 1600 } }],
             { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
           ),
-          upload: (userId, base64, itemId, mimeType) =>
-            uploadWardrobeImage(userId, base64, itemId, mimeType as 'image/jpeg' | 'image/png'),
+          upload: async (userId, base64, itemId, mimeType) => {
+            const { signedUrl } = await uploadWardrobeImage(userId, base64, itemId, mimeType as 'image/jpeg' | 'image/png');
+            return signedUrl;
+          },
           resolveUploadArg: (cleanBase64, shrunkBase64) =>
             resolveWardrobeUploadArg(cleanBase64, shrunkBase64),
-          addItem: ({ id: itemId, photoUri: finalUri, classification: c }) => {
+          addItem: ({ id: itemId, photoUri: finalUri, classification: c, storagePath }) => {
             addWardrobeItem({
               id: itemId,
               photoUri:        finalUri,
+              storagePath,
               category:        c.category,
               subType:         c.subType      || 'top',
               colorFamily:     c.colorFamily  || 'black',
