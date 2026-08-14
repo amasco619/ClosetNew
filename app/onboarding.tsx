@@ -640,7 +640,7 @@ export default function OnboardingScreen() {
             </View>
             <Text style={styles.stepTitle}>{"You're all set!"}</Text>
             <Text style={styles.stepSubtitle}>
-              We{"'"}ve personalised AuraCloset for your {bodyType ? BODY_TYPES.find(b => b.id === bodyType)?.label : ''} shape
+              We{"'"}ve personalised Amodka for your {bodyType ? BODY_TYPES.find(b => b.id === bodyType)?.label : ''} shape
               {styleGoalPrimary ? ` with a ${STYLE_GOALS.find(s => s.id === styleGoalPrimary)?.label} aesthetic` : ''}.
               Start adding items to your wardrobe to see outfit recommendations.
             </Text>

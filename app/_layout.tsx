@@ -79,7 +79,7 @@ export default function RootLayout() {
     if (!nativeCallback || !code) return;
     // Only relay to known app schemes — never open arbitrary URLs.
     const decoded = decodeURIComponent(nativeCallback);
-    if (!decoded.startsWith('auracloset://') && !decoded.startsWith('exp://')) return;
+    if (!decoded.startsWith('amodka://') && !decoded.startsWith('exp://')) return;
     const relay = new URLSearchParams();
     relay.set('code', code);
     const type = params.get('type');
@@ -104,12 +104,12 @@ export default function RootLayout() {
   //
   // When the user taps "Sign in with Google", the app opens the full Chrome
   // browser via Linking.openURL and attaches a Linking.addEventListener to
-  // catch the auracloset:// callback.  That works as long as the app process
+  // catch the amodka:// callback.  That works as long as the app process
   // stays alive in the background.
   //
   // On memory-constrained Android devices the OS can kill the background app
   // process while Chrome is in the foreground.  When Google auth completes and
-  // Chrome follows the auracloset:// redirect, Android relaunches the app as a
+  // Chrome follows the amodka:// redirect, Android relaunches the app as a
   // fresh process — the Linking event listener in auth.ts is never attached.
   //
   // In that scenario Linking.getInitialURL() returns the deep-link URL at
@@ -119,7 +119,7 @@ export default function RootLayout() {
     if (Platform.OS === 'web') return;
     Linking.getInitialURL().then((url) => {
       if (!url) return;
-      if (!url.startsWith('auracloset://')) return;
+      if (!url.startsWith('amodka://')) return;
       if (!url.includes('code=') && !url.includes('access_token=')) return;
       createSessionFromUrl(url).catch(() => {});
     });

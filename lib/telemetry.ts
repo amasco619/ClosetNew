@@ -1,5 +1,5 @@
 /**
- * AuraCloset — Structured Recommendation Telemetry
+ * Amodka — Structured Recommendation Telemetry
  *
  * Emits structured JSON events to stdout so they can be captured by any log
  * aggregator (Datadog, Logtail, Papertrail, etc.) without coupling to a

@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "AuraCloset",
-    "slug": "aura-closet",
+    "name": "Amodka",
+    "slug": "amodka",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "auracloset",
+    "scheme": "amodka",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,10 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.auracloset"
+      "bundleIdentifier": "com.amodka"
     },
     "android": {
-      "package": "com.auracloset",
+      "package": "com.amodka",
       "adaptiveIcon": {
         "backgroundColor": "#F5F3F0",
         "foregroundImage": "./assets/images/icon.png"
@@ -26,11 +26,7 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "data": [
-            {
-              "scheme": "auracloset"
-            }
-          ],
+          "data": [{ "scheme": "amodka" }],
           "category": ["BROWSABLE", "DEFAULT"]
         }
       ]
@@ -41,24 +37,22 @@
     "plugins": [
       [
         "expo-router",
-        {
-          "origin": "https://replit.com/"
-        }
+        { "origin": "https://replit.com/" }
       ],
       "expo-font",
       "expo-web-browser",
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow AuraCloset to access your photos to add items to your wardrobe.",
-          "cameraPermission": "Allow AuraCloset to use your camera to photograph wardrobe items."
+          "photosPermission": "Allow Amodka to access your photos to add items to your wardrobe.",
+          "cameraPermission": "Allow Amodka to use your camera to photograph wardrobe items."
         }
       ],
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "AuraCloset uses your location to tailor outfit suggestions to today's weather. You can turn this off anytime in Profile.",
-          "locationWhenInUsePermission": "AuraCloset uses your location to tailor outfit suggestions to today's weather. You can turn this off anytime in Profile."
+          "locationAlwaysAndWhenInUsePermission": "Amodka uses your location to tailor outfit suggestions to today's weather. You can turn this off anytime in Profile.",
+          "locationWhenInUsePermission": "Amodka uses your location to tailor outfit suggestions to today's weather. You can turn this off anytime in Profile."
         }
       ],
       "expo-localization"

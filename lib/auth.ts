@@ -12,16 +12,16 @@ import { handleOAuthBrowserResult, type OAuthBrowserResult } from './oauthGuard'
 export { signInWithEmail } from './emailSignIn'
 export { signUpWithEmail } from './emailSignUp'
 
-export const EMAIL_CONFIRMED_KEY = '@auracloset_email_confirmed'
+export const EMAIL_CONFIRMED_KEY = '@amodka_email_confirmed'
 
 WebBrowser.maybeCompleteAuthSession()
 
 // In Expo Go (StoreClient), expo-linking's resolveScheme() always returns 'exp'
-// regardless of the scheme argument — auracloset:// is silently ignored because it
-// is not registered in Expo Go's Info.plist.  makeRedirectUri({ scheme: 'auracloset' })
-// therefore resolves to exp://<devserver> in Expo Go, while returning auracloset://
+// regardless of the scheme argument — amodka:// is silently ignored because it
+// is not registered in Expo Go's Info.plist.  makeRedirectUri({ scheme: 'amodka' })
+// therefore resolves to exp://<devserver> in Expo Go, while returning amodka://
 // in standalone / EAS builds where the scheme IS in Info.plist.
-const nativeRedirectTo = makeRedirectUri({ scheme: 'auracloset' })
+const nativeRedirectTo = makeRedirectUri({ scheme: 'amodka' })
 
 // True when running inside the Expo Go app (development, not a standalone build).
 const isExpoGo =
@@ -44,7 +44,7 @@ const isExpoGo =
 // ASWebAuthenticationSession (callbackURLScheme = 'exp') intercepts that
 // redirect and resolves openAuthSessionAsync — no Supabase allow-list changes needed.
 //
-// In standalone builds, redirectTo = nativeRedirectTo = 'auracloset://' and the
+// In standalone builds, redirectTo = nativeRedirectTo = 'amodka://' and the
 // existing direct-deep-link path is used unchanged.
 function buildNativeOAuthRedirectTo(): string {
   if (!isExpoGo) return nativeRedirectTo

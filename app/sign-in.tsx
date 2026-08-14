@@ -338,8 +338,8 @@ export default function SignInScreen() {
         >
           {/* Brand Header */}
           <Animated.View entering={FadeInDown.delay(40).duration(280)} style={styles.headerGroup}>
-            <Text style={styles.brandAtelier}>A U R A C L O S E T   A T E L I E R</Text>
-            <Text style={styles.title}>AuraCloset</Text>
+            <Text style={styles.brandAtelier}>A M O D K A   A T E L I E R</Text>
+            <Text style={styles.title}>Amodka</Text>
             <Text style={styles.tagline}>Your quiet-luxury stylist in your pocket.</Text>
           </Animated.View>
 
@@ -378,7 +378,7 @@ export default function SignInScreen() {
                 <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="stylist@auracloset.com"
+                  placeholder="stylist@amodka.com"
                   placeholderTextColor="rgba(255,255,255,0.32)"
                   keyboardType="email-address"
                   autoCapitalize="none"

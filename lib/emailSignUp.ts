@@ -67,7 +67,7 @@ export async function signUpWithEmail(
     const { Platform } = await import('react-native')
     const { makeRedirectUri } = await import('expo-auth-session')
 
-    const nativeRedirectTo = makeRedirectUri({ scheme: 'auracloset' })
+    const nativeRedirectTo = makeRedirectUri({ scheme: 'amodka' })
     emailRedirectTo =
       Platform.OS === 'web'
         ? `${(globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin}/auth/callback`

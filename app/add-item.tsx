@@ -808,8 +808,8 @@ export default function AddItemScreen() {
               // show error flash, then keep the photo so the user can fill in manually.
               finishClassifying(false);
               Alert.alert(
-                'Auto-fill unavailable',
-                'We couldn\'t identify this item automatically. Please fill in the details below.',
+                "We couldn't identify this piece just yet",
+                'Your photo is safe. You can try again or review the details below.',
                 [{ text: 'Got it' }],
               );
             }

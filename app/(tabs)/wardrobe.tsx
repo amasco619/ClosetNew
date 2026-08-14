@@ -14,7 +14,7 @@ import { rs } from '../../lib/responsive';
 
 type ViewMode = 'list' | 'grid';
 
-const STORAGE_KEY = '@auracloset_wardrobe_view';
+const STORAGE_KEY = '@amodka_wardrobe_view';
 
 const categoryFilters = ['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes', 'bag', 'jewelry'] as const;
 const categoryLabels: Record<string, string> = {
@@ -31,10 +31,6 @@ const colorDots: Record<string, string> = {
   olive: '#556B2F', green: '#27AE60', mint: '#98D8B9', teal: '#1F7A7A',
   blue: '#3498DB', navy: '#1B2A4A',
   lavender: '#B57EDC', purple: '#7D3C98', pink: '#E8A0BF',
-};
-
-const categoryInitial: Record<string, string> = {
-  top: 'T', bottom: 'B', dress: 'D', outerwear: 'O', shoes: 'S', bag: 'G', jewelry: 'J',
 };
 
 const formatSeasonTag = (tag: string) =>
@@ -117,21 +113,19 @@ export default function WardrobeScreen() {
   );
 
   const renderGridItem = ({ item, index }: { item: WardrobeItem; index: number }) => {
-    const initial = categoryInitial[item.category] || item.category[0].toUpperCase();
     return (
       <Animated.View entering={FadeInDown.delay(index * 30).duration(350)} style={styles.gridCell}>
         <Pressable
           style={({ pressed }) => [styles.gridPressable, pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] }]}
           onPress={() => router.push(`/item-detail?id=${item.id}`)}
         >
+          <View style={[styles.colorStrip, { backgroundColor: colorDots[item.colorFamily] || Colors.border }]} />
           <Image
             source={{ uri: item.photoUri }}
-            style={[styles.gridImage, { backgroundColor: colorDots[item.colorFamily] || Colors.border }]}
-            contentFit="cover"
+            style={styles.gridImage}
+            contentFit="contain"
+            transition={250}
           />
-          <View style={styles.gridBadge}>
-            <Text style={styles.gridBadgeText}>{initial}</Text>
-          </View>
           {item.modelConfidence !== undefined && item.modelConfidence < LOW_CONFIDENCE_THRESHOLD && (
             <View style={styles.reviewBadge}>
               <Ionicons name="alert-circle-outline" size={11} color="#C9A14C" />
@@ -139,7 +133,9 @@ export default function WardrobeScreen() {
           )}
           <View style={styles.gridLabel}>
             <Text style={styles.gridLabelText} numberOfLines={1}>
-              {item.subType.replace(/-/g, ' ')}
+              {item.fabric
+                ? `${item.fabric.charAt(0).toUpperCase() + item.fabric.slice(1)} · ${item.colorFamily}`
+                : item.subType.replace(/-/g, ' ')}
             </Text>
           </View>
         </Pressable>
@@ -391,17 +387,9 @@ const styles = StyleSheet.create({
   gridContent: { paddingHorizontal: 14, paddingBottom: 120 },
   gridRow: { gap: 6, marginBottom: 6 },
   gridCell: { flex: 1 },
-  gridPressable: { flex: 1, borderRadius: 12, overflow: 'hidden', aspectRatio: 0.9 },
+  gridPressable: { flex: 1, borderRadius: 12, overflow: 'hidden', aspectRatio: 0.9, backgroundColor: '#EDEBE7' },
+  colorStrip: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, zIndex: 1 },
   gridImage: { width: '100%', height: '100%' },
-  gridBadge: {
-    position: 'absolute', top: 6, left: 6,
-    width: 22, height: 22, borderRadius: 6,
-    backgroundColor: 'rgba(16,24,38,0.55)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  gridBadgeText: {
-    fontFamily: 'Inter_700Bold', fontSize: rs(9), color: Colors.white,
-  },
   gridLabel: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     paddingVertical: 6, paddingHorizontal: 6,

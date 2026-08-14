@@ -6,9 +6,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withRepeat,
-  withSequence,
-  cancelAnimation,
   runOnJS,
   Easing,
 } from 'react-native-reanimated';
@@ -36,21 +33,14 @@ export default function IndexScreen() {
   const containerOpacity = useSharedValue(0);
   const wordmarkOpacity = useSharedValue(0);
   const accentScaleX = useSharedValue(0);
-  const pulseOpacity = useSharedValue(1);
+  const taglineOpacity = useSharedValue(0);
 
   useEffect(() => {
     containerOpacity.value = withTiming(1, { duration: 200, easing: Easing.out(Easing.ease) });
     wordmarkOpacity.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.ease) });
     accentScaleX.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
 
-    pulseOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.5, { duration: 900, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 900, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      false
-    );
+    taglineOpacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.ease) });
   }, []);
 
   const url = Linking.useLinkingURL();
@@ -73,7 +63,6 @@ export default function IndexScreen() {
     };
 
     const fadeOutThenNavigate = (path: string) => {
-      cancelAnimation(pulseOpacity);
       containerOpacity.value = withTiming(
         0,
         { duration: 180, easing: Easing.in(Easing.ease) },
@@ -116,18 +105,18 @@ export default function IndexScreen() {
     width: accentScaleX.value * 32,
   }));
 
-  const dotsStyle = useAnimatedStyle(() => ({
-    opacity: pulseOpacity.value,
+  const taglineStyle = useAnimatedStyle(() => ({
+    opacity: taglineOpacity.value,
   }));
 
   return (
     <View style={styles.container}>
       <Animated.View style={[styles.content, containerStyle]}>
         <Animated.Text style={[styles.wordmark, wordmarkStyle]}>
-          AuraCloset
+          Amodka
         </Animated.Text>
         <Animated.View style={[styles.accent, accentStyle]} />
-        <Animated.Text style={[styles.tagline, dotsStyle]}>
+        <Animated.Text style={[styles.tagline, taglineStyle]}>
           Your quiet-luxury stylist in your pocket
         </Animated.Text>
       </Animated.View>

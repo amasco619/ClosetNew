@@ -1,6 +1,6 @@
-# AuraCloset — Technical Reference
+# Amodka — Technical Reference
 
-> **READ THIS FIRST.** This document is the authoritative technical reference for AuraCloset. Any developer importing, migrating, or taking over this project must read this document in full before touching any code.
+> **READ THIS FIRST.** This document is the authoritative technical reference for Amodka. Any developer importing, migrating, or taking over this project must read this document in full before touching any code.
 >
 > **DO NOT modify any source files during the import or migration phase.** Get the app running exactly as-is first, verify all features work end-to-end, and only then begin any new development. Premature code changes before the environment is verified will make debugging significantly harder.
 
@@ -76,7 +76,7 @@ Whenever you make a change that affects any section of this document — new API
 
 ## 2. Project Overview
 
-**AuraCloset** is a quiet-luxury virtual wardrobe and AI styling assistant for iOS and Android, built with Expo (React Native) and a lightweight Express backend.
+**Amodka** is a quiet-luxury virtual wardrobe and AI styling assistant for iOS and Android, built with Expo (React Native) and a lightweight Express backend.
 
 - **Tagline:** "Your quiet-luxury stylist in your pocket."
 - **Design aesthetic:** Quiet luxury — deep navy (#101826), champagne gold (#D0B892), sage (#8AA39B), blush (#EACFD3), warm off-white background (#F5F3F0). No emojis anywhere in the app. Inter font family throughout.
@@ -1668,7 +1668,57 @@ Full report: `docs/phase-4-report.md`
 
 ---
 
-## 17. Key Conventions
+## 17. Phase 5A — Amodka Premium Experience Foundation
+
+**Date:** 2026-08-14 | **Status:** ✅ GO
+
+Phase 5A transforms the product surrounding the frozen engine into a premium, trustworthy, concierge-like experience. No recommendation behaviour was modified.
+
+### Changes
+
+**Track A — Rebrand AuraCloset → Amodka:**
+- `app.json`: name, slug (`amodka`), scheme (`amodka`), bundleIdentifier/package (`com.amodka`), permissions strings.
+- `app/_layout.tsx`: URL scheme checks updated (`auracloset://` → `amodka://`).
+- `lib/auth.ts`: `EMAIL_CONFIRMED_KEY`, OAuth scheme, comments.
+- `lib/emailSignUp.ts`: OAuth scheme.
+- `app/sign-in.tsx`, `app/premium.tsx`, `app/onboarding.tsx`, `app/(tabs)/profile.tsx`, `app/(tabs)/index.tsx`, `app/(tabs)/wardrobe.tsx`, `lib/telemetry.ts`, `TECHNICAL.md`: all user-visible brand strings updated.
+- Historical docs and attached_assets intentionally retained as-is.
+
+**Track B — Premium Startup Experience:**
+- `app/index.tsx`: wordmark updated to "Amodka". Replaced pulsing tagline animation (`withRepeat`/`withSequence`) with a single restrained fade-in (`withTiming`, 400ms). Removed `cancelAnimation`, `withRepeat`, `withSequence` imports.
+
+**Track C — Premium Wardrobe Tiles:**
+- `app/(tabs)/wardrobe.tsx`: Grid tiles now use consistent neutral background (`#EDEBE7`). Color accent expressed as a 3px left-edge strip. `contentFit` changed from `"cover"` to `"contain"` to avoid garment cropping. Category letter badge removed. Label updated to show `Fabric · Color` when fabric data is available. Expo Image `transition={250}` for smooth load.
+
+**Track D — PhotoRoom → Gemini Pipeline Benchmark:**
+- `scripts/benchmark-pipeline.ts`: Documents evaluation methodology and decision rationale. Decision: **ADOPT** (current pipeline already correct — PhotoRoom background removal demonstrably improves Gemini's colour, fabric, and pattern accuracy).
+
+**Track E — Graceful Error Handling:**
+- `components/AmodkaErrorState.tsx`: New reusable error state component with type-specific copy for `recommendation`, `classification`, `background-removal`, `network`, `generic` failure types.
+- `components/ErrorFallback.tsx`: Updated copy to "Something didn't go to plan" / "Your wardrobe is safe."
+- `app/add-item.tsx`: Classification failure alert updated to "We couldn't identify this piece just yet."
+
+**Track F — Cold/Rain Wardrobe Gap Intelligence:**
+- `components/WardrobeGapCard.tsx`: New component — presents outerwear wardrobe gaps as product intelligence, not errors. Supports `cold`, `rain`, `cold-rain` conditions with stylist-tone copy and example garments. `onShopGap` prop reserved for Phase 5B commerce.
+- `app/(tabs)/index.tsx`: Gap detection logic (no outerwear + cold/rainy weather + weather enabled) renders `WardrobeGapCard` between the stats row and Today's Pick.
+
+**Track G — Fallback Path Regression Test:**
+- `__tests__/phase5a-fallback.test.ts`: Deterministic test that forces strict hero-seeded generation to produce zero candidates (active scenario, no hero subtypes) and confirms the relaxed path activates with a valid outfit containing no fabricated garments and no hard constraint violations. Includes G.2 control case.
+
+### Final Baseline
+
+| Metric | Phase 5A Final |
+|---|---|
+| Unit tests (`npm test`) | **46/46** |
+| TypeScript (`npm run typecheck`) | **0 errors** |
+| Recommendation engine | **Unchanged (v3.7 frozen)** |
+| Golden regression set | **35/35** |
+| Resilience tests | **29/29** |
+| Phase 5A fallback test | **6/6 assertions** |
+
+---
+
+## 18. Key Conventions
 
 | Convention | Rule |
 |-----------|------|

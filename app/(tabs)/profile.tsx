@@ -663,7 +663,7 @@ export default function ProfileScreen() {
                   <Ionicons name="star" size={18} color={Colors.secondary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.upgradeCardTitle}>Unlock AuraCloset Premium</Text>
+                  <Text style={styles.upgradeCardTitle}>Unlock Amodka Premium</Text>
                   <Text style={styles.upgradeCardSub}>Everything you need for a complete wardrobe</Text>
                 </View>
               </View>
@@ -723,7 +723,7 @@ export default function ProfileScreen() {
                 try { await signOut(); router.replace('/sign-in'); }
                 catch (err: any) { console.error('[profile] Sign out:', err.message); }
               }}
-              accessibilityLabel="Sign out of AuraCloset"
+              accessibilityLabel="Sign out of Amodka"
             >
               <View style={[styles.accountRowIcon, { backgroundColor: Colors.warning + '14' }]}>
                 <Ionicons name="log-out-outline" size={18} color={Colors.warning} />
@@ -764,7 +764,7 @@ export default function ProfileScreen() {
                       ],
                     );
                   }}
-                  accessibilityLabel="Delete your AuraCloset account"
+                  accessibilityLabel="Delete your Amodka account"
                 >
                   <View style={[styles.accountRowIcon, { backgroundColor: '#FEE2E2' }]}>
                     <Ionicons name="trash-outline" size={18} color="#DC2626" />

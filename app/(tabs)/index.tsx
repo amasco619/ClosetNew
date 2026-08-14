@@ -12,6 +12,7 @@ import { EMAIL_CONFIRMED_KEY } from '@/lib/auth';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp, FadeOutUp, useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { rs } from '../../lib/responsive';
+import { WardrobeGapCard } from '@/components/WardrobeGapCard';
 
 const styleGoalLabels: Record<string, string> = {
   youthful: 'Youthful', elevated: 'Elevated', minimal: 'Minimal',
@@ -140,7 +141,7 @@ export default function HomeScreen() {
         <Animated.View entering={FadeInDown.delay(60).duration(280)} style={styles.header}>
           <View>
             <Text style={styles.greeting}>{profile.name ? 'Welcome back,' : 'Welcome back'}</Text>
-            <Text style={styles.appName}>{profile.name || 'AuraCloset'}</Text>
+            <Text style={styles.appName}>{profile.name || 'Amodka'}</Text>
           </View>
           {isPremium && (
             <View style={styles.premiumBadge}>
@@ -168,7 +169,7 @@ export default function HomeScreen() {
             style={styles.confirmedBanner}
           >
             <Ionicons name="checkmark-circle" size={16} color={Colors.sage} />
-            <Text style={styles.confirmedBannerText}>Email confirmed — welcome to AuraCloset</Text>
+            <Text style={styles.confirmedBannerText}>Email confirmed — welcome to Amodka</Text>
             <Pressable
               onPress={() => {
                 if (emailConfirmedTimer.current) clearTimeout(emailConfirmedTimer.current);
@@ -290,6 +291,22 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Outfit Ideas</Text>
           </Pressable>
         </Animated.View>
+
+        {(() => {
+          if (!weather || profile.weatherEnabled === false) return null;
+          if (activeWardrobeItems.length === 0) return null;
+          const hasOuterwear = activeWardrobeItems.some(i => i.category === 'outerwear');
+          if (hasOuterwear) return null;
+          const isCold = weather.currentTempC < 10;
+          const isRaining = weather.precipProbability >= 0.6;
+          if (!isCold && !isRaining) return null;
+          const condition = isCold && isRaining ? 'cold-rain' : isCold ? 'cold' : 'rain';
+          return (
+            <Animated.View entering={FadeInDown.delay(165).duration(280)}>
+              <WardrobeGapCard condition={condition} wardrobeSize={activeWardrobeItems.length} />
+            </Animated.View>
+          );
+        })()}
 
         {todaysPick && (
           <Animated.View entering={FadeInDown.delay(180).duration(280)} style={styles.pickCard}>

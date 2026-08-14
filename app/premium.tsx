@@ -54,7 +54,7 @@ export default function PremiumScreen() {
             <View style={styles.crownIcon}>
               <Ionicons name="star" size={36} color={Colors.secondary} />
             </View>
-            <Text style={styles.headerTitle}>AuraCloset Premium</Text>
+            <Text style={styles.headerTitle}>Amodka Premium</Text>
             <Text style={styles.headerSubtitle}>Unlock the full power of your personal stylist</Text>
           </LinearGradient>
         </Animated.View>
