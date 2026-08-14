@@ -219,7 +219,7 @@ function OutfitCard({
       });
     } catch (err) {
       console.error('[OOTD] Export failed:', err);
-      Alert.alert('Export failed', 'Unable to export this look right now.');
+      Alert.alert('Could not export this look', 'Please try again in a moment.');
     } finally {
       setExporting(false);
     }

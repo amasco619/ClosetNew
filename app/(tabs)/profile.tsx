@@ -757,7 +757,7 @@ export default function ProfileScreen() {
                               router.replace('/sign-in');
                             } catch (err: any) {
                               console.error('[profile] Delete account:', err.message);
-                              Alert.alert('Error', 'Could not delete account. Please try again.');
+                              Alert.alert('Account error', 'Could not delete your account. Please try again.');
                             }
                           },
                         },

@@ -55,7 +55,7 @@ export default function OOTDStoryCard({ outfit, date }: Props) {
   return (
     <View style={styles.card}>
       <View style={styles.topBar}>
-        <Text style={styles.brand} numberOfLines={1}>AuraCloset</Text>
+        <Text style={styles.brand} numberOfLines={1}>Amodka</Text>
       </View>
 
       <View style={styles.divider} />

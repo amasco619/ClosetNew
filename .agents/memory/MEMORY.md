@@ -13,4 +13,5 @@
 - [textureHarmony gloss vs matt distinction](texture-harmony-gloss.md) — silk+cashmere is +1 (contrast), silk+satin is −5 (competing gloss); GLOSS_FABRICS=['silk','satin'] excludes leather
 - [Phase 3.7 rain filter + weather outerwear gate](phase37-weather-findings.md) — isRainFriendly now blocks sandals/espadrilles/wicker-bag; shoe+bag rain filter added to outfitRotation.ts; MILD(lowC=10)→outerwear required kills pools lacking outerwear
 - [Phase 4 production hardening](phase4-hardening.md) — Engine v3.7 frozen; 2 null guards added to outfitScoring.ts; telemetry in lib/telemetry.ts; version in constants/recommendationVersion.ts; golden set in __tests__/recommendation-golden-set.ts
-- [Amodka rebrand](amodka-rebrand.md) — App renamed AuraCloset→Amodka in Phase 5A; all new identifiers use "amodka"/"com.amodka"; historical docs intentionally kept as-is
+- [Amodka rebrand](amodka-rebrand.md) — App renamed AuraCloset→Amodka in Phase 5A; all new identifiers use "amodka"/"com.amodka"; storage migration in _layout.tsx
+- [Wardrobe gap diagnosis](wardrobe-gap-diagnosis.md) — diagnoseWeatherGap() gates on engineFound===false first; uses item metadata (warmthBand/weight/fabric), never category alone

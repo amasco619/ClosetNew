@@ -131,7 +131,7 @@ export async function updatePassword(newPassword: string): Promise<void> {
  *
  * ─── iOS ────────────────────────────────────────────────────────────────────
  * Uses openAuthSessionAsync (ASWebAuthenticationSession).  In Expo Go the
- * callbackURLScheme is 'exp'; in standalone builds it is 'auracloset'.
+ * callbackURLScheme is 'exp'; in standalone builds it is 'amodka'.
  * ASWebAuth intercepts the redirect and resolves browserPromise.  A Linking
  * listener races it as a belt-and-suspenders fallback.  dismissAuthSession()
  * closes the sheet after the race settles.
@@ -236,7 +236,7 @@ async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
 
 export async function signInWithGoogle(): Promise<void> {
   if (Platform.OS === 'web') {
-    // On web, custom URL schemes (auracloset://) cannot be received by the
+    // On web, custom URL schemes (amodka://) cannot be received by the
     // browser. Use a full-page redirect instead; detectSessionInUrl:true (set
     // in lib/supabase.ts for web) auto-processes the PKCE code on return.
     const origin = typeof window !== 'undefined' ? window.location.origin : nativeRedirectTo

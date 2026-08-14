@@ -13,6 +13,7 @@ import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp, FadeOutUp, useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { rs } from '../../lib/responsive';
 import { WardrobeGapCard } from '@/components/WardrobeGapCard';
+import { diagnoseWeatherGap } from '@/lib/wardrobeGapDiagnosis';
 
 const styleGoalLabels: Record<string, string> = {
   youthful: 'Youthful', elevated: 'Elevated', minimal: 'Minimal',
@@ -293,14 +294,15 @@ export default function HomeScreen() {
         </Animated.View>
 
         {(() => {
-          if (!weather || profile.weatherEnabled === false) return null;
-          if (activeWardrobeItems.length === 0) return null;
-          const hasOuterwear = activeWardrobeItems.some(i => i.category === 'outerwear');
-          if (hasOuterwear) return null;
-          const isCold = weather.currentTempC < 10;
-          const isRaining = weather.precipProbability >= 0.6;
-          if (!isCold && !isRaining) return null;
-          const condition = isCold && isRaining ? 'cold-rain' : isCold ? 'cold' : 'rain';
+          // Only surface a gap card AFTER the engine has found no valid outfit.
+          // Then diagnose whether the failure is likely weather-capability related.
+          const condition = diagnoseWeatherGap(
+            todaysPick !== null,
+            weather,
+            activeWardrobeItems,
+            profile.weatherEnabled !== false,
+          );
+          if (!condition) return null;
           return (
             <Animated.View entering={FadeInDown.delay(165).duration(280)}>
               <WardrobeGapCard condition={condition} wardrobeSize={activeWardrobeItems.length} />

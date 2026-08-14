@@ -13,6 +13,8 @@ import { AppProvider } from "@/contexts/AppContext";
 import { EMAIL_CONFIRMED_KEY, createSessionFromUrl } from "@/lib/auth";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 import { StatusBar } from "expo-status-bar";
+import { migrateStorage } from "@/lib/database";
+import { migrateWeatherStorage } from "@/constants/weather";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -57,6 +59,13 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+
+  // One-shot storage key migration (Phase 5A.1 — AuraCloset → Amodka rebrand).
+  // Must run before any component reads the renamed keys.
+  useEffect(() => {
+    migrateStorage().catch(() => {});
+    migrateWeatherStorage().catch(() => {});
+  }, []);
 
   // Expo Go OAuth relay — runs on the web page that loads inside
   // ASWebAuthenticationSession after Google/Apple auth completes.

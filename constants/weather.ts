@@ -35,8 +35,8 @@ export {
   weatherSignature,
 } from '@/constants/weatherPure';
 
-const CACHE_KEY = '@auracloset_weather_v1';
-const PERM_ASKED_KEY = '@auracloset_weather_perm_asked_v1';
+const CACHE_KEY = '@amodka_weather_v1';
+const PERM_ASKED_KEY = '@amodka_weather_perm_asked_v1';
 const TTL_MS = 6 * 60 * 60 * 1000;
 
 interface OpenMeteoResponse {
@@ -186,4 +186,38 @@ export function defaultTempUnit(): import('@/constants/weatherPure').TempUnit {
     if (region && fahrenheitRegions.has(region)) return 'F';
   } catch { /* noop */ }
   return 'C';
+}
+
+// ══ STORAGE MIGRATION (Phase 5A.1 — AuraCloset → Amodka rebrand) ═════════════
+
+/**
+ * One-shot migration: renames legacy @auracloset_* weather cache keys to @amodka_*.
+ *
+ * - Weather cache (@auracloset_weather_v1): low-criticality; expires in 6h but
+ *   migrating avoids a forced re-fetch on first launch after upgrade.
+ * - Permission-asked flag (@auracloset_weather_perm_asked_v1): user-critical;
+ *   losing it causes the app to re-prompt for location permission.
+ *
+ * Safe to call multiple times — no-op once migration is complete.
+ * Called once at app startup from _layout.tsx.
+ */
+export async function migrateWeatherStorage(): Promise<void> {
+  const map: Array<[string, string]> = [
+    ['@auracloset_weather_v1',           '@amodka_weather_v1'],
+    ['@auracloset_weather_perm_asked_v1','@amodka_weather_perm_asked_v1'],
+  ];
+  for (const [oldKey, newKey] of map) {
+    try {
+      const [oldRaw, newRaw] = await Promise.all([
+        AsyncStorage.getItem(oldKey),
+        AsyncStorage.getItem(newKey),
+      ]);
+      if (oldRaw !== null && newRaw === null) {
+        await AsyncStorage.setItem(newKey, oldRaw);
+      }
+      if (oldRaw !== null) {
+        await AsyncStorage.removeItem(oldKey);
+      }
+    } catch { /* non-fatal */ }
+  }
 }

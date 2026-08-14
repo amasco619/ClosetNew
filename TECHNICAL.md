@@ -1718,7 +1718,96 @@ Phase 5A transforms the product surrounding the frozen engine into a premium, tr
 
 ---
 
-## 18. Key Conventions
+## 18. Phase 5A.1 — Amodka Premium Experience Release Hardening
+
+**Date:** 2026-08-14 | **Status:** ✅ GO
+
+Targeted corrections to Phase 5A. Recommendation Engine v3.7 remains behaviourally unchanged.
+
+### Correction 1 — Wardrobe Gap Semantics
+
+Previous implementation gated WardrobeGapCard on `category === 'outerwear' absent + cold/rain`, which is an invalid assumption.
+
+**Correct architecture:** Engine output drives the gate; diagnosis inspects item metadata.
+
+- `lib/wardrobeGapDiagnosis.ts`: New pure module with `diagnoseWeatherGap(engineFound, weather, items, weatherEnabled)`. Gates first on `engineFound === false`, then checks `warmthBand`, `weight`, and `fabric` — never `category` alone. `hasWarmLayer` / `hasRainLayer` exported separately for testing.
+- `app/(tabs)/index.tsx`: Gap detection replaced; WardrobeGapCard now only surfaces when `todaysPick === null` AND `diagnoseWeatherGap` returns a confident condition.
+- `__tests__/phase5a1-gap-diagnosis.test.ts`: Tests A (cold/rain gap), B (engine found outfit → gate holds), C (mild dry → no gap), D (non-outerwear weather-capable garment).
+
+### Correction 2 — PhotoRoom → Gemini Benchmark Reclassification
+
+`scripts/benchmark-pipeline.ts` rewritten to clearly distinguish:
+- **Engineering rationale** (expected accuracy improvements from background removal)
+- **Empirical evidence** (latency measurements, fallback test coverage)
+- **Outstanding validation** (quantitative accuracy benchmark against labelled data — not yet run)
+- Removed all implied numerical accuracy claims.
+
+Decision: **ADOPTED** on engineering grounds. Quantitative benchmark remains future work.
+
+### Correction 3 — Native Branding
+
+All production-visible native assets regenerated using the approved Amodka brand treatment (DejaVu-Sans-Bold, navy `#10182A`, champagne gold accent `#D0B892`):
+
+| Asset | Size | Content |
+|---|---|---|
+| `assets/images/icon.png` | 1024×1024 | "A" monogram on navy |
+| `assets/images/splash-icon.png` | 1024×1024 | "AMODKA" wordmark on `#F5F3F0` |
+| `assets/images/favicon.png` | 48×48 | "A" on navy |
+| `assets/images/android-icon-background.png` | 512×512 | Solid navy |
+| `assets/images/android-icon-foreground.png` | 512×512 | "A" on transparent |
+| `assets/images/android-icon-monochrome.png` | 432×432 | "A" on transparent |
+
+No AuraCloset branding remains in any production-visible native asset.
+
+### Correction 4 — Error String Audit
+
+User-visible error strings audited. Changes made:
+- `components/OOTDStoryCard.tsx`: "AuraCloset" brand watermark → "Amodka"
+- `app/(tabs)/outfits.tsx`: "Export failed" / "Unable to export" → premium tone
+- `app/(tabs)/profile.tsx`: "Error" alert title → "Account error"
+- `app/add-item.tsx`: Save failure alert no longer exposes internal error messages
+
+All `console.error` and internal diagnostic logs intentionally retained.
+
+### Correction 5 — Storage Key Migration
+
+All `@auracloset_*` AsyncStorage keys renamed to `@amodka_*`. Migration implemented:
+
+| Old key | New key | Criticality | Migration |
+|---|---|---|---|
+| `@auracloset_item_ids` | `@amodka_item_ids` | User-critical (item ID cache) | ✅ Implemented |
+| `@auracloset_wear_log` | `@amodka_wear_log` | User-critical (wear history backup) | ✅ Implemented |
+| `@auracloset_weather_v1` | `@amodka_weather_v1` | Low (6h cache) | ✅ Implemented |
+| `@auracloset_weather_perm_asked_v1` | `@amodka_weather_perm_asked_v1` | User pref (location permission) | ✅ Implemented |
+| `@auracloset_wardrobe_view` | `@amodka_wardrobe_view` | Low (list/grid UI preference) | Not required |
+| `@auracloset_email_confirmed` | `@amodka_email_confirmed` | Low (one-time banner flag) | Not required |
+
+`migrateStorage()` in `lib/database.ts` and `migrateWeatherStorage()` in `constants/weather.ts` called once at startup from `app/_layout.tsx`. Both are idempotent.
+
+### Correction 6 — Production Identifier Audit
+
+All in-codebase identifiers confirmed consistent: scheme `amodka`, bundle ID `com.amodka`, Android package `com.amodka`. Legacy `auracloset` comments in `lib/auth.ts` fixed.
+
+**External configuration required for future native/auth phases (not implemented here):**
+- Supabase Auth → Redirect URLs: add `amodka://` (was `auracloset://`)
+- Google Cloud Console: update Android OAuth client to package `com.amodka`
+- Apple Developer Portal: create/update Bundle ID `com.amodka`
+- EAS project configuration update (`eas.json`, `app.json` owner)
+
+### Final Baseline
+
+| Metric | Phase 5A.1 Final |
+|---|---|
+| Unit tests (`npm test`) | **47/47** |
+| TypeScript (`npm run typecheck`) | **0 errors** |
+| Recommendation engine | **Unchanged (v3.7 frozen)** |
+| Golden regression set | **35/35** |
+| Phase 5A fallback test | **6/6 assertions** |
+| Phase 5A.1 gap diagnosis test | **15/15 assertions** |
+
+---
+
+## 19. Key Conventions
 
 | Convention | Rule |
 |-----------|------|

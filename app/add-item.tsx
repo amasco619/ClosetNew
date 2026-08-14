@@ -1033,8 +1033,8 @@ export default function AddItemScreen() {
       setSaving(false);
       setSaveStage(null);
       Alert.alert(
-        'Could not save item',
-        e instanceof Error ? e.message : 'Something went wrong. Please try again.',
+        'Could not save this item',
+        'Your photo is safe. Please try again.',
       );
     }
   };

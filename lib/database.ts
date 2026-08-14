@@ -60,10 +60,10 @@ export async function insertWardrobeItem(item: {
     .select('id')
     .single()
   if (error) throw new Error(`[insertWardrobeItem] ${error.message}`)
-  const raw = await AsyncStorage.getItem('@auracloset_item_ids')
+  const raw = await AsyncStorage.getItem('@amodka_item_ids')
   const ids: string[] = raw ? JSON.parse(raw) : []
   ids.push(data.id)
-  await AsyncStorage.setItem('@auracloset_item_ids', JSON.stringify(ids))
+  await AsyncStorage.setItem('@amodka_item_ids', JSON.stringify(ids))
   return { id: data.id }
 }
 
@@ -149,10 +149,10 @@ export async function insertWearLog(entry: {
   item_ids: string[]
   occasion?: string
 }): Promise<void> {
-  const raw = await AsyncStorage.getItem('@auracloset_wear_log')
+  const raw = await AsyncStorage.getItem('@amodka_wear_log')
   const logs = raw ? JSON.parse(raw) : []
   logs.push({ ...entry, logged_at: new Date().toISOString() })
-  await AsyncStorage.setItem('@auracloset_wear_log', JSON.stringify(logs))
+  await AsyncStorage.setItem('@amodka_wear_log', JSON.stringify(logs))
   const { error } = await supabase.from('wear_logs').insert(entry)
   if (error) throw new Error(`[insertWearLog] ${error.message}`)
 }
@@ -315,4 +315,38 @@ export async function deleteSavedLook(
     .eq('user_id', userId)
     .eq('id', lookId)
   if (error) throw new Error(`[deleteSavedLook] ${error.message}`)
+}
+
+// ══ STORAGE MIGRATION (Phase 5A.1 — AuraCloset → Amodka rebrand) ═════════════
+
+const MIGRATION_MAP: Array<[string, string]> = [
+  ['@auracloset_item_ids', '@amodka_item_ids'],
+  ['@auracloset_wear_log', '@amodka_wear_log'],
+]
+
+/**
+ * One-shot migration: for each renamed AsyncStorage key, if the old key has data
+ * and the new key is absent, copy old → new and remove old.
+ *
+ * Safe to call multiple times — a no-op once migration is complete.
+ * Called once at app startup from _layout.tsx.
+ */
+export async function migrateStorage(): Promise<void> {
+  for (const [oldKey, newKey] of MIGRATION_MAP) {
+    try {
+      const [oldRaw, newRaw] = await Promise.all([
+        AsyncStorage.getItem(oldKey),
+        AsyncStorage.getItem(newKey),
+      ])
+      if (oldRaw !== null && newRaw === null) {
+        await AsyncStorage.setItem(newKey, oldRaw)
+      }
+      if (oldRaw !== null) {
+        await AsyncStorage.removeItem(oldKey)
+      }
+    } catch {
+      // Non-fatal — if migration fails, the app falls back to an empty local
+      // cache while Supabase remains the source of truth for persisted data.
+    }
+  }
 }
