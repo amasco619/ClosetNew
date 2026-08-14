@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Platform, TouchableOpacity, TextInput, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -752,12 +753,51 @@ export default function ProfileScreen() {
                             try {
                               const { data: { user } } = await supabase.auth.getUser();
                               if (!user?.id) throw new Error('Not signed in');
+                              // Server deletes Storage objects + all DB records + auth user.
+                              // Only clear local caches AFTER the server succeeds so the user
+                              // can retry if deletion fails.
                               await authenticatedApiRequest('DELETE', '/api/user/delete-account', { userId: user.id });
+                              // Clear all user-owned local AsyncStorage caches.
+                              // Keys cover AppContext, weather, database, wardrobe-view and auth.
+                              await AsyncStorage.multiRemove([
+                                // AppContext
+                                '@auracloset_profile',
+                                '@auracloset_wardrobe',
+                                '@auracloset_premium',
+                                '@auracloset_slots',
+                                '@auracloset_rotation',
+                                '@auracloset_wear_history',
+                                '@auracloset_reactions',
+                                '@auracloset_mood',
+                                '@auracloset_saved_looks',
+                                // database.ts
+                                '@amodka_item_ids',
+                                '@amodka_wear_log',
+                                // weather
+                                '@amodka_weather_v1',
+                                '@amodka_weather_perm_asked_v1',
+                                // wardrobe view preference
+                                '@amodka_wardrobe_view',
+                                // auth
+                                '@amodka_email_confirmed',
+                                // legacy keys (already migrated but safe to clear)
+                                '@auracloset_item_ids',
+                                '@auracloset_wear_log',
+                                '@auracloset_weather_v1',
+                                '@auracloset_weather_perm_asked_v1',
+                              ]).catch(err => {
+                                // Non-fatal — server deletion already succeeded;
+                                // stale local data is overwritten on next sign-in.
+                                console.warn('[profile] AsyncStorage.multiRemove failed:', err?.message);
+                              });
                               await signOut();
                               router.replace('/sign-in');
                             } catch (err: any) {
                               console.error('[profile] Delete account:', err.message);
-                              Alert.alert('Account error', 'Could not delete your account. Please try again.');
+                              Alert.alert(
+                                'Account error',
+                                'Could not delete your account. Your local data has been preserved so you can try again.',
+                              );
                             }
                           },
                         },

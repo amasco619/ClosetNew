@@ -1,38 +1,38 @@
 ---
-name: Phase 5B storage and compliance hardening
-description: Signed URL architecture for wardrobe-images; storagePath threading; RLS migration; account deletion fix; compliance docs location.
+name: Phase 5B + 5B.1 storage, compliance, and Nigeria hardening
+description: Signed URL architecture; storagePath threading; RLS migration; account deletion fix; AsyncStorage clear; cold-start fix; Nigeria compliance docs.
 ---
 
-# Phase 5B Hardening
+# Phase 5B + 5B.1 Hardening
 
-## Storage Architecture (post Phase 5B)
+## Storage Architecture (post Phase 5B/5B.1)
 
-**Rule:** `uploadWardrobeImage` returns `{signedUrl, storagePath}`. Always store `storagePath` in the DB (`image_url` column); use `signedUrl` for display only — it expires.
+**Rule:** `uploadWardrobeImage` returns `{signedUrl, storagePath}`. Always store `storagePath` in DB; use `signedUrl` for display only.
+
+**Cold-start fix (A7):** AsyncStorage saves `photoUri = storagePath` (not signed URL). `loadData()` resolves paths on cache load. `AppState 'active'` listener refreshes signed URLs on foreground. `getSignedWardrobeUrl` imported into AppContext.
 
 **How to apply:**
-- New upload call sites must destructure both fields
-- `storagePath` flows through `WardrobeItem.storagePath?` → AppContext `insertWardrobeItem(image_url: storagePath)` 
-- `resolveWardrobeImageUrl(pathOrUrl)` handles dual mode: paths → signed URL, legacy https:// URLs → as-is
+- Upload call sites destructure `{signedUrl, storagePath}`
+- `storagePath` flows through `WardrobeItem.storagePath?` → AppContext DB insert
+- `resolveWardrobeImageUrl(pathOrUrl)` handles paths and legacy URLs
 - In-memory signed URL cache in `lib/storage.ts` (1h TTL, 60s buffer)
 
-**Why:** wardrobe-images bucket must be set PRIVATE (operator action). Signed URLs are the access mechanism for private buckets.
+## Pending Operator Actions
+1. Run `scripts/migrate-legacy-storage-urls.ts --dry-run` → confirm 0 missing objects
+2. Run live migration to convert legacy public URLs → storage paths
+3. Apply `supabase/migrations/20260814000000_rls_all_tables.sql`
+4. Set `wardrobe-images` bucket PRIVATE in Supabase dashboard
+5. Set `tryon-photos` bucket PRIVATE (or disable — bucket is unused by app UI)
 
-## Pending Operator Actions (not in code)
-1. Set `wardrobe-images` bucket PRIVATE in Supabase dashboard
-2. Apply `supabase/migrations/20260814000000_rls_all_tables.sql` 
-3. Run DB migration to convert legacy public URLs → storage paths before bucket goes private
+## Account Deletion (fully fixed Phase 5B.1)
+Server: Storage cleanup + 8-table DB cleanup + auth deletion.
+Client (profile.tsx): `AsyncStorage.multiRemove([all user-owned keys])` fires after server success only. Keys list covers AppContext, database.ts, weather, wardrobe-view, auth, and all legacy @auracloset_* keys.
 
-## Account Deletion (fixed)
-`DELETE /api/user/delete-account` now: deletes Storage objects (wardrobe-images + tryon-photos), deletes all DB records (8 tables with user_id, plus user_profiles with id), then deletes auth user.
+## Nigeria Compliance (Phase 5B.1)
+Launch strategy: Nigeria → UK → Global.
+Key docs: `docs/compliance/nigeria-market-readiness.md`, `docs/compliance/phase5c-payment-architecture.md`.
+Nigeria-specific: NDPA 2023, NDPC, FCCPC, GAID 2025. Cross-border transfer mechanisms unverified for all processors — launch blocker.
+Skin tone legal basis unconfirmed under NDPA s.30 — launch blocker.
 
-## Compliance Documents
-All in `docs/compliance/`: data-inventory.md, data-flow.md, dpia-screening.md, privacy-policy-source.md, terms-source.md, store-compliance-matrix.md, business-risk-register.md.
-
-## Critical pre-launch blockers documented
-- Bucket must be private (R-01)
-- RLS migration must be applied (R-03)  
-- Premium upgrade endpoint needs payment verification (R-06) — Phase 5C
-- Skin tone legal basis — legal review required (R-08)
-- Full DPIA required (R-09)
-- Privacy Policy must be published (R-10)
-- Google Play external deletion URL required (R-14)
+## Nigerian Fashion Readiness
+`docs/recommendation/nigeria-fashion-readiness.md` — engine v3.7 handles Ankara correctly (print + large → hero pattern). Climate: hot/humid, rain filter all pass. Taxonomy gaps: `lace` fabric, `traditional-event` occasion tag needed. Visual classification and human stylist validation not yet performed.

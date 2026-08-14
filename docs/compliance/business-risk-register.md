@@ -1,7 +1,8 @@
 # Amodka — Business Risk Register
 
-**Phase 5B | Date:** 2026-08-14  
-**Status:** First edition. All findings from Phase 5B audit.
+**Phase 5B.1 | Date:** 2026-08-14  
+**Launch strategy:** Nigeria/Africa → UK → Global  
+**Status:** Updated edition incorporating Phase 5B.1 Nigeria/Africa findings.
 
 ---
 
@@ -20,43 +21,81 @@ MONEY · DATA · SECURITY · LEGAL/REGULATORY · PLATFORM · REPUTATION · RELIA
 
 ---
 
-## Risk Register
+## Phase 5B.1 Changes
 
-| # | Finding | Category | Severity | Impact | Current protection | Action | Phase |
-|---|---|---|---|---|---|---|---|
-| R-01 | **wardrobe-images bucket is PUBLIC** — any person with a storage URL can access any user's garment photos. URLs are permanent and do not expire. | DATA · SECURITY · LEGAL | 🔴 CRITICAL | Anyone possessing a URL can access garment photos permanently. If a URL is shared, leaked in a log, or guessed, the photo is irrecoverable. Constitutes a data breach if exploited. | None — bucket is currently fully public | Phase 5B adds signed-URL code and RLS migration SQL. **Operator must set bucket to PRIVATE in Supabase dashboard.** This action must be performed before user data is processed at scale. | FIX NOW (operator action required) |
-| R-02 | **Legacy public URLs in DB** — existing wardrobe_items rows store full public https:// URLs in `image_url` / `cleaned_image_url`. These will stop working if the bucket is made private without a DB migration. | DATA · RELIABILITY | 🟠 HIGH | Existing items lose their photo display after bucket is set private. | Phase 5B code supports dual-mode (path and URL); new items store paths. | Write and run a one-time DB migration script to convert existing `image_url` / `cleaned_image_url` values from public URLs to storage paths before setting bucket to private. | PHASE 5C or concurrent with bucket privacy change |
-| R-03 | **RLS not verified for application tables** — only `user_profiles` has a checked-in migration enabling RLS. The other tables (wardrobe_items, wear_logs, affinity_signals, pair_affinity_signals, rotation_cursors, slot_statuses, tryon_profiles, saved_looks) have no confirmed RLS policies in the codebase. | DATA · SECURITY · LEGAL | 🔴 CRITICAL | Cross-user data access possible if RLS is absent — user A could query user B's wardrobe, wear history, and profile. | Application code adds `.eq(user_id, userId)` but this is client-controlled; DB must enforce. Phase 5B adds RLS migration SQL. **Migration must be applied to the Supabase project.** | Apply `supabase/migrations/20260814000000_rls_all_tables.sql` to the Supabase project. Verify in Supabase dashboard that RLS is enabled and policies are active for all tables listed. | FIX NOW (operator action required) |
-| R-04 | **Account deletion did not clean up Storage or DB records** — previous implementation only called `auth.admin.deleteUser`. Storage objects and DB records depended on Supabase cascade configuration, which is unknown from codebase alone. | DATA · LEGAL/REGULATORY | 🔴 CRITICAL | Garment photos and personal data potentially orphaned after user requests deletion. Violates UK GDPR right to erasure. | Phase 5B fixes server route to explicitly delete storage + all DB tables before auth deletion. | ✅ FIXED in this phase. Verify with a disposable test account. | FIX NOW ✅ |
-| R-05 | **Premium bypass via client-side manipulation** — premium feature gates (item count, outfit quota) are enforced client-side in AppContext. A user who modifies `isPremium` in React state or modifies AsyncStorage profile would bypass these limits. | MONEY · SECURITY | 🔴 CRITICAL | Unlimited wardrobe items, unlimited recommendations without payment. Direct financial loss when Premium subscription monetises. | Server-side: `isPremium` on the server is read from JWT `app_metadata.premium` (fresh within 24h) or DB fallback — this is correct. Background removal enforces premium quota server-side. Client-side: FREE_ITEM_CAP and GUEST_ITEM_CAP are only enforced in React state. | Phase 5C must move all premium feature enforcement (item count, outfit quota) to server-authoritative checks. Client-side limits are UX only — never financial controls. | PHASE 5C |
-| R-06 | **Upgrade-premium endpoint is server-authenticated but not payment-verified** — the `/api/user/upgrade-premium` endpoint requires authentication but writes `premium: true` to the DB without verifying any payment. This is currently protected only by the rate limiter and authentication, not by any payment receipt validation. | MONEY · SECURITY | 🔴 CRITICAL | A user who calls this endpoint with a valid JWT directly (e.g., via curl) can set themselves to premium without paying. | Rate limiting (5/hour account tier). Authentication required. | Phase 5C must gate this endpoint on a verified payment receipt (App Store receipt / Play receipt / Stripe webhook). The endpoint must not be callable by clients directly without receipt verification. | PHASE 5C |
-| R-07 | **Gemini and PhotoRoom can be called without payment for unlimited requests** — an authenticated user can call `/api/classify-garment` and `/api/remove-background` repeatedly. Rate limiting exists (10/min and 8/min) but does not enforce daily or per-account caps. | MONEY · SECURITY | 🟠 HIGH | Excessive Gemini API or PhotoRoom API calls result in direct financial cost to the operator. A motivated user can cycle requests under the per-minute limit. | Per-minute rate limiting exists. | Phase 5C: add per-user daily/monthly quotas enforced server-side for both endpoints. Free tier: finite classification requests per day. Premium tier: higher limit. | PHASE 5C |
-| R-08 | **Skin tone data — legal basis unclear** — the app collects and processes skin tone as a style preference. Whether this constitutes racial/ethnic data under UK GDPR Article 9 has not been legally determined. | LEGAL/REGULATORY | 🔴 CRITICAL | Processing special-category data without explicit Article 9 consent is unlawful under UK GDPR. ICO enforcement risk. | None — collected on self-disclosure basis with no specific legal basis confirmed. | Obtain legal advice before processing real user skin-tone data. If special-category, add explicit consent screen and update Privacy Policy. | PRE-LAUNCH LEGAL REVIEW |
-| R-09 | **No DPIA conducted** — Phase 5B DPIA screening identifies multiple high-risk criteria (profiling, AI on personal photos, potential special-category data, children's access, international transfers). | LEGAL/REGULATORY | 🔴 CRITICAL | Processing without a DPIA where one is required constitutes a UK GDPR violation. ICO enforcement risk. | DPIA screening completed this phase (docs/compliance/dpia-screening.md). | Commission and complete a full DPIA with a qualified DPO/solicitor before processing real user data at scale. | PRE-LAUNCH LEGAL REVIEW |
-| R-10 | **No Privacy Policy published** — no privacy policy exists at a URL. Required by UK GDPR, Apple App Store, and Google Play before launch. | LEGAL/REGULATORY · PLATFORM | 🔴 CRITICAL | App Store rejection; legal non-compliance. | Source material created this phase (docs/compliance/privacy-policy-source.md). | Commission legal drafting from source material; publish at a stable URL; link in app and store listings. | PRE-LAUNCH |
-| R-11 | **No Terms of Use published** — no published terms exist. | LEGAL/REGULATORY · PLATFORM | 🟠 HIGH | Consumer rights exposure; store rejection risk; no contractual basis for service limitations. | Source material created this phase (docs/compliance/terms-source.md). | Commission legal drafting; publish. | PRE-LAUNCH |
-| R-12 | **No age gate or age verification** — Amodka collects appearance data and produces personalised recommendations without confirming the user is an adult. A fashion app may be accessed by children, triggering ICO Children's Code obligations. | LEGAL/REGULATORY | 🟠 HIGH | If Amodka is "likely to be accessed by children," the ICO's Children's Code requires default high-privacy settings, no profiling without explicit consent, and more. | None — no age gate exists. | Legal review to determine if Children's Code applies. If yes, implement age assurance mechanism and update processing accordingly. | PRE-LAUNCH LEGAL REVIEW |
-| R-13 | **International data transfers without documented mechanisms** — data is processed by Google (USA), Supabase (likely AWS USA/EU), PhotoRoom (France). Transfer mechanisms from UK to these jurisdictions have not been documented or verified. | LEGAL/REGULATORY | 🟠 HIGH | Processing UK personal data outside the UK without an appropriate transfer mechanism violates UK GDPR Chapter V. ICO enforcement risk. | None documented. | Verify Supabase, Google, and PhotoRoom DPAs include UK transfer mechanisms (IDTA or UK-approved SCCs). Confirm ipapi.co's terms. | PRE-LAUNCH LEGAL REVIEW |
-| R-14 | **No external account deletion web URL (Google Play requirement)** | PLATFORM | 🟠 HIGH | Google Play requires a web-based deletion URL for apps that allow account creation. This is a launch blocker for Play Store submission. | In-app deletion route exists. | Implement a simple web page explaining how to request deletion (or an automated deletion form). | PRE-LAUNCH |
-| R-15 | **tryon-photos bucket privacy** — `tryon-photos` bucket uses `getPublicUrl` and is assumed public. Phase 5B did not migrate this bucket to private storage. | DATA · SECURITY | 🟡 MEDIUM | Try-on reference photos (selfies) are accessible to anyone with the URL. These are more sensitive than garment photos. | No protection — bucket assumed public. | Set `tryon-photos` to private; implement signed URLs for try-on photo display. Phase 5C or alongside wardrobe-images privacy change. | PHASE 5C |
-| R-16 | **IP geolocation via ipapi.co — no DPA or terms verification** — the fallback weather location call to ipapi.co is not contractually covered and transmits device IP address to an external third party. | LEGAL/REGULATORY | 🟡 MEDIUM | Using a free API without reviewing its terms for data processing; potential GDPR issue. | None. | Either (a) verify ipapi.co's privacy terms and add to third-party processor list, or (b) remove the ipapi.co call and fall back gracefully when GPS is unavailable. Option (b) is the laziest safe solution. | PRE-LAUNCH |
-| R-17 | **Signed URL refresh — app restart may show stale signed URLs** — signed URLs expire after 1 hour. Items loaded from DB cache in AsyncStorage will have unresolved storage paths; resolution occurs only at DB-load time, not on app restart from cache. | RELIABILITY | 🟡 MEDIUM | Users may see broken images if signed URLs expire before the next DB reload. | In-memory cache with 60s buffer; DB reload refreshes URLs. App restarts hit the in-memory URL if process is alive; cold restarts may load from AsyncStorage (stale). | Add signed URL refresh on app foreground event (AppState change); or resolve URLs from AsyncStorage on startup. | PHASE 5C |
-| R-18 | **AsyncStorage not cleared on account deletion** — local profile, wardrobe cache, and slot cache remain on device after account deletion. | DATA | 🟡 MEDIUM | Residual personal data on device after user requests erasure. Low practical risk (data is inaccessible without device) but technically violates "erasure" intent. | Sign-out clears React state; AsyncStorage cleared on next sign-in by overwrite. | Add `AsyncStorage.multiRemove([all STORAGE_KEYS])` in the client-side delete flow (profile.tsx) after server deletion succeeds. | PRE-LAUNCH |
-| R-19 | **No data portability / export** — users cannot download their wardrobe data in a portable format. | LEGAL/REGULATORY | 🟡 MEDIUM | UK GDPR Article 20 right to data portability applies. | None. | Implement wardrobe data export (JSON / CSV) in profile screen. | POST-LAUNCH or PRE-LAUNCH |
-| R-20 | **Affinity signals — 90-day active window but no DB purge** — application code applies a 90-day cutoff at read time, but DB rows older than 90 days are not deleted. | DATA · LEGAL | 🟢 LOW | Indefinite retention of reaction data beyond its functional use. Contradicts data minimisation principle. | 90-day filter at read time. | Add a periodic cleanup job to delete `affinity_signals` and `pair_affinity_signals` rows older than 90 days. | POST-LAUNCH |
-| R-21 | **No error-tracking / crash reporting service** — there is no Sentry, Bugsnag, or equivalent. Production errors are only visible in server stdout. | OPERATIONAL · RELIABILITY | 🟢 LOW | Production bugs may go undetected until users report them. | Server telemetry provides recommendation-level signals. | Add error tracking before or after launch (Phase 5C+). | POST-LAUNCH |
-| R-22 | **Always-on location permission string declared but not used** — `locationAlwaysAndWhenInUsePermission` is declared in app.json but the app only uses foreground location. | PLATFORM | 🟢 LOW | Apple may reject or flag the always-on permission string if the app does not actually use it. Potential user trust issue. | Not actively used. | Remove `locationAlwaysAndWhenInUsePermission` from app.json if the app never uses always-on location. Confirm no code path requests it. | PRE-LAUNCH |
-| R-23 | **classifyErr.reason exposed in user-visible alert** — `app/add-item.tsx` exposes `classifyErr.reason` from the classifier response in a user-visible alert. If the classifier ever returns an internal service name or path, it appears in the alert. | REPUTATION · SECURITY | 🟢 LOW | Minor UX risk; unlikely to expose sensitive information given classifier response structure. | Error string comes from the classification guardrail. | Audit classifier rejection reason strings to confirm none contain internal identifiers. | PRE-LAUNCH |
+New risks added: NB-01 through NB-05 (Nigeria-specific).  
+R-04 upgraded to ✅ FIXED (account deletion). R-18 upgraded to ✅ FIXED (AsyncStorage clear).  
+R-17 upgraded to ✅ FIXED (signed URL cold-start).  
+All pre-existing risks retained with updated status.
 
 ---
 
-## Counts by Severity
+## Risk Register
 
-| Severity | Count |
-|---|---|
-| 🔴 CRITICAL | 8 (R-01, R-03, R-04, R-05, R-06, R-08, R-09, R-10) |
-| 🟠 HIGH | 5 (R-02, R-07, R-11, R-12, R-13, R-14) |
-| 🟡 MEDIUM | 4 (R-15, R-16, R-17, R-18) |
-| 🟢 LOW | 4 (R-19, R-20, R-21, R-22, R-23) |
+### NIGERIA-SPECIFIC RISKS (Phase 5B.1)
 
-**Note:** R-04 is marked FIXED in Phase 5B. R-01 and R-03 require operator (Supabase dashboard) action to complete — the code and migration SQL are ready.
+| # | Finding | Category | Severity | Current protection | Action | Phase |
+|---|---|---|---|---|---|---|
+| NB-01 | **No cross-border transfer mechanism verified for any processor (Nigeria NDPA)** — NDPA Chapter 7 requires appropriate safeguards for transfers of Nigerian data to other countries. No mechanism documented for Supabase, Google, PhotoRoom, Open-Meteo, or ipapi.co. | LEGAL/REGULATORY | 🔴 CRITICAL | None | LEGAL REVIEW REQUIRED — identify and document transfer mechanism for each processor before Nigerian user onboarding | PRE-LAUNCH |
+| NB-02 | **No NDPC registration / compliance assessment** — the NDPA may require registration with the Nigeria Data Protection Commission before processing Nigerian users' data at scale. | LEGAL/REGULATORY | 🟠 HIGH | None | Engage Nigerian data protection counsel to determine registration obligation | PRE-LAUNCH |
+| NB-03 | **No incident response / breach notification procedure (Nigeria: 72h NDPC notification)** — the NDPA requires notification to the NDPC within 72 hours of a reportable breach. No formal procedure exists. | LEGAL/REGULATORY · OPERATIONAL | 🟠 HIGH | None — server logging only | Document incident response procedure; designate breach notification contact; prepare NDPC notification template | PRE-LAUNCH |
+| NB-04 | **Skin tone legal basis not confirmed under NDPA s.30** — whether skin tone constitutes racial/ethnic origin data under the NDPA requires Nigerian legal advice. Processing without the correct basis is unlawful. | LEGAL/REGULATORY | 🔴 CRITICAL | Self-declared; purpose is aesthetic | LEGAL REVIEW REQUIRED — Nigerian data protection counsel must advise before Nigerian user onboarding | PRE-LAUNCH |
+| NB-05 | **No age gate — NDPA treats under-18 as children requiring special protection** — no minimum age is declared or enforced. Children may create accounts and submit appearance data. | LEGAL/REGULATORY | 🟠 HIGH | None | LEGAL REVIEW REQUIRED — determine minimum age and implement appropriate age assurance before Nigerian user onboarding | PRE-LAUNCH |
+
+---
+
+### CRITICAL TECHNICAL RISKS
+
+| # | Finding | Category | Severity | Current protection | Status / Action | Phase |
+|---|---|---|---|---|---|---|
+| R-01 | **wardrobe-images bucket is PUBLIC** — any person with a storage URL can access any user's garment photos. Phase 5B adds signed-URL code and RLS migration SQL. The operator must still set the bucket to PRIVATE. | DATA · SECURITY · LEGAL | 🔴 CRITICAL | Phase 5B: signed-URL code + RLS migration written. Phase 5B.1: legacy URL migration script created (`scripts/migrate-legacy-storage-urls.ts`). | ⚠️ OPERATOR ACTION REQUIRED — see §Operator Actions. Do NOT set private until legacy migration is run and confirmed. | OPERATOR ACTION |
+| R-02 | **Legacy public URLs in DB** — existing rows store full public URLs. Will break when bucket goes private without DB migration. | DATA · RELIABILITY | 🟠 HIGH | Phase 5B.1: migration script written and dry-run ready. | ✅ Migration script ready — must be run and confirmed before bucket goes private. | OPERATOR ACTION |
+| R-03 | **RLS not yet applied to application tables** — migration SQL is written but not applied to the Supabase project. | DATA · SECURITY · LEGAL | 🔴 CRITICAL | Phase 5B: migration SQL written and verified. | ⚠️ OPERATOR ACTION REQUIRED — apply migration. Verified SQL correct per Phase 5B.1 review. | OPERATOR ACTION |
+| R-04 | **Account deletion gap — Storage + DB not cleaned** | DATA · LEGAL | 🔴 CRITICAL | Phase 5B: server route now explicitly deletes Storage + DB + auth. Phase 5B.1: AsyncStorage also cleared on device. | ✅ FIXED — Phase 5B.1 | — |
+| R-05 | **Premium bypass via client-side manipulation** — item count and quota caps enforced client-side only. | MONEY · SECURITY | 🔴 CRITICAL | Server enforces background removal quota. | PHASE 5C — server-authoritative enforcement required. See `docs/compliance/phase5c-payment-architecture.md §5`. | PHASE 5C |
+| R-06 | **Premium upgrade endpoint not payment-gated** — `/api/user/upgrade-premium` can be called with valid JWT and no payment. | MONEY · SECURITY | 🔴 CRITICAL | Rate limited (5/hour); auth required. | PHASE 5C — require verified Apple/Google receipt. | PHASE 5C |
+| R-07 | **Gemini/PhotoRoom unlimited API calls under rate limit** — motivated user can cycle calls indefinitely. | MONEY · SECURITY | 🟠 HIGH | Per-minute rate limiting. | PHASE 5C — add per-user daily quota server-side. | PHASE 5C |
+| R-08 | **Skin tone data — legal basis unconfirmed (UK GDPR)** — may be racial/ethnic origin data under Art 9. | LEGAL/REGULATORY | 🔴 CRITICAL | Self-declared aesthetic purpose. | LEGAL REVIEW REQUIRED (UK + Nigeria). See NB-04 for Nigeria-specific finding. | PRE-LAUNCH |
+| R-09 | **No DPIA conducted** — Phase 5B DPIA screening identified multiple high-risk criteria. | LEGAL/REGULATORY | 🔴 CRITICAL | DPIA screening completed (`docs/compliance/dpia-screening.md`). | Commission full DPIA with qualified DPO/solicitor before processing real users at scale. | PRE-LAUNCH |
+| R-10 | **No Privacy Policy published** | LEGAL/REGULATORY · PLATFORM | 🔴 CRITICAL | Source material updated for Nigeria-first (this phase). | Commission legal drafting; publish at a stable URL; reference in app and store listings. | PRE-LAUNCH |
+| R-11 | **No Terms of Use published** | LEGAL/REGULATORY · PLATFORM | 🟠 HIGH | Source material updated for Nigeria-first (this phase). | Commission legal drafting; publish. | PRE-LAUNCH |
+| R-12 | **No age gate** — children may create accounts and submit appearance data. | LEGAL/REGULATORY | 🟠 HIGH | None. | LEGAL REVIEW REQUIRED (Nigeria + UK). See NB-05. | PRE-LAUNCH |
+| R-13 | **International data transfers undocumented** — no UK GDPR Chapter V mechanism verified. | LEGAL/REGULATORY | 🟠 HIGH | None documented. | LEGAL REVIEW REQUIRED (UK expansion). NB-01 covers Nigeria. | UK EXPANSION |
+| R-14 | **No external account deletion URL** — required by Google Play (and Apple, if applicable) for apps allowing account creation. | PLATFORM | 🟠 HIGH | In-app deletion route exists. | Implement web-based deletion page. **Google Play launch blocker.** | PRE-LAUNCH |
+
+---
+
+### MEDIUM RISKS
+
+| # | Finding | Category | Severity | Status |
+|---|---|---|---|---|
+| R-15 | **tryon-photos bucket privacy** — bucket may be public; try-on photos contain images of people (higher sensitivity). Phase 5B.1 audit: `uploadTryonPhoto` is UNUSED by any app screen. Bucket exists for schema completeness and future Virtual Try-On feature. | DATA · SECURITY | 🟡 MEDIUM | Phase 5B.1 recommendation: disable the bucket entirely until Virtual Try-On is implemented. If left active, set to PRIVATE. Phase 5B.1 updated `uploadTryonPhoto` to return storage path, not public URL. Operator action: set bucket to PRIVATE or disable. |
+| R-16 | **ipapi.co — no DPA / terms verification** — free fallback geolocation; IP address transmitted; terms not verified. | LEGAL/REGULATORY | 🟡 MEDIUM | Options: (a) verify ipapi.co privacy terms and add to processor list; (b) remove call and fail gracefully when GPS unavailable. Option (b) recommended as simpler. |
+| R-17 | **Signed URL cold-start** — expired signed URLs on app restart from AsyncStorage cache. | RELIABILITY | 🟡 MEDIUM | ✅ FIXED Phase 5B.1: (1) AsyncStorage now saves storage paths, not signed URLs; (2) cold-start resolution pass in loadData(); (3) AppState foreground refresh added. |
+| R-18 | **AsyncStorage not cleared on account deletion** | DATA | 🟡 MEDIUM | ✅ FIXED Phase 5B.1: `AsyncStorage.multiRemove` added to profile.tsx delete flow after successful server deletion. All user-owned keys cleared. |
+| R-19 | **No data portability / export** — UK GDPR Art 20 and NDPA s.37 right to data portability. | LEGAL/REGULATORY | 🟡 MEDIUM | Not implemented. Post-launch or pre-launch depending on regulatory timeline. |
+| R-22 | **Always-on location permission string in app.json** — `locationAlwaysAndWhenInUsePermission` declared but app only uses foreground. | PLATFORM | 🟡 MEDIUM | Remove before App Store submission. |
+| R-23 | **classifyErr.reason exposed in user-visible alert** | REPUTATION | 🟢 LOW | Audit classifier rejection strings to confirm no internal identifiers. |
+
+---
+
+### LOW RISKS
+
+| # | Finding | Category | Severity | Status |
+|---|---|---|---|---|
+| R-20 | **Affinity signals — 90-day filter at read time but no DB purge** — DB rows older than 90 days accumulate indefinitely. | DATA | 🟢 LOW | Add periodic cleanup job post-launch. |
+| R-21 | **No error-tracking / crash reporting** — no Sentry, Bugsnag, or equivalent. Production errors only visible in server stdout. | OPERATIONAL | 🟢 LOW | Add error tracking post-launch (Phase 5C+). |
+| NN-01 | **FCCPC consumer protection compliance for subscription (Nigeria)** — when Premium is implemented, NGN pricing, plain-language terms, and complaint mechanism are required. | LEGAL/REGULATORY | 🟢 LOW (deferred to Phase 5C) | Addressed in Phase 5C payment architecture (`docs/compliance/phase5c-payment-architecture.md §2`). |
+| NN-02 | **Nigerian fashion taxonomy gaps** — `lace` fabric and `traditional-event` occasion tag not yet added to schema. These are non-breaking additions. | PRODUCT | 🟢 LOW | Add as taxonomy-only changes (no engine modification) when Nigeria launch is imminent. |
+| NN-03 | **Gemini classification accuracy for Nigerian garments unverified** — no test dataset of labelled Nigerian garment images exists. | PRODUCT | 🟢 LOW | Create test dataset pre-launch; validate with human stylist. See `docs/recommendation/nigeria-fashion-readiness.md §6.3`. |
+
+---
+
+## Counts by Severity (Phase 5B.1)
+
+| Severity | Count | Fixed this phase |
+|---|---|---|
+| 🔴 CRITICAL | 9 (R-01, R-03, R-05, R-06, R-08, R-09, R-10, NB-01, NB-04) | R-04 ✅ |
+| 🟠 HIGH | 6 (R-07, R-11, R-12, R-13, R-14, NB-02, NB-03, NB-05) | — |
+| 🟡 MEDIUM | 5 (R-15, R-16, R-19, R-22, R-23) | R-17 ✅, R-18 ✅ |
+| 🟢 LOW | 5 (R-20, R-21, R-23, NN-01, NN-02, NN-03) | — |

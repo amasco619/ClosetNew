@@ -87,22 +87,50 @@ export async function uploadWardrobeImage(
   return { signedUrl, storagePath }
 }
 
+/**
+ * Generate a short-lived signed URL for a tryon-photos storage path.
+ * Used when the tryon-photos bucket is set to PRIVATE.
+ * Falls back to a 1h signed URL (same TTL as wardrobe-images).
+ */
+export async function getSignedTryonPhotoUrl(storagePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('tryon-photos')
+    .createSignedUrl(storagePath, 3600)
+  if (error || !data?.signedUrl) {
+    throw new Error(`[getSignedTryonPhotoUrl] ${error?.message ?? 'no signed URL returned'}`)
+  }
+  return data.signedUrl
+}
+
+/**
+ * Upload a try-on reference photo.
+ *
+ * Returns the storage PATH (e.g. "userId/reference.jpg") — not a public URL.
+ * Callers should generate a signed URL via getSignedTryonPhotoUrl() when needed
+ * for display.  The path is safe to persist in the DB; it remains valid after
+ * the bucket is set to PRIVATE.
+ *
+ * NOTE (Phase 5B.1 audit): uploadTryonPhoto is currently UNUSED by any
+ * application screen.  The tryon-photos bucket exists in the schema and the
+ * account-deletion cleanup route handles it, but the Virtual Try-On feature
+ * itself is deferred to a later phase.  This function is retained so the
+ * cleanup and RLS migration remain consistent.
+ */
 export async function uploadTryonPhoto(
   userId: string,
   imageBase64: string
 ): Promise<string> {
-  const fileName = `${userId}/reference.jpg`
+  const storagePath = `${userId}/reference.jpg`
   const { error } = await supabase.storage
     .from('tryon-photos')
-    .upload(fileName, decode(stripDataUriPrefix(imageBase64)), {
+    .upload(storagePath, decode(stripDataUriPrefix(imageBase64)), {
       contentType: 'image/jpeg',
       upsert: true,
     })
   if (error) throw new Error(`[uploadTryonPhoto] ${error.message}`)
-  const { data } = supabase.storage
-    .from('tryon-photos')
-    .getPublicUrl(fileName)
-  return data.publicUrl
+  // Return storage path, not a public URL.  Callers must use getSignedTryonPhotoUrl()
+  // to generate a display URL once the bucket is set to PRIVATE.
+  return storagePath
 }
 
 export async function deleteWardrobeImage(

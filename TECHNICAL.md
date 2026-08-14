@@ -1890,7 +1890,123 @@ Storage policies: path-prefix ownership enforcement for `wardrobe-images` and `t
 
 ---
 
-## 20. Key Conventions
+## 20. Phase 5B.1 — Nigeria/Africa Readiness & Pre-Launch Hardening
+
+**Date:** 2026-08-14 | **Status:** ✅ GO WITH PRE-LAUNCH HARDENING  
+**Launch strategy:** Nigeria/Africa → UK → Global
+
+### Track A — Technical Security Fixes
+
+#### A2 — Legacy URL Migration Script
+
+`scripts/migrate-legacy-storage-urls.ts` — standalone Node/TypeScript script using the Supabase admin client:
+- Queries all `wardrobe_items` rows (paginated)
+- Detects `image_url` / `cleaned_image_url` values containing full Supabase public URLs
+- Extracts the storage object path via URL parsing
+- Validates the object exists (via `createSignedUrl`)
+- In dry-run mode: reports only (no DB writes)
+- In live mode: writes the storage path back; leaves unresolvable rows untouched
+- Idempotent: already-migrated paths are detected and skipped
+- Produces a full summary report (total, already migrated, successfully resolved, missing objects)
+
+**Do NOT set wardrobe-images to PRIVATE until:** (1) this script runs dry-run with 0 missing objects, (2) live run completes, (3) RLS migration is applied, (4) application code is deployed.
+
+#### A3 — RLS Migration Review
+
+`supabase/migrations/20260814000000_rls_all_tables.sql` reviewed and verified:
+- All 8 application tables covered: `wardrobe_items`, `wear_logs`, `affinity_signals`, `pair_affinity_signals`, `rotation_cursors`, `slot_statuses`, `tryon_profiles`, `saved_looks`
+- All 4 operations covered: SELECT / INSERT / UPDATE / DELETE
+- Ownership check: `auth.uid() = user_id` on every policy
+- Storage bucket policies for `wardrobe-images` and `tryon-photos`: path prefix = `auth.uid()::text = (string_to_array(name, '/'))[1]`
+- Idempotent via `IF NOT EXISTS` guards
+- No cross-user access possible via user_id manipulation, item ID manipulation, or storage path manipulation
+
+#### A4 — Two-User Security Test Procedure
+
+Security properties verified analytically from SQL (live two-user test requires two Supabase sessions):
+- All SELECT, INSERT, UPDATE, DELETE operations on application tables: scoped to `auth.uid() = user_id` by RLS
+- Storage SELECT, upload (INSERT), DELETE: scoped to first path segment = `auth.uid()`
+- Application-layer defence-in-depth: all query functions additionally apply `.eq('user_id', userId)` in application code
+
+#### A5 — tryon-photos Audit
+
+**Finding:** `uploadTryonPhoto` is UNUSED by any app screen. No Virtual Try-On UI exists. The bucket is present in the schema for future use only.
+
+**Action taken:** `uploadTryonPhoto` updated to return a storage path (not a public URL). `getSignedTryonPhotoUrl()` added to `lib/storage.ts` for future use once the bucket is set to PRIVATE.
+
+**Recommendation:** Operator should set `tryon-photos` bucket to PRIVATE (or disable it entirely until Virtual Try-On is implemented). No app functionality is affected either way.
+
+#### A6 — AsyncStorage.multiRemove on Account Deletion
+
+`app/(tabs)/profile.tsx` — account deletion now:
+1. Calls server to delete Storage + DB + auth (as per Phase 5B)
+2. **Only after server success**: calls `AsyncStorage.multiRemove([all user-owned keys])`
+3. Keys cleared: `@auracloset_*` (AppContext), `@amodka_item_ids`, `@amodka_wear_log`, `@amodka_weather_v1`, `@amodka_weather_perm_asked_v1`, `@amodka_wardrobe_view`, `@amodka_email_confirmed`, and all legacy keys
+4. If `multiRemove` fails: non-fatal (stale local data is overwritten on next sign-in); user receives success message
+5. If server deletion fails: local data preserved; error message tells user deletion did not complete
+
+#### A7 — Signed URL Cold-Start Fix
+
+Three-part fix for R-17:
+
+**1. AsyncStorage saves storage paths, not signed URLs** — after DB load, items written to AsyncStorage use `photoUri = storagePath` so cold-start items always have resolvable paths, never expired tokens.
+
+**2. Cold-start resolution pass in `loadData()`** — before `setWardrobeItems(seededItems)`, resolve any `isStoragePath` items from the AsyncStorage cache to fresh signed URLs.
+
+**3. AppState foreground refresh** — new `useEffect` in AppContext listens for `AppState === 'active'`. On foreground, all items with a `storagePath` get their signed URL refreshed via `getSignedWardrobeUrl`. State is updated asynchronously (no synchronous flicker).
+
+**Import added:** `getSignedWardrobeUrl` imported into AppContext; `AppState` imported from react-native.
+
+### Track B — Nigeria/Africa Compliance
+
+**New document:** `docs/compliance/nigeria-market-readiness.md`
+
+Covers:
+- Nigeria Data Protection Act 2023 (NDPA) — applicability, controller/processor roles, data subject rights, lawful bases, sensitive data, children's data, international transfers, security requirements, breach management, registration obligations
+- Cross-border transfer map (Nigerian user → Amodka → Supabase → Google → PhotoRoom → Open-Meteo → ipapi.co)
+- Nigeria consumer protection (FCCPC — clear pricing, NGN display, subscription disclosure, complaint handling)
+- Age/children assessment for Nigeria (under-18), UK (Children's Code), and global
+- Skin tone assessment: how collected, why used, whether inferred, combination with other attributes, Nigeria assessment, UK assessment, interim approach
+
+**Updated documents:** `privacy-policy-source.md`, `terms-source.md`, `store-compliance-matrix.md`, `business-risk-register.md` — all updated to reflect Nigeria/Africa-first launch strategy.
+
+**New document:** `docs/compliance/phase5c-payment-architecture.md` — Phase 5C payment requirements including NGN pricing, Apple IAP, Google Play Billing, server-authoritative premium status, subscription lifecycle, grace periods, webhook handling.
+
+### Track C — Nigerian/African Fashion Readiness
+
+**New document:** `docs/recommendation/nigeria-fashion-readiness.md`
+
+Covers:
+- **Taxonomy audit (C1):** 15 Nigerian/African garment types assessed. Engine handles Ankara/wax-print, kaftan, wrapper, native top, statement print correctly. Genuine gaps: `lace` fabric (not in schema), `traditional-event` occasion tag (missing). Recommended additions are taxonomy-only — no engine changes.
+- **Ankara visual-weight benchmark (C3):** 3 scenarios tested. Scenario A (Ankara + solids → patternSafety = 3), Scenario B (Ankara + competing bold → patternSafety = 0), Scenario C (Ankara dress for formal → strong score). All PASS. Engine v3.7 already correct.
+- **Nigerian climate benchmark (C5):** Lagos wet season, Lagos dry season, Abuja hot/dry, harmattan, cool evening, heavy rain all tested. Phase 3.7 rain filter correctly blocks sandals/wicker bags in rain. Hot/humid conditions handled correctly by WarmthBand. All PASS with one documented edge case (mild evening → outerwear gate; handled by gap diagnosis).
+- **Mixed-wardrobe benchmark (C2 + C4):** 14-item mixed wardrobe (Ankara kaftan, Western trousers, jeans, sportswear, etc.). 10 occasion scenarios tested. Engine does not force "most culturally obvious" — finds best outfit for person and occasion.
+
+**Readiness classification:**
+- Taxonomy: ✅ READY (with 2 recommended additions)
+- Algorithm: ✅ READY — no engine modifications required
+- Visual/classification: ⚠️ UNVERIFIED — test dataset of labelled Nigerian garment images required
+- Human stylist validation: ❌ NOT PERFORMED — required before "Nigeria-ready" claim
+
+### Track D — Payment Preparation
+
+`docs/compliance/phase5c-payment-architecture.md` — Phase 5C payment architecture requirements documented. No payments implemented.
+
+### Phase 5B.1 Baseline
+
+| Metric | Phase 5B.1 Final |
+|---|---|
+| Unit tests (`npm test`) | **47/47** |
+| TypeScript (`npm run typecheck`) | **0 errors** |
+| Recommendation Engine v3.7 | **Unchanged** |
+| New compliance documents | **3** (nigeria-market-readiness.md, phase5c-payment-architecture.md, nigeria-fashion-readiness.md) |
+| Updated compliance documents | **4** (privacy-policy-source.md, terms-source.md, store-compliance-matrix.md, business-risk-register.md) |
+| New migration script | **1** (scripts/migrate-legacy-storage-urls.ts) |
+| Technical fixes | **4** (A5 tryon path, A6 AsyncStorage clear, A7 cold-start, A7 foreground refresh) |
+
+---
+
+## 21. Key Conventions
 
 | Convention | Rule |
 |-----------|------|

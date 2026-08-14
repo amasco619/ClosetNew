@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback, useRef } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -30,7 +31,7 @@ import {
 } from '../lib/database';
 import { mapDbRowToWardrobeItem } from '../lib/wardrobeMapper';
 import { supabase } from '../lib/supabase';
-import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl } from '../lib/storage';
+import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl, getSignedWardrobeUrl } from '../lib/storage';
 import { rebaseGuestPhotoUri } from '../lib/rebaseGuestPhotoUri';
 import {
   RotationState, INITIAL_ROTATION_STATE,
@@ -232,6 +233,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { loadData(); }, []);
 
+  // A7 — Foreground refresh: when the app returns from background the in-memory
+  // signed URL cache may contain near-expired or expired tokens.  Re-resolve any
+  // items that have a durable storagePath so they always display correctly.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', nextState => {
+      if (nextState === 'active') {
+        setWardrobeItems(prev => {
+          const needsRefresh = prev.filter(it => it.storagePath);
+          if (needsRefresh.length === 0) return prev;
+          // Fire async resolution and update state when done; return prev synchronously
+          Promise.all(
+            needsRefresh.map(async it => ({
+              id: it.id,
+              photoUri: await getSignedWardrobeUrl(it.storagePath!).catch(() => it.photoUri),
+            })),
+          ).then(resolved => {
+            const map = new Map(resolved.map(r => [r.id, r.photoUri]));
+            setWardrobeItems(curr =>
+              curr.map(i => {
+                const next = map.get(i.id);
+                return next && next !== i.photoUri ? { ...i, photoUri: next } : i;
+              }),
+            );
+          });
+          return prev;
+        });
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -393,6 +425,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const lab = withTexture.dominantLab ?? hslToLab(hsl.h, hsl.s, hsl.l);
         return { ...withTexture, dominantHsl: hsl, dominantLab: lab };
       });
+      // A7 — resolve any storage paths from the AsyncStorage cache before
+      // setting state.  Items saved during a previous session may have their
+      // photoUri set to a raw storage path (e.g. "userId/itemId.jpg") which
+      // needs a fresh signed URL on every cold start.
+      const cachedPathItems = seededItems.filter(it => isStoragePath(it.photoUri));
+      if (cachedPathItems.length > 0) {
+        await Promise.all(
+          cachedPathItems.map(async it => {
+            try {
+              it.photoUri = await resolveWardrobeImageUrl(it.photoUri);
+            } catch {
+              // signed URL will be resolved once the DB load completes
+            }
+          }),
+        );
+      }
       if (wardrobeData) setWardrobeItems(seededItems);
       if (texturePersistIds.size > 0 || rebasedPathIds.size > 0) {
         AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(seededItems));
@@ -719,7 +767,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
           );
         }
         setWardrobeItems(mapped);
-        AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(mapped));
+        // Save storage paths (not signed URLs) to AsyncStorage so cold starts
+        // can resolve them fresh.  Signed URLs expire after 1h and would show
+        // as broken images on the next session if saved directly.
+        const forStorage = mapped.map(it =>
+          it.storagePath ? { ...it, photoUri: it.storagePath } : it
+        );
+        AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(forStorage));
       }
 
       if (logs && logs.length > 0) {
