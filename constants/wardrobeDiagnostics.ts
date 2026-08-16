@@ -6,18 +6,19 @@ const NEUTRAL_COLORS = new Set([
 ]);
 
 const SCENARIO_AFFINITY: Record<OccasionTag, string[]> = {
-  casual:        ['t-shirt', 'long-sleeve', 'henley', 'sweater', 'jeans', 'chinos', 'shorts', 'leggings', 'sneakers', 'flats', 'crossbody', 'backpack', 'hoodie', 'cardigan', 'denim-jacket'],
-  work:          ['blouse', 'shirt', 'polo-shirt', 'sweater', 'trousers', 'chinos', 'midi-skirt', 'blazer', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch'],
-  'date-casual': ['blouse', 'camisole', 't-shirt', 'long-sleeve', 'sweater', 'cardigan', 'jeans', 'chinos', 'wide-leg', 'midi-skirt', 'midi-dress', 'wrap-dress', 'sundress', 'flats', 'mules', 'sneakers', 'loafers', 'crossbody', 'mini-bag', 'earrings'],
-  'date-dressy': ['blouse', 'camisole', 'midi-dress', 'wrap-dress', 'mini-dress', 'midi-skirt', 'heels', 'mules', 'clutch', 'mini-bag', 'earrings', 'necklace'],
-  event:         ['cocktail-dress', 'midi-dress', 'maxi-dress', 'blouse', 'wide-leg', 'blazer', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
-  interview:     ['blouse', 'shirt', 'blazer', 'trousers', 'midi-skirt', 'midi-dress', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch'],
-  wedding:       ['midi-dress', 'maxi-dress', 'cocktail-dress', 'wrap-dress', 'midi-skirt', 'blouse', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
-  travel:        ['t-shirt', 'long-sleeve', 'sweater', 'shirt', 'jeans', 'chinos', 'trousers', 'sneakers', 'flats', 'boots', 'crossbody', 'backpack', 'tote', 'blazer', 'cardigan', 'denim-jacket'],
-  brunch:        ['blouse', 'camisole', 'midi-dress', 'wrap-dress', 'sundress', 'midi-skirt', 'wide-leg', 'flats', 'mules', 'loafers', 'crossbody', 'mini-bag', 'earrings', 'necklace'],
-  active:        ['sports-hoodie', 'tank-top', 'leggings', 'shorts', 'windbreaker', 'training-shoes', 'sports-bra', 'joggers', 'zip-up', 'athletic-top'],
-  resort:        ['swimsuit', 'resort-dress', 'cover-up', 'kaftan', 'sundress', 'espadrilles', 'sandals', 'shorts', 'linen-shirt', 'sarong'],
-  'night-out':   ['mini-dress', 'bodycon-dress', 'sequin-top', 'strappy-heels', 'midi-dress', 'camisole', 'wide-leg', 'clutch', 'mini-bag', 'earrings', 'necklace'],
+  casual:              ['t-shirt', 'long-sleeve', 'henley', 'sweater', 'jeans', 'chinos', 'shorts', 'leggings', 'sneakers', 'flats', 'crossbody', 'backpack', 'hoodie', 'cardigan', 'denim-jacket'],
+  work:                ['blouse', 'shirt', 'polo-shirt', 'sweater', 'trousers', 'chinos', 'midi-skirt', 'blazer', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch'],
+  'date-casual':       ['blouse', 'camisole', 't-shirt', 'long-sleeve', 'sweater', 'cardigan', 'jeans', 'chinos', 'wide-leg', 'midi-skirt', 'midi-dress', 'wrap-dress', 'sundress', 'flats', 'mules', 'sneakers', 'loafers', 'crossbody', 'mini-bag', 'earrings'],
+  'date-dressy':       ['blouse', 'camisole', 'midi-dress', 'wrap-dress', 'mini-dress', 'midi-skirt', 'heels', 'mules', 'clutch', 'mini-bag', 'earrings', 'necklace'],
+  event:               ['cocktail-dress', 'midi-dress', 'maxi-dress', 'blouse', 'wide-leg', 'blazer', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
+  interview:           ['blouse', 'shirt', 'blazer', 'trousers', 'midi-skirt', 'midi-dress', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch'],
+  wedding:             ['midi-dress', 'maxi-dress', 'cocktail-dress', 'wrap-dress', 'midi-skirt', 'blouse', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
+  'traditional-event': ['gown', 'kaftan', 'maxi-dress', 'midi-dress', 'blouse', 'midi-skirt', 'heels', 'clutch', 'evening-bag', 'statement-earrings', 'earrings', 'necklace', 'bracelet'],
+  travel:              ['t-shirt', 'long-sleeve', 'sweater', 'shirt', 'jeans', 'chinos', 'trousers', 'sneakers', 'flats', 'boots', 'crossbody', 'backpack', 'tote', 'blazer', 'cardigan', 'denim-jacket'],
+  brunch:              ['blouse', 'camisole', 'midi-dress', 'wrap-dress', 'sundress', 'midi-skirt', 'wide-leg', 'flats', 'mules', 'loafers', 'crossbody', 'mini-bag', 'earrings', 'necklace'],
+  active:              ['sports-hoodie', 'tank-top', 'leggings', 'shorts', 'windbreaker', 'training-shoes', 'sports-bra', 'joggers', 'zip-up', 'athletic-top'],
+  resort:              ['swimsuit', 'resort-dress', 'cover-up', 'kaftan', 'sundress', 'espadrilles', 'sandals', 'shorts', 'linen-shirt', 'sarong'],
+  'night-out':         ['mini-dress', 'bodycon-dress', 'sequin-top', 'strappy-heels', 'midi-dress', 'camisole', 'wide-leg', 'clutch', 'mini-bag', 'earrings', 'necklace'],
 } satisfies Record<OccasionTag, string[]>;
 
 function scoreForScenario(item: WardrobeItem, scenario: OccasionTag): number {
@@ -119,18 +120,19 @@ const COLOR_HEX: Record<string, string> = {
 };
 
 const SCENARIO_META: Record<OccasionTag, { label: string; icon: string }> = {
-  casual:        { label: 'Casual',     icon: 'cafe-outline' },
-  work:          { label: 'Work',       icon: 'briefcase-outline' },
-  'date-casual': { label: 'Date · Day', icon: 'cafe-outline' },
-  'date-dressy': { label: 'Date Night', icon: 'heart-outline' },
-  event:         { label: 'Event',      icon: 'sparkles-outline' },
-  interview:     { label: 'Interview',  icon: 'mic-outline' },
-  wedding:       { label: 'Wedding',    icon: 'rose-outline' },
-  travel:        { label: 'Travel',     icon: 'airplane-outline' },
-  brunch:        { label: 'Brunch',     icon: 'cafe-outline' },
-  active:        { label: 'Active',     icon: 'fitness-outline' },
-  resort:        { label: 'Resort',     icon: 'sunny-outline' },
-  'night-out':   { label: 'Night Out',  icon: 'moon-outline' },
+  casual:              { label: 'Casual',            icon: 'cafe-outline' },
+  work:                { label: 'Work',              icon: 'briefcase-outline' },
+  'date-casual':       { label: 'Date · Day',        icon: 'cafe-outline' },
+  'date-dressy':       { label: 'Date Night',        icon: 'heart-outline' },
+  event:               { label: 'Event',             icon: 'sparkles-outline' },
+  interview:           { label: 'Interview',         icon: 'mic-outline' },
+  wedding:             { label: 'Wedding',           icon: 'rose-outline' },
+  'traditional-event': { label: 'Traditional Event', icon: 'star-outline' },
+  travel:              { label: 'Travel',            icon: 'airplane-outline' },
+  brunch:              { label: 'Brunch',            icon: 'cafe-outline' },
+  active:              { label: 'Active',            icon: 'fitness-outline' },
+  resort:              { label: 'Resort',            icon: 'sunny-outline' },
+  'night-out':         { label: 'Night Out',         icon: 'moon-outline' },
 } satisfies Record<OccasionTag, { label: string; icon: string }>;
 
 function gradeScore(score: number): WardrobeDiagnostics['grade'] {
@@ -156,7 +158,7 @@ function interpretScore(score: number, totalItems: number): string {
  * canonical list without duplicating it.
  */
 export const ALL_SCENARIOS: OccasionTag[] = [
-  'casual', 'work', 'date-casual', 'date-dressy', 'event', 'interview', 'wedding', 'travel',
+  'casual', 'work', 'date-casual', 'date-dressy', 'event', 'interview', 'wedding', 'traditional-event', 'travel',
 ];
 
 export function computeDiagnostics(

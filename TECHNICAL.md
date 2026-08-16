@@ -1992,6 +1992,57 @@ Covers:
 
 `docs/compliance/phase5c-payment-architecture.md` — Phase 5C payment architecture requirements documented. No payments implemented.
 
+### Track E — Nigerian/African Taxonomy Additions (Task 406)
+
+Taxonomy-only additions. Recommendation Engine v3.7 is **unchanged** in all scoring, ranking, and filtering logic.
+
+#### New Fabric: `'lace'`
+- Added to `Fabric` union type in `constants/types.ts`
+- `server/classify-garment.ts`: added to `VALID_FABRICS`, `FABRIC_SEASONS` (spring/summer), `inferWeight` (light), and Gemini prompt fabric list
+- No engine scoring impact — fabric fields are read-only classification metadata at this level
+
+#### New OccasionTag: `'traditional-event'`
+- Added to `OccasionTag` union type in `constants/types.ts`
+- `constants/wardrobeDiagnostics.ts`: added to `SCENARIO_AFFINITY`, `SCENARIO_META` (label "Traditional Event", icon "star-outline"), and `ALL_SCENARIOS` (now 9 entries)
+- `constants/outfitScoring.ts`: added to `SCENARIO_AFFINITY` (kaftan, gown, maxi-dress, clutch, etc.) and `SCENARIO_FORMALITY` ([6, 9]) — equivalent formality to wedding
+- `app/(tabs)/outfits.tsx`: added to `REWEAR_THRESHOLDS` (21 days), `SCENARIO_ACCENT` (#C17B4A), `scenarioLabels` (label "Traditional", icon "star-outline", mood "Rooted & radiant")
+- `app/add-item.tsx`: added to `OCCASION_ORDER` and `OCCASION_LABELS`
+- `app/wear-log.tsx`: added to `scenarioLabels`
+- `components/BulkItemEditPanel.tsx`: added to occasion order and `OCCASION_LABELS`
+- `server/classify-garment.ts`: added to local OccasionTag type, `SUBTYPE_OCCASIONS` for gown/kaftan, `DISPLAYNAME_OCCASION_OVERRIDES`, and Gemini prompt
+- Tests updated: `__tests__/wardrobeDiagnostics.test.ts` (count 8→9), `__tests__/benchmark-phase32.ts` (OCCASION_TARGET entry), `__tests__/outfitScoringData.test.ts` (OCCASION_TAGS list)
+
+#### New Pattern: `'wax-print'`
+- Added to `Pattern` union type in `constants/types.ts`
+- `server/classify-garment.ts`: added to `VALID_PATTERNS` and Gemini prompt (Ankara annotation)
+- No engine scoring impact — pattern is a classification label read during scoring but `wax-print` maps correctly to existing bold/hero-pattern logic via `patternSafety`
+
+### Track F — Account Deletion Web Resource (Task 407)
+
+Google Play (and App Store) require a web URL where users can request account/data deletion. This satisfies that requirement via an Express-hosted flow with Supabase OTP ownership verification.
+
+#### URL
+`GET /delete-account` — stable URL to submit to Google Play and App Store review panels.
+
+#### Flow
+1. **Email entry (`GET /delete-account`)** — user enters their account email address. Client-side validation, CSRF-free (Supabase OTP makes the confirmation step the ownership proof).
+2. **OTP send (`POST /api/delete-account-request`)** — server calls `supabaseAnon.auth.signInWithOtp()` with `shouldCreateUser: false`. Always responds with the verify page (never reveals whether email exists — prevents account enumeration). Rate-limited via `resetLimiter` (3 req / 60 min).
+3. **OTP verify + deletion (`POST /api/delete-account-confirm`)** — verifies OTP token via `supabaseAnon.auth.verifyOtp()`. On success, performs full account deletion identical to the in-app flow: deletes Supabase Storage objects, wardrobe_items, wear_logs, and auth user via admin client. Rate-limited via `accountLimiter` (5 req / 60 min).
+4. **Success confirmation (`GET /delete-account/verify` → final page)** — styled confirmation page.
+
+#### Files
+- `server/routes.ts`: `GET /delete-account`, `POST /api/delete-account-request`, `GET /delete-account/verify`, `POST /api/delete-account-confirm` — all added before `configureExpoAndLanding`, so routes resolve before the static fallback
+- `server/supabase.ts`: `supabaseAnon` export added (uses `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` anon key, for OTP flows that must stay within Row-Level Security)
+- `server/templates/delete-account.html` — email entry form
+- `server/templates/delete-account-verify.html` — 6-digit OTP entry form (supports `{{EMAIL}}` and `{{ERROR_BLOCK}}` template placeholders)
+- `server/templates/delete-account-success.html` — success confirmation page
+
+#### Security properties
+- OTP is issued and verified by Supabase — server never handles plain passwords
+- Deletion requires Supabase OTP ownership proof before any data is removed
+- Account enumeration not possible — both existing and non-existing emails receive the verify page
+- Rate limiting on both endpoints prevents abuse
+
 ### Phase 5B.1 Baseline
 
 | Metric | Phase 5B.1 Final |
@@ -1999,10 +2050,12 @@ Covers:
 | Unit tests (`npm test`) | **47/47** |
 | TypeScript (`npm run typecheck`) | **0 errors** |
 | Recommendation Engine v3.7 | **Unchanged** |
+| New taxonomy entries | **3** (`lace` fabric, `traditional-event` occasion, `wax-print` pattern) |
 | New compliance documents | **3** (nigeria-market-readiness.md, phase5c-payment-architecture.md, nigeria-fashion-readiness.md) |
 | Updated compliance documents | **4** (privacy-policy-source.md, terms-source.md, store-compliance-matrix.md, business-risk-register.md) |
 | New migration script | **1** (scripts/migrate-legacy-storage-urls.ts) |
 | Technical fixes | **4** (A5 tryon path, A6 AsyncStorage clear, A7 cold-start, A7 foreground refresh) |
+| Account deletion web resource | **1** (`/delete-account` — OTP-verified, Google Play compliant) |
 
 ---
 

@@ -4,7 +4,7 @@ export type SkinTone = 'very-light' | 'light' | 'medium-light' | 'medium' | 'med
 export type Undertone = 'cool' | 'neutral' | 'warm';
 export type StyleGoal = 'youthful' | 'elevated' | 'minimal' | 'romantic' | 'bold' | 'classic';
 export type ItemCategory = 'top' | 'bottom' | 'dress' | 'outerwear' | 'shoes' | 'bag' | 'jewelry';
-export type OccasionTag = 'work' | 'date-casual' | 'date-dressy' | 'casual' | 'event' | 'interview' | 'wedding' | 'travel' | 'brunch' | 'active' | 'resort' | 'night-out';
+export type OccasionTag = 'work' | 'date-casual' | 'date-dressy' | 'casual' | 'event' | 'interview' | 'wedding' | 'traditional-event' | 'travel' | 'brunch' | 'active' | 'resort' | 'night-out';
 export type Industry = 'creative' | 'corporate' | 'tech' | 'unspecified';
 export type SeasonTag = 'winter' | 'summer' | 'spring' | 'fall' | 'all-season';
 
@@ -16,9 +16,9 @@ export type MoodGoal = 'confident' | 'soft' | 'joyful' | 'grounded' | 'romantic'
 export type LifePhase = 'none' | 'pregnancy' | 'postpartum' | 'weight-flux' | 'feeling-off';
 export type MetalPreference = 'gold' | 'silver' | 'rose-gold' | 'mixed';
 
-export type Pattern = 'solid' | 'stripe' | 'floral' | 'check' | 'print' | 'color-block' | 'geometric' | 'animal';
+export type Pattern = 'solid' | 'stripe' | 'floral' | 'check' | 'print' | 'wax-print' | 'color-block' | 'geometric' | 'animal';
 export type PatternScale = 'small' | 'medium' | 'large';
-export type Fabric = 'cotton' | 'silk' | 'denim' | 'wool' | 'linen' | 'synthetic' | 'leather' | 'knit' | 'satin' | 'cashmere' | 'suede' | 'velvet' | 'tweed' | 'chiffon' | 'jersey' | 'corduroy';
+export type Fabric = 'cotton' | 'silk' | 'denim' | 'wool' | 'linen' | 'lace' | 'synthetic' | 'leather' | 'knit' | 'satin' | 'cashmere' | 'suede' | 'velvet' | 'tweed' | 'chiffon' | 'jersey' | 'corduroy';
 // Perceived fabric weight. Drives texture-pairing logic ("lighter top + heavier
 // bottom in cool seasons reads layered, not lumpy"). Captured at upload, or
 // inferred from sub-type for legacy items via `inferFabricWeight()`.

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Delete Account — Amodka</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        margin: 0; padding: 40px 20px;
+        background: #fff; color: #111; line-height: 1.6;
+        min-height: 100vh;
+      }
+      .wrapper { max-width: 440px; margin: 0 auto; }
+      .logo { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: #111; margin-bottom: 32px; }
+      h1 { font-size: 22px; font-weight: 600; margin: 0 0 8px; }
+      .subtitle { font-size: 14px; color: #666; margin: 0 0 28px; }
+      .warning {
+        background: #fff8f0; border: 1px solid #f5c6a0;
+        border-radius: 8px; padding: 14px 16px;
+        font-size: 13px; color: #7a3f00; margin-bottom: 28px;
+      }
+      label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+      input[type="email"] {
+        width: 100%; padding: 11px 14px; font-size: 15px;
+        border: 1.5px solid #d1d5db; border-radius: 8px;
+        outline: none; color: #111; background: #fff;
+        transition: border-color 0.15s;
+      }
+      input[type="email"]:focus { border-color: #111; }
+      button[type="submit"] {
+        display: block; width: 100%; margin-top: 16px;
+        padding: 12px; font-size: 15px; font-weight: 600;
+        background: #c0392b; color: #fff; border: none;
+        border-radius: 8px; cursor: pointer; transition: background 0.15s;
+      }
+      button[type="submit"]:hover { background: #a93226; }
+      .error { color: #c0392b; font-size: 13px; margin-top: 12px; display: none; }
+      .footer { margin-top: 40px; font-size: 13px; color: #999; }
+      .footer a { color: #555; }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="logo">Amodka</div>
+      <h1>Delete your account</h1>
+      <p class="subtitle">Enter the email address linked to your account. We'll send a one-time verification code so you can confirm this request.</p>
+      <div class="warning">⚠️ This action is permanent. All your wardrobe items, outfits, and preferences will be deleted and cannot be recovered.</div>
+      <form id="deleteForm" method="POST" action="/api/delete-account-request" novalidate>
+        <label for="email">Email address</label>
+        <input type="email" id="email" name="email" required autocomplete="email" placeholder="you@example.com" />
+        <p class="error" id="errorMsg">Please enter a valid email address.</p>
+        <button type="submit">Send verification code</button>
+      </form>
+      <div class="footer"><a href="/">← Back to Amodka</a></div>
+    </div>
+    <script>
+      document.getElementById('deleteForm').addEventListener('submit', function(e) {
+        var email = document.getElementById('email').value.trim();
+        var err = document.getElementById('errorMsg');
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          e.preventDefault();
+          err.style.display = 'block';
+        } else {
+          err.style.display = 'none';
+        }
+      });
+    </script>
+  </body>
+</html>

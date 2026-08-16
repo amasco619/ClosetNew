@@ -1,8 +1,10 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
+import fs from "node:fs";
+import path from "node:path";
 import { classifyGarment } from "./classify-garment";
 import { removeBackground } from "./remove-background";
-import { supabaseAdmin, supabaseAuth } from "./supabase";
+import { supabaseAdmin, supabaseAuth, supabaseAnon } from "./supabase";
 import { aiLimiter, bgRemovalLimiter, accountLimiter, authLimiter, resetLimiter, checkAccountLockout, recordFailedAttempt, clearLockout } from "./middleware/rateLimiter";
 // P-E: cap simultaneous AI calls so a burst cannot exhaust Gemini quota
 // or connections. Extras are queued, not rejected (the rate limiters
@@ -372,6 +374,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ success: false, error: "delete_failed" });
     }
   });
+
+  // ─── External account-deletion web resource ──────────────────────────────
+  // Required by Google Play policy: a stable, publicly-accessible URL where
+  // users can request account deletion. Ownership is verified via a Supabase
+  // OTP emailed to the account address before any deletion is performed.
+
+  function readTemplate(name: string): string {
+    return fs.readFileSync(
+      path.resolve(process.cwd(), "server", "templates", name),
+      "utf-8",
+    );
+  }
+
+  // GET /delete-account — email entry form
+  app.get("/delete-account", (_req: Request, res: Response) => {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.status(200).send(readTemplate("delete-account.html"));
+  });
+
+  // POST /api/delete-account-request — send OTP to the supplied email.
+  // We always respond with the verify page regardless of whether the email
+  // exists in Supabase (avoids user enumeration).
+  app.post("/api/delete-account-request", resetLimiter, async (req: Request, res: Response) => {
+    const raw = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    if (!isValidEmail(raw)) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.status(400).send(
+        readTemplate("delete-account.html").replace(
+          'class="error" id="errorMsg">',
+          'class="error" id="errorMsg" style="display:block">',
+        ),
+      );
+    }
+
+    // Fire OTP — ignore errors to avoid leaking whether the account exists.
+    try {
+      await supabaseAnon.auth.signInWithOtp({
+        email: raw,
+        options: { shouldCreateUser: false },
+      });
+    } catch {
+      // Intentional: silently ignore; always show the verify page.
+    }
+
+    // Serve the verify page with the email interpolated.
+    const verifyHtml = readTemplate("delete-account-verify.html")
+      .replace(/\{\{EMAIL\}\}/g, raw.replace(/"/g, "&quot;").replace(/</g, "&lt;"))
+      .replace("{{ERROR_BLOCK}}", "");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.status(200).send(verifyHtml);
+  });
+
+  // GET /delete-account/verify — direct link fallback (e.g. user bookmarked)
+  app.get("/delete-account/verify", (req: Request, res: Response) => {
+    const email = typeof req.query.email === "string" ? req.query.email.trim() : "";
+    const verifyHtml = readTemplate("delete-account-verify.html")
+      .replace(/\{\{EMAIL\}\}/g, email.replace(/"/g, "&quot;").replace(/</g, "&lt;"))
+      .replace("{{ERROR_BLOCK}}", "");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.status(200).send(verifyHtml);
+  });
+
+  // POST /api/delete-account-confirm — verify OTP then delete the account.
+  app.post("/api/delete-account-confirm", accountLimiter, async (req: Request, res: Response) => {
+    const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const token = typeof req.body?.token === "string" ? req.body.token.trim() : "";
+
+    function renderVerifyError(msg: string): void {
+      const errorBlock = `<p class="error-msg">${msg}</p>`;
+      const verifyHtml = readTemplate("delete-account-verify.html")
+        .replace(/\{\{EMAIL\}\}/g, email.replace(/"/g, "&quot;").replace(/</g, "&lt;"))
+        .replace("{{ERROR_BLOCK}}", errorBlock);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.status(400).send(verifyHtml);
+    }
+
+    if (!isValidEmail(email) || !token || !/^\d{6}$/.test(token)) {
+      return renderVerifyError("Please enter a valid 6-digit code.");
+    }
+
+    // Verify the OTP — this confirms the user owns the email address.
+    const { data: verifyData, error: verifyErr } = await supabaseAnon.auth.verifyOtp({
+      email,
+      token,
+      type: "email",
+    });
+
+    if (verifyErr || !verifyData?.user) {
+      return renderVerifyError(
+        "The code is incorrect or has expired. Please request a new one.",
+      );
+    }
+
+    const userId = verifyData.user.id;
+
+    try {
+      // Mirror the in-app deletion flow: storage → DB rows → auth user.
+      const { data: wardrobeFiles } = await supabaseAdmin.storage
+        .from("wardrobe-images")
+        .list(userId);
+      if (wardrobeFiles && wardrobeFiles.length > 0) {
+        await supabaseAdmin.storage
+          .from("wardrobe-images")
+          .remove(wardrobeFiles.map((f) => `${userId}/${f.name}`));
+      }
+      const { data: tryonFiles } = await supabaseAdmin.storage
+        .from("tryon-photos")
+        .list(userId);
+      if (tryonFiles && tryonFiles.length > 0) {
+        await supabaseAdmin.storage
+          .from("tryon-photos")
+          .remove(tryonFiles.map((f) => `${userId}/${f.name}`));
+      }
+      const userIdTables = [
+        "affinity_signals", "pair_affinity_signals", "rotation_cursors",
+        "wear_logs", "slot_statuses", "tryon_profiles", "saved_looks", "wardrobe_items",
+      ];
+      for (const table of userIdTables) {
+        await supabaseAdmin.from(table).delete().eq("user_id", userId);
+      }
+      await supabaseAdmin.from("user_profiles").delete().eq("id", userId);
+      const { error: deleteErr } = await supabaseAdmin.auth.admin.deleteUser(userId);
+      if (deleteErr) throw new Error(deleteErr.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[delete-account-web]", msg);
+      return renderVerifyError(
+        "Something went wrong while deleting your account. Please try again or contact support.",
+      );
+    }
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.status(200).send(readTemplate("delete-account-success.html"));
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
 
   const httpServer = createServer(app);
 

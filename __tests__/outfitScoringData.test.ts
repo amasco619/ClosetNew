@@ -44,6 +44,7 @@ function section(name: string): void {
 const OCCASION_TAGS: string[] = [
   'work', 'date-casual', 'date-dressy', 'casual', 'event',
   'interview', 'wedding', 'travel', 'brunch', 'active', 'resort', 'night-out',
+  'traditional-event',
 ];
 
 const STYLE_GOALS: string[] = [

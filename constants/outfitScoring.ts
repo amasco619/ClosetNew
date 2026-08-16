@@ -60,8 +60,10 @@ export const SCENARIO_AFFINITY: Record<OccasionTag, string[]> = {
   'date-dressy': ['blouse', 'camisole', 'midi-dress', 'wrap-dress', 'mini-dress', 'maxi-dress', 'midi-skirt', 'heels', 'mules', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet', 'dress', 'blazer'],
   event:         ['cocktail-dress', 'midi-dress', 'maxi-dress', 'blouse', 'wide-leg', 'blazer', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
   interview:     ['blouse', 'shirt', 'blazer', 'trousers', 'midi-skirt', 'midi-dress', 'coat', 'heels', 'flats', 'loafers', 'tote', 'shoulder-bag', 'earrings', 'watch', 'turtleneck'],
-  wedding:       ['midi-dress', 'maxi-dress', 'cocktail-dress', 'wrap-dress', 'midi-skirt', 'blouse', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
-  travel:        ['t-shirt', 'long-sleeve', 'sweater', 'shirt', 'jeans', 'chinos', 'trousers', 'sneakers', 'flats', 'boots', 'crossbody', 'backpack', 'tote', 'blazer', 'cardigan', 'denim-jacket', 'wide-leg'],
+  wedding:             ['midi-dress', 'maxi-dress', 'cocktail-dress', 'wrap-dress', 'midi-skirt', 'blouse', 'heels', 'clutch', 'mini-bag', 'earrings', 'necklace', 'bracelet'],
+  // Traditional ceremonies, cultural celebrations — Ankara/wax-print, gowns, kaftans.
+  'traditional-event': ['gown', 'kaftan', 'maxi-dress', 'midi-dress', 'blouse', 'midi-skirt', 'heels', 'clutch', 'evening-bag', 'statement-earrings', 'earrings', 'necklace', 'bracelet'],
+  travel:              ['t-shirt', 'long-sleeve', 'sweater', 'shirt', 'jeans', 'chinos', 'trousers', 'sneakers', 'flats', 'boots', 'crossbody', 'backpack', 'tote', 'blazer', 'cardigan', 'denim-jacket', 'wide-leg'],
   // Weekend morning / cafe-terrace meal — relaxed but considered.
   brunch:        ['blouse', 'camisole', 'linen-set', 'midi-dress', 'wrap-dress', 'sundress', 'wide-leg', 'midi-skirt', 'jeans', 'mules', 'sandals', 'block-heels', 'loafers', 'flats', 'crossbody', 'wicker-bag', 'mini-bag', 'earrings', 'sunglasses'],
   // Gym, studio, run, sport — performance first, still considered.
@@ -132,7 +134,8 @@ export const SCENARIO_FORMALITY: Record<OccasionTag, [number, number]> = {
   work:          [4, 7],
   event:         [5, 8],
   interview:     [6, 9],
-  wedding:       [6, 9],
+  wedding:             [6, 9],
+  'traditional-event': [6, 9],  // ceremonies — equivalent formality to wedding
   // New scenarios:
   brunch:        [3, 5],  // relaxed-smart — a considered casual that reads polished
   active:        [1, 2],  // athleisure / gym — performance formality only

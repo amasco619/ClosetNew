@@ -64,13 +64,13 @@ const CATEGORIES: { id: ItemCategory; label: string; icon: string }[] = [
 const OCCASIONS: OccasionTag[] = [
   'casual', 'work', 'brunch', 'active',
   'date-casual', 'date-dressy', 'event',
-  'interview', 'travel', 'wedding', 'resort', 'night-out',
+  'interview', 'travel', 'wedding', 'traditional-event', 'resort', 'night-out',
 ];
 const OCCASION_LABELS: Record<OccasionTag, string> = {
   work: 'Work', casual: 'Casual', 'date-casual': 'Date · Day',
   'date-dressy': 'Date Night', event: 'Event',
-  interview: 'Interview', wedding: 'Wedding', travel: 'Travel',
-  brunch: 'Brunch', active: 'Active', resort: 'Resort', 'night-out': 'Night Out',
+  interview: 'Interview', wedding: 'Wedding', 'traditional-event': 'Traditional',
+  travel: 'Travel', brunch: 'Brunch', active: 'Active', resort: 'Resort', 'night-out': 'Night Out',
 } satisfies Record<OccasionTag, string>;
 const SEASONS: SeasonTag[] = ['all-season','spring','summer','fall','winter'];
 

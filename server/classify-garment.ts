@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import axios from "axios";
 
 type ItemCategory = "top" | "bottom" | "dress" | "outerwear" | "shoes" | "bag" | "jewelry";
-type OccasionTag = "work" | "casual" | "date-casual" | "date-dressy" | "event" | "interview" | "wedding" | "travel" | "brunch" | "active" | "resort" | "night-out";
+type OccasionTag = "work" | "casual" | "date-casual" | "date-dressy" | "event" | "interview" | "wedding" | "traditional-event" | "travel" | "brunch" | "active" | "resort" | "night-out";
 type SeasonTag = "spring" | "summer" | "fall" | "winter" | "all-season";
 
 // ─── Deterministic occasion rules ────────────────────────────────────────────
@@ -68,11 +68,11 @@ const SUBTYPE_OCCASIONS: Record<string, OccasionTag[]> = {
   "knit-dress":     ["casual", "date-casual", "work"],
   "bodycon-dress":  ["night-out", "date-dressy"],
   "slip-dress":     ["date-dressy", "night-out", "event"],
-  "gown":           ["wedding", "event"],
+  "gown":           ["wedding", "event", "traditional-event"],
   "sundress":       ["casual", "brunch", "resort"],
   "resort-dress":   ["resort", "casual"],
   "cover-up":       ["resort"],
-  "kaftan":         ["resort", "casual"],
+  "kaftan":         ["resort", "casual", "traditional-event"],
   // Shoes
   "sneakers":       ["casual", "active"],
   "training-shoes": ["active"],
@@ -139,7 +139,7 @@ const DISPLAYNAME_OCCASION_OVERRIDES: Record<string, OccasionTag[]> = {
   "Maxi skirt":          ["casual", "date-casual", "resort"],
   "A-line skirt":        ["casual", "date-casual", "brunch"],
   "Sundress":            ["casual", "brunch", "resort"],
-  "Evening gown":        ["event", "wedding"],
+  "Evening gown":        ["event", "wedding", "traditional-event"],
   "Cocktail dress":      ["event", "date-dressy", "night-out"],
   "Shift dress":         ["work", "date-dressy"],
   "Wrap dress":          ["date-dressy", "work", "brunch"],
@@ -151,7 +151,7 @@ const DISPLAYNAME_OCCASION_OVERRIDES: Record<string, OccasionTag[]> = {
   "Gym bag":             ["active"],
   "Swimsuit":            ["resort"],
   "Cover-up":            ["resort"],
-  "Kaftan":              ["resort", "casual"],
+  "Kaftan":              ["resort", "casual", "traditional-event"],
   "Resort dress":        ["resort", "casual"],
   "Espadrilles":         ["casual", "brunch", "resort"],
   "Training shoes":      ["active"],
@@ -172,6 +172,7 @@ export function inferOccasions(subType: string | null, displayName: string): Occ
 
 const FABRIC_SEASONS: Partial<Record<string, SeasonTag[]>> = {
   linen:     ["spring", "summer"],
+  lace:      ["spring", "summer"],
   silk:      ["spring", "summer"],
   chiffon:   ["spring", "summer"],
   wool:      ["fall", "winter"],
@@ -232,7 +233,7 @@ export function inferSeasonTags(subType: string | null, fabric: string | null): 
 export function inferWeight(fabric: string | null | undefined): "light" | "mid" | "heavy" | undefined {
   if (!fabric) return undefined;
   if (["wool", "cashmere", "leather", "velvet", "tweed", "suede"].includes(fabric)) return "heavy";
-  if (["silk", "satin", "linen", "chiffon"].includes(fabric)) return "light";
+  if (["silk", "satin", "linen", "lace", "chiffon"].includes(fabric)) return "light";
   return "mid";
 }
 
@@ -426,11 +427,11 @@ export const VALID_COLOR_FAMILIES = new Set<string>([
 ]);
 
 const VALID_FABRICS = new Set<string>([
-  "cotton","linen","silk","chiffon","satin","wool","cashmere",
+  "cotton","linen","lace","silk","chiffon","satin","wool","cashmere",
   "knit","denim","leather","suede","velvet","corduroy","tweed","jersey","synthetic",
 ]);
 
-const VALID_PATTERNS = new Set<string>(["solid","stripe","floral","check","print","color-block","geometric","animal"]);
+const VALID_PATTERNS = new Set<string>(["solid","stripe","floral","check","print","wax-print","color-block","geometric","animal"]);
 const VALID_PATTERN_SCALES = new Set<string>(["small","medium","large"]);
 const VALID_FITS = new Set<string>(["slim","regular","loose","oversized","tailored"]);
 const VALID_NECKLINES = new Set<string>(["crew","v-neck","scoop","turtleneck","boat","square","halter","off-shoulder","collared"]);
@@ -637,10 +638,11 @@ colorFamily (required): The primary/dominant colour of the garment. Exactly one 
 accentColor (optional): If the garment has a clearly visible secondary colour, provide it using the same list. Omit if solid or no distinct accent.
 
 fabric (optional): Best-guess material. One of:
-  "cotton" | "linen" | "silk" | "chiffon" | "satin" | "wool" | "cashmere" | "knit" | "denim" | "leather" | "suede" | "velvet" | "corduroy" | "tweed" | "jersey" | "synthetic"
+  "cotton" | "linen" | "lace" | "silk" | "chiffon" | "satin" | "wool" | "cashmere" | "knit" | "denim" | "leather" | "suede" | "velvet" | "corduroy" | "tweed" | "jersey" | "synthetic"
   Omit if genuinely unclear.
 
-pattern (optional): One of: "solid" | "stripe" | "floral" | "check" | "print" | "color-block" | "geometric" | "animal"
+pattern (optional): One of: "solid" | "stripe" | "floral" | "check" | "print" | "wax-print" | "color-block" | "geometric" | "animal"
+  Use "wax-print" for Ankara/African wax-resist textiles with bold repeating motifs.
   Default to "solid" if the item has no print. Omit only if truly indeterminate.
 
 patternScale (optional): Only include when pattern is NOT solid. One of: "small" | "medium" | "large"

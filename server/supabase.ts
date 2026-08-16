@@ -24,3 +24,15 @@ export const supabaseAuth = createClient(supabaseUrl, supabaseSecretKey, {
     autoRefreshToken: false,
   },
 })
+
+// Anon client — used for user-facing OTP flows (e.g. account-deletion web
+// form) where the request must be scoped to the authenticated user, not the
+// service role.  Uses the publishable (anon) key so Supabase sends OTP emails
+// via its own email delivery infrastructure.
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
+export const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+})

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Verify — Delete Account — Amodka</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        margin: 0; padding: 40px 20px;
+        background: #fff; color: #111; line-height: 1.6;
+        min-height: 100vh;
+      }
+      .wrapper { max-width: 440px; margin: 0 auto; }
+      .logo { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: #111; margin-bottom: 32px; }
+      h1 { font-size: 22px; font-weight: 600; margin: 0 0 8px; }
+      .subtitle { font-size: 14px; color: #666; margin: 0 0 28px; }
+      .info {
+        background: #f0f7ff; border: 1px solid #b3d4f5;
+        border-radius: 8px; padding: 14px 16px;
+        font-size: 13px; color: #1a4f7a; margin-bottom: 28px;
+      }
+      label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+      input[type="text"], input[type="hidden"] {
+        width: 100%; padding: 11px 14px; font-size: 18px;
+        letter-spacing: 0.15em; text-align: center;
+        border: 1.5px solid #d1d5db; border-radius: 8px;
+        outline: none; color: #111; background: #fff;
+        transition: border-color 0.15s;
+      }
+      input[type="text"]:focus { border-color: #111; }
+      button[type="submit"] {
+        display: block; width: 100%; margin-top: 16px;
+        padding: 12px; font-size: 15px; font-weight: 600;
+        background: #c0392b; color: #fff; border: none;
+        border-radius: 8px; cursor: pointer; transition: background 0.15s;
+      }
+      button[type="submit"]:hover { background: #a93226; }
+      .error-msg { color: #c0392b; font-size: 13px; margin-top: 12px; }
+      .resend { margin-top: 20px; font-size: 13px; color: #666; }
+      .resend a { color: #333; font-weight: 500; }
+      .footer { margin-top: 40px; font-size: 13px; color: #999; }
+      .footer a { color: #555; }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <div class="logo">Amodka</div>
+      <h1>Enter verification code</h1>
+      <p class="subtitle">Check your inbox for the 6-digit code we sent to <strong>{{EMAIL}}</strong>.</p>
+      <div class="info">The code expires in 10 minutes. Check your spam folder if you don't see it.</div>
+      {{ERROR_BLOCK}}
+      <form method="POST" action="/api/delete-account-confirm">
+        <input type="hidden" name="email" value="{{EMAIL}}" />
+        <label for="token">6-digit code</label>
+        <input type="text" id="token" name="token" maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" inputmode="numeric" placeholder="000000" required />
+        <button type="submit">Confirm deletion</button>
+      </form>
+      <p class="resend">Didn't receive it? <a href="/delete-account">Try a different email</a> or check your spam folder.</p>
+      <div class="footer"><a href="/">← Back to Amodka</a></div>
+    </div>
+  </body>
+</html>

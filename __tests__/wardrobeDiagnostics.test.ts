@@ -218,11 +218,11 @@ console.log('\n=== wardrobeDiagnostics — empty wardrobe edge case ===\n');
 console.log('\n=== ALL_SCENARIOS — exported constant ===\n');
 {
   assert(Array.isArray(ALL_SCENARIOS), 'ALL_SCENARIOS is an array');
-  assert(ALL_SCENARIOS.length === 8, `ALL_SCENARIOS has 8 entries (got ${ALL_SCENARIOS.length})`);
+  assert(ALL_SCENARIOS.length === 9, `ALL_SCENARIOS has 9 entries (got ${ALL_SCENARIOS.length})`);
 
   const EXPECTED = [
     'casual', 'work', 'date-casual', 'date-dressy',
-    'event', 'interview', 'wedding', 'travel',
+    'event', 'interview', 'wedding', 'traditional-event', 'travel',
   ];
   for (const tag of EXPECTED) {
     assert(ALL_SCENARIOS.includes(tag as any), `ALL_SCENARIOS includes "${tag}"`);
