@@ -27,7 +27,7 @@ const MOOD_OPTIONS: { id: MoodGoal; label: string; icon: React.ComponentProps<ty
 ];
 
 const FREE_SCENARIOS: OccasionTag[] = ['work', 'casual', 'date-casual', 'date-dressy', 'event', 'brunch', 'active'];
-const PREMIUM_SCENARIOS: OccasionTag[] = ['interview', 'wedding', 'travel', 'resort', 'night-out'];
+const PREMIUM_SCENARIOS: OccasionTag[] = ['interview', 'wedding', 'traditional-event', 'travel', 'resort', 'night-out'];
 
 const REWEAR_THRESHOLDS: Record<OccasionTag, number> = {
   work:          7,
@@ -112,7 +112,8 @@ const SCENARIO_EMPTY_HINT: Partial<Record<OccasionTag, string>> = {
   casual:        'Add everyday tops, denim, or casual dresses and we\'ll style relaxed everyday looks.',
   'date-casual': 'Add a casual dress or a flattering top-and-jeans combo and we\'ll style your day date looks.',
   'date-dressy': 'Add a statement dress or dressy separates and we\'ll style your evening date looks.',
-  event:         'Add a dress or occasion-ready separates and we\'ll style standout event looks.',
+  event:             'Add a dress or occasion-ready separates and we\'ll style standout event looks.',
+  'traditional-event': 'Add a kaftan, gown, or lace piece and we\'ll style your traditional ceremony looks.',
 };
 
 const categoryIcons: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
