@@ -194,3 +194,33 @@ export interface SavedLook {
   customName?: string;       // user-provided rename; falls back to recipe label
   savedAt: string;           // ISO timestamp
 }
+
+// ─── Canonical UI option lists ─────────────────────────────────────────────────
+// Single source of truth for every attribute picker in the app.
+// Add a value to the union type above AND to the matching array below — every
+// consumer (add-item, bulk-review, BulkItemEditPanel) picks it up automatically.
+
+export const ALL_PATTERNS: readonly Pattern[] = [
+  'solid', 'stripe', 'floral', 'check', 'print', 'wax-print', 'color-block', 'geometric', 'animal',
+] as const;
+
+export const ALL_PATTERN_SCALES: readonly PatternScale[] = ['small', 'medium', 'large'] as const;
+
+export const ALL_FABRICS: readonly Fabric[] = [
+  'chiffon', 'silk', 'satin', 'linen', 'lace', 'cotton', 'jersey', 'synthetic',
+  'knit', 'denim', 'tweed', 'wool', 'cashmere', 'suede', 'leather', 'velvet', 'corduroy',
+] as const;
+
+export const ALL_FABRIC_WEIGHTS: readonly FabricWeight[] = ['light', 'mid', 'heavy'] as const;
+
+export const ALL_FITS: readonly Fit[] = ['slim', 'regular', 'loose', 'oversized', 'tailored'] as const;
+
+export const ALL_NECKLINES: readonly Neckline[] = [
+  'crew', 'v-neck', 'scoop', 'turtleneck', 'boat', 'square', 'halter', 'off-shoulder', 'collared',
+] as const;
+
+export const ALL_SLEEVES: readonly SleeveLength[] = ['sleeveless', 'short', 'three-quarter', 'long'] as const;
+
+export const ALL_RISES: readonly Rise[] = ['low', 'mid', 'high'] as const;
+
+export const ALL_WARMTHS: readonly WarmthBand[] = ['cold', 'cool', 'mild', 'warm', 'hot'] as const;

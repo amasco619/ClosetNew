@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useApp } from '@/contexts/AppContext';
 import type { ItemCategory, OccasionTag, SeasonTag } from '@/constants/types';
+import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
 import BulkItemEditPanel from '@/components/BulkItemEditPanel';
 import Colors from '@/constants/colors';
 import { SUBTYPE_FORMALITY } from '@/constants/outfitScoring';
@@ -81,25 +82,16 @@ interface BulkItem {
 
 // ─── Type guards (mirrors add-item.tsx) ──────────────────────────────────────
 
-const PATTERNS       = ['solid','stripe','floral','check','print','color-block','geometric','animal'];
-const PATTERN_SCALES = ['small','medium','large'];
-const FABRICS        = ['chiffon','silk','satin','linen','cotton','jersey','synthetic','knit','denim','tweed','wool','cashmere','suede','leather','velvet','corduroy'];
-const FABRIC_WEIGHTS = ['light','mid','heavy'];
-const FITS           = ['slim','regular','loose','oversized','tailored'];
-const NECKLINES      = ['crew','v-neck','scoop','turtleneck','boat','square','halter','off-shoulder','collared'];
-const SLEEVES        = ['sleeveless','short','three-quarter','long'];
-const RISES          = ['low','mid','high'];
-const WARMTHS        = ['cold','cool','mild','warm','hot'];
 
-const asPattern      = (v?: string) => v && PATTERNS.includes(v)       ? v as any : undefined;
-const asPatternScale = (v?: string) => v && PATTERN_SCALES.includes(v) ? v as any : undefined;
-const asFabric       = (v?: string) => v && FABRICS.includes(v)        ? v as any : undefined;
-const asWeight       = (v?: string) => v && FABRIC_WEIGHTS.includes(v) ? v as any : undefined;
-const asFit          = (v?: string) => v && FITS.includes(v)           ? v as any : undefined;
-const asNeckline     = (v?: string) => v && NECKLINES.includes(v)      ? v as any : undefined;
-const asSleeve       = (v?: string) => v && SLEEVES.includes(v)        ? v as any : undefined;
-const asRise         = (v?: string) => v && RISES.includes(v)          ? v as any : undefined;
-const asWarmth       = (v?: string) => v && WARMTHS.includes(v)        ? v as any : undefined;
+const asPattern      = (v?: string) => v && (PATTERNS      as readonly string[]).includes(v) ? v as any : undefined;
+const asPatternScale = (v?: string) => v && (PATTERN_SCALES as readonly string[]).includes(v) ? v as any : undefined;
+const asFabric       = (v?: string) => v && (FABRICS        as readonly string[]).includes(v) ? v as any : undefined;
+const asWeight       = (v?: string) => v && (FABRIC_WEIGHTS as readonly string[]).includes(v) ? v as any : undefined;
+const asFit          = (v?: string) => v && (FITS           as readonly string[]).includes(v) ? v as any : undefined;
+const asNeckline     = (v?: string) => v && (NECKLINES      as readonly string[]).includes(v) ? v as any : undefined;
+const asSleeve       = (v?: string) => v && (SLEEVES        as readonly string[]).includes(v) ? v as any : undefined;
+const asRise         = (v?: string) => v && (RISES          as readonly string[]).includes(v) ? v as any : undefined;
+const asWarmth       = (v?: string) => v && (WARMTHS        as readonly string[]).includes(v) ? v as any : undefined;
 
 // ─── Gold pulse overlay (shown while classifying) ─────────────────────────────
 

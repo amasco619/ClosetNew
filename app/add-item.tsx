@@ -10,6 +10,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useApp, ItemCategory, OccasionTag, SeasonTag, subTypes, colorFamilies } from '@/contexts/AppContext';
 import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, SleeveLength, Rise, WarmthBand } from '@/constants/types';
+import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
 import { SUBTYPE_FORMALITY, inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
@@ -27,19 +28,6 @@ import { rs } from '../lib/responsive';
 
 // ─── Option lists ─────────────────────────────────────────────────────────────
 
-const PATTERNS: readonly Pattern[] = ['solid','stripe','floral','check','print','color-block','geometric','animal'] as const;
-const PATTERN_SCALES: readonly PatternScale[] = ['small','medium','large'] as const;
-const FABRICS: readonly Fabric[] = [
-  'chiffon','silk','satin','linen','cotton','jersey','synthetic',
-  'knit','denim','tweed','wool','cashmere','suede',
-  'leather','velvet','corduroy',
-] as const;
-const FABRIC_WEIGHTS: readonly FabricWeight[] = ['light','mid','heavy'] as const;
-const FITS: readonly Fit[] = ['slim','regular','loose','oversized','tailored'] as const;
-const NECKLINES: readonly Neckline[] = ['crew','v-neck','scoop','turtleneck','boat','square','halter','off-shoulder','collared'] as const;
-const SLEEVES: readonly SleeveLength[] = ['sleeveless','short','three-quarter','long'] as const;
-const RISES: readonly Rise[] = ['low','mid','high'] as const;
-const WARMTHS: readonly WarmthBand[] = ['cold','cool','mild','warm','hot'] as const;
 
 const WARMTH_LABELS: Record<WarmthBand, string> = {
   cold: 'cold (heavy coat)',

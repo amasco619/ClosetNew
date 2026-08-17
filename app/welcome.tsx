@@ -155,7 +155,7 @@ export default function WelcomeScreen() {
       >
         {/* Brand Header */}
         <Animated.View entering={FadeInDown.delay(80).duration(280)} style={styles.headerGroup}>
-          <Text style={styles.microLabel}>A U R A C L O S E T</Text>
+          <Text style={styles.microLabel}>A M O D K A</Text>
           <Text style={styles.headline}>Your quiet-luxury{'\n'}stylist in your pocket.</Text>
           <Text style={styles.tagline}>Your private dressing room, always curated.</Text>
         </Animated.View>
