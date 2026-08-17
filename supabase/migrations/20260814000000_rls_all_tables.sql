@@ -9,7 +9,10 @@
 --
 -- Policy convention:
 --   SELECT / INSERT / UPDATE / DELETE are all scoped to auth.uid() = user_id
---   so that no authenticated user can ever read or mutate another user's rows.
+--   and explicitly target the authenticated role so the intent is clear:
+--     authenticated  → own rows only
+--     anon           → no access (no GRANT to anon role, and auth.uid()=NULL)
+--     service_role   → BYPASSRLS; governed by DAC grants in separate migration
 --
 -- Storage bucket policies are at the bottom of this file.  They require the
 -- wardrobe-images and tryon-photos buckets to ALREADY EXIST in Supabase Storage.
@@ -23,25 +26,34 @@ ALTER TABLE wardrobe_items ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='wardrobe_items' AND policyname='Users can read own wardrobe items') THEN
-    CREATE POLICY "Users can read own wardrobe items" ON wardrobe_items FOR SELECT USING (auth.uid() = user_id);
+    CREATE POLICY "Users can read own wardrobe items"
+      ON wardrobe_items FOR SELECT TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='wardrobe_items' AND policyname='Users can insert own wardrobe items') THEN
-    CREATE POLICY "Users can insert own wardrobe items" ON wardrobe_items FOR INSERT WITH CHECK (auth.uid() = user_id);
+    CREATE POLICY "Users can insert own wardrobe items"
+      ON wardrobe_items FOR INSERT TO authenticated
+      WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='wardrobe_items' AND policyname='Users can update own wardrobe items') THEN
-    CREATE POLICY "Users can update own wardrobe items" ON wardrobe_items FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    CREATE POLICY "Users can update own wardrobe items"
+      ON wardrobe_items FOR UPDATE TO authenticated
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='wardrobe_items' AND policyname='Users can delete own wardrobe items') THEN
-    CREATE POLICY "Users can delete own wardrobe items" ON wardrobe_items FOR DELETE USING (auth.uid() = user_id);
+    CREATE POLICY "Users can delete own wardrobe items"
+      ON wardrobe_items FOR DELETE TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
@@ -50,19 +62,25 @@ ALTER TABLE wear_logs ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='wear_logs' AND policyname='Users can read own wear logs') THEN
-    CREATE POLICY "Users can read own wear logs" ON wear_logs FOR SELECT USING (auth.uid() = user_id);
+    CREATE POLICY "Users can read own wear logs"
+      ON wear_logs FOR SELECT TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='wear_logs' AND policyname='Users can insert own wear logs') THEN
-    CREATE POLICY "Users can insert own wear logs" ON wear_logs FOR INSERT WITH CHECK (auth.uid() = user_id);
+    CREATE POLICY "Users can insert own wear logs"
+      ON wear_logs FOR INSERT TO authenticated
+      WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='wear_logs' AND policyname='Users can delete own wear logs') THEN
-    CREATE POLICY "Users can delete own wear logs" ON wear_logs FOR DELETE USING (auth.uid() = user_id);
+    CREATE POLICY "Users can delete own wear logs"
+      ON wear_logs FOR DELETE TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
@@ -71,19 +89,25 @@ ALTER TABLE affinity_signals ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='affinity_signals' AND policyname='Users can read own affinity signals') THEN
-    CREATE POLICY "Users can read own affinity signals" ON affinity_signals FOR SELECT USING (auth.uid() = user_id);
+    CREATE POLICY "Users can read own affinity signals"
+      ON affinity_signals FOR SELECT TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='affinity_signals' AND policyname='Users can insert own affinity signals') THEN
-    CREATE POLICY "Users can insert own affinity signals" ON affinity_signals FOR INSERT WITH CHECK (auth.uid() = user_id);
+    CREATE POLICY "Users can insert own affinity signals"
+      ON affinity_signals FOR INSERT TO authenticated
+      WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='affinity_signals' AND policyname='Users can delete own affinity signals') THEN
-    CREATE POLICY "Users can delete own affinity signals" ON affinity_signals FOR DELETE USING (auth.uid() = user_id);
+    CREATE POLICY "Users can delete own affinity signals"
+      ON affinity_signals FOR DELETE TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
@@ -92,19 +116,25 @@ ALTER TABLE pair_affinity_signals ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='pair_affinity_signals' AND policyname='Users can read own pair affinity signals') THEN
-    CREATE POLICY "Users can read own pair affinity signals" ON pair_affinity_signals FOR SELECT USING (auth.uid() = user_id);
+    CREATE POLICY "Users can read own pair affinity signals"
+      ON pair_affinity_signals FOR SELECT TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='pair_affinity_signals' AND policyname='Users can insert own pair affinity signals') THEN
-    CREATE POLICY "Users can insert own pair affinity signals" ON pair_affinity_signals FOR INSERT WITH CHECK (auth.uid() = user_id);
+    CREATE POLICY "Users can insert own pair affinity signals"
+      ON pair_affinity_signals FOR INSERT TO authenticated
+      WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='pair_affinity_signals' AND policyname='Users can delete own pair affinity signals') THEN
-    CREATE POLICY "Users can delete own pair affinity signals" ON pair_affinity_signals FOR DELETE USING (auth.uid() = user_id);
+    CREATE POLICY "Users can delete own pair affinity signals"
+      ON pair_affinity_signals FOR DELETE TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
@@ -113,25 +143,34 @@ ALTER TABLE rotation_cursors ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='rotation_cursors' AND policyname='Users can read own rotation cursors') THEN
-    CREATE POLICY "Users can read own rotation cursors" ON rotation_cursors FOR SELECT USING (auth.uid() = user_id);
+    CREATE POLICY "Users can read own rotation cursors"
+      ON rotation_cursors FOR SELECT TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='rotation_cursors' AND policyname='Users can insert own rotation cursors') THEN
-    CREATE POLICY "Users can insert own rotation cursors" ON rotation_cursors FOR INSERT WITH CHECK (auth.uid() = user_id);
+    CREATE POLICY "Users can insert own rotation cursors"
+      ON rotation_cursors FOR INSERT TO authenticated
+      WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='rotation_cursors' AND policyname='Users can update own rotation cursors') THEN
-    CREATE POLICY "Users can update own rotation cursors" ON rotation_cursors FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    CREATE POLICY "Users can update own rotation cursors"
+      ON rotation_cursors FOR UPDATE TO authenticated
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='rotation_cursors' AND policyname='Users can delete own rotation cursors') THEN
-    CREATE POLICY "Users can delete own rotation cursors" ON rotation_cursors FOR DELETE USING (auth.uid() = user_id);
+    CREATE POLICY "Users can delete own rotation cursors"
+      ON rotation_cursors FOR DELETE TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
@@ -140,25 +179,34 @@ ALTER TABLE slot_statuses ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='slot_statuses' AND policyname='Users can read own slot statuses') THEN
-    CREATE POLICY "Users can read own slot statuses" ON slot_statuses FOR SELECT USING (auth.uid() = user_id);
+    CREATE POLICY "Users can read own slot statuses"
+      ON slot_statuses FOR SELECT TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='slot_statuses' AND policyname='Users can insert own slot statuses') THEN
-    CREATE POLICY "Users can insert own slot statuses" ON slot_statuses FOR INSERT WITH CHECK (auth.uid() = user_id);
+    CREATE POLICY "Users can insert own slot statuses"
+      ON slot_statuses FOR INSERT TO authenticated
+      WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='slot_statuses' AND policyname='Users can update own slot statuses') THEN
-    CREATE POLICY "Users can update own slot statuses" ON slot_statuses FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    CREATE POLICY "Users can update own slot statuses"
+      ON slot_statuses FOR UPDATE TO authenticated
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='slot_statuses' AND policyname='Users can delete own slot statuses') THEN
-    CREATE POLICY "Users can delete own slot statuses" ON slot_statuses FOR DELETE USING (auth.uid() = user_id);
+    CREATE POLICY "Users can delete own slot statuses"
+      ON slot_statuses FOR DELETE TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
@@ -167,25 +215,34 @@ ALTER TABLE tryon_profiles ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='tryon_profiles' AND policyname='Users can read own tryon profiles') THEN
-    CREATE POLICY "Users can read own tryon profiles" ON tryon_profiles FOR SELECT USING (auth.uid() = user_id);
+    CREATE POLICY "Users can read own tryon profiles"
+      ON tryon_profiles FOR SELECT TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='tryon_profiles' AND policyname='Users can insert own tryon profiles') THEN
-    CREATE POLICY "Users can insert own tryon profiles" ON tryon_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+    CREATE POLICY "Users can insert own tryon profiles"
+      ON tryon_profiles FOR INSERT TO authenticated
+      WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='tryon_profiles' AND policyname='Users can update own tryon profiles') THEN
-    CREATE POLICY "Users can update own tryon profiles" ON tryon_profiles FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    CREATE POLICY "Users can update own tryon profiles"
+      ON tryon_profiles FOR UPDATE TO authenticated
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='tryon_profiles' AND policyname='Users can delete own tryon profiles') THEN
-    CREATE POLICY "Users can delete own tryon profiles" ON tryon_profiles FOR DELETE USING (auth.uid() = user_id);
+    CREATE POLICY "Users can delete own tryon profiles"
+      ON tryon_profiles FOR DELETE TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
@@ -194,19 +251,34 @@ ALTER TABLE saved_looks ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='saved_looks' AND policyname='Users can read own saved looks') THEN
-    CREATE POLICY "Users can read own saved looks" ON saved_looks FOR SELECT USING (auth.uid() = user_id);
+    CREATE POLICY "Users can read own saved looks"
+      ON saved_looks FOR SELECT TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='saved_looks' AND policyname='Users can insert own saved looks') THEN
-    CREATE POLICY "Users can insert own saved looks" ON saved_looks FOR INSERT WITH CHECK (auth.uid() = user_id);
+    CREATE POLICY "Users can insert own saved looks"
+      ON saved_looks FOR INSERT TO authenticated
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='saved_looks' AND policyname='Users can update own saved looks') THEN
+    CREATE POLICY "Users can update own saved looks"
+      ON saved_looks FOR UPDATE TO authenticated
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
   END IF;
 END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='saved_looks' AND policyname='Users can delete own saved looks') THEN
-    CREATE POLICY "Users can delete own saved looks" ON saved_looks FOR DELETE USING (auth.uid() = user_id);
+    CREATE POLICY "Users can delete own saved looks"
+      ON saved_looks FOR DELETE TO authenticated
+      USING (auth.uid() = user_id);
   END IF;
 END $$;
 

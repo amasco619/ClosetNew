@@ -1,0 +1,169 @@
+PHASE 5B.1 — RLS CORRECTIONS + SERVICE-ROLE PRIVILEGE RECONCILIATION
+
+The Application RLS Final Preflight Report has been reviewed.
+
+Do not execute the RLS migration yet.
+
+We approve the direction, but three items must be resolved before production execution.
+
+1. BLOCKING — saved_looks UPDATE
+
+Add the missing:
+
+Users can update own saved looks
+
+policy using:
+
+USING (auth.uid() = user_id)
+
+WITH CHECK (auth.uid() = user_id)
+
+Place it in the application RLS migration alongside the other saved_looks policies.
+
+Verify that upsertSavedLook() will work for:
+
+a new saved look;
+updating/re-saving an existing saved look;
+deleting a saved look.
+2. REQUIRED — Explicit TO authenticated
+
+Update all 28 application-table RLS policies in the migration so that they explicitly contain:
+
+TO authenticated
+
+Do this for:
+
+SELECT
+INSERT
+UPDATE
+DELETE
+
+policies wherever applicable.
+
+Do not alter the ownership conditions.
+
+Do not add any policy for anon.
+
+Do not weaken any USING or WITH CHECK condition.
+
+The resulting policy model should explicitly communicate:
+
+authenticated users → own rows only
+
+anon → no access
+
+service_role → backend administrative access via its database privileges/BYPASSRLS
+
+3. REQUIRED — Service-role privilege reconciliation
+
+The preflight report identified that server/remove-background.ts performs a service_role SELECT against user_profiles, while the corrective GRANT migration currently grants only UPDATE + DELETE on user_profiles.
+
+Do NOT assume BYPASSRLS bypasses PostgreSQL DAC privileges.
+
+Perform a complete code audit of every supabaseAdmin / service_role operation in the production application.
+
+Search all production code for:
+
+supabaseAdmin.from(
+supabaseAdmin.storage
+any equivalent server-side Supabase client
+
+Build a table:
+
+| Production operation | Table/bucket | SELECT | INSERT | UPDATE | DELETE | Current grant | Required grant |
+
+Identify every operation that requires a database privilege that is currently missing.
+
+Pay particular attention to:
+
+premium status checks;
+premium/background-removal checks;
+account deletion;
+account deletion web resource;
+wardrobe cleanup;
+try-on cleanup;
+legacy storage migration;
+any server-side user/profile lookup;
+any future-facing server routes already present in production code.
+
+Do not grant privileges merely because they might be useful.
+
+Grant only privileges demonstrably required by existing production code.
+
+4. Important distinction
+
+Do not modify authenticated or anon table grants to solve the service-role issue.
+
+Do not weaken RLS to solve it.
+
+Do not use SECURITY DEFINER.
+
+Do not add blanket privileges.
+
+If user_profiles SELECT is genuinely required by supabaseAdmin, include the minimum corrective GRANT required and explain it.
+
+5. Re-test affected operations
+
+After making the code/migration corrections, perform verification tests for:
+
+upsertSavedLook on a new row;
+upsertSavedLook on an existing row;
+premium status lookup using the actual backend secret;
+account deletion operations;
+existing wardrobe admin/migration operations.
+
+Do not expose any secret values.
+
+6. Re-run static validation
+
+Run:
+
+npm test
+
+npm run typecheck
+
+Also run the relevant RLS/security tests if they exist.
+
+7. Migration safety
+
+Re-audit the corrected migration for:
+
+idempotency;
+duplicate policy names;
+accidental PUBLIC policies;
+USING (true);
+WITH CHECK (true);
+missing ownership conditions;
+destructive statements;
+unintended changes to user_profiles;
+unintended Storage changes.
+8. DO NOT execute production RLS
+
+Do NOT:
+
+execute 20260814000000_rls_all_tables.sql against Supabase;
+enable RLS on the remaining application tables;
+change Storage configuration;
+change bucket visibility;
+modify Recommendation Engine v3.7;
+start Task 408.
+Final output
+
+Return:
+
+Phase 5B.1 RLS Correction & Privilege Reconciliation Report
+
+Include:
+
+saved_looks UPDATE correction — PASS/FAIL
+28 TO authenticated corrections — PASS/FAIL
+Complete supabaseAdmin privilege audit
+Exact additional GRANT(s), if required
+Proof that no excessive privileges were added
+Application compatibility results
+npm test result
+npm run typecheck result
+Final RLS migration readiness — PASS/FAIL
+Exact SQL/migration file that is ready for manual production execution
+
+Stop and wait for approval. Do not execute the production migration.
