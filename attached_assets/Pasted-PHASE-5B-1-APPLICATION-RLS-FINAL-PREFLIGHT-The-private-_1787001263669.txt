@@ -1,0 +1,151 @@
+PHASE 5B.1 — APPLICATION RLS FINAL PREFLIGHT
+
+The private wardrobe-images transition is complete and verified:
+
+bucket is private;
+9/9 wardrobe images generate signed URLs;
+zero production getPublicUrl() references;
+9/9 database records use storage paths;
+wardrobe hydration passes;
+47/47 tests pass;
+typecheck has 0 errors.
+
+We are now preparing to apply the application-table RLS portion of:
+
+supabase/migrations/20260814000000_rls_all_tables.sql
+
+Do not execute the migration yet.
+
+Perform a final security preflight only.
+
+1. Tables
+
+Audit the RLS configuration for:
+
+user_profiles
+wardrobe_items
+wear_logs
+affinity_signals
+pair_affinity_signals
+rotation_cursors
+slot_statuses
+tryon_profiles
+saved_looks
+2. For every table report
+Is RLS enabled?
+Existing policies?
+Proposed policies?
+SELECT behaviour?
+INSERT behaviour?
+UPDATE behaviour?
+DELETE behaviour?
+Which role(s) does each policy apply to?
+Exact ownership condition?
+3. Security scenarios
+
+Explicitly reason through:
+
+User A → User A
+
+SELECT
+INSERT
+UPDATE
+DELETE
+
+User A → User B
+
+SELECT
+INSERT
+UPDATE
+DELETE
+
+The expected result for User A accessing User B's resources is DENIED in every case.
+
+4. Service role
+
+Confirm that service_role retains the required privileges for:
+
+account deletion;
+premium-status operations currently implemented;
+wardrobe migration/admin operations;
+server-side cleanup.
+
+Do not grant additional privileges merely for convenience.
+
+5. Anonymous users
+
+Confirm that anon cannot access user-owned records through these policies.
+
+6. Policy correctness
+
+Check for:
+
+policies applying accidentally to PUBLIC;
+missing TO authenticated;
+overly broad USING (true);
+overly broad WITH CHECK (true);
+policies that could be combined to bypass ownership;
+duplicate/conflicting policies;
+policy names that already exist;
+idempotency issues.
+7. Application compatibility
+
+Search production code for every query against the affected tables and verify that the proposed RLS policies permit all legitimate existing operations.
+
+Pay particular attention to:
+
+onboarding;
+wardrobe creation;
+wardrobe updates;
+wear logging;
+affinity updates;
+recommendations;
+saved looks;
+profile updates;
+account deletion;
+premium status.
+
+Do not modify application behaviour.
+
+8. Migration safety
+
+Confirm whether the migration can be safely applied to the current production database.
+
+Identify:
+
+statements that will actually change current state;
+statements that will be skipped because objects already exist;
+any statements that could fail;
+any destructive operations;
+rollback implications.
+9. IMPORTANT
+
+Do NOT:
+
+execute the migration;
+alter any RLS policy;
+alter any table;
+modify Storage;
+change bucket visibility;
+modify Recommendation Engine v3.7;
+start Task 408.
+Final output
+
+Return:
+
+Application RLS Final Preflight Report
+
+Include:
+
+Overall PASS/FAIL
+Table-by-table matrix
+User A → User A results
+User A → User B results
+Anonymous access results
+Service-role results
+Application compatibility
+Migration risks
+Exact SQL that will be executed
+Any required corrections
+
+Stop after the report and wait for approval.
