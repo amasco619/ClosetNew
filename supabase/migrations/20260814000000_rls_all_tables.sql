@@ -222,16 +222,29 @@ END $$;
 --       access the file).  Setting the bucket to PRIVATE in the Supabase
 --       dashboard is the authoritative control; these policies add defence-
 --       in-depth for path-based cross-user read/list/delete attempts.
+--
+-- Idempotency: uses pg_policies (schemaname='storage', tablename='objects')
+-- which is the standard PostgreSQL system catalog — consistent with the
+-- application-table checks above and available on all PostgreSQL versions.
+-- The earlier draft used storage.policies (a Supabase-specific view that is
+-- not exposed via PostgREST and may be absent in some Supabase configurations).
+--
+-- Role targeting: explicit TO authenticated clause on every policy.
+-- auth.uid() returns NULL for anon callers so the USING/WITH CHECK expression
+-- already denies unauthenticated access, but the explicit role keeps intent
+-- clear and prevents any ambiguity in future Supabase policy-auditing tools.
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- wardrobe-images: users can only access their own prefix (userId/*)
 DO $$ BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM storage.policies
-    WHERE bucket_id = 'wardrobe-images' AND name = 'wardrobe-images select own'
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND policyname = 'wardrobe-images select own'
   ) THEN
     CREATE POLICY "wardrobe-images select own"
       ON storage.objects FOR SELECT
+      TO authenticated
       USING (
         bucket_id = 'wardrobe-images'
         AND auth.uid()::text = (string_to_array(name, '/'))[1]
@@ -241,11 +254,13 @@ END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM storage.policies
-    WHERE bucket_id = 'wardrobe-images' AND name = 'wardrobe-images insert own'
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND policyname = 'wardrobe-images insert own'
   ) THEN
     CREATE POLICY "wardrobe-images insert own"
       ON storage.objects FOR INSERT
+      TO authenticated
       WITH CHECK (
         bucket_id = 'wardrobe-images'
         AND auth.uid()::text = (string_to_array(name, '/'))[1]
@@ -255,11 +270,13 @@ END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM storage.policies
-    WHERE bucket_id = 'wardrobe-images' AND name = 'wardrobe-images update own'
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND policyname = 'wardrobe-images update own'
   ) THEN
     CREATE POLICY "wardrobe-images update own"
       ON storage.objects FOR UPDATE
+      TO authenticated
       USING (
         bucket_id = 'wardrobe-images'
         AND auth.uid()::text = (string_to_array(name, '/'))[1]
@@ -269,11 +286,13 @@ END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM storage.policies
-    WHERE bucket_id = 'wardrobe-images' AND name = 'wardrobe-images delete own'
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND policyname = 'wardrobe-images delete own'
   ) THEN
     CREATE POLICY "wardrobe-images delete own"
       ON storage.objects FOR DELETE
+      TO authenticated
       USING (
         bucket_id = 'wardrobe-images'
         AND auth.uid()::text = (string_to_array(name, '/'))[1]
@@ -284,11 +303,13 @@ END $$;
 -- tryon-photos: users can only access their own prefix (userId/*)
 DO $$ BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM storage.policies
-    WHERE bucket_id = 'tryon-photos' AND name = 'tryon-photos select own'
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND policyname = 'tryon-photos select own'
   ) THEN
     CREATE POLICY "tryon-photos select own"
       ON storage.objects FOR SELECT
+      TO authenticated
       USING (
         bucket_id = 'tryon-photos'
         AND auth.uid()::text = (string_to_array(name, '/'))[1]
@@ -298,11 +319,13 @@ END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM storage.policies
-    WHERE bucket_id = 'tryon-photos' AND name = 'tryon-photos insert own'
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND policyname = 'tryon-photos insert own'
   ) THEN
     CREATE POLICY "tryon-photos insert own"
       ON storage.objects FOR INSERT
+      TO authenticated
       WITH CHECK (
         bucket_id = 'tryon-photos'
         AND auth.uid()::text = (string_to_array(name, '/'))[1]
@@ -312,11 +335,13 @@ END $$;
 
 DO $$ BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM storage.policies
-    WHERE bucket_id = 'tryon-photos' AND name = 'tryon-photos delete own'
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND policyname = 'tryon-photos delete own'
   ) THEN
     CREATE POLICY "tryon-photos delete own"
       ON storage.objects FOR DELETE
+      TO authenticated
       USING (
         bucket_id = 'tryon-photos'
         AND auth.uid()::text = (string_to_array(name, '/'))[1]

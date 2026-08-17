@@ -1,0 +1,76 @@
+The Storage RLS Readiness Report is accepted conceptually.
+
+Before I execute anything manually in Supabase, perform one final implementation validation.
+
+1. Validate the proposed Storage-policy SQL
+
+Review the exact Storage-policy section of:
+
+supabase/migrations/20260814000000_rls_all_tables.sql
+
+Confirm that the DO $$ ... IF NOT EXISTS ... CREATE POLICY construction referencing storage.policies is valid for the current Supabase/Postgres environment.
+
+Do not assume it is valid merely because it exists in the migration file.
+
+If there is any concern, provide a corrected idempotent version.
+
+2. Validate policy targeting
+
+Confirm that all four wardrobe-images policies target the authenticated role appropriately, rather than accidentally applying to anon or all roles.
+
+Confirm:
+
+SELECT → authenticated users only
+INSERT → authenticated users only
+UPDATE → authenticated users only
+DELETE → authenticated users only
+
+The same validation should be performed for tryon-photos.
+
+3. Validate path ownership
+
+Confirm that:
+
+{userId}/{itemId}.{extension}
+
+is the path format used consistently by the application.
+
+Confirm that the ownership check:
+
+auth.uid()::text = (string_to_array(name, '/'))[1]
+
+cannot be bypassed by manipulating the path.
+
+4. Validate private-bucket behaviour
+
+Confirm that:
+
+createSignedUrl() works with the authenticated user's JWT;
+SELECT policy is sufficient for signed URL creation;
+no application code calls getPublicUrl();
+no permanent public URLs remain in the database;
+existing signed URL caching remains compatible.
+5. Do not change anything yet
+
+Do NOT:
+
+execute the migration;
+make wardrobe-images private;
+apply full table RLS;
+run Task 408;
+modify Recommendation Engine v3.7.
+6. Return only
+
+Storage Policy Final Validation Report
+
+with:
+
+SQL validity: PASS/FAIL
+role targeting: PASS/FAIL
+ownership enforcement: PASS/FAIL
+signed URL compatibility: PASS/FAIL
+public URL dependency: PASS/FAIL
+any required SQL correction
+exact recommended next action.
+
+Stop after the report.
