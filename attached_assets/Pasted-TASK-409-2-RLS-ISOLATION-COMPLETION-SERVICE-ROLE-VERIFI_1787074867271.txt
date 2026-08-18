@@ -1,0 +1,197 @@
+TASK 409.2 — RLS ISOLATION COMPLETION & SERVICE-ROLE VERIFICATION
+
+Task 409 was partially conclusive because several test fixtures were invalid. The live database privilege inspection has now independently confirmed that service_role currently has:
+
+DELETE on wardrobe_items
+DELETE on user_profiles
+DELETE on wear_logs
+DELETE on affinity_signals
+DELETE on pair_affinity_signals
+DELETE on rotation_cursors
+DELETE on slot_statuses
+DELETE on tryon_profiles
+DELETE on saved_looks
+SELECT and UPDATE on user_profiles
+SELECT and UPDATE on wardrobe_items
+
+Do not execute any GRANT or REVOKE statements.
+
+Do not modify RLS policies.
+
+The objective is now to complete the live validation correctly.
+
+PART A — Fix the RLS test fixtures
+
+Use two independent authenticated users:
+
+User A
+User B
+
+Both must have valid user_profiles records.
+
+User A must have at least two legitimate wardrobe_items satisfying all current FK and CHECK constraints.
+
+Do not bypass RLS or seed application records using service_role for tests that are intended to prove authenticated-user behaviour.
+
+PART B — Complete wardrobe isolation testing
+
+Using User A's authenticated client:
+
+Create two legitimate wardrobe items.
+Confirm User A can SELECT both.
+Confirm User A can UPDATE one.
+Confirm User A can DELETE one after the cross-user tests are complete.
+
+Using User B's authenticated client:
+
+SELECT User A's known wardrobe item → must be inaccessible.
+UPDATE User A's known wardrobe item → must affect zero rows / be denied.
+DELETE User A's known wardrobe item → must affect zero rows / be denied.
+Attempt to INSERT a wardrobe item with user_id = User_A_ID → must be rejected by the INSERT WITH CHECK policy.
+
+After the User B attempts, verify through User A's session that the original item remains unchanged.
+
+PART C — Complete pair_affinity_signals testing
+
+Before constructing the fixture, inspect the actual live PostgreSQL CHECK constraints on pair_affinity_signals.
+
+Use the actual valid schema constraints rather than guessing them.
+
+Create two legitimate User A wardrobe items and construct a valid pair.
+
+Then:
+
+User A creates the legitimate pair-affinity record.
+User A can SELECT it.
+User B cannot SELECT it.
+User B cannot INSERT a pair-affinity record claiming user_id = User_A_ID.
+
+If the table has additional FK or CHECK requirements, satisfy them legitimately.
+
+Do not weaken or bypass the constraints.
+
+PART D — Cross-user INSERT attack
+
+Explicitly test User B attempting to create records belonging to User A on representative tables, including:
+
+wardrobe_items
+wear_logs
+saved_looks
+affinity_signals
+pair_affinity_signals
+
+Expected result:
+
+DENIED because auth.uid() != user_id.
+
+Do not interpret an application-side validation error as sufficient. Confirm that the database/RLS layer rejects the operation.
+
+PART E — Service-role DELETE verification
+
+The previous T8 result reported 42501, but the live database privilege inspection now proves that the required DELETE privileges exist.
+
+Therefore investigate the discrepancy rather than changing the database.
+
+Use the exact production supabaseAdmin implementation:
+
+createClient(SUPABASE_URL, SUPABASE_SECRET_KEY)
+
+where SUPABASE_SECRET_KEY is the sb_sec... secret key.
+
+Do not call:
+
+setSession()
+setAuth()
+any method that attaches a user's JWT to this client.
+
+Do not print the key or any token.
+
+Create disposable test records belonging to the test user where necessary.
+
+Then verify that supabaseAdmin can successfully perform the same DELETE operations used by:
+
+/api/user/delete-account
+
+and
+
+/api/user/delete-account-confirm
+
+across all eight user-owned tables.
+
+Specifically verify:
+
+wardrobe_items
+wear_logs
+affinity_signals
+pair_affinity_signals
+rotation_cursors
+slot_statuses
+tryon_profiles
+saved_looks
+user_profiles
+
+Confirm that the DELETE calls do not use .select().
+
+If the service-role DELETE succeeds, explicitly explain why the original T8 result was invalid.
+
+If it fails, capture the exact error and STOP. Do not modify permissions.
+
+PART F — Storage isolation
+
+Retain the successful Storage isolation tests from Task 409:
+
+User A can upload/access own object.
+User B cannot list User A's prefix.
+User B cannot download User A's object.
+User A can generate a signed URL for own object.
+
+No Storage policy changes are permitted.
+
+PART G — Test cleanup
+
+All test users, test database records, and test Storage objects must be cleaned up after testing using the legitimate service-role cleanup path.
+
+Do not touch any real user data.
+
+IMPORTANT — NO CODE CHANGES
+
+Do not modify:
+
+RLS policies
+database grants
+Storage policies
+production account-deletion code
+Recommendation Engine v3.7
+production authentication
+production application behaviour
+
+This task is validation only.
+
+Required final report
+
+Return:
+
+Task 409.2 — Final RLS & Service-Role Validation Report
+
+Include a table:
+
+Test	Actor	Operation	Expected	Actual	Result
+
+Separate the report into:
+
+Wardrobe RLS isolation
+Cross-user INSERT protection
+Pair-affinity isolation
+Other application-table isolation
+Storage isolation
+Service-role account deletion
+Test cleanup
+
+Also report:
+
+npm test
+npm run typecheck
+number of tests passed/failed/skipped
+any test that remains inconclusive
+
+If any security test fails, do not fix it automatically. Stop and report the exact failure.
