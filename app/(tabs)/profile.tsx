@@ -761,15 +761,15 @@ export default function ProfileScreen() {
                               // Keys cover AppContext, weather, database, wardrobe-view and auth.
                               await AsyncStorage.multiRemove([
                                 // AppContext
-                                '@auracloset_profile',
-                                '@auracloset_wardrobe',
-                                '@auracloset_premium',
-                                '@auracloset_slots',
-                                '@auracloset_rotation',
-                                '@auracloset_wear_history',
-                                '@auracloset_reactions',
-                                '@auracloset_mood',
-                                '@auracloset_saved_looks',
+                                '@amodka_profile',
+                                '@amodka_wardrobe',
+                                '@amodka_premium',
+                                '@amodka_slots',
+                                '@amodka_rotation',
+                                '@amodka_wear_history',
+                                '@amodka_reactions',
+                                '@amodka_mood',
+                                '@amodka_saved_looks',
                                 // database.ts
                                 '@amodka_item_ids',
                                 '@amodka_wear_log',
@@ -781,6 +781,15 @@ export default function ProfileScreen() {
                                 // auth
                                 '@amodka_email_confirmed',
                                 // legacy keys (already migrated but safe to clear)
+                                '@auracloset_profile',
+                                '@auracloset_wardrobe',
+                                '@auracloset_premium',
+                                '@auracloset_slots',
+                                '@auracloset_rotation',
+                                '@auracloset_wear_history',
+                                '@auracloset_reactions',
+                                '@auracloset_mood',
+                                '@auracloset_saved_looks',
                                 '@auracloset_item_ids',
                                 '@auracloset_wear_log',
                                 '@auracloset_weather_v1',

@@ -147,15 +147,15 @@ const GUEST_ITEM_CAP = 8;
 const AppContext = createContext<AppContextValue | null>(null);
 
 const STORAGE_KEYS = {
-  profile: '@auracloset_profile',
-  wardrobe: '@auracloset_wardrobe',
-  premium: '@auracloset_premium',
-  slots: '@auracloset_slots',
-  rotation: '@auracloset_rotation',
-  wearHistory: '@auracloset_wear_history',
-  reactions: '@auracloset_reactions',
-  mood: '@auracloset_mood',
-  savedLooks: '@auracloset_saved_looks',
+  profile: '@amodka_profile',
+  wardrobe: '@amodka_wardrobe',
+  premium: '@amodka_premium',
+  slots: '@amodka_slots',
+  rotation: '@amodka_rotation',
+  wearHistory: '@amodka_wear_history',
+  reactions: '@amodka_reactions',
+  mood: '@amodka_mood',
+  savedLooks: '@amodka_saved_looks',
 };
 
 // Sub-type chips are derived from the curated blueprints (single source

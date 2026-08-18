@@ -320,8 +320,18 @@ export async function deleteSavedLook(
 // ══ STORAGE MIGRATION (Phase 5A.1 — AuraCloset → Amodka rebrand) ═════════════
 
 const MIGRATION_MAP: Array<[string, string]> = [
-  ['@auracloset_item_ids', '@amodka_item_ids'],
-  ['@auracloset_wear_log', '@amodka_wear_log'],
+  ['@auracloset_item_ids',              '@amodka_item_ids'],
+  ['@auracloset_wear_log',              '@amodka_wear_log'],
+  // Phase 5A.2 — AppContext storage keys renamed from @auracloset_ → @amodka_
+  ['@auracloset_profile',               '@amodka_profile'],
+  ['@auracloset_wardrobe',              '@amodka_wardrobe'],
+  ['@auracloset_premium',               '@amodka_premium'],
+  ['@auracloset_slots',                 '@amodka_slots'],
+  ['@auracloset_rotation',              '@amodka_rotation'],
+  ['@auracloset_wear_history',          '@amodka_wear_history'],
+  ['@auracloset_reactions',             '@amodka_reactions'],
+  ['@auracloset_mood',                  '@amodka_mood'],
+  ['@auracloset_saved_looks',           '@amodka_saved_looks'],
 ]
 
 /**
