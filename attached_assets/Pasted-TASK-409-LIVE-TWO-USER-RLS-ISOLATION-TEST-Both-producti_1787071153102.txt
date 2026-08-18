@@ -1,0 +1,141 @@
+TASK #409 — LIVE TWO-USER RLS ISOLATION TEST
+
+Both production Supabase migrations have now been successfully executed:
+
+20260814000001_grant_service_role_min_privs.sql
+20260814000000_rls_all_tables.sql
+
+The wardrobe-images bucket is also private and Storage RLS is active.
+
+Now implement and execute Task #409.
+
+This is a live security validation, not a static code review.
+
+Objective
+
+Prove that two independent authenticated Supabase users are isolated from one another by the production RLS policies.
+
+Use two separate authenticated sessions/JWTs:
+
+User A
+User B
+
+Do not use service_role for the user-isolation tests.
+
+Test 1 — User A creates a wardrobe item
+
+Using User A's authenticated session:
+
+create a legitimate wardrobe item;
+confirm User A can SELECT it.
+Test 2 — User B attempts to SELECT User A's wardrobe item
+
+Using User B's authenticated session:
+
+attempt to SELECT User A's specific wardrobe item by ID;
+expected result: DENIED / no accessible row.
+
+Do not treat "query returned zero rows" as sufficient without explaining that RLS filtered the row.
+
+Test 3 — User B attempts to UPDATE User A's item
+
+Using User B's authenticated session:
+
+attempt to update User A's wardrobe item;
+expected result: DENIED / zero rows affected.
+
+Verify User A's original data remains unchanged.
+
+Test 4 — User B attempts to DELETE User A's item
+
+Using User B's authenticated session:
+
+attempt to delete User A's wardrobe item;
+expected result: DENIED / zero rows affected.
+
+Verify the item still exists for User A.
+
+Test 5 — User A legitimate operations
+
+Confirm User A can still:
+
+SELECT their own wardrobe item;
+UPDATE their own wardrobe item;
+DELETE their own wardrobe item.
+
+Expected result: PASS.
+
+Test 6 — Cross-user database tables
+
+Where practical, repeat the isolation test for representative user-owned records in:
+
+user_profiles
+saved_looks
+wear_logs
+affinity_signals
+pair_affinity_signals
+rotation_cursors
+slot_statuses
+tryon_profiles
+
+At minimum, prove User B cannot SELECT User A's records.
+
+Do not fabricate records merely to make tests pass; clearly identify which tables were actually exercised.
+
+Test 7 — Storage isolation
+
+Using the authenticated sessions:
+
+User A owns a wardrobe image;
+User B attempts to access/read that Storage object;
+expected result: DENIED.
+
+Confirm User A can access their own image through the normal signed-URL flow.
+
+Test 8 — Service-role regression
+
+Verify the backend's legitimate service-role operations still work:
+
+premium status lookup;
+premium upgrade operation;
+account-deletion database operations.
+
+Do not expose secrets.
+
+Important
+
+Do NOT:
+
+disable RLS;
+modify RLS policies;
+grant additional privileges;
+make the bucket public;
+use service_role to simulate User A or User B;
+weaken security to make a test pass;
+modify Recommendation Engine v3.7.
+
+If any test fails, do not automatically fix the problem. Report the exact failure and stop.
+
+Deliverable
+
+Return:
+
+Task 409 — Live Two-User RLS Isolation Report
+
+Include:
+
+Test	User	Operation	Expected	Actual	Result
+
+Also provide:
+
+confirmation that User A and User B used independent authenticated sessions;
+tables actually tested;
+Storage isolation result;
+service-role regression result;
+any unexpected behaviour;
+npm test;
+npm run typecheck.
+
+Do not modify anything unless a failure is discovered.
+
+Stop after the report.
