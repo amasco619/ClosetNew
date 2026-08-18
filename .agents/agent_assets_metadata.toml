@@ -145,3 +145,10 @@ uri = "file://PHASE_3.2_BENCHMARK_REPORT.md"
 type = "text"
 title = "Phase 3.2 — Recommendation Quality Benchmark Report"
 description = "Full benchmark report: 55 scenarios, 54 outfits evaluated, 10-dimension external rubric, false positives/negatives, Phase 3.1 evaluation, Task #389/#391 investigation, top 3 quality gaps, and regression specification."
+
+[[outputs]]
+id = "I8rFy3O9vhEOoR5kxii0R"
+uri = "file://docs/PHASE-5C-PRODUCTION-AUDIT.md"
+type = "text"
+title = "Phase 5C — Master Production Audit Report"
+description = "Evidence-based production-readiness assessment across all 20 parts of the spec. Covers business risk, auth, payments, secrets, AI pipeline, recommendation engine, Nigeria fashion readiness, notifications, observability, error handling, brand audit, native build pipeline, cost audit, App Store/Play risk, prioritised roadmap, do-not-build list, manual product-owner actions, and final Go/Blocked/Not Yet verdict."
