@@ -198,6 +198,20 @@ async function main() {
   const item2_id = item2Data.id
   console.log('  User A wardrobe item 2 inserted, id:', item2_id)
 
+  // item3: dedicated pair-affinity anchor — not deleted by B7, so the pair_affinity
+  // row referencing item1+item3 survives until C1 runs.
+  const { data: item3Data, error: item3Err } = await userAClient
+    .from('wardrobe_items')
+    .insert({ user_id: userA_id, garment_type: 'accessory', color_family: 'white', description: 'RLS test item 3 (pair-affinity anchor)' })
+    .select('id').single()
+  if (item3Err || !item3Data) {
+    console.error('FATAL: wardrobe_items item3 insert failed:', item3Err?.message)
+    await runCleanup()
+    process.exit(1)
+  }
+  const item3_id = item3Data.id
+  console.log('  User A wardrobe item 3 inserted (pair-affinity anchor), id:', item3_id)
+
   // ─── PART C — Inspect pair_affinity_signals constraints empirically ──────────
   console.log('\n[ Part C / Constraint Inspection ] pair_affinity_signals CHECK constraints...')
   {
@@ -219,15 +233,17 @@ async function main() {
         .delete().eq('user_id', userA_id).eq('item_id_a', item1_id).eq('item_id_b', item1_id)
     }
 
-    // Now try with two different items (the correct fixture)
+    // Now try with two different items (the correct fixture).
+    // Uses item3 (not item2) so B7's delete of item2 does not cascade this row
+    // away before C1 runs. item3 is never deleted during the test run.
     const { error: pairErr } = await userAClient.from('pair_affinity_signals').insert({
-      user_id: userA_id, item_id_a: item1_id, item_id_b: item2_id, signal_type: 'love',
+      user_id: userA_id, item_id_a: item1_id, item_id_b: item3_id, signal_type: 'love',
     })
     if (pairErr) {
       console.log('  pair_affinity insert (different items) error:', fmtErr(pairErr))
       // Try reversed order in case of item_id_a < item_id_b ordering constraint
       const { error: pairRevErr } = await userAClient.from('pair_affinity_signals').insert({
-        user_id: userA_id, item_id_a: item2_id, item_id_b: item1_id, signal_type: 'love',
+        user_id: userA_id, item_id_a: item3_id, item_id_b: item1_id, signal_type: 'love',
       })
       if (pairRevErr) {
         console.log('  pair_affinity insert (reversed) also failed:', fmtErr(pairRevErr))
@@ -346,9 +362,10 @@ async function main() {
   }
 
   // D5: User B INSERT pair_affinity_signals with user_id = User A
+  // Uses item3_id (still alive at this point; item2 was deleted by B7).
   {
     const { data, error } = await userBClient.from('pair_affinity_signals')
-      .insert({ user_id: userA_id, item_id_a: item1_id, item_id_b: item2_id, signal_type: 'love' })
+      .insert({ user_id: userA_id, item_id_a: item1_id, item_id_b: item3_id, signal_type: 'love' })
       .select('id')
     const denied = !!error
     record('D', 'D5', 'User B', 'INSERT pair_affinity_signals with user_id=User_A', 'RLS WITH CHECK denies', error ? fmtErr(error) : `inserted ${data?.length} row(s)`, denied ? 'PASS' : 'FAIL')
@@ -375,48 +392,124 @@ async function main() {
   // D5 covers this; recording C3 as covered by D5
   record('C', 'C3', 'User B', 'INSERT pair_affinity with user_id=User_A', 'Covered by D5 — RLS WITH CHECK denies', 'see D5', rows.find(r => r.test === 'D5')?.result ?? 'INCONCLUSIVE')
 
-  // ─── PART E — Service-role account-deletion DELETE verification ──────────────
-  console.log('\n[ Part E ] Service-role DELETE verification (replicates /api/user/delete-account)...')
-  console.log('  Seeding all 8 user tables via User A authenticated client...')
+  // ─── PART F — Other application-table isolation ─────────────────────────────
+  // Runs BEFORE Part E so all fixtures are still intact (item1, item3, wardrobe
+  // items, user_profiles).  Part E (service_role DELETE) runs afterwards and
+  // clears everything.  The two parts are fully independent.
+  console.log('\n[ Part F ] Other application-table isolation (User B cannot see User A data)...')
+  console.log('  Seeding Part F fixtures via User A authenticated client...')
 
-  // Seed wear_logs
+  // Seed wear_logs (not yet seeded)
+  const { error: wlFErr } = await userAClient.from('wear_logs').insert({
+    user_id: userA_id, outfit_fingerprint: 'isolation-test', item_ids: [],
+  })
+  if (wlFErr) console.log('  wear_logs seed error:', fmtErr(wlFErr))
+  else console.log('  wear_logs seeded')
+
+  // Seed affinity_signals using item1 (still alive — not yet deleted by Part E)
+  const { error: asFErr } = await userAClient.from('affinity_signals').insert({
+    user_id: userA_id, item_id: item1_id, signal_type: 'love',
+  })
+  if (asFErr) console.log('  affinity_signals seed error:', fmtErr(asFErr))
+  else console.log('  affinity_signals seeded')
+
+  // Seed rotation_cursors
+  const { error: rcFErr } = await userAClient.from('rotation_cursors').upsert({
+    user_id: userA_id, scenario: 'everyday-f', cursor_index: 0, seed_date: new Date().toISOString().slice(0, 10),
+  }, { onConflict: 'user_id,scenario' })
+  if (rcFErr) console.log('  rotation_cursors seed error:', fmtErr(rcFErr))
+  else console.log('  rotation_cursors seeded')
+
+  // Seed slot_statuses
+  const { error: ssFErr } = await userAClient.from('slot_statuses').upsert({
+    user_id: userA_id, slot_id: 'isolation_slot', status: 'owned',
+  }, { onConflict: 'user_id,slot_id' })
+  if (ssFErr) console.log('  slot_statuses seed error:', fmtErr(ssFErr))
+  else console.log('  slot_statuses seeded')
+
+  // Seed tryon_profiles
+  const { error: tpFErr } = await userAClient.from('tryon_profiles').upsert({
+    user_id: userA_id, photo_url: 'https://placeholder.invalid/iso.jpg', is_active: false,
+  }, { onConflict: 'user_id' })
+  if (tpFErr) console.log('  tryon_profiles seed error:', fmtErr(tpFErr))
+  else console.log('  tryon_profiles seeded')
+
+  // Seed saved_looks
+  const lookIdF = crypto.randomUUID()
+  const { error: slFErr } = await userAClient.from('saved_looks').upsert({
+    user_id: userA_id, id: lookIdF, saved_at: new Date().toISOString(),
+  }, { onConflict: 'user_id,id' })
+  if (slFErr) console.log('  saved_looks seed error:', fmtErr(slFErr))
+  else console.log('  saved_looks seeded')
+
+  const isolationTables: { table: string; col: string }[] = [
+    { table: 'wear_logs', col: 'user_id' },
+    { table: 'affinity_signals', col: 'user_id' },
+    { table: 'rotation_cursors', col: 'user_id' },
+    { table: 'saved_looks', col: 'user_id' },
+    { table: 'slot_statuses', col: 'user_id' },
+    { table: 'tryon_profiles', col: 'user_id' },
+  ]
+
+  console.log('\n  Running isolation checks...')
+  for (const { table, col } of isolationTables) {
+    // Positive: User A can SELECT their own record (confirms fixture is present + RLS allows)
+    {
+      const { data, error } = await userAClient.from(table).select('*').eq(col, userA_id)
+      const ok = !error && Array.isArray(data) && data.length >= 1
+      record('F', `F-${table}-own`, 'User A', `SELECT own ${table}`, '≥1 row', error ? fmtErr(error) : `${data?.length ?? 0} rows`, ok ? 'PASS' : 'FAIL')
+    }
+    // Negative: User B cannot SELECT User A's record (RLS filters it)
+    {
+      const { data, error } = await userBClient.from(table).select('*').eq(col, userA_id)
+      const blocked = !error && (!data || data.length === 0)
+      record('F', `F-${table}`, 'User B', `SELECT ${table} WHERE ${col}=User_A_id`, '0 rows (RLS filters)', error ? fmtErr(error) : `${data?.length ?? 0} rows`, blocked ? 'PASS' : 'FAIL')
+    }
+  }
+
+  // ─── PART E — Service-role account-deletion DELETE verification ──────────────
+  // Runs AFTER Part F so the service_role DELETE is the final act on User A's data.
+  console.log('\n[ Part E ] Service-role DELETE verification (replicates /api/user/delete-account)...')
+  console.log('  Seeding remaining Part E fixtures via User A authenticated client...')
+
+  // wear_logs: insert a second row with a distinct fingerprint (Part F already has one)
   const { error: wlErr } = await userAClient.from('wear_logs').insert({
     user_id: userA_id, outfit_fingerprint: 'sr-delete-test', item_ids: [item1_id],
   })
-  if (wlErr) console.log('  wear_logs seed error (will skip that table E test):', fmtErr(wlErr))
-  else console.log('  wear_logs seeded')
+  if (wlErr) console.log('  wear_logs extra-seed error:', fmtErr(wlErr))
+  else console.log('  wear_logs extra row seeded')
 
-  // Seed affinity_signals
-  const { error: asErr } = await userAClient.from('affinity_signals').insert({
+  // affinity_signals: upsert a second signal type (Part F inserted 'love')
+  const { error: asErr } = await userAClient.from('affinity_signals').upsert({
     user_id: userA_id, item_id: item1_id, signal_type: 'worn',
-  })
-  if (asErr) console.log('  affinity_signals seed error:', fmtErr(asErr))
-  else console.log('  affinity_signals seeded')
+  }, { onConflict: 'user_id,item_id' })
+  if (asErr) console.log('  affinity_signals upsert:', fmtErr(asErr))
+  else console.log('  affinity_signals confirmed present')
 
   // pair_affinity_signals already seeded in Part C constraint inspection
 
-  // Seed rotation_cursors
+  // rotation_cursors: upsert a second scenario
   const { error: rcErr } = await userAClient.from('rotation_cursors').upsert({
     user_id: userA_id, scenario: 'everyday', cursor_index: 0, seed_date: new Date().toISOString().slice(0, 10),
   }, { onConflict: 'user_id,scenario' })
   if (rcErr) console.log('  rotation_cursors seed error:', fmtErr(rcErr))
   else console.log('  rotation_cursors seeded')
 
-  // Seed slot_statuses
+  // slot_statuses: upsert a second slot
   const { error: ssErr } = await userAClient.from('slot_statuses').upsert({
     user_id: userA_id, slot_id: 'test_slot_top', status: 'needed',
   }, { onConflict: 'user_id,slot_id' })
   if (ssErr) console.log('  slot_statuses seed error:', fmtErr(ssErr))
   else console.log('  slot_statuses seeded')
 
-  // Seed tryon_profiles
+  // tryon_profiles: upsert (Part F already seeded)
   const { error: tpErr } = await userAClient.from('tryon_profiles').upsert({
     user_id: userA_id, photo_url: 'https://placeholder.invalid/test.jpg', is_active: false,
   }, { onConflict: 'user_id' })
   if (tpErr) console.log('  tryon_profiles seed error:', fmtErr(tpErr))
-  else console.log('  tryon_profiles seeded')
+  else console.log('  tryon_profiles confirmed present')
 
-  // Seed saved_looks
+  // saved_looks: upsert a second look
   const lookId = crypto.randomUUID()
   const { error: slErr } = await userAClient.from('saved_looks').upsert({
     user_id: userA_id, id: lookId, saved_at: new Date().toISOString(),
@@ -458,37 +551,6 @@ async function main() {
       await runCleanup()
       process.exit(1)
     }
-  }
-
-  // ─── PART F — Other application-table isolation (T6 from Task 409) ───────────
-  console.log('\n[ Part F ] Other application-table isolation (User B cannot see User A data)...')
-
-  // Reseed wear_logs for isolation test (was deleted in Part E)
-  const { error: wlReseed } = await userAClient.from('wear_logs').insert({
-    user_id: userA_id, outfit_fingerprint: 'isolation-test', item_ids: [],
-  })
-
-  const isolationTables: { table: string; col: string }[] = [
-    { table: 'wear_logs', col: 'user_id' },
-    { table: 'affinity_signals', col: 'user_id' },
-    { table: 'rotation_cursors', col: 'user_id' },
-    { table: 'saved_looks', col: 'user_id' },
-    { table: 'slot_statuses', col: 'user_id' },
-    { table: 'tryon_profiles', col: 'user_id' },
-  ]
-
-  // Re-seed each table for isolation test
-  await userAClient.from('affinity_signals').insert({ user_id: userA_id, item_id: item1_id, signal_type: 'love' })
-  await userAClient.from('rotation_cursors').upsert({ user_id: userA_id, scenario: 'everyday2', cursor_index: 0, seed_date: new Date().toISOString().slice(0, 10) }, { onConflict: 'user_id,scenario' })
-  await userAClient.from('slot_statuses').upsert({ user_id: userA_id, slot_id: 'isolation_slot', status: 'owned' }, { onConflict: 'user_id,slot_id' })
-  await userAClient.from('tryon_profiles').upsert({ user_id: userA_id, photo_url: 'https://placeholder.invalid/iso.jpg', is_active: false }, { onConflict: 'user_id' })
-  const lookId2 = crypto.randomUUID()
-  await userAClient.from('saved_looks').upsert({ user_id: userA_id, id: lookId2, saved_at: new Date().toISOString() }, { onConflict: 'user_id,id' })
-
-  for (const { table, col } of isolationTables) {
-    const { data, error } = await userBClient.from(table).select('*').eq(col, userA_id)
-    const blocked = !error && (!data || data.length === 0)
-    record('F', `F-${table}`, 'User B', `SELECT ${table} WHERE ${col}=User_A_id`, '0 rows (RLS filters)', error ? fmtErr(error) : `${data?.length ?? 0} rows`, blocked ? 'PASS' : 'FAIL')
   }
 
   // ─── Part G — Storage isolation ──────────────────────────────────────────────

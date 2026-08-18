@@ -1,0 +1,173 @@
+TASK #416 — FINAL LIVE RLS & STORAGE ISOLATION VALIDATION
+
+Task #415 is now complete.
+
+The corrected service_role privileges have already been applied to the production Supabase database.
+
+Task 409.2 Part E has subsequently been re-run successfully:
+
+all 9 service-role DELETE operations passed;
+zero 42501 errors;
+production account-deletion code remains .delete().eq(...);
+npm test = 48/48;
+typecheck = 0 errors.
+
+Do NOT execute or re-execute any GRANT/REVOKE migration.
+
+Do NOT modify the database permissions or RLS policies.
+
+Now complete the remaining Task 409.2 validation gaps.
+
+PART 1 — Fix pair-affinity fixture ordering
+
+Update scripts/test-rls-409-2.ts only as necessary to ensure C1 is executed while the pair-affinity test record still exists.
+
+Preferred approach:
+
+create a dedicated third wardrobe item for the pair-affinity fixture; OR
+execute C1 before B7 deletes item2.
+
+Prefer the approach that makes the test's intent and lifecycle clearest.
+
+Do not weaken any constraints or use service_role to bypass RLS for authenticated-user tests.
+
+Confirm that User A has a legitimate pair_affinity_signals record before testing SELECT.
+
+Then verify:
+
+C1: User A can SELECT their own pair-affinity record.
+
+C2: User B cannot SELECT User A's pair-affinity record.
+
+C3: User B cannot INSERT a pair-affinity record using user_id = User_A_ID.
+
+PART 2 — Complete Part F: Other-table isolation
+
+Using independent authenticated User A and User B sessions, confirm that User B cannot access User A's records in:
+
+wear_logs
+rotation_cursors
+saved_looks
+slot_statuses
+tryon_profiles
+
+For each table:
+
+User A must have a legitimate record.
+User A can SELECT their own record.
+User B attempts SELECT using User A's known record/user ID.
+Expected result: record is inaccessible / filtered by RLS.
+
+Where the existing test specification already covers cross-user INSERT protection, retain those tests.
+
+Do not use service_role to simulate User A or User B.
+
+Do not interpret application-side filtering as proof of RLS. The operation must be executed using the authenticated Supabase client so the database RLS policy is actually exercised.
+
+PART 3 — Complete Part G: Storage isolation
+
+Use the production Storage configuration exactly as it currently exists.
+
+Confirm:
+
+User A can upload a disposable test object under User A's own prefix.
+User A can access their own object through the legitimate application/authenticated flow.
+User B attempts to list User A's Storage prefix → denied/empty.
+User B attempts to download User A's object directly → denied.
+User A can generate/access a signed URL for their own object.
+
+Do not make the bucket public.
+
+Do not modify Storage policies.
+
+Do not modify lib/storage.ts merely to make the test pass.
+
+Clean up the disposable Storage object after testing.
+
+PART 4 — Preserve the already-passing tests
+
+Do not remove or weaken:
+
+wardrobe isolation;
+cross-user INSERT protection;
+service-role DELETE validation;
+existing RLS assertions.
+
+The final test suite must cover the complete security boundary rather than replacing difficult tests with simpler ones.
+
+PART 5 — Production-code restrictions
+
+This is a validation task.
+
+Do NOT modify:
+
+RLS policies;
+database grants;
+Storage policies;
+production account-deletion code;
+supabaseAdmin;
+Recommendation Engine v3.7;
+authentication;
+payment/subscription logic;
+recommendation scoring;
+production Storage configuration.
+
+The only expected code change should be the test-script fixture/order correction required to make the validation accurate.
+
+PART 6 — Cleanup
+
+Use disposable test users/data only.
+
+At the end:
+
+delete the test users;
+delete test database records;
+delete test Storage objects;
+verify no real user data was touched.
+
+Do not leave test artefacts in the production database or Storage bucket.
+
+Final report
+
+Return:
+
+Task 416 — Final RLS & Storage Security Validation Report
+
+Include:
+
+Test area	Tests	Passed	Failed	Inconclusive
+Wardrobe isolation				
+Cross-user INSERT				
+Pair-affinity isolation				
+Other-table isolation				
+Storage isolation				
+Service-role deletion				
+
+Also explicitly confirm:
+
+C1 pair-affinity now passes;
+User B cannot access User A's records;
+User B cannot create records using User A's user_id;
+User B cannot access User A's Storage objects;
+User A can access their own Storage objects;
+service_role DELETE remains 9/9 PASS;
+no production RLS/Storage/grant changes were made during this task;
+all test data was cleaned up.
+
+Run:
+
+npm test
+
+npm run typecheck
+
+Completion criterion
+
+The task is complete only if:
+
+0 security-test failures
+
+0 security-test inconclusive results
+
+and the existing 48/48 test suite remains green.
+
+If any security test fails or remains inconclusive, do not automatically fix the underlying production system. Report the exact failure and stop.
