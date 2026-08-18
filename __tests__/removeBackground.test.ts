@@ -2021,6 +2021,249 @@ async function main() {
     delete process.env.PHOTOROOM_API_KEY;
   }
 
+  // ── Q. DB fallback premium check — absent JWT claim ─────────────────────────
+  //
+  // These tests exercise the code path at server/remove-background.ts lines
+  // 191–204 (the `else` branch where `claimPremium` is absent/undefined).
+  // They require `mockSupabaseAdmin` to be set so the handler can call the
+  // injected DB client instead of a real Supabase connection.
+  //
+  // The tests will FAIL if:
+  //   • The `supa.from("user_profiles").select("premium")...single()` call
+  //     is removed from the handler (dbSelectCalled will be false, isPremium
+  //     stays false, quota gate fires, response will not be 200/no-remaining).
+  //   • The grant SELECT ON public.user_profiles TO service_role is revoked
+  //     (the mock simulates the grant being present; removing the real grant
+  //     would cause the SELECT to fail in production, which this test guards).
+
+  console.log('\nQ. DB fallback premium check — absent JWT claim, DB has premium=true:');
+
+  {
+    // Helper: build a lightweight supabaseAdmin mock.
+    // `dbSelectTracker.called` flips to true when the handler hits the DB.
+    function makeMockSupabase(
+      userId: string,
+      dbPremium: boolean,
+      dbSelectTracker: { called: boolean },
+    ): any {
+      return {
+        auth: {
+          getUser: async (_token: string) => ({
+            data: { user: { id: userId, app_metadata: {} } }, // no `premium` claim
+            error: null,
+          }),
+        },
+        from: (_table: string) => ({
+          select: (_cols: string) => ({
+            eq: (_col: string, _val: string) => ({
+              single: async () => {
+                dbSelectTracker.called = true;
+                return { data: { premium: dbPremium } };
+              },
+            }),
+          }),
+        }),
+      };
+    }
+
+    const overrides = (require('../server/remove-background') as any)._testOverrides as {
+      skipAuth: boolean;
+      testUserId: string;
+      bypassCache?: boolean;
+      mockCheckCache?: (hash: string) => Promise<string | null>;
+      mockSupabaseAdmin?: any;
+      mockIncrementCount?: () => Promise<void>;
+    };
+
+    // Q1 — absent claim, DB premium=true → 200 + no `remaining` field
+    // (quota gate is bypassed for premium users)
+    {
+      const dbSelectTracker = { called: false };
+      const userId = 'user-absent-claim-db-premium-true';
+
+      overrides.skipAuth         = false; // exercise real auth path
+      overrides.testUserId       = userId;
+      overrides.bypassCache      = true;
+      overrides.mockSupabaseAdmin = makeMockSupabase(userId, true, dbSelectTracker);
+      overrides.mockIncrementCount = async () => {};  // suppress real DB increment
+
+      const pngBuf = new Uint8Array(1024);
+      pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+
+      const savedFetch = (globalThis as any).fetch;
+      (globalThis as any).fetch = async () => ({
+        ok:          true,
+        arrayBuffer: async () => pngBuf.buffer,
+        text:        async () => '',
+        statusText:  'OK',
+      });
+
+      process.env.PHOTOROOM_API_KEY = 'test-key';
+      const req = makeMockReq({ imageBase64: 'aGVsbG8=' });
+      const res = makeMockRes();
+      await serverRemoveBackground(req as any, res as any);
+
+      (globalThis as any).fetch = savedFetch;
+
+      assertEq(res._status, 200,
+        'Q1: absent JWT premium claim, DB premium=true → HTTP 200');
+      assert(typeof (res._body as any).imageBase64 === 'string',
+        'Q1: absent JWT premium claim, DB premium=true → imageBase64 present');
+      assert(!('remaining' in (res._body as any)),
+        'Q1: absent JWT premium claim, DB premium=true → no `remaining` field (quota bypassed for premium)');
+      assert(dbSelectTracker.called,
+        'Q1: absent JWT premium claim → supabaseAdmin SELECT on user_profiles WAS called (DB fallback executed)');
+
+      delete overrides.mockSupabaseAdmin;
+      delete overrides.mockIncrementCount;
+      delete overrides.bypassCache;
+      overrides.skipAuth   = true;
+      overrides.testUserId = 'test-user-id';
+      delete process.env.PHOTOROOM_API_KEY;
+    }
+
+    // Q2 — absent claim, DB premium=false → 200 with `remaining` field
+    // (quota gate applies; in-memory count=0 so still allowed)
+    {
+      console.log('\nQ. DB fallback premium check — absent JWT claim, DB has premium=false:');
+
+      const dbSelectTracker = { called: false };
+      const userId = 'user-absent-claim-db-premium-false';
+
+      overrides.skipAuth          = false;
+      overrides.testUserId        = userId;
+      overrides.bypassCache       = true;
+      overrides.mockCheckCache     = async () => null; // prevent DB cache from short-circuiting
+      overrides.mockSupabaseAdmin  = makeMockSupabase(userId, false, dbSelectTracker);
+      overrides.mockIncrementCount = async () => {};
+
+      const pngBuf = new Uint8Array(1024);
+      pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+
+      const savedFetch = (globalThis as any).fetch;
+      (globalThis as any).fetch = async () => ({
+        ok:          true,
+        arrayBuffer: async () => pngBuf.buffer,
+        text:        async () => '',
+        statusText:  'OK',
+      });
+
+      process.env.PHOTOROOM_API_KEY = 'test-key';
+      const req = makeMockReq({ imageBase64: 'aGVsbG8yQ=' });
+      const res = makeMockRes();
+      await serverRemoveBackground(req as any, res as any);
+
+      (globalThis as any).fetch = savedFetch;
+
+      assertEq(res._status, 200,
+        'Q2: absent JWT premium claim, DB premium=false → HTTP 200 (within free quota)');
+      assert('remaining' in (res._body as any),
+        'Q2: absent JWT premium claim, DB premium=false → `remaining` field present (free-tier quota applies)');
+      assert(dbSelectTracker.called,
+        'Q2: absent JWT premium claim, DB premium=false → supabaseAdmin SELECT on user_profiles WAS called');
+
+      delete overrides.mockSupabaseAdmin;
+      delete overrides.mockIncrementCount;
+      delete overrides.bypassCache;
+      delete overrides.mockCheckCache;
+      overrides.skipAuth   = true;
+      overrides.testUserId = 'test-user-id';
+      delete process.env.PHOTOROOM_API_KEY;
+    }
+
+    // Q3 — stale JWT premium=true claim, DB premium=true → 200, no `remaining`
+    // Tests the OTHER DB fallback path (lines 176–189): when the JWT carries
+    // premium=true but the token is stale (old iat), the handler must re-check
+    // the DB.  Here DB says still premium → quota bypassed.
+    {
+      console.log('\nQ. DB fallback premium check — stale JWT claim, DB confirms premium=true:');
+
+      // Build a JWT-like token whose `iat` is 48 hours ago (stale).
+      const staleIat = Math.floor((Date.now() - 48 * 60 * 60 * 1000) / 1000);
+      const header  = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+      const payload = Buffer.from(JSON.stringify({ sub: 'user-stale-jwt-db-still-premium', iat: staleIat })).toString('base64url');
+      const staleToken = `${header}.${payload}.fakesig`;
+
+      const dbSelectTracker = { called: false };
+      const userId = 'user-stale-jwt-db-still-premium';
+
+      function makeMockSupabaseWithClaim(
+        uid: string,
+        jwtClaim: boolean | undefined,
+        dbPremium: boolean,
+        tracker: { called: boolean },
+      ): any {
+        return {
+          auth: {
+            getUser: async (_token: string) => ({
+              data: {
+                user: {
+                  id: uid,
+                  app_metadata: jwtClaim !== undefined ? { premium: jwtClaim } : {},
+                },
+              },
+              error: null,
+            }),
+          },
+          from: (_table: string) => ({
+            select: (_cols: string) => ({
+              eq: (_col: string, _val: string) => ({
+                single: async () => {
+                  tracker.called = true;
+                  return { data: { premium: dbPremium } };
+                },
+              }),
+            }),
+          }),
+        };
+      }
+
+      overrides.skipAuth           = false;
+      overrides.testUserId         = userId;
+      overrides.bypassCache        = true;
+      overrides.mockCheckCache      = async () => null; // prevent DB cache short-circuit
+      overrides.mockSupabaseAdmin   = makeMockSupabaseWithClaim(userId, true, true, dbSelectTracker);
+      overrides.mockIncrementCount  = async () => {};
+
+      const pngBuf = new Uint8Array(1024);
+      pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+
+      const savedFetch = (globalThis as any).fetch;
+      (globalThis as any).fetch = async () => ({
+        ok:          true,
+        arrayBuffer: async () => pngBuf.buffer,
+        text:        async () => '',
+        statusText:  'OK',
+      });
+
+      process.env.PHOTOROOM_API_KEY = 'test-key';
+      // Send the stale token directly in the Authorization header
+      const req = {
+        body: { imageBase64: 'aGVsbG8zQ=' },
+        headers: { authorization: `Bearer ${staleToken}` },
+      };
+      const res = makeMockRes();
+      await serverRemoveBackground(req as any, res as any);
+
+      (globalThis as any).fetch = savedFetch;
+
+      assertEq(res._status, 200,
+        'Q3: stale JWT premium=true, DB premium=true → HTTP 200 (still premium via DB fallback)');
+      assert(!('remaining' in (res._body as any)),
+        'Q3: stale JWT premium=true, DB premium=true → no `remaining` field (premium confirmed by DB)');
+      assert(dbSelectTracker.called,
+        'Q3: stale JWT premium=true → supabaseAdmin SELECT on user_profiles WAS called (stale-claim DB fallback)');
+
+      delete overrides.mockSupabaseAdmin;
+      delete overrides.mockIncrementCount;
+      delete overrides.bypassCache;
+      delete overrides.mockCheckCache;
+      overrides.skipAuth   = true;
+      overrides.testUserId = 'test-user-id';
+      delete process.env.PHOTOROOM_API_KEY;
+    }
+  }
+
   // ── Final result ───────────────────────────────────────────────────────────
 
   console.log(`\n${failed === 0 ? 'All tests passed.' : `${failed} test(s) failed.`}`);

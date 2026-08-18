@@ -84,6 +84,12 @@ if (process.env.PHOTOROOM_API_KEY) {
  * mockIncrementCount — when set in skipAuth mode, called instead of the real
  *                    incrementUserBgRemovalCount so tests can assert that the
  *                    count is always recorded regardless of premium status
+ * mockSupabaseAdmin — when set and NODE_ENV==='test', this object replaces
+ *                    supabaseAdmin for the DB fallback premium check so tests
+ *                    can exercise the "absent/stale JWT claim → DB SELECT"
+ *                    path without a real Supabase connection.  Must satisfy:
+ *                      { auth: { getUser(token): Promise<{data:{user},error}> }
+ *                        from(table): { select(cols): { eq(col,val): { single(): Promise<{data}> } } } }
  */
 export const _testOverrides: {
   skipAuth: boolean;
@@ -94,6 +100,8 @@ export const _testOverrides: {
   mockPremium?: boolean;
   mockClaimFresh?: boolean;
   mockIncrementCount?: () => Promise<void>;
+  /** Injected supabaseAdmin for DB-fallback premium-check tests (NODE_ENV=test only). */
+  mockSupabaseAdmin?: any;
 } = { skipAuth: false, testUserId: "" };
 
 export async function removeBackground(req: Request, res: Response) {
@@ -148,7 +156,13 @@ export async function removeBackground(req: Request, res: Response) {
       return res.status(401).json({ error: BG_REMOVAL_AUTH_REQUIRED });
     }
 
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    // NM-1 (test mode): allow tests to inject a mock supabaseAdmin so the
+    // DB fallback premium-check path can be exercised without a real connection.
+    const supa = (process.env.NODE_ENV === 'test' && _testOverrides.mockSupabaseAdmin)
+      ? _testOverrides.mockSupabaseAdmin
+      : supabaseAdmin;
+
+    const { data: { user }, error: authError } = await supa.auth.getUser(token);
     if (authError || !user) {
       return res.status(401).json({ error: BG_REMOVAL_AUTH_REQUIRED });
     }
@@ -178,7 +192,7 @@ export async function removeBackground(req: Request, res: Response) {
         // was issued.  Verify the current subscription status in the DB.
         // Treat as free-tier on any DB error (conservative but safe).
         try {
-          const { data: profile } = await supabaseAdmin
+          const { data: profile } = await supa
             .from("user_profiles")
             .select("premium")
             .eq("id", userId)
@@ -192,7 +206,7 @@ export async function removeBackground(req: Request, res: Response) {
       // Claim absent (e.g. token issued before premium flag was synced):
       // fall back to DB to determine premium status.
       try {
-        const { data: profile } = await supabaseAdmin
+        const { data: profile } = await supa
           .from("user_profiles")
           .select("premium")
           .eq("id", userId)
@@ -227,7 +241,12 @@ export async function removeBackground(req: Request, res: Response) {
   const isTestMode = _testOverrides.skipAuth && process.env.NODE_ENV === 'test';
   const bypassCache = isTestMode && (_testOverrides.bypassCache !== false);
   const hash = bypassCache ? null : computeImageHash(imageBase64);
-  const cacheCheck = (isTestMode && _testOverrides.mockCheckCache) ? _testOverrides.mockCheckCache : checkCacheByHash;
+  // mockCheckCache is honoured whenever NODE_ENV==='test' and it is set, regardless
+  // of skipAuth — this lets tests that exercise the real auth path (mockSupabaseAdmin)
+  // still bypass the DB cache without having to set skipAuth=true.
+  const cacheCheck = (process.env.NODE_ENV === 'test' && _testOverrides.mockCheckCache)
+    ? _testOverrides.mockCheckCache
+    : checkCacheByHash;
   const cached = hash ? await cacheCheck(hash) : null;
   if (cached) {
     // Cache hits do NOT count against the user's quota
@@ -294,10 +313,13 @@ export async function removeBackground(req: Request, res: Response) {
     // call resetUserBgRemovalCount(userId) (bgRemovalStore.ts) to reset their
     // count to 0. This grants a fresh FREE_TIER_LIMIT slate if they lapse again.
     // See the JSDoc on resetUserBgRemovalCount for the full rationale.
-    if (!(_testOverrides.skipAuth && process.env.NODE_ENV === 'test')) {
-      void incrementUserBgRemovalCount(userId);
-    } else if (_testOverrides.mockIncrementCount) {
+    if (process.env.NODE_ENV === 'test' && _testOverrides.mockIncrementCount) {
+      // Test mode with an injected counter — use it regardless of skipAuth so
+      // tests exercising the real auth path (mockSupabaseAdmin) can also avoid
+      // real DB calls for the fire-and-forget increment.
       void _testOverrides.mockIncrementCount();
+    } else if (!(_testOverrides.skipAuth && process.env.NODE_ENV === 'test')) {
+      void incrementUserBgRemovalCount(userId);
     }
 
     const responseBody: Record<string, unknown> = { imageBase64: resultBase64, mimeType: "image/png" };
