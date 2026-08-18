@@ -1,0 +1,678 @@
+PHASE 5C — MASTER PRODUCTION AUDIT
+Objective
+
+AuraCloset is now approaching commercial production readiness and will subsequently be branded as Amodka.
+
+Phase 5B.1 security validation is complete:
+
+RLS/security validation: 40/40 PASS
+0 failures
+0 inconclusive results
+Storage isolation: PASS
+Cross-user INSERT protection: PASS
+Cross-user data isolation: PASS
+Service-role account deletion: 9/9 PASS
+npm test: 48/48 PASS
+TypeScript: 0 errors
+Wardrobe Storage bucket is private
+Legacy public Storage URLs have been migrated
+No recommendation-engine changes are permitted without controlled benchmarking
+
+The Recommendation Engine v3.7 remains FROZEN.
+
+We are now beginning Phase 5C — Commercial Productionisation & Launch Readiness.
+
+CRITICAL INSTRUCTION
+
+THIS IS AN AUDIT AND PLANNING PHASE.
+
+DO NOT IMPLEMENT ANY PRODUCTION CODE CHANGES.
+
+DO NOT modify the database.
+
+DO NOT modify RLS policies.
+
+DO NOT modify Storage policies.
+
+DO NOT modify Recommendation Engine v3.7.
+
+DO NOT change authentication.
+
+DO NOT change payment logic.
+
+DO NOT change UI.
+
+DO NOT install dependencies unless absolutely necessary to inspect the existing system.
+
+Do not create migrations.
+
+Do not execute Supabase SQL.
+
+Do not deploy anything.
+
+This phase exists to establish the authoritative production-readiness roadmap before implementation begins.
+
+If you discover a critical vulnerability that requires immediate action, report it and stop rather than fixing it automatically.
+
+PART 1 — BUSINESS RISK AUDIT
+
+Audit the entire application and classify every significant production concern according to:
+
+Priority 0 — Can lose money
+
+Examples:
+
+premium access granted without confirmed payment;
+payment received but premium not granted;
+subscription cancellation not reflected;
+expired subscription retaining premium access;
+duplicate entitlement;
+client-side manipulation of premium status;
+insecure payment webhook handling;
+inability to restore purchases;
+incorrect subscription state after reinstall/device change;
+Google/Apple payment integration weaknesses;
+server-side entitlement verification weaknesses.
+Priority 1 — Can lose data or expose data
+
+Examples:
+
+user data leakage;
+incorrect account deletion;
+Storage exposure;
+insecure API endpoints;
+secrets exposed to the client;
+unsafe logging;
+telemetry containing personal data;
+backup/recovery concerns;
+race conditions causing data corruption.
+Priority 2 — Can create legal/regulatory exposure
+
+Inspect what data the application collects, processes, stores, transmits and logs.
+
+Identify:
+
+personal data;
+account data;
+wardrobe images;
+body/profile information;
+authentication information;
+analytics;
+telemetry;
+device information;
+location/weather information;
+AI processing;
+third-party processors;
+payment information;
+support/contact information;
+cookies/web storage where applicable;
+data retention;
+account deletion;
+data export/access requirements where applicable.
+
+Identify what must be reflected in:
+
+Privacy Policy;
+Terms of Use;
+Data Inventory / Record of Processing;
+consent/disclosure flows;
+App Store disclosures;
+Google Play disclosures.
+
+Do not draft legal documents yet. Identify the facts the documents must accurately reflect.
+
+PART 2 — AUTHENTICATION AUDIT
+
+Audit the current authentication implementation.
+
+Specifically inspect:
+
+Email/password
+registration;
+email verification;
+login;
+logout;
+password reset;
+session persistence;
+session expiration;
+account deletion.
+Google
+
+Determine:
+
+current implementation;
+Expo development behaviour;
+production behaviour;
+redirect URI configuration;
+deep linking;
+universal/app links;
+Android configuration;
+iOS configuration;
+Supabase configuration;
+whether the current implementation will return the user to the native application after authentication.
+
+Do not assume that development-browser behaviour is equivalent to production-native behaviour.
+
+Apple
+
+Determine exactly what remains necessary for production Apple authentication.
+
+Identify:
+
+Apple Developer configuration;
+Supabase configuration;
+redirect handling;
+native configuration;
+private relay email implications;
+account linking considerations.
+PART 3 — PAYMENTS & ENTITLEMENTS AUDIT
+
+Audit the current premium implementation in detail.
+
+Determine:
+
+Where premium state is stored.
+Whether premium state can be manipulated from the client.
+How payment confirmation occurs.
+Whether Google Play purchases are verified server-side.
+Whether Apple purchases are verified server-side.
+How subscription renewal is handled.
+How cancellation is handled.
+How expiration is handled.
+How refunds/revocations are handled.
+How restore purchases works.
+What happens after reinstall.
+What happens after changing device.
+What happens if payment succeeds but the app crashes.
+What happens if payment succeeds but the webhook/verification is delayed.
+What happens if the client reports a successful purchase without genuine payment confirmation.
+
+Explicitly classify every entitlement transition as:
+
+Client-trusted / Server-verified / Unknown
+
+We require the final commercial implementation to be server-authoritative.
+
+Do not implement changes yet.
+
+PART 4 — SECRET & ENVIRONMENT AUDIT
+
+Audit all environment variables, API keys and secrets.
+
+Classify each as:
+
+| Secret/configuration | Client-safe? | Server-only? | Current location | Production recommendation |
+
+Specifically inspect:
+
+Supabase keys;
+Gemini;
+PhotoRoom;
+payment credentials;
+OAuth credentials;
+Apple credentials;
+Google credentials;
+telemetry/analytics;
+weather APIs;
+any other third-party services.
+
+Determine whether any secret is currently bundled into Expo/React Native code.
+
+Important: Do not recommend blindly moving server secrets into .env files shipped with the mobile application. Clearly distinguish:
+
+server secrets;
+public mobile configuration;
+publishable keys;
+credentials that must never reach the client.
+PART 5 — AI / IMAGE PROCESSING AUDIT
+
+Audit the current image pipeline:
+
+Upload
+↓
+PhotoRoom
+↓
+Gemini
+↓
+Garment classification / metadata
+↓
+Wardrobe
+
+Determine:
+
+current PhotoRoom implementation;
+current Gemini implementation;
+exactly when Gemini is called;
+what data is sent to Gemini;
+what data is sent to PhotoRoom;
+whether images are retained by third parties;
+whether unnecessary duplicate processing occurs;
+failure handling;
+retries;
+cost exposure;
+rate limiting;
+timeout behaviour;
+malformed-response handling;
+whether classification occurs after background removal as intended.
+
+Specifically assess the requested change:
+
+PhotoRoom removes the background first → Gemini classifies the cleaned garment image.
+
+Do not implement it yet.
+
+State whether the current architecture supports it cleanly and what would need to change.
+
+PART 6 — RECOMMENDATION ENGINE SAFETY BOUNDARY
+
+Treat Recommendation Engine v3.7 as frozen.
+
+Audit only its surrounding production integration:
+
+input validation;
+missing profile data;
+malformed wardrobe items;
+empty wardrobes;
+weather failures;
+AI classification failures;
+recommendation-generation failures;
+latency;
+telemetry;
+fallback behaviour;
+error presentation.
+
+Do not alter scoring weights or ranking logic.
+
+Identify whether any issue can cause:
+
+hard-constraint violation;
+crash;
+invalid recommendation;
+silent fallback;
+incorrect weather behaviour.
+PART 7 — COLD/RAIN WARDROBE GAP
+
+Assess implementation of the previously identified product feature:
+
+Instead of:
+
+"I cannot construct a valid outfit."
+
+Amodka should eventually be able to say something such as:
+
+"Your wardrobe doesn't currently have a suitable warm waterproof outer layer for today's weather."
+
+Determine:
+
+where the recommendation engine currently detects an empty/invalid candidate set;
+what structured information is available at that point;
+whether the system can identify the missing capability;
+whether this can be implemented without changing v3.7 scoring;
+recommended UX;
+recommended data structure;
+whether this should be launch-critical or post-launch.
+
+Do not implement it.
+
+PART 8 — PACKING ASSISTANT / TRAVEL CAPSULE CONCIERGE
+
+Audit the current architecture and determine how a future:
+
+Packing Assistant / Travel Capsule Concierge
+
+could be built to feel like:
+
+An elite celebrity personal stylist and luxury fashion concierge on retainer.
+
+Assess:
+
+destination;
+dates;
+weather;
+activities;
+dress codes;
+wardrobe availability;
+outfit rotation;
+laundry constraints;
+luggage constraints;
+day/night transitions;
+formal/casual requirements;
+cultural considerations;
+missing wardrobe pieces.
+
+Do not build this yet.
+
+Produce a recommended architecture and explain whether it should be:
+
+v1 launch;
+v1.x;
+post-launch flagship feature.
+PART 9 — NIGERIA / AFRICA FASHION READINESS
+
+Amodka will initially target:
+
+Nigeria and the broader African market
+
+while remaining globally applicable.
+
+The application must therefore understand fashion categories such as:
+
+Ankara / African wax print;
+lace;
+agbada;
+kaftan;
+senator styles;
+native wear;
+aso-ebi;
+traditional/event dressing;
+patterned garments;
+occasion dressing;
+culturally appropriate combinations.
+
+Audit the current taxonomy, classification and recommendation architecture.
+
+Determine:
+
+Which of these are already supported.
+Which are partially supported.
+Which are missing.
+Whether the current Gemini classification can represent them.
+Whether the recommendation engine can rank them appropriately.
+Whether the existing traditional-event taxonomy work is sufficient.
+What benchmark dataset would be required.
+
+Do not modify the recommendation engine.
+
+We will create an Africa/Nigeria benchmark before changing ranking behaviour.
+
+PART 10 — NOTIFICATIONS
+
+Audit the feasibility of:
+
+"Your outfit is ready."
+
+morning notifications.
+
+Determine:
+
+Expo push notification architecture;
+token storage;
+permission flow;
+scheduling;
+backend job/cron requirements;
+timezone handling;
+user preferences;
+quiet hours;
+failure handling;
+notification content;
+weather dependency;
+whether generation occurs before notification;
+duplicate notification prevention.
+
+Do not implement yet.
+
+PART 11 — ADMIN / OBSERVABILITY
+
+Audit the current telemetry/logging infrastructure.
+
+Determine what currently exists for:
+
+recommendation requests;
+recommendation success/failure;
+empty candidate sets;
+weather;
+AI calls;
+PhotoRoom;
+Gemini;
+premium usage;
+errors;
+latency;
+user engagement.
+
+Determine what an admin dashboard should eventually expose.
+
+Critical privacy requirement:
+
+Do not recommend exposing raw wardrobe images or unnecessary personal information in the admin dashboard merely because it would be convenient.
+
+Recommend an appropriate minimum-data observability model.
+
+PART 12 — GRACEFUL ERROR HANDLING
+
+Perform an application-wide audit of:
+
+network failures;
+API failures;
+Gemini failures;
+PhotoRoom failures;
+Supabase failures;
+expired sessions;
+Storage failures;
+payment failures;
+recommendation failures;
+weather failures;
+malformed AI responses;
+rate limits;
+timeouts;
+offline behaviour.
+
+For every major failure category identify:
+
+Technical failure → user-facing behaviour → recovery action → telemetry
+
+The UX should feel premium rather than technical.
+
+PART 13 — BRAND / UX AUDIT
+
+The application will be renamed from AuraCloset to Amodka.
+
+Audit the codebase for:
+
+AuraCloset references;
+AsyncStorage keys;
+database fields;
+analytics identifiers;
+deep links;
+package/app identifiers;
+notification identifiers;
+displayed branding;
+metadata;
+URLs;
+error messages.
+
+Identify migration risks.
+
+Do not rename anything yet.
+
+Also audit the current UI architecture and identify:
+
+profile-page improvements;
+premium visual inconsistencies;
+splash/startup experience;
+app icon requirements;
+typography;
+spacing;
+visual hierarchy;
+empty states;
+loading states;
+error states.
+
+Do not redesign anything yet.
+
+PART 14 — NATIVE BUILD / RELEASE PIPELINE
+
+Audit the current Expo/Replit setup.
+
+Determine:
+
+Expo SDK/version;
+native modules;
+current build configuration;
+iOS readiness;
+Android readiness;
+bundle/package identifiers;
+app signing;
+environment separation;
+development/staging/production configuration;
+EAS configuration if present;
+Google/Apple OAuth requirements;
+push notification requirements;
+Store configuration;
+server deployment;
+Supabase production configuration.
+
+Explicitly identify anything that will prevent:
+
+App Store release;
+Google Play release;
+production OAuth;
+production payments;
+production push notifications.
+PART 15 — THIRD-PARTY SERVICES & COST AUDIT
+
+Identify every external service and estimate:
+
+what triggers an API call;
+expected cost driver;
+whether a malicious user could create unexpected costs;
+rate limits;
+authentication;
+server-side protection;
+caching;
+retry amplification.
+
+Pay particular attention to:
+
+Gemini;
+PhotoRoom;
+Supabase;
+weather;
+payment services;
+push infrastructure.
+
+Flag any architecture that could permit a user to generate unlimited expensive AI/API requests.
+
+PART 16 — APP STORE / GOOGLE PLAY RISK AUDIT
+
+Identify production requirements related to:
+
+subscriptions;
+account deletion;
+privacy disclosures;
+Google Sign-In;
+Apple Sign-In;
+permissions;
+photo library;
+camera;
+notifications;
+AI functionality;
+user-generated content;
+external payment links;
+app metadata;
+privacy manifests/configuration where applicable.
+
+Do not submit anything.
+
+Identify what must be completed before submission.
+
+PART 17 — FINAL PRIORITISED ROADMAP
+
+Produce a single authoritative table:
+
+Priority	Area	Finding	Risk	Required action	Phase	Can wait until post-launch?
+
+Use these priority levels:
+
+P0 — Must fix before production
+
+P1 — Strongly recommended before production
+
+P2 — Launch enhancement
+
+P3 — Post-launch
+
+Do not inflate cosmetic items into P0/P1.
+
+PART 18 — EXPLICIT "DO NOT BUILD YET" LIST
+
+Identify features that sound attractive but should not be implemented before the necessary foundation exists.
+
+In particular evaluate:
+
+Virtual Try-On;
+Packing Assistant;
+advanced social features;
+excessive gamification;
+unnecessary analytics;
+complex AI agents;
+unnecessary recommendation-engine changes.
+
+Explain the reason for delaying each one.
+
+PART 19 — MANUAL USER ACTIONS
+
+Produce a separate section called:
+
+MANUAL ACTIONS REQUIRED FROM PRODUCT OWNER
+
+Explain every action that I personally must perform because the coding agent cannot safely/fully perform it.
+
+Assume I am not a developer.
+
+For each action provide:
+
+What I need to do.
+Where I need to do it.
+Exactly what I need to click/change.
+What value/configuration I should use.
+What I should see when successful.
+What I should send back to the coding agent.
+
+Examples may include:
+
+Supabase dashboard;
+Google Cloud;
+Apple Developer;
+Google Play Console;
+App Store Connect;
+payment provider;
+Expo/EAS;
+Replit Secrets;
+domain/DNS;
+OAuth redirect configuration.
+
+Do not tell me to perform an action unless the codebase actually requires it.
+
+PART 20 — FINAL GO/NO-GO ASSESSMENT
+
+End with:
+
+PHASE 5C READINESS VERDICT
+
+State:
+
+GO
+
+Areas that are ready for implementation.
+
+BLOCKED
+
+Areas that require manual configuration, external accounts, credentials, legal decisions, or other prerequisites.
+
+NOT YET
+
+Features that should deliberately wait.
+
+CRITICAL RISKS
+
+The five most important things that could prevent a successful commercial launch.
+
+RECOMMENDED NEXT IMPLEMENTATION TRACK
+
+Identify one and only one track that should be implemented first.
+
+Do not implement anything in this audit.
+
+Do not modify production.
+
+The output must be an evidence-based production-readiness assessment of the current codebase and architecture, not a generic checklist.
