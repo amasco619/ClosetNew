@@ -1,0 +1,55 @@
+Approved: implement Tasks #410 and #411. Do NOT implement or execute Task #409 yet.
+
+Task #410 — Amodka AsyncStorage migration
+
+Implement the one-time migration from all existing @auracloset_ AsyncStorage keys to their corresponding @amodka_ keys.
+
+Requirements:
+
+Preserve all existing stored values.
+Read the old key.
+If an old value exists and the new key does not already contain a value, write the value to the new key.
+Remove the old key only after the new value has been successfully written.
+Do not overwrite an existing @amodka_ value with an old @auracloset_ value.
+Migration must be idempotent.
+First launch with no old keys must complete normally.
+Existing users must retain their preferences after upgrading.
+Search the entire production codebase for remaining @auracloset_ references and identify whether each is an intentional migration reference or an obsolete production reference.
+
+Add automated tests covering:
+
+Existing old key → migrated successfully.
+Multiple old keys → all migrated.
+New key already exists → new value preserved.
+Old key absent → no failure.
+Migration run twice → no change on second run.
+Old key removed only after successful new-key write.
+Task #411 — Premium DB-fallback regression test
+
+Implement the regression test described in Task #411.
+
+Specifically:
+
+Mock a JWT/session with no usable premium claim.
+Provide a database user_profiles record with premium=true.
+Exercise the real background-removal premium-check path.
+Confirm the backend falls back to supabaseAdmin and successfully recognises the user as Premium.
+Confirm background removal proceeds and returns the expected cleaned-image result.
+Ensure the test would fail if the database fallback SELECT were removed.
+Ensure the test would fail if the required service-role SELECT privilege were removed/mocked as unavailable.
+
+Do not weaken production security to make the test pass.
+
+Do not hardcode a Premium result that bypasses the actual fallback logic.
+
+General requirements
+Do not modify Recommendation Engine v3.7.
+Do not change Supabase RLS policies.
+Do not change Storage configuration.
+Do not execute either Supabase migration.
+Do not implement Task #409.
+Run npm test.
+Run npm run typecheck.
+Report all changes and test results.
+
+Stop after completing #410 and #411.
