@@ -105,15 +105,20 @@ const categoryLabels: Record<string, string> = {
   outerwear: 'Layer', shoes: 'Shoes', bag: 'Bag', jewelry: 'Jewelry',
 };
 
-const SCENARIO_EMPTY_HINT: Partial<Record<OccasionTag, string>> = {
-  active:        'Add leggings, a sports top, or training shoes and we\'ll build your active looks.',
-  brunch:        'Add a relaxed blouse, midi skirt, or casual dress and we\'ll style your weekend brunch looks.',
-  work:          'Add tailored trousers, blazers, or office-ready tops and we\'ll style polished work looks.',
-  casual:        'Add everyday tops, denim, or casual dresses and we\'ll style relaxed everyday looks.',
-  'date-casual': 'Add a casual dress or a flattering top-and-jeans combo and we\'ll style your day date looks.',
-  'date-dressy': 'Add a statement dress or dressy separates and we\'ll style your evening date looks.',
-  event:             'Add a dress or occasion-ready separates and we\'ll style standout event looks.',
+const SCENARIO_EMPTY_HINT: Record<OccasionTag, string> = {
+  active:              'Add leggings, a sports top, or training shoes and we\'ll build your active looks.',
+  brunch:              'Add a relaxed blouse, midi skirt, or casual dress and we\'ll style your weekend brunch looks.',
+  work:                'Add tailored trousers, blazers, or office-ready tops and we\'ll style polished work looks.',
+  casual:              'Add everyday tops, denim, or casual dresses and we\'ll style relaxed everyday looks.',
+  'date-casual':       'Add a casual dress or a flattering top-and-jeans combo and we\'ll style your day date looks.',
+  'date-dressy':       'Add a statement dress or dressy separates and we\'ll style your evening date looks.',
+  event:               'Add a dress or occasion-ready separates and we\'ll style standout event looks.',
   'traditional-event': 'Add a kaftan, gown, or lace piece and we\'ll style your traditional ceremony looks.',
+  interview:           'Add a structured blazer, tailored trousers, or a polished blouse and we\'ll style authoritative interview looks.',
+  wedding:             'Add an elegant dress, a refined skirt set, or formal separates and we\'ll style your wedding-guest looks.',
+  travel:              'Add versatile knits, comfortable trousers, or a chic midi dress and we\'ll style polished travel looks.',
+  resort:              'Add a sundress, linen separates, or a breezy co-ord and we\'ll style your resort holiday looks.',
+  'night-out':         'Add a statement dress, sleek trousers, or a dressy top and we\'ll style your night-out looks.',
 };
 
 const categoryIcons: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
