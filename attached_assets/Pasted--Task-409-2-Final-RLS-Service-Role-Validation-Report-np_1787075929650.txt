@@ -1,0 +1,142 @@
+---
+
+## Task 409.2 — Final RLS & Service-Role Validation Report
+
+**npm test:** 48/48 PASS  
+**npm run typecheck:** 0 errors  
+**Test script:** `scripts/test-rls-409-2.ts` (run with `npx tsx`)  
+**Follow-up tasks proposed:** #415, #416
+
+---
+
+### Test environment
+
+| | Detail |
+|---|---|
+| User A | Created via `auth.admin.createUser`, signed in via anon key client, all DB writes via authenticated session |
+| User B | Same pattern, independent session |
+| supabaseAdmin | `createClient(supabaseUrl, SUPABASE_SECRET_KEY)` — `sb_sec*` key, no `setSession` call, BYPASSRLS=true |
+| URL note | `SUPABASE_URL` env var contains `/rest/v1/` in its path; test script uses `new URL(rawUrl).origin` to give supabase-js the correct base for all endpoint construction (auth/v1, rest/v1, storage/v1). Same key and project as production. |
+
+---
+
+### Wardrobe RLS isolation
+
+| Test | Actor | Operation | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| B1 | User A | SELECT own wardrobe_items | ≥2 rows | 2 rows | **PASS** |
+| B2 | User A | UPDATE own wardrobe_item (color→green) | no error | no error | **PASS** |
+| B3 | User B | SELECT User A's item by id | 0 rows (filtered) | 0 rows | **PASS** |
+| B4 | User B | UPDATE User A's item | 0 rows affected | 0 rows | **PASS** |
+| B5 | User B | DELETE User A's item | 0 rows / no error | 0 rows | **PASS** |
+| B6 | User A | Verify item unchanged after B4/B5 | color=green | color=green | **PASS** |
+| B7 | User A | DELETE own item (item2) | no error | no error | **PASS** |
+
+---
+
+### Cross-user INSERT protection
+
+All five attacks produced `code=42501 message="new row violates row-level security policy"` — the RLS `WITH CHECK (auth.uid() = user_id)` policy on each table correctly rejected User B's INSERT at the database layer, not the application layer.
+
+| Test | Actor | Operation | Expected | Result |
+|---|---|---|---|---|
+| D1 | User B | INSERT wardrobe_items with user_id=User_A | 42501 | **PASS** |
+| D2 | User B | INSERT wear_logs with user_id=User_A | 42501 | **PASS** |
+| D3 | User B | INSERT saved_looks with user_id=User_A | 42501 | **PASS** |
+| D4 | User B | INSERT affinity_signals with user_id=User_A | 42501 | **PASS** |
+| D5 | User B | INSERT pair_affinity_signals with user_id=User_A | 42501 | **PASS** |
+
+---
+
+### Pair-affinity isolation
+
+**CHECK constraint inspection result:** `pair_affinity_signals` has **no** `item_id_a <> item_id_b` check constraint in production. Inserting with `item_id_a = item_id_b` was accepted without error. The previous Task 409 T6 skip (`23514`) was a foreign-key violation (`23503` produces 23514 in some PostgREST versions) — the test items didn't exist as wardrobe_items rows, not a check constraint.
+
+| Test | Actor | Operation | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| C1 | User A | SELECT own pair_affinity_signals | ≥1 row | 0 rows | **INCONCLUSIVE** ¹ |
+| C2 | User B | SELECT User A's pair_affinity_signals | 0 rows (filtered) | 0 rows | **PASS** |
+| C3 | User B | INSERT pair_affinity with user_id=User_A | 42501 | 42501 (see D5) | **PASS** |
+
+**¹ C1 — fixture ordering bug, not an RLS failure.** `pair_affinity_signals` has `ON DELETE CASCADE` FK constraints on `item_id_a`/`item_id_b` referencing `wardrobe_items`. The pair row was inserted in the constraint inspection phase referencing `item2`. When B7 deleted `item2`, PostgreSQL cascade-deleted the pair_affinity row. C1 then found 0 rows. The RLS SELECT policy is correct (C2 confirms User B correctly gets 0 rows). Fix: run C1 before B7, or use a dedicated third wardrobe item for pair_affinity that is not deleted during the test.
+
+---
+
+### Other application-table isolation
+
+Not reached — script stopped at Part E per spec (security test failure). Previously confirmed in Task 409 for wear_logs, affinity_signals, saved_looks, rotation_cursors, slot_statuses, tryon_profiles (7 PASS). Re-confirmation is part of proposed task #416.
+
+---
+
+### Storage isolation
+
+Not reached — script stopped at Part E per spec. Previously confirmed in Task 409 (4/4 PASS). Re-confirmation is part of proposed task #416.
+
+---
+
+### Service-role account deletion — **SECURITY FAILURE**
+
+**Test stopped here per spec.**
+
+| Test | Actor | Operation | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| E-affinity_signals | supabaseAdmin | `.delete().eq('user_id', userA_id)` no `.select()` | no error | **42501** | **FAIL** |
+| E-wear_logs through E-saved_looks | — | — | — | Not reached | — |
+| E-wardrobe_items | — | — | — | Not reached | — |
+| E-user_profiles | — | — | — | Not reached | — |
+
+**Exact error:**
+```
+code:    42501
+message: permission denied for table affinity_signals
+hint:    Grant the required privileges to the current role with:
+         GRANT SELECT ON public.affinity_signals TO service_role;
+details: null
+```
+
+**Root cause — PostgREST requires SELECT for all DELETE operations.**  
+`postgrest-js` `delete()` without `.select()` sends a DELETE with no `Prefer: return=minimal` header. PostgREST defaults to `return=representation` for DELETE, executing `DELETE FROM table WHERE ... RETURNING *`. `RETURNING *` requires SELECT privilege in PostgreSQL. The migration `20260814000001_grant_service_role_min_privs.sql` grants only `DELETE` on the seven user tables — not `SELECT`. `user_profiles` has `SELECT, UPDATE, DELETE` so it would succeed; `wardrobe_items` has a prior corrective grant that includes SELECT.
+
+**Production impact:** The account-deletion endpoints (`/api/user/delete-account` and `/api/user/delete-account-confirm`) loop over `affinity_signals`, `pair_affinity_signals`, `rotation_cursors`, `wear_logs`, `slot_statuses`, `tryon_profiles`, `saved_looks`. Each DELETE is `non-fatal` — the code logs a warning and continues. The auth user is still deleted, but rows in these seven tables remain in the database for deleted accounts indefinitely.
+
+**Corrective action required (proposed as task #415):** Update `20260814000001_grant_service_role_min_privs.sql` to change the seven `GRANT DELETE ON` statements to `GRANT SELECT, DELETE ON`. No code changes needed — the existing delete pattern is correct.
+
+---
+
+### T8 discrepancy — reconciled
+
+The original Task 409 T8 failure had **two independent causes**:
+
+1. The test client used an authenticated or anon JWT instead of the service_role key → wrong credentials → RLS applied → 42501 from missing `authenticated`-role policy for that operation
+2. Even with the correct service_role client (confirmed in this task), the grants are still insufficient — `GRANT DELETE` alone is not enough; `GRANT SELECT` is also required by PostgREST's `RETURNING *` default
+
+Both causes are now confirmed with live evidence.
+
+---
+
+### Test cleanup
+
+| Action | Result |
+|---|---|
+| Delete test auth user A (`c3d60598-…`) | **Deleted** — cascades all remaining DB records |
+| Delete test auth user B (`31065019-…`) | **Deleted** |
+| Storage objects | None created (Part G not reached) |
+
+**No real user data was touched.**
+
+---
+
+### Summary
+
+| Part | Tests | PASS | FAIL | INCONCLUSIVE | Result |
+|---|---|---|---|---|---|
+| B — Wardrobe isolation | 7 | 7 | 0 | 0 | ✓ |
+| C — Pair-affinity isolation | 3 | 2 | 0 | 1 | Partial (fixture ordering) |
+| D — Cross-user INSERT | 5 | 5 | 0 | 0 | ✓ |
+| E — Service-role DELETE | 9 | 0 | 1 | — | **STOPPED** |
+| F — Other-table isolation | — | — | — | — | Not reached |
+| G — Storage isolation | — | — | — | — | Not reached |
+| **Total** | **16** | **14** | **1** | **1** | — |
+
+**Security finding:** Account deletion silently leaves user data in 7 tables. Fix tracked as task #415.  
+**Remaining coverage:** Storage re-confirmation and fixture fix tracked as task #416.

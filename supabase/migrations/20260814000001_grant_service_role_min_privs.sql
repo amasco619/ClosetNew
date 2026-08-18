@@ -30,15 +30,23 @@
 --
 -- wear_logs, affinity_signals, pair_affinity_signals, rotation_cursors,
 -- slot_statuses, tryon_profiles, saved_looks, wardrobe_items
+--   SELECT  → Required by PostgREST alongside DELETE.
+--             PostgREST executes DELETE as "DELETE FROM table WHERE ... RETURNING *"
+--             by default (return=representation).  RETURNING * requires SELECT
+--             privilege in PostgreSQL even when the caller does not call .select().
+--             Without SELECT the DELETE is rejected with 42501, causing account
+--             deletion to silently skip these tables.
+--             Confirmed by live validation (Task 409.2, 2026-08-18):
+--             supabaseAdmin.from("affinity_signals").delete().eq("user_id", id)
+--             → 42501 "permission denied" hint: "GRANT SELECT ON ... TO service_role"
 --   DELETE  → server/routes.ts:355-363, 494-495
 --             Account deletion (in-app + web OTP flow).
 --             supabaseAdmin.from(table).delete().eq("user_id", userId)
---             wardrobe_items already has DELETE from a prior corrective grant;
---             re-granting is a no-op.
+--             wardrobe_items already has SELECT, DELETE from a prior corrective
+--             grant; re-granting is a no-op.
 --
 -- ─── What is NOT granted ────────────────────────────────────────────────────
 --   INSERT on any table         — no server route inserts rows
---   SELECT on non-profile tables — no server route reads these tables
 --   UPDATE on non-profile tables — no server route updates these tables
 --   Any grant to anon or authenticated roles — unchanged
 -- ════════════════════════════════════════════════════════════════════════════
@@ -46,15 +54,17 @@
 -- user_profiles: SELECT (premium check) + UPDATE (upgrade-premium) + DELETE (account deletion)
 GRANT SELECT, UPDATE, DELETE ON public.user_profiles TO service_role;
 
--- User-data tables: DELETE only (account deletion)
-GRANT DELETE ON public.wear_logs            TO service_role;
-GRANT DELETE ON public.affinity_signals     TO service_role;
-GRANT DELETE ON public.pair_affinity_signals TO service_role;
-GRANT DELETE ON public.rotation_cursors     TO service_role;
-GRANT DELETE ON public.slot_statuses        TO service_role;
-GRANT DELETE ON public.tryon_profiles       TO service_role;
-GRANT DELETE ON public.saved_looks          TO service_role;
+-- User-data tables: SELECT + DELETE (account deletion)
+-- SELECT is required alongside DELETE because PostgREST sends RETURNING *
+-- by default, which requires SELECT in addition to DELETE.
+GRANT SELECT, DELETE ON public.wear_logs             TO service_role;
+GRANT SELECT, DELETE ON public.affinity_signals      TO service_role;
+GRANT SELECT, DELETE ON public.pair_affinity_signals TO service_role;
+GRANT SELECT, DELETE ON public.rotation_cursors      TO service_role;
+GRANT SELECT, DELETE ON public.slot_statuses         TO service_role;
+GRANT SELECT, DELETE ON public.tryon_profiles        TO service_role;
+GRANT SELECT, DELETE ON public.saved_looks           TO service_role;
 
--- wardrobe_items: DELETE already granted; re-grant is idempotent.
+-- wardrobe_items: SELECT, DELETE already granted; re-grant is idempotent.
 -- Included for completeness and audit trail.
-GRANT DELETE ON public.wardrobe_items TO service_role;
+GRANT SELECT, DELETE ON public.wardrobe_items TO service_role;
