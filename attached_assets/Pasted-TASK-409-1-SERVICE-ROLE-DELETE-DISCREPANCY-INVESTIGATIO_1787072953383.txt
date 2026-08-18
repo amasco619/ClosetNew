@@ -1,0 +1,145 @@
+TASK 409.1 — SERVICE-ROLE DELETE DISCREPANCY INVESTIGATION
+
+The previous Task 409 report stated that service_role was missing DELETE privileges on seven tables.
+
+I have now independently queried the live production database using:
+
+information_schema.role_table_grants
+
+The result confirms that service_role does currently have DELETE privileges on:
+
+wear_logs
+affinity_signals
+pair_affinity_signals
+rotation_cursors
+slot_statuses
+tryon_profiles
+saved_looks
+user_profiles
+wardrobe_items
+
+user_profiles also has SELECT and UPDATE.
+
+Therefore, DO NOT execute any additional GRANT statements.
+
+We need to explain why the previous live service-role DELETE test returned 42501.
+
+1. Audit the actual account-deletion code
+
+Inspect:
+
+server/routes.ts
+the supabaseAdmin initialization
+every account-deletion operation
+
+For every DELETE operation, report the exact code pattern used.
+
+Specifically determine whether any operation uses:
+
+.delete().select()
+
+or any other modifier that requires SELECT in addition to DELETE.
+
+2. Verify the actual role used by the failing request
+
+Run a safe diagnostic using the same supabaseAdmin client used by account deletion.
+
+Confirm, without exposing any secret:
+
+JWT/API key configuration;
+actual PostgREST role;
+whether an authenticated user's JWT/session is overriding the service-role Authorization header.
+
+Do not print tokens.
+
+If possible, use a safe diagnostic equivalent to:
+
+select auth.role()
+
+and report only the resulting role.
+
+Expected:
+
+service_role
+
+3. Capture the exact 42501 error
+
+Reproduce the failing DELETE against a disposable test record.
+
+Capture the complete error object:
+
+code
+message
+hint
+details
+
+Do not expose credentials.
+
+Report exactly which table PostgreSQL/PostgREST says is denied.
+
+4. Test the grant directly
+
+Using the actual supabaseAdmin service-role client, perform a controlled DELETE against a disposable test row on one of the previously failing tables.
+
+Do not use a real user's production data.
+
+Confirm:
+
+whether DELETE succeeds;
+whether RLS interferes;
+whether SELECT is additionally required.
+
+Do not change grants or policies.
+
+5. Compare with direct privilege state
+
+Reconcile the live database privilege state with the failed Task 409 result.
+
+The explanation must account for the fact that:
+
+service_role currently has DELETE.
+
+Do not conclude "missing grant" unless you can demonstrate that the grant disappears during the actual request.
+
+6. Important
+
+Do NOT:
+
+execute any GRANT;
+REVOKE anything;
+modify RLS;
+modify application code;
+make Storage public;
+disable RLS;
+modify Recommendation Engine v3.7;
+delete any real user data.
+7. Also address the incomplete RLS tests
+
+Separately identify how to fix the Task 409 test fixture so that:
+
+User A has a valid user_profiles row;
+User A can create a legitimate wardrobe_items row;
+pair_affinity_signals uses valid data satisfying its CHECK constraint;
+User B attempts cross-user SELECT/UPDATE/DELETE;
+User B attempts INSERT using User A's user_id.
+
+Do not implement these changes yet.
+
+Final output
+
+Return:
+
+Task 409.1 — Service-Role DELETE Discrepancy Report
+
+Include:
+
+Actual role used by the failing DELETE request
+Exact failing table
+Exact 42501 error/hint
+Whether .select() is involved
+Direct service-role DELETE test result
+Explanation reconciling the result with the confirmed database grants
+Corrective action, if any
+Revised plan for completing the missing wardrobe/pair-affinity/User-B INSERT tests
+
+Stop. Do not make changes.
