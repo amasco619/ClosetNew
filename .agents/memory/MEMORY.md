@@ -16,3 +16,4 @@
 - [Amodka rebrand](amodka-rebrand.md) — App renamed AuraCloset→Amodka in Phase 5A; all new identifiers use "amodka"/"com.amodka"; storage migration in _layout.tsx
 - [Wardrobe gap diagnosis](wardrobe-gap-diagnosis.md) — diagnoseWeatherGap() gates on engineFound===false first; uses item metadata (warmthBand/weight/fabric), never category alone
 - [Phase 5B storage + compliance](phase5b-hardening.md) — signed URLs for wardrobe-images; storagePath threaded through all upload paths; RLS migration; account deletion fixed; 7 compliance docs in docs/compliance/
+- [Premium entitlement boundary](premium-entitlement-boundary.md) — premium is expiry-aware server state; local cache, JWT claims, and client routes can never grant it

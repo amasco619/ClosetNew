@@ -19,10 +19,9 @@ export async function upsertUserProfile(profile: {
   onboarding_complete?: boolean
   is_guest?: boolean
 }): Promise<void> {
-  // NC-1: `premium` is intentionally absent from this function's parameter type.
-  // Client code must never elevate its own premium status. The only write path
-  // for the `premium` column is the server-side /api/user/upgrade-premium
-  // endpoint, which is authenticated and server-authoritative.
+  // `premium` is intentionally absent from this function's parameter type.
+  // Client code must never elevate its own premium status. Future verified
+  // payment handling is restricted to the server-only entitlement boundary.
   const { error } = await supabase
     .from('user_profiles')
     .upsert(profile, { onConflict: 'id' })

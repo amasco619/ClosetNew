@@ -132,7 +132,7 @@ Whenever you make a change that affects any section of this document — new API
 | **Supabase Postgres** | User profile storage (`user_profiles` table) |
 | **Supabase Storage** | Wardrobe item photos stored as `{userId}/{itemId}.jpg` |
 | **@supabase/supabase-js** | Supabase client library |
-| **Supabase Admin client** | Server-side operations (upgrade-premium, delete-account) using `SUPABASE_SECRET_KEY` |
+| **Supabase Admin client** | Server-side entitlement reads, verified entitlement writes, and account deletion using `SUPABASE_SECRET_KEY` |
 | **@react-native-async-storage/async-storage** | Session token storage (native) and all offline-first local persistence: wardrobe items, outfit reactions, wear log, blueprint slots, weather cache, affinity data, rotation cursors |
 
 ### AI & External APIs
@@ -185,7 +185,7 @@ Whenever you make a change that affects any section of this document — new API
 │                                                         │
 │   POST /api/classify-garment  (aiLimiter: 10/min)       │
 │   POST /api/remove-background (bgRemovalLimiter: 30/min) │
-│   POST /api/user/upgrade-premium (accountLimiter: 5/hr) │
+│   GET  /api/user/entitlements (accountLimiter: 5/hr)    │
 │   DELETE /api/user/delete-account (accountLimiter: 5/hr)│
 └──────┬────────────────────────────────────────────────┬─┘
        │                                                │
@@ -388,7 +388,7 @@ All secrets are set in **Replit Secrets (Tools > Secrets)**. Never commit secret
 |--------|---------|-------------|
 | `GEMINI_API_KEY` | `server/classify-garment.ts` | Google Gemini API key. Needs access to `gemini-flash-lite-latest` and `gemini-2.5-flash` models. |
 | `SUPABASE_URL` | `server/supabase.ts` | Your Supabase project URL (e.g. `https://xyzabc.supabase.co`). Used by the server-side admin client. |
-| `SUPABASE_SECRET_KEY` | `server/supabase.ts` | Supabase service-role (secret) key for server-side admin operations (upgrade-premium, delete-account). Keep confidential — bypasses RLS and has full database access. |
+| `SUPABASE_SECRET_KEY` | `server/supabase.ts` | Supabase service-role (secret) key for server-side entitlement reads, verified entitlement writes, and account deletion. Keep confidential — bypasses RLS and has full database access. |
 | `EXPO_PUBLIC_SUPABASE_URL` | `lib/supabase.ts` | Your Supabase project URL. The `EXPO_PUBLIC_` prefix injects it into the Expo bundle for the client-side Supabase client. |
 | `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `lib/supabase.ts` | Supabase anonymous/publishable key. Safe to bundle; RLS policies enforce row-level access control. |
 | `PHOTOROOM_API_KEY` | `server/remove-background.ts` | Photoroom background-removal API key. Required for `POST /api/remove-background`. Without it the endpoint returns HTTP 503 and the app falls back to the original photo. |
@@ -912,7 +912,7 @@ Unlocks: unlimited wardrobe items (free tier raised to 30, guest stays 8), 4 out
 - Basic wear log — last 7 days of entries; "Wearing this today" button is always accessible
 - Calibration signals — love/not-today taps and wear logging always build affinity, even on free
 
-Premium status stored in Supabase `user_profiles` table with an expiry timestamp. Upgrade handled via `POST /api/user/upgrade-premium` on the Express server.
+Premium status is stored in Supabase `user_profiles` with an expiry timestamp. The app reads the authenticated, expiry-aware `GET /api/user/entitlements` endpoint; there is no client-callable upgrade endpoint.
 
 **Code:** `app/premium.tsx`, `server/routes.ts`
 
@@ -926,7 +926,7 @@ All Express API endpoints are protected by `express-rate-limit` using the centra
 | `aiLimiter` | `POST /api/classify-garment` | 10 req | 60 sec |
 | `bgRemovalLimiter` | `POST /api/remove-background` | 8 req | 60 sec |
 
-| `accountLimiter` | upgrade-premium, delete-account | 5 req | 60 min |
+| `accountLimiter` | entitlements, delete-account | 5 req | 60 min |
 | `authLimiter` | sign-in, sign-up | 5 req | 15 min |
 | `resetLimiter` | password-reset | 3 req | 60 min |
 
@@ -1355,9 +1355,9 @@ This section documents every security remediation applied to the codebase and th
 **Severity:** Critical  
 **File:** `lib/database.ts`, `contexts/AppContext.tsx`
 
-`upsertUserProfile()` no longer accepts a `premium` field. The parameter type explicitly omits it. The `togglePremium` function in `AppContext` writes only to AsyncStorage (local dev toggle) — it does not write to Supabase. The **only** authoritative write path for the `premium` column is the server-side `POST /api/user/upgrade-premium` endpoint, which is protected by `requireAuth` and uses the Supabase Admin client with `SUPABASE_SECRET_KEY`.
+`upsertUserProfile()` no longer accepts a `premium` field. The parameter type explicitly omits it. The app reads premium access only from the authenticated `GET /api/user/entitlements` response, which derives access from `premium_expires_at` on the server. The old client-callable upgrade route and local premium mutation path are removed. Future entitlement writes must go through the server-only verified entitlement boundary.
 
-**Rule:** Never add `premium` back to `upsertUserProfile`. Any premium-setting logic must go through the server endpoint.
+**Rule:** Never add `premium` back to `upsertUserProfile`. Client storage and request bodies must never grant premium. Any future premium-setting logic must be server-internal and tied to verified payment-provider events.
 
 ---
 
@@ -1425,7 +1425,7 @@ On the `web` platform, Supabase previously defaulted to `localStorage`, which pe
 
 | ID | Description | Files |
 |----|-------------|-------|
-| C-1 | `requireAuth` on `POST /api/user/upgrade-premium` | `server/routes.ts` |
+| C-1 | Authoritative, expiry-aware `GET /api/user/entitlements`; client-callable premium grant route removed | `server/routes.ts`, `server/entitlements.ts`, `lib/entitlements.ts` |
 | C-2 | `requireAuth` on `DELETE /api/user/delete-account` | `server/routes.ts` |
 | H-1 | OAuth relay allowlist — `nativeCallback` redirect only bounces to `exp://` scheme, not arbitrary URLs | `app/_layout.tsx` |
 | H-1b | OAuth relay allowlist extended: `exp://localhost` and `exp://127.0.0.1` are now valid relay targets alongside the Replit dev domain. Expo starts with `--localhost`, so `makeRedirectUri()` always returns `exp://localhost:<port>` in Expo Go (StoreClient). The previous check `nativeCallback.includes(REPLIT_DEV_DOMAIN)` always failed for localhost URLs, causing the server to serve the landing page instead of the 302 relay — leaving iOS ASWebAuth stuck and Android Chrome showing the web app instead of the native app. The PKCE verifier in native SecureStore is the real security gate. | `server/index.ts` |

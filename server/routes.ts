@@ -5,6 +5,7 @@ import path from "node:path";
 import { classifyGarment } from "./classify-garment";
 import { removeBackground } from "./remove-background";
 import { supabaseAdmin, supabaseAuth, supabaseAnon } from "./supabase";
+import { getUserEntitlement } from "./entitlements";
 import { aiLimiter, bgRemovalLimiter, accountLimiter, authLimiter, resetLimiter, checkAccountLockout, recordFailedAttempt, clearLockout } from "./middleware/rateLimiter";
 // P-E: cap simultaneous AI calls so a burst cannot exhaust Gemini quota
 // or connections. Extras are queued, not rejected (the rate limiters
@@ -99,6 +100,10 @@ interface AuthenticatedRequest extends Request {
   authenticatedUser: { id: string; email?: string };
 }
 
+export const _testOverrides: {
+  authenticatedUser?: { id: string; email?: string };
+} = {};
+
 /**
  * Middleware that validates a Bearer token from the Authorization header and
  * attaches the authenticated user to `req.authenticatedUser`.
@@ -106,6 +111,12 @@ interface AuthenticatedRequest extends Request {
  * Returns 401 when the header is missing or the token is invalid.
  */
 async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (process.env.NODE_ENV === "test" && _testOverrides.authenticatedUser) {
+    (req as AuthenticatedRequest).authenticatedUser = _testOverrides.authenticatedUser;
+    next();
+    return;
+  }
+
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
@@ -273,36 +284,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── Account management: authentication + ownership check required ─────────
-  // Both endpoints require a valid session and assert that the authenticated
-  // user is operating on their own account (no cross-user privilege escalation).
-
-  app.post("/api/user/upgrade-premium", accountLimiter, requireAuth, async (req, res) => {
-    const { userId } = req.body;
+  app.get("/api/user/entitlements", accountLimiter, requireAuth, async (req, res) => {
     const authedUser = (req as AuthenticatedRequest).authenticatedUser;
 
-    if (!userId) {
-      return res.status(400).json({ success: false, error: "userId is required." });
-    }
-    if (authedUser.id !== userId) {
-      return res.status(403).json({ success: false, error: "forbidden" });
-    }
-
     try {
-      const { error } = await supabaseAdmin
-        .from("user_profiles")
-        .update({
-          premium: true,
-          premium_expires_at: new Date(
-            Date.now() + 365 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-        })
-        .eq("id", userId);
-      if (error) throw new Error(error.message);
-      return res.json({ success: true });
+      return res.json(await getUserEntitlement(authedUser.id));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("[upgrade-premium]", msg);
-      return res.status(500).json({ success: false, error: "upgrade_failed" });
+      console.error("[entitlements]", msg);
+      return res.status(500).json({ error: "entitlements_unavailable" });
     }
   });
 

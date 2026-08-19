@@ -21,6 +21,7 @@ import {
 } from '@/constants/orphanDetection';
 import { centroidHsl, hslToLab } from '@/constants/colorPerceptual';
 import { authenticatedApiRequest } from '@/lib/query-client';
+import { fetchAuthoritativeEntitlement } from '@/lib/entitlements';
 import {
   upsertUserProfile, getUserProfile, getWardrobeItems,
   getSlotStatuses, getWearLogs, getRotationCursors,
@@ -57,7 +58,6 @@ interface AppContextValue {
   removeWardrobeItem: (id: string) => void;
   updateWardrobeItem: (id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => void;
   isPremium: boolean;
-  togglePremium: () => void;
   outfitSets: OutfitSet[];
   lastAddedSuggestions: OutfitSet[];
   clearLastAddedSuggestions: () => void;
@@ -149,7 +149,6 @@ const AppContext = createContext<AppContextValue | null>(null);
 const STORAGE_KEYS = {
   profile: '@amodka_profile',
   wardrobe: '@amodka_wardrobe',
-  premium: '@amodka_premium',
   slots: '@amodka_slots',
   rotation: '@amodka_rotation',
   wearHistory: '@amodka_wear_history',
@@ -310,10 +309,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const userId = session.user.id;
           // Only update if this is still the active user (guard against stale events)
           if (currentUserIdRef.current !== userId) return;
-          const dbProfile = await getUserProfile(userId).catch(() => null);
-          if (dbProfile?.premium !== undefined) {
-            setIsPremium(Boolean(dbProfile.premium));
-          }
+          const entitlement = await fetchAuthoritativeEntitlement().catch(() => null);
+          setIsPremium(entitlement?.isPremium ?? false);
         }
       }
     );
@@ -360,10 +357,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const loadData = async () => {
     try {
-      const [profileData, wardrobeData, premiumData, slotsData, rotationData, wearData, reactionsData, moodData, savedLooksData] = await Promise.all([
+      const [profileData, wardrobeData, slotsData, rotationData, wearData, reactionsData, moodData, savedLooksData] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.profile),
         AsyncStorage.getItem(STORAGE_KEYS.wardrobe),
-        AsyncStorage.getItem(STORAGE_KEYS.premium),
         AsyncStorage.getItem(STORAGE_KEYS.slots),
         AsyncStorage.getItem(STORAGE_KEYS.rotation),
         AsyncStorage.getItem(STORAGE_KEYS.wearHistory),
@@ -520,7 +516,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // current upload flow already carry precise per-pixel values and are
       // never reprocessed — that would burn API calls and risk overwriting
       // good values with marginally different ones.
-      if (premiumData) setIsPremium(JSON.parse(premiumData));
       if (rotationData) setRotationState(JSON.parse(rotationData));
       // Migrate persisted wear history + reactions from the legacy single
       // `'date'` scenario to `'date-dressy'` so labels/lookups don't blank
@@ -700,7 +695,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             : prev.weatherEnabled,
           onboardingComplete: dbProfile.onboarding_complete ?? prev.onboardingComplete,
         }));
-        if (dbProfile.premium) setIsPremium(true);
       } else if (authName) {
         setProfile(prev => ({ ...prev, name: prev.name || authName, isGuest: false }));
       }
@@ -775,6 +769,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         );
         AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(forStorage));
       }
+
+      const entitlement = await fetchAuthoritativeEntitlement().catch(() => null);
+      setIsPremium(entitlement?.isPremium ?? false);
 
       if (logs && logs.length > 0) {
         const mappedLogs: WearEntry[] = logs.map((l: any) => ({
@@ -1164,17 +1161,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [profile, isPremium]);
 
-  const togglePremium = useCallback(() => {
-    setIsPremium(prev => {
-      const updated = !prev;
-      AsyncStorage.setItem(STORAGE_KEYS.premium, JSON.stringify(updated));
-      // NC-1: premium status must never be written client-side to Supabase.
-      // The server-side /api/user/upgrade-premium endpoint is the sole
-      // authoritative write path for the premium column.
-      return updated;
-    });
-  }, []);
-
   // ── Rotation-based outfit generation ─────────────────────────────────────────
 
   // The slice of wardrobeItems that is active for display and outfit/slot
@@ -1337,7 +1323,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
-    isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
+    isPremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
     isLoading, appReady, isAuthenticated, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
     wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
     todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
@@ -1350,7 +1336,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isGuest: profile.isGuest === true,
     orphanedItems, resolveOrphan,
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
-       isPremium, togglePremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
+       isPremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, appReady, isAuthenticated, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
        todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,

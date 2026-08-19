@@ -2,11 +2,10 @@ import { StyleSheet, Text, View, ScrollView, Pressable, Platform } from 'react-n
 import { StatusBar } from 'expo-status-bar';
 import SwipeToDismiss from '@/components/SwipeToDismiss';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
-import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { rs } from '../lib/responsive';
@@ -24,16 +23,8 @@ const FEATURES = [
 
 export default function PremiumScreen() {
   const insets = useSafeAreaInsets();
-  const { isPremium, togglePremium } = useApp();
+  const { isPremium } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
-
-  const handleUpgrade = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    togglePremium();
-    if (!isPremium) {
-      setTimeout(() => router.back(), 500);
-    }
-  };
 
   return (
     <SwipeToDismiss>
@@ -90,21 +81,16 @@ export default function PremiumScreen() {
 
         <Animated.View entering={FadeInDown.delay(700).duration(400)} style={styles.pricingCard}>
           <View style={styles.pricingHeader}>
-            <Text style={styles.pricingTitle}>Monthly</Text>
+            <Text style={styles.pricingTitle}>Premium subscriptions</Text>
             <View style={styles.priceBadge}>
-              <Text style={styles.priceText}>$9.99</Text>
-              <Text style={styles.priceUnit}>/mo</Text>
+              <Text style={styles.priceText}>Soon</Text>
             </View>
           </View>
           <View style={styles.pricingDivider} />
           <View style={styles.pricingHeader}>
             <View>
-              <Text style={styles.pricingTitle}>Annual</Text>
-              <Text style={styles.savingsText}>Save 40%</Text>
-            </View>
-            <View style={styles.priceBadge}>
-              <Text style={styles.priceText}>$5.99</Text>
-              <Text style={styles.priceUnit}>/mo</Text>
+              <Text style={styles.pricingTitle}>Purchases are not available yet</Text>
+              <Text style={styles.savingsText}>Your current access is kept up to date securely.</Text>
             </View>
           </View>
         </Animated.View>
@@ -113,21 +99,18 @@ export default function PremiumScreen() {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) + (Platform.OS === 'web' ? 34 : 0) }]}>
-        <Pressable
-          style={[styles.upgradeButton, isPremium && styles.downgradeButton]}
-          onPress={handleUpgrade}
-        >
+        <View style={[styles.upgradeButton, isPremium && styles.downgradeButton]}>
           {isPremium ? (
-            <Text style={[styles.upgradeText, { color: Colors.textSecondary }]}>Downgrade to Free</Text>
+            <Text style={[styles.upgradeText, { color: Colors.textSecondary }]}>Premium membership active</Text>
           ) : (
             <>
               <Ionicons name="star" size={20} color={Colors.white} />
-              <Text style={styles.upgradeText}>Upgrade to Premium</Text>
+              <Text style={styles.upgradeText}>Premium subscriptions are coming soon</Text>
             </>
           )}
-        </Pressable>
+        </View>
         {!isPremium && (
-          <Text style={styles.disclaimer}>Cancel anytime. No commitments.</Text>
+          <Text style={styles.disclaimer}>We’ll let you know when subscriptions are available.</Text>
         )}
       </View>
     </View>

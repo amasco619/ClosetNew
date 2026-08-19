@@ -784,12 +784,6 @@ export async function classifyGarment(req: Request, res: Response) {
       });
     }
 
-    if (userId) {
-      console.log(`[classify] user=${userId} → ${(result as ClassificationResult).subType ?? "unknown"} (${(result as ClassificationResult).colorFamily}) conf=${((result as ClassificationResult).modelConfidence ?? 0).toFixed(2)}`);
-    } else {
-      console.log(`[classify] → ${(result as ClassificationResult).subType ?? "unknown"} (${(result as ClassificationResult).colorFamily}) conf=${((result as ClassificationResult).modelConfidence ?? 0).toFixed(2)}`);
-    }
-
     return res.json(result);
   } catch (err: any) {
     const status = err?.response?.status;

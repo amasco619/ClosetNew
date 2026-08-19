@@ -20,6 +20,7 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
 import request from "supertest";
+import axios from "axios";
 import { classifyGarment } from "../server/classify-garment";
 import { LIMITER_CONFIGS, makeLimiterHandler } from "../server/middleware/rateLimiter";
 
@@ -154,6 +155,53 @@ function buildLimitedApp(): express.Application {
       Object.prototype.hasOwnProperty.call(res.body, "error"),
       "400 response body has 'error' property",
     );
+  }
+
+  section("successful classification does not log user-linked garment attributes");
+  {
+    const savedKey = process.env.GEMINI_API_KEY;
+    const savedPost = axios.post;
+    const savedLog = console.log;
+    const logs: string[] = [];
+    process.env.GEMINI_API_KEY = "test-key";
+    axios.post = (async () => ({
+      data: {
+        candidates: [{
+          content: {
+            parts: [{
+              text: JSON.stringify({
+                category: "tops",
+                subType: "t-shirt",
+                colorFamily: "navy",
+                displayName: "Navy T-shirt",
+                fabric: "cotton",
+                weight: "light",
+                pattern: "solid",
+                dominantRgb: [26, 42, 74],
+                modelConfidence: 0.91,
+              }),
+            }],
+          },
+        }],
+      },
+    })) as typeof axios.post;
+    console.log = (...args: unknown[]) => { logs.push(args.join(" ")); };
+
+    try {
+      const res = await request(buildApp())
+        .post("/api/classify-garment")
+        .send({ imageBase64: "dGVzdA==", userId: "sensitive-user-id" });
+      assert(res.status === 200, `successful classification returns 200 (got ${res.status})`);
+      const successLogs = logs.join("\n");
+      assert(!successLogs.includes("sensitive-user-id"), "success logs contain no user ID");
+      assert(!successLogs.includes("navy") && !successLogs.includes("t-shirt") && !successLogs.includes("0.91"),
+        "success logs contain no garment subtype, colour, or confidence");
+    } finally {
+      console.log = savedLog;
+      axios.post = savedPost;
+      if (savedKey === undefined) delete process.env.GEMINI_API_KEY;
+      else process.env.GEMINI_API_KEY = savedKey;
+    }
   }
 
   // ── Summary ────────────────────────────────────────────────────────────────
