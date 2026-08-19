@@ -1,0 +1,427 @@
+PHASE 5C.2 — NATIVE PRODUCTION FOUNDATION & IDENTITY READINESS
+Objective
+
+Prepare Amodka for genuine production iOS and Android builds and establish a production-safe authentication/deep-link foundation.
+
+The following work has already been completed:
+
+Recommendation Engine v3.7 is frozen.
+Phase 5B.1 RLS/storage security validation: 40/40 PASS.
+Service-role account deletion: 9/9 PASS.
+Server-authoritative entitlement foundation implemented.
+Client-callable /api/user/upgrade-premium removed.
+Local premium manipulation cannot grant premium.
+Expired premium cannot bypass PhotoRoom limits.
+Privacy-sensitive garment classification success logging removed.
+npm test passes.
+TypeScript passes.
+Lint has 0 errors.
+CRITICAL SCOPE RULE
+
+This phase is about native production infrastructure and identity.
+
+Do NOT implement:
+
+RevenueCat
+Apple/Google payments
+subscription billing
+payment webhooks
+push notifications
+Virtual Try-On
+Packing Assistant
+recommendation-engine scoring changes
+Recommendation Engine v3.7 changes
+cold/rain wardrobe-gap intelligence
+major visual redesign
+
+Do not modify recommendation weights, ranking logic, constraints or candidate-generation behaviour.
+
+Do not weaken existing RLS or Storage security.
+
+Do not create unnecessary database migrations.
+
+Do not deploy to production.
+
+If a required manual configuration must be performed by the Product Owner, STOP and report it clearly rather than inventing credentials or configuration.
+
+TRACK A — EXPO / EAS PRODUCTION FOUNDATION
+
+Audit and prepare the project for native builds.
+
+Determine:
+
+Expo SDK version
+React Native version
+Expo Router version
+existing app.json / app.config.*
+existing eas.json
+iOS bundle identifier
+Android package identifier
+URL schemes
+associated domains/universal links if present
+Android intent filters if present
+native modules
+plugins
+build profiles
+environment variables
+
+Establish the intended production identifiers:
+
+iOS: com.amodka.app
+Android: com.amodka.app
+
+BUT do not change identifiers blindly.
+
+First determine the identifiers currently configured and report whether changing them would affect:
+
+existing OAuth configuration;
+Supabase;
+Apple Sign-In;
+Google Sign-In;
+existing installed builds;
+AsyncStorage;
+push notification configuration;
+App Store/TestFlight;
+Google Play.
+
+If the current identifiers differ, report the migration implications before modifying them.
+
+TRACK B — GOOGLE AUTHENTICATION
+
+Audit the complete Google authentication flow.
+
+The current development behaviour is:
+
+user selects "Continue with Google";
+Google authentication succeeds;
+browser/in-app browser remains open;
+user is not automatically returned to the Expo application.
+
+Do not assume this is a production failure.
+
+Determine whether this is caused by Expo development URI handling versus the production native callback configuration.
+
+Trace:
+
+Amodka
+↓
+Google OAuth
+↓
+Supabase Auth
+↓
+callback
+↓
+native deep link
+↓
+Amodka
+
+Verify:
+
+Supabase redirect configuration;
+Google OAuth redirect configuration;
+Expo development URI;
+production Amodka URI;
+URL scheme;
+Linking / Expo Router handling;
+session exchange;
+token persistence;
+cold-start callback;
+warm-app callback;
+browser cancellation;
+authentication failure.
+
+The production target is:
+
+User selects Continue with Google.
+Google account chooser appears where appropriate.
+User authenticates.
+Google/Supabase completes authentication.
+Native callback launches/returns to Amodka automatically.
+Session is persisted.
+User lands in the correct authenticated screen.
+
+Do not fake this behaviour in development.
+
+If a real standalone/native build is required to validate it, identify that explicitly.
+
+TRACK C — APPLE SIGN-IN
+
+Audit the current Apple authentication implementation.
+
+Determine whether Apple Sign-In is:
+
+absent;
+partially implemented;
+browser OAuth;
+native;
+production configured;
+development configured.
+
+Establish the production architecture required for iOS.
+
+Verify:
+
+Apple Developer capability;
+App ID;
+Sign in with Apple configuration;
+Supabase configuration;
+redirect handling;
+native entitlement requirements;
+Expo plugin/configuration requirements;
+private relay email behaviour;
+first-login name/email behaviour;
+account linking;
+returning users;
+logout/login.
+
+Do not create Apple credentials.
+
+Do not invent Team IDs, Key IDs, Services IDs, private keys or redirect URLs.
+
+Report every manual Apple Developer/Supabase action required.
+
+TRACK D — LEGACY AURACLOSET OAUTH SAFETY
+
+Before removing:
+
+auracloset://
+com.auracloset
+
+determine whether any supported existing build still uses them.
+
+The Product Owner will provide the current App Store / TestFlight / Google Play status of the legacy AuraCloset application.
+
+If legacy builds remain supported:
+
+preserve compatibility;
+do not break their authentication;
+implement a controlled migration.
+
+If no supported legacy build exists:
+
+remove obsolete AuraCloset callback handling;
+update documentation/configuration;
+ensure Amodka callback remains correct.
+
+Do not remove legacy callbacks solely because they appear obsolete in source code.
+
+TRACK E — AMODKA BRAND / IDENTIFIER MIGRATION
+
+Audit every occurrence of:
+
+AuraCloset
+auracloset
+com.auracloset
+auracloset://
+@auracloset_
+
+Categorise each occurrence:
+
+user-facing branding;
+application identifier;
+OAuth/deep-link identifier;
+persistent storage key;
+database identifier;
+analytics identifier;
+test fixture;
+documentation;
+historical migration compatibility.
+
+Do not blindly rename database fields or persistent keys.
+
+For every persistent key, determine whether a migration is required.
+
+Specifically inspect:
+
+@auracloset_
+@amodka_
+
+If a safe migration is required, report it separately.
+
+Do not silently delete existing user preferences.
+
+TRACK F — ENVIRONMENT SEPARATION
+
+Establish a clear distinction between:
+
+Development
+Staging
+Production
+
+Audit every environment variable and classify:
+
+Variable	Mobile-safe?	Server-only?	Development	Production
+
+Never move server secrets into an Expo/mobile .env merely because Android builds need them.
+
+Specifically audit:
+
+Supabase publishable/anon key;
+Supabase secret/service key;
+Gemini;
+PhotoRoom;
+OAuth credentials;
+Apple credentials;
+future RevenueCat credentials;
+weather APIs;
+telemetry.
+
+Identify anything that would be bundled into the mobile binary.
+
+TRACK G — NATIVE DEEP-LINK TEST PLAN
+
+Define explicit tests for:
+
+iOS
+cold-start Google login;
+warm-app Google login;
+cold-start Apple login;
+warm-app Apple login;
+logout/login;
+cancelled authentication;
+invalid callback;
+expired callback.
+Android
+cold-start Google login;
+warm-app Google login;
+logout/login;
+cancelled authentication;
+invalid callback;
+expired callback.
+
+Clearly distinguish:
+
+Code-level tests
+
+from:
+
+Tests requiring a real native build/device.
+
+Do not claim production OAuth works solely because a browser test succeeds.
+
+TRACK H — PRODUCTION BUILD READINESS
+
+Determine whether the project can currently produce:
+
+iOS development build;
+iOS preview/TestFlight build;
+Android development build;
+Android internal-testing build.
+
+Identify blockers.
+
+Check:
+
+signing;
+bundle/package IDs;
+native plugins;
+assets;
+icons;
+splash configuration;
+permissions;
+privacy configuration;
+environment variables;
+build profiles.
+
+Do not submit builds to either store.
+
+TRACK I — MANUAL PRODUCT OWNER ACTIONS
+
+Create:
+
+MANUAL ACTIONS REQUIRED
+
+Assume the Product Owner is not a developer.
+
+For every manual action provide:
+
+Platform.
+Website/dashboard.
+Exact navigation path.
+What to click.
+What value/configuration to enter.
+What not to change.
+Expected result.
+What screenshot/value/result to send back.
+
+Potential platforms:
+
+Expo/EAS;
+Apple Developer;
+App Store Connect;
+Google Cloud Console;
+Google Play Console;
+Supabase;
+Replit.
+
+Only include actions that are genuinely required.
+
+TRACK J — VERIFICATION
+
+At the end run:
+
+npm test
+npm run typecheck
+npm run lint
+
+Report exact results.
+
+Also report:
+
+files changed;
+files not changed;
+migrations created;
+migrations executed;
+production deployment performed;
+recommendation-engine files modified;
+secrets changed;
+native configuration changed.
+FINAL REPORT
+
+Return:
+
+1. What was implemented
+2. What was intentionally not implemented
+3. Native build blockers
+4. Google authentication blockers
+5. Apple authentication blockers
+6. Legacy AuraCloset compatibility status
+7. Environment/secrets findings
+8. Manual Product Owner actions
+9. Test results
+10. Files changed
+11. Remaining P0/P1 risks
+12. Recommended next phase
+
+Do not proceed beyond the approved scope.
+
+STOP after the audit/implementation and wait for Product Owner approval before any production deployment or payment integration.
+
+END PHASE 5C.2
+
+PRODUCT OWNER — AUTHORITATIVE LEGACY AURACLOSET DECISION
+
+This information is authoritative for Track D of this phase.
+
+AuraCloset has never been publicly released.
+
+There have been no external users.
+
+The only users and wardrobe images currently in Supabase were created/uploaded by the Product Owner during development testing.
+
+No third party has ever had access to the application.
+
+There are therefore no legacy production users, customers, or publicly distributed AuraCloset builds that require backward compatibility.
+
+Accordingly:
+
+You may safely retire the legacy auracloset:// OAuth callback.
+You may remove obsolete com.auracloset application identifiers where they are no longer required.
+You may migrate persistent @auracloset_* AsyncStorage keys to @amodka_*.
+Do not simply delete old AsyncStorage keys; perform a safe one-time migration where applicable so development/test preferences are not unnecessarily lost.
+Establish the current Amodka identifiers and OAuth/deep-link configuration correctly before removing the old configuration.
+Do not delete or modify the existing Supabase test users or wardrobe data as part of this task.
+
+Treat this decision as the Product Owner's approval to perform the AuraCloset → Amodka compatibility cleanup within the scope defined by Phase 5C.2.
+
+This does not constitute approval to deploy the application to production or submit it to either app store.
