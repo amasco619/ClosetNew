@@ -1,0 +1,581 @@
+PHASE 5C.3 — NIGERIA/AFRICA FASHION INTELLIGENCE
+Track A — Discovery, Capability Audit & Gold-Standard Benchmark v1
+Objective
+
+AuraCloset/Amodka's initial commercial market will be Nigeria and wider Africa, followed subsequently by the UK and global markets.
+
+The objective of this phase is not to modify the Recommendation Engine yet.
+
+The objective is to establish, with evidence:
+
+Can the existing Amodka recommendation pipeline correctly understand, classify, generate, constrain, score and rank Nigerian/African fashion?
+
+We must determine where the existing system succeeds and where it fails before changing production recommendation behaviour.
+
+CRITICAL RULE — NO RECOMMENDATION ENGINE CHANGES
+
+Recommendation Engine v3.7 is frozen.
+
+Do NOT:
+
+change scoring weights;
+change ranking logic;
+change candidate-generation logic;
+change constraints;
+add African-specific score bonuses;
+add Ankara-specific penalties/bonuses;
+change body-proportion scoring;
+change material scoring;
+change pattern-safety scoring;
+change weather scoring;
+change occasion scoring;
+modify the existing golden regression set;
+modify production recommendation behaviour.
+
+Do NOT create a "Nigeria mode" that changes recommendation behaviour.
+
+Do NOT hard-code:
+
+Ankara = traditional
+African = traditional
+African print = unsuitable for modern outfits
+
+or any equivalent assumption.
+
+The purpose is to discover whether such assumptions exist and whether they are actually harmful.
+
+PART 1 — TRACE THE CURRENT PIPELINE
+
+Audit the complete journey of a garment:
+
+Image upload
+      ↓
+Background removal
+      ↓
+Garment classification
+      ↓
+Garment taxonomy
+      ↓
+Metadata extraction
+      ↓
+Wardrobe storage
+      ↓
+Candidate generation
+      ↓
+Hard constraints
+      ↓
+Quality scoring
+      ↓
+Ranking
+      ↓
+Final recommendation
+
+For every stage identify:
+
+What information is currently extracted.
+What information is lost.
+What information is represented.
+What information is unavailable to the recommendation engine.
+Whether African/Nigerian garments can currently be represented without schema changes.
+Whether any current classification/category assumptions implicitly favour Western clothing.
+PART 2 — CURRENT TAXONOMY AUDIT
+
+Audit the existing garment taxonomy.
+
+Determine whether the current model/schema can represent at least:
+
+Core African garments
+Ankara / African wax print
+lace
+aso-ebi
+aso-oke
+agbada
+kaftan
+senator/native wear
+brocade
+boubou
+iro
+buba
+wrapper
+gele
+traditional/event garments
+contemporary African garments
+African-Western fusion garments
+
+Do not automatically assume every item requires a new garment type.
+
+For each category determine:
+
+Category	Existing representation	Adequate?	Problem	Proposed solution
+
+Possible solutions may include:
+
+existing garment category;
+existing pattern/material attribute;
+new metadata;
+new taxonomy value;
+cultural-context metadata;
+no change required.
+
+Do not implement the proposed solutions yet.
+
+PART 3 — ANKARA / AFRICAN WAX PRINT AUDIT
+
+This is a priority area.
+
+Determine how the current system handles:
+
+Ankara as a fabric/print
+
+rather than treating it as a garment category.
+
+Test combinations such as:
+
+Ankara top + plain trousers
+Ankara trousers + plain shirt
+Ankara dress
+Ankara blazer
+Ankara skirt
+Ankara two-piece
+Ankara + lace
+Ankara + denim
+Ankara + neutral accessories
+heavily patterned Ankara + patterned garment
+Ankara + solid black
+Ankara + solid white
+tonal Ankara combinations
+complementary-colour combinations
+
+The question is:
+
+Does the engine understand pattern scale, visual weight, colour harmony and outfit balance, or does its existing pattern-safety logic simply penalise African prints?
+
+This is particularly important because Phase 3.4 previously identified a pattern-related weakness:
+
+hero-pattern + solid-ground could be incorrectly penalised.
+
+Determine whether that weakness materially affects African wax-print styling.
+
+PART 4 — OCCASION INTELLIGENCE
+
+Construct a Nigerian/African occasion benchmark.
+
+At minimum:
+
+Weddings
+guest
+traditional wedding
+formal reception
+aso-ebi
+contemporary wedding guest
+Church
+Sunday church
+formal church event
+church celebration
+Cultural/social
+naming ceremony
+birthday celebration
+family event
+cultural event
+traditional ceremony
+Professional
+office
+business meeting
+corporate event
+smart casual
+Casual
+weekend
+brunch
+casual outing
+date
+everyday wear
+
+Determine whether the existing occasion model can represent these without incorrectly categorising them as generic "formal" or "traditional."
+
+PART 5 — CLIMATE INTELLIGENCE
+
+Nigeria/Africa must not be treated as a single climate.
+
+Benchmark at minimum:
+
+hot/dry
+hot/humid
+heavy rain
+rainy season
+cooler evening
+indoor air-conditioned environment
+
+Determine whether the existing weather/season model can make sensible decisions for these scenarios.
+
+Do not modify weather logic yet.
+
+PART 6 — CULTURAL VS FASHION CONTEXT
+
+This is a critical product requirement.
+
+The system must distinguish:
+
+cultural relevance
+
+from:
+
+fashion compatibility.
+
+For example:
+
+Ankara does not automatically mean:
+
+"traditional occasion only."
+
+A modern Ankara blazer may be appropriate for:
+
+smart casual;
+business creative;
+dinner;
+contemporary event.
+
+Likewise, an agbada may be completely inappropriate for ordinary office wear even though the garment itself is high quality.
+
+Evaluate whether the current engine has sufficient contextual information to make this distinction.
+
+PART 7 — AFRICAN FASHION GOLD-STANDARD DATASET
+
+Create a controlled benchmark.
+
+Target:
+
+Minimum 100 wardrobe/outfit scenarios
+
+Preferably:
+
+40 garment understanding cases
+30 outfit compatibility cases
+20 occasion cases
+10 weather/context cases
+
+If the existing infrastructure makes 100 difficult, explain why and create the largest defensible benchmark possible.
+
+Each scenario must contain:
+
+Scenario ID
+Garments
+Garment attributes
+Cultural context
+Occasion
+Weather
+Expected compatibility
+Expected ranking
+Reasoning
+
+The benchmark must be externally scored before the engine is run, exactly as we did in Phase 3.4.
+
+This is essential for preventing evaluation bias.
+
+PART 8 — COMPETITIVE OUTFIT SETS
+
+Create competitive sets where several outfits are technically viable but one is clearly superior.
+
+Example:
+
+Scenario:
+Nigerian wedding guest
+Hot/humid
+Evening
+
+
+Candidate A:
+Ankara statement outfit + neutral accessories
+
+
+Candidate B:
+Ankara + competing heavy pattern
+
+
+Candidate C:
+Plain western outfit
+
+
+Candidate D:
+Traditional formal outfit
+
+
+Gold-standard:
+A
+
+The purpose is to determine whether Amodka can distinguish:
+
+"valid"
+
+from:
+
+"exceptional."
+
+This preserves the philosophy of Phase 3.3B.
+
+PART 9 — ADVERSARIAL TESTS
+
+Create adversarial tests specifically targeting likely African-fashion failure modes.
+
+Examples:
+
+Pattern overload
+
+Ankara + Ankara + heavily patterned accessory.
+
+Pattern suppression
+
+Ankara + plain neutral ground.
+
+The system should not automatically punish the second simply because it contains a print.
+
+Cultural mismatch
+
+Beautiful agbada selected for ordinary office use.
+
+Occasion mismatch
+
+Ankara casual outfit selected for a black-tie event.
+
+Over-formalisation
+
+Traditional garments ranked above more appropriate contemporary outfits simply because they score highly on "formality."
+
+Western-default bias
+
+Plain Western outfit consistently outranking culturally appropriate African outfit without a legitimate styling reason.
+
+Material bias
+
+Luxury material/completeness score overpowering cultural/occasion suitability.
+
+Weather mismatch
+
+Heavy traditional outfit recommended during extreme heat when a lighter appropriate alternative exists.
+
+PART 10 — MEASURE THE EXISTING ENGINE
+
+Run the existing v3.7 engine against the benchmark.
+
+Calculate, where applicable:
+
+Top-1 accuracy
+Top-3 capture
+Pairwise accuracy
+Mean regret
+Median regret
+Maximum regret
+Kendall's τ
+hard-constraint violations
+fallback activations
+
+Also provide category-specific metrics:
+
+Category	Top-1	Top-3	Regret	Main failure
+Ankara				
+Traditional wear				
+Weddings				
+Church				
+Native wear				
+African-Western fusion				
+Hot/humid				
+Rainy				
+
+Do not average away important failures.
+
+PART 11 — COMPARE AGAINST EXISTING GOLDEN SET
+
+This is mandatory.
+
+Run the existing production golden regression suite.
+
+The African benchmark must be additive.
+
+Do not replace the existing benchmark with the African benchmark.
+
+Report:
+
+Existing v3.7 benchmark:
+before
+after
+
+
+African benchmark:
+before
+after
+
+There must be zero unexplained regression in the existing benchmark.
+
+PART 12 — IDENTIFY SYSTEMATIC BIASES
+
+Specifically investigate:
+
+Western-fashion bias
+
+Does the engine systematically prefer Western clothing?
+
+Pattern bias
+
+Does it penalise African prints unnecessarily?
+
+Formality bias
+
+Does it confuse "traditional" with "formal"?
+
+Material bias
+
+Does expensive/luxurious material overwhelm contextual appropriateness?
+
+Completeness bias
+
+Does completeness overwhelm cultural/occasion suitability?
+
+Silhouette bias
+
+Does the current silhouette logic behave differently for African garments?
+
+Cultural-context blindness
+
+Does the engine lack enough context to understand why a garment is appropriate?
+
+Every finding must include evidence.
+
+Do not label something a bias merely because one scenario produced an undesirable result.
+
+PART 13 — DO NOT FIX YET
+
+At the end classify every problem into:
+
+A — No change required
+
+The existing engine already handles it.
+
+B — Taxonomy/data representation problem
+
+The engine cannot reason about information it never receives.
+
+C — Candidate-generation problem
+
+Valid African combinations are never generated.
+
+D — Constraint problem
+
+Valid combinations are eliminated.
+
+E — Ranking problem
+
+Good combinations are generated but ranked incorrectly.
+
+F — Classification problem
+
+Garments are being incorrectly classified.
+
+G — External AI limitation
+
+The problem originates in image/garment analysis rather than recommendation logic.
+
+This classification is extremely important.
+
+PART 14 — PROPOSE HYPOTHESES
+
+For each systematic failure, provide:
+
+Hypothesis
+Evidence
+Affected users
+Expected benefit
+Risk of changing existing behaviour
+Proposed experiment
+Success metric
+Regression risk
+
+Do not implement the experiment yet.
+
+PART 15 — FASH API
+
+Do NOT implement Virtual Try-On in this phase.
+
+Record the architectural constraint:
+
+Amodka will use FASH API for Virtual Try-On rather than building its own VTO system.
+
+Do not add FASH API code, credentials or dependencies during 5C.3.
+
+PART 16 — PRODUCTION SAFETY
+
+Do not modify:
+
+production scoring;
+ranking weights;
+recommendation version;
+RLS;
+Storage;
+entitlements;
+authentication;
+payment;
+production secrets.
+
+No production deployment.
+
+No database migration unless explicitly approved later.
+
+PART 17 — TEST INTEGRITY
+
+All external/Gold-standard scores must be assigned before running the engine.
+
+The benchmark must prevent:
+
+score leakage;
+engine output influencing gold scores;
+cherry-picking;
+post-hoc candidate removal;
+changing the expected answer after seeing the engine result.
+
+Document who/what assigned each expected ranking and when.
+
+FINAL REPORT
+
+Return a professionally structured report:
+
+1. Executive Summary
+2. Current African-Fashion Capability
+3. Existing Taxonomy Audit
+4. Ankara / African Wax Print Analysis
+5. Occasion Analysis
+6. Climate Analysis
+7. Cultural Context Analysis
+8. Benchmark Dataset
+9. Competitive Sets
+10. Adversarial Tests
+11. v3.7 Results
+12. Category-Level Metrics
+13. Existing Golden-Set Regression
+14. Systematic Failure Modes
+15. Western/Cultural Bias Assessment
+16. Classification vs Candidate Generation vs Ranking Diagnosis
+17. Proposed Hypotheses
+18. Recommended Changes — NOT IMPLEMENTED
+19. Recommended Next Track
+20. Files Created/Modified
+21. Tests
+22. Production-Safety Confirmation
+STOP CONDITION
+
+STOP after the benchmark/audit.
+
+Do not implement recommendation-engine changes.
+
+Do not modify v3.7.
+
+Do not create production migrations.
+
+Do not deploy.
+
+Do not integrate FASH API.
+
+Return the complete report for Product Owner review.
+
+The next phase will only be authorised after we see the evidence and decide whether the appropriate intervention is:
+
+taxonomy → classification → candidate generation → constraints → ranking → or no change.
+
+END PHASE 5C.3 — TRACK A

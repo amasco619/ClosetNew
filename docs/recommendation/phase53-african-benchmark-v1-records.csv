@@ -1,0 +1,25 @@
+scenario_id,block,fixture_ids,occasion,weather,rank_1_utility_fingerprint,rank_2_utility_fingerprint,rank_3_utility_fingerprint,label_author,label_date,reviewer_signoff,rationale
+GU-01,garment-understanding,AT1|BT1|SH1|BG1,work,32C-dry,1:100:AT1|BT1|SH1,2:55:AT1|BT2|SH1,3:10:AT2|BT2|SH1,Amodka-rubric-v1,2026-08-19,UNSIGNED,large wax-print top needs neutral ground
+GU-02,garment-understanding,AT2|BT1|SH1|BG1,casual,32C-dry,1:100:AT2|BT1|SH1,2:50:AT2|BT2|SH1,3:10:AT1|BT2|SH1,Amodka-rubric-v1,2026-08-19,UNSIGNED,wax-print trouser needs solid top
+GU-03,garment-understanding,AT3|SH2|BG2,wedding,28C-dry,1:100:AT3|SH2|BG2,2:45:AT4|SH2|BG2,3:10:AT5|SH1|BG1,Amodka-rubric-v1,2026-08-19,UNSIGNED,Ankara dress is valid ceremony hero
+GU-04,garment-understanding,AT4|SH2|BG2,traditional-event,28C-dry,1:100:AT4|SH2|BG2,2:55:AT3|SH2|BG2,3:15:AT5|SH1|BG1,Amodka-rubric-v1,2026-08-19,UNSIGNED,lace ceremony dress should remain visible
+GU-05,garment-understanding,AT5|SH2|BG2,traditional-event,29C-dry,1:100:AT5|SH2|BG2,2:60:AT4|SH2|BG2,3:20:AT3|SH2|BG2,Amodka-rubric-v1,2026-08-19,UNSIGNED,kaftan maps to current taxonomy
+GU-06,garment-understanding,AT6|BT1|SH1|BG1,brunch,31C-dry,1:100:AT6|BT1|SH1,2:50:AT6|BT2|SH1,3:15:AT1|BT2|SH1,Amodka-rubric-v1,2026-08-19,UNSIGNED,Ankara blazer can be contemporary
+GU-07,garment-understanding,AT7|BT1|SH1|BG1,event,29C-dry,1:100:AT7|BT1|SH1,2:45:AT7|BT2|SH1,3:10:AT1|BT2|SH1,Amodka-rubric-v1,2026-08-19,UNSIGNED,aso-oke proxy tests woven-data loss
+GU-08,garment-understanding,AT8|BT1|SH2|BG2,traditional-event,28C-dry,1:100:AT8|BT1|SH2,2:55:AT5|SH2|BG2,3:10:AT4|SH2|BG2,Amodka-rubric-v1,2026-08-19,UNSIGNED,boubou proxy tests silhouette loss
+GU-09,garment-understanding,AT9|BT1|SH1|BG1,casual,33C-dry,1:100:AT9|BT1|SH1,2:50:AT1|BT1|SH1,3:20:AT2|BT1|SH1,Amodka-rubric-v1,2026-08-19,UNSIGNED,buba-wrapper representation
+GU-10,garment-understanding,AT10|BT1|SH2|BG2,traditional-event,28C-dry,1:90:AT10|BT1|SH2,2:60:AT5|SH2|BG2,3:10:AT4|SH2|BG2,Amodka-rubric-v1,2026-08-19,UNSIGNED,agbada proxy expected taxonomy miss
+OC-01,outfit-compatibility,AT1|BT1|BT2|SH1,work,31C-dry,1:100:AT1|BT1|SH1,2:20:AT1|BT2|SH1,3:10:AT2|BT2|SH1,Amodka-rubric-v1,2026-08-19,UNSIGNED,one large print beats competing pattern
+OC-02,outfit-compatibility,AT1|BT1|BT2|SH1,brunch,31C-dry,1:100:AT1|BT1|SH1,2:25:AT1|BT2|SH1,3:10:AT2|BT1|SH1,Amodka-rubric-v1,2026-08-19,UNSIGNED,hero pattern with neutral canvas
+OC-03,outfit-compatibility,AT2|BT1|BT2|SH1,date-dressy,29C-dry,1:100:AT2|BT1|SH1,2:25:AT2|BT2|SH1,3:10:AT1|BT1|SH1,Amodka-rubric-v1,2026-08-19,UNSIGNED,print trouser fusion
+OC-04,outfit-compatibility,AT6|BT1|BT2|SH1,work,22C-indoor,1:100:AT6|BT1|SH1,2:35:AT6|BT2|SH1,3:15:AT1|BT1|SH1,Amodka-rubric-v1,2026-08-19,UNSIGNED,African blazer business-creative
+OC-05,outfit-compatibility,AT3|SH1|SH2|BG2,event,29C-dry,1:100:AT3|SH2|BG2,2:30:AT3|SH1|BG2,3:10:AT4|SH2|BG2,Amodka-rubric-v1,2026-08-19,UNSIGNED,formal accessories matter
+OA-01,occasion,AT5|AT4|AT3|SH2|BG2,traditional-event,28C-dry,1:100:AT5|SH2|BG2,2:80:AT4|SH2|BG2,3:60:AT3|SH2|BG2,Amodka-rubric-v1,2026-08-19,UNSIGNED,traditional wedding differs from generic formal
+OA-02,occasion,AT5|AT4|AT3|SH2|BG2,wedding,28C-dry,1:100:AT4|SH2|BG2,2:85:AT3|SH2|BG2,3:75:AT5|SH2|BG2,Amodka-rubric-v1,2026-08-19,UNSIGNED,formal reception comparison
+OA-03,occasion,AT9|BT1|AT5|SH2|BG2,traditional-event,30C-dry,1:100:AT9|BT1|SH2,2:80:AT5|SH2|BG2,3:20:AT1|BT1|SH1,Amodka-rubric-v1,2026-08-19,UNSIGNED,naming ceremony
+OA-04,occasion,AT9|BT1|AT6|SH1|BG1,event,31C-dry,1:100:AT9|BT1|SH1,2:75:AT6|BT1|SH1,3:20:AT5|SH2|BG2,Amodka-rubric-v1,2026-08-19,UNSIGNED,Sunday church
+OA-05,occasion,AT6|BT1|AT10|SH1|BG1,work,22C-indoor,1:100:AT6|BT1|SH1,2:70:AT1|BT1|SH1,3:5:AT10|BT1|SH1,Amodka-rubric-v1,2026-08-19,UNSIGNED,ceremonial wear is not ordinary office wear
+WX-01,weather,AT1|BT1|SH3|SH1|BG3|BG1,casual,28C-rain90,1:100:AT1|BT1|SH1,2:80:AT2|BT1|SH1,3:0:AT1|BT1|SH3,Amodka-rubric-v1,2026-08-19,UNSIGNED,rain blocks sandals and wicker
+WX-02,weather,AT3|SH3|SH2|BG3|BG2,wedding,28C-rain90,1:100:AT3|SH2|BG2,2:80:AT4|SH2|BG2,3:0:AT3|SH3|BG3,Amodka-rubric-v1,2026-08-19,UNSIGNED,rain-safe ceremony look
+WX-03,weather,AT6|BT1|SH1|AT11,work,20C-dry,1:100:AT6|BT1|SH1,2:90:AT11|AT6|BT1|SH1,3:60:AT1|BT1|SH1,Amodka-rubric-v1,2026-08-19,UNSIGNED,20C is optional not required outerwear
+WX-04,weather,AT9|BT1|SH1|AT11,casual,33C-dry,1:100:AT9|BT1|SH1,2:40:AT11|AT9|BT1|SH1,3:20:AT1|BT1|SH1,Amodka-rubric-v1,2026-08-19,UNSIGNED,hot dry suppresses outerwear
