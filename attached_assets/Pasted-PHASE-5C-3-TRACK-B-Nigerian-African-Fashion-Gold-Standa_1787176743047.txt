@@ -1,0 +1,749 @@
+PHASE 5C.3 — TRACK B
+Nigerian/African Fashion Gold-Standard Dataset Construction & Independent Validation
+Context
+
+Track A — Nigeria/Africa Fashion Intelligence Capability Audit — is complete.
+
+The audit concluded that Amodka's frozen Recommendation Engine v3.7 has a meaningful existing foundation for Nigerian/African fashion, but it is not yet defensible to claim Nigeria/Africa-ready recommendation or classification because we do not yet have independently authored Nigerian-fashion gold labels and a properly labelled image set.
+
+The audit also identified several hypotheses requiring empirical validation:
+
+missing cultural/occasion context;
+scale-sensitive wax-print visual hierarchy;
+coordinated Ankara/two-piece identity;
+Nigerian climate/season modelling;
+representation limitations for agbada, boubou, gele, aso-oke and related garments.
+
+The benchmark protocol already defines 100 cases:
+
+40 garment-understanding cases;
+30 outfit-compatibility/competitive-set cases;
+20 occasion cases;
+10 weather/context cases.
+CRITICAL RULE — NO PRODUCTION ENGINE CHANGES
+
+Recommendation Engine v3.7 remains frozen.
+
+Do NOT modify:
+
+scoring weights;
+ranking logic;
+candidate generation;
+constraints;
+taxonomy used by production;
+recommendation version;
+production database;
+RLS;
+Storage;
+authentication;
+entitlements;
+payment;
+telemetry;
+FASH API;
+production configuration.
+
+Do not deploy anything.
+
+Do not modify the existing golden regression set.
+
+Do not "improve" the engine based on intuition.
+
+This track is dataset construction and independent validation preparation only.
+
+1. Establish the benchmark governance model
+
+Create a formal benchmark governance document.
+
+It must define:
+
+Gold-standard authority
+
+The expected classification/ranking must come from an independent Nigerian/African fashion reviewer or stylist, not from the coding agent and not from the existing recommendation engine.
+
+The reviewer should have demonstrable familiarity with Nigerian/African fashion.
+
+The reviewer does not need access to source code.
+
+Their job is to answer:
+
+"What would a competent Nigerian/African fashion stylist consider the correct/strongest recommendation in this scenario?"
+
+Independence requirement
+
+The reviewer must assign gold labels before seeing Amodka's output.
+
+The benchmark must therefore be structured as:
+
+Scenario
+      ↓
+Candidate garments/outfits
+      ↓
+Independent stylist assigns gold labels
+      ↓
+Gold labels locked
+      ↓
+Amodka v3.7 runs
+      ↓
+Compare
+
+Never:
+
+Amodka result
+      ↓
+stylist adjusts answer
+2. Create the 100-case benchmark package
+
+Use the protocol from Track A.
+
+Create:
+
+docs/recommendation/africa/
+
+with an appropriate structure.
+
+At minimum create:
+
+benchmark-v1/
+  README.md
+  governance.md
+  scenarios.md
+  gold-label-schema.md
+  classification-cases.md
+  outfit-ranking-cases.md
+  occasion-cases.md
+  weather-cases.md
+  reviewer-instructions.md
+  scoring-rubric.md
+  results-template.md
+
+Do not put private reviewer information into source-controlled files.
+
+3. Define the gold-label schema
+
+The benchmark must distinguish between different types of truth.
+
+A — Garment classification
+
+For each image:
+
+garment category;
+subtype;
+pattern;
+fabric;
+pattern scale;
+colour;
+fit;
+occasion/context;
+confidence;
+culturally relevant attributes;
+reviewer rationale.
+
+Do not force the reviewer to use an Amodka taxonomy value where that taxonomy cannot accurately represent the garment.
+
+Instead record:
+
+gold_label
+
+and separately:
+
+current_amodka_mapping
+
+This is essential.
+
+It allows us to discover whether the problem is:
+
+"The reviewer knows what this is but Amodka cannot represent it."
+
+rather than incorrectly calling it a classifier failure.
+
+4. Distinguish cultural identity from garment type
+
+The dataset must not make:
+
+Ankara = garment type
+
+or:
+
+African = occasion
+
+Instead capture independent dimensions where applicable:
+
+garment_type
+fabric
+pattern
+pattern_scale
+construction
+cultural_context
+occasion
+formality
+visual_weight
+coordination_identity
+gender
+weather_suitability
+
+If a dimension cannot currently be represented by Amodka, record it in the gold dataset anyway.
+
+That missing representation is itself a finding.
+
+5. Gender coverage
+
+Determine the current production target.
+
+If Amodka supports both men and women, the benchmark must contain meaningful representation of both.
+
+Do not create a token men's section.
+
+Include relevant Nigerian/African men's fashion such as:
+
+agbada;
+senator/native wear;
+kaftan;
+boubou;
+contemporary African-Western fusion;
+formal traditional-event dressing.
+
+For women's fashion include, where applicable:
+
+Ankara;
+lace;
+aso-ebi;
+aso-oke;
+buba/iro;
+wrappers;
+kaftans;
+contemporary African fashion;
+African-Western fusion;
+gele/ceremonial accessories.
+
+If the current production application is women-only, document that explicitly and do not create unsupported men's product requirements.
+
+6. Construct the 40 garment-understanding cases
+
+The classification set should intentionally contain difficult examples.
+
+Include representative cases covering:
+
+Ankara / wax print
+small print;
+medium print;
+large print;
+highly contrasting print;
+muted print;
+two-piece/co-ord;
+Ankara blazer;
+Ankara dress;
+Ankara skirt;
+Ankara trousers;
+Ankara top.
+Other materials
+lace;
+aso-oke;
+brocade;
+embellished fabric;
+lightweight traditional fabrics.
+Garments
+agbada;
+senator;
+kaftan;
+boubou;
+buba;
+iro/wrapper;
+contemporary fusion pieces.
+Accessories
+
+Where supported by the product:
+
+gele;
+ceremonial accessories.
+
+Do not artificially force every case into a predefined number.
+
+The goal is representative coverage, not box-ticking.
+
+7. Construct the 30 competitive outfit cases
+
+These are particularly important.
+
+Each case should contain multiple genuinely viable outfits.
+
+The gold reviewer must identify:
+
+acceptable outfits;
+strong outfits;
+best outfit;
+rationale.
+
+Include cases such as:
+
+Nigerian wedding
+Ankara statement look + neutral ground;
+competing patterned look;
+Western formal alternative;
+traditional formal alternative.
+Aso-ebi
+
+Compare:
+
+coordinated aso-ebi styling;
+generic formal styling;
+excessive pattern competition;
+under-dressed styling.
+Church
+
+Compare:
+
+elegant modest African styling;
+overly casual styling;
+overly ceremonial styling;
+visually excessive styling.
+Business
+
+Compare:
+
+African-Western fusion;
+senator/native wear;
+ordinary Western business;
+inappropriate ceremonial wear.
+Casual
+
+Compare:
+
+contemporary Ankara;
+excessive traditional styling;
+Western casual;
+balanced fusion.
+
+The benchmark must test whether Amodka understands context, not whether it merely recognises garments.
+
+8. Construct the 20 occasion cases
+
+Test distinctions that Track A identified as currently missing.
+
+Examples:
+
+Nigerian traditional wedding;
+Western wedding;
+wedding reception;
+aso-ebi participation;
+Sunday church;
+church celebration;
+naming ceremony;
+birthday;
+family gathering;
+cultural ceremony;
+corporate event;
+business meeting;
+creative-business environment;
+brunch;
+date;
+casual weekend.
+
+The reviewer should explicitly state why the expected outfit differs between similar occasions.
+
+9. Construct the 10 weather/context cases
+
+At minimum include:
+
+Lagos hot/humid;
+Lagos heavy rain;
+Abuja hot/dry;
+Abuja rainy;
+Kano hotter/drier conditions;
+Nigerian evening;
+harmattan-like cooler/drier conditions;
+indoor air-conditioned environment;
+UK-transition scenario;
+rain + formal event.
+
+Do not assume that Nigeria has one climate.
+
+The benchmark should test whether clothing suitability changes appropriately with context.
+
+10. Explicit Ankara visual-weight tests
+
+This is a priority.
+
+Create paired cases such as:
+
+Case A
+
+Large Ankara statement piece + solid neutral ground.
+
+Case B
+
+Large Ankara + competing large pattern.
+
+Case C
+
+Medium Ankara + solid ground.
+
+Case D
+
+Small Ankara + solid ground.
+
+Case E
+
+Matching Ankara co-ord.
+
+Case F
+
+Two visually unrelated Ankara pieces.
+
+The reviewer must explicitly score:
+
+visual weight;
+pattern harmony;
+coordination;
+overall balance.
+
+This will tell us whether the existing pattern-safety system is genuinely suitable for African wax print.
+
+11. Test coordinated-set identity
+
+Create cases where:
+
+Ankara top + matching Ankara bottom
+
+competes against:
+
+Ankara top + unrelated bottom
+
+and:
+
+solid top + solid bottom
+
+The reviewer should explicitly state whether the matching set is:
+
+superior;
+equivalent;
+inferior;
+
+and why.
+
+Do not assume that matching always wins.
+
+The purpose is to test whether intentional coordination is being understood.
+
+12. Create adversarial cases
+
+At minimum:
+
+Pattern overload
+
+Multiple competing statement patterns.
+
+Pattern suppression
+
+Strong African print + excellent neutral grounding.
+
+Cultural mismatch
+
+Beautiful traditional garment in an inappropriate context.
+
+Over-formalisation
+
+Traditional garment unnecessarily outranking contemporary styling.
+
+Western-default bias
+
+Western outfit winning despite a culturally appropriate African outfit being clearly superior.
+
+Material dominance
+
+Expensive/luxurious material overwhelming contextual appropriateness.
+
+Completeness dominance
+
+Extra accessories causing an inferior outfit to win.
+
+Weather mismatch
+
+Heavy outfit beating a lighter weather-appropriate option.
+
+13. Gold-label procedure
+
+For every case:
+
+Step 1
+
+Prepare the scenario.
+
+Step 2
+
+Prepare candidate garments/outfits.
+
+Step 3
+
+Give the reviewer the scenario and candidates.
+
+Step 4
+
+Reviewer assigns:
+
+acceptable/not acceptable;
+ranking;
+preferred outfit;
+rationale.
+Step 5
+
+Lock the gold answer.
+
+Step 6
+
+Record reviewer sign-off.
+
+Step 7
+
+Only after the gold answer is locked may Amodka v3.7 be executed.
+
+14. Reviewer scoring rubric
+
+Create a simple, explicit rubric.
+
+For outfit-ranking cases evaluate:
+
+Context suitability
+
+0–5
+
+Cultural appropriateness
+
+0–5
+
+Visual harmony
+
+0–5
+
+Proportion/silhouette
+
+0–5
+
+Pattern/visual-weight balance
+
+0–5
+
+Weather suitability
+
+0–5
+
+Overall styling quality
+
+0–5
+
+However:
+
+Do not automatically convert these into the Amodka score.
+
+They are reviewer evaluation dimensions.
+
+The final gold ranking remains the reviewer's professional judgement.
+
+15. Inter-rater reliability
+
+If practical, recruit a second independent reviewer for a subset of cases.
+
+Target at least:
+
+20% of the benchmark
+
+The second reviewer should independently score those cases before seeing the first reviewer's answers.
+
+Calculate agreement where appropriate.
+
+If reviewers disagree materially, flag the scenario rather than pretending there is an objective answer.
+
+This is particularly important for fashion, where some cases have legitimate stylistic disagreement.
+
+16. Image provenance and rights
+
+For every image record capture:
+
+source;
+licence/permission status;
+whether the image can legally be used for internal testing;
+whether it can be committed to the repository;
+whether it can be shared with the independent reviewer.
+
+Do not download random internet images and place them into the repository without establishing usage rights.
+
+If images cannot legally be stored in the repository, create a secure external/private dataset reference mechanism instead.
+
+Do not put copyrighted third-party images into production.
+
+17. Privacy
+
+Do not use real users' personal wardrobe photographs for this benchmark unless explicit permission has been obtained for benchmark use.
+
+Prefer:
+
+licensed images;
+purpose-created test images;
+synthetic/generated images where appropriate;
+explicitly consented images.
+
+Do not upload benchmark images to third-party AI services simply to create the gold labels.
+
+The gold-label process must remain independent.
+
+18. Benchmark data separation
+
+The engine must never receive:
+
+gold ranking;
+gold score;
+reviewer rationale;
+expected winner.
+
+before its output is recorded.
+
+Maintain:
+
+benchmark-input
+gold-standard
+engine-output
+evaluation
+
+as separate stages/files.
+
+19. Do not run the final benchmark yet if independent labels aren't available
+
+This is important.
+
+If no independent reviewer is currently available, the agent should:
+
+construct the benchmark;
+construct reviewer materials;
+generate the candidate sets;
+generate the gold-label forms;
+stop.
+
+Do not invent gold scores.
+
+Do not run the engine and retrospectively call its output the gold standard.
+
+The Track A report explicitly identified this as an evidence blocker.
+
+20. Existing v3.7 benchmark remains untouched
+
+After gold labels are independently locked, the next track will run:
+
+African benchmark
+        +
+existing v3.7 golden benchmark
+
+The existing benchmark must remain unchanged.
+
+Success requires:
+
+African improvement without unexplained regression elsewhere.
+
+21. Required deliverables
+
+Return:
+
+A. Benchmark governance document
+
+Who can author/approve gold labels.
+
+B. 100-case benchmark
+
+All scenarios fully specified.
+
+C. Reviewer package
+
+A clean package that can be handed to an independent Nigerian/African stylist without exposing engine outputs.
+
+D. Gold-label schema
+
+Machine-readable and human-readable.
+
+E. Scoring rubric
+
+Explicit reviewer instructions.
+
+F. Image provenance register
+
+Source/licensing/permission status.
+
+G. Benchmark execution protocol
+
+How the frozen v3.7 engine will subsequently be evaluated.
+
+H. Coverage matrix
+
+For example:
+
+Capability	Cases
+Ankara	
+Lace	
+Aso-ebi	
+Aso-oke	
+Agbada	
+Senator	
+Kaftan	
+Boubou	
+Church	
+Wedding	
+Naming ceremony	
+Business	
+Hot/humid	
+Rain	
+African-Western fusion	
+22. Tests and production safety
+
+Run:
+
+npm test
+npm run typecheck
+
+If benchmark tooling is added, test it separately.
+
+Confirm:
+
+Recommendation Engine v3.7 unchanged;
+existing golden set unchanged;
+no production migrations;
+no production data modified;
+no production secrets changed;
+no FASH API integration;
+no deployment.
+STOP CONDITION
+
+STOP after Track B dataset construction.
+
+If an independent Nigerian/African reviewer has not yet signed the gold labels:
+
+DO NOT execute the final recommendation benchmark.
+
+Return the completed reviewer-ready package and report exactly what remains for human sign-off.
+
+If the reviewer labels are already available, still do not modify production recommendation behaviour. Report the locked gold set and wait for Product Owner approval before executing v3.7 against it.
+
+Final report structure
+
+Return:
+
+Executive Summary
+Benchmark Governance
+Dataset Architecture
+100-Case Coverage
+Garment Classification Cases
+Competitive Outfit Cases
+Occasion Cases
+Weather/Climate Cases
+Ankara/Wax-Print Cases
+Cultural-Context Cases
+Adversarial Cases
+Reviewer Package
+Gold-Label Schema
+Scoring Rubric
+Image Provenance
+Inter-Rater Plan
+Benchmark Execution Protocol
+Files Created
+Tests
+Production-Safety Confirmation
+Remaining Human Actions
+Recommendation for Track C
+
+END PHASE 5C.3 — TRACK B
