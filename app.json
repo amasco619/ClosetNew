@@ -15,10 +15,11 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.amodka"
+      "bundleIdentifier": "com.amodka.app"
     },
     "android": {
-      "package": "com.amodka",
+      "package": "com.amodka.app",
+      "blockedPermissions": ["android.permission.RECORD_AUDIO"],
       "adaptiveIcon": {
         "backgroundColor": "#F5F3F0",
         "foregroundImage": "./assets/images/icon.png"
@@ -51,7 +52,6 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Amodka uses your location to tailor outfit suggestions to today's weather. You can turn this off anytime in Profile.",
           "locationWhenInUsePermission": "Amodka uses your location to tailor outfit suggestions to today's weather. You can turn this off anytime in Profile."
         }
       ],

@@ -21,8 +21,8 @@
 | **Age rating** | ❌ Not assessed | Must complete Apple's age rating questionnaire. Fashion app likely 4+ or 9+ unless content warrants otherwise. **LEGAL/BUSINESS DECISION REQUIRED.** |
 | **Permissions (camera)** | ✅ Declared | `expo-image-picker` camera permission declared in app.json. Purpose string must be user-readable and accurate. |
 | **Permissions (photo library)** | ✅ Declared | `expo-image-picker` photo library permission declared. Purpose string must be accurate. |
-| **Permissions (location)** | ⚠️ Review needed | `expo-location` foreground permission declared. `locationAlwaysAndWhenInUsePermission` string is declared — **REVIEW: app only uses foreground location; always-permission string should be removed or confirmed unused before submission.** |
-| **Bundle ID** | ✅ Set | `com.amodka` — matches all internal identifiers. Apple Developer Portal App ID must be created under this bundle ID. |
+| **Permissions (location)** | ✅ Minimized | `expo-location` declares foreground usage only. The unused always-on location description was removed in Phase 5C.2. |
+| **Bundle ID** | ✅ Source configured | `com.amodka.app` — Apple Developer Portal App ID must be created under this bundle ID before a native build. |
 | **App Store metadata** | ❌ Not ready | Screenshots, description, keywords, support URL, marketing URL. BUSINESS DECISION. Nigeria-first positioning to be reflected. |
 | **Nigeria App Store availability** | ❌ Not configured | App Store Connect allows per-country distribution. Nigeria App Store availability must be enabled. |
 | **Review compliance** | ❌ Not assessed | App must not use private APIs, must handle permission denials gracefully, must function on current iOS versions. |
@@ -42,7 +42,7 @@
 | **Permissions (camera)** | ✅ Declared via Expo | Used for garment photo capture. Declared in app.json. |
 | **Permissions (photo library / media)** | ✅ Declared via Expo | Declared in app.json. |
 | **Permissions (location — foreground)** | ✅ Declared | `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` via expo-location. Used for weather context. |
-| **Package name** | ✅ Set | `com.amodka` — new Google Play listing required under this package name. |
+| **Package name** | ✅ Source configured | `com.amodka.app` — a new Google Play listing is required under this package name before internal testing. |
 | **Content rating** | ❌ Not assessed | Must complete IARC questionnaire. Likely "Everyone" — **BUSINESS/LEGAL decision required.** |
 | **Target audience** | ❌ Not assessed | Must declare target audience. If any children under 13 could use the app, significant additional requirements apply. **LEGAL REVIEW REQUIRED.** |
 | **App metadata** | ❌ Not ready | Screenshots (including Nigerian fashion examples), description, feature graphic. BUSINESS DECISION. |
@@ -72,9 +72,9 @@
 | App Privacy questionnaire / Data Safety section completed | Both | **PRE-LAUNCH** |
 | Age rating / content rating decided and submitted | Both | **PRE-LAUNCH** |
 | Nigeria App Store and Play Store availability enabled | Both | **PRE-LAUNCH** |
-| Review unused `locationAlwaysAndWhenInUsePermission` | Apple | **PRE-LAUNCH** |
+| Verify foreground-only location disclosure in the final store metadata | Apple | **PRE-LAUNCH** |
 | Sign in with Apple (if any OAuth offered) | Apple | PHASE 5C |
 | IAP / Play Billing for Premium + NGN pricing | Both | PHASE 5C |
-| Apple Developer Portal — Bundle ID `com.amodka` created | Apple | PHASE 5C (native build) |
-| Google Play Console — package `com.amodka` listing created | Google | PHASE 5C (native build) |
+| Apple Developer Portal — Bundle ID `com.amodka.app` created | Apple | PHASE 5C.3 (approved native build) |
+| Google Play Console — package `com.amodka.app` listing created | Google | PHASE 5C.3 (approved native build) |
 | Nigeria-specific Play Store payment methods (airtime billing) | Google | PHASE 5C+ |

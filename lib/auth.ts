@@ -2,13 +2,19 @@ import { Platform } from 'react-native'
 import { makeRedirectUri } from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
-import * as QueryParams from 'expo-auth-session/build/QueryParams'
 import Constants, { ExecutionEnvironment } from 'expo-constants'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { fetch } from 'expo/fetch'
 import { supabase } from './supabase'
 import { getApiUrl } from './query-client'
 import { handleOAuthBrowserResult, type OAuthBrowserResult } from './oauthGuard'
+import {
+  AMODKA_URL_SCHEME,
+  NATIVE_OAUTH_CALLBACK_URL,
+  isOAuthCallbackUrl,
+  parseOAuthCallback,
+} from './oauth-callback'
+import { completeOAuthCallback } from './oauth-session'
 export { signInWithEmail } from './emailSignIn'
 export { signUpWithEmail } from './emailSignUp'
 
@@ -16,16 +22,17 @@ export const EMAIL_CONFIRMED_KEY = '@amodka_email_confirmed'
 
 WebBrowser.maybeCompleteAuthSession()
 
-// In Expo Go (StoreClient), expo-linking's resolveScheme() always returns 'exp'
-// regardless of the scheme argument — amodka:// is silently ignored because it
-// is not registered in Expo Go's Info.plist.  makeRedirectUri({ scheme: 'amodka' })
-// therefore resolves to exp://<devserver> in Expo Go, while returning amodka://
-// in standalone / EAS builds where the scheme IS in Info.plist.
-const nativeRedirectTo = makeRedirectUri({ scheme: 'amodka' })
-
 // True when running inside the Expo Go app (development, not a standalone build).
 const isExpoGo =
   Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+
+// Expo Go cannot receive amodka:// because it is not registered in Expo Go's
+// Info.plist, so it uses its generated exp:// callback. Standalone builds use
+// one explicit native endpoint, which lets callback consumption reject arbitrary
+// amodka:// links before a session exchange.
+const nativeRedirectTo = isExpoGo
+  ? makeRedirectUri({ scheme: AMODKA_URL_SCHEME })
+  : NATIVE_OAUTH_CALLBACK_URL
 
 // In Expo Go, nativeRedirectTo is exp://<devserver> (e.g. exp://localhost:8082).
 // We relay the OAuth callback through the HTTPS Replit domain (already in
@@ -44,8 +51,7 @@ const isExpoGo =
 // ASWebAuthenticationSession (callbackURLScheme = 'exp') intercepts that
 // redirect and resolves openAuthSessionAsync — no Supabase allow-list changes needed.
 //
-// In standalone builds, redirectTo = nativeRedirectTo = 'amodka://' and the
-// existing direct-deep-link path is used unchanged.
+// In standalone builds, redirectTo = amodka://auth/callback.
 function buildNativeOAuthRedirectTo(): string {
   if (!isExpoGo) return nativeRedirectTo
   // EXPO_PUBLIC_DOMAIN = "$REPLIT_DEV_DOMAIN:5000".  Strip the port first.
@@ -68,38 +74,21 @@ function buildNativeOAuthRedirectTo(): string {
   return `https://${domain}?nativeCallback=${encodeURIComponent(nativeRedirectTo)}`
 }
 
-export async function createSessionFromUrl(url: string) {
-  const { params, errorCode } = QueryParams.getQueryParams(url)
-  if (errorCode) throw new Error(errorCode)
-
-  const { access_token, refresh_token, code, type } = params
-
-  // PKCE flow (Supabase JS v2 default for OAuth on native).
-  // The redirect URL contains ?code=xxx; exchange it using the stored PKCE
-  // verifier via exchangeCodeForSession, which handles the processLock
-  // internally and avoids the setSession deadlock.
-  // Pass the code string itself (not the full URL) per the auth-js contract.
-  if (code) {
-    const { data, error } = await supabase.auth.exchangeCodeForSession(String(code))
-    if (error) throw new Error(`[createSessionFromUrl] ${error.message}`)
-    if (type === 'signup') {
-      AsyncStorage.setItem(EMAIL_CONFIRMED_KEY, '1').catch(() => {})
-    }
-    return data.session
-  }
-
-  // Implicit flow fallback (older Supabase project configuration or non-PKCE
-  // providers). The URL contains #access_token=xxx&refresh_token=yyy.
-  if (!access_token) return null
-  const { data, error } = await supabase.auth.setSession({
-    access_token,
-    refresh_token,
-  })
-  if (error) throw new Error(`[createSessionFromUrl] ${error.message}`)
-  if (type === 'signup') {
-    AsyncStorage.setItem(EMAIL_CONFIRMED_KEY, '1').catch(() => {})
-  }
-  return data.session
+export async function createSessionFromUrl(
+  url: string,
+  expectedCallbackUrl = NATIVE_OAUTH_CALLBACK_URL,
+) {
+  const params = parseOAuthCallback(url, expectedCallbackUrl)
+  if (!params) throw new Error('[createSessionFromUrl] Unexpected OAuth callback URL')
+  return completeOAuthCallback(
+    params,
+    {
+      exchangeCodeForSession: code => supabase.auth.exchangeCodeForSession(code),
+      markEmailConfirmed: () => {
+        AsyncStorage.setItem(EMAIL_CONFIRMED_KEY, '1').catch(() => {})
+      },
+    },
+  )
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
@@ -151,8 +140,6 @@ export async function updatePassword(newPassword: string): Promise<void> {
  * cleanup; it is a no-op if the CCT already closed via intent dispatch.
  */
 async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
-  const scheme = nativeRedirectTo.split('://')[0]
-
   // ── Android: Chrome Custom Tab (in-app browser sheet) ────────────────────
   //
   // openBrowserAsync opens a Chrome Custom Tab that slides in over the app —
@@ -171,8 +158,7 @@ async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
     const linkingPromise = new Promise<OAuthBrowserResult>((resolve) => {
       const sub = Linking.addEventListener('url', (event) => {
         if (
-          event.url.startsWith(scheme + '://') &&
-          (event.url.includes('code=') || event.url.includes('access_token='))
+          isOAuthCallbackUrl(event.url, nativeRedirectTo)
         ) {
           resolve({ type: 'success', url: event.url })
         }
@@ -196,7 +182,7 @@ async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
 
     try {
       const result = await Promise.race([linkingPromise, browserClosedPromise])
-      await handleOAuthBrowserResult(result, createSessionFromUrl)
+      await handleOAuthBrowserResult(result, url => createSessionFromUrl(url, nativeRedirectTo))
     } finally {
       linkingRemove?.()
       WebBrowser.dismissBrowser() // best-effort; CCT may already be closed
@@ -210,8 +196,7 @@ async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
   const linkingPromise = new Promise<OAuthBrowserResult>((resolve) => {
     const sub = Linking.addEventListener('url', (event) => {
       if (
-        event.url.startsWith(scheme + '://') &&
-        (event.url.includes('code=') || event.url.includes('access_token='))
+          isOAuthCallbackUrl(event.url, nativeRedirectTo)
       ) {
         resolve({ type: 'success', url: event.url })
       }
@@ -227,7 +212,7 @@ async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
       browserPromise as Promise<OAuthBrowserResult>,
       linkingPromise,
     ])
-    await handleOAuthBrowserResult(result, createSessionFromUrl)
+    await handleOAuthBrowserResult(result, url => createSessionFromUrl(url, nativeRedirectTo))
   } finally {
     removeListener?.()
     WebBrowser.dismissAuthSession()

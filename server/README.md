@@ -1,4 +1,4 @@
-# AuraCloset Backend — Garment Classification API
+# Amodka Backend — Garment Classification API
 
 ## Setup
 
@@ -17,7 +17,7 @@ The backend starts automatically via the **Start Backend** workflow, which runs 
 
 ## API: POST /api/classify-garment
 
-Classifies a garment image using Google Gemini AI and maps the result to AuraCloset's internal schema.
+Classifies a garment image using Google Gemini AI and maps the result to Amodka's internal schema.
 
 **Model strategy:** The primary model is `gemini-flash-lite-latest`. If that model returns a 429 (quota exceeded), the request is automatically retried once against `gemini-2.5-flash`. Any non-429 error from the primary model surfaces immediately without a retry.
 

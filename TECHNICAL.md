@@ -202,7 +202,7 @@ Whenever you make a change that affects any section of this document — new API
 
 1. User taps "Continue with Google/Apple" → `lib/auth.ts` calls `supabase.auth.signInWithOAuth()`
 2. Supabase returns an OAuth URL → app opens it in `expo-web-browser`
-3. On redirect, `createSessionFromUrl()` extracts tokens from URL and calls `supabase.auth.setSession()`
+3. On native redirect, `createSessionFromUrl()` accepts only the exact expected callback base, parses a PKCE `code`, and calls `supabase.auth.exchangeCodeForSession()` with the SecureStore-bound verifier. Native implicit token callbacks are deliberately rejected.
 4. Session tokens are stored in `expo-secure-store` on native (iOS Keychain / Android Keystore) via `SecureStoreAdapter`. They are **not** in `AsyncStorage`.
 5. For email auth: `signInWithEmail()` calls `supabase.auth.signInWithPassword()` directly
 6. `AppContext` listens to `supabase.auth.onAuthStateChange()` for **subsequent** events only — `INITIAL_SESSION` is intentionally excluded (see Startup Initialization below)
@@ -1677,7 +1677,7 @@ Phase 5A transforms the product surrounding the frozen engine into a premium, tr
 ### Changes
 
 **Track A — Rebrand AuraCloset → Amodka:**
-- `app.json`: name, slug (`amodka`), scheme (`amodka`), bundleIdentifier/package (`com.amodka`), permissions strings.
+- `app.json`: name, slug (`amodka`), scheme (`amodka`), and permissions strings. The initial `com.amodka` identifier documented for this phase was superseded before release by the current target `com.amodka.app`.
 - `app/_layout.tsx`: URL scheme checks updated (`auracloset://` → `amodka://`).
 - `lib/auth.ts`: `EMAIL_CONFIRMED_KEY`, OAuth scheme, comments.
 - `lib/emailSignUp.ts`: OAuth scheme.
@@ -1786,13 +1786,13 @@ All `@auracloset_*` AsyncStorage keys renamed to `@amodka_*`. Migration implemen
 
 ### Correction 6 — Production Identifier Audit
 
-All in-codebase identifiers confirmed consistent: scheme `amodka`, bundle ID `com.amodka`, Android package `com.amodka`. Legacy `auracloset` comments in `lib/auth.ts` fixed.
+**Superseded by Phase 5C.2.** The current source identity is scheme `amodka`, exact native OAuth callback `amodka://auth/callback`, iOS bundle ID `com.amodka.app`, and Android package `com.amodka.app`. `com.amodka` must not be registered or used for new Apple, Google Play, OAuth, or store configuration.
 
-**External configuration required for future native/auth phases (not implemented here):**
-- Supabase Auth → Redirect URLs: add `amodka://` (was `auracloset://`)
-- Google Cloud Console: update Android OAuth client to package `com.amodka`
-- Apple Developer Portal: create/update Bundle ID `com.amodka`
-- EAS project configuration update (`eas.json`, `app.json` owner)
+**External configuration required before approved native builds (not implemented here):**
+- Supabase Auth → Redirect URLs: allow `amodka://**` and remove `auracloset://` entries.
+- Google browser OAuth → retain the Supabase callback as Google’s redirect URI; this phase does not use a Google native SDK or Android OAuth client.
+- Apple Developer Portal → create/confirm the App ID `com.amodka.app`; browser Apple OAuth uses the Service ID and Supabase callback described in `docs/PHASE-5C.2-MANUAL-ACTIONS-REQUIRED.md`.
+- Replit Publishing → confirm `com.amodka.app` only when the Product Owner approves a non-production native build.
 
 ### Final Baseline
 
@@ -2077,3 +2077,13 @@ Google Play (and App Store) require a web URL where users can request account/da
 | **Responsive font sizes** | All `fontSize` values use `rs(n)` from `lib/responsive.ts` (moderate scale, factor 0.35, baseline 390pt). Never use a raw numeric literal for `fontSize` in StyleSheet. |
 | **Mood/scenario chip rows** | Horizontal `ScrollView` filter rows must have `minHeight` on the scroll container **and** `alignItems: 'flex-start'` on `contentContainerStyle` — never `alignItems: 'center'`, which collapses the view height on some devices. |
 | **Update TECHNICAL.md** | Every code change that affects architecture, endpoints, file structure, packages, tests, or conventions must update TECHNICAL.md in the same commit |
+
+---
+
+## 22. Phase 5C.2 — Native Production Foundation & Identity Readiness
+
+- **Native identity:** `app.json` now defines `com.amodka.app` for both iOS and Android, with the existing `amodka` URL scheme and Android intent filter. The identifier change creates a new OS app identity; external Apple, Google Play, OAuth, and store configuration must be completed before a build.
+- **Permissions:** always-on location wording was removed; only when-in-use location remains. `android.permission.RECORD_AUDIO` is blocked because the app has no audio feature.
+- **OAuth contract:** browser OAuth remains Supabase-mediated. `lib/oauth-callback.ts` separately parses and exactly validates an Expo Go relay destination before it receives the OAuth code, then validates completed callbacks before session exchange; it rejects lookalike hosts, arbitrary deep links, implicit token injection, and retired AuraCloset callbacks. `lib/oauth-session.ts` keeps PKCE and provider-error behavior independently testable without importing React Native.
+- **Legacy cleanup:** server relay and reset fallbacks accept `amodka://` rather than `auracloset://`. Legacy AsyncStorage keys remain only in one-time migration and account-deletion cleanup so prior development preferences are copied safely, not silently dropped.
+- **Build limitations:** no native build, external provider configuration, signing, deployment, store submission, migration, or secret change occurred. See `docs/PHASE-5C.2-NATIVE-PRODUCTION-FOUNDATION.md` and `docs/PHASE-5C.2-MANUAL-ACTIONS-REQUIRED.md` for evidence and owner actions.

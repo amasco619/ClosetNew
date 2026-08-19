@@ -484,7 +484,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             );
           if (Object.keys(recoveredUpdates).length > 0) {
             console.log(
-              `[AuraCloset] Recovered ${Object.keys(recoveredUpdates).length} wardrobe photo(s) from Storage`,
+              `[Amodka] Recovered ${Object.keys(recoveredUpdates).length} wardrobe photo(s) from Storage`,
             );
             setWardrobeItems(prev => {
               const next = prev.map(it =>
@@ -496,7 +496,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
           for (const item of unreachableItems) {
             console.warn(
-              `[AuraCloset] Wardrobe photo missing and not found in Storage — ` +
+              `[Amodka] Wardrobe photo missing and not found in Storage — ` +
               `item id=${item.id} subType=${item.subType} uri=${item.photoUri}`,
             );
           }

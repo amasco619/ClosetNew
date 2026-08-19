@@ -1,5 +1,7 @@
 # PHASE 5C — MASTER PRODUCTION AUDIT REPORT
 
+> **Historical report — do not use this document for native identity, OAuth, Apple, Google, or store setup.** Its `com.amodka` and legacy callback findings were superseded by Phase 5C.2 before any public release. Use [PHASE-5C.2-NATIVE-PRODUCTION-FOUNDATION.md](./PHASE-5C.2-NATIVE-PRODUCTION-FOUNDATION.md) and [PHASE-5C.2-MANUAL-ACTIONS-REQUIRED.md](./PHASE-5C.2-MANUAL-ACTIONS-REQUIRED.md) for current, authoritative guidance targeting `com.amodka.app`.
+
 **Project**: Amodka (formerly AuraCloset)  
 **Audit date**: 2026-08-18  
 **Auditor**: Replit Agent (read-only inspection — no code changes made)  

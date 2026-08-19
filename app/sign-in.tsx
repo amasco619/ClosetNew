@@ -28,6 +28,7 @@ import {
   createSessionFromUrl,
   isValidEmail, validatePassword,
 } from '../lib/auth'
+import { NATIVE_OAUTH_CALLBACK_URL, isOAuthCallbackUrl } from '../lib/oauth-callback'
 import { useApp } from '@/contexts/AppContext'
 import Colors from '@/constants/colors'
 
@@ -161,8 +162,9 @@ export default function SignInScreen() {
     if (!url) return
     if (oauthInProgress.current) return        // openAuthSessionAsync owns this
     if (url === handledDeepLink.current) return // already processed this URL
+    if (!isOAuthCallbackUrl(url, NATIVE_OAUTH_CALLBACK_URL)) return
     handledDeepLink.current = url
-    createSessionFromUrl(url).catch(console.error)
+    createSessionFromUrl(url, NATIVE_OAUTH_CALLBACK_URL).catch(console.error)
   }, [url])
 
   const clearErrors = () => {

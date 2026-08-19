@@ -14,6 +14,7 @@ import type { UserProfile } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import * as Linking from 'expo-linking';
 import { createSessionFromUrl } from '../lib/auth';
+import { NATIVE_OAUTH_CALLBACK_URL, isOAuthCallbackUrl } from '../lib/oauth-callback';
 
 function hasRequiredOnboardingFields(p: UserProfile): boolean {
   return !!(
@@ -45,8 +46,8 @@ export default function IndexScreen() {
 
   const url = Linking.useLinkingURL();
   useEffect(() => {
-    if (url) {
-      createSessionFromUrl(url).catch(console.error);
+    if (url && isOAuthCallbackUrl(url, NATIVE_OAUTH_CALLBACK_URL)) {
+      createSessionFromUrl(url, NATIVE_OAUTH_CALLBACK_URL).catch(console.error);
     }
   }, [url]);
 

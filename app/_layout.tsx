@@ -11,6 +11,11 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AppProvider } from "@/contexts/AppContext";
 import { EMAIL_CONFIRMED_KEY, createSessionFromUrl } from "@/lib/auth";
+import {
+  NATIVE_OAUTH_CALLBACK_URL,
+  buildOAuthRelayUrl,
+  isOAuthCallbackUrl,
+} from "@/lib/oauth-callback";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 import { StatusBar } from "expo-status-bar";
 import { migrateStorage } from "@/lib/database";
@@ -88,12 +93,10 @@ export default function RootLayout() {
     if (!nativeCallback || !code) return;
     // Only relay to known app schemes — never open arbitrary URLs.
     const decoded = decodeURIComponent(nativeCallback);
-    if (!decoded.startsWith('amodka://') && !decoded.startsWith('exp://')) return;
-    const relay = new URLSearchParams();
-    relay.set('code', code);
     const type = params.get('type');
-    if (type) relay.set('type', type);
-    window.location.href = `${decoded.split('?')[0]}?${relay.toString()}`;
+    const relayUrl = buildOAuthRelayUrl(decoded, code, type, window.location.host);
+    if (!relayUrl) return;
+    window.location.href = relayUrl;
   }, []);
 
   // On web, Supabase processes the confirmation redirect automatically via
@@ -128,9 +131,8 @@ export default function RootLayout() {
     if (Platform.OS === 'web') return;
     Linking.getInitialURL().then((url) => {
       if (!url) return;
-      if (!url.startsWith('amodka://')) return;
-      if (!url.includes('code=') && !url.includes('access_token=')) return;
-      createSessionFromUrl(url).catch(() => {});
+      if (!isOAuthCallbackUrl(url, NATIVE_OAUTH_CALLBACK_URL)) return;
+      createSessionFromUrl(url, NATIVE_OAUTH_CALLBACK_URL).catch(() => {});
     });
   }, []);
 

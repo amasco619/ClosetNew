@@ -67,7 +67,7 @@ function getEnvAllowlist(): string[] | null {
  *   (b) the request's own `Origin` header (same-origin).
  *
  * The pathname must be one of `allowedPaths`.  Anything that fails validation
- * silently falls back to "auracloset://" so callers never receive a crafted
+ * silently falls back to "amodka://" so callers never receive a crafted
  * open-redirect destination.
  */
 function sanitizeRedirectUrl(
@@ -75,7 +75,7 @@ function sanitizeRedirectUrl(
   requestOrigin: string | null,
   allowedPaths: string[],
 ): string {
-  if (typeof clientRedirectTo !== "string") return "auracloset://";
+  if (typeof clientRedirectTo !== "string") return "amodka://";
   const envAllowlist = getEnvAllowlist();
   try {
     const parsed = new URL(clientRedirectTo);
@@ -91,7 +91,7 @@ function sanitizeRedirectUrl(
   } catch {
     // Malformed URL — fall through to the native scheme default.
   }
-  return "auracloset://";
+  return "amodka://";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

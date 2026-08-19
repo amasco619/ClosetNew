@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { initLockoutStore, initRateLimitStore } from "./middleware/rateLimiter";
 import { initBgRemovalStore } from "./bgRemovalStore";
+import { buildOAuthRelayUrl } from "../lib/oauth-callback";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -245,34 +246,25 @@ function configureExpoAndLanding(app: express.Application) {
       const oauthCode = req.query.code ? String(req.query.code) : null;
 
       if (nativeCallback && oauthCode) {
-        // Security: only relay to registered app schemes.
-        // For auracloset://, any path is fine (production custom scheme).
-        // For exp://, allow:
-        //   (a) the current Replit dev domain (served Expo web context), OR
-        //   (b) localhost / 127.0.0.1 — Expo starts with --localhost so
-        //       makeRedirectUri() always returns exp://localhost:<port> in
-        //       Expo Go (StoreClient). The PKCE verifier in native SecureStore
-        //       is the real security gate: a third party that intercepts the
-        //       relay cannot exchange the code without the verifier.
+        // Security: only relay to registered app schemes. The shared validator
+        // parses the URL and permits only amodka://, exp://localhost[:port],
+        // exp://127.0.0.1[:port], or the exact Replit dev host. It deliberately
+        // avoids prefix/sub-string matching so a lookalike host cannot receive
+        // an authorization code.
         const allowedExpHost = process.env.REPLIT_DEV_DOMAIN ?? null;
-        const isAllowedCallback =
-          nativeCallback.startsWith("auracloset://") ||
-          (nativeCallback.startsWith("exp://") &&
-            (/^exp:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(nativeCallback) ||
-              (allowedExpHost !== null && nativeCallback.includes(allowedExpHost))));
+        const oauthType = req.query.type ? String(req.query.type) : null;
+        const targetUrl = buildOAuthRelayUrl(
+          nativeCallback,
+          oauthCode,
+          oauthType,
+          allowedExpHost ?? undefined,
+        );
 
-        if (isAllowedCallback) {
-          const relayParams = new URLSearchParams();
-          relayParams.set("code", oauthCode);
-          const oauthType = req.query.type ? String(req.query.type) : null;
-          if (oauthType) relayParams.set("type", oauthType);
-          const base = nativeCallback.split("?")[0];
-          const targetUrl = `${base}?${relayParams.toString()}`;
-
+        if (targetUrl) {
           // Use an HTTP 302 redirect rather than a JS window.location.href.
           //
           // Android Chrome Custom Tabs block JavaScript-initiated navigations
-          // to custom URI schemes (exp://, auracloset://) as a security
+          // to custom URI schemes (exp://, amodka://) as a security
           // measure. An HTTP 302 is treated as a genuine navigation event:
           // Chrome follows the redirect, detects the custom scheme, and
           // dispatches it as an Android intent — which opens Expo Go and
@@ -280,7 +272,7 @@ function configureExpoAndLanding(app: express.Application) {
           //
           // On iOS, ASWebAuthenticationSession monitors HTTP-level redirects
           // and intercepts any Location header matching callbackURLScheme
-          // ('exp' or 'auracloset'), so 302 works identically to the JS
+          // ('exp' or 'amodka'), so 302 works identically to the JS
           // approach there.
           return res.redirect(302, targetUrl);
         }

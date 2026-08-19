@@ -94,7 +94,7 @@ section('OAuth browser dismissed — session must not be created');
 section('OAuth browser success — session must be created');
 
 {
-  const TARGET_URL = 'auracloset://auth/callback?access_token=tok&refresh_token=rtok';
+  const TARGET_URL = 'amodka://auth/callback?access_token=tok&refresh_token=rtok';
   const spy = makeSessionSpy();
   await handleOAuthBrowserResult({ type: 'success', url: TARGET_URL }, spy.fn);
   assert(spy.calls.length === 1, 'success: createSession IS called exactly once');
@@ -147,7 +147,7 @@ section('End-to-end dismiss trace: browser dismissed → no session → no navig
 section('End-to-end success trace: browser success → session → navigation fires');
 
 {
-  const CALLBACK_URL = 'auracloset://auth/callback?access_token=tok&refresh_token=rtok';
+  const CALLBACK_URL = 'amodka://auth/callback?access_token=tok&refresh_token=rtok';
   let isAuthenticated = false;
 
   await handleOAuthBrowserResult({ type: 'success', url: CALLBACK_URL }, async (_url) => {
