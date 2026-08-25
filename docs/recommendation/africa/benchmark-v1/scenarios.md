@@ -42,14 +42,14 @@
 | **GU-30** | Garment classification | Ankara crop top + solid midi skirt | Fusion | | ✓ | | |
 | **GU-31** | Garment classification | Adire / tie-dye blouse | Cultural fabric | | | | |
 | **GU-32** | Garment classification | Kente-pattern woven stole | Cultural fabric | | | | |
-| **GU-33** | Garment classification | Agbada (3-piece) — men's classification | Men's — classification only | | | | |
-| **GU-34** | Garment classification | Senator / native wear — men's | Men's — classification only | | | | |
-| **GU-35** | Garment classification | Ankara senator — men's | Men's — classification only | | ✓ | | |
-| **GU-36** | Garment classification | Plain men's kaftan | Men's — classification only | | | | |
-| **GU-37** | Garment classification | Men's boubou | Men's — classification only | | | | |
-| **GU-38** | Garment classification | Babariga embroidered cap — men's | Men's accessories | | | | |
-| **GU-39** | Garment classification | Aso-oke fila cap — men's | Men's accessories | | | | |
-| **GU-40** | Garment classification | Ankara fusion suit — men's | Men's — classification only | | ✓ | ✓ | |
+| **GU-33** | Garment classification | Women's aso-oke buba | Aso-oke / buba | | | | |
+| **GU-34** | Garment classification | Women's aso-oke iro wrapper | Aso-oke / iro-wrapper | | | | |
+| **GU-35** | Garment classification | Women's embellished lace blouse | Embellished lace | | | | |
+| **GU-36** | Garment classification | Women's embroidered kaftan | Embroidered kaftan | | | | |
+| **GU-37** | Garment classification | Women's grand boubou | Boubou / embroidery | | | | |
+| **GU-38** | Garment classification | Women's adire wrap skirt | Adire / wrapper | | | | |
+| **GU-39** | Garment classification | Women's kente stole | Kente accessory | | | | |
+| **GU-40** | Garment classification | Women's aso-oke gele | Aso-oke / gele | | | | |
 | **OR-01** | Outfit ranking | Traditional Yoruba wedding — aso-ebi guest | Nigerian wedding | | ✓ | | |
 | **OR-02** | Outfit ranking | Aso-ebi coordination test | Nigerian wedding | | ✓ | ✓ | |
 | **OR-03** | Outfit ranking | Wedding reception (evening) | Nigerian wedding | | ✓ | | |
@@ -117,17 +117,15 @@
 
 | Capability | Cases | Count |
 |---|---|---|
-| **Ankara / wax-print** | GU-01…11, GU-23, GU-28…30, GU-35, GU-40, OR-01…05, OR-07, OR-10, OR-12…20, OR-23, OR-24, OR-26…30, OC-01…06, OC-08…09, OC-11…13, OC-15…16, OC-18…20, WX-01…02, WX-04, WX-06…07, WX-09…10 | 48 |
-| **Lace** | GU-12…15, GU-19, OR-01…03, OR-05, OR-23, OR-25, OR-29, OC-01, OC-03, OC-05…06, OC-08…10, WX-10 | 16 |
+| **Ankara / wax-print** | GU-01…11, GU-23, GU-28…30, OR-01…05, OR-07, OR-10, OR-12…20, OR-23, OR-24, OR-26…30, OC-01…06, OC-08…09, OC-11…13, OC-15…16, OC-18…20, WX-01…02, WX-04, WX-06…07, WX-09…10 | 46 |
+| **Lace** | GU-12…15, GU-19, GU-35, OR-01…03, OR-05, OR-23, OR-25, OR-29, OC-01, OC-03, OC-05…06, OC-08…10, WX-10 | 17 |
 | **Aso-ebi** | GU-14, OR-01…02, OR-04, OC-01, OC-04 | 6 |
-| **Aso-oke** | GU-16, GU-17, GU-22, GU-39 | 4 |
-| **Agbada** | GU-33 | 1 (classification only) |
-| **Senator** | GU-34, GU-35 | 2 (classification only) |
-| **Kaftan** | GU-25, GU-26, GU-27, OR-04, OR-05, OR-10 | 6 |
+| **Aso-oke** | GU-16, GU-17, GU-22, GU-33, GU-34, GU-40 | 6 |
+| **Kaftan** | GU-25, GU-26, GU-27, GU-36, OR-04, OR-05, OR-10 | 7 |
 | **Boubou** | GU-26, GU-37 | 2 |
-| **Buba** | GU-21, GU-22 | 2 |
-| **Iro / wrapper** | GU-23, GU-24 | 2 |
-| **Gele / head accessories** | GU-11, GU-16, GU-38, GU-39 | 4 |
+| **Buba** | GU-21, GU-22, GU-33 | 3 |
+| **Iro / wrapper** | GU-23, GU-24, GU-34, GU-38 | 4 |
+| **Gele / head accessories** | GU-11, GU-16, GU-32, GU-39, GU-40 | 5 |
 | **Church** | OR-04, OC-05, OC-06, OC-07 | 4 |
 | **Traditional wedding** | OR-01, OR-02, OC-01 | 3 |
 | **Western wedding** | OC-02 | 1 |
@@ -137,11 +135,11 @@
 | **Business** | OR-06, OR-07, OR-08, OR-09, OC-12, OC-13, OC-14 | 7 |
 | **Hot / humid climate** | WX-01, WX-03, WX-05 | 3 |
 | **Rain** | OR-09, WX-02, WX-04, WX-10 | 4 |
-| **African-Western fusion** | GU-10, GU-28, GU-29, GU-30, GU-31, GU-32, GU-35, GU-40, OR-06, OR-07, OR-30 | 11 |
-| **Co-ordinated set identity** | GU-08, GU-09, GU-24, GU-29, GU-35, GU-40, OR-17, OR-18, OR-28 | 9 |
+| **African-Western fusion** | GU-10, GU-28, GU-29, GU-30, OR-06, OR-07, OR-30 | 7 |
+| **Co-ordinated set identity** | GU-08, GU-09, GU-24, GU-29, OR-17, OR-18, OR-28 | 7 |
 | **Adversarial** | OR-19, OR-20, OR-21, OR-22, OR-23, OR-24, OR-25, OR-26, OR-27 | 9 |
 | **Diaspora** | OR-30, OC-04, OC-20, WX-09 | 4 |
-| **Men's garments** | GU-33, GU-34, GU-35, GU-36, GU-37, GU-38, GU-39, GU-40 | 8 (classification only) |
+| **Women's representation-gap cases** | GU-33, GU-34, GU-35, GU-36, GU-37, GU-38, GU-39, GU-40 | 8 (classification only) |
 | **Ankara visual-weight** | OR-13, OR-14, OR-15, OR-16, OR-17, OR-18 | 6 |
 
 ---
@@ -160,12 +158,11 @@
 
 ## Gender coverage note
 
-Amodka is currently a **women's fashion product**. The 40 garment-classification cases
-include 32 women's cases (GU-01 to GU-32) and 8 men's garment cases (GU-33 to GU-40).
-The men's cases are classification evidence only — they document whether the engine
-taxonomy can represent traditional Nigerian men's garments. They are not product requirements.
+Amodka v1 is explicitly a **women's fashion product**. All 40 garment-classification
+cases and all 60 outfit-ranking, occasion, and weather cases are women's fashion
+scenarios.
 
-All 60 outfit-ranking, occasion, and weather cases are women's fashion scenarios.
-
-If Amodka expands to men's fashion in a future phase, the benchmark must be extended with
-men's outfit-ranking scenarios at that time.
+The original men's GU-33–GU-40 descriptions are quarantined in
+`internal/future-v2-mens-fashion/`. They are not part of this benchmark and must not be
+used for v1 review, metrics, coverage claims, or Track C execution. If Amodka expands
+to men's fashion, v2 requires a separately designed and independently labelled package.

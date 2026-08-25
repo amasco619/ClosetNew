@@ -32,3 +32,17 @@ they invalidate the benchmark's core anti-contamination control.
 `node scripts/validate-benchmark-fixtures.mjs` and re-audit the boundary list in
 `docs/recommendation/africa/benchmark-v1/internal/README.md`. Never claim
 "machine-verified" without a committed validator.
+
+## Amodka v1 gender scope
+
+**Rule:** Track B v1 is exclusively women's fashion evidence: all 40 GU cases and all
+60 OR/OC/WX cases are women-focused. Men's case descriptions belong only in the
+quarantined future-v2 package and cannot be used in v1 labels, counts, claims, inputs,
+or Track C execution.
+
+**Why:** Amodka v1 is a women's product. Mixing non-product men's probes into its
+benchmark weakens the relevance of evidence and makes v1 scope claims ambiguous.
+
+**How to apply:** Keep any future men's-fashion work in
+`internal/future-v2-mens-fashion/` until it has its own independently designed fixtures,
+images, labels, governance, and execution approval.

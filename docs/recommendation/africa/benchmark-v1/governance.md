@@ -28,10 +28,9 @@ and the benchmark cannot produce defensible accuracy claims.
 
 Gold labels must be assigned by an **independent Nigerian/African fashion reviewer** who:
 
-- Has demonstrable familiarity with Nigerian and West African fashion — including
-  traditional garments (Ankara/wax-print, lace, aso-ebi, aso-oke, agbada, senator/native
-  wear, kaftan, boubou, buba, iro/wrapper, gele), contemporary African fashion, and
-  African-Western fusion styling.
+- Has demonstrable familiarity with women's Nigerian and West African fashion — including
+  Ankara/wax-print, lace, aso-ebi, aso-oke, buba/iro, gele, kaftan/boubou, adire, kente,
+  contemporary African fashion, and African-Western fusion styling.
 - Does **not** require access to Amodka's source code, engine output, or internal scoring.
 - Is recruited and engaged by the Product Owner, not the development team.
 
@@ -53,7 +52,8 @@ The Product Owner should verify at minimum that the reviewer can:
 
 - Explain the practical difference between aso-ebi, aso-oke, and Ankara
 - Name at least three distinct formality tiers in Nigerian dress culture
-- Articulate why an agbada or senator would or would not suit a given occasion
+- Articulate why a buba/iro set, gele, or grand boubou would or would not suit a given
+  occasion
 - Distinguish a naming-ceremony outfit from a traditional-wedding outfit
 
 ---

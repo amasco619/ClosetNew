@@ -52,7 +52,8 @@ docs/recommendation/africa/benchmark-v1/
     ├── runner-fixtures.md         ← typed runner catalog (occasion tags/formality/warmth)
     ├── gu-taxonomy-analysis.md    ← provisional Amodka mappings + suspected gaps
     ├── case-design-intent.md      ← expected engine behaviour per case
-    └── non-gold-drafts/           ← quarantined pre-governance drafts (never gold)
+    ├── non-gold-drafts/           ← quarantined pre-governance drafts (never gold)
+    └── future-v2-mens-fashion/    ← original men's cases, excluded from v1
 ```
 
 **Integrity validator:** `node scripts/validate-benchmark-fixtures.mjs` deterministically
@@ -64,6 +65,10 @@ fixture IDs, and that every outfit fingerprint is sorted and matches its compone
 `internal/README.md`. The four case files and `fixtures.md` contain no engine rules,
 predictions, mappings, or developer opinions. All case-design intent and expected engine
 behaviour live in `internal/` and may be consulted only after gold labels are locked.
+
+**v1 gender scope:** All 40 GU cases and all 60 OR/OC/WX scenarios are women's fashion
+evidence. The former GU-33–GU-40 men's descriptions are quarantined under
+`internal/future-v2-mens-fashion/` and are excluded from every v1 count and claim.
 
 ---
 

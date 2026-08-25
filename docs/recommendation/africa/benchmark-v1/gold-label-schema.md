@@ -34,7 +34,7 @@ The following dimensions must be captured independently, not collapsed into each
 
 | Dimension | Description |
 |---|---|
-| `garment_type` | What the garment actually is (agbada, buba, senator, kaftan, iro/wrapper, etc.) |
+| `garment_type` | What the garment actually is (buba, gele, kaftan, iro/wrapper, adire, etc.) |
 | `fabric` | Primary fabric (aso-oke, lace, wax-print cotton, brocade, etc.) |
 | `pattern` | Pattern type (wax-print, geometric, embroidered, solid, etc.) |
 | `pattern_scale` | Visual weight of the pattern (small / medium / large / dominant) |

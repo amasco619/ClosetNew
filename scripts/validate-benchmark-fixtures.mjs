@@ -12,6 +12,8 @@
  *  4. Every fixture ID referenced in the case files exists in the catalog.
  *  5. Every fingerprint is sorted, and matches the component IDs listed for
  *     that candidate in the same case section.
+ *  6. The v1 garment-classification package contains exactly GU-01…GU-40 and
+ *     does not reintroduce the quarantined men's-fashion descriptions.
  *
  * Usage: node scripts/validate-benchmark-fixtures.mjs
  * Exit code 0 = valid, 1 = violations found.
@@ -105,9 +107,29 @@ for (const file of caseFiles) {
   }
 }
 
+// --- 6: v1 women's-scope classification set ---
+const classificationText = read('classification-cases.md');
+const guIds = new Set([...classificationText.matchAll(/\*\*GU-(\d{2})\*\*/g)].map((m) => Number(m[1])));
+const expectedGuIds = Array.from({ length: 40 }, (_, index) => index + 1);
+for (const id of expectedGuIds) {
+  if (!guIds.has(id)) errors.push(`classification-cases.md: missing GU-${String(id).padStart(2, '0')}`);
+}
+for (const id of guIds) {
+  if (!expectedGuIds.includes(id)) errors.push(`classification-cases.md: unexpected GU-${String(id).padStart(2, '0')}`);
+}
+if (guIds.size !== 40) {
+  errors.push(`classification-cases.md: expected 40 distinct GU cases, found ${guIds.size}`);
+}
+const v1ScopeText = classificationText
+  .replace(/^#.*$/m, '')
+  .replace(/\bmen's\b/gi, '');
+if (/\b(agbada|senator|babariga|fila)\b/i.test(v1ScopeText)) {
+  errors.push('classification-cases.md: v1 women-focused set contains quarantined men’s-fashion terminology');
+}
+
 if (errors.length) {
   console.error(`FIXTURE VALIDATION FAILED — ${errors.length} violation(s):`);
   for (const e of errors) console.error(`  - ${e}`);
   process.exit(1);
 }
-console.log(`Fixture validation passed: ${reviewer.size} catalog items, catalogs consistent, all case references and fingerprints valid.`);
+console.log(`Fixture validation passed: ${reviewer.size} catalog items, catalogs consistent, all case references and fingerprints valid, and 40 women-focused GU cases in scope.`);

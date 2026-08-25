@@ -72,20 +72,23 @@ Track C gap analysis. Signed label files are never modified to carry this analys
 | GU-31 | pattern:`print`, sub:`blouse` | **Adire technique not representable** |
 | GU-32 | No adequate category | **Kente stole has no category** |
 
-## Men's garments (GU-33…GU-40)
+## Women-focused evidence-gap series (GU-33…GU-40)
 
-Amodka is currently a women's product. All men's cases share the **gender dimension
-absent** gap; specific notes:
+These replacements target the material representation gaps already identified in v1:
+hand-woven aso-oke, wrapped construction, embellishment/embroidery, boubou volume,
+adire technique, strip-cloth accessories, and women's gele. The original men's
+descriptions are quarantined in `future-v2-mens-fashion/` and are not v1 analysis.
 
-| Case | Note |
-|---|---|
-| GU-33 | Agbada silhouette entirely absent; 3-piece set gap; embroidery gap |
-| GU-34 | Senator: `dress`/`kaftan` mapping is poor; set gap |
-| GU-35 | GU-34 gaps + wax-print |
-| GU-36 | `dress`/`kaftan` workable but gender-conflates |
-| GU-37 | Men's boubou: volume not captured |
-| GU-38, GU-39 | Headwear has no category |
-| GU-40 | Ankara suit: `outerwear`/`blazer` partial — loses trouser; co-ord gap |
+| Case | Provisional mapping | Suspected gap |
+|---|---|---|
+| GU-33 | category:`top`, sub:`blouse`, fabric:`cotton` (approximation) | **Aso-oke fabric / hand-weaving missing** |
+| GU-34 | category:`bottom`, sub:`maxi-skirt`, fabric:`cotton` (approximation) | **Aso-oke fabric and wrapped construction missing** |
+| GU-35 | category:`top`, sub:`blouse`, fabric:`lace` | **Embellishment level missing** |
+| GU-36 | category:`dress`, sub:`kaftan`, fabric:`cotton` | **Embroidery signal missing** |
+| GU-37 | category:`dress`, sub:`kaftan`/`gown`, fabric:`synthetic` (approximation) | **Grand-boubou volume and embroidered-panel detail missing** |
+| GU-38 | category:`bottom`, sub:`maxi-skirt`, pattern:`print` | **Adire resist-dye technique and wrapped construction missing** |
+| GU-39 | No adequate category | **Kente/strip-cloth accessory has no category** |
+| GU-40 | No adequate category | **Aso-oke fabric and gele/head-tie category missing** |
 
 ## Summary of suspected representation-gap cases
 

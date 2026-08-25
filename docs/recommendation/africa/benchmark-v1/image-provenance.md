@@ -120,14 +120,14 @@ for sourcing and entering provenance records.
 | IMG-GU-30 | GU-30 | Ankara crop top + high-waisted solid midi skirt | PENDING | PENDING | PENDING | ⏳ Not sourced |
 | IMG-GU-31 | GU-31 | Adire/tie-dye blouse — indigo hand-dyed, organic pattern | PENDING | PENDING | PENDING | ⏳ Not sourced |
 | IMG-GU-32 | GU-32 | Kente-pattern woven stole — colourful strip-cloth accessory | PENDING | PENDING | PENDING | ⏳ Not sourced |
-| IMG-GU-33 | GU-33 | Agbada (3-piece) — voluminous white damask, men's | PENDING | PENDING | PENDING | ⏳ Not sourced |
-| IMG-GU-34 | GU-34 | Senator / native wear — fitted 2-piece long kaftan + trousers, men's | PENDING | PENDING | PENDING | ⏳ Not sourced |
-| IMG-GU-35 | GU-35 | Ankara senator — senator silhouette in large wax-print, men's | PENDING | PENDING | PENDING | ⏳ Not sourced |
-| IMG-GU-36 | GU-36 | Plain men's kaftan — ankle-length loose jalabiya, men's | PENDING | PENDING | PENDING | ⏳ Not sourced |
-| IMG-GU-37 | GU-37 | Boubou (men's) — floor-length robe, solid deep blue | PENDING | PENDING | PENDING | ⏳ Not sourced |
-| IMG-GU-38 | GU-38 | Embroidered babariga cap — traditional Yoruba men's cap | PENDING | PENDING | PENDING | ⏳ Not sourced |
-| IMG-GU-39 | GU-39 | Aso-oke fila (cap) — small woven Yoruba men's cap | PENDING | PENDING | PENDING | ⏳ Not sourced |
-| IMG-GU-40 | GU-40 | Contemporary African fusion suit — Ankara-print suit jacket + trousers | PENDING | PENDING | PENDING | ⏳ Not sourced |
+| IMG-GU-33 | GU-33 | Women's aso-oke buba — indigo-and-gold hand-woven blouse | PENDING | PENDING | PENDING | ⏳ Not sourced |
+| IMG-GU-34 | GU-34 | Women's aso-oke iro wrapper — hand-woven traditional skirt | PENDING | PENDING | PENDING | ⏳ Not sourced |
+| IMG-GU-35 | GU-35 | Women's embellished lace blouse — beaded, crystal embroidered | PENDING | PENDING | PENDING | ⏳ Not sourced |
+| IMG-GU-36 | GU-36 | Women's embroidered ivory kaftan — heavy gold-thread embroidery | PENDING | PENDING | PENDING | ⏳ Not sourced |
+| IMG-GU-37 | GU-37 | Women's grand boubou — embroidered floor-length damask | PENDING | PENDING | PENDING | ⏳ Not sourced |
+| IMG-GU-38 | GU-38 | Women's adire wrap skirt — indigo hand-dyed resist pattern | PENDING | PENDING | PENDING | ⏳ Not sourced |
+| IMG-GU-39 | GU-39 | Women's kente stole — colourful hand-woven strip-cloth accessory | PENDING | PENDING | PENDING | ⏳ Not sourced |
+| IMG-GU-40 | GU-40 | Women's aso-oke gele — structured gold/orange/teal hand-woven head tie | PENDING | PENDING | PENDING | ⏳ Not sourced |
 
 ### 5.2 Outfit-ranking, occasion, and weather cases (OR / OC / WX)
 

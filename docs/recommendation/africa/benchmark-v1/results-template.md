@@ -58,10 +58,10 @@
 | Ankara / wax-print | GU-01…11, OR-13…18, OR-20 | | | | |
 | Lace | GU-12…15, OR-23 | | | | |
 | Aso-ebi coordination | GU-16, GU-17, OR-02, OR-04, OC-04 | | | | |
-| Aso-oke | GU-16, GU-17, GU-22 | | | | |
-| Agbada (classification) | GU-33 | | | | |
-| Senator (classification) | GU-34, GU-35 | | | | |
-| Kaftan | GU-25…27, OR-01, OR-04 | | | | |
+| Aso-oke | GU-16, GU-17, GU-22, GU-33, GU-34, GU-40 | | | | |
+| Embellishment / embroidery | GU-19, GU-20, GU-26, GU-35…37 | | | | |
+| Iro / wrapper | GU-23, GU-24, GU-34, GU-38 | | | | |
+| Kaftan | GU-25…27, GU-36, OR-01, OR-04 | | | | |
 | Boubou | GU-26, GU-37 | | | | |
 | Church | OR-04, OC-05…07 | | | | |
 | Wedding — traditional | OR-01, OR-02, OC-01 | | | | |
