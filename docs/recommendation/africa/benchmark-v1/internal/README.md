@@ -13,6 +13,7 @@ intent — all of which would contaminate reviewer independence.
 | `gu-taxonomy-analysis.md` | Developer-authored Amodka-mapping artifact, keyed by case ID and kept separate from gold labels, plus suspected representation gaps | After labels are locked — finalized against locked labels for Track C gap analysis; never written into signed label files |
 | `case-design-intent.md` | What each case was designed to probe, including expected engine behaviour and known engine limitations | After labels are locked — for Track C evaluation and finding classification |
 | `non-gold-drafts/` | Quarantined pre-governance draft rankings (never signed, never gold) | Historical reference only — see its README |
+| `future-v2-mens-fashion/` | Original GU-33–GU-40 men's classification descriptions, excluded from v1 | Future v2 planning only; never v1 evidence |
 
 **Integrity check:** `node scripts/validate-benchmark-fixtures.mjs` (repo root) verifies
 catalog consistency, the reviewer/runner boundary, all case fixture references, and all

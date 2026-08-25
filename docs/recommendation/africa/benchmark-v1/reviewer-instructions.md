@@ -42,9 +42,11 @@ You will **not** be given:
 
 ## 3. The two types of cases
 
-### Type A — Garment classification (40 cases, GU-01 to GU-40)
+### Type A — Garment classification (40 women's cases, GU-01 to GU-40)
 
-You are shown a garment (described in text; image provided where available).
+You are shown a women's garment or accessory (described in text; image provided where
+available). Amodka v1 is intentionally scoped to women's fashion; all 40 cases in this
+set belong to that scope.
 
 Your job is to classify it as you would professionally:
 

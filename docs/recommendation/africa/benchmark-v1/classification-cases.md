@@ -14,12 +14,12 @@
 > (e.g. whether a woven fabric is technically aso-oke), say so in your rationale; your
 > uncertainty is valuable data.
 
-**Product scope:** Cases GU-01…GU-32 cover women's garments. Cases GU-33…GU-40 cover
-men's traditional garments; classify them exactly the same way — as what they are.
+**Product scope:** All 40 garment-classification cases cover women's Nigerian/African
+garments and accessories. This is intentional: Amodka v1 is a women's fashion product.
 
 ---
 
-## Women's garments — GU-01 to GU-32
+## Women's garments — GU-01 to GU-40
 
 ### Ankara / Wax-print series (GU-01 to GU-11)
 
@@ -85,18 +85,18 @@ men's traditional garments; classify them exactly the same way — as what they 
 
 ---
 
-## Men's garments — GU-33 to GU-40
+### Additional evidence-gap cases (GU-33 to GU-40)
 
 | Case | Garment description |
 |---|---|
-| **GU-33** | Agbada (3-piece) — large voluminous flowing outer robe + under-gown + trousers, white damask |
-| **GU-34** | Senator / native wear — fitted 2-piece (long kaftan top + matching trousers), plain fabric |
-| **GU-35** | Ankara senator — senator silhouette in large wax-print |
-| **GU-36** | Plain kaftan (men's) — ankle-length, loose, single colour, jalabiya style |
-| **GU-37** | Boubou (men's) — full floor-length robe, solid deep blue |
-| **GU-38** | Embroidered babariga cap — traditional Yoruba cap, heavily embroidered |
-| **GU-39** | Aso-oke fila (cap) — small woven Yoruba men's cap in aso-oke |
-| **GU-40** | Contemporary African fusion suit — Western suit cut in Ankara fabric, jacket + matching trousers |
+| **GU-33** | Women's aso-oke buba — loose Yoruba blouse in hand-woven indigo-and-gold aso-oke |
+| **GU-34** | Women's iro wrapper — hand-woven aso-oke wrapper styled as a full traditional skirt |
+| **GU-35** | Women's embellished lace blouse — beaded neckline and dense crystal embroidery |
+| **GU-36** | Women's embroidered kaftan — ivory cotton kaftan with heavy gold-thread embroidery |
+| **GU-37** | Women's grand boubou — voluminous floor-length damask robe with embroidered panels |
+| **GU-38** | Women's adire wrap skirt — indigo hand-dyed tie-dye with resist pattern |
+| **GU-39** | Women's kente stole — colourful hand-woven strip-cloth worn over a formal dress |
+| **GU-40** | Women's aso-oke gele — structured hand-woven head tie in gold, orange, and teal |
 
 ---
 
@@ -113,5 +113,7 @@ men's traditional garments; classify them exactly the same way — as what they 
 | Iro / wrapper | GU-23, GU-24 |
 | Kaftan (women's) | GU-25, GU-26, GU-27 |
 | Contemporary / fusion | GU-28…GU-32 |
-| Men's garments | GU-33…GU-40 |
-| Coordinated sets | GU-08, GU-09, GU-24, GU-29, GU-35, GU-40 |
+| Women's Nigerian/African evidence-gap garments | GU-33…GU-40 |
+| Coordinated sets | GU-08, GU-09, GU-24, GU-29 |
+| Embellishment / embroidery | GU-19, GU-20, GU-26, GU-35, GU-36, GU-37 |
+| Women's headwear / accessories | GU-11, GU-16, GU-32, GU-39, GU-40 |
