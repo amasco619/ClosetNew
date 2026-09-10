@@ -1,0 +1,15 @@
+{
+  "case_id": "GU-16",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:22.887Z",
+  "input_fingerprint": "d006a20b422cad285c7a1ceddd3850563ffeb31a858e2ac30943e6b2cb21ba41",
+  "image_sha256": "87062870e4c590a868e49d7edcc7760f8e96bc1b3af84360c48ceb97bb72defe",
+  "image_id": "IMG-GU-16",
+  "execution_status": "failed",
+  "http_status": 422,
+  "engine_output": {
+    "error": "content_guardrail",
+    "reason": "This item appears to be a traditional head wrap (gele) or cultural headwear, which falls outside the standard clothing and accessory categories currently supported."
+  }
+}

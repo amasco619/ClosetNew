@@ -1,0 +1,43 @@
+{
+  "case_id": "GU-02",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:34:38.288Z",
+  "input_fingerprint": "dff75de9b2d3e7d9a504d4fdd5ade994dc8d74dcf5ae423cf7b680dfdf053cfe",
+  "image_sha256": "c9af0f92f77505d2919fd7fa8e41af50f5b63ad6a2e7e836e22a42689635989f",
+  "image_id": "IMG-GU-02",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "top",
+    "subType": "t-shirt",
+    "colorFamily": "olive",
+    "accentColor": "white",
+    "description": "Olive Wax-Print T-Shirt",
+    "occasionTags": [
+      "casual"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "wax-print",
+    "patternScale": "medium",
+    "fit": "regular",
+    "neckline": "crew",
+    "sleeveLength": "short",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 82,
+      "s": 0.3896103896103896,
+      "l": 0.3019607843137255
+    },
+    "dominantLab": {
+      "L": 42.23385417080879,
+      "a": -18.82782770862207,
+      "b": 30.59837289660511
+    },
+    "modelConfidence": 0.95,
+    "source": "gemini"
+  }
+}

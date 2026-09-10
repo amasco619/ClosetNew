@@ -1,0 +1,44 @@
+{
+  "case_id": "GU-19",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:49.143Z",
+  "input_fingerprint": "1950f6bd43a517528e2d5a7427bb13e97f0c7ce0dc182119592e50e50ee4928e",
+  "image_sha256": "6585d115722f8ebe4f8e075f54efe70d1221908230e449903ed6b5608700a42c",
+  "image_id": "IMG-GU-19",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "top",
+    "subType": "blouse",
+    "colorFamily": "cream",
+    "description": "Cream embellished lace blouse",
+    "occasionTags": [
+      "work",
+      "date-dressy",
+      "event"
+    ],
+    "seasonTags": [
+      "spring",
+      "summer"
+    ],
+    "pattern": "solid",
+    "fit": "regular",
+    "neckline": "crew",
+    "sleeveLength": "short",
+    "fabric": "lace",
+    "weight": "light",
+    "dominantHsl": {
+      "h": 39.999999999999964,
+      "s": 0.42857142857142916,
+      "l": 0.9313725490196079
+    },
+    "dominantLab": {
+      "L": 94.92732279718139,
+      "a": -0.03412490214671493,
+      "b": 5.418430049912759
+    },
+    "modelConfidence": 0.98,
+    "source": "gemini"
+  }
+}

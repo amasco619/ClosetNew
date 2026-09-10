@@ -183,3 +183,185 @@ mtime_ms = 1789052138229
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/7e4a9050-50be-4e6a-83ca-28310179f5dc/aba12b47-43c2-4f52-8a59-df1c88788981"
 storage_version_token = "1789052498811453"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "aVtWMtPb6foHFkyxPXWaY"
+uri = "file://docs/recommendation/africa/track-c/baseline-v3.7/PHASE-5C.3-TRACK-C-FINAL-REPORT.md"
+type = "text"
+title = "Track C Final Report"
+description = "Complete 26-section Nigerian/African v3.7 baseline report."
+logical_id = "9e9c0629-24c7-405b-99e9-c5b020a66381"
+content_hash = "sha256:e8d451f6e6e5e177772e64f896b3579007e9127b98cfaf3f40c185872bce676d"
+size = 8152
+mtime_ms = 1789062276454
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/9e9c0629-24c7-405b-99e9-c5b020a66381/a2d37201-9241-4db1-b822-89f2847a066f"
+storage_version_token = "1789062301232019"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "rvRFunKAtvOFbfOrzXWwL"
+uri = "file://docs/recommendation/africa/track-c/baseline-v3.7/ankara-analysis.md"
+type = "text"
+title = "Ankara Analysis"
+description = "Focused Ankara and wax-print classification and ranking analysis."
+logical_id = "871e25a0-0b30-4ff5-b2bf-c179b2b31e7a"
+content_hash = "sha256:268873221927a6a3af259096f0a0096e23f3f16adcdf2dacec2746f97e18ab9b"
+size = 1840
+mtime_ms = 1789062276454
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/871e25a0-0b30-4ff5-b2bf-c179b2b31e7a/ee4006eb-c165-498a-8527-b75654a9b98a"
+storage_version_token = "1789062301998239"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "2BrjKiJGyTSs-GomrCeEZ"
+uri = "file://docs/recommendation/africa/track-c/baseline-v3.7/cultural-context-analysis.md"
+type = "text"
+title = "Cultural Context Analysis"
+description = "Traditional, ceremonial, diaspora, and cultural-context findings."
+logical_id = "27d5a4b0-cd6e-4acc-9246-d5007b8a8720"
+content_hash = "sha256:7ae2c453491e37987f2bb91f9ad647aafc04c8b692c1805b4f3297d770037077"
+size = 2001
+mtime_ms = 1789062276454
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/27d5a4b0-cd6e-4acc-9246-d5007b8a8720/a3e59f35-3cb7-41e9-a768-a731c2f179fd"
+storage_version_token = "1789062302676601"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "3EZv7pPBwvBlO2ui-ZjSm"
+uri = "file://docs/recommendation/africa/track-c/baseline-v3.7/western-default-bias-analysis.md"
+type = "text"
+title = "Western-Default Bias Analysis"
+description = "Evidence, counter-evidence, and bounded bias conclusion."
+logical_id = "2b6b4928-c1cb-4620-a3ac-3029b74e556e"
+content_hash = "sha256:f34cb93ddcd6a022e0a3b8d4537b595bbf25ae38f7b395cb0bc6a0994d001465"
+size = 1161
+mtime_ms = 1789062276454
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/2b6b4928-c1cb-4620-a3ac-3029b74e556e/2ee20e52-0bbf-4607-abae-f72bc4b3f839"
+storage_version_token = "1789062303299724"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "N5iZplhHvq2MWB2x6kjHl"
+uri = "file://docs/recommendation/africa/track-c/baseline-v3.7/weather-culture-tradeoff-analysis.md"
+type = "text"
+title = "Weather and Culture Analysis"
+description = "Weather/cultural trade-off findings across WX cases."
+logical_id = "20dccc2a-167f-446b-82fc-f8e1c3b4f904"
+content_hash = "sha256:1aec4ad8383075e88b164251f8a2c41c3a6d43b98aae8dfbfe4a10ce780b3d61"
+size = 1429
+mtime_ms = 1789062276454
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/20dccc2a-167f-446b-82fc-f8e1c3b4f904/159fd64f-31e9-4c3c-8f6b-1579df981f11"
+storage_version_token = "1789062304060839"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "TX82ig4LKuWeIIL_m5m1P"
+uri = "file://docs/recommendation/africa/track-c/baseline-v3.7/failure-analysis.md"
+type = "text"
+title = "Failure Analysis"
+description = "Failure taxonomy, severity distribution, and case-level evidence."
+logical_id = "7b4fec12-cb70-456e-985d-7bfb71eb6cd3"
+content_hash = "sha256:f11d3e035fe72522c431fdeb9d007ed29e4373b6053185f495ad60efd8178978"
+size = 5505
+mtime_ms = 1789062276454
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/7b4fec12-cb70-456e-985d-7bfb71eb6cd3/0059dfcf-620f-46e3-911b-f8422f714ac7"
+storage_version_token = "1789062304765253"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "c4dSKtcbsq4RgCRKUy1mV"
+uri = "file://docs/recommendation/africa/track-c/baseline-v3.7/regression-comparison.md"
+type = "text"
+title = "Regression Comparison"
+description = "Conceptual comparison with the unchanged v3.7 golden regression baseline."
+logical_id = "b2973a63-51e0-4d07-88b1-43dd71ee2d5a"
+content_hash = "sha256:270525f212991bce26c5f40b4f473be1d7d3e9f11891706967a474b3c3b96e1b"
+size = 889
+mtime_ms = 1789062276454
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/b2973a63-51e0-4d07-88b1-43dd71ee2d5a/1b679232-6a24-4323-866b-76404732c92a"
+storage_version_token = "1789062305423987"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "-s3FXeXE2JVZ9SxDK5ED_"
+uri = "file://docs/recommendation/africa/track-c/baseline-v3.7/reproducibility.md"
+type = "text"
+title = "Reproducibility Record"
+description = "Versions, execution protocol, model aliases, and seal references."
+logical_id = "0bbfe2ad-2d09-4dd4-989e-f55ff8dd7b96"
+content_hash = "sha256:58361a66bec833ef0eb89c8843b8c048664021688e90ab106c8100ba86a8d431"
+size = 677
+mtime_ms = 1789062276454
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/0bbfe2ad-2d09-4dd4-989e-f55ff8dd7b96/13242b62-d33e-425e-b7bd-036cfbb146b1"
+storage_version_token = "1789062306114877"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "bhD85xli7NshqJWktmQbo"
+uri = "file://docs/recommendation/africa/track-c/baseline-v3.7/TEST-RESULTS.md"
+type = "text"
+title = "Track C Test Results"
+description = "Pre-run and post-evaluation verification record."
+logical_id = "883f0580-4d1d-48f6-90ea-c2e333e8e34c"
+content_hash = "sha256:e02d0de6d6fce9be9760f138e499502a6e518d7fe5e50a73c26fca087b483300"
+size = 840
+mtime_ms = 1789062276454
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/883f0580-4d1d-48f6-90ea-c2e333e8e34c/9758c7bf-852c-41ff-a655-df7f415a8f22"
+storage_version_token = "1789062306748577"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "eQXxNogcDQ8tbYHh91ohE"
+uri = "file://docs/recommendation/africa/track-c/baseline-v3.7/PRODUCTION-SAFETY-CONFIRMATION.md"
+type = "text"
+title = "Production Safety Confirmation"
+description = "Explicit confirmation of every required no-change condition."
+logical_id = "5762b5a9-a9fc-489b-ae96-e481c8d17ec1"
+content_hash = "sha256:f684d3954d3afe7c86112f7313360dd2f4c9287a3ff7330914850b4b79949d02"
+size = 627
+mtime_ms = 1789062276454
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/5762b5a9-a9fc-489b-ae96-e481c8d17ec1/31ae75ca-7a69-4376-b86d-b50b7682b3db"
+storage_version_token = "1789062307337781"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "82AcU1UTwRR48cn39DG77"
+uri = "file://docs/recommendation/africa/track-c/baseline-v3.7/execution-manifest.json"
+type = "unspecified"
+title = "Execution Manifest"
+description = "Machine-readable versions, configuration, boundaries, and SHA-256 fingerprints."
+logical_id = "1e72792e-fa75-42a0-95f3-b6031ef77149"
+content_hash = "sha256:23e6de4b658ce06c6ce3e9bf537d6acc619e8076f55f7c887db6019e09daa2e1"
+size = 14730
+mtime_ms = 1789062276454
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/1e72792e-fa75-42a0-95f3-b6031ef77149/b15dbdd4-4de2-45e4-b47e-f1452df2a8b1"
+storage_version_token = "1789062307987227"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "2cKLNn4LUWd-cbh0EIWRt"
+uri = "file://docs/recommendation/africa/track-c/baseline-v3.7/metrics.json"
+type = "unspecified"
+title = "Track C Metrics"
+description = "Machine-readable aggregate Track C metrics."
+logical_id = "59135e8a-ce4b-43ed-90df-5573bf31284d"
+content_hash = "sha256:24d470da3a00717d0933e18eb3856b0ba34c04fca3065acf0872bc141cc923bb"
+size = 3184
+mtime_ms = 1789062276450
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/59135e8a-ce4b-43ed-90df-5573bf31284d/8ec476d2-7070-4a51-8a25-cef7ff120ad7"
+storage_version_token = "1789062308603727"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "Eo1Rrr9xLI5O7bHKStC7-"
+uri = "file://docs/recommendation/africa/track-c/baseline-v3.7/case-results.csv"
+type = "table"
+title = "All Case Results"
+description = "Machine-readable results for all 100 benchmark cases."
+logical_id = "6d87cd6f-fc36-447b-9025-1f81a5316633"
+content_hash = "sha256:9d0e29651992fed5b8e7a8535b6dbc72bb0a2e9720616bd56ede0a45dcb7c7bc"
+size = 13335
+mtime_ms = 1789062276450
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/6d87cd6f-fc36-447b-9025-1f81a5316633/a08a33a6-a0a5-478c-a8fb-038e204ba8af"
+storage_version_token = "1789062309351187"
+content_type = "text/csv"

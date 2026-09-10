@@ -1,0 +1,43 @@
+{
+  "case_id": "GU-25",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:36:01.890Z",
+  "input_fingerprint": "3cd543426334927a0a66adb091cbadf895cb6128073982c44ff798e877a2d9d2",
+  "image_sha256": "27d1bbd7c043e7b02bf64a97f43a590aa88d8ac5cabee35a038e0cb11bc89e40",
+  "image_id": "IMG-GU-25",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "dress",
+    "subType": "midi-dress",
+    "colorFamily": "pink",
+    "description": "Pink Cotton Midi Dress",
+    "occasionTags": [
+      "date-dressy",
+      "event",
+      "brunch"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "solid",
+    "fit": "loose",
+    "neckline": "v-neck",
+    "sleeveLength": "short",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 353.33333333333337,
+      "s": 0.4736842105263158,
+      "l": 0.6274509803921569
+    },
+    "dominantLab": {
+      "L": 58.71834729366964,
+      "a": 36.357974987091424,
+      "b": 10.211950042502416
+    },
+    "modelConfidence": 0.95,
+    "source": "gemini"
+  }
+}

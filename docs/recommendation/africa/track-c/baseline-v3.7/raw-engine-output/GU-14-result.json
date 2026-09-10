@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-14",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:19.418Z",
+  "input_fingerprint": "407504e7d764c00fc8ee4ca6c1df2c4114d016f5e7e679477ab9884d044174e9",
+  "image_sha256": "5603e755f1e4245321ebb3e58e5d7db2ddeca64c2b667f16da0a8bb860b46dae",
+  "image_id": "IMG-GU-14",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "top",
+    "subType": "blouse",
+    "colorFamily": "blue",
+    "description": "Blue Lace Peplum Blouse",
+    "occasionTags": [
+      "work",
+      "date-dressy",
+      "event"
+    ],
+    "seasonTags": [
+      "spring",
+      "summer"
+    ],
+    "pattern": "floral",
+    "patternScale": "medium",
+    "fit": "regular",
+    "neckline": "scoop",
+    "sleeveLength": "short",
+    "fabric": "lace",
+    "weight": "light",
+    "dominantHsl": {
+      "h": 220,
+      "s": 0.7142857142857143,
+      "l": 0.411764705882353
+    },
+    "dominantLab": {
+      "L": 36.569153341840476,
+      "a": 21.70298681416405,
+      "b": -57.622677004161226
+    },
+    "modelConfidence": 0.98,
+    "source": "gemini"
+  }
+}

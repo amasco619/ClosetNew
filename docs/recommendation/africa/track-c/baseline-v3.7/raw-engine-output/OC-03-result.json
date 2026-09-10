@@ -1,0 +1,241 @@
+{
+  "case_id": "OC-03",
+  "case_type": "occasion_distinction",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:10.883Z",
+  "execution_status": "success",
+  "input_fingerprint": "a59073d00925511d2d3b16ce082ab89b78123d9433f42da231104b86b56f573a",
+  "scenario_tag": "wedding",
+  "weather": null,
+  "engine_ranked_outfit_ids": [
+    "OC-03-C",
+    "OC-03-A",
+    "OC-03-B",
+    "OC-03-D"
+  ],
+  "engine_top1_outfit_id": "OC-03-C",
+  "engine_top1_component_ids": [
+    "F23",
+    "F08",
+    "OC-F05",
+    "F15"
+  ],
+  "engine_top1_fingerprint": "F08,F15,F23,OC-F05",
+  "engine_top1_confidence_score": 54,
+  "engine_top1_score_breakdown": {
+    "total": 25,
+    "completeness": 10,
+    "palette": 5,
+    "paletteType": "neutral-only",
+    "formalityCohesion": 1,
+    "patternSafety": 2,
+    "contrastMatch": 0,
+    "pieces": 1,
+    "proportionBalance": 0,
+    "metalCohesion": 0,
+    "temperatureHarmony": 1,
+    "valueSpread": 2,
+    "saturationDominance": 0,
+    "textureHarmony": 3,
+    "bodyTypeProportion": 0,
+    "hemlineShoeHarmony": 0,
+    "heightProportion": 0,
+    "undertoneHarmony": 0,
+    "necklineJewelry": 0,
+    "riseHarmony": 0,
+    "focalCompetition": 0
+  },
+  "candidate_scores": [
+    {
+      "id": "OC-03-C",
+      "description": "Royal-blue silk cocktail dress with nude heels, black mini-bag, pearl earrings",
+      "components": [
+        "F23",
+        "F08",
+        "OC-F05",
+        "F15"
+      ],
+      "fingerprint": "F08,F15,F23,OC-F05",
+      "item_score": 29,
+      "combo_score": 25,
+      "total_score": 54,
+      "score_breakdown": {
+        "total": 25,
+        "completeness": 10,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 1,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 1,
+        "valueSpread": 2,
+        "saturationDominance": 0,
+        "textureHarmony": 3,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OC-03-A",
+      "description": "Red-black Ankara midi-dress with gold heels, gold clutch, statement earrings",
+      "components": [
+        "F21",
+        "F07",
+        "F11",
+        "F14"
+      ],
+      "fingerprint": "F07,F11,F14,F21",
+      "item_score": 22,
+      "combo_score": 17,
+      "total_score": 39,
+      "score_breakdown": {
+        "total": 17,
+        "completeness": 10,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": 3,
+        "patternSafety": 3,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": -2,
+        "saturationDominance": -2,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": -2
+      }
+    },
+    {
+      "id": "OC-03-B",
+      "description": "Ivory lace gown with gold heels, gold clutch, statement earrings",
+      "components": [
+        "F02",
+        "F07",
+        "F11",
+        "F14"
+      ],
+      "fingerprint": "F02,F07,F11,F14",
+      "item_score": 25,
+      "combo_score": 11,
+      "total_score": 36,
+      "score_breakdown": {
+        "total": 11,
+        "completeness": 10,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": -2,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": -2,
+        "saturationDominance": -2,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": -2
+      }
+    },
+    {
+      "id": "OC-03-D",
+      "description": "Jeans with white crop-top, trainers, brown crossbody",
+      "components": [
+        "F19",
+        "OC-F08",
+        "F10",
+        "F36"
+      ],
+      "fingerprint": "F10,F19,F36,OC-F08",
+      "item_score": 12,
+      "combo_score": 14,
+      "total_score": 26,
+      "score_breakdown": {
+        "total": 14,
+        "completeness": 7,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": 3,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 0,
+        "valueSpread": 1,
+        "saturationDominance": -2,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    }
+  ],
+  "production_pool_size": 2,
+  "production_pool_matched_candidate_ids": [
+    "OC-03-C"
+  ],
+  "production_pool_top1_candidate_id": "OC-03-C",
+  "production_pool": [
+    {
+      "pool_rank": 1,
+      "outfit_id": "pool-wedding-1",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F07",
+        "F15",
+        "F23",
+        "OC-F05"
+      ],
+      "fingerprint": "F07,F15,F23,OC-F05",
+      "confidence_score": 59,
+      "hero_id": "F23",
+      "generation_path": "strict",
+      "scenario": "wedding",
+      "rationale": "A grounded neutral base, built around your royal blue cocktail dress."
+    },
+    {
+      "pool_rank": 2,
+      "outfit_id": "pool-wedding-0",
+      "matched_candidate_id": "OC-03-C",
+      "component_ids": [
+        "F08",
+        "F15",
+        "F23",
+        "OC-F05"
+      ],
+      "fingerprint": "F08,F15,F23,OC-F05",
+      "confidence_score": 54,
+      "hero_id": "F23",
+      "generation_path": "strict",
+      "scenario": "wedding",
+      "rationale": "Quiet neutrals, built around your royal blue cocktail dress."
+    }
+  ],
+  "fallback_activated": false,
+  "evaluation_note": "Fixed candidates are ranked by unchanged production item-profile plus combo scores. The full unchanged generator output is captured separately because the benchmark protocol does not define a candidate-to-generated-pool mapping."
+}

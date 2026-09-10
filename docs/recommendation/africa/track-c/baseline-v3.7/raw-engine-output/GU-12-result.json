@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-12",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:16.460Z",
+  "input_fingerprint": "fc4c2146cc11a27eb9c95664180dbe71c4f6e73deef0965c73c82000f13ebef0",
+  "image_sha256": "2427c7a60f2e53a2c249ef686d5d1243d8f45ad1603212f5c4b3d8b80848bd88",
+  "image_id": "IMG-GU-12",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "dress",
+    "subType": "maxi-dress",
+    "colorFamily": "white",
+    "description": "White lace maxi dress",
+    "occasionTags": [
+      "casual",
+      "date-dressy",
+      "event",
+      "resort"
+    ],
+    "seasonTags": [
+      "spring",
+      "summer"
+    ],
+    "pattern": "solid",
+    "fit": "regular",
+    "neckline": "v-neck",
+    "sleeveLength": "short",
+    "fabric": "lace",
+    "weight": "light",
+    "dominantHsl": {
+      "h": 0,
+      "s": 0,
+      "l": 0.9607843137254902
+    },
+    "dominantLab": {
+      "L": 96.53749336548567,
+      "a": -0.00001616917899571746,
+      "b": 0.000006467671598286984
+    },
+    "modelConfidence": 0.98,
+    "source": "gemini"
+  }
+}

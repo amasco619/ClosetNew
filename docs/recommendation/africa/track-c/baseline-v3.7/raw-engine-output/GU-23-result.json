@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-23",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:58.370Z",
+  "input_fingerprint": "f8f76551949cba6385a939bc7047ea2c2d8097ea3994809fe5e3fd6c6286e547",
+  "image_sha256": "46dd61fe6e087e175c1ad78957f15bd49b8a6edd6fdb81c9bb63ec03b6612428",
+  "image_id": "IMG-GU-23",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "bottom",
+    "subType": "midi-skirt",
+    "colorFamily": "blue",
+    "accentColor": "red",
+    "description": "Blue wax print wrap skirt",
+    "occasionTags": [
+      "work",
+      "date-dressy",
+      "event",
+      "brunch"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "wax-print",
+    "patternScale": "large",
+    "fit": "regular",
+    "rise": "high",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 220,
+      "s": 0.7142857142857143,
+      "l": 0.411764705882353
+    },
+    "dominantLab": {
+      "L": 36.569153341840476,
+      "a": 21.70298681416405,
+      "b": -57.622677004161226
+    },
+    "modelConfidence": 0.98,
+    "source": "gemini"
+  }
+}

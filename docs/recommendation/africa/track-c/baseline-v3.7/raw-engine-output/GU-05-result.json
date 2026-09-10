@@ -1,0 +1,46 @@
+{
+  "case_id": "GU-05",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:05.227Z",
+  "input_fingerprint": "0f9b832a83d2fc38afc6126cc5b85e31865b8a1f0ab106357fe2cbb489a7c53f",
+  "image_sha256": "b39efe3187799154e1a65e578ad3a027318ed12209acb012b1472e3041f436d0",
+  "image_id": "IMG-GU-05",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "top",
+    "subType": "shirt",
+    "colorFamily": "red",
+    "accentColor": "blue",
+    "description": "Red wax print ankara top",
+    "occasionTags": [
+      "work",
+      "casual",
+      "date-casual",
+      "date-dressy"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "wax-print",
+    "patternScale": "large",
+    "fit": "regular",
+    "neckline": "scoop",
+    "sleeveLength": "short",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 9.10344827586207,
+      "s": 0.6502242152466368,
+      "l": 0.4372549019607843
+    },
+    "dominantLab": {
+      "L": 43.766886479972996,
+      "a": 48.46751539851923,
+      "b": 39.99875262221722
+    },
+    "modelConfidence": 0.98,
+    "source": "gemini"
+  }
+}

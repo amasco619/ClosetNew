@@ -1,0 +1,46 @@
+{
+  "case_id": "GU-22",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:53.941Z",
+  "input_fingerprint": "f40117a334cbaffc61fb1ccad8a01cafec9f22b9f4679203841a84912731f297",
+  "image_sha256": "f459b812b970ca13c884e93d3ac11b4dbc465ba610f6279887605f197ab00be8",
+  "image_id": "IMG-GU-22",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "top",
+    "subType": "shirt",
+    "colorFamily": "blue",
+    "accentColor": "beige",
+    "description": "Blue printed cotton shirt",
+    "occasionTags": [
+      "work",
+      "casual",
+      "date-casual",
+      "date-dressy"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "geometric",
+    "patternScale": "medium",
+    "fit": "regular",
+    "neckline": "scoop",
+    "sleeveLength": "short",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 216,
+      "s": 0.4545454545454545,
+      "l": 0.3235294117647059
+    },
+    "dominantLab": {
+      "L": 31.682501637621392,
+      "a": 3.927748959192873,
+      "b": -29.034894308695502
+    },
+    "modelConfidence": 0.95,
+    "source": "gemini"
+  }
+}

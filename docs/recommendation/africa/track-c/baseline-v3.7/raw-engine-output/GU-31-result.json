@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-31",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:36:33.228Z",
+  "input_fingerprint": "bf4d8ee2822f8bcf372fed4de653fbeb83fceaf16756570c238c88e7898c8b4a",
+  "image_sha256": "53940b6f5f8d8f71ceee75776909028d247cdda1560b6cf20593a1acca4bba13",
+  "image_id": "IMG-GU-31",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "top",
+    "subType": "blouse",
+    "colorFamily": "blue",
+    "accentColor": "white",
+    "description": "Blue inditex shibori blouse",
+    "occasionTags": [
+      "work",
+      "date-dressy",
+      "event"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "print",
+    "patternScale": "large",
+    "fit": "regular",
+    "neckline": "v-neck",
+    "sleeveLength": "three-quarter",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 214.28571428571428,
+      "s": 0.6363636363636364,
+      "l": 0.3235294117647059
+    },
+    "dominantLab": {
+      "L": 31.935404872524217,
+      "a": 7.105026847857104,
+      "b": -37.97722222305462
+    },
+    "modelConfidence": 0.95,
+    "source": "gemini"
+  }
+}

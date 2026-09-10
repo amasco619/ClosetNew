@@ -1,0 +1,204 @@
+{
+  "case_id": "OR-17",
+  "case_type": "outfit_ranking",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:10.839Z",
+  "execution_status": "success",
+  "input_fingerprint": "8e4b89ecf3691b295968979be1dbdae790afcdf648d8723cce5ce7a597a1728d",
+  "scenario_tag": "casual",
+  "weather": null,
+  "engine_ranked_outfit_ids": [
+    "OR-17-C",
+    "OR-17-B",
+    "OR-17-A"
+  ],
+  "engine_top1_outfit_id": "OR-17-C",
+  "engine_top1_component_ids": [
+    "F04",
+    "F06",
+    "F07",
+    "F11"
+  ],
+  "engine_top1_fingerprint": "F04,F06,F07,F11",
+  "engine_top1_confidence_score": 33,
+  "engine_top1_score_breakdown": {
+    "total": 14,
+    "completeness": 7,
+    "palette": 4,
+    "paletteType": "neutral-bridge",
+    "formalityCohesion": 2,
+    "patternSafety": 2,
+    "contrastMatch": 0,
+    "pieces": 1,
+    "proportionBalance": 0,
+    "metalCohesion": 0,
+    "temperatureHarmony": 2,
+    "valueSpread": 0,
+    "saturationDominance": -2,
+    "textureHarmony": -2,
+    "bodyTypeProportion": 0,
+    "hemlineShoeHarmony": 0,
+    "heightProportion": 0,
+    "undertoneHarmony": 0,
+    "necklineJewelry": 0,
+    "riseHarmony": 0,
+    "focalCompetition": 0
+  },
+  "candidate_scores": [
+    {
+      "id": "OR-17-C",
+      "description": "White solid blouse with black trousers, gold heels, gold clutch",
+      "components": [
+        "F04",
+        "F06",
+        "F07",
+        "F11"
+      ],
+      "fingerprint": "F04,F06,F07,F11",
+      "item_score": 19,
+      "combo_score": 14,
+      "total_score": 33,
+      "score_breakdown": {
+        "total": 14,
+        "completeness": 7,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": 2,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 0,
+        "saturationDominance": -2,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OR-17-B",
+      "description": "Large green-gold Ankara blouse (same print as A) with solid black trousers, gold heels, gold clutch",
+      "components": [
+        "F45",
+        "F06",
+        "F07",
+        "F11"
+      ],
+      "fingerprint": "F06,F07,F11,F45",
+      "item_score": 10,
+      "combo_score": 17,
+      "total_score": 27,
+      "score_breakdown": {
+        "total": 17,
+        "completeness": 7,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": 2,
+        "patternSafety": 3,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": -2,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OR-17-A",
+      "description": "Matching green-gold Ankara blazer and trousers (identical fabric), gold heels, gold clutch",
+      "components": [
+        "F25",
+        "F26",
+        "F07",
+        "F11"
+      ],
+      "fingerprint": "F07,F11,F25,F26",
+      "item_score": 4,
+      "combo_score": 7,
+      "total_score": 11,
+      "score_breakdown": {
+        "total": 7,
+        "completeness": 8,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": 3,
+        "patternSafety": -3,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": -2,
+        "saturationDominance": -2,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": -2
+      }
+    }
+  ],
+  "production_pool_size": 2,
+  "production_pool_matched_candidate_ids": [
+    "OR-17-C"
+  ],
+  "production_pool_top1_candidate_id": "OR-17-C",
+  "production_pool": [
+    {
+      "pool_rank": 1,
+      "outfit_id": "pool-casual-1",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F06",
+        "F07",
+        "F11",
+        "F25"
+      ],
+      "fingerprint": "F04,F06,F07,F11,F25",
+      "confidence_score": 38,
+      "hero_id": "F25",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A grounded neutral base, built around your green gold blazer."
+    },
+    {
+      "pool_rank": 2,
+      "outfit_id": "pool-casual-0",
+      "matched_candidate_id": "OR-17-C",
+      "component_ids": [
+        "F04",
+        "F06",
+        "F07",
+        "F11"
+      ],
+      "fingerprint": "F04,F06,F07,F11",
+      "confidence_score": 34,
+      "hero_id": "F07",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A grounded neutral base, built around your gold strappy heels."
+    }
+  ],
+  "fallback_activated": false,
+  "evaluation_note": "Fixed candidates are ranked by unchanged production item-profile plus combo scores. The full unchanged generator output is captured separately because the benchmark protocol does not define a candidate-to-generated-pool mapping."
+}

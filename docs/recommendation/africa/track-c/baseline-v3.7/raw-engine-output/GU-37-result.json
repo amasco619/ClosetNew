@@ -1,0 +1,46 @@
+{
+  "case_id": "GU-37",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:04.419Z",
+  "input_fingerprint": "a0be344a49f0fd14de7975edc76dba9c82795024cd141a4f6eb74024a645d093",
+  "image_sha256": "4dfa5a07a312fdf6da8bf6a7c4b0913ade54f469811bc09cef087a7b65138de9",
+  "image_id": "IMG-GU-37",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "dress",
+    "subType": "kaftan",
+    "colorFamily": "blue",
+    "accentColor": "beige",
+    "description": "Blue embroidered blue kaftan",
+    "occasionTags": [
+      "resort",
+      "casual",
+      "traditional-event"
+    ],
+    "seasonTags": [
+      "spring",
+      "summer"
+    ],
+    "pattern": "print",
+    "patternScale": "large",
+    "fit": "loose",
+    "neckline": "v-neck",
+    "sleeveLength": "long",
+    "fabric": "silk",
+    "weight": "light",
+    "dominantHsl": {
+      "h": 220.00000000000003,
+      "s": 0.48,
+      "l": 0.19607843137254904
+    },
+    "dominantLab": {
+      "L": 17.319000068085842,
+      "a": 4.874155986407419,
+      "b": -21.91674423295249
+    },
+    "modelConfidence": 0.96,
+    "source": "gemini"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "case_id": "GU-01",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:34:32.901Z",
+  "input_fingerprint": "18d6890bea2d01e3f6b82c3ab892561cee35899225d336623b9eb69ef0fa00e2",
+  "image_sha256": "c2fc1779875654a71c5e9078355106983d46e28cdcd87cee829ffcc7186c8a26",
+  "image_id": "IMG-GU-01",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "bottom",
+    "subType": "maxi-skirt",
+    "colorFamily": "orange",
+    "accentColor": "blue",
+    "description": "Orange wax-print maxi skirt",
+    "occasionTags": [
+      "casual",
+      "date-casual",
+      "resort"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "wax-print",
+    "patternScale": "large",
+    "fit": "regular",
+    "rise": "high",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 24.999999999999996,
+      "s": 1,
+      "l": 0.4
+    },
+    "dominantLab": {
+      "L": 51.08071614835305,
+      "a": 44.15859232880609,
+      "b": 60.771874067677004
+    },
+    "modelConfidence": 0.98,
+    "source": "gemini"
+  }
+}

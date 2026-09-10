@@ -1,0 +1,15 @@
+{
+  "case_id": "GU-11",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:15.157Z",
+  "input_fingerprint": "2bc35e1d6afc86cca6740a7d93cff26a4fc11fc595b141d1575d4d06022d5136",
+  "image_sha256": "73344b7fb70c981edeb90e0dad3a985b95da0cead491f602e3399576e2adcd7f",
+  "image_id": "IMG-GU-11",
+  "execution_status": "failed",
+  "http_status": 422,
+  "engine_output": {
+    "error": "content_guardrail",
+    "reason": "This item appears to be a headwrap or accessory, which is not currently supported in our clothing categories."
+  }
+}

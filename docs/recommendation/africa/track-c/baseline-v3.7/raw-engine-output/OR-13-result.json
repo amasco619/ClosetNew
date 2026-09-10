@@ -1,0 +1,185 @@
+{
+  "case_id": "OR-13",
+  "case_type": "outfit_ranking",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:10.834Z",
+  "execution_status": "success",
+  "input_fingerprint": "6f0a2c4170b2fa059353412eaf00d8f8b05b70abed8699ad69c5211924d5ca64",
+  "scenario_tag": "casual",
+  "weather": null,
+  "engine_ranked_outfit_ids": [
+    "OR-13-B",
+    "OR-13-C",
+    "OR-13-A"
+  ],
+  "engine_top1_outfit_id": "OR-13-B",
+  "engine_top1_component_ids": [
+    "F05",
+    "F30",
+    "F07",
+    "F11"
+  ],
+  "engine_top1_fingerprint": "F05,F07,F11,F30",
+  "engine_top1_confidence_score": 31,
+  "engine_top1_score_breakdown": {
+    "total": 16,
+    "completeness": 7,
+    "palette": 4,
+    "paletteType": "neutral-bridge",
+    "formalityCohesion": 1,
+    "patternSafety": 3,
+    "contrastMatch": 0,
+    "pieces": 1,
+    "proportionBalance": 0,
+    "metalCohesion": 0,
+    "temperatureHarmony": 2,
+    "valueSpread": 2,
+    "saturationDominance": -2,
+    "textureHarmony": -2,
+    "bodyTypeProportion": 0,
+    "hemlineShoeHarmony": 0,
+    "heightProportion": 0,
+    "undertoneHarmony": 0,
+    "necklineJewelry": 0,
+    "riseHarmony": 0,
+    "focalCompetition": 0
+  },
+  "candidate_scores": [
+    {
+      "id": "OR-13-B",
+      "description": "Large orange-teal Ankara skirt with white solid tunic, gold heels, gold clutch",
+      "components": [
+        "F05",
+        "F30",
+        "F07",
+        "F11"
+      ],
+      "fingerprint": "F05,F07,F11,F30",
+      "item_score": 15,
+      "combo_score": 16,
+      "total_score": 31,
+      "score_breakdown": {
+        "total": 16,
+        "completeness": 7,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": 1,
+        "patternSafety": 3,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": -2,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OR-13-C",
+      "description": "Large orange-teal Ankara skirt with large blue-red print blouse, gold heels, gold clutch",
+      "components": [
+        "F05",
+        "F20",
+        "F07",
+        "F11"
+      ],
+      "fingerprint": "F05,F07,F11,F20",
+      "item_score": 11,
+      "combo_score": 5,
+      "total_score": 16,
+      "score_breakdown": {
+        "total": 5,
+        "completeness": 7,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": 2,
+        "patternSafety": -3,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": -2,
+        "saturationDominance": -2,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": -2
+      }
+    },
+    {
+      "id": "OR-13-A",
+      "description": "Large orange-teal Ankara kaftan with gold heels and gold clutch (all accessories solid)",
+      "components": [
+        "F01",
+        "F07",
+        "F11"
+      ],
+      "fingerprint": "F01,F07,F11",
+      "item_score": 4,
+      "combo_score": 10,
+      "total_score": 14,
+      "score_breakdown": {
+        "total": 10,
+        "completeness": 7,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": -2,
+        "patternSafety": 3,
+        "contrastMatch": 0,
+        "pieces": 0,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": -2,
+        "saturationDominance": -2,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    }
+  ],
+  "production_pool_size": 1,
+  "production_pool_matched_candidate_ids": [
+    "OR-13-B"
+  ],
+  "production_pool_top1_candidate_id": "OR-13-B",
+  "production_pool": [
+    {
+      "pool_rank": 1,
+      "outfit_id": "pool-casual-0",
+      "matched_candidate_id": "OR-13-B",
+      "component_ids": [
+        "F05",
+        "F07",
+        "F11",
+        "F30"
+      ],
+      "fingerprint": "F05,F07,F11,F30",
+      "confidence_score": 31,
+      "hero_id": "F07",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A grounded neutral base, built around your gold strappy heels."
+    }
+  ],
+  "fallback_activated": false,
+  "evaluation_note": "Fixed candidates are ranked by unchanged production item-profile plus combo scores. The full unchanged generator output is captured separately because the benchmark protocol does not define a candidate-to-generated-pool mapping."
+}

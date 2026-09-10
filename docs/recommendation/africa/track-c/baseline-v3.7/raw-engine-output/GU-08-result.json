@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-08",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:10.938Z",
+  "input_fingerprint": "4b21db8a612733f577e3c686020b295ae6c71ad1450552c800b7828332e9f985",
+  "image_sha256": "f5eb4fd83a7e1660b886750919be0b5f736d5254d9e8774fabbf7f81fa850981",
+  "image_id": "IMG-GU-08",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "top",
+    "subType": "linen-set",
+    "colorFamily": "blue",
+    "accentColor": "orange",
+    "description": "Blue wax print two-piece set",
+    "occasionTags": [
+      "casual",
+      "brunch",
+      "resort"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "wax-print",
+    "patternScale": "large",
+    "fit": "regular",
+    "neckline": "crew",
+    "sleeveLength": "short",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 214.65517241379308,
+      "s": 0.6904761904761906,
+      "l": 0.32941176470588235
+    },
+    "dominantLab": {
+      "L": 32.266484106191875,
+      "a": 9.447133981527994,
+      "b": -41.75270010416232
+    },
+    "modelConfidence": 0.95,
+    "source": "gemini"
+  }
+}

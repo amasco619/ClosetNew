@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-09",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:12.327Z",
+  "input_fingerprint": "d26c4ded21993e559f29b788577bf3e88831cfdfea5a78e2597a9fbf0d3f8808",
+  "image_sha256": "47bfe73602fdd0130b406aed0884357b307e693d8af228e335c262f0b7d9abc3",
+  "image_id": "IMG-GU-09",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "top",
+    "subType": "linen-set",
+    "colorFamily": "blue",
+    "accentColor": "green",
+    "description": "Blue wax print peplum top",
+    "occasionTags": [
+      "casual",
+      "brunch",
+      "resort"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "wax-print",
+    "patternScale": "medium",
+    "fit": "regular",
+    "neckline": "crew",
+    "sleeveLength": "short",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 215.29411764705884,
+      "s": 0.7391304347826086,
+      "l": 0.45098039215686275
+    },
+    "dominantLab": {
+      "L": 43.593044414895466,
+      "a": 16.387003452125683,
+      "b": -57.90476920388492
+    },
+    "modelConfidence": 0.95,
+    "source": "gemini"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-07",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:09.074Z",
+  "input_fingerprint": "45eac25ea037d869fb29785497d4c97f0e950ea65380f75b7724d61024a844a4",
+  "image_sha256": "c8476ede6a88dff57cd1aa76767a75f8c266583bce2e2afa9b089e20002512e5",
+  "image_id": "IMG-GU-07",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "outerwear",
+    "subType": "blazer",
+    "colorFamily": "blue",
+    "accentColor": "orange",
+    "description": "Blue wax print blazer",
+    "occasionTags": [
+      "work",
+      "event",
+      "date-dressy",
+      "interview"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "wax-print",
+    "patternScale": "large",
+    "fit": "tailored",
+    "warmthBand": "mild",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 216.92307692307693,
+      "s": 0.6842105263157894,
+      "l": 0.37254901960784315
+    },
+    "dominantLab": {
+      "L": 35.103510328144736,
+      "a": 13.760702998831059,
+      "b": -48.09047332280021
+    },
+    "modelConfidence": 0.98,
+    "source": "gemini"
+  }
+}

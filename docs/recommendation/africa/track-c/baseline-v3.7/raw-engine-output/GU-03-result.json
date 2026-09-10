@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-03",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:34:48.700Z",
+  "input_fingerprint": "a34e5b156ad83d0da004474fb8ae8f52c565f23dbc91eb1805727e7e9354d5f5",
+  "image_sha256": "2b00f2eeb63064decf2b72f8cbb6701fa4b07748d6b46f04e5391df87cd2f14b",
+  "image_id": "IMG-GU-03",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "bottom",
+    "subType": "midi-skirt",
+    "colorFamily": "brown",
+    "accentColor": "yellow",
+    "description": "Brown wax print midi skirt",
+    "occasionTags": [
+      "work",
+      "date-dressy",
+      "event",
+      "brunch"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "wax-print",
+    "patternScale": "large",
+    "fit": "regular",
+    "rise": "high",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 20.000000000000004,
+      "s": 0.4285714285714286,
+      "l": 0.4117647058823529
+    },
+    "dominantLab": {
+      "L": 44.41056064022079,
+      "a": 21.602098837896932,
+      "b": 27.618339300656768
+    },
+    "modelConfidence": 0.98,
+    "source": "gemini"
+  }
+}

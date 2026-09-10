@@ -18,3 +18,4 @@
 - [Phase 5B storage + compliance](phase5b-hardening.md) — signed URLs for wardrobe-images; storagePath threaded through all upload paths; RLS migration; account deletion fixed; 7 compliance docs in docs/compliance/
 - [Premium entitlement boundary](premium-entitlement-boundary.md) — premium is expiry-aware server state; local cache, JWT claims, and client routes can never grant it
 - [Benchmark gold-label independence](benchmark-gold-label-independence.md) — reviewer package must carry zero author-assigned evaluative metadata; two-tier fixtures + validator enforce it
+- [Track C v3.7 baseline interpretation](track-c-baseline-interpretation.md) — keep fixed-candidate scoring and full-generator support separate; baseline recommends material remediation before launch

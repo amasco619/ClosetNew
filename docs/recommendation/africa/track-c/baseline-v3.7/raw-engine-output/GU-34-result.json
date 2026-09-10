@@ -1,0 +1,44 @@
+{
+  "case_id": "GU-34",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:36:48.896Z",
+  "input_fingerprint": "e2dd1e4ee602b758c6ede772baf027583997261e0d7bf7368a79c4c3d96fcaad",
+  "image_sha256": "14d1f768d21a06010ec831bef363c47d1d1de344f28f0353b4f6fb26fdeef897",
+  "image_id": "IMG-GU-34",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "bottom",
+    "subType": "maxi-skirt",
+    "colorFamily": "blue",
+    "accentColor": "beige",
+    "description": "Blue striped woven wrap maxi skirt",
+    "occasionTags": [
+      "casual",
+      "date-casual",
+      "resort"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "stripe",
+    "patternScale": "medium",
+    "fit": "regular",
+    "rise": "high",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 220.00000000000003,
+      "s": 0.48,
+      "l": 0.19607843137254904
+    },
+    "dominantLab": {
+      "L": 17.319000068085842,
+      "a": 4.874155986407419,
+      "b": -21.91674423295249
+    },
+    "modelConfidence": 0.95,
+    "source": "gemini"
+  }
+}

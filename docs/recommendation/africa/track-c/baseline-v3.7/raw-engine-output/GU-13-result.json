@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-13",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:17.954Z",
+  "input_fingerprint": "300cb18a57e30209176545af3bc0ad569c15f1088745c7311c3373a7976c0772",
+  "image_sha256": "b628983c62a0bd155e435eeccc8a1546cd4fb48be2345a35f152cb6cc1b03367",
+  "image_id": "IMG-GU-13",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "dress",
+    "subType": "midi-dress",
+    "colorFamily": "burgundy",
+    "description": "Burgundy Lace Midi Dress",
+    "occasionTags": [
+      "date-dressy",
+      "event",
+      "brunch"
+    ],
+    "seasonTags": [
+      "spring",
+      "summer"
+    ],
+    "pattern": "geometric",
+    "patternScale": "medium",
+    "fit": "regular",
+    "neckline": "crew",
+    "sleeveLength": "long",
+    "fabric": "lace",
+    "weight": "light",
+    "dominantHsl": {
+      "h": 348,
+      "s": 0.5944055944055945,
+      "l": 0.2803921568627451
+    },
+    "dominantLab": {
+      "L": 25.726837248883847,
+      "a": 38.096941640639734,
+      "b": 11.082715198634341
+    },
+    "modelConfidence": 0.98,
+    "source": "gemini"
+  }
+}

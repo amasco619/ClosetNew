@@ -1,0 +1,359 @@
+{
+  "case_id": "OR-07",
+  "case_type": "outfit_ranking",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:10.797Z",
+  "execution_status": "success",
+  "input_fingerprint": "45bd78fb2a29e77cf284d684f4102005e737eef00f22556216bba789031b995e",
+  "scenario_tag": "work",
+  "weather": null,
+  "engine_ranked_outfit_ids": [
+    "OR-07-C",
+    "OR-07-B",
+    "OR-07-A",
+    "OR-07-D"
+  ],
+  "engine_top1_outfit_id": "OR-07-C",
+  "engine_top1_component_ids": [
+    "F16",
+    "F06",
+    "F08",
+    "F12"
+  ],
+  "engine_top1_fingerprint": "F06,F08,F12,F16",
+  "engine_top1_confidence_score": 63,
+  "engine_top1_score_breakdown": {
+    "total": 21,
+    "completeness": 8,
+    "palette": 5,
+    "paletteType": "neutral-only",
+    "formalityCohesion": 2,
+    "patternSafety": 2,
+    "contrastMatch": 0,
+    "pieces": 1,
+    "proportionBalance": 0,
+    "metalCohesion": 0,
+    "temperatureHarmony": 2,
+    "valueSpread": 2,
+    "saturationDominance": 1,
+    "textureHarmony": -2,
+    "bodyTypeProportion": 0,
+    "hemlineShoeHarmony": 0,
+    "heightProportion": 0,
+    "undertoneHarmony": 0,
+    "necklineJewelry": 0,
+    "riseHarmony": 0,
+    "focalCompetition": 0
+  },
+  "candidate_scores": [
+    {
+      "id": "OR-07-C",
+      "description": "Camel blazer with black trousers, nude heels, tan tote",
+      "components": [
+        "F16",
+        "F06",
+        "F08",
+        "F12"
+      ],
+      "fingerprint": "F06,F08,F12,F16",
+      "item_score": 42,
+      "combo_score": 21,
+      "total_score": 63,
+      "score_breakdown": {
+        "total": 21,
+        "completeness": 8,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": 1,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OR-07-B",
+      "description": "Red-black Ankara midi-dress with black block-heels, black bag",
+      "components": [
+        "F21",
+        "F09",
+        "F13"
+      ],
+      "fingerprint": "F09,F13,F21",
+      "item_score": 24,
+      "combo_score": 22,
+      "total_score": 46,
+      "score_breakdown": {
+        "total": 22,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 3,
+        "patternSafety": 3,
+        "contrastMatch": 0,
+        "pieces": 0,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 1,
+        "valueSpread": 2,
+        "saturationDominance": 0,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 1,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OR-07-A",
+      "description": "Matching green-gold Ankara blazer and trousers, nude heels, black bag",
+      "components": [
+        "F25",
+        "F26",
+        "F08",
+        "F13"
+      ],
+      "fingerprint": "F08,F13,F25,F26",
+      "item_score": 28,
+      "combo_score": 12,
+      "total_score": 40,
+      "score_breakdown": {
+        "total": 12,
+        "completeness": 8,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": -3,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 1,
+        "valueSpread": 2,
+        "saturationDominance": 0,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": -2
+      }
+    },
+    {
+      "id": "OR-07-D",
+      "description": "Jeans with black crop-top, trainers",
+      "components": [
+        "F19",
+        "F17",
+        "F10"
+      ],
+      "fingerprint": "F10,F17,F19",
+      "item_score": 14,
+      "combo_score": 15,
+      "total_score": 29,
+      "score_breakdown": {
+        "total": 15,
+        "completeness": 4,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": 3,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 0,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 0,
+        "saturationDominance": 2,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    }
+  ],
+  "production_pool_size": 9,
+  "production_pool_matched_candidate_ids": [],
+  "production_pool_top1_candidate_id": null,
+  "production_pool": [
+    {
+      "pool_rank": 1,
+      "outfit_id": "pool-work-6",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F06",
+        "F09",
+        "F13",
+        "F16",
+        "F17"
+      ],
+      "fingerprint": "F06,F09,F13,F16,F17",
+      "confidence_score": 74,
+      "hero_id": "F16",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Understated neutrals, built around your camel blazer."
+    },
+    {
+      "pool_rank": 2,
+      "outfit_id": "pool-work-2",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F06",
+        "F09",
+        "F13",
+        "F17",
+        "F25"
+      ],
+      "fingerprint": "F06,F09,F13,F17,F25",
+      "confidence_score": 64,
+      "hero_id": "F25",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Understated neutrals, built around your green gold blazer."
+    },
+    {
+      "pool_rank": 3,
+      "outfit_id": "pool-work-8",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F08",
+        "F13",
+        "F21"
+      ],
+      "fingerprint": "F08,F13,F21",
+      "confidence_score": 41,
+      "hero_id": "F08",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Quiet neutrals, built around your nude pointed toe heels."
+    },
+    {
+      "pool_rank": 4,
+      "outfit_id": "pool-work-7",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F06",
+        "F08",
+        "F13",
+        "F16",
+        "F17"
+      ],
+      "fingerprint": "F06,F08,F13,F16,F17",
+      "confidence_score": 70,
+      "hero_id": "F16",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Quiet neutrals, built around your camel blazer."
+    },
+    {
+      "pool_rank": 5,
+      "outfit_id": "pool-work-3",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F06",
+        "F08",
+        "F13",
+        "F17",
+        "F25"
+      ],
+      "fingerprint": "F06,F08,F13,F17,F25",
+      "confidence_score": 60,
+      "hero_id": "F25",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Quiet neutrals, built around your green gold blazer."
+    },
+    {
+      "pool_rank": 6,
+      "outfit_id": "pool-work-4",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F09",
+        "F13",
+        "F16",
+        "F21"
+      ],
+      "fingerprint": "F09,F13,F16,F21",
+      "confidence_score": 61,
+      "hero_id": "F16",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Quiet neutrals, built around your camel blazer."
+    },
+    {
+      "pool_rank": 7,
+      "outfit_id": "pool-work-0",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F09",
+        "F13",
+        "F21",
+        "F25"
+      ],
+      "fingerprint": "F09,F13,F21,F25",
+      "confidence_score": 42,
+      "hero_id": "F25",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Quiet neutrals, built around your green gold blazer."
+    },
+    {
+      "pool_rank": 8,
+      "outfit_id": "pool-work-5",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F08",
+        "F13",
+        "F16",
+        "F21"
+      ],
+      "fingerprint": "F08,F13,F16,F21",
+      "confidence_score": 56,
+      "hero_id": "F16",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Understated neutrals, built around your camel blazer."
+    },
+    {
+      "pool_rank": 9,
+      "outfit_id": "pool-work-1",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F08",
+        "F13",
+        "F21",
+        "F25"
+      ],
+      "fingerprint": "F08,F13,F21,F25",
+      "confidence_score": 37,
+      "hero_id": "F25",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Understated neutrals, built around your green gold blazer."
+    }
+  ],
+  "fallback_activated": false,
+  "evaluation_note": "Fixed candidates are ranked by unchanged production item-profile plus combo scores. The full unchanged generator output is captured separately because the benchmark protocol does not define a candidate-to-generated-pool mapping."
+}

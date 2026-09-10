@@ -1,0 +1,46 @@
+{
+  "case_id": "GU-32",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:36:45.629Z",
+  "input_fingerprint": "8f0d4e2f35491f746b1eacdbc4615d6d7d2628bd6c91bddd09ed31982b30874c",
+  "image_sha256": "4325282899c8182b260b965002c983cf5c66c179c14e679bdf51179119a18e94",
+  "image_id": "IMG-GU-32",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "top",
+    "subType": "shirt",
+    "colorFamily": "yellow",
+    "accentColor": "blue",
+    "description": "Yellow kente cloth fabric strip",
+    "occasionTags": [
+      "work",
+      "casual",
+      "date-casual",
+      "date-dressy"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "wax-print",
+    "patternScale": "medium",
+    "fit": "regular",
+    "neckline": "collared",
+    "sleeveLength": "long",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 43.578947368421055,
+      "s": 0.8189655172413792,
+      "l": 0.5450980392156862
+    },
+    "dominantLab": {
+      "L": 76.7600295453816,
+      "a": 6.784804001183975,
+      "b": 71.03943607253257
+    },
+    "modelConfidence": 0.85,
+    "source": "gemini"
+  }
+}

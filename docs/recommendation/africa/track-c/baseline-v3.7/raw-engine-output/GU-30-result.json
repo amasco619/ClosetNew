@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-30",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:36:31.517Z",
+  "input_fingerprint": "a906a4c3c3b81244df2250f507c518b2d83a16ad4df1cffa66bde91452e5cd23",
+  "image_sha256": "dec8dec02f522c22ca181110dbe5fc9bfc462ebc7f995acf9c147285b38a3c79",
+  "image_id": "IMG-GU-30",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "top",
+    "subType": "linen-set",
+    "colorFamily": "orange",
+    "accentColor": "blue",
+    "description": "Orange ankara print crop top",
+    "occasionTags": [
+      "casual",
+      "brunch",
+      "resort"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "wax-print",
+    "patternScale": "large",
+    "fit": "regular",
+    "neckline": "crew",
+    "sleeveLength": "short",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 25.263157894736842,
+      "s": 0.76,
+      "l": 0.4901960784313726
+    },
+    "dominantLab": {
+      "L": 58.47645853192547,
+      "a": 38.482701941957906,
+      "b": 59.38256435581071
+    },
+    "modelConfidence": 0.98,
+    "source": "gemini"
+  }
+}

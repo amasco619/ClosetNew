@@ -1,0 +1,367 @@
+{
+  "case_id": "OR-10",
+  "case_type": "outfit_ranking",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:10.823Z",
+  "execution_status": "success",
+  "input_fingerprint": "3ba5d77ef909bf8cda2d540384adcec073b56960c14a27e5b4fc543ed67c2849",
+  "scenario_tag": "casual",
+  "weather": null,
+  "engine_ranked_outfit_ids": [
+    "OR-10-C",
+    "OR-10-D",
+    "OR-10-A",
+    "OR-10-B"
+  ],
+  "engine_top1_outfit_id": "OR-10-C",
+  "engine_top1_component_ids": [
+    "F19",
+    "F17",
+    "F10",
+    "F36"
+  ],
+  "engine_top1_fingerprint": "F10,F17,F19,F36",
+  "engine_top1_confidence_score": 59,
+  "engine_top1_score_breakdown": {
+    "total": 13,
+    "completeness": 7,
+    "palette": 4,
+    "paletteType": "neutral-bridge",
+    "formalityCohesion": 3,
+    "patternSafety": 2,
+    "contrastMatch": 0,
+    "pieces": 1,
+    "proportionBalance": 0,
+    "metalCohesion": 0,
+    "temperatureHarmony": 0,
+    "valueSpread": 0,
+    "saturationDominance": -2,
+    "textureHarmony": -2,
+    "bodyTypeProportion": 0,
+    "hemlineShoeHarmony": 0,
+    "heightProportion": 0,
+    "undertoneHarmony": 0,
+    "necklineJewelry": 0,
+    "riseHarmony": 0,
+    "focalCompetition": 0
+  },
+  "candidate_scores": [
+    {
+      "id": "OR-10-C",
+      "description": "Jeans with black crop-top, trainers, brown crossbody",
+      "components": [
+        "F19",
+        "F17",
+        "F10",
+        "F36"
+      ],
+      "fingerprint": "F10,F17,F19,F36",
+      "item_score": 46,
+      "combo_score": 13,
+      "total_score": 59,
+      "score_breakdown": {
+        "total": 13,
+        "completeness": 7,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": 3,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 0,
+        "valueSpread": 0,
+        "saturationDominance": -2,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OR-10-D",
+      "description": "Medium teal-brown Ankara skirt with white blouse, camel mules, brown crossbody",
+      "components": [
+        "F32",
+        "F04",
+        "F28",
+        "F36"
+      ],
+      "fingerprint": "F04,F28,F32,F36",
+      "item_score": 39,
+      "combo_score": 16,
+      "total_score": 55,
+      "score_breakdown": {
+        "total": 16,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": 1,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 1,
+        "saturationDominance": -1,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OR-10-A",
+      "description": "Small rust-cream Ankara skirt with white blouse, flat sandals, brown crossbody",
+      "components": [
+        "F31",
+        "F04",
+        "F35",
+        "F36"
+      ],
+      "fingerprint": "F04,F31,F35,F36",
+      "item_score": 35,
+      "combo_score": 17,
+      "total_score": 52,
+      "score_breakdown": {
+        "total": 17,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 1,
+        "patternSafety": 1,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 1,
+        "saturationDominance": 1,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OR-10-B",
+      "description": "Ivory lace gown with gold heels, gold clutch, statement earrings",
+      "components": [
+        "F02",
+        "F07",
+        "F11",
+        "F14"
+      ],
+      "fingerprint": "F02,F07,F11,F14",
+      "item_score": 4,
+      "combo_score": 11,
+      "total_score": 15,
+      "score_breakdown": {
+        "total": 11,
+        "completeness": 10,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": -2,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": -2,
+        "saturationDominance": -2,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": -2
+      }
+    }
+  ],
+  "production_pool_size": 9,
+  "production_pool_matched_candidate_ids": [],
+  "production_pool_top1_candidate_id": null,
+  "production_pool": [
+    {
+      "pool_rank": 1,
+      "outfit_id": "pool-casual-8",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F14",
+        "F17",
+        "F19",
+        "F28",
+        "F36"
+      ],
+      "fingerprint": "F14,F17,F19,F28,F36",
+      "confidence_score": 66,
+      "hero_id": "F19",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Contrast that holds, built around your blue jeans."
+    },
+    {
+      "pool_rank": 2,
+      "outfit_id": "pool-casual-1",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F14",
+        "F28",
+        "F31",
+        "F36"
+      ],
+      "fingerprint": "F04,F14,F28,F31,F36",
+      "confidence_score": 63,
+      "hero_id": "F28",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Neutrals anchoring the colour, built around your camel mules."
+    },
+    {
+      "pool_rank": 3,
+      "outfit_id": "pool-casual-2",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F14",
+        "F31",
+        "F35",
+        "F36"
+      ],
+      "fingerprint": "F04,F14,F31,F35,F36",
+      "confidence_score": 58,
+      "hero_id": "F35",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A neutral-bridged palette, built around your tan flat sandals."
+    },
+    {
+      "pool_rank": 4,
+      "outfit_id": "pool-casual-0",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F07",
+        "F14",
+        "F31",
+        "F36"
+      ],
+      "fingerprint": "F04,F07,F14,F31,F36",
+      "confidence_score": 49,
+      "hero_id": "F07",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A grounded neutral base, built around your gold strappy heels."
+    },
+    {
+      "pool_rank": 5,
+      "outfit_id": "pool-casual-5",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F14",
+        "F19",
+        "F28",
+        "F36"
+      ],
+      "fingerprint": "F04,F14,F19,F28,F36",
+      "confidence_score": 65,
+      "hero_id": "F19",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Two colours that play off each other, built around your blue jeans."
+    },
+    {
+      "pool_rank": 6,
+      "outfit_id": "pool-casual-3",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F10",
+        "F14",
+        "F19",
+        "F36"
+      ],
+      "fingerprint": "F04,F10,F14,F19,F36",
+      "confidence_score": 64,
+      "hero_id": "F19",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Two colours that play off each other, built around your blue jeans."
+    },
+    {
+      "pool_rank": 7,
+      "outfit_id": "pool-casual-6",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F10",
+        "F14",
+        "F17",
+        "F19",
+        "F36"
+      ],
+      "fingerprint": "F10,F14,F17,F19,F36",
+      "confidence_score": 63,
+      "hero_id": "F19",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A balanced complementary palette, built around your blue jeans."
+    },
+    {
+      "pool_rank": 8,
+      "outfit_id": "pool-casual-7",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F14",
+        "F17",
+        "F19",
+        "F35",
+        "F36"
+      ],
+      "fingerprint": "F14,F17,F19,F35,F36",
+      "confidence_score": 61,
+      "hero_id": "F19",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Two colours that play off each other, built around your blue jeans."
+    },
+    {
+      "pool_rank": 9,
+      "outfit_id": "pool-casual-4",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F14",
+        "F19",
+        "F35",
+        "F36"
+      ],
+      "fingerprint": "F04,F14,F19,F35,F36",
+      "confidence_score": 60,
+      "hero_id": "F19",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Contrast that holds, built around your blue jeans."
+    }
+  ],
+  "fallback_activated": false,
+  "evaluation_note": "Fixed candidates are ranked by unchanged production item-profile plus combo scores. The full unchanged generator output is captured separately because the benchmark protocol does not define a candidate-to-generated-pool mapping."
+}

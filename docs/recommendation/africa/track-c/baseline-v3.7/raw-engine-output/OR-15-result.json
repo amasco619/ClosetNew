@@ -1,0 +1,186 @@
+{
+  "case_id": "OR-15",
+  "case_type": "outfit_ranking",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:10.837Z",
+  "execution_status": "success",
+  "input_fingerprint": "590c61209fa04627a76def42bae281f8246c59576a423f1981b59dde46018582",
+  "scenario_tag": "casual",
+  "weather": null,
+  "engine_ranked_outfit_ids": [
+    "OR-15-A",
+    "OR-15-B",
+    "OR-15-C"
+  ],
+  "engine_top1_outfit_id": "OR-15-A",
+  "engine_top1_component_ids": [
+    "F32",
+    "F04",
+    "F08",
+    "F36"
+  ],
+  "engine_top1_fingerprint": "F04,F08,F32,F36",
+  "engine_top1_confidence_score": 48,
+  "engine_top1_score_breakdown": {
+    "total": 18,
+    "completeness": 7,
+    "palette": 5,
+    "paletteType": "neutral-only",
+    "formalityCohesion": 2,
+    "patternSafety": 1,
+    "contrastMatch": 0,
+    "pieces": 1,
+    "proportionBalance": 0,
+    "metalCohesion": 0,
+    "temperatureHarmony": 2,
+    "valueSpread": 1,
+    "saturationDominance": 1,
+    "textureHarmony": -2,
+    "bodyTypeProportion": 0,
+    "hemlineShoeHarmony": 0,
+    "heightProportion": 0,
+    "undertoneHarmony": 0,
+    "necklineJewelry": 0,
+    "riseHarmony": 0,
+    "focalCompetition": 0
+  },
+  "candidate_scores": [
+    {
+      "id": "OR-15-A",
+      "description": "Medium teal-brown Ankara skirt with white solid blouse, nude heels, brown crossbody",
+      "components": [
+        "F32",
+        "F04",
+        "F08",
+        "F36"
+      ],
+      "fingerprint": "F04,F08,F32,F36",
+      "item_score": 30,
+      "combo_score": 18,
+      "total_score": 48,
+      "score_breakdown": {
+        "total": 18,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": 1,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 1,
+        "saturationDominance": 1,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OR-15-B",
+      "description": "Medium teal-brown Ankara skirt with small navy stripe blouse, nude heels, brown crossbody",
+      "components": [
+        "F32",
+        "F43",
+        "F08",
+        "F36"
+      ],
+      "fingerprint": "F08,F32,F36,F43",
+      "item_score": 26,
+      "combo_score": 18,
+      "total_score": 44,
+      "score_breakdown": {
+        "total": 18,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": 0,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": 1,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OR-15-C",
+      "description": "Medium teal-brown Ankara skirt with medium blue-grey print blouse, nude heels, brown crossbody",
+      "components": [
+        "F32",
+        "F42",
+        "F08",
+        "F36"
+      ],
+      "fingerprint": "F08,F32,F36,F42",
+      "item_score": 26,
+      "combo_score": 18,
+      "total_score": 44,
+      "score_breakdown": {
+        "total": 18,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": 0,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": 1,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    }
+  ],
+  "production_pool_size": 1,
+  "production_pool_matched_candidate_ids": [
+    "OR-15-A"
+  ],
+  "production_pool_top1_candidate_id": "OR-15-A",
+  "production_pool": [
+    {
+      "pool_rank": 1,
+      "outfit_id": "pool-casual-0",
+      "matched_candidate_id": "OR-15-A",
+      "component_ids": [
+        "F04",
+        "F08",
+        "F32",
+        "F36"
+      ],
+      "fingerprint": "F04,F08,F32,F36",
+      "confidence_score": 49,
+      "hero_id": "F08",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A soft neutral palette, built around your nude pointed toe heels."
+    }
+  ],
+  "fallback_activated": false,
+  "evaluation_note": "Fixed candidates are ranked by unchanged production item-profile plus combo scores. The full unchanged generator output is captured separately because the benchmark protocol does not define a candidate-to-generated-pool mapping."
+}

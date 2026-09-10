@@ -1,0 +1,46 @@
+{
+  "case_id": "GU-33",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:36:47.111Z",
+  "input_fingerprint": "87e23c7e67dea4736c93d02aebbf0cbde627d079087faeb5a97bb8b74ad62676",
+  "image_sha256": "d9b42c9aa248878275703987dca33b83afff9bdaba4c606dc3699400b5f6dd12",
+  "image_id": "IMG-GU-33",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "top",
+    "subType": "shirt",
+    "colorFamily": "blue",
+    "accentColor": "yellow",
+    "description": "Blue striped blue and gold top",
+    "occasionTags": [
+      "work",
+      "casual",
+      "date-casual",
+      "date-dressy"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "stripe",
+    "patternScale": "medium",
+    "fit": "regular",
+    "neckline": "crew",
+    "sleeveLength": "short",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 216.52173913043478,
+      "s": 0.657142857142857,
+      "l": 0.3431372549019608
+    },
+    "dominantLab": {
+      "L": 32.59420096306281,
+      "a": 11.120245863506323,
+      "b": -43.05302082657515
+    },
+    "modelConfidence": 0.95,
+    "source": "gemini"
+  }
+}

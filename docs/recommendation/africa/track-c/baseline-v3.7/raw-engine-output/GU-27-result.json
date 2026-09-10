@@ -1,0 +1,44 @@
+{
+  "case_id": "GU-27",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:36:12.905Z",
+  "input_fingerprint": "bd9f5c356006445353f1222224223caebd8055a7fc9f6f7894ec518004281e3b",
+  "image_sha256": "785678f3139d3f216105d0788644f32bbfed9ffd4d47d02fa40492465e4a549b",
+  "image_id": "IMG-GU-27",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "dress",
+    "subType": "kaftan",
+    "colorFamily": "cream",
+    "description": "Cream lace kaftan",
+    "occasionTags": [
+      "resort",
+      "casual",
+      "traditional-event"
+    ],
+    "seasonTags": [
+      "spring",
+      "summer"
+    ],
+    "pattern": "solid",
+    "fit": "loose",
+    "neckline": "scoop",
+    "sleeveLength": "short",
+    "fabric": "lace",
+    "weight": "light",
+    "dominantHsl": {
+      "h": 39.999999999999964,
+      "s": 0.42857142857142916,
+      "l": 0.9313725490196079
+    },
+    "dominantLab": {
+      "L": 94.92732279718139,
+      "a": -0.03412490214671493,
+      "b": 5.418430049912759
+    },
+    "modelConfidence": 0.95,
+    "source": "gemini"
+  }
+}

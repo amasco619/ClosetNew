@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-24",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:36:00.262Z",
+  "input_fingerprint": "ab92e7eda46275f18b83c9ee105673f1f775c43f024f3b00b8042ec4d25ccef1",
+  "image_sha256": "ecca5c175ca1eef8f3b0e09efea48025c1313073cbb6b7745eeade868952f2aa",
+  "image_id": "IMG-GU-24",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "top",
+    "subType": "linen-set",
+    "colorFamily": "blue",
+    "accentColor": "beige",
+    "description": "Blue woven patterned top",
+    "occasionTags": [
+      "casual",
+      "brunch",
+      "resort"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "geometric",
+    "patternScale": "medium",
+    "fit": "regular",
+    "neckline": "crew",
+    "sleeveLength": "short",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 217.9591836734694,
+      "s": 0.5833333333333333,
+      "l": 0.3294117647058824
+    },
+    "dominantLab": {
+      "L": 30.775146384267387,
+      "a": 9.732662591077606,
+      "b": -38.59020882865588
+    },
+    "modelConfidence": 0.95,
+    "source": "gemini"
+  }
+}

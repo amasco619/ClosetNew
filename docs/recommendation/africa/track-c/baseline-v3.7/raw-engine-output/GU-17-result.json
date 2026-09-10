@@ -1,0 +1,14 @@
+{
+  "case_id": "GU-17",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:24.248Z",
+  "input_fingerprint": "d4a5e6815efd34249a1675e45ea287647de4a4428a06a31717f186526ab3ba0c",
+  "image_sha256": "d4a954bdffdc0e78fef4dd0c8c850689a5e90c9897d2ac3256acde7dff2712ec",
+  "image_id": "IMG-GU-17",
+  "execution_status": "failed",
+  "http_status": 500,
+  "engine_output": {
+    "error": "classification_failed"
+  }
+}

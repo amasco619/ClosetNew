@@ -1,0 +1,271 @@
+{
+  "case_id": "OC-10",
+  "case_type": "occasion_distinction",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:10.929Z",
+  "execution_status": "success",
+  "input_fingerprint": "aca912900bd2bf40a0cafaf49f15bdffaf955ff230705b2f03d2b91b06f52dad",
+  "scenario_tag": "casual",
+  "weather": null,
+  "engine_ranked_outfit_ids": [
+    "OC-10-D",
+    "OC-10-A",
+    "OC-10-B",
+    "OC-10-C"
+  ],
+  "engine_top1_outfit_id": "OC-10-D",
+  "engine_top1_component_ids": [
+    "OC-F15",
+    "F06",
+    "F39",
+    "F13"
+  ],
+  "engine_top1_fingerprint": "F06,F13,F39,OC-F15",
+  "engine_top1_confidence_score": 37,
+  "engine_top1_score_breakdown": {
+    "total": 14,
+    "completeness": 7,
+    "palette": 5,
+    "paletteType": "neutral-only",
+    "formalityCohesion": 2,
+    "patternSafety": 2,
+    "contrastMatch": 0,
+    "pieces": 1,
+    "proportionBalance": 0,
+    "metalCohesion": 0,
+    "temperatureHarmony": 1,
+    "valueSpread": -2,
+    "saturationDominance": 0,
+    "textureHarmony": -2,
+    "bodyTypeProportion": 0,
+    "hemlineShoeHarmony": 0,
+    "heightProportion": 0,
+    "undertoneHarmony": 0,
+    "necklineJewelry": 0,
+    "riseHarmony": 0,
+    "focalCompetition": 0
+  },
+  "candidate_scores": [
+    {
+      "id": "OC-10-D",
+      "description": "Black blouse with black trousers, black heels, black bag",
+      "components": [
+        "OC-F15",
+        "F06",
+        "F39",
+        "F13"
+      ],
+      "fingerprint": "F06,F13,F39,OC-F15",
+      "item_score": 23,
+      "combo_score": 14,
+      "total_score": 37,
+      "score_breakdown": {
+        "total": 14,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 1,
+        "valueSpread": -2,
+        "saturationDominance": 0,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OC-10-A",
+      "description": "White solid cotton kaftan with nude heels, white clutch",
+      "components": [
+        "OC-F13",
+        "F08",
+        "OC-F14"
+      ],
+      "fingerprint": "F08,OC-F13,OC-F14",
+      "item_score": 13,
+      "combo_score": 15,
+      "total_score": 28,
+      "score_breakdown": {
+        "total": 15,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": -2,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 0,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 1,
+        "valueSpread": 2,
+        "saturationDominance": 0,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OC-10-B",
+      "description": "Ivory lace gown with nude heels, white clutch",
+      "components": [
+        "F02",
+        "F08",
+        "OC-F14"
+      ],
+      "fingerprint": "F02,F08,OC-F14",
+      "item_score": 7,
+      "combo_score": 15,
+      "total_score": 22,
+      "score_breakdown": {
+        "total": 15,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": -2,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 0,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 1,
+        "valueSpread": 2,
+        "saturationDominance": 0,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OC-10-C",
+      "description": "Orange-teal Ankara kaftan with gold heels, gold clutch",
+      "components": [
+        "F01",
+        "F07",
+        "F11"
+      ],
+      "fingerprint": "F01,F07,F11",
+      "item_score": 4,
+      "combo_score": 10,
+      "total_score": 14,
+      "score_breakdown": {
+        "total": 10,
+        "completeness": 7,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": -2,
+        "patternSafety": 3,
+        "contrastMatch": 0,
+        "pieces": 0,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": -2,
+        "saturationDominance": -2,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    }
+  ],
+  "production_pool_size": 4,
+  "production_pool_matched_candidate_ids": [
+    "OC-10-D"
+  ],
+  "production_pool_top1_candidate_id": "OC-10-D",
+  "production_pool": [
+    {
+      "pool_rank": 1,
+      "outfit_id": "pool-casual-0",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F06",
+        "F07",
+        "F13",
+        "OC-F15"
+      ],
+      "fingerprint": "F06,F07,F13,OC-F15",
+      "confidence_score": 40,
+      "hero_id": "F07",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A grounded neutral base, built around your gold strappy heels."
+    },
+    {
+      "pool_rank": 2,
+      "outfit_id": "pool-casual-3",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F06",
+        "F08",
+        "F13",
+        "OC-F15"
+      ],
+      "fingerprint": "F06,F08,F13,OC-F15",
+      "confidence_score": 40,
+      "hero_id": "F08",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A soft neutral palette, built around your nude pointed toe heels."
+    },
+    {
+      "pool_rank": 3,
+      "outfit_id": "pool-casual-1",
+      "matched_candidate_id": "OC-10-D",
+      "component_ids": [
+        "F06",
+        "F13",
+        "F39",
+        "OC-F15"
+      ],
+      "fingerprint": "F06,F13,F39,OC-F15",
+      "confidence_score": 38,
+      "hero_id": "F39",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Understated neutrals, built around your black heels."
+    },
+    {
+      "pool_rank": 4,
+      "outfit_id": "pool-casual-2",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F08",
+        "F13",
+        "OC-F13"
+      ],
+      "fingerprint": "F08,F13,OC-F13",
+      "confidence_score": 31,
+      "hero_id": "F08",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Quiet neutrals, built around your nude pointed toe heels."
+    }
+  ],
+  "fallback_activated": false,
+  "evaluation_note": "Fixed candidates are ranked by unchanged production item-profile plus combo scores. The full unchanged generator output is captured separately because the benchmark protocol does not define a candidate-to-generated-pool mapping."
+}

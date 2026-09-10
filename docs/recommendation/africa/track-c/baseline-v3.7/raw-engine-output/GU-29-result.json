@@ -1,0 +1,15 @@
+{
+  "case_id": "GU-29",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:36:30.008Z",
+  "input_fingerprint": "58bd5c617aeaa504d39d453c08dad171f88a33c76efa0ad910e86f4daee0eaee",
+  "image_sha256": "0ab752de99f88e0e6149882e649cb0fab7e24260f79e2fee38b69aa1553c747c",
+  "image_id": "IMG-GU-29",
+  "execution_status": "failed",
+  "http_status": 422,
+  "engine_output": {
+    "error": "content_guardrail",
+    "reason": "This image contains multiple clothing items (a blazer and pants set). Please photograph each garment individually."
+  }
+}

@@ -1,0 +1,302 @@
+{
+  "case_id": "WX-03",
+  "case_type": "weather_context",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:10.978Z",
+  "execution_status": "success",
+  "input_fingerprint": "b4e30fd3198b2b8c4ef7584b8d867bbfd7b07c8697e772b5828ea84d0aed2083",
+  "scenario_tag": "work",
+  "weather": {
+    "fetchedAt": 1789041600000,
+    "lat": 0,
+    "lon": 0,
+    "currentTempC": 28,
+    "highC": 38,
+    "lowC": 28,
+    "precipProbability": 0.04,
+    "source": "ip",
+    "locationLabel": "Abuja, Nigeria (inland, higher elevation)  "
+  },
+  "engine_ranked_outfit_ids": [
+    "WX-03-D",
+    "WX-03-A",
+    "WX-03-C",
+    "WX-03-B"
+  ],
+  "engine_top1_outfit_id": "WX-03-D",
+  "engine_top1_component_ids": [
+    "WF13",
+    "F04",
+    "F08",
+    "F12"
+  ],
+  "engine_top1_fingerprint": "F04,F08,F12,WF13",
+  "engine_top1_confidence_score": 65,
+  "engine_top1_score_breakdown": {
+    "total": 20,
+    "completeness": 7,
+    "palette": 5,
+    "paletteType": "neutral-only",
+    "formalityCohesion": 2,
+    "patternSafety": 2,
+    "contrastMatch": 0,
+    "pieces": 1,
+    "proportionBalance": 0,
+    "metalCohesion": 0,
+    "temperatureHarmony": 1,
+    "valueSpread": 2,
+    "saturationDominance": 0,
+    "textureHarmony": 0,
+    "bodyTypeProportion": 0,
+    "hemlineShoeHarmony": 0,
+    "heightProportion": 0,
+    "undertoneHarmony": 0,
+    "necklineJewelry": 0,
+    "riseHarmony": 0,
+    "focalCompetition": 0
+  },
+  "candidate_scores": [
+    {
+      "id": "WX-03-D",
+      "description": "Grey wool trousers with cotton blouse",
+      "components": [
+        "WF13",
+        "F04",
+        "F08",
+        "F12"
+      ],
+      "fingerprint": "F04,F08,F12,WF13",
+      "item_score": 45,
+      "combo_score": 20,
+      "total_score": 65,
+      "score_breakdown": {
+        "total": 20,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 1,
+        "valueSpread": 2,
+        "saturationDominance": 0,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "WX-03-A",
+      "description": "Cotton blouse with black synthetic trousers",
+      "components": [
+        "F04",
+        "F06",
+        "WF05",
+        "F12"
+      ],
+      "fingerprint": "F04,F06,F12,WF05",
+      "item_score": 41,
+      "combo_score": 17,
+      "total_score": 58,
+      "score_breakdown": {
+        "total": 17,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 3,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 1,
+        "valueSpread": 0,
+        "saturationDominance": 0,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "WX-03-C",
+      "description": "Ankara blazer over black trousers",
+      "components": [
+        "OC-F10",
+        "F06",
+        "F08",
+        "F12"
+      ],
+      "fingerprint": "F06,F08,F12,OC-F10",
+      "item_score": 38,
+      "combo_score": 20,
+      "total_score": 58,
+      "score_breakdown": {
+        "total": 20,
+        "completeness": 8,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": 3,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 1,
+        "valueSpread": 2,
+        "saturationDominance": 0,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "WX-03-B",
+      "description": "White tunic with cream linen wide-leg trousers",
+      "components": [
+        "F30",
+        "F18",
+        "WF05",
+        "F12"
+      ],
+      "fingerprint": "F12,F18,F30,WF05",
+      "item_score": 32,
+      "combo_score": 22,
+      "total_score": 54,
+      "score_breakdown": {
+        "total": 22,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": 1,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    }
+  ],
+  "production_pool_size": 5,
+  "production_pool_matched_candidate_ids": [
+    "WX-03-B"
+  ],
+  "production_pool_top1_candidate_id": "WX-03-B",
+  "production_pool": [
+    {
+      "pool_rank": 1,
+      "outfit_id": "pool-work-0",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F08",
+        "F12",
+        "F18"
+      ],
+      "fingerprint": "F04,F08,F12,F18",
+      "confidence_score": 61,
+      "hero_id": "F18",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Understated neutrals, built around your cream wide-leg trouser."
+    },
+    {
+      "pool_rank": 2,
+      "outfit_id": "pool-work-4",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F06",
+        "F08",
+        "F12"
+      ],
+      "fingerprint": "F04,F06,F08,F12",
+      "confidence_score": 60,
+      "hero_id": "F08",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Quiet neutrals, built around your nude pointed toe heels."
+    },
+    {
+      "pool_rank": 3,
+      "outfit_id": "pool-work-1",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F12",
+        "F18",
+        "WF05"
+      ],
+      "fingerprint": "F04,F12,F18,WF05",
+      "confidence_score": 59,
+      "hero_id": "F18",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Understated neutrals, built around your cream wide-leg trouser."
+    },
+    {
+      "pool_rank": 4,
+      "outfit_id": "pool-work-2",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F08",
+        "F12",
+        "F18",
+        "F30"
+      ],
+      "fingerprint": "F08,F12,F18,F30",
+      "confidence_score": 55,
+      "hero_id": "F18",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Quiet neutrals, built around your cream wide-leg trouser."
+    },
+    {
+      "pool_rank": 5,
+      "outfit_id": "pool-work-3",
+      "matched_candidate_id": "WX-03-B",
+      "component_ids": [
+        "F12",
+        "F18",
+        "F30",
+        "WF05"
+      ],
+      "fingerprint": "F12,F18,F30,WF05",
+      "confidence_score": 54,
+      "hero_id": "F18",
+      "generation_path": "strict",
+      "scenario": "work",
+      "rationale": "Quiet neutrals, built around your cream wide-leg trouser."
+    }
+  ],
+  "fallback_activated": false,
+  "evaluation_note": "Fixed candidates are ranked by unchanged production item-profile plus combo scores. The full unchanged generator output is captured separately because the benchmark protocol does not define a candidate-to-generated-pool mapping."
+}

@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-26",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:36:11.397Z",
+  "input_fingerprint": "e900203e3f90e6484da813c6e19aa7359c54b1df2cb031b5fcb0af1d79f9a5c8",
+  "image_sha256": "b4c1ac58d1a2718ebba925914b9361a5f90998bb6e306c29c470433cc34804ec",
+  "image_id": "IMG-GU-26",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "dress",
+    "subType": "kaftan",
+    "colorFamily": "yellow",
+    "description": "Yellow embroidered gold kaftan",
+    "occasionTags": [
+      "resort",
+      "casual",
+      "traditional-event"
+    ],
+    "seasonTags": [
+      "spring",
+      "summer"
+    ],
+    "pattern": "geometric",
+    "patternScale": "medium",
+    "fit": "loose",
+    "neckline": "v-neck",
+    "sleeveLength": "long",
+    "fabric": "silk",
+    "weight": "light",
+    "dominantHsl": {
+      "h": 45.859872611464965,
+      "s": 0.646090534979424,
+      "l": 0.5235294117647059
+    },
+    "dominantLab": {
+      "L": 72.84939233549781,
+      "a": 1.3805694093989573,
+      "b": 62.91382608628613
+    },
+    "modelConfidence": 0.95,
+    "source": "gemini"
+  }
+}

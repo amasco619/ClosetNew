@@ -1,0 +1,11 @@
+case_id,case_type,execution_status,engine_top1,gold_preferred,top1_match,top3_match,pairwise_correct,pairwise_total,regret,kendall_tau,acceptable_recall,not_acceptable_exclusion,dimension_agreement,dimension_detail
+WX-01,weather_context,success,D,A,false,true,3,6,25,0,0,1,,
+WX-02,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-03,weather_context,success,D,B,false,false,1,6,24,-0.6666666666666666,0.5,1,,
+WX-04,weather_context,success,D,A,false,true,1,6,24,-0.6666666666666666,0.5,0.5,,
+WX-05,weather_context,success,A,C,false,true,5,6,6,0.6666666666666666,0.5,0.5,,
+WX-06,weather_context,success,C,B,false,true,2,6,16,-0.3333333333333333,0,1,,
+WX-07,weather_context,success,D,B,false,true,3,6,13,0,1,1,,
+WX-08,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-09,weather_context,success,D,A,false,true,4,6,19,0.3333333333333333,0,1,,
+WX-10,weather_context,success,C,C,true,true,6,6,0,1,0,1,,

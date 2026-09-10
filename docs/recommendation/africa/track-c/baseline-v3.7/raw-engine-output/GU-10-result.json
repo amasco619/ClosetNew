@@ -1,0 +1,43 @@
+{
+  "case_id": "GU-10",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:13.756Z",
+  "input_fingerprint": "f05e25200a03e28b71d0365caf1e4405249b0fb48676537b7aa69cfce36de62f",
+  "image_sha256": "51cab5e8ad6b65190b2710d7c53225513705885c20a4bc1d056294b44ad812fe",
+  "image_id": "IMG-GU-10",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "outerwear",
+    "subType": "denim-jacket",
+    "colorFamily": "blue",
+    "accentColor": "yellow",
+    "description": "Blue denim jacket",
+    "occasionTags": [
+      "casual",
+      "date-casual",
+      "brunch"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "solid",
+    "fit": "regular",
+    "warmthBand": "cool",
+    "fabric": "denim",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 211.91489361702128,
+      "s": 0.4653465346534653,
+      "l": 0.39607843137254906
+    },
+    "dominantLab": {
+      "L": 40.66520984883916,
+      "a": 1.1193377396362947,
+      "b": -31.963209705576013
+    },
+    "modelConfidence": 0.95,
+    "source": "gemini"
+  }
+}

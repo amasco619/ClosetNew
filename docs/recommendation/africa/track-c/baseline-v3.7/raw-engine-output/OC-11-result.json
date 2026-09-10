@@ -1,0 +1,376 @@
+{
+  "case_id": "OC-11",
+  "case_type": "occasion_distinction",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:10.934Z",
+  "execution_status": "success",
+  "input_fingerprint": "c250bd8f4db84d2f66281e63a79b1c39d7ac0b463c0411f581564e0c22109d6f",
+  "scenario_tag": "casual",
+  "weather": null,
+  "engine_ranked_outfit_ids": [
+    "OC-11-A",
+    "OC-11-D",
+    "OC-11-B",
+    "OC-11-C"
+  ],
+  "engine_top1_outfit_id": "OC-11-A",
+  "engine_top1_component_ids": [
+    "F32",
+    "F04",
+    "F35",
+    "F36"
+  ],
+  "engine_top1_fingerprint": "F04,F32,F35,F36",
+  "engine_top1_confidence_score": 52,
+  "engine_top1_score_breakdown": {
+    "total": 17,
+    "completeness": 7,
+    "palette": 5,
+    "paletteType": "neutral-only",
+    "formalityCohesion": 1,
+    "patternSafety": 1,
+    "contrastMatch": 0,
+    "pieces": 1,
+    "proportionBalance": 0,
+    "metalCohesion": 0,
+    "temperatureHarmony": 2,
+    "valueSpread": 1,
+    "saturationDominance": 1,
+    "textureHarmony": -2,
+    "bodyTypeProportion": 0,
+    "hemlineShoeHarmony": 0,
+    "heightProportion": 0,
+    "undertoneHarmony": 0,
+    "necklineJewelry": 0,
+    "riseHarmony": 0,
+    "focalCompetition": 0
+  },
+  "candidate_scores": [
+    {
+      "id": "OC-11-A",
+      "description": "Medium teal-brown Ankara skirt with white blouse, flat sandals, brown crossbody",
+      "components": [
+        "F32",
+        "F04",
+        "F35",
+        "F36"
+      ],
+      "fingerprint": "F04,F32,F35,F36",
+      "item_score": 35,
+      "combo_score": 17,
+      "total_score": 52,
+      "score_breakdown": {
+        "total": 17,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 1,
+        "patternSafety": 1,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 1,
+        "saturationDominance": 1,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OC-11-D",
+      "description": "Jeans with dusty-rose blouse, flat sandals, brown crossbody",
+      "components": [
+        "F19",
+        "OC-F02",
+        "F35",
+        "F36"
+      ],
+      "fingerprint": "F19,F35,F36,OC-F02",
+      "item_score": 38,
+      "combo_score": 14,
+      "total_score": 52,
+      "score_breakdown": {
+        "total": 14,
+        "completeness": 7,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": 2,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 0,
+        "valueSpread": 2,
+        "saturationDominance": -2,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OC-11-B",
+      "description": "Sage cotton kaftan with flat sandals, brown crossbody",
+      "components": [
+        "F27",
+        "F35",
+        "F36"
+      ],
+      "fingerprint": "F27,F35,F36",
+      "item_score": 24,
+      "combo_score": 22,
+      "total_score": 46,
+      "score_breakdown": {
+        "total": 22,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 3,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 0,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": 1,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OC-11-C",
+      "description": "Orange-teal Ankara skirt with cream blouse, camel mules, gold clutch",
+      "components": [
+        "F05",
+        "F05B",
+        "F28",
+        "F11"
+      ],
+      "fingerprint": "F05,F05B,F11,F28",
+      "item_score": 25,
+      "combo_score": 20,
+      "total_score": 45,
+      "score_breakdown": {
+        "total": 20,
+        "completeness": 7,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": 2,
+        "patternSafety": 3,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": 1,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    }
+  ],
+  "production_pool_size": 10,
+  "production_pool_matched_candidate_ids": [
+    "OC-11-A",
+    "OC-11-B",
+    "OC-11-D"
+  ],
+  "production_pool_top1_candidate_id": "OC-11-A",
+  "production_pool": [
+    {
+      "pool_rank": 1,
+      "outfit_id": "pool-casual-5",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F19",
+        "F28",
+        "F36"
+      ],
+      "fingerprint": "F04,F19,F28,F36",
+      "confidence_score": 59,
+      "hero_id": "F19",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Neutrals anchoring the colour, built around your blue jeans."
+    },
+    {
+      "pool_rank": 2,
+      "outfit_id": "pool-casual-1",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F28",
+        "F32",
+        "F36"
+      ],
+      "fingerprint": "F04,F28,F32,F36",
+      "confidence_score": 56,
+      "hero_id": "F28",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Quiet neutrals, built around your camel mules."
+    },
+    {
+      "pool_rank": 3,
+      "outfit_id": "pool-casual-3",
+      "matched_candidate_id": "OC-11-A",
+      "component_ids": [
+        "F04",
+        "F32",
+        "F35",
+        "F36"
+      ],
+      "fingerprint": "F04,F32,F35,F36",
+      "confidence_score": 53,
+      "hero_id": "F35",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Understated neutrals, built around your tan flat sandals."
+    },
+    {
+      "pool_rank": 4,
+      "outfit_id": "pool-casual-9",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F05B",
+        "F19",
+        "F28",
+        "F36"
+      ],
+      "fingerprint": "F05B,F19,F28,F36",
+      "confidence_score": 58,
+      "hero_id": "F19",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Neutrals anchoring the colour, built around your blue jeans."
+    },
+    {
+      "pool_rank": 5,
+      "outfit_id": "pool-casual-0",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F27",
+        "F28",
+        "F36"
+      ],
+      "fingerprint": "F27,F28,F36",
+      "confidence_score": 46,
+      "hero_id": "F28",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Understated neutrals, built around your camel mules."
+    },
+    {
+      "pool_rank": 6,
+      "outfit_id": "pool-casual-2",
+      "matched_candidate_id": "OC-11-B",
+      "component_ids": [
+        "F27",
+        "F35",
+        "F36"
+      ],
+      "fingerprint": "F27,F35,F36",
+      "confidence_score": 46,
+      "hero_id": "F35",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Quiet neutrals, built around your tan flat sandals."
+    },
+    {
+      "pool_rank": 7,
+      "outfit_id": "pool-casual-4",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F19",
+        "F35",
+        "F36"
+      ],
+      "fingerprint": "F04,F19,F35,F36",
+      "confidence_score": 56,
+      "hero_id": "F19",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A grounded neutral base, built around your blue jeans."
+    },
+    {
+      "pool_rank": 8,
+      "outfit_id": "pool-casual-7",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F19",
+        "F28",
+        "F36",
+        "OC-F02"
+      ],
+      "fingerprint": "F19,F28,F36,OC-F02",
+      "confidence_score": 56,
+      "hero_id": "F19",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Neutrals anchoring the colour, built around your blue jeans."
+    },
+    {
+      "pool_rank": 9,
+      "outfit_id": "pool-casual-8",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F05B",
+        "F19",
+        "F35",
+        "F36"
+      ],
+      "fingerprint": "F05B,F19,F35,F36",
+      "confidence_score": 55,
+      "hero_id": "F19",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A neutral-bridged palette, built around your blue jeans."
+    },
+    {
+      "pool_rank": 10,
+      "outfit_id": "pool-casual-6",
+      "matched_candidate_id": "OC-11-D",
+      "component_ids": [
+        "F19",
+        "F35",
+        "F36",
+        "OC-F02"
+      ],
+      "fingerprint": "F19,F35,F36,OC-F02",
+      "confidence_score": 53,
+      "hero_id": "F19",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A grounded neutral base, built around your blue jeans."
+    }
+  ],
+  "fallback_activated": false,
+  "evaluation_note": "Fixed candidates are ranked by unchanged production item-profile plus combo scores. The full unchanged generator output is captured separately because the benchmark protocol does not define a candidate-to-generated-pool mapping."
+}

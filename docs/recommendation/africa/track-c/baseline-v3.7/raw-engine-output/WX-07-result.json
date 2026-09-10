@@ -1,0 +1,423 @@
+{
+  "case_id": "WX-07",
+  "case_type": "weather_context",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:10.987Z",
+  "execution_status": "success",
+  "input_fingerprint": "f10c95129f796b47b6bafecd72407c3c3ca1ad82673a1fefb23f07a993490929",
+  "scenario_tag": "casual",
+  "weather": {
+    "fetchedAt": 1789041600000,
+    "lat": 0,
+    "lon": 0,
+    "currentTempC": 18,
+    "highC": 28,
+    "lowC": 18,
+    "precipProbability": 0,
+    "source": "ip",
+    "locationLabel": "Lagos or Abuja. Harmattan season (November–February).  "
+  },
+  "engine_ranked_outfit_ids": [
+    "WX-07-D",
+    "WX-07-B",
+    "WX-07-C",
+    "WX-07-A"
+  ],
+  "engine_top1_outfit_id": "WX-07-D",
+  "engine_top1_component_ids": [
+    "F18",
+    "F04",
+    "WF05",
+    "F36"
+  ],
+  "engine_top1_fingerprint": "F04,F18,F36,WF05",
+  "engine_top1_confidence_score": 58,
+  "engine_top1_score_breakdown": {
+    "total": 19,
+    "completeness": 7,
+    "palette": 5,
+    "paletteType": "neutral-only",
+    "formalityCohesion": 2,
+    "patternSafety": 2,
+    "contrastMatch": 0,
+    "pieces": 1,
+    "proportionBalance": 0,
+    "metalCohesion": 0,
+    "temperatureHarmony": 2,
+    "valueSpread": 1,
+    "saturationDominance": -1,
+    "textureHarmony": 0,
+    "bodyTypeProportion": 0,
+    "hemlineShoeHarmony": 0,
+    "heightProportion": 0,
+    "undertoneHarmony": 0,
+    "necklineJewelry": 0,
+    "riseHarmony": 0,
+    "focalCompetition": 0
+  },
+  "candidate_scores": [
+    {
+      "id": "WX-07-D",
+      "description": "Linen wide-leg trousers with cotton blouse",
+      "components": [
+        "F18",
+        "F04",
+        "WF05",
+        "F36"
+      ],
+      "fingerprint": "F04,F18,F36,WF05",
+      "item_score": 39,
+      "combo_score": 19,
+      "total_score": 58,
+      "score_breakdown": {
+        "total": 19,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 1,
+        "saturationDominance": -1,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "WX-07-B",
+      "description": "Red Ankara midi with cream cardigan",
+      "components": [
+        "F21",
+        "WF09",
+        "F08",
+        "F36"
+      ],
+      "fingerprint": "F08,F21,F36,WF09",
+      "item_score": 28,
+      "combo_score": 21,
+      "total_score": 49,
+      "score_breakdown": {
+        "total": 21,
+        "completeness": 8,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": 3,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 1,
+        "saturationDominance": -1,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "WX-07-C",
+      "description": "Red Ankara midi with navy wool coat",
+      "components": [
+        "F21",
+        "WF02",
+        "F08"
+      ],
+      "fingerprint": "F08,F21,WF02",
+      "item_score": 15,
+      "combo_score": 22,
+      "total_score": 37,
+      "score_breakdown": {
+        "total": 22,
+        "completeness": 5,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 3,
+        "patternSafety": 3,
+        "contrastMatch": 0,
+        "pieces": 0,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": 2,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "WX-07-A",
+      "description": "Red Ankara midi, no outer layer",
+      "components": [
+        "F21",
+        "F08",
+        "F36"
+      ],
+      "fingerprint": "F08,F21,F36",
+      "item_score": 14,
+      "combo_score": 22,
+      "total_score": 36,
+      "score_breakdown": {
+        "total": 22,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": 3,
+        "contrastMatch": 0,
+        "pieces": 0,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": 1,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    }
+  ],
+  "production_pool_size": 12,
+  "production_pool_matched_candidate_ids": [
+    "WX-07-D",
+    "WX-07-A",
+    "WX-07-B"
+  ],
+  "production_pool_top1_candidate_id": "WX-07-D",
+  "production_pool": [
+    {
+      "pool_rank": 1,
+      "outfit_id": "pool-casual-10",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F18",
+        "F36",
+        "WF05",
+        "WF09"
+      ],
+      "fingerprint": "F04,F18,F36,WF05,WF09",
+      "confidence_score": 75,
+      "hero_id": "WF09",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Understated neutrals, built around your cream cardigan."
+    },
+    {
+      "pool_rank": 2,
+      "outfit_id": "pool-casual-4",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F18",
+        "F36",
+        "WF02",
+        "WF05"
+      ],
+      "fingerprint": "F04,F18,F36,WF02,WF05",
+      "confidence_score": 67,
+      "hero_id": "WF02",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Quiet neutrals, built around your navy wool coat."
+    },
+    {
+      "pool_rank": 3,
+      "outfit_id": "pool-casual-0",
+      "matched_candidate_id": "WX-07-D",
+      "component_ids": [
+        "F04",
+        "F18",
+        "F36",
+        "WF05"
+      ],
+      "fingerprint": "F04,F18,F36,WF05",
+      "confidence_score": 59,
+      "hero_id": "F18",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A soft neutral palette, built around your cream wide-leg trouser."
+    },
+    {
+      "pool_rank": 4,
+      "outfit_id": "pool-casual-6",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F21",
+        "F36",
+        "WF05"
+      ],
+      "fingerprint": "F21,F36,WF05",
+      "confidence_score": 41,
+      "hero_id": "WF05",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Understated neutrals, built around your nude closed toe flats."
+    },
+    {
+      "pool_rank": 5,
+      "outfit_id": "pool-casual-7",
+      "matched_candidate_id": "WX-07-A",
+      "component_ids": [
+        "F08",
+        "F21",
+        "F36"
+      ],
+      "fingerprint": "F08,F21,F36",
+      "confidence_score": 36,
+      "hero_id": "F08",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Understated neutrals, built around your nude pointed toe heels."
+    },
+    {
+      "pool_rank": 6,
+      "outfit_id": "pool-casual-11",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F08",
+        "F18",
+        "F36",
+        "WF09"
+      ],
+      "fingerprint": "F04,F08,F18,F36,WF09",
+      "confidence_score": 70,
+      "hero_id": "WF09",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Quiet neutrals, built around your cream cardigan."
+    },
+    {
+      "pool_rank": 7,
+      "outfit_id": "pool-casual-5",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F08",
+        "F18",
+        "F36",
+        "WF02"
+      ],
+      "fingerprint": "F04,F08,F18,F36,WF02",
+      "confidence_score": 62,
+      "hero_id": "WF02",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A soft neutral palette, built around your navy wool coat."
+    },
+    {
+      "pool_rank": 8,
+      "outfit_id": "pool-casual-1",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F04",
+        "F08",
+        "F18",
+        "F36"
+      ],
+      "fingerprint": "F04,F08,F18,F36",
+      "confidence_score": 54,
+      "hero_id": "F18",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Understated neutrals, built around your cream wide-leg trouser."
+    },
+    {
+      "pool_rank": 9,
+      "outfit_id": "pool-casual-8",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F21",
+        "F36",
+        "WF05",
+        "WF09"
+      ],
+      "fingerprint": "F21,F36,WF05,WF09",
+      "confidence_score": 54,
+      "hero_id": "WF09",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Understated neutrals, built around your cream cardigan."
+    },
+    {
+      "pool_rank": 10,
+      "outfit_id": "pool-casual-2",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F21",
+        "F36",
+        "WF02",
+        "WF05"
+      ],
+      "fingerprint": "F21,F36,WF02,WF05",
+      "confidence_score": 49,
+      "hero_id": "WF02",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A soft neutral palette, built around your navy wool coat."
+    },
+    {
+      "pool_rank": 11,
+      "outfit_id": "pool-casual-9",
+      "matched_candidate_id": "WX-07-B",
+      "component_ids": [
+        "F08",
+        "F21",
+        "F36",
+        "WF09"
+      ],
+      "fingerprint": "F08,F21,F36,WF09",
+      "confidence_score": 49,
+      "hero_id": "WF09",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Understated neutrals, built around your cream cardigan."
+    },
+    {
+      "pool_rank": 12,
+      "outfit_id": "pool-casual-3",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F08",
+        "F21",
+        "F36",
+        "WF02"
+      ],
+      "fingerprint": "F08,F21,F36,WF02",
+      "confidence_score": 44,
+      "hero_id": "WF02",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Quiet neutrals, built around your navy wool coat."
+    }
+  ],
+  "fallback_activated": false,
+  "evaluation_note": "Fixed candidates are ranked by unchanged production item-profile plus combo scores. The full unchanged generator output is captured separately because the benchmark protocol does not define a candidate-to-generated-pool mapping."
+}

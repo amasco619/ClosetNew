@@ -1,0 +1,293 @@
+{
+  "case_id": "WX-05",
+  "case_type": "weather_context",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:10.982Z",
+  "execution_status": "success",
+  "input_fingerprint": "099269d0dfa28dc6fd57bd725a170523dda6afbfec1369e052e6b14add2a3513",
+  "scenario_tag": "casual",
+  "weather": {
+    "fetchedAt": 1789041600000,
+    "lat": 0,
+    "lon": 0,
+    "currentTempC": 27,
+    "highC": 41,
+    "lowC": 27,
+    "precipProbability": 0.03,
+    "source": "ip",
+    "locationLabel": "Kano, northern Nigeria  "
+  },
+  "engine_ranked_outfit_ids": [
+    "WX-05-A",
+    "WX-05-C",
+    "WX-05-B",
+    "WX-05-D"
+  ],
+  "engine_top1_outfit_id": "WX-05-A",
+  "engine_top1_component_ids": [
+    "F27",
+    "WF05",
+    "F36"
+  ],
+  "engine_top1_fingerprint": "F27,F36,WF05",
+  "engine_top1_confidence_score": 46,
+  "engine_top1_score_breakdown": {
+    "total": 22,
+    "completeness": 7,
+    "palette": 5,
+    "paletteType": "neutral-only",
+    "formalityCohesion": 3,
+    "patternSafety": 2,
+    "contrastMatch": 0,
+    "pieces": 0,
+    "proportionBalance": 0,
+    "metalCohesion": 0,
+    "temperatureHarmony": 2,
+    "valueSpread": 2,
+    "saturationDominance": 1,
+    "textureHarmony": 0,
+    "bodyTypeProportion": 0,
+    "hemlineShoeHarmony": 0,
+    "heightProportion": 0,
+    "undertoneHarmony": 0,
+    "necklineJewelry": 0,
+    "riseHarmony": 0,
+    "focalCompetition": 0
+  },
+  "candidate_scores": [
+    {
+      "id": "WX-05-A",
+      "description": "Loose sage cotton kaftan with closed flats",
+      "components": [
+        "F27",
+        "WF05",
+        "F36"
+      ],
+      "fingerprint": "F27,F36,WF05",
+      "item_score": 24,
+      "combo_score": 22,
+      "total_score": 46,
+      "score_breakdown": {
+        "total": 22,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 3,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 0,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": 1,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "WX-05-C",
+      "description": "Sand linen kaftan with closed flats",
+      "components": [
+        "WF15",
+        "WF05",
+        "F36"
+      ],
+      "fingerprint": "F36,WF05,WF15",
+      "item_score": 24,
+      "combo_score": 22,
+      "total_score": 46,
+      "score_breakdown": {
+        "total": 22,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 3,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 0,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": 1,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "WX-05-B",
+      "description": "Coral cotton sundress with strappy sandals",
+      "components": [
+        "WF14",
+        "WF10",
+        "F36"
+      ],
+      "fingerprint": "F36,WF10,WF14",
+      "item_score": 24,
+      "combo_score": 18,
+      "total_score": 42,
+      "score_breakdown": {
+        "total": 18,
+        "completeness": 7,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": 3,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 0,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": -2,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "WX-05-D",
+      "description": "Ivory lace gown with gold heels",
+      "components": [
+        "F02",
+        "F07",
+        "F11"
+      ],
+      "fingerprint": "F02,F07,F11",
+      "item_score": 2,
+      "combo_score": 12,
+      "total_score": 14,
+      "score_breakdown": {
+        "total": 12,
+        "completeness": 7,
+        "palette": 4,
+        "paletteType": "neutral-bridge",
+        "formalityCohesion": 1,
+        "patternSafety": 2,
+        "contrastMatch": 0,
+        "pieces": 0,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": -2,
+        "saturationDominance": -2,
+        "textureHarmony": 0,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    }
+  ],
+  "production_pool_size": 5,
+  "production_pool_matched_candidate_ids": [
+    "WX-05-A",
+    "WX-05-B"
+  ],
+  "production_pool_top1_candidate_id": "WX-05-A",
+  "production_pool": [
+    {
+      "pool_rank": 1,
+      "outfit_id": "pool-casual-1",
+      "matched_candidate_id": "WX-05-A",
+      "component_ids": [
+        "F27",
+        "F36",
+        "WF05"
+      ],
+      "fingerprint": "F27,F36,WF05",
+      "confidence_score": 46,
+      "hero_id": "WF05",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A soft neutral palette, built around your nude closed toe flats."
+    },
+    {
+      "pool_rank": 2,
+      "outfit_id": "pool-casual-0",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F27",
+        "F36",
+        "WF10"
+      ],
+      "fingerprint": "F27,F36,WF10",
+      "confidence_score": 45,
+      "hero_id": "WF10",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Neutrals anchoring the colour, built around your gold strappy sandals."
+    },
+    {
+      "pool_rank": 3,
+      "outfit_id": "pool-casual-2",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F36",
+        "WF05",
+        "WF14"
+      ],
+      "fingerprint": "F36,WF05,WF14",
+      "confidence_score": 45,
+      "hero_id": "WF14",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A neutral-bridged palette, built around your coral sundress."
+    },
+    {
+      "pool_rank": 4,
+      "outfit_id": "pool-casual-3",
+      "matched_candidate_id": "WX-05-B",
+      "component_ids": [
+        "F36",
+        "WF10",
+        "WF14"
+      ],
+      "fingerprint": "F36,WF10,WF14",
+      "confidence_score": 42,
+      "hero_id": "WF14",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A grounded neutral base, built around your coral sundress."
+    },
+    {
+      "pool_rank": 5,
+      "outfit_id": "pool-casual-4",
+      "matched_candidate_id": null,
+      "component_ids": [
+        "F07",
+        "F36",
+        "WF14"
+      ],
+      "fingerprint": "F07,F36,WF14",
+      "confidence_score": 34,
+      "hero_id": "WF14",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "A neutral-bridged palette, built around your coral sundress."
+    }
+  ],
+  "fallback_activated": false,
+  "evaluation_note": "Fixed candidates are ranked by unchanged production item-profile plus combo scores. The full unchanged generator output is captured separately because the benchmark protocol does not define a candidate-to-generated-pool mapping."
+}

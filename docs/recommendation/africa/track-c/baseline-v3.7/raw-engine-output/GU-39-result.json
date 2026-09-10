@@ -1,0 +1,15 @@
+{
+  "case_id": "GU-39",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:07.596Z",
+  "input_fingerprint": "96b8c1206b0fb264e34df53e554e3d6ad4b2270e29558d1ebde4d16cfac040aa",
+  "image_sha256": "1ea99c8c03e8343985125e32b6df96df5d879546a614903c14637f8cc17ddeed",
+  "image_id": "IMG-GU-39",
+  "execution_status": "failed",
+  "http_status": 422,
+  "engine_output": {
+    "error": "content_guardrail",
+    "reason": "This appears to be a textile strip or sash rather than a standard clothing item. Please photograph an actual garment such as a top, bottom, dress, or outerwear piece."
+  }
+}

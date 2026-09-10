@@ -1,0 +1,148 @@
+{
+  "case_id": "OR-16",
+  "case_type": "outfit_ranking",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:10.837Z",
+  "execution_status": "success",
+  "input_fingerprint": "0cdbd4fb04241f77f4c57fdebec4edc22b485be74ebecedd42ddfc5bd1497f04",
+  "scenario_tag": "casual",
+  "weather": null,
+  "engine_ranked_outfit_ids": [
+    "OR-16-A",
+    "OR-16-B"
+  ],
+  "engine_top1_outfit_id": "OR-16-A",
+  "engine_top1_component_ids": [
+    "F31",
+    "F04",
+    "F28",
+    "F36"
+  ],
+  "engine_top1_fingerprint": "F04,F28,F31,F36",
+  "engine_top1_confidence_score": 55,
+  "engine_top1_score_breakdown": {
+    "total": 16,
+    "completeness": 7,
+    "palette": 5,
+    "paletteType": "neutral-only",
+    "formalityCohesion": 2,
+    "patternSafety": 1,
+    "contrastMatch": 0,
+    "pieces": 1,
+    "proportionBalance": 0,
+    "metalCohesion": 0,
+    "temperatureHarmony": 2,
+    "valueSpread": 1,
+    "saturationDominance": -1,
+    "textureHarmony": -2,
+    "bodyTypeProportion": 0,
+    "hemlineShoeHarmony": 0,
+    "heightProportion": 0,
+    "undertoneHarmony": 0,
+    "necklineJewelry": 0,
+    "riseHarmony": 0,
+    "focalCompetition": 0
+  },
+  "candidate_scores": [
+    {
+      "id": "OR-16-A",
+      "description": "Small rust-cream Ankara skirt with white solid blouse, camel mules, brown crossbody",
+      "components": [
+        "F31",
+        "F04",
+        "F28",
+        "F36"
+      ],
+      "fingerprint": "F04,F28,F31,F36",
+      "item_score": 39,
+      "combo_score": 16,
+      "total_score": 55,
+      "score_breakdown": {
+        "total": 16,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": 1,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 1,
+        "saturationDominance": -1,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    },
+    {
+      "id": "OR-16-B",
+      "description": "Small rust-cream Ankara skirt with medium teal-brown Ankara blouse, camel mules, brown crossbody",
+      "components": [
+        "F31",
+        "F44",
+        "F28",
+        "F36"
+      ],
+      "fingerprint": "F28,F31,F36,F44",
+      "item_score": 35,
+      "combo_score": 13,
+      "total_score": 48,
+      "score_breakdown": {
+        "total": 13,
+        "completeness": 7,
+        "palette": 5,
+        "paletteType": "neutral-only",
+        "formalityCohesion": 2,
+        "patternSafety": -3,
+        "contrastMatch": 0,
+        "pieces": 1,
+        "proportionBalance": 0,
+        "metalCohesion": 0,
+        "temperatureHarmony": 2,
+        "valueSpread": 2,
+        "saturationDominance": -1,
+        "textureHarmony": -2,
+        "bodyTypeProportion": 0,
+        "hemlineShoeHarmony": 0,
+        "heightProportion": 0,
+        "undertoneHarmony": 0,
+        "necklineJewelry": 0,
+        "riseHarmony": 0,
+        "focalCompetition": 0
+      }
+    }
+  ],
+  "production_pool_size": 1,
+  "production_pool_matched_candidate_ids": [
+    "OR-16-A"
+  ],
+  "production_pool_top1_candidate_id": "OR-16-A",
+  "production_pool": [
+    {
+      "pool_rank": 1,
+      "outfit_id": "pool-casual-0",
+      "matched_candidate_id": "OR-16-A",
+      "component_ids": [
+        "F04",
+        "F28",
+        "F31",
+        "F36"
+      ],
+      "fingerprint": "F04,F28,F31,F36",
+      "confidence_score": 56,
+      "hero_id": "F28",
+      "generation_path": "strict",
+      "scenario": "casual",
+      "rationale": "Understated neutrals, built around your camel mules."
+    }
+  ],
+  "fallback_activated": false,
+  "evaluation_note": "Fixed candidates are ranked by unchanged production item-profile plus combo scores. The full unchanged generator output is captured separately because the benchmark protocol does not define a candidate-to-generated-pool mapping."
+}

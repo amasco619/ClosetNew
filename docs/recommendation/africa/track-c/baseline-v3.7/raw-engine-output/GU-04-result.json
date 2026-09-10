@@ -1,0 +1,46 @@
+{
+  "case_id": "GU-04",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:03.466Z",
+  "input_fingerprint": "6712ce73b4971498b26eac0958405722e0e98ab5bdb892cc0f207e5689c8a06c",
+  "image_sha256": "8cee6cda87c7f8b5aa04d1aa8bb08747c68f3971383f3b5e8636e496760673ca",
+  "image_id": "IMG-GU-04",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "dress",
+    "subType": "maxi-dress",
+    "colorFamily": "blue",
+    "accentColor": "yellow",
+    "description": "Blue wax print maxi dress",
+    "occasionTags": [
+      "casual",
+      "date-dressy",
+      "event",
+      "resort"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "wax-print",
+    "patternScale": "large",
+    "fit": "regular",
+    "neckline": "crew",
+    "sleeveLength": "short",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 218.8235294117647,
+      "s": 0.7391304347826086,
+      "l": 0.45098039215686275
+    },
+    "dominantLab": {
+      "L": 40.826695903481,
+      "a": 22.91555056717451,
+      "b": -62.38884656393987
+    },
+    "modelConfidence": 0.98,
+    "source": "gemini"
+  }
+}

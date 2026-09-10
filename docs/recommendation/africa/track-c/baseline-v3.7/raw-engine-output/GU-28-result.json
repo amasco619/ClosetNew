@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-28",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:36:23.032Z",
+  "input_fingerprint": "8112aadf09fda5d73a4787abce0302a5f8473042417929da9cb296c066939905",
+  "image_sha256": "cb8553bdb52a7af6cfb60c7ac6050467f3e2f428783adfdb99c00917eca86b4c",
+  "image_id": "IMG-GU-28",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "dress",
+    "subType": "midi-dress",
+    "colorFamily": "blue",
+    "accentColor": "yellow",
+    "description": "Blue wax print midi dress",
+    "occasionTags": [
+      "date-dressy",
+      "event",
+      "brunch"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "wax-print",
+    "patternScale": "medium",
+    "fit": "regular",
+    "neckline": "v-neck",
+    "sleeveLength": "sleeveless",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 215.29411764705884,
+      "s": 0.7391304347826086,
+      "l": 0.45098039215686275
+    },
+    "dominantLab": {
+      "L": 43.593044414895466,
+      "a": 16.387003452125683,
+      "b": -57.90476920388492
+    },
+    "modelConfidence": 0.98,
+    "source": "gemini"
+  }
+}

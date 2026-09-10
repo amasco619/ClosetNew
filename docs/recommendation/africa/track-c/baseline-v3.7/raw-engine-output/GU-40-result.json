@@ -1,0 +1,15 @@
+{
+  "case_id": "GU-40",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:09.316Z",
+  "input_fingerprint": "8f8c927f9b17204b07ed65e6045819e36270858f17a4bdecffbaffa3ee7c4f8b",
+  "image_sha256": "eba95c0ec11b17198008c51abcc46f795f126d2544a5b1b981a8aa6710886399",
+  "image_id": "IMG-GU-40",
+  "execution_status": "failed",
+  "http_status": 422,
+  "engine_output": {
+    "error": "content_guardrail",
+    "reason": "This item appears to be a headpiece or hat rather than a standard clothing item in our currently supported categories."
+  }
+}

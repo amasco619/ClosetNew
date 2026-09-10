@@ -1,0 +1,46 @@
+{
+  "case_id": "GU-36",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:02.895Z",
+  "input_fingerprint": "2230e5ce526b5e56def31f95ca84277f89c6ecf2bb7a634dde09ae7a14373c08",
+  "image_sha256": "b3aa706fc8f051942bb7ae322335b29095851698f16a5f0891aee393040ae6c9",
+  "image_id": "IMG-GU-36",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "dress",
+    "subType": "kaftan",
+    "colorFamily": "cream",
+    "accentColor": "yellow",
+    "description": "Cream embroidered kaftan",
+    "occasionTags": [
+      "resort",
+      "casual",
+      "traditional-event"
+    ],
+    "seasonTags": [
+      "spring",
+      "summer"
+    ],
+    "pattern": "print",
+    "patternScale": "medium",
+    "fit": "loose",
+    "neckline": "collared",
+    "sleeveLength": "long",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 41.99999999999993,
+      "s": 0.33333333333333426,
+      "l": 0.9411764705882353
+    },
+    "dominantLab": {
+      "L": 95.5449839727481,
+      "a": -0.20814285461101534,
+      "b": 3.7244560911687152
+    },
+    "modelConfidence": 0.96,
+    "source": "gemini"
+  }
+}

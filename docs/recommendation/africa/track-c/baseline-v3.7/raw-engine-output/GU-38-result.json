@@ -1,0 +1,45 @@
+{
+  "case_id": "GU-38",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:37:06.195Z",
+  "input_fingerprint": "b6b5cc297ce611b7c5f5128f5de611fbeca8c7a5656483fc31798ab8df49bf52",
+  "image_sha256": "b2cc7174e05311b78bbb0b78462883641f395a88176d34c9a8129b1d0089a846",
+  "image_id": "IMG-GU-38",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "bottom",
+    "subType": "midi-skirt",
+    "colorFamily": "blue",
+    "accentColor": "white",
+    "description": "Blue tie-dye wrap midi skirt",
+    "occasionTags": [
+      "work",
+      "date-dressy",
+      "event",
+      "brunch"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "print",
+    "patternScale": "medium",
+    "fit": "regular",
+    "rise": "high",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 217.5,
+      "s": 0.5714285714285714,
+      "l": 0.27450980392156865
+    },
+    "dominantLab": {
+      "L": 25.66255270941781,
+      "a": 7.325827586996597,
+      "b": -32.32993156042742
+    },
+    "modelConfidence": 0.98,
+    "source": "gemini"
+  }
+}

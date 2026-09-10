@@ -1,0 +1,41 @@
+{
+  "case_id": "GU-21",
+  "case_type": "garment_classification",
+  "engine_version": "3.7",
+  "run_timestamp": "2026-09-10T17:35:52.674Z",
+  "input_fingerprint": "b4bb31899c5332448a4c620eca5125a7f975c3f92b7f772c17c7f2d79db723e3",
+  "image_sha256": "27e1905ff884e2b9fedcdd43933e5fea35b467d73304f8ed841f2d82d4c50143",
+  "image_id": "IMG-GU-21",
+  "execution_status": "success",
+  "http_status": 200,
+  "engine_output": {
+    "category": "top",
+    "subType": "t-shirt",
+    "colorFamily": "blue",
+    "description": "Blue Short Sleeve Top",
+    "occasionTags": [
+      "casual"
+    ],
+    "seasonTags": [
+      "all-season"
+    ],
+    "pattern": "solid",
+    "fit": "regular",
+    "neckline": "crew",
+    "sleeveLength": "short",
+    "fabric": "cotton",
+    "weight": "mid",
+    "dominantHsl": {
+      "h": 225,
+      "s": 0.5,
+      "l": 0.3137254901960784
+    },
+    "dominantLab": {
+      "L": 26.843798556216903,
+      "a": 13.077624217769923,
+      "b": -36.761066005146716
+    },
+    "modelConfidence": 0.95,
+    "source": "gemini"
+  }
+}

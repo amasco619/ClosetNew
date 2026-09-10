@@ -1,0 +1,101 @@
+{
+  "benchmark_version": "1.0.0-frozen",
+  "engine_version": "3.7",
+  "cases_attempted": 100,
+  "cases_successfully_executed": 94,
+  "cases_failed_to_execute": 6,
+  "cases_skipped": 0,
+  "garment_type_semantic_accuracy": 0.375,
+  "garment_mean_dimension_agreement": 0.49833333333333324,
+  "garment_dimension_accuracy": {
+    "broad_category": {
+      "correct": 28,
+      "supported": 32,
+      "accuracy": 0.875
+    },
+    "garment_type": {
+      "correct": 15,
+      "supported": 40,
+      "accuracy": 0.375
+    },
+    "fabric": {
+      "correct": 26,
+      "supported": 40,
+      "accuracy": 0.65
+    },
+    "pattern": {
+      "correct": 19,
+      "supported": 40,
+      "accuracy": 0.475
+    },
+    "pattern_scale": {
+      "correct": 11,
+      "supported": 40,
+      "accuracy": 0.275
+    },
+    "colour": {
+      "correct": 19,
+      "supported": 40,
+      "accuracy": 0.475
+    }
+  },
+  "outfit_context_top1_accuracy": 0.5,
+  "outfit_context_top3_accuracy": 0.95,
+  "pairwise_accuracy": 0.6627218934911243,
+  "mean_regret": 7.4,
+  "max_regret": 25,
+  "mean_kendall_tau": 0.31525423728813556,
+  "mean_acceptable_candidate_generation_recall": 0.15694444444444447,
+  "mean_not_acceptable_candidate_exclusion": 0.975,
+  "candidate_generation": {
+    "benchmark_candidates": 232,
+    "exact_candidates_generated": 29,
+    "exact_candidate_generation_rate": 0.125,
+    "cases_with_any_exact_candidate": 21,
+    "cases_with_no_exact_candidate": 39,
+    "cases_with_empty_production_pool": 17,
+    "fallback_activated_cases": 0,
+    "mapped_pool_top1_accuracy": 0.47619047619047616,
+    "mapped_pool_top1_supported_cases": 21
+  },
+  "by_type": {
+    "garment_classification": {
+      "cases": 40,
+      "successful": 34,
+      "top1_accuracy": null,
+      "top3_accuracy": null,
+      "mean_regret": null,
+      "mean_dimension_agreement": 0.49833333333333324
+    },
+    "outfit_ranking": {
+      "cases": 30,
+      "successful": 30,
+      "top1_accuracy": 0.5333333333333333,
+      "top3_accuracy": 0.9666666666666667,
+      "mean_regret": 6.466666666666667,
+      "mean_dimension_agreement": null
+    },
+    "occasion_distinction": {
+      "cases": 20,
+      "successful": 20,
+      "top1_accuracy": 0.55,
+      "top3_accuracy": 0.95,
+      "mean_regret": 6.15,
+      "mean_dimension_agreement": null
+    },
+    "weather_context": {
+      "cases": 10,
+      "successful": 10,
+      "top1_accuracy": 0.3,
+      "top3_accuracy": 0.9,
+      "mean_regret": 12.7,
+      "mean_dimension_agreement": null
+    }
+  },
+  "metric_notes": {
+    "ranking": "Fixed candidate ranking uses unchanged production scoreItemForProfile + scoreOutfitCombo totals.",
+    "generation": "Acceptable recall and not-acceptable exclusion use exact fingerprint matches in the unchanged full generator pool.",
+    "garment": "Broad category is inferred deterministically from gold garment_type for 32 supported cases. Garment type and other dimensions use normalized containment because reviewer terminology is richer than production enum values.",
+    "representation": "Taxonomy/representation gaps require separate evidence-based review and are not automatically counted as engine recognition failures."
+  }
+}
