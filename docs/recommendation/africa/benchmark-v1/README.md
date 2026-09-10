@@ -127,10 +127,10 @@ evidence. The former GU-33–GU-40 men's descriptions are quarantined under
 | Results template (Track C) prepared | ✅ Complete |
 | Image provenance register created | ✅ Complete — authoritative synthetic register frozen under `frozen-v1/images/` |
 | Frozen synthetic image package | ✅ Complete — 40/40 images; licence terms not independently verified by repository audit |
-| Signed single-reviewer gold-label package | ✅ Structurally valid — reviewer-provenance exception recorded in frozen manifest |
+| Signed single-reviewer gold-label package | ✅ Structurally valid — reviewer-provenance exception resolved by separate Product Owner attestation |
 | Coverage matrix created | ✅ Complete (in `scenarios.md`) |
 | Images sourced for GU cases | ✅ Complete — 40 purpose-created synthetic images |
-| Independent reviewer reference | ⚠️ Supplied as `AFBM-EXPERT-01`; provenance exception requires Product Owner reconciliation |
+| Independent reviewer reference | ✅ Product Owner attested `AFBM-EXPERT-01` was a qualified independent human reviewer; private evidence retained externally |
 | Gold labels signed and locked | ✅ Frozen unchanged from supplied files; single reviewer, IRR not performed |
 | Engine v3.7 run against benchmark | ⏳ NOT RUN — Track C only |
 | Track C evaluation report | ⏳ PENDING — requires engine run |
@@ -139,8 +139,9 @@ evidence. The former GU-33–GU-40 men's descriptions are quarantined under
 
 ## Remaining human actions
 
-1. **Resolve reviewer provenance exception** — reconcile the supplied label note
-   (“Assistant-produced expert gold-label draft”) with `governance.md` and retain
-   authorised qualification/independence evidence privately. Do not edit the frozen labels.
+1. **Approve Track C execution separately** — Product Owner approval was deferred on
+   2026-09-10, so Track C remains blocked despite the resolved reviewer-provenance exception.
 2. **Optionally recruit a second reviewer** for at least 20 cases (see `governance.md` §6).
-3. **Approve Track C execution separately** — only after the provenance exception is resolved.
+
+Reviewer independence is recorded separately in
+`REVIEWER-INDEPENDENCE-ATTESTATION.md`; the frozen snapshot and gold labels remain unchanged.

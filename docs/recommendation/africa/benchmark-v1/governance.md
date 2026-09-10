@@ -2,8 +2,8 @@
 
 **Phase:** 5C.3 Track B  
 **Status:** ACTIVE  
-**Version:** 1.0  
-**Date:** 2026-08-19  
+**Version:** 1.1
+**Date:** 2026-09-10
 
 ---
 
@@ -167,3 +167,8 @@ separately with explicit uncertainty labelling.
 | Version | Date | Change | Approved by |
 |---|---|---|---|
 | 1.0 | 2026-08-19 | Initial governance document | Product Owner — sign-off pending |
+| 1.1 | 2026-09-10 | Recorded separate reviewer-independence attestation; Track C approval remains a separate gate | Product Owner |
+
+The Product Owner's reviewer-independence confirmation is recorded in
+`REVIEWER-INDEPENDENCE-ATTESTATION.md`. Private qualification evidence remains external.
+This confirmation does not approve Track C.

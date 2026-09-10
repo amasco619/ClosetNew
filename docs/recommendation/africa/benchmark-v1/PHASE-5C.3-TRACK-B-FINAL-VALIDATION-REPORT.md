@@ -18,12 +18,15 @@ image-mapping, provenance-row, checksum, or reviewer/runner separation errors. T
 application test suite and TypeScript check also passed. Recommendation Engine v3.7 and
 the existing golden regression set were not changed. Track C was not run.
 
-One blocking governance exception remains: the signed JSON's own `reviewer_note` calls
+At validation time, one blocking governance exception remained: the signed JSON's own `reviewer_note` calls
 the package an “Assistant-produced expert gold-label draft,” while benchmark governance
 requires an independent qualified reviewer. The final-validation instruction says to
 treat the supplied labels as authoritative and not substantively alter them, so they
 were frozen unchanged. The Product Owner must reconcile and attest the reviewer
-provenance before authorising Track C.
+provenance before authorising Track C. On 2026-09-10, the Product Owner resolved the
+reviewer-provenance exception in a separate attestation and retained private evidence
+externally. Track C approval was separately deferred, so Track C remains blocked and was
+not run.
 
 **Evidence classification:** “Expert-reviewed gold benchmark — single reviewer; IRR not performed.”
 
@@ -96,13 +99,18 @@ The supplied gold-label files were copied byte-for-byte and were not substantive
 | IRR | Not performed |
 | Engine/developer output leakage in reviewer-facing source | None found |
 | Repository evidence of reviewer qualification | Intentionally absent/private |
-| Independence status | **Exception requires Product Owner reconciliation** |
+| Independence status | **Resolved by separate Product Owner attestation dated 2026-09-10** |
 
 The signed file states that no Amodka outputs, developer opinions, web images, or other
 rankings were used. However, its `reviewer_note` also describes the work as
 “Assistant-produced.” This conflicts with the repository governance rule that gold
 labels come from an independent qualified Nigerian/African fashion reviewer. The audit
 does not silently reinterpret or delete that statement.
+
+The Product Owner attested that `AFBM-EXPERT-01` was a qualified independent human
+Nigerian/African fashion reviewer who assigned the labels without seeing engine outputs,
+scores, or developer opinions. Qualification and independence evidence is retained
+privately outside the repository. See `REVIEWER-INDEPENDENCE-ATTESTATION.md`.
 
 ## 7. Image Provenance
 
@@ -285,8 +293,9 @@ Track C configuration inputs are present:
 - explicit `track_c_executed: false` manifest guard.
 
 The runner must record engine outputs before loading gold labels for evaluation and must
-never write back to the frozen snapshot. **Operational readiness is blocked only by the
-reviewer-provenance exception.** Track C was not executed during this work.
+never write back to the frozen snapshot. The reviewer-provenance exception is resolved,
+but **operational readiness remains blocked because the Product Owner separately deferred
+Track C approval.** Track C was not executed during this work.
 
 ## 18. Tests
 
@@ -320,10 +329,10 @@ documentation/validation freeze.
 
 ## 20. Issues / Exceptions
 
-1. **Blocking — reviewer provenance:** the frozen signed JSON describes the gold package
-   as “Assistant-produced,” conflicting with the independent-qualified-reviewer rule.
-   The labels are structurally valid and frozen unchanged, but the repository alone
-   cannot establish human reviewer qualification/independence.
+1. **Resolved — reviewer provenance:** the frozen signed JSON describes the gold package
+   as “Assistant-produced,” but the Product Owner separately attested that
+   `AFBM-EXPERT-01` was a qualified independent human reviewer and retained private
+   evidence externally. The frozen labels remain unchanged.
 2. **Qualified claim — external platform licence:** the supplied provenance records
    Product Owner authorization. This audit did not independently verify Arena.ai's
    current legal licence terms.
@@ -334,16 +343,10 @@ documentation/validation freeze.
 
 ## 21. Recommended Next Action
 
-Before Track C:
+Before Track C, the Product Owner must give explicit approval as a separate operation.
+Approval was deferred on 2026-09-10. Once approved, run the frozen v3.7 engine against
+the frozen inputs, recording engine outputs before the evaluator loads gold labels.
 
-1. The Product Owner should reconcile the “Assistant-produced” reviewer note with the
-   governance requirement and retain private evidence that `AFBM-EXPERT-01` is a
-   qualified independent reviewer. Do not modify the frozen gold-label files; record the
-   attestation separately.
-2. After that exception is resolved, approve Track C as a separate operation and run the
-   frozen v3.7 engine against the frozen inputs, recording engine outputs before the
-   evaluator loads gold labels.
-
-**TRACK B VALIDATED AND FROZEN WITH ONE BLOCKING EXCEPTION — NOT READY FOR TRACK C**
+**TRACK B VALIDATED AND FROZEN — REVIEWER EXCEPTION RESOLVED; TRACK C APPROVAL DEFERRED**
 
 Track C was not executed.
