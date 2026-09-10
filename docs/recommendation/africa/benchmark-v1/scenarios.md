@@ -118,14 +118,15 @@
 | Capability | Cases | Count |
 |---|---|---|
 | **Ankara / wax-print** | GU-01…11, GU-23, GU-28…30, OR-01…05, OR-07, OR-10, OR-12…20, OR-23, OR-24, OR-26…30, OC-01…06, OC-08…09, OC-11…13, OC-15…16, OC-18…20, WX-01…02, WX-04, WX-06…07, WX-09…10 | 46 |
-| **Lace** | GU-12…15, GU-19, GU-35, OR-01…03, OR-05, OR-23, OR-25, OR-29, OC-01, OC-03, OC-05…06, OC-08…10, WX-10 | 17 |
+| **Lace** | GU-12…15, GU-19, GU-35, OR-01…03, OR-05, OR-23, OR-29, OC-01, OC-03, OC-05…06, OC-08…10, WX-10 | 16 |
 | **Aso-ebi** | GU-14, OR-01…02, OR-04, OC-01, OC-04 | 6 |
 | **Aso-oke** | GU-16, GU-17, GU-22, GU-33, GU-34, GU-40 | 6 |
 | **Kaftan** | GU-25, GU-26, GU-27, GU-36, OR-04, OR-05, OR-10 | 7 |
 | **Boubou** | GU-26, GU-37 | 2 |
 | **Buba** | GU-21, GU-22, GU-33 | 3 |
 | **Iro / wrapper** | GU-23, GU-24, GU-34, GU-38 | 4 |
-| **Gele / head accessories** | GU-11, GU-16, GU-32, GU-39, GU-40 | 5 |
+| **Gele** | GU-11, GU-16, GU-40 | 3 |
+| **Kente / strip-cloth accessories** | GU-32, GU-39 | 2 |
 | **Church** | OR-04, OC-05, OC-06, OC-07 | 4 |
 | **Traditional wedding** | OR-01, OR-02, OC-01 | 3 |
 | **Western wedding** | OC-02 | 1 |

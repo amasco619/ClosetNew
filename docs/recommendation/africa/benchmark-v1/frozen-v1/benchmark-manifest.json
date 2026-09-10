@@ -1,0 +1,40 @@
+{
+  "benchmark_version": "1.0.0-frozen",
+  "benchmark_scope": "Nigerian/African fashion expert gold benchmark",
+  "product_scope": "women",
+  "market_scope": "Nigeria/Africa",
+  "case_count": 100,
+  "case_distribution": {
+    "garment_classification": 40,
+    "outfit_ranking": 30,
+    "occasion_distinction": 20,
+    "weather_context": 10
+  },
+  "gold_label_version": "1.0",
+  "image_package_version": "2026-08-27",
+  "provenance_register_version": "2026-08-27",
+  "reviewer_id": "AFBM-EXPERT-01",
+  "reviewer_date": "2026-08-29",
+  "reviewer_count": 1,
+  "irr_status": "not_performed",
+  "engine_version_under_test": "3.7",
+  "track_c_executed": false,
+  "frozen_on": "2026-09-10",
+  "freeze_status": "frozen_with_reviewer_provenance_exception",
+  "integrity": {
+    "algorithm": "sha256",
+    "sha256sums_file": "SHA256SUMS",
+    "sha256sums_sha256": "eaf2db4bb36b77268943618e1099bddb29a81d629e24163c10c990f3ef4f6cf1",
+    "source_image_zip_sha256": "00c28612614d8afdeaee5b72f9fdd92d41b7876834a0faaa8f763bd95614334b",
+    "gold_labels_sha256": "f91127901cb717afdfffdc5cff8721fe08252e8dc710904faf0879aa1ba07373",
+    "gold_summary_sha256": "4b95d00833496d04e98142aeabd1d04e15dc40f3a14a787bbfba9dcef333e855",
+    "provenance_register_sha256": "0915a3ebc43d3785ad17a42a48dad27b0110e59e7a43f911abda0cbacb6bd430",
+    "contact_sheet_sha256": "03fd087b9c3712020aaabc7ad31a3154d6aa007346e70a2aa9d05048081334d9",
+    "hashed_snapshot_files": 53
+  },
+  "reviewer_provenance_exception": {
+    "status": "unresolved",
+    "detail": "The supplied signed JSON describes itself as an Assistant-produced expert gold-label draft, while benchmark governance requires an independent qualified reviewer. The task specification directs that the supplied labels be treated as authoritative and left substantively unchanged. Human qualification and independence cannot be verified from source-controlled evidence.",
+    "required_before_track_c": "Product Owner must reconcile the self-description and retain private evidence that AFBM-EXPERT-01 satisfies governance. Do not edit the frozen labels; record any attestation separately."
+  }
+}

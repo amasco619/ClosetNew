@@ -77,12 +77,22 @@ Access: Independent reviewer only, via Product Owner
 
 ## 5. Current image status
 
-> **Current status (2026-08-19):** No images have been sourced yet.
-> All cases are fully specified in text form. Images are required before the reviewer
-> package can be considered complete.
+> **Historical status (2026-08-19):** No images had been sourced when the original table
+> below was created; its `PENDING` cells are retained as the audit baseline.
+>
+> **Superseding authoritative record (2026-08-27):** The supplied purpose-created
+> synthetic package now covers IMG-GU-01 through IMG-GU-40. The frozen, byte-preserved
+> files and authoritative synthetic provenance register are in `frozen-v1/images/`.
+> The register records synthetic generation, Product Owner verification, repository
+> commit permission, reviewer-sharing permission, and no personally identifiable
+> content. The images were shared with the reviewer.
+>
+> **Licence qualification:** The package records that the Product Owner verified the
+> applicable external platform terms. This repository validation did not independently
+> verify Arena.ai's legal licence terms and does not make that stronger claim.
 
-The table below records the image status for each case. Product Owner is responsible
-for sourcing and entering provenance records.
+The table below preserves the original pre-package status for each case. It is no longer
+the current provenance authority; use `frozen-v1/images/synthetic-image-provenance-register.csv`.
 
 ### 5.1 Classification cases (GU-01 to GU-40)
 

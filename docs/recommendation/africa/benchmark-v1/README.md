@@ -47,6 +47,7 @@ docs/recommendation/africa/benchmark-v1/
 ├── results-template.md            ← blank template for Track C execution (internal)
 ├── benchmark-execution-protocol.md ← Track C runner/evaluation spec (internal)
 ├── image-provenance.md            ← source / licence / permission register
+├── frozen-v1/                     ← immutable inputs, gold labels, images, manifest + hashes
 └── internal/                      ← post-lock package — NEVER given to the reviewer
     ├── README.md                  ← reviewer-package boundary definition
     ├── runner-fixtures.md         ← typed runner catalog (occasion tags/formality/warmth)
@@ -124,22 +125,22 @@ evidence. The former GU-33–GU-40 men's descriptions are quarantined under
 | Gold-label schema defined | ✅ Complete |
 | Scoring rubric defined | ✅ Complete |
 | Results template (Track C) prepared | ✅ Complete |
-| Image provenance register created | ✅ Complete — images not yet sourced |
+| Image provenance register created | ✅ Complete — authoritative synthetic register frozen under `frozen-v1/images/` |
+| Frozen synthetic image package | ✅ Complete — 40/40 images; licence terms not independently verified by repository audit |
+| Signed single-reviewer gold-label package | ✅ Structurally valid — reviewer-provenance exception recorded in frozen manifest |
 | Coverage matrix created | ✅ Complete (in `scenarios.md`) |
-| Images sourced for GU cases | ⏳ PENDING — Product Owner action required |
-| Independent reviewer recruited | ⏳ PENDING — Product Owner action required |
-| Gold labels signed and locked | ⏳ PENDING — requires reviewer |
-| Engine v3.7 run against benchmark | ⏳ PENDING — Track C; requires locked gold labels |
+| Images sourced for GU cases | ✅ Complete — 40 purpose-created synthetic images |
+| Independent reviewer reference | ⚠️ Supplied as `AFBM-EXPERT-01`; provenance exception requires Product Owner reconciliation |
+| Gold labels signed and locked | ✅ Frozen unchanged from supplied files; single reviewer, IRR not performed |
+| Engine v3.7 run against benchmark | ⏳ NOT RUN — Track C only |
 | Track C evaluation report | ⏳ PENDING — requires engine run |
 
 ---
 
 ## Remaining human actions
 
-1. **Recruit independent Nigerian/African fashion reviewer** — see `governance.md` §2.3 for qualification criteria.
-2. **Source images for 40 GU classification cases** — see `image-provenance.md` for provenance requirements and preferred sources.
-3. **Set up secure external image storage** — reviewer receives images via this channel; no images committed to the repo without verified licences.
-4. **Distribute reviewer package** — hand over exactly the files listed in `internal/README.md` ("Reviewer package boundary") plus sourced images. Do **not** include `scenarios.md`, `governance.md`, `results-template.md`, `benchmark-execution-protocol.md`, anything in `internal/`, or any engine outputs.
-5. **Optionally recruit a second reviewer** for at least 20 cases (see `governance.md` §6).
-6. **Lock gold labels** — reviewer signs and dates the completed label set.
-7. **Approve Track C execution** — Product Owner approves running the frozen v3.7 engine against the locked benchmark.
+1. **Resolve reviewer provenance exception** — reconcile the supplied label note
+   (“Assistant-produced expert gold-label draft”) with `governance.md` and retain
+   authorised qualification/independence evidence privately. Do not edit the frozen labels.
+2. **Optionally recruit a second reviewer** for at least 20 cases (see `governance.md` §6).
+3. **Approve Track C execution separately** — only after the provenance exception is resolved.

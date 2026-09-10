@@ -138,6 +138,7 @@ uri = "file://exports/phase3-audit.md"
 type = "text"
 title = "Phase 3 Forensic Audit"
 description = "Complete Phase 3 recommendation engine audit — all 18 sections, 72 KB."
+logical_id = "b165821c-9e19-4437-b3e4-15fa1d02f7c1"
 
 [[outputs]]
 id = "1Trl3PpAf_8kaBm66kpv-"
@@ -145,6 +146,7 @@ uri = "file://PHASE_3.2_BENCHMARK_REPORT.md"
 type = "text"
 title = "Phase 3.2 — Recommendation Quality Benchmark Report"
 description = "Full benchmark report: 55 scenarios, 54 outfits evaluated, 10-dimension external rubric, false positives/negatives, Phase 3.1 evaluation, Task #389/#391 investigation, top 3 quality gaps, and regression specification."
+logical_id = "94d09b34-ec32-476a-be97-ad9801f43f6d"
 
 [[outputs]]
 id = "I8rFy3O9vhEOoR5kxii0R"
@@ -152,3 +154,32 @@ uri = "file://docs/PHASE-5C-PRODUCTION-AUDIT.md"
 type = "text"
 title = "Phase 5C — Master Production Audit Report"
 description = "Evidence-based production-readiness assessment across all 20 parts of the spec. Covers business risk, auth, payments, secrets, AI pipeline, recommendation engine, Nigeria fashion readiness, notifications, observability, error handling, brand audit, native build pipeline, cost audit, App Store/Play risk, prioritised roadmap, do-not-build list, manual product-owner actions, and final Go/Blocked/Not Yet verdict."
+logical_id = "95794855-b954-4d34-85e3-c9090df8da42"
+
+[[outputs]]
+id = "CN_mhBPHerTSdGT05ZvFN"
+uri = "file://docs/recommendation/africa/benchmark-v1/PHASE-5C.3-TRACK-B-FINAL-VALIDATION-REPORT.md"
+type = "text"
+title = "Track B Final Validation Report"
+description = "The complete 21-section validation report, including coverage matrices, test evidence, hashes, production-safety confirmation, and the reviewer-provenance exception."
+logical_id = "7d3881c8-5a77-47b7-8c7d-94cfd3632c35"
+content_hash = "sha256:b6bc3b4508d72e524d01dfdfc50766d7db846dfd0ccfb23504a5049265fb7dd3"
+size = 15951
+mtime_ms = 1789052469893
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/7d3881c8-5a77-47b7-8c7d-94cfd3632c35/169597f4-b06e-4a27-89dd-b9469cc81fa5"
+storage_version_token = "1789052498007552"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "uwp6KHnsNi3XboRmCK9C7"
+uri = "file://docs/recommendation/africa/benchmark-v1/frozen-v1/benchmark-manifest.json"
+type = "unspecified"
+title = "Benchmark v1 Freeze Manifest"
+description = "Machine-readable benchmark scope, versions, reviewer and IRR status, Track C guard, key SHA-256 hashes, and the unresolved reviewer-provenance exception."
+logical_id = "7e4a9050-50be-4e6a-83ca-28310179f5dc"
+content_hash = "sha256:7e1ff1b10aacfa2e1c4a51638a451d1fe53c4300c3eb8036a58a848cf3f48121"
+size = 2121
+mtime_ms = 1789052138229
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/7e4a9050-50be-4e6a-83ca-28310179f5dc/aba12b47-43c2-4f52-8a59-df1c88788981"
+storage_version_token = "1789052498811453"
+content_type = "application/octet-stream"
