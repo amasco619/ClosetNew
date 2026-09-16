@@ -1,0 +1,77 @@
+TASK: SEC-04 — Harden live timestamp trigger function
+
+Read `AMODKA-PROJECT-STATUS.md` first.
+
+Use the SEC-03 reconciliation report as the basis for this task.
+
+OBJECTIVE
+
+Bring the existing live `public.update_updated_at()` function under migration control and harden its search_path without changing its behavior.
+
+CURRENT LIVE FUNCTION
+
+public.update_updated_at()
+
+Current behavior:
+
+begin
+  new.updated_at = now();
+  return new;
+end;
+
+Current metadata:
+- owner: postgres
+- SECURITY INVOKER
+- search_path is not pinned
+- four existing enabled triggers depend on it:
+  - public.user_profiles.trg_user_profiles_updated_at
+  - public.wardrobe_items.trg_wardrobe_items_updated_at
+  - public.slot_statuses.trg_slot_statuses_updated_at
+  - public.rotation_cursors.trg_rotation_cursors_updated_at
+
+REQUIRED CHANGE
+
+Create one new tracked Supabase migration that:
+
+1. Defines/redefines `public.update_updated_at()` with the exact same behavior.
+2. Preserves SECURITY INVOKER behavior.
+3. Sets:
+   SET search_path = pg_catalog
+4. Does not alter, drop, or recreate the four existing triggers unless PostgreSQL requires it.
+5. Does not change:
+   - RLS
+   - policies
+   - grants
+   - table schemas
+   - application code
+   - recommendation engine v3.7
+
+IMPORTANT
+
+Do NOT modify `public.rls_auto_enable()`.
+Do NOT modify `public.ensure_rls`.
+Do NOT revoke or grant any privileges.
+Do NOT change any other database object.
+
+VALIDATION
+
+After applying the migration:
+
+- Confirm the function exists with:
+  - SECURITY INVOKER
+  - search_path containing only pg_catalog
+- Confirm all four existing triggers still reference the function.
+- Confirm no trigger was unintentionally removed or recreated.
+- Run the existing relevant database/application tests if available.
+- Confirm the migration file is tracked in the repository.
+
+STOP after this task.
+
+Return:
+1. migration filename
+2. exact changed database object
+3. exact repository file changed
+4. validation results
+5. any blocker/error
+
+Do not perform unrelated cleanup.
