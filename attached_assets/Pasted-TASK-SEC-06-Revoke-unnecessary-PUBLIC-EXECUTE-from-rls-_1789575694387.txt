@@ -1,0 +1,92 @@
+TASK: SEC-06 — Revoke unnecessary PUBLIC EXECUTE from rls_auto_enable
+
+Read `AMODKA-PROJECT-STATUS.md` first.
+
+Use the completed SEC-02, SEC-03, SEC-04 and SEC-05 reports as authoritative context.
+
+OBJECTIVE
+
+Apply the approved least-privilege remediation for the live event-trigger function:
+
+public.rls_auto_enable()
+
+APPROVED CHANGE
+
+Create one new tracked Supabase migration containing exactly:
+
+REVOKE EXECUTE
+ON FUNCTION public.rls_auto_enable()
+FROM PUBLIC;
+
+Apply the migration to the connected production Supabase database.
+
+DO NOT make any other database or repository changes.
+
+PROTECTED OBJECTS
+
+Do not modify:
+- public.rls_auto_enable() definition
+- public.ensure_rls
+- event trigger configuration
+- update_updated_at()
+- any table trigger
+- RLS settings
+- RLS policies
+- table schemas
+- table grants
+- application code
+- Recommendation Engine v3.7
+
+VALIDATION
+
+After applying the migration, verify all of the following from the live PostgreSQL catalog:
+
+1. public.rls_auto_enable() still exists.
+2. Function OID remains 17170.
+3. owner remains postgres.
+4. prosecdef remains true.
+5. proconfig remains:
+   search_path=pg_catalog
+6. PUBLIC no longer has effective EXECUTE.
+7. anon no longer has effective EXECUTE.
+8. authenticated no longer has effective EXECUTE.
+9. postgres retains owner privileges.
+10. public.ensure_rls still exists.
+11. ensure_rls remains enabled.
+12. ensure_rls still references function OID 17170.
+13. Event trigger event/tags remain:
+    ddl_command_end
+    CREATE TABLE
+    CREATE TABLE AS
+    SELECT INTO
+
+Also verify that the migration is:
+- present under supabase/migrations/
+- Git-tracked
+- recorded in the Supabase migration ledger
+- free of whitespace/check errors
+
+If practical without changing any other production object, perform a safe validation that the event-trigger registration remains valid. Do not create persistent test tables merely for this validation unless the test can be fully isolated and safely removed.
+
+EXPECTED SECURITY STATE
+
+PUBLIC: no EXECUTE
+anon: no effective EXECUTE
+authenticated: no effective EXECUTE
+postgres/function owner: owner privileges
+event-trigger operation: preserved
+
+STOP after this task.
+
+Return:
+1. migration filename
+2. exact SQL applied
+3. production migration version/name
+4. before/after ACL state
+5. function OID before/after
+6. event-trigger OID before/after
+7. validation results
+8. exact files changed
+9. blockers/errors
+
+Do not perform unrelated cleanup.
