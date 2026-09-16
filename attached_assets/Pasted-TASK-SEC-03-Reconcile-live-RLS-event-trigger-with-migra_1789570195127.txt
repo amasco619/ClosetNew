@@ -1,0 +1,65 @@
+TASK: SEC-03 — Reconcile live RLS event trigger with migration state
+
+Read `AMODKA-PROJECT-STATUS.md` first.
+
+SEC-02 established that production contains a live-only SECURITY DEFINER event-trigger function:
+
+- public.rls_auto_enable()
+- owner: postgres
+- SECURITY DEFINER
+- search_path = pg_catalog
+- PUBLIC EXECUTE
+- attached to enabled event trigger public.ensure_rls
+- fires on CREATE TABLE / CREATE TABLE AS / SELECT INTO
+- no PostgREST RPC exposure
+
+Do NOT modify the database or repository.
+
+Perform a read-only reconciliation of this live mechanism against the repository's tracked Supabase migrations.
+
+Report:
+
+1. Every current table in schema public:
+   - table name
+   - whether RLS is enabled
+   - whether RLS is forced
+   - whether the table has explicit policies
+   - identify the migration(s) that establish its RLS state, where determinable.
+
+2. Search all tracked migrations and repository SQL for:
+   - CREATE EVENT TRIGGER
+   - rls_auto_enable
+   - ensure_rls
+   - ALTER TABLE ... ENABLE ROW LEVEL SECURITY
+   - ALTER TABLE ... FORCE ROW LEVEL SECURITY
+   - relevant GRANT/REVOKE statements.
+
+3. Determine whether the current repository migration history independently guarantees RLS for all existing application tables.
+
+4. Determine whether any current application table would lose an intended security property if `ensure_rls` were disabled or removed.
+
+5. Identify whether `ensure_rls` appears to be:
+   A. required production behavior,
+   B. redundant legacy infrastructure,
+   C. externally provisioned infrastructure whose intended ownership is unknown,
+   or
+   D. cannot be determined from available evidence.
+
+6. For `public.update_updated_at()`:
+   - identify whether the repository has an equivalent tracked definition;
+   - identify the migration(s) creating its four current triggers;
+   - determine whether changing its search_path to `pg_catalog` would be behaviorally safe.
+
+Do not change:
+- functions
+- event triggers
+- table triggers
+- RLS
+- policies
+- grants
+- migrations
+- application code.
+
+Do not expose secrets.
+
+STOP after returning the reconciliation report.
