@@ -4,12 +4,23 @@ import {
   KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator,
 } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { updatePassword, validatePassword } from '../../lib/auth'
+import {
+  createPasswordRecoverySessionFromUrl,
+  updatePassword,
+  validatePassword,
+} from '../../lib/auth'
 import { supabase } from '../../lib/supabase'
+import { NATIVE_PASSWORD_RECOVERY_URL } from '../../lib/oauth-callback'
 
 export default function UpdatePasswordScreen() {
+  const callback = useLocalSearchParams<{
+    code?: string
+    type?: string
+    error?: string
+    error_description?: string
+  }>()
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [newPasswordError, setNewPasswordError] = useState<string | null>(null)
@@ -23,12 +34,34 @@ export default function UpdatePasswordScreen() {
   const [confirmFocused, setConfirmFocused] = useState(false)
 
   useEffect(() => {
-    supabase.auth.getClaims().then(({ data }) => {
+    async function prepareRecoverySession() {
+      const hasNativeCallback = Platform.OS !== 'web' && callback.code !== undefined
+      if (hasNativeCallback) {
+        const query = new URLSearchParams()
+        if (callback.code) query.set('code', callback.code)
+        if (callback.type) query.set('type', callback.type)
+        if (callback.error) query.set('error', callback.error)
+        if (callback.error_description) query.set('error_description', callback.error_description)
+        try {
+          await createPasswordRecoverySessionFromUrl(
+            `${NATIVE_PASSWORD_RECOVERY_URL}?${query.toString()}`,
+          )
+        } catch {
+          setAuthError('This password recovery link is invalid or has expired.')
+          return
+        }
+      }
+
+      const { data } = await supabase.auth.getClaims()
       if (!data?.claims) {
         router.replace('/sign-in')
       }
+    }
+
+    prepareRecoverySession().catch(() => {
+      setAuthError('This password recovery link is invalid or has expired.')
     })
-  }, [])
+  }, [callback.code, callback.error, callback.error_description, callback.type])
 
   const validateNewPassword = () => {
     const err = validatePassword(newPassword)

@@ -52,6 +52,7 @@ function RootLayoutNav() {
       <Stack.Screen name="sign-in" options={{ headerShown: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="forgot-password" options={{ headerShown: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="auth/callback" options={{ headerShown: false, ...FADE_OPTIONS }} />
+      <Stack.Screen name="auth/confirm" options={{ headerShown: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="auth/update-password" options={{ headerShown: false, ...FADE_OPTIONS }} />
     </Stack>
   );

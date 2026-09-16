@@ -7,6 +7,10 @@ import { removeBackground } from "./remove-background";
 import { supabaseAdmin, supabaseAuth, supabaseAnon } from "./supabase";
 import { getUserEntitlement } from "./entitlements";
 import { aiLimiter, bgRemovalLimiter, accountLimiter, authLimiter, resetLimiter, checkAccountLockout, recordFailedAttempt, clearLockout } from "./middleware/rateLimiter";
+import {
+  NATIVE_EMAIL_CONFIRMATION_URL,
+  NATIVE_PASSWORD_RECOVERY_URL,
+} from "../lib/oauth-callback";
 // P-E: cap simultaneous AI calls so a burst cannot exhaust Gemini quota
 // or connections. Extras are queued, not rejected (the rate limiters
 // above handle outright rejection). Max 5 concurrent AI invocations.
@@ -66,16 +70,17 @@ function getEnvAllowlist(): string[] | null {
  *   (a) the `ALLOWED_RESET_ORIGINS` env allowlist, or
  *   (b) the request's own `Origin` header (same-origin).
  *
- * The pathname must be one of `allowedPaths`.  Anything that fails validation
- * silently falls back to "amodka://" so callers never receive a crafted
- * open-redirect destination.
+ * The pathname must be one of `allowedPaths`. The one expected native deep
+ * link is also accepted exactly. Anything else falls back to that route.
  */
 function sanitizeRedirectUrl(
   clientRedirectTo: unknown,
   requestOrigin: string | null,
   allowedPaths: string[],
+  nativeFallback: string,
 ): string {
-  if (typeof clientRedirectTo !== "string") return "amodka://";
+  if (typeof clientRedirectTo !== "string") return nativeFallback;
+  if (clientRedirectTo === nativeFallback) return clientRedirectTo;
   const envAllowlist = getEnvAllowlist();
   try {
     const parsed = new URL(clientRedirectTo);
@@ -91,7 +96,7 @@ function sanitizeRedirectUrl(
   } catch {
     // Malformed URL — fall through to the native scheme default.
   }
-  return "amodka://";
+  return nativeFallback;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -213,6 +218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       clientRedirectTo,
       requestOrigin,
       ["/auth/callback"],
+      NATIVE_EMAIL_CONFIRMATION_URL,
     );
 
     try {
@@ -266,6 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       clientRedirectTo,
       requestOrigin,
       ["/auth/update-password"],
+      NATIVE_PASSWORD_RECOVERY_URL,
     );
 
     try {

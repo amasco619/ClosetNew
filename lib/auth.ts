@@ -10,9 +10,13 @@ import { getApiUrl } from './query-client'
 import { handleOAuthBrowserResult, type OAuthBrowserResult } from './oauthGuard'
 import {
   AMODKA_URL_SCHEME,
+  NATIVE_EMAIL_CONFIRMATION_URL,
   NATIVE_OAUTH_CALLBACK_URL,
+  NATIVE_PASSWORD_RECOVERY_URL,
   isOAuthCallbackUrl,
+  parseEmailConfirmationCallback,
   parseOAuthCallback,
+  parsePasswordRecoveryCallback,
 } from './oauth-callback'
 import { completeOAuthCallback } from './oauth-session'
 export { signInWithEmail } from './emailSignIn'
@@ -91,17 +95,38 @@ export async function createSessionFromUrl(
   )
 }
 
+async function completeEmailSession(params: ReturnType<typeof parseOAuthCallback>) {
+  if (!params) throw new Error('[completeEmailSession] Unexpected email callback URL')
+  return completeOAuthCallback(
+    params,
+    {
+      exchangeCodeForSession: code => supabase.auth.exchangeCodeForSession(code),
+      markEmailConfirmed: () => {
+        AsyncStorage.setItem(EMAIL_CONFIRMED_KEY, '1').catch(() => {})
+      },
+    },
+  )
+}
+
+export function createEmailConfirmationSessionFromUrl(url: string) {
+  return completeEmailSession(parseEmailConfirmationCallback(url))
+}
+
+export function createPasswordRecoverySessionFromUrl(url: string) {
+  return completeEmailSession(parsePasswordRecoveryCallback(url))
+}
+
 export async function requestPasswordReset(email: string): Promise<void> {
   const redirectTo =
     Platform.OS === 'web' && typeof window !== 'undefined'
       ? `${window.location.origin}/auth/update-password`
-      : undefined
+      : NATIVE_PASSWORD_RECOVERY_URL
 
   const url = new URL('/api/auth/reset-password', getApiUrl())
   const res = await fetch(url.toString(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email.trim().toLowerCase(), ...(redirectTo ? { redirectTo } : {}) }),
+    body: JSON.stringify({ email: email.trim().toLowerCase(), redirectTo }),
     credentials: 'include',
   })
   const json = await res.json()

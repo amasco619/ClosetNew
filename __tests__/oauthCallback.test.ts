@@ -1,9 +1,13 @@
 import {
   NATIVE_OAUTH_CALLBACK_URL,
+  NATIVE_EMAIL_CONFIRMATION_URL,
+  NATIVE_PASSWORD_RECOVERY_URL,
   buildOAuthRelayUrl,
   isOAuthCallbackUrl,
   isOAuthRelayDestination,
   parseOAuthCallback,
+  parseEmailConfirmationCallback,
+  parsePasswordRecoveryCallback,
 } from '../lib/oauth-callback'
 
 let failed = 0
@@ -22,6 +26,63 @@ console.log('\nNative OAuth callback recognition:')
 assert(
   isOAuthCallbackUrl('amodka://auth/callback?code=pkce-code', NATIVE_OAUTH_CALLBACK_URL),
   'accepts Amodka PKCE code callbacks',
+)
+
+console.log('\nNative email callback recognition:')
+
+assert(
+  parseEmailConfirmationCallback('amodka://auth/confirm?code=confirm-code&type=signup')?.code ===
+    'confirm-code',
+  'accepts an exact signup confirmation callback',
+)
+assert(
+  parseEmailConfirmationCallback('amodka://auth/confirm?code=confirm-code')?.type === 'signup',
+  'accepts and classifies a confirmation code when Supabase omits the optional type',
+)
+assert(
+  parseEmailConfirmationCallback('amodka://auth/confirm?code=confirm-code&type=recovery') === null,
+  'rejects the wrong callback type on the confirmation route',
+)
+assert(
+  parseEmailConfirmationCallback(`${NATIVE_EMAIL_CONFIRMATION_URL}?type=signup`) === null,
+  'rejects confirmation callbacks without a code',
+)
+assert(
+  parsePasswordRecoveryCallback(
+    'amodka://auth/update-password?code=recovery-code&type=recovery',
+  )?.code === 'recovery-code',
+  'accepts an exact password recovery callback',
+)
+assert(
+  parsePasswordRecoveryCallback('amodka://auth/update-password?code=recovery-code')?.type ===
+    'recovery',
+  'accepts and classifies a recovery code when Supabase omits the optional type',
+)
+assert(
+  parsePasswordRecoveryCallback(
+    'amodka://auth/update-password?code=recovery-code&type=signup',
+  ) === null,
+  'rejects the wrong callback type on the recovery route',
+)
+assert(
+  parsePasswordRecoveryCallback(`${NATIVE_PASSWORD_RECOVERY_URL}?type=recovery`) === null,
+  'rejects recovery callbacks without a code',
+)
+assert(
+  parseEmailConfirmationCallback('amodka://arbitrary?code=confirm-code&type=signup') === null &&
+    parsePasswordRecoveryCallback('amodka://arbitrary?code=recovery-code&type=recovery') === null,
+  'rejects arbitrary Amodka URLs for both email flows',
+)
+assert(
+  !isOAuthCallbackUrl(
+    'amodka://auth/confirm?code=confirm-code&type=signup',
+    NATIVE_OAUTH_CALLBACK_URL,
+  ) &&
+    !isOAuthCallbackUrl(
+      'amodka://auth/update-password?code=recovery-code&type=recovery',
+      NATIVE_OAUTH_CALLBACK_URL,
+    ),
+  'keeps email callbacks separate from the OAuth callback endpoint',
 )
 assert(
   !isOAuthCallbackUrl('amodka://auth/callback#access_token=token&refresh_token=refresh', NATIVE_OAUTH_CALLBACK_URL),

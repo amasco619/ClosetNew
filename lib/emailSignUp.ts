@@ -1,3 +1,5 @@
+import { NATIVE_EMAIL_CONFIRMATION_URL } from './oauth-callback'
+
 /**
  * Email sign-up flow extracted to its own Node-testable module.
  *
@@ -9,8 +11,7 @@
  *
  * No static imports from react-native, expo/*, lib/supabase, or
  * lib/query-client so this file loads cleanly under tsx in Node.js test
- * environments. Platform / makeRedirectUri are dynamically imported only in
- * the production path.
+ * environments. Platform is dynamically imported only in the production path.
  *
  * See .agents/memory/node-test-rn-isolation.md for the rationale.
  */
@@ -65,13 +66,10 @@ export async function signUpWithEmail(
     apiUrl = 'https://test.invalid'
   } else {
     const { Platform } = await import('react-native')
-    const { makeRedirectUri } = await import('expo-auth-session')
-
-    const nativeRedirectTo = makeRedirectUri({ scheme: 'amodka' })
     emailRedirectTo =
       Platform.OS === 'web'
         ? `${(globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin}/auth/callback`
-        : nativeRedirectTo
+        : NATIVE_EMAIL_CONFIRMATION_URL
 
     const host = process.env.EXPO_PUBLIC_DOMAIN
     if (!host) throw new Error('EXPO_PUBLIC_DOMAIN is not set')

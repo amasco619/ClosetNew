@@ -1,5 +1,7 @@
 export const AMODKA_URL_SCHEME = 'amodka'
 export const NATIVE_OAUTH_CALLBACK_URL = `${AMODKA_URL_SCHEME}://auth/callback`
+export const NATIVE_EMAIL_CONFIRMATION_URL = `${AMODKA_URL_SCHEME}://auth/confirm`
+export const NATIVE_PASSWORD_RECOVERY_URL = `${AMODKA_URL_SCHEME}://auth/update-password`
 
 function callbackBase(url: string): string {
   const queryIndex = url.search(/[?#]/)
@@ -57,6 +59,24 @@ export function parseOAuthCallback(
 export function isOAuthCallbackUrl(url: string, expectedCallbackUrl: string): boolean {
   const callback = parseOAuthCallback(url, expectedCallbackUrl)
   return callback !== null && Boolean(callback.code || callback.errorCode)
+}
+
+function parseTypedEmailCallback(
+  url: string,
+  expectedCallbackUrl: string,
+  expectedType: 'signup' | 'recovery',
+): ParsedOAuthCallback | null {
+  const callback = parseOAuthCallback(url, expectedCallbackUrl)
+  if (!callback?.code || (callback.type && callback.type !== expectedType)) return null
+  return { ...callback, type: expectedType }
+}
+
+export function parseEmailConfirmationCallback(url: string): ParsedOAuthCallback | null {
+  return parseTypedEmailCallback(url, NATIVE_EMAIL_CONFIRMATION_URL, 'signup')
+}
+
+export function parsePasswordRecoveryCallback(url: string): ParsedOAuthCallback | null {
+  return parseTypedEmailCallback(url, NATIVE_PASSWORD_RECOVERY_URL, 'recovery')
 }
 
 /**

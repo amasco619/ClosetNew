@@ -1,4 +1,9 @@
-import { NATIVE_OAUTH_CALLBACK_URL, parseOAuthCallback } from '../lib/oauth-callback'
+import {
+  NATIVE_OAUTH_CALLBACK_URL,
+  parseEmailConfirmationCallback,
+  parseOAuthCallback,
+  parsePasswordRecoveryCallback,
+} from '../lib/oauth-callback'
 import { completeOAuthCallback, type OAuthSessionAdapter } from '../lib/oauth-session'
 
 type Session = { id: string }
@@ -67,6 +72,34 @@ console.log('\nOAuth session completion:')
   await completeOAuthCallback({ code: 'expired-code' }, spy.adapter)
     .then(() => assert(false, 'rejects invalid or expired PKCE codes'))
     .catch(error => assert(error.message.includes('invalid or expired code'), 'rejects invalid or expired PKCE codes'))
+}
+
+{
+  const spy = makeAdapter()
+  const parsed = parseEmailConfirmationCallback('amodka://auth/confirm?code=confirm-code')
+  const session = await completeOAuthCallback(parsed ?? {}, spy.adapter)
+  assert(session?.id === 'pkce-session', 'confirmation exchanges its PKCE code for a session')
+  assert(spy.confirmations() === 1, 'confirmation records the verified email')
+}
+
+{
+  const spy = makeAdapter()
+  const parsed = parsePasswordRecoveryCallback(
+    'amodka://auth/update-password?code=recovery-code',
+  )
+  const session = await completeOAuthCallback(parsed ?? {}, spy.adapter)
+  assert(session?.id === 'pkce-session', 'recovery exchanges its PKCE code for a session')
+  assert(spy.confirmations() === 0, 'recovery does not masquerade as email confirmation')
+}
+
+{
+  const spy = makeAdapter({ exchangeError: 'invalid or expired code' })
+  const parsed = parsePasswordRecoveryCallback(
+    'amodka://auth/update-password?code=expired-code&type=recovery',
+  )
+  await completeOAuthCallback(parsed ?? {}, spy.adapter)
+    .then(() => assert(false, 'rejects an expired recovery code'))
+    .catch(error => assert(error.message.includes('invalid or expired code'), 'rejects an expired recovery code'))
 }
 
 {
