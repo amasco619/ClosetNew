@@ -1,0 +1,173 @@
+TASK: AUTH-01 — Production authentication readiness audit
+
+Read `AMODKA-PROJECT-STATUS.md` first.
+
+OBJECTIVE
+
+Perform a READ-ONLY audit of Amodka's authentication implementation and production Supabase authentication configuration.
+
+Do not modify code, database objects, Supabase configuration, secrets, OAuth credentials, redirect URLs, or migrations.
+
+KNOWN ARCHITECTURE
+
+Amodka currently intends to support:
+
+iOS:
+- Google OAuth
+- Apple OAuth
+- Email/password
+
+Android:
+- Google OAuth
+- Email/password
+
+Existing authentication implementation includes:
+- Supabase Auth
+- PKCE
+- OAuth callback/deep-link handling
+- Google OAuth
+- Apple browser OAuth
+- cold-start recovery
+
+PRODUCTION SUPABASE
+
+Use the currently connected Amodka Supabase project.
+
+AUDIT 1 — CODE
+
+Inspect only the authentication-related implementation and report:
+
+1. Exact files implementing:
+   - Google OAuth
+   - Apple OAuth
+   - email/password
+   - OAuth callback
+   - deep-link handling
+   - session restoration
+   - logout
+   - password reset
+   - account deletion
+
+2. Confirm whether the implementation uses PKCE.
+
+3. Confirm the configured redirect/deep-link scheme(s).
+
+4. Confirm whether Apple authentication is browser OAuth, native Apple authentication, or both.
+
+5. Identify any authentication-related TODOs, fallback paths, or known failure modes.
+
+Do not refactor anything.
+
+AUDIT 2 — PRODUCTION SUPABASE AUTH CONFIGURATION
+
+Using available read-only project metadata/configuration, determine whether the following can be verified:
+
+- Google provider enabled/disabled
+- Apple provider enabled/disabled
+- Email provider enabled/disabled
+- email confirmation requirement
+- password reset configuration
+- Site URL
+- additional redirect URLs
+- any relevant OAuth configuration
+- leaked-password protection status
+
+For every item that cannot be read through the available connected interface, explicitly report:
+
+NOT VERIFIABLE THROUGH AVAILABLE INTERFACE
+
+Do not guess.
+
+AUDIT 3 — APP CONFIGURATION
+
+Verify:
+
+- iOS bundle identifier
+- Android package identifier
+- Expo scheme
+- Android intent filters
+- relevant iOS URL/deep-link configuration
+- whether configuration is internally consistent with the OAuth callback implementation.
+
+AUDIT 4 — STORE REQUIREMENTS
+
+Based on the current implementation, identify authentication-related launch risks for:
+
+- Apple App Store
+- Google Play
+
+Pay particular attention to:
+- Google Sign-In on iOS
+- equivalent Apple login requirement
+- account deletion
+- privacy requirements associated with authentication
+- email/password flows
+
+Do not make legal claims beyond what can be verified from current official platform requirements already documented in the project.
+
+AUDIT 5 — REAL-DEVICE GAP
+
+Identify which authentication behaviors still require real iOS/Android device testing and cannot be proven from source/configuration inspection.
+
+Produce a concise test matrix covering:
+
+- fresh install
+- email signup
+- email confirmation
+- email login
+- incorrect password
+- password reset
+- Google login
+- Apple login on iOS
+- logout
+- app restart/session restoration
+- cold-start OAuth callback
+- cancelled OAuth flow
+- expired/invalid callback
+- account deletion
+- reinstall
+
+For each, classify:
+- Proven by code/config
+- Requires production configuration verification
+- Requires real-device testing
+- Not implemented
+
+PROTECTED AREAS
+
+Do NOT modify:
+- Recommendation Engine v3.7
+- wardrobe classification
+- Supabase RLS
+- database functions
+- database policies
+- database grants
+- payments
+- notifications
+- Packing Concierge
+- application UI
+- legal documents
+
+Do not add native Apple authentication.
+Do not install packages.
+Do not change OAuth providers.
+Do not change redirect URLs.
+Do not change Supabase settings.
+
+STOP after returning the audit.
+
+Return:
+
+1. Executive status: READY / READY WITH BLOCKERS / NOT READY
+2. Code findings
+3. Production Supabase configuration findings
+4. App configuration findings
+5. Apple App Store risks
+6. Google Play risks
+7. Real-device test matrix
+8. Exact blockers
+9. Exact next actions, ordered by priority
+10. Files inspected
+
+No implementation.
+No unrelated cleanup.
