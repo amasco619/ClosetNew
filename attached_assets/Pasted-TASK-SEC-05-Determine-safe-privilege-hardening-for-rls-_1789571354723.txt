@@ -1,0 +1,81 @@
+TASK: SEC-05 — Determine safe privilege hardening for rls_auto_enable
+
+Read `AMODKA-PROJECT-STATUS.md` first.
+
+Use the completed SEC-02, SEC-03 and SEC-04 reports as authoritative context.
+
+OBJECTIVE
+
+Determine the minimum safe EXECUTE privilege required by the live PostgreSQL event trigger:
+
+public.ensure_rls
+→ public.rls_auto_enable()
+
+Do NOT change the production database.
+
+CURRENT STATE
+
+public.rls_auto_enable():
+- RETURNS event_trigger
+- SECURITY DEFINER
+- owner: postgres
+- search_path = pg_catalog
+- proacl = null
+- therefore PUBLIC has EXECUTE
+- invoked only by the enabled event trigger public.ensure_rls
+- event: ddl_command_end
+- tags: CREATE TABLE, CREATE TABLE AS, SELECT INTO
+- not exposed through PostgREST RPC
+
+RESEARCH ONLY
+
+Using PostgreSQL catalog/documentation available in the connected environment, determine:
+
+1. Whether PostgreSQL event-trigger execution requires EXECUTE privilege on the event-trigger function for:
+   - the role executing the DDL
+   - PUBLIC
+   - or neither because PostgreSQL invokes the registered event-trigger function through the event-trigger mechanism.
+
+2. Determine the exact privilege model applicable to this specific event trigger.
+
+3. Based on that model, identify the minimum safe ACL for:
+   public.rls_auto_enable()
+
+4. Explicitly distinguish:
+   - normal SQL function invocation
+   - trigger-function invocation
+   - event-trigger-function invocation.
+
+5. State whether revoking EXECUTE from PUBLIC would:
+   - safely preserve event-trigger operation,
+   - break event-trigger operation,
+   - or require a specific owner/role grant.
+
+6. Provide the exact SQL that WOULD be used for remediation, but do not execute it.
+
+IMPORTANT
+
+Do NOT modify:
+- public.rls_auto_enable()
+- public.ensure_rls
+- any event trigger
+- any table trigger
+- RLS
+- policies
+- grants
+- application code
+- migrations
+
+Do not perform a live privilege experiment by changing production ACLs.
+
+Do not expose secrets.
+
+STOP after returning the privilege-model analysis and proposed SQL.
+
+Return:
+- conclusion
+- PostgreSQL privilege semantics
+- recommended minimum ACL
+- exact proposed SQL
+- risks/rollback considerations
+- blockers, if any.
