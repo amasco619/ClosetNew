@@ -1,0 +1,285 @@
+TASK: Track D.2 — Co-ord / Multi-Item Representation Contract
+
+Read `AMODKA-PROJECT-STATUS.md` first.
+
+OBJECTIVE
+
+Design the canonical representation contract Amodka should use for multi-item wardrobe images and coordinated sets/co-ords.
+
+THIS IS A DESIGN/SPECIFICATION TASK ONLY.
+
+Do NOT modify production code, database schema, migrations, benchmark fixtures, Recommendation Engine v3.7, scoring/ranking, outfit generation, affinity, weather, classifier implementation, or UI.
+
+Do NOT implement the proposed design.
+
+CONTEXT
+
+Track D.1 confirmed that GU-29 remains a genuine representation limitation:
+
+- Reference: Ankara blazer-and-wide-leg-trouser coordinated set
+- Current classifier correctly detects that multiple clothing items are present
+- Current classifier contract represents one category/subtype
+- Current response therefore rejects the image with `content_guardrail`
+- Track D taxonomy changes do not solve this problem
+
+The desired product principle is:
+
+A co-ord should represent a relationship between independently wearable wardrobe pieces, rather than becoming one indivisible garment.
+
+The design must preserve the ability for Amodka to:
+- understand that pieces belong to a coordinated set
+- store/style each piece independently
+- preserve their original set relationship
+- distinguish a genuine coordinated set from an arbitrary multi-item photograph
+- avoid incorrectly treating layered clothing as a coordinated set
+
+DESIGN QUESTIONS TO ANSWER
+
+1. CANONICAL DATA MODEL
+
+Propose the minimum canonical model required to represent:
+
+A. single garment
+B. genuine coordinated set/co-ord
+C. arbitrary multi-item image
+D. layered garments
+
+Show the proposed fields and explain each field.
+
+At minimum evaluate whether the model should contain concepts equivalent to:
+
+- garment
+- set/co-ord
+- setId
+- relationshipType
+- relationshipConfidence
+- sourceImageId
+- intendedAsSet
+- sharedAttributes
+
+Do not assume these names must be used; assess them against the existing architecture.
+
+2. GARMENT IDENTITY
+
+Explain how individual pieces remain independently wearable/stylable.
+
+Example:
+
+Set:
+- Ankara blazer
+- Ankara wide-leg trousers
+
+The blazer and trousers must remain independently addressable wardrobe items.
+
+Explain how the set relationship should coexist with individual garment identity.
+
+3. RELATIONSHIP TYPES
+
+Evaluate a minimum relationship model covering:
+
+- `coordinated_set`
+- `multi_item`
+- `layered`
+
+Explain when each should be used and what must NOT cause two garments to be classified as a coordinated set.
+
+4. CLASSIFIER RESPONSE CONTRACT
+
+Propose the conceptual response shape the classifier would eventually need for a multi-item image.
+
+Example only — do not implement:
+
+{
+  items: [
+    {...garment...},
+    {...garment...}
+  ],
+  relationship: {...}
+}
+
+Define:
+- required fields
+- optional fields
+- confidence handling
+- validation rules
+- how single-garment responses remain backwards compatible
+
+Do not redesign the existing garment taxonomy unless strictly necessary for this contract.
+
+5. CONFIDENCE / UNCERTAINTY
+
+Define how Amodka should behave when:
+
+A. multiple items are obvious but set relationship is uncertain
+B. two pieces clearly appear coordinated
+C. image contains multiple unrelated garments
+D. layering is obvious
+E. the classifier cannot confidently identify one of the pieces
+
+Do not invent UX implementation; specify the contract and expected product behavior only.
+
+6. SOURCE IMAGE PROVENANCE
+
+Explain how the original uploaded image should remain associated with:
+- detected garments
+- the coordinated set
+- any relationship between pieces
+
+The design should preserve the ability to understand that two garments originated from the same upload.
+
+7. SHARED ATTRIBUTES
+
+Evaluate which attributes can safely be shared across set members, such as:
+- pattern
+- colour family
+- fabric
+- design/co-ordination metadata
+
+Distinguish:
+- attributes that can be inherited/shared
+- attributes that must remain garment-specific
+- attributes that should only be shared when confidence is sufficient
+
+Do not introduce new recommendation scoring.
+
+8. AFRICAN/NIGERIAN FASHION
+
+Ensure the contract can represent culturally relevant coordinated sets including examples such as:
+
+- Ankara blazer + trousers
+- Ankara blouse + wrapper
+- iro + buba
+- aso-ebi coordinated pieces
+- kaftan + matching trousers
+- matching lace ensembles
+
+Do NOT create an unnecessarily large list of culturally specific set types.
+
+The individual garment taxonomy should remain responsible for identifying the actual garments.
+
+9. EXISTING ARCHITECTURE IMPACT
+
+Inspect the current production architecture and identify exactly which existing components would eventually be affected by this design.
+
+Separate findings into:
+
+- classifier contract
+- wardrobe persistence
+- wardrobe UI
+- outfit generation
+- recommendation engine
+- scoring
+- affinity
+- analytics/telemetry
+- migrations
+
+Do not modify any of them.
+
+10. BACKWARDS COMPATIBILITY
+
+Explain how all existing single-garment wardrobe records would continue to work without migration if possible.
+
+If a database migration would eventually be required, describe it conceptually only.
+
+11. RECOMMENDATION ENGINE v3.7
+
+Explicitly explain how the proposed representation can coexist with the frozen Recommendation Engine v3.7 without modifying it.
+
+Do not propose Recommendation Engine v4.
+
+12. GU-29 WALKTHROUGH
+
+Use GU-29 as the primary worked example.
+
+Show the conceptual representation of:
+
+- Ankara blazer
+- wide-leg trousers
+- shared coordinated-set relationship
+- source image
+
+Then show how the same blazer could theoretically be used independently in a future outfit without losing its set relationship.
+
+13. ALTERNATIVES
+
+Briefly compare at least these architectural approaches:
+
+A. Store the entire co-ord as one garment
+B. Store each piece independently + `setId`
+C. Store each piece independently + explicit relationship/set entity
+
+Explain trade-offs and recommend one.
+
+Do not rank them numerically. Provide factual architectural trade-offs.
+
+14. DESIGN RISKS / OPEN QUESTIONS
+
+Identify unresolved decisions that should be answered before implementation.
+
+Examples:
+- whether users can manually link/unlink pieces
+- whether deleting one piece affects the set relationship
+- whether duplicate pieces can belong to multiple sets
+- whether set membership is immutable
+- whether AI-detected relationships require user confirmation
+- how existing wardrobe uploads should behave
+
+Do not solve these by changing code.
+
+OUTPUT
+
+Return one concise design document containing:
+
+1. Executive recommendation
+2. Canonical model
+3. Relationship model
+4. Classifier response contract
+5. Confidence rules
+6. Provenance/source-image model
+7. Shared attributes
+8. African/Nigerian examples
+9. GU-29 worked example
+10. Existing architecture impact
+11. Backwards compatibility
+12. v3.7 compatibility
+13. Alternative approaches and trade-offs
+14. Open questions / decisions required
+15. Explicit implementation boundary
+
+IMPORTANT PROTECTION
+
+This task must produce NO production code changes.
+
+Do not:
+- edit files
+- create migrations
+- modify TypeScript
+- modify classifier prompts
+- modify Gemini integration
+- modify benchmark fixtures
+- modify Track B/C/D
+- modify Recommendation Engine v3.7
+- modify scoring/ranking
+- modify outfit generation
+- modify affinity
+- modify weather
+- modify UI
+
+VALIDATION
+
+Run only lightweight read-only inspection necessary to understand the current architecture.
+
+At the end report:
+
+- files inspected
+- files changed: MUST be 0
+- tests run
+- typecheck run/not run
+- benchmark run: MUST be no
+- Recommendation Engine changes: MUST be no
+
+STOP CONDITION
+
+Stop after producing the design document.
+
+Do not implement any recommendation from the document.
