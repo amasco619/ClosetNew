@@ -1,0 +1,79 @@
+TASK: Track D.1 — Targeted African/Nigerian classifier validation
+
+Read `AMODKA-PROJECT-STATUS.md` first.
+
+Use the completed Track D implementation as the current code state.
+
+OBJECTIVE
+
+Measure whether the Track D taxonomy/normalization changes improve actual classifier behavior on the six African/Nigerian P0 cases previously identified in Track C.
+
+CASES
+
+Test only:
+
+- GU-11 — headwrap/accessory
+- GU-16 — gele
+- GU-17 — classification failure
+- GU-29 — blazer + pants multi-item set
+- GU-39 — textile/sash
+- GU-40 — headpiece
+
+IMPORTANT
+
+This is a validation experiment only.
+
+Do NOT modify:
+- classifier code
+- taxonomy
+- benchmark fixtures
+- Track B
+- Track C
+- Recommendation Engine v3.7
+- scoring
+- ranking
+- outfit generation
+- weather
+- affinity
+
+Use the current existing classifier implementation exactly as-is.
+
+For each case report:
+
+1. Original reviewer/reference semantic label.
+2. Classifier output.
+3. Canonical normalized output.
+4. Whether classification succeeds.
+5. Whether the result matches the reference representation.
+6. Any validation/rejection reason.
+7. Whether the new taxonomy appears to have removed the previous failure.
+
+Also separately identify whether GU-29 remains a multi-item/co-ord representation problem.
+
+DO NOT claim improved model accuracy from taxonomy support alone.
+
+If Gemini/API credentials or external execution are unavailable, do not fabricate results. Report that the visual experiment could not be executed.
+
+VALIDATION
+
+Run only the minimum tests required to prove:
+- classifier still works
+- Track D normalization is active
+- existing Track C fixtures remain unchanged
+
+Do not run a full benchmark.
+
+Do not change files unless a test harness requires a temporary non-tracked artifact; remove any such artifact before stopping.
+
+STOP.
+
+Return:
+
+1. Six-case results table
+2. Previous failure vs current outcome
+3. Actual successful classifications
+4. Remaining representation failures
+5. Whether GU-29 requires a separate representation design
+6. Tests run
+7. Typecheck status
+8. Files changed — expected: none
