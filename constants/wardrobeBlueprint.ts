@@ -257,14 +257,20 @@ export const WARDROBE_BLUEPRINT: BlueprintItem[] = STYLE_BLUEPRINTS.classic;
 const EXTRA_SUBTYPES = {
   top: [
     't-shirt', 'long-sleeve', 'polo-shirt', 'henley', 'rugby-shirt', 'turtleneck',
-    'button-down', 'knit-top', 'sweatshirt', 'rashguard', 'linen-set',
+    'button-down', 'knit-top', 'sweatshirt', 'rashguard', 'linen-set', 'buba',
   ],
-  bottom: ['chinos', 'joggers', 'shorts', 'leggings', 'pencil-skirt'],
-  dress: ['cocktail-dress', 'kaftan', 'sundress', 'bodycon-dress', 'slip-dress', 'gown'],
+  bottom: ['chinos', 'joggers', 'shorts', 'leggings', 'pencil-skirt', 'iro', 'wrapper'],
+  dress: [
+    'cocktail-dress', 'kaftan', 'sundress', 'bodycon-dress', 'slip-dress', 'gown',
+    'aso-ebi', 'iro-and-buba', 'boubou',
+  ],
   outerwear: ['raincoat', 'puffer', 'vest', 'windbreaker'],
   shoes: ['ankle-boots', 'pumps', 'stilettos', 'block-heels', 'espadrilles', 'training-shoes'],
   bag: ['gym-bag', 'wicker-bag', 'evening-bag', 'beach-bag'],
-  jewelry: ['brooch', 'statement-earrings', 'sunglasses', 'sunhat'],
+  jewelry: [
+    'brooch', 'statement-earrings', 'sunglasses', 'sunhat',
+    'gele', 'headwrap', 'head-scarf', 'structured-headpiece',
+  ],
 } satisfies Record<ItemCategory, string[]>;
 
 export const BLUEPRINT_SUBTYPES_BY_CATEGORY: Record<ItemCategory, string[]> = (() => {
@@ -362,6 +368,24 @@ const SUBTYPE_ALIASES: Record<string, string> = {
   'sport hoodie': 'sports-hoodie',
   'gym hoodie': 'sports-hoodie',
   'gym bag': 'gym-bag',
+  'head tie': 'gele',
+  'head-tie': 'gele',
+  'aso-oke gele': 'gele',
+  'head wrap': 'headwrap',
+  'head-wrap': 'headwrap',
+  'head scarf': 'head-scarf',
+  'headscarf': 'head-scarf',
+  'chiffon head scarf': 'head-scarf',
+  'structured headpiece': 'structured-headpiece',
+  'aso ebi': 'aso-ebi',
+  'iro & buba': 'iro-and-buba',
+  'iro and buba': 'iro-and-buba',
+  'iro/buba': 'iro-and-buba',
+  'buba blouse': 'buba',
+  'wrapper skirt': 'wrapper',
+  'iro/wrapper': 'wrapper',
+  'grand boubou': 'boubou',
+  'caftan': 'kaftan',
 };
 
 function normalizeSubType(value: string | undefined): string {

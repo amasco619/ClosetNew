@@ -43,6 +43,9 @@ import {
   VALID_SUBTYPES_BY_CATEGORY,
   VALID_COLOR_FAMILIES,
   SERVER_FAMILY_CENTROID_HSL,
+  normalizeGarmentFabric,
+  normalizeGarmentPattern,
+  normalizeGarmentSubType,
 } from '../server/classify-garment';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
@@ -118,6 +121,56 @@ console.log('\nprocessGeminiResult — valid subtype:');
 {
   const r = processGeminiResult({ category: 'shoes', subType: 'sneakers', colorFamily: 'white' }) as any;
   assertEq(r.subType, 'sneakers', 'valid shoes/sneakers passes through');
+}
+
+// ── African/Nigerian representation taxonomy ─────────────────────────────────
+
+console.log('\nAfrican/Nigerian representation taxonomy:');
+
+const culturalSubtypes = [
+  ['jewelry', 'gele'],
+  ['jewelry', 'headwrap'],
+  ['jewelry', 'head-scarf'],
+  ['jewelry', 'structured-headpiece'],
+  ['top', 'buba'],
+  ['bottom', 'iro'],
+  ['bottom', 'wrapper'],
+  ['dress', 'aso-ebi'],
+  ['dress', 'iro-and-buba'],
+  ['dress', 'boubou'],
+  ['dress', 'kaftan'],
+] as const;
+
+for (const [category, subType] of culturalSubtypes) {
+  const r = processGeminiResult({ category, subType, colorFamily: 'blue' }) as any;
+  assertEq(r.subType, subType, `${category}/${subType} resolves as a canonical garment type`);
+}
+
+assertEq(normalizeGarmentSubType('head tie'), 'gele', 'head tie → gele');
+assertEq(normalizeGarmentSubType('aso-oke gele'), 'gele', 'aso-oke gele → gele');
+assertEq(normalizeGarmentSubType('head wrap'), 'headwrap', 'head wrap → headwrap');
+assertEq(normalizeGarmentSubType('chiffon head scarf'), 'head-scarf', 'chiffon head scarf → head-scarf');
+assertEq(normalizeGarmentSubType('aso ebi'), 'aso-ebi', 'aso ebi → aso-ebi');
+assertEq(normalizeGarmentSubType('iro & buba'), 'iro-and-buba', 'iro & buba → iro-and-buba');
+assertEq(normalizeGarmentSubType('buba blouse'), 'buba', 'buba blouse → buba');
+assertEq(normalizeGarmentSubType('wrapper skirt'), 'wrapper', 'wrapper skirt → wrapper');
+assertEq(normalizeGarmentSubType('grand boubou'), 'boubou', 'grand boubou → boubou');
+assertEq(normalizeGarmentSubType('caftan'), 'kaftan', 'caftan → kaftan');
+assertEq(normalizeGarmentPattern('Ankara'), 'wax-print', 'Ankara → wax-print');
+assertEq(normalizeGarmentPattern('wax print'), 'wax-print', 'wax print → wax-print');
+assertEq(normalizeGarmentFabric('French lace'), 'lace', 'French lace → lace');
+
+{
+  const r = processGeminiResult({
+    category: 'jewelry',
+    subType: 'head tie',
+    colorFamily: 'blue',
+    fabric: 'French lace',
+    pattern: 'Ankara',
+  }) as any;
+  assertEq(r.subType, 'gele', 'classifier normalizes head tie before subtype validation');
+  assertEq(r.fabric, 'lace', 'classifier normalizes lace synonyms before fabric validation');
+  assertEq(r.pattern, 'wax-print', 'classifier normalizes Ankara before pattern validation');
 }
 
 // ── processGeminiResult — invalid subtype → null ──────────────────────────────

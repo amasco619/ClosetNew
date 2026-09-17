@@ -391,16 +391,16 @@ export const VALID_SUBTYPES_BY_CATEGORY: Record<string, string[]> = {
     "tank-top","crop-top","shirt","button-down","blouse",
     "sweater","cardigan","turtleneck","knit-top","camisole",
     "hoodie","sweatshirt","sports-bra","sports-hoodie",
-    "rashguard","sequin-top","linen-set",
+    "rashguard","sequin-top","linen-set","buba",
   ],
   bottom: [
     "jeans","trousers","chinos","wide-leg","joggers",
-    "shorts","leggings","mini-skirt","midi-skirt","maxi-skirt","pencil-skirt",
+    "shorts","leggings","mini-skirt","midi-skirt","maxi-skirt","pencil-skirt","iro","wrapper",
   ],
   dress: [
     "midi-dress","maxi-dress","mini-dress","wrap-dress","shirt-dress","cocktail-dress",
     "knit-dress","bodycon-dress","slip-dress","gown","sundress",
-    "resort-dress","cover-up","kaftan",
+    "resort-dress","cover-up","kaftan","aso-ebi","iro-and-buba","boubou",
   ],
   outerwear: [
     "blazer","coat","peacoat","trench","jacket","hoodie",
@@ -417,6 +417,7 @@ export const VALID_SUBTYPES_BY_CATEGORY: Record<string, string[]> = {
   jewelry: [
     "necklace","earrings","bracelet","ring","watch","brooch",
     "statement-earrings","sunglasses","sunhat",
+    "gele","headwrap","head-scarf","structured-headpiece",
   ],
 };
 
@@ -438,6 +439,59 @@ const VALID_NECKLINES = new Set<string>(["crew","v-neck","scoop","turtleneck","b
 const VALID_SLEEVE_LENGTHS = new Set<string>(["sleeveless","short","three-quarter","long"]);
 const VALID_RISES = new Set<string>(["low","mid","high"]);
 const VALID_WARMTH_BANDS = new Set<string>(["cold","cool","mild","warm","hot"]);
+
+const SUBTYPE_ALIASES: Record<string, string> = {
+  "head tie": "gele",
+  "head-tie": "gele",
+  "aso-oke gele": "gele",
+  "head wrap": "headwrap",
+  "head-wrap": "headwrap",
+  "head scarf": "head-scarf",
+  "headscarf": "head-scarf",
+  "chiffon head scarf": "head-scarf",
+  "structured headpiece": "structured-headpiece",
+  "aso ebi": "aso-ebi",
+  "iro & buba": "iro-and-buba",
+  "iro and buba": "iro-and-buba",
+  "iro/buba": "iro-and-buba",
+  "buba blouse": "buba",
+  "wrapper skirt": "wrapper",
+  "iro/wrapper": "wrapper",
+  "grand boubou": "boubou",
+  "caftan": "kaftan",
+};
+
+const PATTERN_ALIASES: Record<string, string> = {
+  "ankara": "wax-print",
+  "wax print": "wax-print",
+  "african wax print": "wax-print",
+  "african wax-print": "wax-print",
+};
+
+const FABRIC_ALIASES: Record<string, string> = {
+  "african lace": "lace",
+  "french lace": "lace",
+  "lace fabric": "lace",
+};
+
+function normalizeTaxonomyValue(value: string | null | undefined): string {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+export function normalizeGarmentSubType(value: string | null | undefined): string {
+  const normalized = normalizeTaxonomyValue(value);
+  return SUBTYPE_ALIASES[normalized] ?? normalized;
+}
+
+export function normalizeGarmentPattern(value: string | null | undefined): string {
+  const normalized = normalizeTaxonomyValue(value);
+  return PATTERN_ALIASES[normalized] ?? normalized;
+}
+
+export function normalizeGarmentFabric(value: string | null | undefined): string {
+  const normalized = normalizeTaxonomyValue(value);
+  return FABRIC_ALIASES[normalized] ?? normalized;
+}
 
 // ─── Pure processing function ─────────────────────────────────────────────────
 // Separating parse/validate/build from the HTTP layer makes the core logic
@@ -482,9 +536,10 @@ export function processGeminiResult(parsed: GeminiResult): ClassificationResult 
     ? (parsed.category as ItemCategory)
     : null;
 
+  const normalizedSubType = normalizeGarmentSubType(parsed.subType);
   const validSubTypes = category ? VALID_SUBTYPES_BY_CATEGORY[category] : [];
-  const subType = validSubTypes.includes(parsed.subType ?? "")
-    ? parsed.subType!
+  const subType = validSubTypes.includes(normalizedSubType)
+    ? normalizedSubType
     : null;
 
   const colorFamily = VALID_COLOR_FAMILIES.has(parsed.colorFamily ?? "")
@@ -496,14 +551,16 @@ export function processGeminiResult(parsed: GeminiResult): ClassificationResult 
       ? parsed.accentColor
       : undefined;
 
+  const normalizedFabric = normalizeGarmentFabric(parsed.fabric);
   const fabric =
-    parsed.fabric && VALID_FABRICS.has(parsed.fabric)
-      ? parsed.fabric
+    VALID_FABRICS.has(normalizedFabric)
+      ? normalizedFabric
       : undefined;
 
+  const normalizedPattern = normalizeGarmentPattern(parsed.pattern);
   const pattern =
-    parsed.pattern && VALID_PATTERNS.has(parsed.pattern)
-      ? parsed.pattern
+    VALID_PATTERNS.has(normalizedPattern)
+      ? normalizedPattern
       : undefined;
 
   const patternScale =
@@ -622,13 +679,22 @@ Return a JSON object with these fields:
 category (required): Exactly one of: "top" | "bottom" | "dress" | "outerwear" | "shoes" | "bag" | "jewelry"
 
 subType (required): Exactly one value from the list for the chosen category:
-  top       → "t-shirt" | "long-sleeve" | "polo-shirt" | "henley" | "rugby-shirt" | "tank-top" | "crop-top" | "shirt" | "button-down" | "blouse" | "sweater" | "cardigan" | "turtleneck" | "knit-top" | "camisole" | "hoodie" | "sweatshirt" | "sports-bra" | "sports-hoodie" | "windbreaker" | "rashguard" | "sequin-top" | "linen-set"
-  bottom    → "jeans" | "trousers" | "chinos" | "wide-leg" | "joggers" | "shorts" | "leggings" | "mini-skirt" | "midi-skirt" | "maxi-skirt" | "pencil-skirt"
-  dress     → "midi-dress" | "maxi-dress" | "mini-dress" | "wrap-dress" | "shirt-dress" | "cocktail-dress" | "knit-dress" | "bodycon-dress" | "slip-dress" | "gown" | "sundress" | "resort-dress" | "cover-up" | "kaftan"
+  top       → "t-shirt" | "long-sleeve" | "polo-shirt" | "henley" | "rugby-shirt" | "tank-top" | "crop-top" | "shirt" | "button-down" | "blouse" | "sweater" | "cardigan" | "turtleneck" | "knit-top" | "camisole" | "hoodie" | "sweatshirt" | "sports-bra" | "sports-hoodie" | "windbreaker" | "rashguard" | "sequin-top" | "linen-set" | "buba"
+  bottom    → "jeans" | "trousers" | "chinos" | "wide-leg" | "joggers" | "shorts" | "leggings" | "mini-skirt" | "midi-skirt" | "maxi-skirt" | "pencil-skirt" | "iro" | "wrapper"
+  dress     → "midi-dress" | "maxi-dress" | "mini-dress" | "wrap-dress" | "shirt-dress" | "cocktail-dress" | "knit-dress" | "bodycon-dress" | "slip-dress" | "gown" | "sundress" | "resort-dress" | "cover-up" | "kaftan" | "aso-ebi" | "iro-and-buba" | "boubou"
   outerwear → "blazer" | "coat" | "peacoat" | "trench" | "jacket" | "hoodie" | "bomber-jacket" | "leather-jacket" | "puffer" | "raincoat" | "vest" | "denim-jacket"
   shoes     → "sneakers" | "training-shoes" | "heels" | "pumps" | "stilettos" | "strappy-heels" | "block-heels" | "flats" | "boots" | "ankle-boots" | "sandals" | "espadrilles" | "loafers" | "mules"
   bag       → "tote" | "crossbody" | "clutch" | "backpack" | "shoulder-bag" | "mini-bag" | "gym-bag" | "wicker-bag" | "evening-bag" | "beach-bag"
-  jewelry   → "necklace" | "earrings" | "bracelet" | "ring" | "watch" | "brooch" | "statement-earrings" | "sunglasses" | "sunhat"
+  jewelry   → "necklace" | "earrings" | "bracelet" | "ring" | "watch" | "brooch" | "statement-earrings" | "sunglasses" | "sunhat" | "gele" | "headwrap" | "head-scarf" | "structured-headpiece"
+
+African/Nigerian garment guidance:
+- Classify a gele/head tie as category "jewelry", subType "gele".
+- Use "headwrap" for a wrapped head covering that is not specifically a gele.
+- Use "head-scarf" for a soft scarf worn on the head; use fabric "chiffon" when applicable.
+- Use "structured-headpiece" for sculptural or structured ceremonial headwear.
+- Use "buba" for an individual buba blouse, "iro" or "wrapper" for an individual wrapped lower garment, and "iro-and-buba" when the coordinated outfit is shown as one wardrobe item.
+- Use "aso-ebi" for a complete coordinated aso-ebi outfit, and "boubou" for a boubou/grand boubou.
+- Ankara/African wax print describes pattern, not silhouette: keep the garment's canonical subType and use pattern "wax-print".
 
 displayName (required): A concise human-readable name for the specific item, e.g. "Trench coat", "Floral midi dress", "Leather ankle boots". Use title case.
 
