@@ -393,3 +393,17 @@ mtime_ms = 1789774024537
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/a2c2d751-f666-44bc-a41c-46f1a7db153d/cb431ced-1773-4631-8756-3ed25cd099b7"
 storage_version_token = "1789774041178691"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "pr0DhzfEloIGJya8RA2AF"
+uri = "file://reports/d2-b0-2-operation-record-security-transactional-rpc-boundary.md"
+type = "text"
+title = "D.2 B0.2 Operation Record Security & Transactional RPC Boundary"
+description = "Complete 16-section read-only security architecture report covering operation-record schema, invoker and definer boundaries, exact ACL/RLS models, replay and concurrency security, transaction and Storage boundaries, migration impact, decisions, and zero-change confirmation."
+logical_id = "a4f314e2-3b62-486a-974e-2a031a40d165"
+content_hash = "sha256:88e6994c1208e64a854664cc850ad78625e64e7c3c739ce741a7f5276195f5a1"
+size = 42568
+mtime_ms = 1789774974942
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/a4f314e2-3b62-486a-974e-2a031a40d165/8c109b80-be25-497c-99ce-74825b39007b"
+storage_version_token = "1789774989440874"
+content_type = "text/markdown"

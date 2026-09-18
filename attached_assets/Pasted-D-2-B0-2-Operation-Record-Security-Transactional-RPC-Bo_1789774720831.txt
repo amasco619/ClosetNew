@@ -1,0 +1,202 @@
+D.2 B0.2 — Operation Record Security & Transactional RPC Boundary
+
+This is a READ-ONLY architecture/security specification task.
+
+Do not modify code, migrations, database objects, tests, benchmarks, or configuration.
+
+Context
+
+B0.1 established the need for:
+
+one PostgreSQL transaction for authenticated multi-item persistence;
+stable client-generated operation_id;
+stable item IDs;
+durable replay semantics;
+canonical payload comparison;
+an immutable completed-operation record;
+reuse of the existing create_garment_group(...) RPC where safe.
+
+Alternative B — transactional orchestration RPC + owner-scoped idempotency operation record — is the current architecture under consideration.
+
+Critical question
+
+Determine the safest way to implement the operation record and orchestration RPC without allowing an authenticated client to fabricate or mutate authoritative completed-operation records.
+
+Specifically investigate:
+
+Option 1
+
+SECURITY INVOKER orchestration RPC.
+
+Determine whether it can write the operation record while preventing clients from:
+
+fabricating completed records;
+changing canonical payloads;
+changing group IDs;
+changing item IDs;
+deleting/modifying completed records;
+interfering with another legitimate replay.
+Option 2
+
+Narrowly audited SECURITY DEFINER orchestration RPC.
+
+Determine whether this can safely provide the required authoritative write boundary.
+
+If considered viable, specify:
+
+exact search_path;
+fully qualified objects;
+execution grants;
+ownership derivation;
+RLS interaction;
+privilege surface;
+error handling;
+prevention of privilege escalation;
+prevention of forged operation records;
+account-deletion behaviour.
+Option 3
+
+Any alternative that provides equivalent guarantees without broad privileged access.
+
+Do not invent an alternative merely for completeness.
+
+Operation-record contract
+
+Define the exact proposed operation table:
+
+columns
+data types
+primary/unique constraints
+ownership FK
+checks
+indexes
+immutable fields
+retention
+account deletion
+
+The canonical payload must represent durable database intent and must not contain:
+
+signed URLs
+image bytes
+secrets
+authentication tokens
+Replay security
+
+Define exact behaviour for:
+
+first execution;
+exact replay;
+conflicting replay;
+concurrent identical requests;
+concurrent conflicting requests;
+retry after timeout;
+retry after application restart;
+replay after group deletion;
+replay after individual garment deletion;
+account deletion.
+Transaction
+
+Specify the exact transaction boundary and demonstrate how:
+
+wardrobe rows
++
+garment group
++
+memberships
++
+operation record
+
+either all commit or all roll back.
+
+Confirm that the existing Phase A create_garment_group(...) can remain unchanged if used.
+
+Security
+
+Explicitly define final privileges for:
+
+PUBLIC
+anon
+authenticated
+service_role
+
+for both:
+
+operation table
+orchestration function
+
+Do not copy broad CRUD privileges from existing wardrobe tables.
+
+Test conceptually for:
+
+forged operation IDs;
+forged user IDs;
+cross-user item IDs;
+fabricated completed records;
+operation-record mutation;
+concurrent replay;
+privilege escalation.
+Storage
+
+Preserve the B0.1 principle that Storage remains outside PostgreSQL transactions.
+
+Define:
+
+deterministic paths;
+pending manifest;
+cleanup_pending;
+timeout behaviour;
+account deletion.
+Alternatives
+
+Compare the viable security boundaries without ranking them automatically.
+
+For each provide:
+
+atomicity
+replay correctness
+security
+RLS interaction
+ACL requirements
+migration impact
+implementation complexity
+Phase A compatibility
+Hard constraints
+
+DO NOT:
+
+implement anything;
+create migrations;
+modify the database;
+modify Phase A;
+modify WardrobeItem;
+modify v3.7;
+modify classifier/Gemini;
+modify taxonomy;
+modify UI;
+modify benchmarks;
+modify Storage;
+start B1.
+Final report
+
+Return:
+
+Security problem
+Operation-record model
+SECURITY INVOKER analysis
+SECURITY DEFINER analysis
+Alternative security boundary if genuinely required
+Exact privilege model
+Exact RLS model
+Replay security model
+Transaction boundary
+Storage boundary
+Failure/concurrency matrix
+Migration implications
+Exact files that would eventually change
+Required architecture decisions
+Recommended implementation contract
+Confirmation of zero changes
+
+STOP after producing the specification.
+
+Do not implement the approved design in this run.
