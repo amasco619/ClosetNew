@@ -1,0 +1,148 @@
+TASK: D.2.1 — Co-ord Implementation Specification Reconciliation
+
+Read `AMODKA-PROJECT-STATUS.md` first.
+
+Read the completed D.2 design specification.
+
+OBJECTIVE
+
+Reconcile the approved D.2 conceptual contract against the CURRENT production codebase and produce a precise, implementation-ready specification for Phase A.
+
+THIS IS A READ-ONLY ARCHITECTURE TASK.
+
+DO NOT MODIFY ANY FILES.
+
+DO NOT IMPLEMENT ANYTHING.
+
+APPROVED DESIGN PRINCIPLES
+
+1. Existing `WardrobeItem` remains the canonical identity of each independently wearable garment.
+2. Do not collapse a coordinated set into one wardrobe item.
+3. Use an explicit relationship/group entity rather than a mandatory `setId` on `wardrobe_items`.
+4. Initial relationship types:
+   - coordinated_set
+   - multi_item
+   - layered
+5. Garments may participate in multiple distinct relationship contexts.
+6. Duplicate garment/group membership must be prevented.
+7. AI-inferred relationships are distinct from user-confirmed relationships.
+8. Do not introduce an automatic relationship-confidence threshold yet.
+9. Uncertain multi-item relationships remain `multi_item` rather than being promoted to `coordinated_set`.
+10. Group-level shared attributes are evidence/provenance, not new Recommendation Engine inputs.
+11. Existing single-garment records must remain valid without migration where possible.
+12. Recommendation Engine v3.7 MUST remain completely unchanged.
+13. Existing scoring, ranking, affinity, fingerprints, wear history, rotation and weather logic MUST remain unchanged.
+14. Preserve durable source-image provenance, reusing an existing mechanism if the codebase already provides one.
+15. Do not create redundant source-image infrastructure if an adequate existing mechanism exists.
+16. No UI implementation in Phase A.
+17. No Gemini/classifier implementation in Phase A.
+18. No benchmark fixture changes.
+
+PHASE A SCOPE
+
+Determine the minimum implementation required for:
+
+- GarmentGroup
+- GarmentGroupMember
+- relationship type
+- relationship confidence
+- confirmation status
+- group ownership/RLS
+- membership uniqueness
+- lifecycle/deletion behaviour
+- persistence/mapping
+- backwards compatibility
+
+REQUIRED ANALYSIS
+
+1. Inspect the existing wardrobe schema and determine whether an adequate source-image/provenance mechanism already exists.
+
+2. Identify the exact existing files/functions/types that would need modification for Phase A.
+
+3. Determine whether new Supabase tables are required.
+
+4. Propose the minimum schema for:
+   - garment_groups
+   - garment_group_members
+   - source-image/provenance only if genuinely required
+
+5. Define primary keys, foreign keys, uniqueness constraints and ownership constraints.
+
+6. Define RLS requirements consistent with Amodka's existing security model.
+
+7. Define deletion behaviour:
+   - deleting one garment
+   - deleting the final group member
+   - deleting a group
+   - account deletion
+
+8. Determine whether one garment can belong to multiple groups and how duplicate/conflicting memberships should be constrained.
+
+9. Determine the smallest persistence API required.
+
+10. Determine how existing `WardrobeItem[]` consumed by Recommendation Engine v3.7 remains unchanged.
+
+11. Determine whether local/guest persistence requires relationship support in Phase A or can safely defer it.
+
+12. Determine whether the existing classifier endpoint should remain completely untouched in Phase A.
+
+13. Identify migration requirements.
+
+14. Identify tests required for Phase A.
+
+15. Identify any architectural conflict between this design and the current codebase.
+
+IMPORTANT PROTECTIONS
+
+Do NOT:
+- modify code
+- create migrations
+- modify database
+- modify classifier
+- modify Gemini prompts
+- modify taxonomy
+- modify Track B/C/D
+- modify benchmark fixtures
+- modify Recommendation Engine v3.7
+- modify scoring/ranking
+- modify affinity
+- modify outfit generation
+- modify weather
+- modify UI
+
+OUTPUT
+
+Produce a concise implementation specification containing:
+
+1. Current architecture findings
+2. Approved Phase A schema
+3. Existing source-image/provenance reuse decision
+4. Relationship lifecycle rules
+5. RLS/security requirements
+6. Persistence/API changes required
+7. Local/guest persistence decision
+8. Backwards-compatibility plan
+9. Exact files expected to change during implementation
+10. Exact files that MUST NOT change
+11. Migration plan
+12. Test plan
+13. Estimated implementation complexity
+14. Risks/blockers
+15. Explicit Phase A implementation boundary
+
+VALIDATION
+
+Because this is read-only:
+
+- Files changed: MUST be 0
+- Database changes: MUST be 0
+- Migrations created: MUST be 0
+- Tests: only inspect existing tests; do not alter them
+- Benchmark: MUST NOT run
+- Recommendation Engine: MUST NOT change
+
+STOP CONDITION
+
+Stop after producing the implementation specification.
+
+Do not implement the specification.
