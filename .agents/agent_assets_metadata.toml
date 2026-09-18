@@ -379,3 +379,17 @@ mtime_ms = 1789772721392
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/fa1d8556-1b57-4629-9c87-2e6a4bec7e04/00d58d60-5a17-4ccb-ba43-93fde001bba8"
 storage_version_token = "1789772725825242"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "wVY01YOIl6E1vanDiVh5x"
+uri = "file://reports/d2-b0-1-transactional-multi-item-persistence-architecture.md"
+type = "text"
+title = "D.2 B0.1 Transactional Multi-Item Persistence Architecture"
+description = "Complete 15-section read-only architecture report covering atomicity, operation and item/group identity, PostgreSQL transaction boundaries, Storage reconciliation, replay semantics, failure cases, alternatives, security, migrations, decisions, and zero-change confirmation."
+logical_id = "a2c2d751-f666-44bc-a41c-46f1a7db153d"
+content_hash = "sha256:03c24412fc323423bb2bb4a3852b32a3e05805174cb4374ee5a1500dbb738ac3"
+size = 41115
+mtime_ms = 1789774024537
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/a2c2d751-f666-44bc-a41c-46f1a7db153d/cb431ced-1773-4631-8756-3ed25cd099b7"
+storage_version_token = "1789774041178691"
+content_type = "text/markdown"

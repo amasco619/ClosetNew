@@ -1,0 +1,153 @@
+D.2 B0.1 — Transactional Multi-Item Persistence Architecture
+
+This is a READ-ONLY architecture task. Do not implement anything.
+
+Using the approved Phase B specification, design the exact transactional/idempotency architecture required for authenticated multi-item wardrobe persistence.
+
+Goal
+
+Define how Amodka can guarantee:
+
+success
+
+all WardrobeItems + one GarmentGroup + all memberships
+
+OR:
+
+failure
+
+no new WardrobeItems + no group + no memberships
+
+and safely replay a request when the client cannot determine whether the original database transaction committed.
+
+Investigate
+Existing wardrobe_items primary/unique constraints.
+Existing garment_groups schema and create_garment_group(...).
+Existing account-deletion semantics.
+Existing RLS/ACL model.
+Whether the approved Phase A RPC can safely participate in the required transaction.
+Whether a new orchestration RPC can call/reuse existing Phase A logic without violating security or transaction semantics.
+The minimum additional database structure required for idempotency.
+Define explicitly
+Operation identity
+format
+ownership
+lifecycle
+retention
+replay semantics
+Item identity
+who generates item IDs
+when they are generated
+how retries reuse them
+how conflicting reuse is rejected
+Group identity
+who generates the group ID
+how it remains stable across retries
+how it relates to operation identity
+Exact replay
+
+Define:
+
+same operation + same payload
+
+versus:
+
+same operation + different payload
+
+and the exact expected database response for each.
+
+Unknown commit outcome
+
+Define the exact behaviour when:
+
+client → RPC → timeout
+
+and the client does not know whether PostgreSQL committed.
+
+Transaction
+
+Provide the exact intended PostgreSQL transaction boundary:
+
+BEGIN
+  ...
+COMMIT
+
+Identify every database write inside it.
+
+Storage boundary
+
+Explicitly define what happens before and after the database transaction because Supabase Storage cannot participate in the PostgreSQL transaction.
+
+Failure matrix
+
+Cover:
+
+first item failure
+second item failure
+group failure
+membership failure
+duplicate request
+conflicting request
+timeout before commit
+timeout after commit
+expired authentication
+cross-user garment
+retry after application restart
+Alternatives
+
+Compare the minimum viable designs:
+
+transactional orchestration RPC
+idempotency table/record
+stable group-ID extension
+any other genuinely necessary alternative
+
+Do not rank them or select one automatically. Document:
+
+schema impact
+security impact
+transaction semantics
+retry semantics
+implementation complexity
+migration requirements
+interaction with existing Phase A RPC
+rollback/containment
+
+Then identify which decisions require PO/architecture approval.
+
+Strict constraints
+
+DO NOT:
+
+modify code
+create migrations
+modify the database
+modify Phase A
+modify WardrobeItem
+modify v3.7
+modify classifier/Gemini
+modify taxonomy
+modify UI
+modify benchmarks
+start B1
+Final report
+
+Return:
+
+Current persistence architecture
+Required atomicity invariant
+Operation identity model
+Item/group identity model
+Transaction boundary
+Storage/database boundary
+Replay/idempotency semantics
+Failure matrix
+Architecture alternatives
+Security/RLS implications
+Migration implications
+Exact files that would eventually change
+Open PO/architecture decisions
+Recommended implementation order
+Confirmation of zero changes
+
+STOP after the specification.
