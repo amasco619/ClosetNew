@@ -1,0 +1,73 @@
+Objective
+Apply the already-validated Phase A garment-group migration to the production Supabase database and verify the resulting production state. This is a controlled database migration only.
+
+Migration
+supabase/migrations/20260918000000_garment_groups.sql
+
+Preconditions
+
+The disposable integration validation has passed in full.
+Production migration has not previously been applied.
+Do not modify the migration itself.
+
+Required actions
+
+Use the project's established Supabase production migration mechanism.
+Apply 20260918000000_garment_groups.sql to production.
+Verify the migration completed successfully.
+Verify production contains:
+public.garment_groups
+public.garment_group_members
+required unique constraints and composite ownership FKs
+required indexes
+create_garment_group(...)
+delete_empty_garment_group()
+required triggers
+RLS enabled on both tables
+expected authenticated CRUD policies
+anonymous access denied
+service_role limited to the approved SELECT/DELETE privileges
+PUBLIC RPC execution revoked
+authenticated RPC execution granted
+Verify that no existing wardrobe_items rows were modified or backfilled.
+Verify that no source-image table, bucket, upload flow, or new relationship fields were introduced beyond the approved Phase A design.
+Verify existing Recommendation Engine v3.7 files, classifier/Gemini files, UI, AppContext, and benchmark files remain untouched.
+Run:
+npx tsx __tests__/garmentGroups.test.ts
+npm run typecheck
+git diff --check
+Report the production migration identifier/timestamp and the exact resulting production objects/ACLs verified.
+
+STRICTLY DO NOT
+
+modify application code
+modify the migration
+modify or regenerate benchmark CSVs
+revert the pre-existing Track C CSV modification
+change Recommendation Engine v3.7
+change classifier/Gemini logic
+change taxonomy
+change UI
+begin Phase B
+introduce source-image infrastructure
+perform a wardrobe backfill
+perform destructive testing against real users or real wardrobe data
+make unrelated security/documentation/refactoring changes
+
+Stop condition
+
+Stop immediately after production migration and verification. Do not implement any follow-up improvements.
+
+Final report must contain
+
+migration result
+production migration ID/timestamp
+objects verified
+RLS/policy/grant verification
+confirmation existing data was not modified
+test/typecheck/diff results
+exact files changed, if any
+confirmation that Phase B was NOT started
+any blocker or anomaly
+
+Important: The pre-existing modification to docs/recommendation/africa/track-c/baseline-v3.7/case-results.csv must remain exactly as it was before this task.
