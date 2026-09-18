@@ -1,0 +1,282 @@
+TASK: Phase A — Disposable Database Integration Validation
+
+Read `AMODKA-PROJECT-STATUS.md` first.
+
+Review the completed Phase A implementation and migration:
+
+`supabase/migrations/20260918000000_garment_groups.sql`
+
+OBJECTIVE
+
+Execute runtime integration validation of the Phase A garment-group database design against a disposable PostgreSQL/Supabase environment.
+
+THIS IS A VALIDATION TASK.
+
+DO NOT MODIFY PRODUCTION SUPABASE.
+
+DO NOT APPLY THE MIGRATION TO THE LIVE EXTERNAL SUPABASE PROJECT.
+
+DO NOT MODIFY PRODUCTION APPLICATION CODE.
+
+DO NOT MODIFY:
+- Recommendation Engine v3.7
+- classifier
+- Gemini
+- taxonomy
+- UI
+- AppContext
+- benchmark fixtures
+- Track B/C/D
+- existing wardrobe data
+
+VALIDATION TARGET
+
+Use a disposable/local PostgreSQL or disposable Supabase environment if available.
+
+If no disposable PostgreSQL/Supabase environment is available, STOP and report that fact.
+
+Do NOT substitute unit tests for runtime integration testing and do not claim runtime validation succeeded if no disposable database was available.
+
+TEST 1 — MIGRATION
+
+Apply:
+
+`supabase/migrations/20260918000000_garment_groups.sql`
+
+to the disposable database.
+
+Verify:
+
+- migration succeeds from a clean database
+- all expected tables exist
+- all expected constraints exist
+- all expected indexes exist
+- all expected functions exist
+- all expected triggers exist
+- RLS is enabled
+- expected policies exist
+- expected grants/ACLs exist
+
+TEST 2 — TWO-USER OWNERSHIP
+
+Create two isolated test users:
+
+User A
+User B
+
+Create wardrobe records for each.
+
+Create a group for each user.
+
+Verify:
+
+- User A can access only User A's group
+- User B can access only User B's group
+- User A cannot read User B's group
+- User A cannot update User B's group
+- User A cannot delete User B's group
+- User A cannot insert User B's garment into User A's group
+- User A cannot insert User A's garment into User B's group
+- cross-owner membership fails at the database layer
+
+TEST 3 — ANONYMOUS
+
+Verify anonymous access to both new tables is denied.
+
+Verify anonymous group creation is denied.
+
+Verify anonymous membership insertion is denied.
+
+TEST 4 — ATOMIC CREATION
+
+Verify valid creation:
+
+- exactly two distinct garments succeeds
+
+Verify invalid creation:
+
+- one garment fails
+- zero garments fails
+- duplicate garment IDs fail
+- nonexistent garment fails
+- foreign-owner garment fails
+
+For every failed creation verify:
+
+- no group row remains
+- no membership rows remain
+
+TEST 5 — DUPLICATE MEMBERSHIP
+
+Create:
+
+Group A
+├── Garment 1
+└── Garment 2
+
+Attempt to insert Garment 1 again.
+
+Expected:
+
+- operation fails
+- only one membership remains
+
+Then verify Garment 1 may belong to another valid group.
+
+TEST 6 — LIFECYCLE
+
+Start with:
+
+Group A
+├── Garment 1
+└── Garment 2
+
+Delete Garment 1.
+
+Verify:
+
+- Garment 2 remains
+- Group A remains
+- membership for Garment 1 disappears
+- membership for Garment 2 remains
+
+Then remove Garment 2's membership.
+
+Verify:
+
+- Group A is automatically removed
+- Garment 2 remains
+
+TEST 7 — GROUP DELETION
+
+Create:
+
+Group B
+├── Garment 3
+└── Garment 4
+
+Delete Group B.
+
+Verify:
+
+- group deleted
+- memberships deleted
+- Garment 3 remains
+- Garment 4 remains
+
+TEST 8 — CASCADE / ACCOUNT LIFECYCLE
+
+Using a disposable user:
+
+- create wardrobe items
+- create groups
+- create memberships
+
+Delete the parent user/profile according to the disposable environment's supported mechanism.
+
+Verify:
+
+- groups disappear
+- memberships disappear
+- wardrobe items disappear
+- no orphan group or membership rows remain
+
+Do not perform this against any real user.
+
+TEST 9 — UPDATED_AT
+
+Verify the existing `public.update_updated_at()` mechanism correctly updates `garment_groups.updated_at`.
+
+Confirm no duplicate updated-at function was created.
+
+TEST 10 — EMPTY-GROUP TRIGGER CONCURRENCY
+
+If the disposable environment supports concurrent transactions, test concurrent final-member removal.
+
+Specifically verify:
+
+- no duplicate empty-group deletion error
+- no orphan group
+- no surviving invalid empty group
+- no unexpected deletion of wardrobe items
+- no deadlock
+
+If true concurrent testing is not practical, state that explicitly rather than claiming it was validated.
+
+TEST 11 — RPC SECURITY
+
+Verify:
+
+- unauthenticated execution fails
+- authenticated user can create only groups containing their own garments
+- client-supplied `user_id` cannot override ownership
+- PUBLIC execution is revoked
+- authenticated execution works
+- service_role privileges remain limited to the intended account-deletion requirements
+
+TEST 12 — APPLICATION COMPATIBILITY
+
+Run:
+
+npm run typecheck
+
+npx tsx __tests__/garmentGroups.test.ts
+
+git diff --check
+
+Verify:
+
+- existing WardrobeItem mapping is unchanged
+- Recommendation Engine v3.7 files remain unchanged
+- classifier files remain unchanged
+- UI files remain unchanged
+- benchmark files remain unchanged
+
+DO NOT run the full benchmark.
+
+IMPORTANT
+
+Do not modify code to make a failing validation pass.
+
+If any validation fails:
+
+1. record the exact failure
+2. identify whether it is migration, PostgreSQL, RLS, RPC, trigger, or application integration behavior
+3. STOP
+4. do not patch automatically
+
+If all validation passes, do not apply the migration to production.
+
+FINAL REPORT
+
+Return:
+
+1. Disposable environment used
+2. Migration result
+3. Schema objects verified
+4. RLS results
+5. Two-user isolation results
+6. Anonymous-access results
+7. Atomicity results
+8. Duplicate-membership results
+9. Lifecycle results
+10. Group-deletion results
+11. Account-lifecycle results
+12. Updated-at results
+13. Concurrency result
+14. RPC security result
+15. Application compatibility results
+16. Tests
+17. Typecheck
+18. git diff --check
+19. Production database status — MUST remain unchanged
+20. Any failures/blockers
+21. Recommendation: APPROVE FOR PRODUCTION MIGRATION or DO NOT APPROVE
+
+STOP CONDITION
+
+Do not modify production.
+
+Do not fix failures during this task.
+
+Do not proceed to Phase B.
