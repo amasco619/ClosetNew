@@ -1,0 +1,126 @@
+Objective
+
+Resolve the production ACL anomaly discovered after Phase A migration. This is a narrowly scoped database-security correction only.
+
+Current state
+
+The Phase A migration 20260918000000_garment_groups.sql has already been successfully applied to production.
+
+Production schema, RLS, policies, RPC security, ownership constraints, lifecycle behaviour, and data-integrity verification all passed.
+
+The only failed gate is that Supabase production default privileges caused excess table privileges on:
+
+public.garment_groups
+public.garment_group_members
+
+Current effective excess privileges include:
+
+TRUNCATE
+REFERENCES
+TRIGGER
+MAINTAIN
+
+for service_role, and the same excess privileges for authenticated.
+
+Required change
+
+Create a new narrowly scoped migration that explicitly reconciles the table ACLs for only these two garment-group tables.
+
+For authenticated, the final table privileges must be exactly:
+
+SELECT
+INSERT
+UPDATE
+DELETE
+
+For service_role, the final table privileges must be exactly:
+
+SELECT
+DELETE
+
+For anon:
+
+no table privileges
+
+For PUBLIC:
+
+no table privileges
+
+Explicitly revoke the unwanted:
+
+TRUNCATE
+REFERENCES
+TRIGGER
+MAINTAIN
+
+from authenticated and service_role on both tables.
+
+Then explicitly grant only the approved privileges above.
+
+Important
+
+Do not modify 20260918000000_garment_groups.sql.
+Do not modify existing wardrobe-item ACLs.
+Do not modify existing RLS policies.
+Do not modify the RPC.
+Do not modify functions or triggers.
+Do not modify wardrobe_items.
+Do not modify Recommendation Engine v3.7.
+Do not modify classifier/Gemini logic.
+Do not modify taxonomy.
+Do not modify UI/AppContext.
+Do not modify Track C benchmark files.
+Do not start Phase B.
+Do not create any new tables.
+Do not alter production data.
+
+Validation
+
+Before changing anything, inspect the current ACLs for both tables.
+
+Create the migration using explicit REVOKE/GRANT statements and apply it through the established Supabase migration mechanism.
+
+After application, verify from production catalog/ACL state that:
+
+authenticated has exactly SELECT/INSERT/UPDATE/DELETE on both tables.
+service_role has exactly SELECT/DELETE on both tables.
+anon has no effective table privileges.
+PUBLIC has no effective table privileges.
+RLS remains enabled.
+All eight existing authenticated policies remain unchanged.
+RPC ACL remains:
+PUBLIC: false
+anon: false
+authenticated: true
+No existing wardrobe_items data or schema changed.
+garment_groups and garment_group_members remain empty.
+
+Run:
+
+npx tsx __tests__/garmentGroups.test.ts
+
+npm run typecheck
+
+git diff --check
+
+Do not perform destructive application-level testing against real users.
+
+Final report
+
+Report:
+
+migration name/version
+before ACLs
+after ACLs
+exact privileges for each role
+RLS verification
+RPC verification
+confirmation that existing data/schema were untouched
+focused test result
+typecheck result
+diff result
+exact files changed
+confirmation that v3.7/classifier/UI/benchmarks were untouched
+confirmation that Phase B was not started
+
+Stop after this security correction and verification. Do not perform any unrelated cleanup or improvements.
