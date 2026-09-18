@@ -346,6 +346,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "slot_statuses",
         "tryon_profiles",
         "saved_looks",
+        "garment_group_members",
+        "garment_groups",
         "wardrobe_items",
       ];
       for (const table of userIdTables) {
@@ -486,7 +488,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const userIdTables = [
         "affinity_signals", "pair_affinity_signals", "rotation_cursors",
-        "wear_logs", "slot_statuses", "tryon_profiles", "saved_looks", "wardrobe_items",
+        "wear_logs", "slot_statuses", "tryon_profiles", "saved_looks",
+        "garment_group_members", "garment_groups", "wardrobe_items",
       ];
       for (const table of userIdTables) {
         await supabaseAdmin.from(table).delete().eq("user_id", userId);

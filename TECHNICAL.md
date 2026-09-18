@@ -2117,3 +2117,31 @@ Track C executed the authorized 100-case `frozen-v1/` benchmark without changing
 - **Artifacts:** `docs/recommendation/africa/track-c/baseline-v3.7/` contains the execution manifest, sealed raw outputs, machine-readable metrics/CSVs, dedicated analyses, reproducibility and safety records, test results, and the 26-section final report.
 - **Verification:** pre- and post-evaluation `npm test` and typecheck passed; lint passed with 0 errors and 31 pre-existing warnings; benchmark, frozen checksums, raw seal, dedicated Track C validation, and frozen-diff gates passed.
 - **Safety:** no database, Supabase, RLS, Storage, authentication, entitlement, payment, FASH, deployment, production user data, or production configuration operation occurred.
+
+## 25. Phase A — Co-ord / Garment Group Infrastructure
+
+Phase A adds a relationship layer without changing the identity or runtime shape
+of `WardrobeItem`. `garment_groups` stores relationship type, confidence,
+confirmation status, evidence, and an optional durable source-image path.
+`garment_group_members` links those groups to existing wardrobe items.
+
+- **Ownership:** both tables carry `user_id`, use explicit
+  `auth.uid() = user_id` RLS policies, and use composite foreign keys so a group
+  cannot reference another user's garment.
+- **Multiplicity:** `(group_id, garment_id)` prevents duplicate membership while
+  allowing one garment to participate in multiple groups.
+- **Persistence:** authenticated clients use the Supabase-direct functions in
+  `lib/database.ts`. Initial group and membership creation is one
+  security-invoker database transaction.
+- **Lifecycle:** garment deletion cascades only its memberships; group deletion
+  cascades memberships but never wardrobe items; deleting the final membership
+  removes the empty group.
+- **Source images:** no source-image table, bucket, or upload flow was added.
+  `source_image_path` reuses the private `wardrobe-images` durable-path
+  convention and must never contain a signed URL.
+- **Guest mode:** local group persistence and guest-to-account reconciliation are
+  deferred.
+- **Engine isolation:** groups are not loaded into AppContext or mapped onto
+  `WardrobeItem`; Recommendation Engine v3.7 remains group-unaware.
+- **Deployment:** the migration is forward-only and must be applied separately
+  to the externally hosted Supabase project after review.

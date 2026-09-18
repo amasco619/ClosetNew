@@ -1,0 +1,520 @@
+TASK: Phase A — Implement Approved Co-ord / Garment Group Infrastructure
+
+Read `AMODKA-PROJECT-STATUS.md` first.
+
+Also read the approved D.2 and D.2.1 specifications provided in the project/task context.
+
+OBJECTIVE
+
+Implement ONLY the approved Phase A garment-group infrastructure from D.2.1.
+
+This is a persistence/security/domain-model implementation.
+
+Do NOT implement multi-item classification, co-ord detection, UI, or styling behavior.
+
+APPROVED ARCHITECTURE
+
+Existing `WardrobeItem` remains the canonical identity of every independently wearable garment.
+
+Add a separate relationship layer:
+
+Source image/provenance
+        ↓
+GarmentGroup
+        ↓
+GarmentGroupMember
+        ↓
+existing WardrobeItem
+
+Initial relationship types:
+
+- `coordinated_set`
+- `multi_item`
+- `layered`
+
+Initial confirmation statuses:
+
+- `ai_inferred`
+- `user_confirmed`
+- `user_rejected`
+
+A garment may belong to multiple distinct relationship groups.
+
+The same garment must not appear twice in the same group.
+
+Recommendation Engine v3.7 remains completely unchanged.
+
+PHASE A IMPLEMENTATION SCOPE
+
+1. DATABASE
+
+Create:
+
+`public.garment_groups`
+
+Required fields:
+
+- `id uuid PRIMARY KEY DEFAULT gen_random_uuid()`
+- `user_id uuid NOT NULL`
+- `relationship_type text NOT NULL`
+- `relationship_confidence double precision NULL`
+- `confirmation_status text NOT NULL`
+- `shared_attributes jsonb NOT NULL DEFAULT '{}'::jsonb`
+- `source_image_path text NULL`
+- `created_at timestamptz NOT NULL DEFAULT now()`
+- `updated_at timestamptz NOT NULL DEFAULT now()`
+
+Constraints:
+
+- `user_id → public.user_profiles(id) ON DELETE CASCADE`
+- relationship type limited to:
+  `coordinated_set`, `multi_item`, `layered`
+- confirmation status limited to:
+  `ai_inferred`, `user_confirmed`, `user_rejected`
+- confidence must be NULL or between 0 and 1
+- `ai_inferred` requires non-null confidence
+- `shared_attributes` must be a JSON object
+
+Create:
+
+`public.garment_group_members`
+
+Required fields:
+
+- `user_id uuid NOT NULL`
+- `group_id uuid NOT NULL`
+- `garment_id uuid NOT NULL`
+- `created_at timestamptz NOT NULL DEFAULT now()`
+
+Primary key:
+
+`(group_id, garment_id)`
+
+Composite foreign keys:
+
+`(user_id, group_id) → garment_groups(user_id, id) ON DELETE CASCADE`
+
+`(user_id, garment_id) → wardrobe_items(user_id, id) ON DELETE CASCADE`
+
+If necessary, add:
+
+`UNIQUE (user_id, id)`
+
+to `wardrobe_items` so the composite foreign key is valid.
+
+Do NOT add `set_id`, group columns, or relationship columns to `wardrobe_items`.
+
+Do NOT rewrite existing wardrobe data.
+
+2. SOURCE IMAGE
+
+Do NOT create:
+
+- `source_images` table
+- new Storage bucket
+- source-image upload flow
+
+Reuse the existing private `wardrobe-images` bucket and durable storage-path convention.
+
+Only create/use nullable:
+
+`garment_groups.source_image_path`
+
+No signed URLs may be persisted.
+
+Do not modify existing Storage objects.
+
+3. INDEXES
+
+Create only the required indexes:
+
+- `garment_groups(user_id)`
+- `garment_group_members(user_id)`
+- `garment_group_members(garment_id)`
+
+The membership primary key already indexes `(group_id, garment_id)`.
+
+Do not create speculative indexes.
+
+4. RLS / SECURITY
+
+Enable RLS on both new tables.
+
+Authenticated users may only access rows where:
+
+`auth.uid() = user_id`
+
+Provide explicit SELECT/INSERT/UPDATE/DELETE policies.
+
+Do NOT create broad `TO public FOR ALL` policies.
+
+Anonymous users must have no table access.
+
+Grant authenticated CRUD.
+
+Grant service_role only the privileges required by the approved account-deletion flow:
+
+- SELECT
+- DELETE
+
+Ownership must be enforced through the composite foreign keys as well as RLS.
+
+Do not modify existing `wardrobe_items` RLS policies.
+
+Do not clean up historical policy duplication as part of this task.
+
+5. ATOMIC GROUP CREATION
+
+Implement the approved transactional group-creation RPC.
+
+Requirements:
+
+- SECURITY INVOKER
+- ownership derived/validated against `auth.uid()`
+- do not trust arbitrary client-supplied user ownership
+- group creation and initial membership insertion must be atomic
+- minimum two distinct garment IDs
+- duplicate garment IDs in initial input must fail
+- every garment must belong to the authenticated user
+- failure must leave neither the group nor memberships
+- fully qualify database object names
+- grant execution only as required
+- revoke PUBLIC execution
+
+Do not use separate client inserts with compensating cleanup.
+
+6. GROUP CRUD
+
+Add the minimum authenticated persistence surface:
+
+- createGarmentGroup
+- getGarmentGroups
+- updateGarmentGroup
+- addGarmentGroupMembers
+- removeGarmentGroupMember
+- deleteGarmentGroup
+
+Follow the existing Supabase-direct architecture used by wardrobe persistence.
+
+Do NOT create an Express CRUD API.
+
+Group reads must remain separate from wardrobe item reads.
+
+Do not inject group metadata into `WardrobeItem`.
+
+7. DOMAIN TYPES
+
+Modify `constants/types.ts` only to add:
+
+- `GarmentRelationshipType`
+- `GarmentGroupConfirmationStatus`
+- `GarmentGroup`
+- `GarmentGroupMember`
+
+Do NOT modify the existing `WardrobeItem` contract.
+
+8. MAPPER
+
+Add:
+
+`lib/garmentGroupMapper.ts`
+
+Keep it pure.
+
+It should map database rows to the approved camel-case domain types.
+
+Do not alter `lib/wardrobeMapper.ts`.
+
+9. LIFECYCLE
+
+Deleting a wardrobe item must:
+
+- remove its group memberships through FK cascade
+- leave other wardrobe items untouched
+- leave other group memberships intact
+
+Deleting a group must:
+
+- delete memberships
+- NEVER delete wardrobe items
+
+When the final group membership is removed, automatically delete the empty group.
+
+Implement empty-group cleanup with a small SECURITY INVOKER trigger.
+
+The trigger must be safe during parent-group cascade deletion.
+
+A one-member group is allowed to exist after deletion of another member.
+
+10. ACCOUNT DELETION
+
+Modify `server/routes.ts` only where necessary to include:
+
+1. `garment_group_members`
+2. `garment_groups`
+
+in BOTH existing explicit account-deletion table lists.
+
+Members must be processed before groups.
+
+Preserve existing account-deletion behavior.
+
+Do not redesign account deletion in this task.
+
+Ensure required service-role SELECT/DELETE privileges exist.
+
+11. UPDATED_AT
+
+Reuse the existing:
+
+`public.update_updated_at()`
+
+function for `garment_groups`.
+
+Do not create another updated-at function.
+
+12. GUEST MODE
+
+Do NOT implement:
+
+- AsyncStorage group persistence
+- guest group CRUD
+- guest group synchronization
+- guest-to-account group reconciliation
+
+Guest relationship support is explicitly deferred.
+
+13. APP CONTEXT
+
+Do NOT modify:
+
+`contexts/AppContext.tsx`
+
+Phase A must not expose groups to the runtime/UI yet.
+
+14. CLASSIFIER
+
+Do NOT modify:
+
+- `server/classify-garment.ts`
+- Gemini prompts
+- Gemini response parsing
+- classifier schemas
+- classifier endpoint behavior
+- upload flow
+- bulk classification
+
+Phase A creates infrastructure only.
+
+15. RECOMMENDATION ENGINE — HARD FREEZE
+
+Do NOT modify:
+
+- Recommendation Engine v3.7
+- `constants/outfitGenerator.ts`
+- `constants/outfitScoring.ts`
+- ranking
+- affinity
+- fingerprints
+- rotation
+- wear history
+- weather
+- wardrobe-gap logic
+- candidate generation
+
+The engine must continue receiving the same `WardrobeItem[]`.
+
+Do not:
+- pass groups as synthetic garments
+- change item IDs
+- modify fingerprints
+- add set-member boosts
+- add set-aware scoring
+- modify affinity
+- alter candidate generation
+
+16. UI
+
+Do NOT modify any screen, route, component, navigation or wardrobe UI.
+
+17. BENCHMARK
+
+Do NOT:
+
+- modify benchmark fixtures
+- modify labels
+- modify Track B/C/D
+- run the full benchmark
+- alter benchmark checksums
+- alter golden-set files
+
+18. TESTS
+
+Add focused tests covering:
+
+Schema/domain:
+- approved relationship types
+- invalid relationship type rejected
+- valid confidence range
+- invalid confidence rejected
+- `ai_inferred` requires confidence
+- user-confirmed may have null confidence
+- shared_attributes must be object
+
+Membership:
+- duplicate membership rejected
+- same garment may belong to multiple groups
+- cross-owner membership rejected
+- initial group requires at least two distinct garments
+
+Atomicity:
+- failed group creation leaves no partial rows
+
+RLS:
+- user A cannot read user B's groups
+- user A cannot read/write user B's memberships
+- cross-owner inserts fail
+- anonymous access fails
+
+Lifecycle:
+- deleting one garment removes its memberships
+- other garments remain
+- one-member group can remain
+- removing final member removes empty group
+- deleting group does not delete garments
+
+Compatibility:
+- existing WardrobeItem mapping remains unchanged
+- existing wardrobe functions remain unchanged
+- v3.7 entry points still receive the same WardrobeItem[] shape
+
+Account deletion:
+- both deletion flows enumerate group members before groups
+
+Use test doubles/mocks where appropriate; do not perform destructive real-user account deletion.
+
+19. DOCUMENTATION
+
+Update `TECHNICAL.md` only with the approved Phase A architecture:
+
+- group tables
+- ownership/RLS
+- persistence boundary
+- guest deferral
+- source-image decision
+- v3.7 isolation
+
+Do not rewrite unrelated historical documentation.
+
+20. EXACT FILE BOUNDARY
+
+Expected modifications:
+
+- `constants/types.ts`
+- `lib/database.ts`
+- `server/routes.ts`
+- `TECHNICAL.md`
+
+Expected additions:
+
+- `lib/garmentGroupMapper.ts`
+- one Supabase migration for garment groups
+- focused garment-group tests
+
+Potentially combine the two proposed test files if that materially reduces scope.
+
+Do NOT modify other production files unless absolutely required by an existing compile dependency. If an unexpected file is required, STOP and report it rather than expanding scope automatically.
+
+21. MIGRATION
+
+Create one forward-only migration for the approved schema.
+
+The migration may include:
+
+- required `wardrobe_items(user_id,id)` unique constraint
+- `garment_groups`
+- `garment_group_members`
+- constraints
+- indexes
+- RLS
+- policies
+- grants
+- updated-at trigger
+- empty-group cleanup trigger
+- atomic group-creation RPC
+
+Do NOT backfill any data.
+
+Do NOT create a source-image table.
+
+Do NOT create a new Storage bucket.
+
+Do NOT modify existing Storage objects.
+
+IMPORTANT SUPABASE RULE
+
+The Supabase database is externally hosted.
+
+Do not assume Replit deployment automatically applies the migration.
+
+Create the migration file and validate it locally. Do not execute destructive or production migration actions unless explicitly requested.
+
+22. VALIDATION
+
+Run:
+
+- focused garment-group tests
+- `npm run typecheck`
+- `git diff --check`
+
+Inspect the final diff.
+
+Do NOT run the full benchmark.
+
+Do NOT modify benchmark files.
+
+Confirm that Recommendation Engine v3.7 files have zero changes.
+
+Confirm that classifier files have zero changes.
+
+Confirm that UI files have zero changes.
+
+STOP CONDITION
+
+After implementation and validation, STOP.
+
+Do not implement Phase B.
+
+Do not add:
+- multi-item Gemini detection
+- co-ord classifier response
+- automatic set detection
+- set review UI
+- user relationship UI
+- guest support
+- set-aware recommendations
+- set-aware scoring
+- set-aware affinity
+
+FINAL REPORT
+
+Return:
+
+1. Files changed
+2. Files added
+3. Migration name
+4. Database objects created
+5. RLS/policy summary
+6. RPC/trigger summary
+7. Account-deletion changes
+8. Tests run/results
+9. Typecheck result
+10. `git diff --check` result
+11. Recommendation Engine files changed — MUST be 0
+12. Classifier files changed — MUST be 0
+13. UI files changed — MUST be 0
+14. Benchmark changes — MUST be 0
+15. Any blockers or deviations
+16. Exact next recommended phase — Phase B only after review
+
+Do not claim production database migration has been applied unless it was explicitly executed and verified.

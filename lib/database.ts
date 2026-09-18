@@ -1,5 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from './supabase'
+import { mapDbRowToGarmentGroup } from './garmentGroupMapper'
+import type {
+  GarmentGroup,
+  GarmentGroupConfirmationStatus,
+  GarmentRelationshipType,
+} from '../constants/types'
 
 // ══ USER PROFILE ════════════════════════════════════════════════════════════
 
@@ -100,6 +106,119 @@ export async function updateWardrobeItemAffinity(
     .eq('id', itemId)
     .eq('user_id', userId)
   if (error) throw new Error(`[updateWardrobeItemAffinity] ${error.message}`)
+}
+
+// ══ GARMENT GROUPS ═══════════════════════════════════════════════════════════
+
+export interface CreateGarmentGroupInput {
+  relationshipType: GarmentRelationshipType
+  relationshipConfidence?: number
+  confirmationStatus: GarmentGroupConfirmationStatus
+  sharedAttributes?: Record<string, unknown>
+  sourceImagePath?: string
+}
+
+export async function createGarmentGroup(
+  input: CreateGarmentGroupInput,
+  garmentIds: string[],
+): Promise<GarmentGroup> {
+  const { data, error } = await supabase.rpc('create_garment_group', {
+    p_garment_ids: garmentIds,
+    p_relationship_type: input.relationshipType,
+    p_relationship_confidence: input.relationshipConfidence ?? null,
+    p_confirmation_status: input.confirmationStatus,
+    p_shared_attributes: input.sharedAttributes ?? {},
+    p_source_image_path: input.sourceImagePath ?? null,
+  }).single()
+  if (error) throw new Error(`[createGarmentGroup] ${error.message}`)
+  const createdGroupId = (data as { id?: string } | null)?.id
+  if (!createdGroupId) throw new Error('[createGarmentGroup] no group returned')
+  const { data: created, error: readError } = await supabase
+    .from('garment_groups')
+    .select('*, garment_group_members(*)')
+    .eq('id', createdGroupId)
+    .single()
+  if (readError) throw new Error(`[createGarmentGroup] ${readError.message}`)
+  return mapDbRowToGarmentGroup(created)
+}
+
+export async function getGarmentGroups(userId: string): Promise<GarmentGroup[]> {
+  const { data, error } = await supabase
+    .from('garment_groups')
+    .select('*, garment_group_members(*)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(`[getGarmentGroups] ${error.message}`)
+  return (data ?? []).map(mapDbRowToGarmentGroup)
+}
+
+export async function updateGarmentGroup(
+  userId: string,
+  groupId: string,
+  updates: {
+    relationshipType?: GarmentRelationshipType
+    relationshipConfidence?: number | null
+    confirmationStatus?: GarmentGroupConfirmationStatus
+    sharedAttributes?: Record<string, unknown>
+    sourceImagePath?: string | null
+  },
+): Promise<void> {
+  const row: Record<string, unknown> = {}
+  if (updates.relationshipType !== undefined) row.relationship_type = updates.relationshipType
+  if (updates.relationshipConfidence !== undefined) row.relationship_confidence = updates.relationshipConfidence
+  if (updates.confirmationStatus !== undefined) row.confirmation_status = updates.confirmationStatus
+  if (updates.sharedAttributes !== undefined) row.shared_attributes = updates.sharedAttributes
+  if (updates.sourceImagePath !== undefined) row.source_image_path = updates.sourceImagePath
+  if (Object.keys(row).length === 0) return
+
+  const { error } = await supabase
+    .from('garment_groups')
+    .update(row)
+    .eq('id', groupId)
+    .eq('user_id', userId)
+  if (error) throw new Error(`[updateGarmentGroup] ${error.message}`)
+}
+
+export async function addGarmentGroupMembers(
+  userId: string,
+  groupId: string,
+  garmentIds: string[],
+): Promise<void> {
+  if (garmentIds.length === 0) return
+  const { error } = await supabase
+    .from('garment_group_members')
+    .insert(garmentIds.map(garmentId => ({
+      user_id: userId,
+      group_id: groupId,
+      garment_id: garmentId,
+    })))
+  if (error) throw new Error(`[addGarmentGroupMembers] ${error.message}`)
+}
+
+export async function removeGarmentGroupMember(
+  userId: string,
+  groupId: string,
+  garmentId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('garment_group_members')
+    .delete()
+    .eq('user_id', userId)
+    .eq('group_id', groupId)
+    .eq('garment_id', garmentId)
+  if (error) throw new Error(`[removeGarmentGroupMember] ${error.message}`)
+}
+
+export async function deleteGarmentGroup(
+  userId: string,
+  groupId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('garment_groups')
+    .delete()
+    .eq('id', groupId)
+    .eq('user_id', userId)
+  if (error) throw new Error(`[deleteGarmentGroup] ${error.message}`)
 }
 
 // ══ SLOT STATUSES ════════════════════════════════════════════════════════════

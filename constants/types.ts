@@ -125,6 +125,36 @@ export interface WardrobeItem {
   storagePath?: string;
 }
 
+export type GarmentRelationshipType =
+  | 'coordinated_set'
+  | 'multi_item'
+  | 'layered';
+
+export type GarmentGroupConfirmationStatus =
+  | 'ai_inferred'
+  | 'user_confirmed'
+  | 'user_rejected';
+
+export interface GarmentGroupMember {
+  userId: string;
+  groupId: string;
+  garmentId: string;
+  createdAt: string;
+}
+
+export interface GarmentGroup {
+  id: string;
+  userId: string;
+  relationshipType: GarmentRelationshipType;
+  relationshipConfidence?: number;
+  confirmationStatus: GarmentGroupConfirmationStatus;
+  sharedAttributes: Record<string, unknown>;
+  sourceImagePath?: string;
+  members: GarmentGroupMember[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Items with modelConfidence below this threshold show a "Review" indicator. */
 export const LOW_CONFIDENCE_THRESHOLD = 0.65;
 
