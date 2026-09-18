@@ -1,0 +1,666 @@
+D.2 Phase B — Multi-Item / Co-ord Integration Specification
+Objective
+
+Produce a read-only implementation specification for integrating multi-item/co-ordinated garment detection into Amodka's existing wardrobe upload/classification pipeline.
+
+Do not implement anything.
+
+Phase A is complete and production-approved. The production database now contains the approved garment_groups and garment_group_members infrastructure, including RLS, ownership constraints, lifecycle handling, atomic group creation, and least-privilege ACLs.
+
+The purpose of this task is to determine exactly how Phase B should integrate with the existing production architecture while preserving all existing behaviour.
+
+Source of truth
+
+Use:
+
+AMODKA-PROJECT-STATUS.md
+
+as the authoritative project-status reference.
+
+Also inspect the current implementation as necessary to validate the specification against the actual codebase.
+
+Phase A architecture is already approved and must be treated as fixed.
+
+Non-negotiable architectural constraints
+1. Recommendation Engine v3.7 is FROZEN
+
+Do not modify:
+
+scoring
+ranking
+candidate generation
+outfit generation
+affinity
+weather logic
+blueprint logic
+rotation logic
+v3.7 types/contracts
+benchmark logic
+
+The recommendation engine must continue receiving the existing:
+
+WardrobeItem[]
+
+contract.
+
+The Phase B design must explain why multi-item/co-ord representation can be introduced without changing v3.7.
+
+2. Phase A architecture is FROZEN
+
+Do not redesign:
+
+garment_groups
+garment_group_members
+their ownership model
+RLS
+ACLs
+RPC
+lifecycle semantics
+source-image architecture
+storage architecture
+
+Do not propose a replacement architecture unless an actual blocker is discovered.
+
+If a genuine architectural conflict is found, document it rather than implementing or redesigning it.
+
+3. No broad classifier rewrite
+
+The objective is not to generally improve Gemini classification.
+
+The specification must focus specifically on:
+
+representing an image containing multiple independently wearable garments and preserving relationships between those garments.
+
+Do not broaden this into a taxonomy overhaul.
+
+4. No benchmark modification
+
+Do not:
+
+modify Track B
+modify Track C
+modify benchmark fixtures
+modify benchmark CSVs
+rerun the full benchmark
+alter v3.7 benchmark methodology
+
+Existing benchmark working-tree state must remain untouched.
+
+Required investigation
+
+Trace the actual production code path from:
+
+image selected/captured
+        ↓
+background removal / image preparation
+        ↓
+Gemini classification
+        ↓
+classification response normalization/validation
+        ↓
+WardrobeItem creation
+        ↓
+Supabase persistence
+        ↓
+wardrobe hydration
+        ↓
+Recommendation Engine v3.7
+
+Identify the exact files/functions responsible for each stage.
+
+Do not rely solely on documentation.
+
+Required specification
+1. Current single-garment pipeline
+
+Document the actual current implementation.
+
+Identify:
+
+upload entry point(s)
+camera/gallery path
+PhotoRoom processing
+classifier invocation
+Gemini prompt/model
+classifier response schema
+normalization
+validation/guardrails
+WardrobeItem construction
+image persistence
+database persistence
+guest persistence
+authenticated persistence
+error handling
+retry behaviour
+loading/hydration behaviour
+
+For each, provide:
+
+File
+Function/component
+Current responsibility
+Phase B impact
+2. Current classifier contract
+
+Document the exact classifier response currently used by production.
+
+Show:
+
+current response shape
+garment category/subtype representation
+confidence fields
+colour
+material/fabric
+pattern
+scale
+other relevant attributes
+validation rules
+guardrails
+normalization rules
+
+Do not change the contract.
+
+Then identify precisely what is missing to represent:
+
+one image
+    ↓
+multiple independently wearable garments
+3. Multi-item representation model
+
+Using the already-approved Phase A model, specify how Phase B should represent:
+
+A. Single garment
+
+Example:
+
+Image
+  ↓
+1 WardrobeItem
+  ↓
+no garment group
+B. Coordinated set / co-ord
+
+Example:
+
+Image
+  ↓
+Garment A ─┐
+           ├── garment_group
+Garment B ─┘
+
+The two garments must remain independently addressable wardrobe items.
+
+C. Three-or-more-piece set
+
+Specify how:
+
+Garment A
+Garment B
+Garment C
+
+becomes independently usable wardrobe items while preserving their group relationship.
+
+D. Layered outfit
+
+Explain how the existing relationship model should distinguish a layered relationship from a coordinated set.
+
+E. Ambiguous multi-item image
+
+Specify what happens when the classifier cannot confidently determine whether multiple pieces are:
+
+a coordinated set
+independent garments
+layers
+one indivisible garment
+
+Do not invent a user experience unless the current architecture requires one. Describe the data/processing behaviour and identify where product UX would eventually need a decision.
+
+4. Phase A integration mapping
+
+Map the Phase B requirements onto the existing Phase A database contract.
+
+Explicitly identify how the implementation would use:
+
+garment_groups
+garment_group_members
+create_garment_group(...)
+
+Explain:
+
+when a group is created
+when no group is created
+minimum membership
+relationship type
+AI confidence
+confirmation status
+shared attributes
+source-image path
+membership ownership
+failure behaviour
+retry behaviour
+
+Do not change the Phase A schema.
+
+5. Atomicity and failure behaviour
+
+This is a critical section.
+
+Design the persistence sequence so that Phase B cannot create:
+
+Garment A ✓
+Garment B ✗
+Group ✓
+Memberships partially created
+
+or any other inconsistent state.
+
+Analyse failure cases including:
+
+classifier identifies two garments
+first wardrobe item persists
+second wardrobe item fails
+group creation fails
+membership creation fails
+network timeout
+retry after partial success
+duplicate request
+user leaves the upload screen
+authentication/session interruption
+
+For each case specify the intended resulting state.
+
+If the existing architecture cannot guarantee the desired behaviour, clearly identify the limitation.
+
+Do not implement a solution during this task.
+
+6. Idempotency
+
+Determine whether the current upload/classification pipeline is idempotent.
+
+Specifically investigate what happens if the same classification request is retried.
+
+Determine whether Phase B requires:
+
+deterministic client-generated IDs
+server-generated IDs
+request IDs
+idempotency keys
+existing database constraints
+another mechanism
+
+Do not automatically introduce any of these.
+
+Only recommend one if the existing architecture genuinely needs it.
+
+7. Source-image provenance
+
+Phase A deliberately did not create a source_images table or new upload infrastructure.
+
+Determine how Phase B can preserve provenance using the existing approved storage architecture.
+
+Address:
+
+original image
+PhotoRoom-derived image
+individual garment images
+group source image
+durable Storage paths
+signed URLs
+deletion behaviour
+account deletion
+whether additional image derivatives are actually required
+
+Do not introduce a new bucket or source-image table.
+
+8. Existing WardrobeItem compatibility
+
+This is a hard requirement.
+
+Show exactly why:
+
+WardrobeItem
+
+does not need to change for Phase B.
+
+Explain how:
+
+garment_group
+garment_group_members
+
+remain relationship metadata outside the v3.7 wardrobe-item contract.
+
+Trace the resulting data flow:
+
+Multi-item image
+      ↓
+WardrobeItem[]
+      +
+garment-group metadata
+      ↓
+existing wardrobe
+      ↓
+existing v3.7 WardrobeItem[]
+
+Identify any code locations where group metadata might accidentally leak into or alter v3.7 behaviour.
+
+9. African/Nigerian fashion cases
+
+Use the existing Phase D taxonomy work as context.
+
+Specifically analyse how the design handles examples such as:
+
+Ankara co-ord
+buba + iro
+blazer + trousers
+blouse + wrapper
+aso-ebi ensemble
+matching top + skirt
+gele/headwrap accompanying an outfit
+textile/stole/sash
+layered African garments
+
+Do not expand the taxonomy in this task.
+
+Determine which cases are:
+
+already representable
+representable through the relationship model
+currently ambiguous
+still blocked by classifier limitations
+
+Pay particular attention to GU-29, because it was the confirmed multi-item representation failure.
+
+10. Classification confidence
+
+Separate:
+
+Item confidence
+
+How confident is the classifier that a specific garment exists and what it is?
+
+Attribute confidence
+
+How confident is it about:
+
+colour
+fabric
+pattern
+scale
+etc.?
+Relationship confidence
+
+How confident is it that garments belong together as:
+
+coordinated_set
+multi_item
+layered
+User confirmation
+
+Explain how AI inference differs from user-confirmed truth under the existing Phase A model.
+
+Do not invent additional persistence fields.
+
+11. Existing guest vs authenticated behaviour
+
+Phase A explicitly deferred durable guest relationship persistence.
+
+Determine exactly what Phase B should do for:
+
+Authenticated users
+
+Use the production Supabase garment-group architecture.
+
+Guest users
+
+Determine the appropriate behaviour using the existing local/AsyncStorage architecture.
+
+Do not introduce a new guest database architecture.
+
+If relationship persistence for guests is intentionally deferred, document that explicitly and explain the compatibility consequence.
+
+12. Group lifecycle implications
+
+Trace what happens when a user:
+
+deletes one garment from a group
+deletes all but one garment
+removes a membership
+deletes the entire group
+deletes the entire account
+
+Confirm that Phase B does not introduce behaviour inconsistent with Phase A's already-tested lifecycle semantics.
+
+13. Retry and duplicate handling
+
+Specifically address:
+
+classification succeeds
+↓
+garments persisted
+↓
+group creation times out
+↓
+client retries
+
+and:
+
+classification succeeds
+↓
+group created
+↓
+client receives timeout
+↓
+client retries
+
+Determine what currently prevents duplicate wardrobe items/groups/memberships and where additional protection would be required.
+
+14. Exact implementation boundary
+
+At the end of the specification, provide an explicit list:
+
+Files that Phase B WILL need to change
+Files that Phase B MAY need to change
+Files that Phase B MUST NOT change
+
+For every proposed changed file, explain the exact responsibility.
+
+Do not include speculative files.
+
+15. Proposed Phase B sequence
+
+Provide a minimal implementation sequence, for example:
+
+B1 — classifier contract extension
+B2 — normalization/validation
+B3 — multi-item WardrobeItem construction
+B4 — atomic persistence
+B5 — garment-group persistence
+B6 — retry/idempotency handling
+B7 — targeted tests
+B8 — targeted visual validation
+
+But do not assume this sequence is correct. Derive the actual sequence from the codebase.
+
+For each stage provide:
+
+objective
+files
+dependency
+validation
+rollback/containment strategy
+16. Testing strategy
+
+Design a targeted Phase B test matrix.
+
+At minimum include:
+
+Single item
+ordinary garment
+existing Nigerian/African garment
+Two items
+blazer + trousers
+Ankara co-ord
+buba + iro
+Three+ items
+coordinated ensemble
+layered outfit
+Accessories
+outfit + gele
+outfit + headwrap
+Failure
+classifier timeout
+malformed response
+one invalid item
+persistence failure
+group creation failure
+retry
+duplicate membership
+cross-user ownership attempt
+Regression
+
+Confirm:
+
+existing single-garment upload remains unchanged
+existing WardrobeItem mapping remains unchanged
+v3.7 remains unchanged
+Track C remains unchanged
+17. Benchmark strategy
+
+Do not modify the frozen benchmark.
+
+Instead propose how Phase B should eventually be validated with a new targeted benchmark/experiment specifically for multi-item representation.
+
+The benchmark should separately measure:
+
+item detection
+item semantic type
+relationship detection
+relationship type
+attribute accuracy
+persistence correctness
+
+Do not mix these metrics into the existing v3.7 benchmark until an explicit benchmark methodology decision is made.
+
+18. Product implications
+
+Identify product decisions that cannot safely be solved at the engineering layer.
+
+Examples:
+
+Should a detected co-ord appear as one visual wardrobe card or multiple cards?
+Should users be able to break apart an AI-created set?
+Should users be able to manually create a set?
+Should a user confirm an AI-inferred relationship?
+Should matching pieces be recommended together preferentially?
+Should a gele be treated as part of an outfit relationship or independently wearable accessory?
+
+Do not answer these with personal preference.
+
+Separate:
+
+Engineering decision
+Product decision
+Future experiment
+19. Critical risk assessment
+
+Identify the top risks in Phase B and classify each:
+
+Launch blocker
+Revenue-critical
+Retention-critical
+Trust/safety-critical
+Differentiation
+Polish
+Distraction
+
+Do not implement mitigations.
+
+Strict protected areas
+
+During this task:
+
+ZERO CODE CHANGES.
+
+Do not modify:
+
+Recommendation Engine v3.7
+classifier
+Gemini prompts
+taxonomy
+upload pipeline
+UI
+AppContext
+Supabase schema
+migrations
+RLS
+ACLs
+RPCs
+storage
+benchmarks
+tests
+
+This is an inspection/specification task only.
+
+Do not "fix" anything discovered.
+
+Required validation
+
+Because this is read-only:
+
+no production writes
+no database migrations
+no benchmark changes
+no application changes
+no generated implementation code committed
+
+You may inspect production schema/state if necessary, but do not modify production.
+
+Final report format
+
+Return exactly these sections:
+
+Executive conclusion
+Current production pipeline
+Current classifier contract
+Phase B multi-item representation
+Phase A integration
+Atomicity and failure model
+Idempotency/retry analysis
+Source-image provenance
+WardrobeItem/v3.7 compatibility
+African/Nigerian representation
+Confidence model
+Guest vs authenticated behaviour
+Lifecycle analysis
+Exact implementation boundary
+Proposed Phase B implementation sequence
+Targeted test matrix
+Benchmark strategy
+Product decisions requiring PO approval
+Risk classification
+Files inspected
+Confirmation of zero changes
+
+For every architectural recommendation, distinguish:
+
+Observed in current code
+Required by Phase A
+Proposed for Phase B
+
+Do not blur these categories.
+
+Stop condition
+
+STOP after producing the specification.
+
+Do not implement Phase B.
+
+Do not create migrations.
+
+Do not modify code.
+
+Do not modify benchmarks.
+
+Do not begin classifier work.
+
+The next decision will be made from this specification.
