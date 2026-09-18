@@ -365,3 +365,17 @@ mtime_ms = 1789062276450
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/6d87cd6f-fc36-447b-9025-1f81a5316633/a08a33a6-a0a5-478c-a8fb-038e204ba8af"
 storage_version_token = "1789062309351187"
 content_type = "text/csv"
+
+[[outputs]]
+id = "WQkXvSd8F6uiDECWdntFW"
+uri = "file://reports/phase-b-multi-item-coord-implementation-specification.md"
+type = "text"
+title = "Phase B Multi-Item/Co-ord Implementation Specification"
+description = "Complete 20-section read-only report covering the current pipeline, Phase A constraints, proposed Phase B architecture, atomicity, tests, risks, and zero-change confirmation."
+logical_id = "fa1d8556-1b57-4629-9c87-2e6a4bec7e04"
+content_hash = "sha256:e722413faa8165c6403bd7127e71b31352b3c5a15ec8046d0760d3a522190090"
+size = 45812
+mtime_ms = 1789772721392
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/fa1d8556-1b57-4629-9c87-2e6a4bec7e04/00d58d60-5a17-4ccb-ba43-93fde001bba8"
+storage_version_token = "1789772725825242"
+content_type = "text/markdown"
