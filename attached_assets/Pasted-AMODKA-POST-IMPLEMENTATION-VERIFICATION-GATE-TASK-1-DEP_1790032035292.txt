@@ -1,0 +1,336 @@
+AMODKA — POST-IMPLEMENTATION VERIFICATION GATE
+TASK 1: DEPLOYMENT RELIABILITY PASS
+
+STATUS: VERIFICATION ONLY
+DO NOT IMPLEMENT NEW FEATURES
+DO NOT MODIFY CODE UNLESS EXPLICITLY AUTHORIZED BELOW
+
+The Deployment Reliability Pass has been implemented.
+
+Before we close this task, perform a final verification audit of the implementation and current working tree.
+
+IMPORTANT:
+
+This is NOT an invitation to make further improvements.
+
+Do not:
+- refactor
+- install packages
+- change configuration
+- modify Supabase
+- modify migrations
+- modify RLS
+- modify Storage policies
+- modify RPCs
+- modify grants
+- modify Recommendation Engine v3.7
+- modify classifier/taxonomy
+- modify Phase A
+- modify B0.3/B1/B5/B6/B7
+- modify benchmarks
+- modify payments
+- modify push notifications
+- modify virtual try-on
+- modify UI design
+
+==================================================
+1. GIT / CHANGESET VERIFICATION
+==================================================
+
+Inspect:
+
+- git status
+- git diff --stat
+- git diff --name-only
+- relevant git diff
+
+Confirm exactly which files changed.
+
+Specifically verify that there are NO changes to:
+
+- Recommendation Engine v3.7
+- recommendation scoring/ranking/rotation
+- classifier taxonomy/prompts/heuristics
+- Phase A migrations/schema
+- create_garment_group()
+- garment-group RLS/ACL
+- B0.3/B1/B5/B6/B7
+- Supabase migrations
+- Supabase RLS
+- Supabase Storage policies
+- Supabase RPCs/functions
+- database grants
+- benchmark fixtures/results
+
+There are known unrelated pre-existing modifications:
+
+- docs/recommendation/africa/track-c/baseline-v3.7/case-results.csv
+- the previous audit report
+
+Do not revert either.
+
+Report whether any additional unrelated files were modified.
+
+==================================================
+2. TEST VERIFICATION
+==================================================
+
+Run:
+
+npm test
+npm run typecheck
+npm run lint
+git diff --check
+
+Report exact results.
+
+Do not modify tests or expected results simply to make them pass.
+
+Also run the relevant recommendation/classifier/Phase A regression tests that already exist.
+
+Confirm benchmark expectations were not modified.
+
+==================================================
+3. STARTUP RELIABILITY VERIFICATION
+==================================================
+
+Inspect the actual implementation and verify:
+
+- startup deadline exists
+- font deadline exists
+- splash dismissal is attempted on success
+- splash dismissal is attempted on timeout
+- splash dismissal is attempted on startup failure
+- retry creates a new startup generation
+- stale timed-out generations cannot overwrite current state
+- startup recovery cannot report false success
+- startup retry cannot create duplicate listeners or initialization work that changes behavior unexpectedly
+
+Do not merely report that these features exist.
+
+Explain briefly how the generation guard prevents stale attempts from committing state.
+
+==================================================
+4. ERROR REPORTING / REDACTION VERIFICATION
+==================================================
+
+Inspect the implementation of the reporting adapter.
+
+Verify that reporting cannot capture:
+
+- passwords
+- access tokens
+- refresh tokens
+- authorization headers
+- session objects
+- signed URLs
+- image bytes/base64
+- wardrobe images
+- email addresses
+- precise location
+- full profile objects
+- secrets
+- database credentials
+- raw external API payloads
+
+Verify that arbitrary request/response objects are NOT recursively serialized.
+
+Confirm ErrorBoundary reporting cannot itself crash the application.
+
+==================================================
+5. SERVER LOGGING VERIFICATION
+==================================================
+
+Inspect request correlation and server logging.
+
+Verify:
+
+- request IDs are generated/validated safely
+- IDs are attached consistently
+- raw request bodies are not logged
+- raw upstream response bodies are not logged
+- authorization/cookie headers are not logged
+- unexpected server errors return safe responses
+- existing machine-readable error codes remain compatible
+
+==================================================
+6. HTTP TIMEOUT VERIFICATION
+==================================================
+
+Verify:
+
+- requests have bounded deadlines
+- AbortController/ equivalent behavior is correct
+- timeout is distinguishable from generic network failure
+- no global automatic retry was introduced
+- writes are not automatically retried
+- successful responses remain unchanged
+
+==================================================
+7. BULK SAVE VERIFICATION
+==================================================
+
+Verify:
+
+- auto-save rejection cannot leave the UI permanently in saving state
+- callbacks cannot mutate unmounted screens
+- failed authenticated uploads cannot be presented as durable cloud success
+- successful uploads retain previous behavior
+- guest/local behavior remains unchanged
+- no operation-record/idempotency/replay mechanism was introduced
+
+==================================================
+8. QUOTA SAFETY VERIFICATION
+==================================================
+
+Verify the four states remain distinct:
+
+A. no usage record
+B. valid usage record
+C. quota database unavailable
+D. malformed/unexpected result
+
+Confirm:
+
+CANNOT treat C as zero usage.
+
+Confirm a paid PhotoRoom operation cannot proceed on the basis of a quota-store failure being interpreted as zero usage.
+
+==================================================
+9. AUTH / SIGN-OUT VERIFICATION
+==================================================
+
+Verify successful authentication and sign-out behavior remains unchanged.
+
+Verify:
+
+- Supabase sign-out error is not silently discarded
+- local cleanup outcome is distinguishable
+- retry/recovery does not expose sensitive auth details
+- cold-start session restoration remains compatible
+
+==================================================
+10. ACTUAL FRONTEND WORKFLOW
+==================================================
+
+The implementation report says the dedicated frontend workflow could not start because port 8081 was already occupied.
+
+Do NOT kill arbitrary processes.
+
+First identify:
+
+- which process owns port 8081
+- whether it is another Expo/Metro process
+- whether it belongs to the current Amodka workspace
+- whether it is stale
+- whether the existing process is actually serving the current implementation
+
+If safe and appropriate, perform a clean, non-destructive verification using the existing running process.
+
+Do not terminate another user's or unrelated process.
+
+Report the exact finding.
+
+==================================================
+11. 404 INVESTIGATION
+==================================================
+
+The browser recorded one unspecified resource 404 on the Expo Go launch page.
+
+Identify the exact resource/request if possible.
+
+Determine:
+
+- URL/path
+- response status
+- originating page
+- whether it is Amodka application code
+- whether it is Expo/Replit infrastructure
+- whether it affects application functionality
+
+Do not modify code to suppress the 404 unless it is proven to be an Amodka defect.
+
+If it is an infrastructure/development artifact, document it as such.
+
+==================================================
+12. SUPABASE VERIFICATION
+==================================================
+
+Confirm from the current working tree:
+
+- no migration changes
+- no schema changes
+- no RLS changes
+- no Storage policy changes
+- no RPC changes
+- no grants changes
+
+Do not connect to or modify the production database for this verification.
+
+==================================================
+13. FINAL REPORT
+==================================================
+
+Return exactly:
+
+# Post-Implementation Verification
+
+## A. Implementation Integrity
+PASS / FAIL
+
+## B. Protected-System Integrity
+PASS / FAIL
+
+## C. Test Results
+Exact commands and results.
+
+## D. Startup/Splash Verification
+Findings.
+
+## E. Error Reporting/Redaction Verification
+Findings.
+
+## F. HTTP/Server Verification
+Findings.
+
+## G. Bulk Upload/Save Verification
+Findings.
+
+## H. Quota Safety Verification
+Findings.
+
+## I. Authentication Verification
+Findings.
+
+## J. Frontend Workflow / Port 8081
+Exact finding.
+
+## K. 404 Investigation
+Exact finding.
+
+## L. Supabase Impact
+Explicitly confirm whether anything changed.
+
+## M. Remaining Issues
+Only genuine remaining issues.
+
+## N. Release-Gate Recommendation
+
+Use ONLY one of:
+
+- VERIFIED — TASK CLOSED
+- VERIFICATION BLOCKED — ACTION REQUIRED
+
+Do not provide a general quality score or rating.
+
+If everything passes, conclude:
+
+VERIFIED — TASK CLOSED
+
+If anything materially fails, conclude:
+
+VERIFICATION BLOCKED — ACTION REQUIRED
+
+Do not fix material failures during this verification unless the change is explicitly authorized.
+
+STOP after the report.
