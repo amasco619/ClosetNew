@@ -12,10 +12,12 @@ import {
 import {
   checkCacheByHash,
   computeImageHash,
+  BgRemovalStoreUnavailableError,
   getUserBgRemovalStatus,
   incrementUserBgRemovalCount,
   storeCacheResult,
 } from "./bgRemovalStore";
+import { reportError } from "../shared/observability";
 import { supabaseAdmin } from "./supabase";
 import { getUserEntitlement, resolveEntitlement } from "./entitlements";
 
@@ -137,7 +139,23 @@ export async function removeBackground(req: Request, res: Response) {
     }
 
     if (!isPremium) {
-      const { allowed, count, remaining } = await getUserBgRemovalStatus(userId, FREE_TIER_LIMIT);
+      let quota: Awaited<ReturnType<typeof getUserBgRemovalStatus>>;
+      try {
+        quota = (process.env.NODE_ENV === "test" && !_testOverrides.mockQuota &&
+          (_testOverrides.skipAuth || _testOverrides.mockSupabaseAdmin))
+          ? { allowed: true, count: 0, remaining: FREE_TIER_LIMIT }
+          : await getUserBgRemovalStatus(userId, FREE_TIER_LIMIT);
+      } catch (error) {
+        if (error instanceof BgRemovalStoreUnavailableError) {
+          reportError(error, "background_removal_quota", {
+            dependency: "quota_store",
+            requestId: res.locals?.requestId,
+          });
+          return res.status(503).json({ error: BACKGROUND_REMOVAL_UNAVAILABLE });
+        }
+        throw error;
+      }
+      const { allowed, count, remaining } = quota;
       if (!allowed) {
         return res.status(403).json({
           error: BG_REMOVAL_LIMIT_REACHED,
@@ -172,6 +190,26 @@ export async function removeBackground(req: Request, res: Response) {
     return res.json({ imageBase64: cached, mimeType: "image/png", fromCache: true });
   }
 
+  // Reserve usage before calling the paid dependency. A quota-store failure
+  // must never silently permit billable work.
+  if (!(process.env.NODE_ENV === 'test' &&
+    (_testOverrides.skipAuth || _testOverrides.mockSupabaseAdmin) &&
+    !_testOverrides.mockIncrementCount)) {
+    try {
+      if (process.env.NODE_ENV === 'test' && _testOverrides.mockIncrementCount) {
+        await _testOverrides.mockIncrementCount();
+      } else {
+        await incrementUserBgRemovalCount(userId);
+      }
+    } catch (error) {
+      reportError(error, "background_removal_quota_write", {
+        dependency: "quota_store",
+        requestId: res.locals?.requestId,
+      });
+      return res.status(503).json({ error: BACKGROUND_REMOVAL_UNAVAILABLE });
+    }
+  }
+
   // ── 6. Call Photoroom ─────────────────────────────────────────────────────
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), PHOTOROOM_TIMEOUT_MS);
@@ -191,8 +229,11 @@ export async function removeBackground(req: Request, res: Response) {
 
     if (!fetchResponse.ok) {
       clearTimeout(timeoutId);
-      const errText = await fetchResponse.text().catch(() => fetchResponse.statusText);
-      console.error("[remove-background] Photoroom error:", fetchResponse.status, errText);
+      reportError(new Error("Photoroom dependency returned an error"), "background_removal", {
+        dependency: "photoroom",
+        status: fetchResponse.status,
+        requestId: res.locals?.requestId,
+      });
       return res.status(502).json({ error: PHOTOROOM_ERROR, status: fetchResponse.status });
     }
 
@@ -200,7 +241,10 @@ export async function removeBackground(req: Request, res: Response) {
     clearTimeout(timeoutId);
 
     if (arrayBuffer.byteLength === 0) {
-      console.error("[remove-background] Photoroom returned empty body");
+      reportError(new Error("Photoroom returned an empty response"), "background_removal", {
+        dependency: "photoroom",
+        requestId: res.locals?.requestId,
+      });
       return res.status(502).json({ error: PHOTOROOM_EMPTY_RESPONSE });
     }
 
@@ -213,7 +257,10 @@ export async function removeBackground(req: Request, res: Response) {
       resultBuf[3] === 0x47;
 
     if (!isPng || arrayBuffer.byteLength < 1024) {
-      console.error("[remove-background] Photoroom response not valid PNG (byteLength=%d)", arrayBuffer.byteLength);
+      reportError(new Error("Photoroom returned a malformed image"), "background_removal", {
+        dependency: "photoroom",
+        requestId: res.locals?.requestId,
+      });
       return res.status(502).json({ error: PHOTOROOM_INVALID_RESPONSE });
     }
 
@@ -232,15 +279,6 @@ export async function removeBackground(req: Request, res: Response) {
     // call resetUserBgRemovalCount(userId) (bgRemovalStore.ts) to reset their
     // count to 0. This grants a fresh FREE_TIER_LIMIT slate if they lapse again.
     // See the JSDoc on resetUserBgRemovalCount for the full rationale.
-    if (process.env.NODE_ENV === 'test' && _testOverrides.mockIncrementCount) {
-      // Test mode with an injected counter — use it regardless of skipAuth so
-      // tests exercising the real auth path (mockSupabaseAdmin) can also avoid
-      // real DB calls for the fire-and-forget increment.
-      void _testOverrides.mockIncrementCount();
-    } else if (!(_testOverrides.skipAuth && process.env.NODE_ENV === 'test')) {
-      void incrementUserBgRemovalCount(userId);
-    }
-
     const responseBody: Record<string, unknown> = { imageBase64: resultBase64, mimeType: "image/png" };
     if (remainingAfterUse !== undefined) responseBody.remaining = remainingAfterUse;
     return res.json(responseBody);
@@ -248,10 +286,16 @@ export async function removeBackground(req: Request, res: Response) {
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err?.name === "AbortError") {
-      console.error("[remove-background] Photoroom timed out after %dms", PHOTOROOM_TIMEOUT_MS);
+      reportError(err, "background_removal", {
+        dependency: "photoroom",
+        requestId: res.locals?.requestId,
+      });
       return res.status(502).json({ error: PHOTOROOM_TIMEOUT_ERROR });
     }
-    console.error("[remove-background] Unexpected error:", err?.message);
+    reportError(err, "background_removal", {
+      dependency: "photoroom",
+      requestId: res.locals?.requestId,
+    });
     return res.status(502).json({ error: BACKGROUND_REMOVAL_FAILED });
   }
 }

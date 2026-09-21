@@ -15,6 +15,8 @@ import Colors from '@/constants/colors';
 import * as Linking from 'expo-linking';
 import { createSessionFromUrl } from '../lib/auth';
 import { NATIVE_OAUTH_CALLBACK_URL, isOAuthCallbackUrl } from '../lib/oauth-callback';
+import { AmodkaErrorState } from '@/components/AmodkaErrorState';
+import { reportError } from '@/shared/observability';
 
 function hasRequiredOnboardingFields(p: UserProfile): boolean {
   return !!(
@@ -28,7 +30,7 @@ function hasRequiredOnboardingFields(p: UserProfile): boolean {
 }
 
 export default function IndexScreen() {
-  const { profile, appReady, isAuthenticated } = useApp();
+  const { profile, appReady, startupError, retryInitialization, isAuthenticated } = useApp();
   const splashHidden = useRef(false);
 
   const containerOpacity = useSharedValue(0);
@@ -47,7 +49,9 @@ export default function IndexScreen() {
   const url = Linking.useLinkingURL();
   useEffect(() => {
     if (url && isOAuthCallbackUrl(url, NATIVE_OAUTH_CALLBACK_URL)) {
-      createSessionFromUrl(url, NATIVE_OAUTH_CALLBACK_URL).catch(console.error);
+      createSessionFromUrl(url, NATIVE_OAUTH_CALLBACK_URL).catch(error =>
+        reportError(error, 'oauth_callback', { dependency: 'supabase_auth' }),
+      );
     }
   }, [url]);
 
@@ -56,8 +60,12 @@ export default function IndexScreen() {
 
     if (!splashHidden.current) {
       splashHidden.current = true;
-      SplashScreen.hideAsync().catch(() => {});
+      SplashScreen.hideAsync().catch(error =>
+        reportError(error, 'splash_hide', { dependency: 'expo_splash' }),
+      );
     }
+
+    if (startupError) return;
 
     const navigateTo = (path: string) => {
       router.replace(path as Parameters<typeof router.replace>[0]);
@@ -92,7 +100,7 @@ export default function IndexScreen() {
     }
 
     fadeOutThenNavigate('/welcome');
-  }, [appReady, isAuthenticated, profile.onboardingComplete, profile.isGuest, profile.name, profile.bodyType, profile.eyeColor, profile.skinTone, profile.undertone, profile.styleGoalPrimary]);
+  }, [appReady, startupError, isAuthenticated, profile.onboardingComplete, profile.isGuest, profile.name, profile.bodyType, profile.eyeColor, profile.skinTone, profile.undertone, profile.styleGoalPrimary]);
 
   const containerStyle = useAnimatedStyle(() => ({
     opacity: containerOpacity.value,
@@ -109,6 +117,14 @@ export default function IndexScreen() {
   const taglineStyle = useAnimatedStyle(() => ({
     opacity: taglineOpacity.value,
   }));
+
+  if (startupError) {
+    return (
+      <View style={styles.container}>
+        <AmodkaErrorState type="network" onRetry={retryInitialization} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

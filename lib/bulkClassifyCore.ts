@@ -225,6 +225,10 @@ export interface SaveAllDeps {
   setSaving(value: boolean): void;
   /** Light haptic after each item is saved. */
   onItemHaptic(): void;
+  /** Surface an authenticated upload fallback as local-only/pending. */
+  onUploadFallback?(uri: string): void;
+  /** Called after local-only items are persisted; caller must keep review visible. */
+  onLocalOnlyComplete?(uris: string[]): void;
   /** Success haptic after all items are saved. */
   onDoneHaptic(): void;
   /** Navigate away once the save loop finishes. */
@@ -244,8 +248,22 @@ export async function runSaveAll(
   deps: SaveAllDeps,
 ): Promise<void> {
   deps.setSaving(true);
+  const localOnlyUris: string[] = [];
 
-  const userId = await deps.getSession();
+  let userId: string | null;
+  try {
+    userId = await deps.getSession();
+  } catch {
+    if (mountedRef.current) {
+      deps.setItems(prev => prev.map(it =>
+        toSave.some(item => item.uri === it.uri && it.classification)
+          ? { ...it, status: 'error' }
+          : it,
+      ));
+      deps.setSaving(false);
+    }
+    return;
+  }
   if (!mountedRef.current) return;
 
   for (const item of toSave) {
@@ -259,6 +277,7 @@ export async function runSaveAll(
       const itemId = deps.generateId();
       let finalUri = item.uri;
       let itemStoragePath: string | undefined;
+      let uploadFailed = false;
 
       if (userId) {
         try {
@@ -275,17 +294,29 @@ export async function runSaveAll(
             itemStoragePath = `${userId}/${itemId}.${ext}`;
             finalUri = await deps.upload(userId, uploadArg.base64, itemId, uploadArg.mimeType);
             if (!mountedRef.current) return;
+          } else {
+            // An authenticated item without an upload source is not a
+            // successful cloud save. Preserve the local fallback, but make
+            // the outcome explicit and block automatic navigation.
+            uploadFailed = true;
+            localOnlyUris.push(item.uri);
+            deps.onUploadFallback?.(item.uri);
           }
         } catch {
           // Upload failed — fall back to local URI; storagePath stays undefined
           itemStoragePath = undefined;
+          uploadFailed = true;
+          localOnlyUris.push(item.uri);
+          deps.onUploadFallback?.(item.uri);
         }
       }
 
       if (!mountedRef.current) break;
       deps.addItem({ id: itemId, photoUri: finalUri, classification: item.classification, storagePath: itemStoragePath });
       deps.setItems(prev =>
-        prev.map(it => it.uri === item.uri ? { ...it, status: 'saved' } : it),
+        prev.map(it => it.uri === item.uri
+          ? { ...it, status: uploadFailed ? 'local-only' : 'saved' }
+          : it),
       );
       deps.onItemHaptic();
     } catch {
@@ -299,6 +330,10 @@ export async function runSaveAll(
 
   if (!mountedRef.current) return;
   deps.setSaving(false);
+  if (localOnlyUris.length > 0) {
+    deps.onLocalOnlyComplete?.(localOnlyUris);
+    return;
+  }
   deps.onDoneHaptic();
   deps.navigate();
 }
@@ -381,6 +416,8 @@ export interface AutoPersistDeps {
   setItems(updater: (prev: BulkItemCore[]) => BulkItemCore[]): void;
   /** Light haptic impulse on success. */
   onHaptic(): void;
+  /** Notify the caller that auto-save failed and manual retry is available. */
+  onFailure?(): void;
 }
 
 /**
@@ -449,6 +486,7 @@ export async function runAutoPersistItem(
         it.uri === item.uri && it.status === 'auto-saving'
           ? { ...it, status: 'settled' } : it,
       ));
+      deps.onFailure?.();
     }
     return null;
   }

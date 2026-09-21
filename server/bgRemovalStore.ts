@@ -4,6 +4,17 @@ import crypto from "crypto";
 const CACHE_MAX = 200;
 const inMemCache = new Map<string, string>();
 
+export class BgRemovalStoreUnavailableError extends Error {
+  constructor() {
+    super("Background-removal quota store unavailable");
+    this.name = "BgRemovalStoreUnavailableError";
+  }
+}
+
+export function isValidBgRemovalCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && Number.isInteger(value) && value >= 0;
+}
+
 function putInMem(hash: string, base64: string): void {
   if (inMemCache.size >= CACHE_MAX) {
     const oldest = inMemCache.keys().next().value;
@@ -116,21 +127,24 @@ export async function storeCacheResult(hash: string, base64: string): Promise<vo
 
 export async function getUserBgRemovalCount(userId: string): Promise<number> {
   const pool = getPool();
-  if (!pool) return 0;
+  if (!pool) throw new BgRemovalStoreUnavailableError();
   try {
     const { rows } = await pool.query<{ count: number }>(
       "SELECT count FROM bg_removal_usage WHERE user_id = $1",
       [userId],
     );
-    return rows.length > 0 ? Number(rows[0].count) : 0;
-  } catch {
-    return 0;
+    const count = rows.length > 0 ? rows[0].count : 0;
+    if (!isValidBgRemovalCount(count)) throw new Error("Invalid background-removal quota count");
+    return count;
+  } catch (error) {
+    console.error("[bgRemovalStore] usage lookup failed:", error instanceof Error ? error.name : "unknown");
+    throw new BgRemovalStoreUnavailableError();
   }
 }
 
 export async function incrementUserBgRemovalCount(userId: string): Promise<number> {
   const pool = getPool();
-  if (!pool) return 0;
+  if (!pool) throw new BgRemovalStoreUnavailableError();
   try {
     const { rows } = await pool.query<{ count: number }>(
       `INSERT INTO bg_removal_usage (user_id, count, last_used_at)
@@ -141,10 +155,12 @@ export async function incrementUserBgRemovalCount(userId: string): Promise<numbe
        RETURNING count`,
       [userId],
     );
-    return rows.length > 0 ? Number(rows[0].count) : 0;
+     const count = rows.length > 0 ? rows[0].count : null;
+     if (!isValidBgRemovalCount(count)) throw new Error("Invalid background-removal quota count");
+     return count;
   } catch (err) {
-    console.error("[bgRemovalStore] increment failed:", err);
-    return 0;
+    console.error("[bgRemovalStore] increment failed:", err instanceof Error ? err.name : "unknown");
+    throw new BgRemovalStoreUnavailableError();
   }
 }
 

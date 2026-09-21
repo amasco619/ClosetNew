@@ -1,7 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import * as Linking from "expo-linking";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -20,6 +20,7 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_7
 import { StatusBar } from "expo-status-bar";
 import { migrateStorage } from "@/lib/database";
 import { migrateWeatherStorage } from "@/constants/weather";
+import { reportError } from "@/shared/observability";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -65,12 +66,27 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+  const [fontDeadlineReached, setFontDeadlineReached] = useState(false);
+
+  useEffect(() => {
+    if (fontsLoaded) return;
+    const timer = setTimeout(() => {
+      setFontDeadlineReached(true);
+      reportError(new Error("font loading deadline exceeded"), "startup_fonts", {
+        dependency: "expo_fonts",
+      });
+      SplashScreen.hideAsync().catch(error =>
+        reportError(error, "splash_global_deadline", { dependency: "expo_splash" }),
+      );
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [fontsLoaded]);
 
   // One-shot storage key migration (Phase 5A.1 — AuraCloset → Amodka rebrand).
   // Must run before any component reads the renamed keys.
   useEffect(() => {
-    migrateStorage().catch(() => {});
-    migrateWeatherStorage().catch(() => {});
+    migrateStorage().catch((error) => reportError(error, "storage_migration"));
+    migrateWeatherStorage().catch((error) => reportError(error, "weather_migration"));
   }, []);
 
   // Expo Go OAuth relay — runs on the web page that loads inside
@@ -133,14 +149,18 @@ export default function RootLayout() {
     Linking.getInitialURL().then((url) => {
       if (!url) return;
       if (!isOAuthCallbackUrl(url, NATIVE_OAUTH_CALLBACK_URL)) return;
-      createSessionFromUrl(url, NATIVE_OAUTH_CALLBACK_URL).catch(() => {});
+      createSessionFromUrl(url, NATIVE_OAUTH_CALLBACK_URL).catch((error) =>
+        reportError(error, "oauth_callback", { dependency: "supabase_auth" }),
+      );
     });
   }, []);
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded && !fontDeadlineReached) return null;
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary onError={(error, stackTrace) =>
+      reportError(error, "react_render", { errorType: stackTrace ? "ReactError" : undefined })
+    }>
       <QueryClientProvider client={queryClient}>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <KeyboardProvider>

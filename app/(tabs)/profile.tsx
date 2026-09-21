@@ -16,6 +16,7 @@ import CollapsibleSection from '@/components/CollapsibleSection';
 import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/constants/lifestyle';
 import * as Haptics from 'expo-haptics';
 import { rs } from '../../lib/responsive';
+import { AmodkaErrorState } from '@/components/AmodkaErrorState';
 
 const HAIR_OPTS: { id: HairColor; label: string }[] = [
   { id: 'black', label: 'Black' }, { id: 'dark-brown', label: 'Dark Brown' },
@@ -128,7 +129,7 @@ export default function ProfileScreen() {
   const {
     profile, updateProfile, wardrobeItems, isPremium, isGuest, wearHistory,
     affinityActive, affinitySignalCount, topAffinityItems, topAffinityPairs,
-    weather, setWeatherEnabled,
+    weather, setWeatherEnabled, dataUnavailable, entitlementUnavailable, retryInitialization,
   } = useApp();
   const [showAffinityDebug, setShowAffinityDebug] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -207,6 +208,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+      {(dataUnavailable || entitlementUnavailable) && <AmodkaErrorState type="network" onRetry={retryInitialization} />}
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
         {/* ── Hero Header ─────────────────────────────────────────────────── */}
@@ -722,7 +724,9 @@ export default function ProfileScreen() {
               style={({ pressed }) => [styles.accountRow, pressed && { opacity: 0.7 }]}
               onPress={async () => {
                 try { await signOut(); router.replace('/sign-in'); }
-                catch (err: any) { console.error('[profile] Sign out:', err.message); }
+                catch {
+                  Alert.alert('Could not sign out', 'Your session could not be closed safely. Please check your connection and try again.');
+                }
               }}
               accessibilityLabel="Sign out of Amodka"
             >

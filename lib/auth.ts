@@ -4,6 +4,7 @@ import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
 import Constants, { ExecutionEnvironment } from 'expo-constants'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { signOutDisposition } from '@/shared/reliability-guards'
 import { fetch } from 'expo/fetch'
 import { supabase } from './supabase'
 import { getApiUrl } from './query-client'
@@ -285,15 +286,19 @@ export async function signInWithApple(): Promise<void> {
   await openOAuthSessionWithFallback(data?.url ?? '')
 }
 
-export async function signOut(): Promise<void> {
-  const { error } = await supabase.auth.signOut()
-  if (error) {
-    // Remote sign-out failed — clear the local session so the SIGNED_OUT
-    // auth-state event still fires and the UI resets to the guest state,
-    // even if server-side token invalidation did not complete.
-    try { await supabase.auth.signOut({ scope: 'local' }) } catch { /* best-effort */ }
-    throw new Error(`[signOut] ${error.message}`)
+export async function signOut(): Promise<{ remoteTerminated: boolean; localTerminated: boolean }> {
+  const { error: remoteError } = await supabase.auth.signOut()
+  if (signOutDisposition(remoteError, null) === 'remote_and_local') {
+    return { remoteTerminated: true, localTerminated: true }
   }
+
+  // Remote invalidation may fail offline, but local termination is still safe
+  // when Supabase confirms the local-scope operation with no returned error.
+  const { error: localError } = await supabase.auth.signOut({ scope: 'local' })
+  if (signOutDisposition(remoteError, localError) === 'local_only') {
+    return { remoteTerminated: false, localTerminated: true }
+  }
+  throw new Error(`[signOut] ${remoteError?.message ?? 'remote sign-out failed'}`)
 }
 
 export async function getSession() {

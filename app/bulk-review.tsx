@@ -68,6 +68,7 @@ type ItemStatus =
   | 'auto-saved'
   | 'saving'
   | 'saved'
+  | 'local-only'
   | 'error'
   | 'removed';
 
@@ -141,7 +142,8 @@ function BulkCard({
   const isActive     = item.status === 'pending' || item.status === 'classifying';
   const isAutoSaving = item.status === 'auto-saving';
   const isAutoSaved  = item.status === 'auto-saved';
-  const isSettled    = item.status === 'settled' || isAutoSaving || isAutoSaved || item.status === 'saving' || item.status === 'saved';
+  const isLocalOnly  = item.status === 'local-only';
+  const isSettled    = item.status === 'settled' || isAutoSaving || isAutoSaved || item.status === 'saving' || item.status === 'saved' || isLocalOnly;
   const isSaved      = item.status === 'saved';
   const isSaving     = item.status === 'saving';
   const isError      = item.status === 'error';
@@ -207,6 +209,17 @@ function BulkCard({
           >
             <Ionicons name="checkmark-circle" size={20} color={Colors.secondary} />
             <Text style={styles.autoSavedOverlayLabel}>Saved</Text>
+          </Animated.View>
+        )}
+
+        {isLocalOnly && (
+          <Animated.View
+            entering={FadeInDown.duration(220)}
+            style={[StyleSheet.absoluteFill, styles.localOnlyOverlay]}
+            pointerEvents="none"
+          >
+            <Ionicons name="cloud-upload-outline" size={22} color={Colors.white} />
+            <Text style={styles.savedOverlayLabel}>Upload pending</Text>
           </Animated.View>
         )}
 
@@ -517,8 +530,27 @@ export default function BulkReviewScreen() {
           },
           setItems: (updater) => setItems(prev => updater(prev) as BulkItem[]),
           onHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+          onFailure: () => {
+            if (mountedRef.current) {
+              Alert.alert(
+                'Auto-save paused',
+                'This item is ready to save. Review it and tap Save to retry.',
+              );
+            }
+          },
         },
-      ).finally(() => {
+      ).catch(() => {
+        // Keep the promise observed even if a dependency escapes the core
+        // guard. The core normally reverts to settled; this is a final
+        // navigation-safe unlock against an unhandled rejection.
+        if (mountedRef.current) {
+          setItems(prev => prev.map(it =>
+            it.uri === captured.uri && it.status === 'auto-saving'
+              ? { ...it, status: 'settled' }
+              : it,
+          ));
+        }
+      }).finally(() => {
         autoPersistInFlightRef.current.delete(captured.uri);
       });
     }
@@ -695,6 +727,20 @@ export default function BulkReviewScreen() {
           setItems: (updater) => setItems(prev => updater(prev) as BulkItem[]),
           setSaving,
           onItemHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+          onUploadFallback: (uri) => {
+            if (!mountedRef.current) return;
+            setItems(prev => prev.map(it =>
+              it.uri === uri ? { ...it, status: 'local-only' } : it,
+            ));
+          },
+          onLocalOnlyComplete: (uris) => {
+            if (!mountedRef.current) return;
+            Alert.alert(
+              'Upload pending',
+              `${uris.length === 1 ? 'This item is' : 'These items are'} saved on this device, but cloud image upload did not complete. The existing recovery path will retry the upload when the app is reopened.`,
+              [{ text: 'Keep local copy', style: 'cancel' }],
+            );
+          },
           onDoneHaptic: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
           navigate: () => router.navigate('/(tabs)/wardrobe'),
         });
@@ -729,7 +775,7 @@ export default function BulkReviewScreen() {
   const settledCount    = items.filter(it => it.status === 'settled').length;
   const autoSavedCount  = items.filter(it => it.status === 'auto-saved').length;
   const classifiedCount = items.filter(it =>
-    ['settled','auto-saving','auto-saved','saving','saved','error'].includes(it.status)
+    ['settled','auto-saving','auto-saved','saving','saved','local-only','error'].includes(it.status)
   ).length;
   const totalCount      = visibleItems.length;
   const progressRatio   = totalCount > 0 ? classifiedCount / totalCount : 0;
@@ -1009,6 +1055,12 @@ const styles = StyleSheet.create({
   autoSavedOverlayLabel: {
     fontFamily: 'Inter_500Medium', fontSize: rs(11),
     color: Colors.secondary, letterSpacing: 0.3,
+  },
+  localOnlyOverlay: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(92, 70, 50, 0.72)',
+    gap: 4,
   },
 
   removeBtn: {

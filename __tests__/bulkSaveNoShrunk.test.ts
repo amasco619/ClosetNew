@@ -5,7 +5,8 @@
  * addItem is still called with the original local URI.
  *
  * This guards against a regression where the item would simply be dropped from
- * the wardrobe save without any user-visible feedback.
+ * the wardrobe save without any user-visible feedback, or be presented as a
+ * durable cloud save when its upload input is unavailable.
  *
  * Run: `npx tsx __tests__/bulkSaveNoShrunk.test.ts`
  * Exits non-zero on any failed assertion.
@@ -65,6 +66,7 @@ interface DepsResult {
   setItemsStatuses: string[];
   navigateCalled: boolean;
   uploadCalled: boolean;
+  localOnlyUris: string[];
   resolveSession(): void;
   resolveResize(result: { base64?: string } | null): void;
 }
@@ -74,6 +76,7 @@ function makeDeps(userId: string | null): DepsResult {
   let setItemsStatuses: string[] = [];
   let navigateCalled = false;
   let uploadCalled = false;
+  let localOnlyUris: string[] = [];
 
   const sessionD = deferred<string | null>();
   const resizeD  = deferred<{ base64?: string } | null>();
@@ -103,7 +106,9 @@ function makeDeps(userId: string | null): DepsResult {
     },
     setSaving: () => {},
     onItemHaptic: () => {},
+    onUploadFallback: () => {},
     onDoneHaptic: () => {},
+    onLocalOnlyComplete: (uris) => { localOnlyUris = uris; },
     navigate: () => { navigateCalled = true; },
   };
 
@@ -114,6 +119,7 @@ function makeDeps(userId: string | null): DepsResult {
     get setItemsStatuses() { return setItemsStatuses; },
     get navigateCalled() { return navigateCalled; },
     get uploadCalled() { return uploadCalled; },
+    get localOnlyUris() { return localOnlyUris; },
     resolveSession: () => sessionD.resolve(userId),
     resolveResize: (v) => resizeD.resolve(v),
   };
@@ -123,7 +129,7 @@ function makeDeps(userId: string | null): DepsResult {
 
 (async () => {
 
-  section('1. Missing shrunk.base64 + no cleanBase64 (authenticated): addItem called with local URI');
+  section('1. Missing shrunk.base64 + no cleanBase64 (authenticated): local-only and no navigation');
   {
     // Scenario: ImageManipulator.resize() returns an object where .base64 is
     // undefined (e.g. manipulateAsync succeeded but base64 encoding was skipped).
@@ -150,10 +156,12 @@ function makeDeps(userId: string | null): DepsResult {
       'addItem receives the original local URI as fallback');
     assert(!d.uploadCalled,
       'upload is NOT called when resolveUploadArg returns null');
-    assert(d.navigateCalled,
-      'navigate fires after save completes');
-    assert(d.setItemsStatuses.includes('saved'),
-      'item status flips to saved');
+    assert(!d.navigateCalled,
+      'navigate is suppressed after local-only fallback');
+    assert(d.setItemsStatuses.includes('local-only'),
+      'item status flips to local-only, never durable saved');
+    assert(d.localOnlyUris.includes(TEST_URI),
+      'local-only completion exposes an explicit recovery item');
   }
 
   section('2. resize returns null entirely: addItem called with local URI');
@@ -178,6 +186,10 @@ function makeDeps(userId: string | null): DepsResult {
       'addItem receives the original local URI when resize is null');
     assert(!d.uploadCalled,
       'upload NOT called when resize result is null');
+    assert(!d.navigateCalled,
+      'navigate is suppressed when resize produces no upload data');
+    assert(d.setItemsStatuses.includes('local-only'),
+      'resize-null item is local-only, not durably saved');
   }
 
   section('3. cleanBase64 present: upload proceeds normally (sanity check)');
@@ -244,6 +256,10 @@ function makeDeps(userId: string | null): DepsResult {
       'addItem still called (with local URI fallback) when upload arg is null');
     assert(d.addItemPayloads[0]?.photoUri === TEST_URI,
       'photoUri falls back to local URI when data: URI is rejected');
+    assert(!d.navigateCalled,
+      'navigate is suppressed when data URI is rejected');
+    assert(d.setItemsStatuses.includes('local-only'),
+      'data URI rejection remains visibly local-only');
   }
 
   // ── Summary ───────────────────────────────────────────────────────────────

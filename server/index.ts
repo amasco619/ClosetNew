@@ -6,6 +6,8 @@ import { initBgRemovalStore } from "./bgRemovalStore";
 import { buildOAuthRelayUrl } from "../lib/oauth-callback";
 import * as fs from "fs";
 import * as path from "path";
+import { randomUUID } from "crypto";
+import { reportError } from "../shared/observability";
 
 const app = express();
 const log = console.log;
@@ -108,32 +110,25 @@ function setupRequestLogging(app: express.Application) {
   app.use((req, res, next) => {
     const start = Date.now();
     const path = req.path;
-    let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
-
-    const originalResJson = res.json;
-    res.json = function (bodyJson, ...args) {
-      capturedJsonResponse = bodyJson;
-      return originalResJson.apply(res, [bodyJson, ...args]);
-    };
+    const callerRequestId = req.header("x-request-id");
+    const requestId = callerRequestId && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/.test(callerRequestId)
+      ? callerRequestId
+      : randomUUID();
+    res.setHeader("x-request-id", requestId);
+    res.locals.requestId = requestId;
 
     res.on("finish", () => {
       if (!path.startsWith("/api")) return;
 
       const duration = Date.now() - start;
-
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      // Never log response bodies for auth routes — they may contain session
-      // tokens, access tokens, or other credentials.
-      const isAuthRoute = path.startsWith("/api/auth");
-      if (capturedJsonResponse && !isAuthRoute) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
+      log(JSON.stringify({
+        type: "request",
+        requestId,
+        method: req.method,
+        route: path,
+        status: res.statusCode,
+        durationMs: duration,
+      }));
     });
 
     next();
@@ -297,7 +292,7 @@ function configureExpoAndLanding(app: express.Application) {
 }
 
 function setupErrorHandler(app: express.Application) {
-  app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
     const error = err as {
       status?: number;
       statusCode?: number;
@@ -305,15 +300,22 @@ function setupErrorHandler(app: express.Application) {
     };
 
     const status = error.status || error.statusCode || 500;
-    const message = error.message || "Internal Server Error";
-
-    console.error("Internal Server Error:", err);
+    const requestId = res.locals.requestId as string | undefined;
+    reportError(err, "http_request", {
+      route: req.path,
+      status,
+      requestId,
+      dependency: "server",
+    });
 
     if (res.headersSent) {
       return next(err);
     }
 
-    return res.status(status).json({ message });
+    return res.status(status).json({
+      error: status >= 500 ? "INTERNAL_ERROR" : "REQUEST_FAILED",
+      requestId,
+    });
   });
 }
 
@@ -321,8 +323,8 @@ function setupErrorHandler(app: express.Application) {
   app.set("trust proxy", 1);
   setupSecurityHeaders(app);
   setupCors(app);
-  setupBodyParsing(app);
   setupRequestLogging(app);
+  setupBodyParsing(app);
 
   // Register API routes BEFORE static-file / landing-page middleware so that
   // no express.static handler can ever shadow an API path. The landing-page

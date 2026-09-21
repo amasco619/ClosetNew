@@ -1,6 +1,51 @@
 import { fetch } from "expo/fetch";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+export const API_REQUEST_TIMEOUT_MS = 15_000;
+
+export type ApiErrorKind = "timeout" | "abort" | "network" | "non_json" | "client" | "server";
+
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly kind: ApiErrorKind,
+    public readonly status?: number,
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
+
+async function withDeadline<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  timeoutMs = API_REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  let rejectTimer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<never>((_, reject) =>
+      rejectTimer = setTimeout(() => reject(new ApiRequestError("Request timed out.", "timeout")), timeoutMs),
+    );
+    return await Promise.race([operation(controller.signal), timeout]);
+  } catch (error) {
+    if (timedOut || (error instanceof Error && error.name === "AbortError")) {
+      throw new ApiRequestError("Request timed out.", timedOut ? "timeout" : "abort");
+    }
+    if (error instanceof TypeError || (error instanceof Error && /network|fetch|offline/i.test(error.message))) {
+      throw new ApiRequestError("Network connection failed.", "network");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    if (rejectTimer) clearTimeout(rejectTimer);
+  }
+}
+
 export function getApiUrl(): string {
   let host = process.env.EXPO_PUBLIC_DOMAIN;
 
@@ -15,8 +60,13 @@ export function getApiUrl(): string {
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    const text = await res.text();
+    const detail = text || res.statusText || "Request failed.";
+    throw new ApiRequestError(
+      `${res.status}: ${detail}`,
+      res.status >= 500 ? "server" : "client",
+      res.status,
+    );
   }
 }
 
@@ -28,15 +78,17 @@ export async function apiRequest(
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
 
-  const res = await fetch(url.toString(), {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
+  return withDeadline(async (signal) => {
+    const res = await fetch(url.toString(), {
+      method,
+      headers: data ? { "Content-Type": "application/json" } : {},
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+      signal,
+    });
+    await throwIfResNotOk(res);
+    return res;
   });
-
-  await throwIfResNotOk(res);
-  return res;
 }
 
 /**
@@ -59,30 +111,30 @@ export async function authenticatedApiRequest(
 ): Promise<Response> {
   let token: string | null = null;
 
-  try {
-    const { supabase } = await import("./supabase");
-    const { data: { session } } = await supabase.auth.getSession();
-    token = session?.access_token ?? null;
-  } catch {
-    // If supabase is unavailable (e.g. test environment), proceed without token.
-  }
-
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
-
-  const headers: Record<string, string> = {};
-  if (data) headers["Content-Type"] = "application/json";
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const res = await fetch(url.toString(), {
-    method,
-    headers,
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
+  return withDeadline(async (signal) => {
+    try {
+      const { supabase } = await import("./supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+      token = session?.access_token ?? null;
+    } catch (error) {
+      // If supabase is unavailable (e.g. test environment), proceed without token.
+      if (error instanceof ApiRequestError) throw error;
+    }
+    const headers: Record<string, string> = {};
+    if (data) headers["Content-Type"] = "application/json";
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(url.toString(), {
+      method,
+      headers,
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+      signal,
+    });
+    await throwIfResNotOk(res);
+    return res;
   });
-
-  await throwIfResNotOk(res);
-  return res;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -94,16 +146,21 @@ export const getQueryFn: <T>(options: {
     const baseUrl = getApiUrl();
     const url = new URL(queryKey.join("/") as string, baseUrl);
 
-    const res = await fetch(url.toString(), {
+    const res = await withDeadline((signal) => fetch(url.toString(), {
       credentials: "include",
-    });
+      signal,
+    }));
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
     }
 
     await throwIfResNotOk(res);
-    return await res.json();
+    try {
+      return await res.json();
+    } catch {
+      throw new ApiRequestError("Response was not valid JSON.", "non_json", res.status);
+    }
   };
 
 export const queryClient = new QueryClient({

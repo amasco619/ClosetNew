@@ -960,8 +960,8 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'second item uses the uploaded cloud URI',
     );
     assert(
-      finalStatuses[item1.uri] === 'saved',
-      'first item ends in saved (not stuck in saving)',
+      finalStatuses[item1.uri] === 'local-only',
+      'first item ends in local-only after upload failure (not durable-saved)',
     );
     assert(
       finalStatuses[item2.uri] === 'saved',
@@ -975,6 +975,40 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       finalStatuses[item2.uri] !== 'saving',
       'second item is not stuck in saving',
     );
+  }
+
+  section('runSaveAll — 24b. authenticated null upload source is local-only and blocks navigation');
+
+  {
+    const mountedRef = { current: true };
+    const item = makeSaveItem({ cleanBase64: undefined });
+    let finalStatus = 'pending';
+    let navigated = false;
+    let fallbackCount = 0;
+    let localOnlyUris: string[] = [];
+    const deps: SaveAllDeps = {
+      generateId: () => 'null-upload-id',
+      getSession: async () => 'user-1',
+      resize: async () => ({ base64: undefined }),
+      upload: async () => 'https://unused.example.com/image.jpg',
+      resolveUploadArg: () => null,
+      addItem: () => {},
+      setItems: (updater: (prev: any[]) => any[]) => {
+        finalStatus = updater([{ uri: item.uri, status: finalStatus, classification: null }])[0].status;
+      },
+      onUploadFallback: () => { fallbackCount++; },
+      onLocalOnlyComplete: (uris: string[]) => { localOnlyUris = uris; },
+      setSaving: () => {},
+      onItemHaptic: () => {},
+      onDoneHaptic: () => {},
+      navigate: () => { navigated = true; },
+    };
+
+    await runSaveAll([item], mountedRef, deps);
+    assert(finalStatus === 'local-only', 'null upload source produces local-only status');
+    assert(fallbackCount === 1, 'null upload source reports upload fallback');
+    assert(localOnlyUris.length === 1, 'local-only completion reports the item');
+    assert(!navigated, 'local-only outcome does not navigate away');
   }
 
   // ── Photo preview timing ──────────────────────────────────────────────────

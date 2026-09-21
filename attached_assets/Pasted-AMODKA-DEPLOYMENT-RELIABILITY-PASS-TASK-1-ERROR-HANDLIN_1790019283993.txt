@@ -1,0 +1,730 @@
+AMODKA — DEPLOYMENT RELIABILITY PASS
+TASK 1: ERROR HANDLING, RECOVERY & STARTUP RELIABILITY
+
+STATUS: IMPLEMENTATION AUTHORIZED
+SCOPE: CONTROLLED IMPLEMENTATION ONLY
+
+You previously completed the read-only reliability audit.
+
+Your audit is the source document for this implementation.
+
+The audit identified verified issues including:
+- startup/splash operations with no deadline
+- silent startup/OAuth/migration failures
+- root ErrorBoundary with no reporting connection
+- inconsistent async error handling
+- no shared redacting error adapter
+- no request correlation
+- no shared HTTP timeout
+- bulk auto-save potentially remaining stuck
+- authenticated uploads potentially appearing fully saved after cloud-upload failure
+- profile/wardrobe synchronization failures being insufficiently visible
+- quota-store database failure potentially being interpreted as zero usage
+- sign-out failures being insufficiently surfaced
+
+We are now authorizing implementation of a carefully bounded subset of those findings.
+
+==================================================
+ABSOLUTE PROTECTED BOUNDARIES
+==================================================
+
+DO NOT modify:
+
+- Recommendation Engine v3.7
+- recommendation scoring
+- recommendation ranking
+- recommendation candidate generation
+- recommendation rotation
+- recommendation benchmark fixtures/results
+- classifier taxonomy
+- classification prompts
+- classification heuristics
+- Phase A schema
+- garment_groups schema
+- garment_group_members schema
+- create_garment_group()
+- existing garment-group RLS
+- existing garment-group ACLs
+- existing single-item persistence architecture
+- approved B0.3 architecture
+- B1/B5/B6/B7 implementation
+- Supabase migrations
+- Supabase RLS policies
+- Supabase Storage policies
+- Supabase RPC/function definitions
+- database grants
+- production database objects
+- production database data
+- payment implementation
+- push notification implementation
+- virtual try-on implementation
+- luxury UI redesign/refinement
+- Expo/EAS configuration
+- package upgrades
+- package version changes
+- external observability vendors
+- new Supabase tables
+- new persistence/idempotency mechanisms
+
+If a proposed fix appears to require any of the above:
+
+STOP that specific change, document it, and continue with the rest of the authorized scope.
+
+==================================================
+AUTHORIZED IMPLEMENTATION
+==================================================
+
+Implement ONLY the following.
+
+--------------------------------------------------
+1. STARTUP DEADLINE AND SPLASH RECOVERY
+--------------------------------------------------
+
+Add a bounded startup mechanism around the EXISTING startup process.
+
+Requirements:
+
+- Do not redesign startup.
+- Do not replace AppContext architecture.
+- Do not remove existing initialization.
+- Do not change authentication semantics.
+- Do not change profile/wardrobe hydration semantics.
+
+The startup system must:
+
+1. Prevent indefinite waiting.
+2. Have a clearly defined maximum startup wait.
+3. Ensure there is always an attempt to dismiss the native splash.
+4. Transition to an explicit recovery/degraded state if initialization cannot complete.
+5. Allow the user to retry initialization.
+6. Allow safe continuation with existing cached/local data where the current application already supports that.
+7. Never fabricate successful remote synchronization.
+8. Report the startup failure category through the new redacting reporter.
+
+Use the existing Amodka visual language.
+
+Do NOT perform a visual redesign.
+
+Test at minimum:
+
+- successful startup
+- font load failure
+- font never resolving
+- AsyncStorage never resolving
+- session never resolving
+- DB hydration never resolving
+- entitlement never resolving
+- signed URL never resolving
+- startup timeout
+- retry succeeds
+- retry fails
+- splash hide failure
+
+--------------------------------------------------
+2. REDACTED ERROR REPORTING ADAPTER
+--------------------------------------------------
+
+Create a small vendor-neutral reporting abstraction.
+
+It must:
+
+- be usable by client code
+- be usable by server code where appropriate
+- produce structured output
+- use stdout/stderr initially
+- NOT install an external monitoring provider
+- NOT send data externally
+- NOT store durable error records in Supabase
+
+Suggested metadata:
+
+- error category
+- stable error code
+- operation
+- app/server version
+- route when applicable
+- dependency
+- HTTP status
+- retryability
+- request/correlation ID
+- duration where available
+
+The adapter MUST NOT record:
+
+- passwords
+- access tokens
+- refresh tokens
+- authorization headers
+- session objects
+- signed URLs
+- image bytes
+- base64 image content
+- wardrobe images
+- raw external API payloads
+- email addresses
+- precise location
+- full profile objects
+- secrets
+- credentials
+- database connection information
+
+Use allowlisted metadata.
+
+DO NOT recursively serialize arbitrary request, response, error, context, or user objects.
+
+If an unknown Error object contains unsafe information, report only:
+
+- safe error type/name where appropriate
+- stable internal category
+- safe message chosen by the application
+- stack only if verified to contain no sensitive payload
+
+When uncertain, omit the field.
+
+--------------------------------------------------
+3. ROOT ERROR BOUNDARY
+--------------------------------------------------
+
+Connect the existing root ErrorBoundary reporting mechanism to the new reporting adapter.
+
+Requirements:
+
+- production fallback remains safe
+- reporting failure must NEVER break the fallback
+- no sensitive information is rendered to users
+- development diagnostics may remain development-only
+- existing reset/reload behavior must remain intact unless required for correctness
+
+Do not redesign ErrorFallback.
+
+--------------------------------------------------
+4. ASYNC STARTUP / CALLBACK REPORTING
+--------------------------------------------------
+
+Fix the verified silent failure paths for:
+
+- storage/weather migrations
+- OAuth callback/session exchange
+- delayed orphan scan
+- startup hydration
+- entitlement retrieval
+- splash hiding
+
+Requirements:
+
+- preserve existing best-effort behavior where appropriate
+- report meaningful failures
+- do not expose sensitive details
+- do not turn non-critical operations into blocking operations
+- do not alter successful OAuth/session behavior
+
+For OAuth failure:
+
+- preserve enumeration-safe behavior
+- provide actionable generic recovery
+- do not expose provider/session internals
+
+--------------------------------------------------
+5. SHARED CLIENT ERROR CLASSIFICATION
+--------------------------------------------------
+
+Introduce the minimum shared error classification needed for this reliability pass.
+
+At minimum distinguish:
+
+- validation
+- authentication
+- authorization
+- network/offline
+- timeout
+- rate limit
+- database/dependency
+- Storage
+- external dependency
+- malformed external response
+- unexpected/internal
+
+Each classification should have:
+
+- stable code
+- retryable/non-retryable designation
+- safe user-facing message or message key
+- optional dependency
+- no sensitive payload
+
+Do NOT modify recommendation logic.
+
+Do NOT modify classifier semantics.
+
+This layer is for error handling only.
+
+--------------------------------------------------
+6. HTTP REQUEST DEADLINES
+--------------------------------------------------
+
+Update the existing shared HTTP layer to support bounded request timeouts.
+
+Requirements:
+
+- use AbortController or existing compatible mechanism
+- distinguish timeout from generic network failure
+- do NOT add automatic retries globally
+- especially do not automatically retry writes
+- preserve existing successful responses
+- preserve existing machine-readable error behavior where callers depend on it
+
+Tests must include:
+
+- normal success
+- slow response
+- never-resolving request
+- timeout
+- aborted request
+- network failure
+- non-JSON response
+- 4xx
+- 5xx
+
+--------------------------------------------------
+7. SERVER REQUEST CORRELATION AND SAFE ERROR LOGGING
+--------------------------------------------------
+
+Add a request/correlation ID to server requests.
+
+Requirements:
+
+- every relevant server request receives an ID
+- preserve a caller-provided safe correlation ID only if the current architecture already permits it
+- otherwise generate one
+- return the request ID where appropriate in error responses
+- log the request ID with structured server errors
+
+DO NOT log:
+
+- authorization headers
+- cookies
+- passwords
+- request bodies by default
+- image data
+- profile objects
+- raw upstream response bodies
+- tokens
+- signed URLs
+
+Unexpected server errors must use stable generic public responses.
+
+Preserve existing machine codes where clients depend on them.
+
+Do NOT change business logic.
+
+--------------------------------------------------
+8. BULK AUTO-SAVE STUCK STATE
+--------------------------------------------------
+
+Fix the verified failure in bulk auto-save.
+
+Requirements:
+
+- every auto-save promise must have explicit rejection handling
+- in-flight/saving state must always terminate
+- failure must produce a retryable state
+- the user must never remain indefinitely in "saving"
+- retry must be explicit
+- do not introduce new persistence architecture
+- do not introduce operation records
+- do not introduce idempotency
+- do not alter B0.3/B1 semantics
+
+Test:
+
+- success
+- rejection
+- timeout
+- retry success
+- retry failure
+- mixed success/failure
+- repeated UI retry
+- navigation during save
+
+--------------------------------------------------
+9. AUTHENTICATED UPLOAD OUTCOME HONESTY
+--------------------------------------------------
+
+Address the verified issue where an authenticated upload can fall back to a local URI while appearing fully saved.
+
+IMPORTANT:
+
+Do NOT redesign persistence.
+
+Do NOT introduce B5/B6.
+
+Do NOT introduce an outbox.
+
+Do NOT introduce operation records.
+
+Do NOT change IDs.
+
+Do NOT change database schema.
+
+Instead:
+
+- preserve the existing local-file protection
+- clearly represent that the image is local-only/pending when cloud upload did not complete
+- do not claim durable cross-device completion
+- provide a safe retry path where the current architecture permits it
+
+Successful upload behavior MUST remain unchanged.
+
+Test:
+
+- upload success
+- upload failure
+- local fallback success
+- local fallback failure
+- retry
+- reload
+- authenticated user
+- guest/local user
+
+--------------------------------------------------
+10. PROFILE AND WARDROBE LOAD FAILURE UX
+--------------------------------------------------
+
+Improve reliability visibility for profile and wardrobe hydration.
+
+Requirements:
+
+- distinguish confirmed empty data from unavailable data where possible
+- do not turn Supabase outage into "your wardrobe is empty"
+- retain safe cached data where the current architecture already does so
+- expose retry/reload
+- preserve successful hydration behavior
+- do not modify database schema or queries unless required solely to preserve existing behavior
+
+Use AmodkaErrorState selectively.
+
+Do NOT redesign profile or wardrobe screens.
+
+--------------------------------------------------
+11. QUOTA-STORE FAILURE CLASSIFICATION
+--------------------------------------------------
+
+Fix the verified failure-open behavior in background-removal quota handling.
+
+Current problem:
+
+A database failure can be interpreted as zero usage.
+
+This MUST NOT remain true.
+
+Requirements:
+
+- distinguish:
+  A. no usage record
+  B. valid usage record
+  C. quota-store/database unavailable
+  D. malformed/unexpected result
+
+A database failure must NOT be treated as zero usage.
+
+Do not modify:
+
+- quota schema
+- RLS
+- Supabase policies
+- database migrations
+- database grants
+
+On dependency failure:
+
+- return a stable internal failure
+- report it
+- fail safely with respect to paid external API usage
+- preserve existing successful quota behavior
+
+Add tests for all four cases.
+
+--------------------------------------------------
+12. SIGN-OUT RELIABILITY
+--------------------------------------------------
+
+Improve sign-out failure visibility without changing the authentication architecture.
+
+Requirements:
+
+- preserve successful sign-out behavior
+- verify/ensure local identity/session cleanup is handled safely
+- distinguish remote sign-out failure from local cleanup
+- do not expose auth internals
+- show a retry/recovery path when secure local termination cannot be confirmed
+
+Do not redesign authentication.
+
+Test:
+
+- normal sign-out
+- offline sign-out
+- Supabase failure
+- local cleanup failure
+- repeated sign-out
+- app restart after sign-out
+
+--------------------------------------------------
+13. AMODKA ERROR STATE
+--------------------------------------------------
+
+Wire `AmodkaErrorState` only where it materially improves existing reliability:
+
+- startup recovery
+- profile/wardrobe load failure
+- selected retryable network/dependency failures
+
+Do NOT replace every Alert.
+
+Keep Alerts for:
+
+- validation
+- permissions
+- destructive confirmation
+- concise transactional feedback where appropriate
+
+Do not perform a visual redesign.
+
+--------------------------------------------------
+14. OBSERVABILITY DOCUMENTATION
+--------------------------------------------------
+
+Add concise documentation for the new reporting layer covering:
+
+- what is reported
+- what is prohibited
+- retention assumptions
+- access assumptions
+- request ID lookup
+- alerting limitations
+- future external provider integration
+
+Do not add a monitoring vendor.
+
+Do not claim that stdout/stderr is equivalent to a full production crash-monitoring platform.
+
+Clearly document it as the vendor-neutral foundation for a future provider.
+
+==================================================
+EXPLICITLY DEFERRED
+==================================================
+
+DO NOT implement these during this task:
+
+### Account deletion architecture
+
+The audit correctly identified partial-deletion risk.
+
+However, do NOT redesign account deletion now.
+
+You may improve error visibility only if it can be done without changing the deletion sequence, schema, RLS, Storage policies, or reconciliation architecture.
+
+Otherwise leave it untouched and document it as a separate follow-up.
+
+### Persistence/idempotency
+
+Do NOT implement:
+
+- operation records
+- replay
+- idempotency
+- advisory locks
+- transactional multi-item persistence
+- reconciliation
+- B5/B6 behavior
+- alternative bulk persistence architecture
+
+Those remain under the approved B0.3/B1 program.
+
+### External observability provider
+
+Do not install:
+
+- Sentry
+- Bugsnag
+- Crashlytics
+- or another external monitoring SDK
+
+That requires a separate decision.
+
+==================================================
+IMPLEMENTATION SAFETY PROCESS
+==================================================
+
+Before modifying anything:
+
+1. Inspect current git status.
+2. Record the existing test/typecheck/lint baseline.
+3. Confirm the working tree state.
+4. Do not overwrite unrelated user changes.
+5. Do not modify generated artifacts unnecessarily.
+
+Then implement the authorized scope incrementally.
+
+After each logical area, run the most relevant tests.
+
+Do not make a giant unrelated refactor.
+
+Prefer small, reviewable changes.
+
+==================================================
+REGRESSION REQUIREMENTS
+==================================================
+
+At the end, run:
+
+- npm test
+- npm run typecheck
+- npm run lint
+
+Also run the relevant existing:
+
+- classifier tests
+- recommendation tests
+- Phase A tests
+- benchmark tests
+
+DO NOT modify expected benchmark results.
+
+Verify:
+
+1. Recommendation Engine v3.7 outputs are unchanged.
+2. Classifier successful outputs remain compatible.
+3. Phase A group creation behavior is unchanged.
+4. Single-item successful persistence behavior is unchanged.
+5. Existing authentication success paths work.
+6. Existing wardrobe hydration success paths work.
+7. Existing image upload success paths work.
+8. Existing background-removal success paths work.
+9. Existing quota success behavior works.
+10. Existing telemetry event names/required fields remain unchanged.
+
+==================================================
+CHANGE BOUNDARY
+==================================================
+
+At completion provide:
+
+# Implementation Summary
+
+# Files Changed
+
+For every file:
+- why it changed
+- exact reliability issue addressed
+
+# Files Added
+
+For every new file:
+- purpose
+
+# Files Intentionally Untouched
+
+Especially protected systems.
+
+# Tests Added
+
+# Tests Run
+
+Include exact results.
+
+# Regression Verification
+
+Explicitly state the status of:
+
+- Recommendation Engine v3.7
+- classifier/taxonomy
+- Phase A
+- single-item persistence
+- B0.3/B1 boundary
+- benchmarks
+
+# Supabase Impact
+
+State explicitly:
+
+- whether any Supabase schema changed
+- whether any migration changed
+- whether any RLS changed
+- whether any Storage policy changed
+- whether any RPC changed
+- whether any database grant changed
+- whether any production database object changed
+
+Expected answer for this task:
+
+NO.
+
+# Package / Configuration Impact
+
+State whether packages or Expo/EAS configuration changed.
+
+Expected answer:
+
+NO, unless an unexpected technical requirement is discovered. If one is discovered, STOP and report it rather than installing it automatically.
+
+# Deferred Issues
+
+List issues deliberately left for later.
+
+# Remaining Risks
+
+Be explicit.
+
+==================================================
+STOP CONDITIONS
+==================================================
+
+STOP implementation and report immediately if:
+
+- a change appears to require Supabase schema changes
+- a migration appears necessary
+- an RLS change appears necessary
+- a Storage policy change appears necessary
+- an RPC change appears necessary
+- database grants need changing
+- a protected recommendation/classifier/Phase A file must change
+- package installation appears necessary
+- Expo/EAS/native configuration must change
+- persistence architecture must change
+- account deletion requires architectural redesign
+- the proposed fix would alter successful business behavior
+- existing user changes would be overwritten
+- a test failure indicates a protected-system regression
+
+Do NOT work around these conditions.
+
+==================================================
+FINAL ACCEPTANCE CRITERIA
+==================================================
+
+This task is complete only if:
+
+- startup cannot remain indefinitely blocked by the audited startup promises
+- splash recovery is bounded
+- root React failures are reported through the safe adapter
+- async reliability failures have a structured reporting path
+- sensitive information is excluded from reporting
+- server failures have correlation IDs
+- raw response/upstream bodies are not logged
+- shared HTTP requests have bounded deadlines
+- bulk auto-save cannot remain stuck indefinitely
+- authenticated upload failure is not presented as durable cloud success
+- profile/wardrobe unavailable state is distinguishable from confirmed empty state
+- quota-store failure cannot become zero usage
+- sign-out failure has explicit safe recovery
+- relevant tests pass
+- protected systems remain unchanged
+
+Do not interpret "complete" as permission to fix unrelated issues.
+
+After implementation and verification, STOP.
+
+Do not proceed automatically to payments, push notifications, virtual try-on, B3/B4/B5/B6/B7, Supabase Pro work, or the Luxury UI Refinement Pass.
+
+Return the implementation report only after all authorized work and verification is complete.

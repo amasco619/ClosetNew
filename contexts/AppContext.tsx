@@ -33,6 +33,8 @@ import {
 import { mapDbRowToWardrobeItem } from '../lib/wardrobeMapper';
 import { supabase } from '../lib/supabase';
 import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl, getSignedWardrobeUrl } from '../lib/storage';
+import { reportError } from '@/shared/observability';
+import { isCurrentStartupGeneration } from '@/shared/reliability-guards';
 import { rebaseGuestPhotoUri } from '../lib/rebaseGuestPhotoUri';
 import {
   RotationState, INITIAL_ROTATION_STATE,
@@ -63,6 +65,10 @@ interface AppContextValue {
   clearLastAddedSuggestions: () => void;
   isLoading: boolean;
   appReady: boolean;
+  startupError: boolean;
+  retryInitialization: () => void;
+  dataUnavailable: boolean;
+  entitlementUnavailable: boolean;
   isAuthenticated: boolean;
   canAddItem: boolean;
   itemCap: number;
@@ -215,6 +221,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isPremium, setIsPremium] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [appReady, setAppReady] = useState(false);
+  const [startupError, setStartupError] = useState(false);
+  const [startupAttempt, setStartupAttempt] = useState(0);
+  const [dataUnavailable, setDataUnavailable] = useState(false);
+  const [entitlementUnavailable, setEntitlementUnavailable] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [recommendationSlots, setRecommendationSlots] = useState<WardrobeSlot[]>([]);
   const [slotsInitialized, setSlotsInitialized] = useState(false);
@@ -229,8 +239,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [orphanedItems, setOrphanedItems] = useState<WardrobeItem[]>([]);
 
   const currentUserIdRef = useRef<string | null>(null);
+  const startupGenerationRef = useRef(0);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [startupAttempt]);
 
   // A7 — Foreground refresh: when the app returns from background the in-memory
   // signed URL cache may contain near-expired or expired tokens.  Re-resolve any
@@ -309,8 +320,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const userId = session.user.id;
           // Only update if this is still the active user (guard against stale events)
           if (currentUserIdRef.current !== userId) return;
-          const entitlement = await fetchAuthoritativeEntitlement().catch(() => null);
-          setIsPremium(entitlement?.isPremium ?? false);
+          try {
+            const entitlement = await fetchAuthoritativeEntitlement();
+            setEntitlementUnavailable(false);
+            setIsPremium(entitlement.isPremium);
+          } catch (error) {
+            setEntitlementUnavailable(true);
+            reportError(error, 'entitlement_refresh', { dependency: 'supabase' });
+          }
         }
       }
     );
@@ -356,6 +373,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [profileBlueprintKey, isPremium, wardrobeItems, slotsInitialized]);
 
   const loadData = async () => {
+    const generation = ++startupGenerationRef.current;
+    setStartupError(false);
+    setDataUnavailable(false);
+    setEntitlementUnavailable(false);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('startup initialization timeout')), 15000);
+    });
+    try {
+      await Promise.race([loadDataInner(generation), timeout]);
+    } catch (error) {
+      if (isCurrentStartupGeneration(generation, startupGenerationRef.current)) {
+        setStartupError(true);
+        reportError(error, 'startup_initialization', { dependency: 'app_bootstrap' });
+      }
+    } finally {
+      if (timer) clearTimeout(timer);
+      if (isCurrentStartupGeneration(generation, startupGenerationRef.current)) {
+        setIsLoading(false);
+        setAppReady(true);
+      }
+    }
+  };
+
+  const loadDataInner = async (generation: number) => {
+    const assertCurrent = () => {
+      if (!isCurrentStartupGeneration(generation, startupGenerationRef.current)) throw new Error('stale startup attempt');
+    };
     try {
       const [profileData, wardrobeData, slotsData, rotationData, wearData, reactionsData, moodData, savedLooksData] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.profile),
@@ -367,6 +412,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         AsyncStorage.getItem(STORAGE_KEYS.mood),
         AsyncStorage.getItem(STORAGE_KEYS.savedLooks),
       ]);
+      assertCurrent();
       const loadedProfile: UserProfile = profileData ? mergeProfile(JSON.parse(profileData)) : defaultProfile;
       if (profileData) setProfile(loadedProfile);
       const rawItems: WardrobeItem[] = wardrobeData ? JSON.parse(wardrobeData) : [];
@@ -436,6 +482,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }
           }),
         );
+        assertCurrent();
       }
       if (wardrobeData) setWardrobeItems(seededItems);
       if (texturePersistIds.size > 0 || rebasedPathIds.size > 0) {
@@ -465,7 +512,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       if (nonGuestFileUris.length > 0) {
         setTimeout(async () => {
-          const { orphans: unreachableItems, recovered: recoveredUpdates } =
+          try {
+            const { orphans: unreachableItems, recovered: recoveredUpdates } =
             await detectFileOrphans(
               nonGuestFileUris,
               uri => FileSystem.getInfoAsync(uri),
@@ -502,12 +550,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
           // Surface items whose photo could not be recovered so the user can
           // choose to remove or re-add them.
-          if (unreachableItems.length > 0) {
-            setOrphanedItems(prev => {
-              const existing = new Set(prev.map(o => o.id));
-              const toAdd = unreachableItems.filter(it => !existing.has(it.id));
-              return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
-            });
+            if (unreachableItems.length > 0) {
+              setOrphanedItems(prev => {
+                const existing = new Set(prev.map(o => o.id));
+                const toAdd = unreachableItems.filter(it => !existing.has(it.id));
+                return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+              });
+            }
+          } catch (error) {
+            reportError(error, 'orphan_scan', { dependency: 'local_storage' });
           }
         }, 1000);
       }
@@ -563,8 +614,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       // Check for an existing Supabase session and load DB data before
       // signalling ready — eliminates the race with onAuthStateChange.
-      const { data: { session: initSession } } = await supabase.auth.getSession()
-        .catch(() => ({ data: { session: null } }));
+      const { data: { session: initSession }, error: sessionError } = await supabase.auth.getSession();
+      assertCurrent();
+      if (sessionError) throw sessionError;
       if (initSession?.user) {
         const initUserId = initSession.user.id;
         const initAuthName: string =
@@ -573,15 +625,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           '';
         if (currentUserIdRef.current !== initUserId) {
           currentUserIdRef.current = initUserId;
-          await loadUserDataFromDB(initUserId, initAuthName, loadedProfile);
+          await loadUserDataFromDB(initUserId, initAuthName, loadedProfile, generation);
+          assertCurrent();
         }
         setIsAuthenticated(true);
       }
-    } catch (e) {
-      console.error('Failed to load data:', e);
-    } finally {
-      setIsLoading(false);
-      setAppReady(true);
+    } catch (error) {
+      reportError(error, 'startup_hydration', { dependency: 'app_context' });
+      throw error;
     }
   };
 
@@ -593,7 +644,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     userId: string,
     authName: string,
     localSnap: UserProfile | null,
+    startupGeneration?: number,
   ) => {
+    const assertCurrent = () => {
+      if (startupGeneration !== undefined && !isCurrentStartupGeneration(startupGeneration, startupGenerationRef.current)) {
+        throw new Error('stale startup attempt');
+      }
+    };
+    assertCurrent();
     // Clear guest mode on any sign-in so local data is preserved
     // but the user transitions to an authenticated account.
     setProfile(prev => {
@@ -623,9 +681,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         getAffinitySignals(userId),
         getPairAffinitySignals(userId),
       ]);
+      assertCurrent();
 
       // Load saved looks separately — table may not exist yet for some users
       const dbSavedLooks = await getSavedLooks(userId).catch(() => []);
+      assertCurrent();
 
       // A "blank" account has never completed onboarding on this or any device
       const isNewBlankAccount = !dbProfile || (
@@ -770,8 +830,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(forStorage));
       }
 
-      const entitlement = await fetchAuthoritativeEntitlement().catch(() => null);
-      setIsPremium(entitlement?.isPremium ?? false);
+      try {
+        const entitlement = await fetchAuthoritativeEntitlement();
+        assertCurrent();
+        setEntitlementUnavailable(false);
+        setIsPremium(entitlement.isPremium);
+      } catch (error) {
+        if (startupGeneration !== undefined && !isCurrentStartupGeneration(startupGeneration, startupGenerationRef.current)) {
+          throw error;
+        }
+        setEntitlementUnavailable(true);
+        reportError(error, 'entitlement_retrieval', { dependency: 'supabase' });
+      }
 
       if (logs && logs.length > 0) {
         const mappedLogs: WearEntry[] = logs.map((l: any) => ({
@@ -796,7 +866,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         AsyncStorage.setItem(STORAGE_KEYS.savedLooks, JSON.stringify(mappedLooks));
       }
     } catch (err: any) {
-      console.error('[AppContext] DB data load error:', err.message);
+      if (startupGeneration !== undefined && startupGeneration !== startupGenerationRef.current) {
+        throw err;
+      }
+      setDataUnavailable(true);
+      reportError(err, 'profile_wardrobe_hydration', { dependency: 'supabase' });
     }
   };
 
@@ -1324,7 +1398,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({
     profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
     isPremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
-    isLoading, appReady, isAuthenticated, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
+    isLoading, appReady, isAuthenticated, startupError, dataUnavailable, entitlementUnavailable,
+    retryInitialization: () => {
+      setStartupError(false);
+      setIsLoading(true);
+      setAppReady(false);
+      setStartupAttempt(value => value + 1);
+    },
+    canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
     wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
     todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
     profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,
@@ -1337,7 +1418,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     orphanedItems, resolveOrphan,
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
        isPremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
-       isLoading, appReady, isAuthenticated, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
+       isLoading, appReady, isAuthenticated, startupError, dataUnavailable, entitlementUnavailable, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
        todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
        profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,

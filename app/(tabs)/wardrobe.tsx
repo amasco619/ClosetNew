@@ -11,6 +11,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { rs } from '../../lib/responsive';
+import { AmodkaErrorState } from '@/components/AmodkaErrorState';
 
 type ViewMode = 'list' | 'grid';
 
@@ -38,7 +39,7 @@ const formatSeasonTag = (tag: string) =>
 
 export default function WardrobeScreen() {
   const insets = useSafeAreaInsets();
-  const { wardrobeItems, activeWardrobeItems, canAddItem, isPremium, isGuest, itemCap } = useApp();
+  const { wardrobeItems, activeWardrobeItems, canAddItem, isPremium, isGuest, itemCap, dataUnavailable, retryInitialization } = useApp();
   const [filter, setFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
@@ -59,6 +60,10 @@ export default function WardrobeScreen() {
   const filteredItems = filter === 'all'
     ? activeWardrobeItems
     : activeWardrobeItems.filter(item => item.category === filter);
+
+  if (dataUnavailable) {
+    return <AmodkaErrorState type="network" onRetry={retryInitialization} />;
+  }
 
   const handleAdd = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
