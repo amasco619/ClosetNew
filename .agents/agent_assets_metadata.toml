@@ -407,3 +407,17 @@ mtime_ms = 1789774974942
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/a4f314e2-3b62-486a-974e-2a031a40d165/8c109b80-be25-497c-99ce-74825b39007b"
 storage_version_token = "1789774989440874"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "6h7cKY9KP2XYjvB-N_PpP"
+uri = "file://reports/amodka-deployment-reliability-pass-task-1-error-handling-audit.md"
+type = "text"
+title = "Amodka Deployment Reliability Pass — Task 1 Audit"
+description = "Complete downloadable 17-section audit and implementation specification for error handling, recovery, startup reliability, offline behavior, observability, data safety, implementation scope, dependencies, regression risks, and tests."
+logical_id = "319d9d91-c558-4600-86fb-9ad16d612c95"
+content_hash = "sha256:32760d6f390ce08116889a58a040a260bc42d47e6eae8fe3fa41c94df14f8a24"
+size = 22926
+mtime_ms = 1790006866946
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/319d9d91-c558-4600-86fb-9ad16d612c95/b95196cf-27dc-43a9-a4d2-1c4b203d4fb9"
+storage_version_token = "1790006882233684"
+content_type = "text/markdown"
