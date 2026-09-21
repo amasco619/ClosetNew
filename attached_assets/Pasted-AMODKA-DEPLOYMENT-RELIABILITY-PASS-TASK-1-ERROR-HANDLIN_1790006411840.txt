@@ -1,0 +1,515 @@
+AMODKA — DEPLOYMENT RELIABILITY PASS
+TASK 1: ERROR HANDLING, RECOVERY & STARTUP RELIABILITY
+PHASE: AUDIT / IMPLEMENTATION SPECIFICATION ONLY
+STATUS: READ-ONLY — DO NOT MODIFY THE CODEBASE
+
+You are working on Amodka, a production-oriented luxury fashion/wardrobe application.
+
+Your immediate task is NOT to implement changes.
+
+Your task is to perform a rigorous codebase audit and produce an implementation-ready specification for the first Deployment Reliability Pass, focused specifically on:
+
+1. Global error handling
+2. User-facing error/recovery UX
+3. Silent error/catch paths
+4. Startup/bootstrap reliability
+5. Splash-screen/init timeout/recovery behaviour
+6. Offline/network failure handling
+7. Retry/recovery consistency
+8. Production-safe error observability architecture
+
+IMPORTANT:
+This is an AUDIT-ONLY task.
+
+DO NOT:
+- modify any source files
+- create or modify migrations
+- modify Supabase schema
+- modify Supabase RLS
+- modify Supabase Storage policies
+- modify Supabase RPCs/functions
+- modify database grants
+- modify environment variables
+- install new packages
+- change package versions
+- alter app configuration
+- alter Expo/EAS configuration
+- modify the Recommendation Engine
+- modify classifier/taxonomy logic
+- modify Phase A garment grouping/persistence behaviour
+- modify benchmarks
+- modify wardrobe recommendation scoring/ranking
+- implement B5/B6/B7
+- implement payments
+- implement push notifications
+- implement virtual try-on
+- perform the Luxury UI Refinement Pass
+- make unrelated cleanup/refactoring changes
+- "fix" issues you discover during the audit
+
+Do not assume that an issue should be fixed simply because you discover it.
+
+==================================================
+PROTECTED SYSTEMS / NON-NEGOTIABLE BOUNDARIES
+==================================================
+
+The following areas are protected and must remain untouched during this task:
+
+- Recommendation Engine v3.7
+- classifier and taxonomy
+- Phase A
+- existing garment-group creation behaviour
+- existing single-item persistence behaviour
+- benchmark infrastructure/results
+- approved B0.3 multi-item persistence architecture
+- Supabase production database
+- Supabase migrations
+- Supabase RLS policies
+- Supabase Storage policies
+- Supabase RPC/function definitions
+- authentication architecture unless a specific error-handling dependency is identified
+- payment architecture
+- push-notification architecture
+- virtual try-on architecture
+
+If your audit discovers a reliability issue inside one of these systems, REPORT it, but DO NOT modify it.
+
+==================================================
+KNOWN CONTEXT
+==================================================
+
+The current deployment-readiness inventory identified the following potential reliability gaps:
+
+- Global ErrorBoundary exists.
+- ErrorFallback exists.
+- AmodkaErrorState exists but may not be meaningfully wired into all relevant flows.
+- Some boot/migration/profile/sign-out paths may silently catch errors.
+- There is no confirmed production error reporter.
+- There is no confirmed coherent global offline/retry strategy.
+- Splash/init behaviour may be capable of hanging under certain failure conditions.
+
+These are hypotheses from the deployment inventory.
+
+Do NOT assume they are still accurate.
+
+Verify each one against the CURRENT codebase.
+
+==================================================
+AUDIT OBJECTIVES
+==================================================
+
+A. MAP THE CURRENT ERROR ARCHITECTURE
+
+Identify and document:
+
+- root application layout
+- ErrorBoundary implementation
+- ErrorFallback implementation
+- AmodkaErrorState implementation
+- existing error types/classes
+- API/network error handling
+- Supabase error handling
+- authentication error handling
+- upload error handling
+- wardrobe/add-item error handling
+- outfit-generation/recommendation error handling
+- profile error handling
+- sign-out error handling
+- account deletion error handling
+- onboarding error handling
+- migration/bootstrap error handling
+- startup/font/loading state handling
+- splash-screen lifecycle
+- navigation-level error handling
+- async operation handling
+- retry mechanisms
+- alert/toast/modal error mechanisms
+
+Build a concise map of where errors currently flow.
+
+B. FIND SILENT FAILURE PATHS
+
+Search the codebase for patterns such as:
+
+- empty catch blocks
+- console-only error handling
+- swallowed Promise rejections
+- catch blocks that return fallback values without recording the failure
+- async operations whose failures are ignored
+- fire-and-forget promises
+- loading states that can remain permanently active
+- state transitions that can leave the UI stuck
+- navigation flows that can fail without user feedback
+- startup operations that can prevent the app from becoming usable
+
+Do not automatically classify every console.error as a defect.
+
+For each finding explain:
+
+- file
+- function/component
+- failure scenario
+- current behaviour
+- user-visible consequence
+- whether recovery currently exists
+- severity
+- recommended treatment
+
+C. STARTUP / SPLASH RELIABILITY
+
+Trace the complete startup sequence.
+
+Determine:
+
+1. What happens from native launch to first usable screen?
+2. Which asynchronous operations must complete before the app becomes usable?
+3. Which operations can fail?
+4. What happens when each fails?
+5. Can any operation indefinitely prevent startup?
+6. Is there a timeout?
+7. Is there a fallback?
+8. Can the user retry?
+9. Can the user continue in a degraded/offline state?
+10. Can the app become permanently stuck on the splash/loading state?
+
+Document the actual control flow.
+
+Do not redesign startup.
+
+D. OFFLINE / NETWORK FAILURE
+
+Audit how the app behaves when:
+
+- there is no internet connection
+- connection drops during an API request
+- connection drops during image upload
+- connection drops during authentication
+- connection drops during profile loading
+- connection drops during wardrobe loading
+- connection drops during outfit generation
+- a request times out
+- Supabase is temporarily unavailable
+- an external API fails
+- an external API returns malformed/unexpected data
+
+Determine which flows already have recovery behaviour and which do not.
+
+Do not introduce an offline architecture at this stage.
+
+E. USER-FACING ERROR UX
+
+Audit consistency of error presentation.
+
+Determine where the app currently uses:
+
+- Alert
+- Toast
+- Modal
+- Inline error
+- AmodkaErrorState
+- ErrorFallback
+- Retry button
+- Navigation fallback
+- Silent recovery
+- Console-only reporting
+
+Determine whether the same class of failure is presented consistently across the app.
+
+Pay particular attention to whether the UX communicates:
+
+- what happened
+- whether the user's data is safe
+- what the user can do next
+- whether retrying is appropriate
+- whether the failure is temporary
+- whether the user should leave/restart the flow
+
+Do NOT redesign the visual system.
+
+F. OBSERVABILITY
+
+Determine exactly what production observability currently exists.
+
+Inspect for:
+
+- Sentry
+- Bugsnag
+- Firebase Crashlytics
+- Expo Application Services crash/error facilities
+- custom logging
+- analytics events
+- server-side logging
+- Supabase logging dependencies
+- structured error logging
+
+Do not install or recommend a specific vendor yet.
+
+If observability is absent or incomplete, document what minimum capability is required for launch and what information it should capture.
+
+Pay special attention to avoiding:
+
+- passwords
+- access tokens
+- refresh tokens
+- authorization headers
+- signed Storage URLs
+- personal data
+- wardrobe image contents
+- sensitive profile data
+- raw database credentials
+- secrets
+
+G. ERROR CLASSIFICATION
+
+Determine whether the current application has a coherent distinction between categories such as:
+
+- validation error
+- authentication error
+- authorization error
+- network error
+- timeout
+- server error
+- dependency/external API failure
+- upload failure
+- database failure
+- unexpected programming error
+- unavailable/offline state
+
+If classification is inconsistent, document the minimum architecture needed to make it consistent.
+
+Do not implement it.
+
+H. RECOVERY SEMANTICS
+
+For each important user flow, determine whether the correct response to failure is:
+
+- retry
+- retry after connection restored
+- return to previous screen
+- restart the operation
+- reload data
+- abandon operation
+- show degraded state
+- show support/contact path
+- terminate the flow safely
+
+Do not invent behaviour.
+
+Base recommendations on the existing flow and its data-safety characteristics.
+
+I. DATA SAFETY
+
+Specifically identify operations where a failed request could potentially result in:
+
+- duplicate records
+- duplicate uploads
+- partially completed operations
+- stale local state
+- inconsistent UI state
+- lost user input
+- repeated side effects
+
+This is an audit only.
+
+Do NOT implement idempotency or persistence changes.
+
+If such a risk intersects with the approved B0.3 architecture, flag it explicitly as a future dependency rather than changing it.
+
+==================================================
+REQUIRED OUTPUT
+==================================================
+
+Produce ONE structured report.
+
+Use exactly these sections:
+
+# 1. Executive Summary
+
+Give a concise assessment of the current reliability architecture.
+
+Do not use vague statements such as "needs improvement."
+
+State what is actually present and what is actually missing.
+
+# 2. Current Error Architecture
+
+Show the existing error-handling architecture and relevant files.
+
+# 3. Verified Reliability Findings
+
+Create a table:
+
+| ID | Area | File(s) | Current Behaviour | Failure Scenario | User Impact | Severity | Existing Recovery |
+|----|------|---------|-------------------|------------------|------------|----------|-------------------|
+
+Only include verified findings.
+
+# 4. Silent / Swallowed Error Audit
+
+List every meaningful silent failure path discovered.
+
+For each provide:
+
+- location
+- trigger
+- current behaviour
+- consequence
+- proposed treatment
+
+# 5. Startup & Splash Audit
+
+Document the actual startup sequence and identify:
+
+- blocking operations
+- non-blocking operations
+- timeout behaviour
+- failure behaviour
+- recovery behaviour
+- potential indefinite loading conditions
+
+# 6. Offline & Network Failure Audit
+
+Provide a flow-by-flow assessment.
+
+# 7. User-Facing Error UX Audit
+
+Assess current consistency without proposing a visual redesign.
+
+# 8. Production Observability Audit
+
+State exactly what exists today.
+
+Then identify the minimum launch requirement.
+
+Do not select a vendor unless the codebase already contains one.
+
+# 9. Data-Safety / Partial-Failure Risks
+
+Identify any risk of duplicated, partially completed, or lost operations.
+
+Clearly distinguish existing behaviour from future recommendations.
+
+# 10. Proposed Implementation Scope
+
+Define the smallest sensible implementation that would address the verified launch-relevant issues.
+
+Organize it into:
+
+### P0 — Must fix before release
+### P1 — Should fix before release
+### P2 — Post-launch / optional
+
+Do NOT rank the product as a whole.
+
+This is an engineering priority classification only.
+
+# 11. Exact Files Expected to Change
+
+List every file that would likely need modification during implementation.
+
+If a new file may be required, identify it.
+
+If configuration/package changes might be required, identify them separately.
+
+# 12. Files That MUST NOT Change
+
+Explicitly list protected files/systems that the implementation should avoid.
+
+# 13. Test Plan
+
+Specify the exact tests that should be added or executed.
+
+Include:
+
+- unit tests
+- component tests
+- integration tests where applicable
+- startup failure tests
+- network failure tests
+- retry tests
+- authentication failure tests
+- upload failure tests
+- profile failure tests
+- unexpected exception tests
+- regression tests
+
+Do not write the tests yet.
+
+# 14. Supabase / Pro Dependency Check
+
+For every proposed change, explicitly state:
+
+- No Supabase dependency
+- Existing Supabase capability only
+- Requires Supabase schema change
+- Requires Supabase Pro
+- Requires final pre-launch Pro gate
+
+Be extremely conservative.
+
+Do not classify something as Pro-required merely because Supabase is involved.
+
+# 15. Protected-System Regression Risks
+
+Explain whether any proposed reliability change could affect:
+
+- Recommendation Engine v3.7
+- classifier/taxonomy
+- Phase A
+- garment grouping
+- single-item persistence
+- B0.3/B1 persistence boundary
+- benchmark results
+
+# 16. Implementation Sequence
+
+Provide the proposed implementation sequence only.
+
+Do not implement it.
+
+# 17. STOP / Approval Gate
+
+End the report with:
+
+"IMPLEMENTATION STATUS: NOT AUTHORIZED"
+
+Then state:
+
+"No code, configuration, database, migration, dependency, or environment changes were made during this audit."
+
+==================================================
+IMPORTANT ENGINEERING RULES
+==================================================
+
+1. Inspect before proposing.
+2. Verify against the current codebase rather than relying on the deployment inventory.
+3. Do not assume a known issue still exists.
+4. Do not make unrelated improvements.
+5. Do not refactor merely for style.
+6. Do not change architecture unless required by a verified reliability issue.
+7. Preserve existing behaviour wherever possible.
+8. Prefer the smallest safe implementation.
+9. Do not introduce dependencies during the audit.
+10. Do not modify production systems.
+11. Do not modify Supabase.
+12. Do not modify protected recommendation/classifier/Phase A systems.
+13. Do not implement B5/B6/B7.
+14. Do not implement payments, push notifications, virtual try-on, or the luxury UI refinement.
+15. Do not modify files during this task.
+16. Do not run destructive commands.
+17. Do not reset databases.
+18. Do not delete data.
+19. Do not upgrade packages.
+20. Do not claim a capability exists unless you verified it in the current codebase.
+
+==================================================
+FINAL INSTRUCTION
+==================================================
+
+Perform the audit now.
+
+DO NOT IMPLEMENT ANYTHING.
+
+Return the complete report and STOP.
+
+We will review the report separately before authorizing implementation.
