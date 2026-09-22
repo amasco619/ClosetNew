@@ -1,0 +1,654 @@
+AMODKA — B1/B2 MULTI-ITEM CLASSIFIER CONTRACT AUDIT
+MODE: READ-ONLY / INSPECTION ONLY
+AUTHORIZATION: AUDIT ONLY — DO NOT MODIFY ANYTHING
+
+We have just completed the authorized B1/B2 implementation.
+
+Your task now is to perform a rigorous READ-ONLY contract audit of the implementation against:
+
+1. The project-specific Phase B specification:
+   phase-b-multi-item-coord-implementation-specification.md
+
+2. The authorized B1/B2 implementation scope.
+
+3. The existing protected Amodka architecture.
+
+DO NOT implement, refactor, optimize, clean up, rename, format, add tests, alter docs, modify configuration, or make any source changes.
+
+DO NOT:
+- modify Supabase
+- execute migrations
+- create or modify tables/RLS/grants/functions
+- access or modify Storage
+- modify WardrobeItem
+- modify create_garment_group()
+- modify Recommendation Engine v3.7
+- modify scoring/ranking/generation/rotation
+- modify the existing scalar classifier contract
+- modify classifier taxonomy/heuristics
+- begin B3
+- begin B4
+- create operation IDs
+- create persistence manifests
+- create Storage orchestration
+- create persistence RPCs
+- modify B5/B6/B7
+- install packages
+- modify package files
+- modify environment/configuration
+- modify benchmark fixtures or expected results
+
+If you discover a defect, REPORT it. Do not fix it.
+
+==================================================
+A. SOURCE OF TRUTH
+==================================================
+
+First inspect:
+
+- phase-b-multi-item-coord-implementation-specification.md
+- the files changed/added by the B1/B2 implementation
+- existing scalar classifier implementation
+- existing classifier route registration
+- existing scalar classifier tests
+- relevant Phase A group types/schema/RPC definitions
+- relevant protected-system tests
+
+Confirm the exact B1/B2 contract from the project specification before judging the implementation.
+
+Do not substitute a generic multi-object-classification design for the project's specification.
+
+==================================================
+B. B1 ISOLATION AUDIT
+==================================================
+
+Verify all of the following:
+
+1. A distinct multi-item endpoint/path exists.
+
+2. Existing:
+   POST /api/classify-garment
+
+   remains behaviorally unchanged.
+
+3. No single-item flow is silently rerouted through the multi-item classifier.
+
+4. The new path can be independently disabled.
+
+5. The disable mechanism occurs before provider/AI I/O.
+
+6. Existing authentication boundaries are preserved.
+
+7. Existing rate limiting/concurrency controls are preserved appropriately.
+
+8. No persistence occurs from B1.
+
+9. No Storage operation occurs from B1.
+
+10. No group creation occurs from B1.
+
+11. No operation ID is generated from B1.
+
+12. No wardrobe-item UUID is generated from B1.
+
+13. No client upload orchestration has been introduced.
+
+Report the exact source locations supporting each finding.
+
+==================================================
+C. B1 ENVELOPE CONTRACT
+==================================================
+
+Audit the actual returned envelope.
+
+Verify:
+
+- schema version exists and is deterministic
+- source reference is minimal and safe
+- items[] is present and typed
+- item count is explicit/derivable consistently
+- minimum item count is enforced
+- maximum item count is exactly the contract's maximum
+- each item has a classifier-local detection identity
+- each item has validated source-region provenance
+- each item contains the normalized scalar ClassificationResult
+- relationship metadata exists exactly as specified
+- relationship membership is explicit
+- relationship confidence is validated
+- shared attributes follow the approved contract
+- no persistence identity is exposed as classifier identity
+
+Determine whether the public envelope contains anything that should instead remain provider-internal.
+
+==================================================
+D. B2 NORMALIZATION AUDIT
+==================================================
+
+Verify that each detected garment is passed through the EXISTING:
+
+processGeminiResult()
+
+without changing its semantics.
+
+Confirm:
+
+- category validation remains unchanged
+- subtype validation remains unchanged
+- colour validation remains unchanged
+- existing guardrails remain unchanged
+- existing derived fields remain unchanged
+- existing confidence behavior remains unchanged
+- existing scalar taxonomy remains unchanged
+
+Then verify the multi-item layer adds envelope-level validation around that scalar normalization.
+
+IMPORTANT:
+
+A single invalid item must invalidate the entire multi-item envelope.
+
+There must be no:
+- silent dropping
+- partial acceptance
+- silent substitution
+- silent defaulting of invalid classifier fields
+- partial persistence
+
+Identify any place where invalid provider data could still escape.
+
+==================================================
+E. DETECTION IDENTITY AUDIT
+==================================================
+
+Verify the distinction between:
+
+1. provider-local detection identity
+2. public classifier detection identity
+3. future wardrobe item UUID
+4. future operation UUID
+
+These must not be conflated.
+
+Verify that:
+
+- provider IDs are not treated as persistent IDs
+- public detection IDs are classifier-result scoped
+- public IDs are deterministic
+- public IDs are assigned only after canonical ordering
+- IDs cannot collide within one result
+- IDs are never persisted
+- no operation UUID or wardrobe UUID is generated by B1/B2
+
+==================================================
+F. DETERMINISTIC ORDERING AUDIT
+==================================================
+
+Inspect the exact comparator.
+
+Verify that canonical ordering is deterministic and independent of provider array order.
+
+Specifically verify:
+
+- coordinate normalization/quantization
+- y ordering
+- x ordering
+- height ordering
+- width ordering
+- final tie-breaker
+- deterministic public detection ID assignment
+- relationship membership ordering
+
+Test or reason through cases involving:
+
+- provider response reordered
+- identical regions
+- near-identical floating point coordinates
+- quantization collisions
+- identical region geometry with different provider IDs
+
+Report any nondeterminism.
+
+==================================================
+G. REGION / PROVENANCE SECURITY AUDIT
+==================================================
+
+Inspect all provider-region handling.
+
+Verify:
+
+- x/y/width/height bounds
+- finite-number validation
+- overflow rejection
+- malformed-region rejection
+- nested provider fields cannot escape
+- only approved public region fields survive
+- no signed URLs escape
+- no provider image URLs escape
+- no arbitrary remote references escape
+- no filesystem paths escape
+- no raw provider response is included in the public result
+
+Pay particular attention to nested objects and unexpected provider fields.
+
+==================================================
+H. RELATIONSHIP SEMANTICS AUDIT
+==================================================
+
+Verify that only the project-approved relationship types are accepted:
+
+- coordinated_set
+- multi_item
+- layered
+
+Verify:
+
+- confidence is finite
+- confidence is within 0..1
+- invalid confidence is rejected rather than silently transformed unless the specification explicitly requires transformation
+- every detected item is referenced exactly once
+- unknown member IDs are rejected
+- duplicate members are rejected
+- missing members are rejected
+- relationship membership cannot refer to nonexistent detections
+- ordering is deterministic
+
+Audit shared attributes:
+
+- colorFamily
+- pattern
+- fabric
+- occasion
+
+Verify that a shared value is accepted only when consistent with every normalized member, exactly according to the specification.
+
+Do not infer additional shared attributes.
+
+==================================================
+I. WHOLE-ENVELOPE ATOMIC VALIDATION
+==================================================
+
+This is a critical gate.
+
+Verify that validation is all-or-nothing at the classifier-contract level.
+
+Cases to inspect:
+
+1. valid item + valid item
+2. valid item + invalid category
+3. valid item + invalid subtype
+4. valid item + invalid colour
+5. valid item + guardrail failure
+6. valid item + malformed region
+7. valid item + duplicate detection ID
+8. valid item + duplicate canonical region
+9. valid items + missing relationship
+10. valid items + invalid relationship
+11. valid items + incomplete membership
+12. valid items + duplicate membership
+13. valid items + unknown membership
+14. empty item list
+15. one-item result
+16. excessive item count
+17. malformed provider envelope
+
+For each case, determine whether the implementation correctly rejects the entire envelope.
+
+==================================================
+J. PROVIDER DATA LEAKAGE AUDIT
+==================================================
+
+Search the complete B1/B2 implementation for:
+
+- raw Gemini responses
+- provider error messages
+- provider URLs
+- signed URLs
+- internal provider IDs
+- provider-specific nested fields
+- secrets
+- image data
+- request payloads
+- credentials
+- internal stack traces
+
+Determine whether any can reach:
+
+- HTTP response
+- structured result
+- logs
+- thrown errors
+- test-visible response bodies
+
+Compare against the existing reliability/security logging rules.
+
+If any leakage exists, report the exact location.
+
+==================================================
+K. ERROR / HTTP CONTRACT AUDIT
+==================================================
+
+Verify:
+
+- authentication failure behavior
+- disabled-feature behavior
+- malformed request behavior
+- provider malformed-response behavior
+- provider timeout behavior
+- provider network failure behavior
+- 429 behavior
+- upstream 5xx behavior
+- unexpected internal errors
+
+Confirm that safe external errors remain distinct where the existing reliability contract requires them.
+
+Verify that raw provider details are not returned.
+
+Verify that two-model 429 fallback remains intact.
+
+Do not modify the implementation.
+
+==================================================
+L. ROUTE REGISTRATION AUDIT
+==================================================
+
+Inspect the real route registration.
+
+Verify:
+
+- endpoint is actually registered
+- middleware order is correct
+- authentication is actually enforced
+- feature flag is actually respected
+- rate limiter/concurrency limiter applies to the intended route
+- legacy route remains unchanged
+
+Perform inspection of the route wiring rather than relying only on unit tests.
+
+==================================================
+M. TEST COVERAGE AUDIT
+==================================================
+
+Inspect the actual new tests and existing relevant tests.
+
+Do not merely count tests.
+
+Map tests against:
+
+### B1
+- endpoint registration
+- authentication
+- feature disable before provider call
+- valid 2-item envelope
+- valid 3-item envelope
+- maximum count
+- excessive count
+- malformed envelope
+- provider error handling
+
+### B2
+- scalar normalization reuse
+- invalid category
+- invalid subtype
+- invalid colour
+- guardrail failure
+- whole-envelope rejection
+- duplicate detection identity
+- duplicate canonical region
+- relationship validation
+- membership validation
+- deterministic ordering
+- provider-field allowlisting
+- signed URL exclusion
+- raw provider-response exclusion
+
+### Isolation
+- no DB calls
+- no Storage calls
+- no create_garment_group()
+- no operation persistence
+- no wardrobe persistence
+
+Identify meaningful uncovered cases.
+
+Do NOT add tests.
+
+==================================================
+N. REGRESSION AUDIT
+==================================================
+
+Verify that B1/B2 did not alter:
+
+- server/classify-garment.ts
+- existing /api/classify-garment behavior
+- processGeminiResult() semantics
+- classifier taxonomy
+- classifier heuristics
+- Recommendation Engine v3.7
+- scoring
+- ranking
+- outfit generation
+- rotation
+- WardrobeItem
+- Phase A group schema
+- Phase A group RPCs
+- Phase A RLS/ACL
+- benchmark fixtures
+- golden expected results
+- single-item upload flow
+
+Inspect git diff/status.
+
+Report ALL changed files, including untracked files.
+
+Do not assume that a file is protected merely because the implementation report says it was untouched.
+
+==================================================
+O. B3 BOUNDARY AUDIT
+==================================================
+
+This section is critical.
+
+Determine whether any B3 work accidentally entered the implementation.
+
+B1/B2 MUST NOT contain:
+
+- client construction of WardrobeItem records
+- persistence transformation
+- wardrobe UUID generation
+- operation UUID generation
+- Storage path generation for persistence
+- upload orchestration
+- local pending manifest
+- canonical persistence payload
+- database writes
+- Storage writes
+- retry/reconciliation state
+- persistence lifecycle state
+
+If any are present, classify them as scope leakage.
+
+Do not fix them.
+
+==================================================
+P. B3 INPUT CONTRACT READINESS
+==================================================
+
+Without implementing B3, determine whether B1/B2 now provides everything B3 legitimately needs.
+
+Answer explicitly:
+
+1. Can B3 receive N validated scalar ClassificationResults?
+2. Can B3 deterministically identify each detected garment within the classifier result?
+3. Can B3 obtain validated region provenance?
+4. Can B3 obtain relationship type?
+5. Can B3 obtain relationship confidence?
+6. Can B3 obtain validated shared attributes?
+7. Can B3 know the complete membership set?
+8. Is the ordering deterministic?
+9. Is there any remaining ambiguity that would force B3 to interpret provider-specific data?
+
+Do not design new B3 behavior unless required to identify a missing contract element.
+
+==================================================
+Q. SUPABASE / PROTECTED-SYSTEM INTEGRITY
+==================================================
+
+Confirm through inspection that this implementation made:
+
+- no Supabase source changes
+- no migrations
+- no schema changes
+- no RLS changes
+- no ACL/grant changes
+- no RPC changes
+- no Storage changes
+
+Also confirm no modifications to:
+
+- B0.3 operation contract
+- B1/B2 specification
+- B5/B6/B7 designs
+- Phase A group behavior
+
+==================================================
+R. PACKAGE / CONFIGURATION INTEGRITY
+==================================================
+
+Inspect:
+
+- package.json
+- package-lock.json / lockfile
+- environment/config files
+- workflow files
+
+Confirm whether anything changed.
+
+The implementation must not require new packages.
+
+The feature flag must be an optional runtime switch only.
+
+==================================================
+S. REQUIRED TEST EXECUTION
+==================================================
+
+This is an audit, so you MAY execute existing tests and read-only validation commands.
+
+Run:
+
+- npm test
+- npm run typecheck
+- npm run lint
+- git diff --check
+
+Also run the relevant focused suites for:
+
+- multi-item classifier
+- scalar classifier
+- Phase A garment groups
+- Recommendation Engine v3.7 golden set
+
+Do not edit anything if a test fails.
+
+Report exact results.
+
+==================================================
+T. FINAL CLASSIFICATION
+==================================================
+
+Give exactly one of:
+
+PASS
+PASS WITH NON-BLOCKING FINDINGS
+BLOCKED
+
+Use BLOCKED if any of the following are true:
+
+- legacy scalar contract changed
+- B1 is not actually isolated
+- B2 does not provide whole-envelope validation
+- invalid members can be silently accepted/dropped
+- provider data can leak
+- relationship membership is ambiguous
+- deterministic ordering is not guaranteed
+- authentication boundary is broken
+- persistence/Storage work leaked into B1/B2
+- protected systems changed
+- tests/regression checks fail
+- package/config scope expanded unexpectedly
+- B3 input contract remains materially ambiguous
+
+If BLOCKED, do not propose broad redesign.
+
+List only the minimum surgical remediation items required.
+
+If PASS or PASS WITH NON-BLOCKING FINDINGS, explicitly state:
+
+"READY FOR B3 SPECIFICATION REVIEW"
+
+Do NOT authorize B3 implementation.
+
+==================================================
+U. REQUIRED FINAL REPORT FORMAT
+==================================================
+
+Return:
+
+# B1/B2 Contract Audit Report
+
+## 1. Verdict
+PASS / PASS WITH NON-BLOCKING FINDINGS / BLOCKED
+
+## 2. Specification Compliance
+Table:
+Requirement | Status | Evidence
+
+## 3. B1 Isolation
+Findings with exact file/line references.
+
+## 4. B2 Normalization & Validation
+Findings with exact file/line references.
+
+## 5. Detection Identity & Determinism
+Findings.
+
+## 6. Relationship Contract
+Findings.
+
+## 7. Security / Leakage
+Findings.
+
+## 8. Error / HTTP Contract
+Findings.
+
+## 9. Test Coverage
+Executed tests and gaps.
+
+## 10. Protected-System Integrity
+Exact verification.
+
+## 11. Scope / Diff Integrity
+All modified/untracked files.
+
+## 12. B3 Input Readiness
+Explicit answers to questions 1–9 above.
+
+## 13. Findings
+Severity:
+- P0
+- P1
+- P2
+- P3
+
+Only evidence-backed findings.
+
+## 14. Required Remediation
+Only if blocked.
+
+## 15. Gate Decision
+One of:
+
+NOT READY FOR B3
+or
+
+READY FOR B3 SPECIFICATION REVIEW
+
+STOP after producing this report.

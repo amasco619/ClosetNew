@@ -806,3 +806,811 @@ WX-07,weather_context,success,D,B,false,true,3,6,13,0,1,1,,
 WX-08,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
 WX-09,weather_context,success,D,A,false,true,4,6,19,0.3333333333333333,0,1,,
 WX-10,weather_context,success,C,C,true,true,6,6,0,1,0,1,,
+case_id,case_type,execution_status,engine_top1,gold_preferred,top1_match,top3_match,pairwise_correct,pairwise_total,regret,kendall_tau,acceptable_recall,not_acceptable_exclusion,dimension_agreement,dimension_detail
+GU-01,garment_classification,success,maxi-skirt,Ankara maxi skirt,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-02,garment_classification,success,t-shirt,fitted short-sleeve Ankara blouse,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-03,garment_classification,success,midi-skirt,Ankara midi skirt,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-04,garment_classification,success,maxi-dress,Ankara printed dress,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-05,garment_classification,success,shirt,fitted Ankara top/blouse,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-06,garment_classification,success,wide-leg,wide-leg Ankara trousers,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-07,garment_classification,success,blazer,Ankara blazer,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-08,garment_classification,success,linen-set,matching Ankara two-piece set,false,,,,,,,,0.8,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-09,garment_classification,success,linen-set,Ankara two-piece set with colourway variation,false,,,,,,,,0.4,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-10,garment_classification,success,denim-jacket,Ankara dress with denim-jacket overlay,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-11,garment_classification,failed,,Ankara gele/head tie,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-12,garment_classification,success,maxi-dress,ivory French-lace A-line gown,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-13,garment_classification,success,midi-dress,deep-wine patterned lace midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-14,garment_classification,success,blouse,short-sleeve lace blouse,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":true}"
+GU-15,garment_classification,success,midi-skirt,guipure lace skirt,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-16,garment_classification,failed,,aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-17,garment_classification,failed,,aso-oke wrapper skirt,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-18,garment_classification,success,maxi-skirt,gold brocade evening skirt,false,,,,,,,,0.16666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-19,garment_classification,success,blouse,embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-20,garment_classification,success,kaftan,heavily embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-21,garment_classification,success,t-shirt,buba blouse,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-22,garment_classification,success,shirt,aso-oke buba,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-23,garment_classification,success,midi-skirt,iro/wrapper,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-24,garment_classification,success,linen-set,buba/iro/ipele three-piece set,false,,,,,,,,0.16666666666666666,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-25,garment_classification,success,midi-dress,casual home kaftan,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-26,garment_classification,success,kaftan,grand boubou / ceremonial kaftan,true,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":true,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-27,garment_classification,success,kaftan,lace kaftan,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-28,garment_classification,success,midi-dress,contemporary Ankara midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-29,garment_classification,failed,,Ankara blazer-and-wide-leg-trouser co-ord,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-30,garment_classification,success,linen-set,Ankara crop top with solid midi skirt,false,,,,,,,,0.5,"{""broad_category"":false,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-31,garment_classification,success,blouse,adire blouse,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":false}"
+GU-32,garment_classification,success,shirt,Kente-pattern woven stole,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-33,garment_classification,success,shirt,women's aso-oke buba,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-34,garment_classification,success,maxi-skirt,women's aso-oke iro/wrapper,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-35,garment_classification,success,blouse,women's embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-36,garment_classification,success,kaftan,women's embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-37,garment_classification,success,kaftan,women's grand boubou,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-38,garment_classification,success,midi-skirt,women's adire wrap skirt,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-39,garment_classification,failed,,women's Kente stole,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-40,garment_classification,failed,,women's aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+OC-01,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-02,occasion_distinction,success,A,A,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-03,occasion_distinction,success,C,A,false,true,5,6,6,0.6666666666666666,0.3333333333333333,1,,
+OC-04,occasion_distinction,success,B,A,false,true,4,6,6,0.3333333333333333,0,1,,
+OC-05,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-06,occasion_distinction,success,D,A,false,true,1,6,23,-0.6666666666666666,0,1,,
+OC-07,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-08,occasion_distinction,success,A,A,true,true,3,6,0,0,0,1,,
+OC-09,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-10,occasion_distinction,success,D,A,false,true,4,6,19,0.3333333333333333,0,0.5,,
+OC-11,occasion_distinction,success,A,B,false,true,4,6,6,0.3333333333333333,0.75,1,,
+OC-12,occasion_distinction,success,B,B,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-13,occasion_distinction,success,C,A,false,false,2,6,13,-0.3333333333333333,0,1,,
+OC-14,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-15,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-16,occasion_distinction,success,B,C,false,true,3,6,14,0,0.6666666666666666,1,,
+OC-17,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-18,occasion_distinction,success,D,B,false,true,3,6,23,0,0,1,,
+OC-19,occasion_distinction,success,C,A,false,true,3,6,13,0,0,1,,
+OC-20,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-01,outfit_ranking,success,D,A,false,true,8,10,13,0.6,0,1,,
+OR-02,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-03,outfit_ranking,success,B,A,false,true,4,6,13,0.3333333333333333,0.3333333333333333,1,,
+OR-04,outfit_ranking,success,C,A,false,true,4,6,11,0.3333333333333333,0,1,,
+OR-05,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-06,outfit_ranking,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-07,outfit_ranking,success,C,A,false,true,3,6,13,0,0,1,,
+OR-08,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-09,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-10,outfit_ranking,success,C,A,false,true,3,6,14,0,0,1,,
+OR-11,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-12,outfit_ranking,success,D,B,false,true,3,6,23,0,0,1,,
+OR-13,outfit_ranking,success,B,A,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-14,outfit_ranking,success,C,C,true,true,2,3,0,0.3333333333333333,0.6666666666666666,1,,
+OR-15,outfit_ranking,success,A,A,true,true,3,3,0,1,0.3333333333333333,1,,
+OR-16,outfit_ranking,success,A,A,true,true,1,1,0,,0.5,1,,
+OR-17,outfit_ranking,success,C,A,false,true,0,3,14,-1,0.3333333333333333,1,,
+OR-18,outfit_ranking,success,B,C,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-19,outfit_ranking,success,B,B,true,true,3,3,0,1,0,1,,
+OR-20,outfit_ranking,success,A,A,true,true,3,3,0,1,0,1,,
+OR-21,outfit_ranking,success,C,C,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-22,outfit_ranking,success,C,D,false,true,3,6,14,0,0,1,,
+OR-23,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-24,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-25,outfit_ranking,success,B,A,false,false,1,6,22,-0.6666666666666666,0,1,,
+OR-26,outfit_ranking,success,D,D,true,true,4,6,0,0.3333333333333333,0,1,,
+OR-27,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-28,outfit_ranking,success,D,A,false,true,3,6,14,0,0,1,,
+OR-29,outfit_ranking,success,D,C,false,true,2,6,21,-0.3333333333333333,0,1,,
+OR-30,outfit_ranking,success,C,A,false,true,3,6,12,0,0,1,,
+WX-01,weather_context,success,D,A,false,true,3,6,25,0,0,1,,
+WX-02,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-03,weather_context,success,D,B,false,false,1,6,24,-0.6666666666666666,0.5,1,,
+WX-04,weather_context,success,D,A,false,true,1,6,24,-0.6666666666666666,0.5,0.5,,
+WX-05,weather_context,success,A,C,false,true,5,6,6,0.6666666666666666,0.5,0.5,,
+WX-06,weather_context,success,C,B,false,true,2,6,16,-0.3333333333333333,0,1,,
+WX-07,weather_context,success,D,B,false,true,3,6,13,0,1,1,,
+WX-08,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-09,weather_context,success,D,A,false,true,4,6,19,0.3333333333333333,0,1,,
+WX-10,weather_context,success,C,C,true,true,6,6,0,1,0,1,,
+case_id,case_type,execution_status,engine_top1,gold_preferred,top1_match,top3_match,pairwise_correct,pairwise_total,regret,kendall_tau,acceptable_recall,not_acceptable_exclusion,dimension_agreement,dimension_detail
+GU-01,garment_classification,success,maxi-skirt,Ankara maxi skirt,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-02,garment_classification,success,t-shirt,fitted short-sleeve Ankara blouse,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-03,garment_classification,success,midi-skirt,Ankara midi skirt,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-04,garment_classification,success,maxi-dress,Ankara printed dress,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-05,garment_classification,success,shirt,fitted Ankara top/blouse,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-06,garment_classification,success,wide-leg,wide-leg Ankara trousers,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-07,garment_classification,success,blazer,Ankara blazer,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-08,garment_classification,success,linen-set,matching Ankara two-piece set,false,,,,,,,,0.8,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-09,garment_classification,success,linen-set,Ankara two-piece set with colourway variation,false,,,,,,,,0.4,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-10,garment_classification,success,denim-jacket,Ankara dress with denim-jacket overlay,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-11,garment_classification,failed,,Ankara gele/head tie,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-12,garment_classification,success,maxi-dress,ivory French-lace A-line gown,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-13,garment_classification,success,midi-dress,deep-wine patterned lace midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-14,garment_classification,success,blouse,short-sleeve lace blouse,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":true}"
+GU-15,garment_classification,success,midi-skirt,guipure lace skirt,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-16,garment_classification,failed,,aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-17,garment_classification,failed,,aso-oke wrapper skirt,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-18,garment_classification,success,maxi-skirt,gold brocade evening skirt,false,,,,,,,,0.16666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-19,garment_classification,success,blouse,embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-20,garment_classification,success,kaftan,heavily embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-21,garment_classification,success,t-shirt,buba blouse,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-22,garment_classification,success,shirt,aso-oke buba,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-23,garment_classification,success,midi-skirt,iro/wrapper,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-24,garment_classification,success,linen-set,buba/iro/ipele three-piece set,false,,,,,,,,0.16666666666666666,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-25,garment_classification,success,midi-dress,casual home kaftan,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-26,garment_classification,success,kaftan,grand boubou / ceremonial kaftan,true,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":true,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-27,garment_classification,success,kaftan,lace kaftan,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-28,garment_classification,success,midi-dress,contemporary Ankara midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-29,garment_classification,failed,,Ankara blazer-and-wide-leg-trouser co-ord,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-30,garment_classification,success,linen-set,Ankara crop top with solid midi skirt,false,,,,,,,,0.5,"{""broad_category"":false,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-31,garment_classification,success,blouse,adire blouse,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":false}"
+GU-32,garment_classification,success,shirt,Kente-pattern woven stole,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-33,garment_classification,success,shirt,women's aso-oke buba,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-34,garment_classification,success,maxi-skirt,women's aso-oke iro/wrapper,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-35,garment_classification,success,blouse,women's embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-36,garment_classification,success,kaftan,women's embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-37,garment_classification,success,kaftan,women's grand boubou,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-38,garment_classification,success,midi-skirt,women's adire wrap skirt,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-39,garment_classification,failed,,women's Kente stole,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-40,garment_classification,failed,,women's aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+OC-01,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-02,occasion_distinction,success,A,A,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-03,occasion_distinction,success,C,A,false,true,5,6,6,0.6666666666666666,0.3333333333333333,1,,
+OC-04,occasion_distinction,success,B,A,false,true,4,6,6,0.3333333333333333,0,1,,
+OC-05,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-06,occasion_distinction,success,D,A,false,true,1,6,23,-0.6666666666666666,0,1,,
+OC-07,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-08,occasion_distinction,success,A,A,true,true,3,6,0,0,0,1,,
+OC-09,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-10,occasion_distinction,success,D,A,false,true,4,6,19,0.3333333333333333,0,0.5,,
+OC-11,occasion_distinction,success,A,B,false,true,4,6,6,0.3333333333333333,0.75,1,,
+OC-12,occasion_distinction,success,B,B,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-13,occasion_distinction,success,C,A,false,false,2,6,13,-0.3333333333333333,0,1,,
+OC-14,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-15,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-16,occasion_distinction,success,B,C,false,true,3,6,14,0,0.6666666666666666,1,,
+OC-17,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-18,occasion_distinction,success,D,B,false,true,3,6,23,0,0,1,,
+OC-19,occasion_distinction,success,C,A,false,true,3,6,13,0,0,1,,
+OC-20,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-01,outfit_ranking,success,D,A,false,true,8,10,13,0.6,0,1,,
+OR-02,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-03,outfit_ranking,success,B,A,false,true,4,6,13,0.3333333333333333,0.3333333333333333,1,,
+OR-04,outfit_ranking,success,C,A,false,true,4,6,11,0.3333333333333333,0,1,,
+OR-05,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-06,outfit_ranking,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-07,outfit_ranking,success,C,A,false,true,3,6,13,0,0,1,,
+OR-08,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-09,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-10,outfit_ranking,success,C,A,false,true,3,6,14,0,0,1,,
+OR-11,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-12,outfit_ranking,success,D,B,false,true,3,6,23,0,0,1,,
+OR-13,outfit_ranking,success,B,A,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-14,outfit_ranking,success,C,C,true,true,2,3,0,0.3333333333333333,0.6666666666666666,1,,
+OR-15,outfit_ranking,success,A,A,true,true,3,3,0,1,0.3333333333333333,1,,
+OR-16,outfit_ranking,success,A,A,true,true,1,1,0,,0.5,1,,
+OR-17,outfit_ranking,success,C,A,false,true,0,3,14,-1,0.3333333333333333,1,,
+OR-18,outfit_ranking,success,B,C,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-19,outfit_ranking,success,B,B,true,true,3,3,0,1,0,1,,
+OR-20,outfit_ranking,success,A,A,true,true,3,3,0,1,0,1,,
+OR-21,outfit_ranking,success,C,C,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-22,outfit_ranking,success,C,D,false,true,3,6,14,0,0,1,,
+OR-23,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-24,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-25,outfit_ranking,success,B,A,false,false,1,6,22,-0.6666666666666666,0,1,,
+OR-26,outfit_ranking,success,D,D,true,true,4,6,0,0.3333333333333333,0,1,,
+OR-27,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-28,outfit_ranking,success,D,A,false,true,3,6,14,0,0,1,,
+OR-29,outfit_ranking,success,D,C,false,true,2,6,21,-0.3333333333333333,0,1,,
+OR-30,outfit_ranking,success,C,A,false,true,3,6,12,0,0,1,,
+WX-01,weather_context,success,D,A,false,true,3,6,25,0,0,1,,
+WX-02,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-03,weather_context,success,D,B,false,false,1,6,24,-0.6666666666666666,0.5,1,,
+WX-04,weather_context,success,D,A,false,true,1,6,24,-0.6666666666666666,0.5,0.5,,
+WX-05,weather_context,success,A,C,false,true,5,6,6,0.6666666666666666,0.5,0.5,,
+WX-06,weather_context,success,C,B,false,true,2,6,16,-0.3333333333333333,0,1,,
+WX-07,weather_context,success,D,B,false,true,3,6,13,0,1,1,,
+WX-08,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-09,weather_context,success,D,A,false,true,4,6,19,0.3333333333333333,0,1,,
+WX-10,weather_context,success,C,C,true,true,6,6,0,1,0,1,,
+case_id,case_type,execution_status,engine_top1,gold_preferred,top1_match,top3_match,pairwise_correct,pairwise_total,regret,kendall_tau,acceptable_recall,not_acceptable_exclusion,dimension_agreement,dimension_detail
+GU-01,garment_classification,success,maxi-skirt,Ankara maxi skirt,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-02,garment_classification,success,t-shirt,fitted short-sleeve Ankara blouse,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-03,garment_classification,success,midi-skirt,Ankara midi skirt,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-04,garment_classification,success,maxi-dress,Ankara printed dress,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-05,garment_classification,success,shirt,fitted Ankara top/blouse,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-06,garment_classification,success,wide-leg,wide-leg Ankara trousers,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-07,garment_classification,success,blazer,Ankara blazer,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-08,garment_classification,success,linen-set,matching Ankara two-piece set,false,,,,,,,,0.8,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-09,garment_classification,success,linen-set,Ankara two-piece set with colourway variation,false,,,,,,,,0.4,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-10,garment_classification,success,denim-jacket,Ankara dress with denim-jacket overlay,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-11,garment_classification,failed,,Ankara gele/head tie,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-12,garment_classification,success,maxi-dress,ivory French-lace A-line gown,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-13,garment_classification,success,midi-dress,deep-wine patterned lace midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-14,garment_classification,success,blouse,short-sleeve lace blouse,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":true}"
+GU-15,garment_classification,success,midi-skirt,guipure lace skirt,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-16,garment_classification,failed,,aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-17,garment_classification,failed,,aso-oke wrapper skirt,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-18,garment_classification,success,maxi-skirt,gold brocade evening skirt,false,,,,,,,,0.16666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-19,garment_classification,success,blouse,embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-20,garment_classification,success,kaftan,heavily embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-21,garment_classification,success,t-shirt,buba blouse,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-22,garment_classification,success,shirt,aso-oke buba,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-23,garment_classification,success,midi-skirt,iro/wrapper,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-24,garment_classification,success,linen-set,buba/iro/ipele three-piece set,false,,,,,,,,0.16666666666666666,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-25,garment_classification,success,midi-dress,casual home kaftan,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-26,garment_classification,success,kaftan,grand boubou / ceremonial kaftan,true,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":true,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-27,garment_classification,success,kaftan,lace kaftan,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-28,garment_classification,success,midi-dress,contemporary Ankara midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-29,garment_classification,failed,,Ankara blazer-and-wide-leg-trouser co-ord,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-30,garment_classification,success,linen-set,Ankara crop top with solid midi skirt,false,,,,,,,,0.5,"{""broad_category"":false,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-31,garment_classification,success,blouse,adire blouse,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":false}"
+GU-32,garment_classification,success,shirt,Kente-pattern woven stole,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-33,garment_classification,success,shirt,women's aso-oke buba,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-34,garment_classification,success,maxi-skirt,women's aso-oke iro/wrapper,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-35,garment_classification,success,blouse,women's embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-36,garment_classification,success,kaftan,women's embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-37,garment_classification,success,kaftan,women's grand boubou,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-38,garment_classification,success,midi-skirt,women's adire wrap skirt,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-39,garment_classification,failed,,women's Kente stole,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-40,garment_classification,failed,,women's aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+OC-01,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-02,occasion_distinction,success,A,A,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-03,occasion_distinction,success,C,A,false,true,5,6,6,0.6666666666666666,0.3333333333333333,1,,
+OC-04,occasion_distinction,success,B,A,false,true,4,6,6,0.3333333333333333,0,1,,
+OC-05,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-06,occasion_distinction,success,D,A,false,true,1,6,23,-0.6666666666666666,0,1,,
+OC-07,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-08,occasion_distinction,success,A,A,true,true,3,6,0,0,0,1,,
+OC-09,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-10,occasion_distinction,success,D,A,false,true,4,6,19,0.3333333333333333,0,0.5,,
+OC-11,occasion_distinction,success,A,B,false,true,4,6,6,0.3333333333333333,0.75,1,,
+OC-12,occasion_distinction,success,B,B,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-13,occasion_distinction,success,C,A,false,false,2,6,13,-0.3333333333333333,0,1,,
+OC-14,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-15,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-16,occasion_distinction,success,B,C,false,true,3,6,14,0,0.6666666666666666,1,,
+OC-17,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-18,occasion_distinction,success,D,B,false,true,3,6,23,0,0,1,,
+OC-19,occasion_distinction,success,C,A,false,true,3,6,13,0,0,1,,
+OC-20,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-01,outfit_ranking,success,D,A,false,true,8,10,13,0.6,0,1,,
+OR-02,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-03,outfit_ranking,success,B,A,false,true,4,6,13,0.3333333333333333,0.3333333333333333,1,,
+OR-04,outfit_ranking,success,C,A,false,true,4,6,11,0.3333333333333333,0,1,,
+OR-05,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-06,outfit_ranking,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-07,outfit_ranking,success,C,A,false,true,3,6,13,0,0,1,,
+OR-08,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-09,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-10,outfit_ranking,success,C,A,false,true,3,6,14,0,0,1,,
+OR-11,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-12,outfit_ranking,success,D,B,false,true,3,6,23,0,0,1,,
+OR-13,outfit_ranking,success,B,A,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-14,outfit_ranking,success,C,C,true,true,2,3,0,0.3333333333333333,0.6666666666666666,1,,
+OR-15,outfit_ranking,success,A,A,true,true,3,3,0,1,0.3333333333333333,1,,
+OR-16,outfit_ranking,success,A,A,true,true,1,1,0,,0.5,1,,
+OR-17,outfit_ranking,success,C,A,false,true,0,3,14,-1,0.3333333333333333,1,,
+OR-18,outfit_ranking,success,B,C,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-19,outfit_ranking,success,B,B,true,true,3,3,0,1,0,1,,
+OR-20,outfit_ranking,success,A,A,true,true,3,3,0,1,0,1,,
+OR-21,outfit_ranking,success,C,C,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-22,outfit_ranking,success,C,D,false,true,3,6,14,0,0,1,,
+OR-23,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-24,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-25,outfit_ranking,success,B,A,false,false,1,6,22,-0.6666666666666666,0,1,,
+OR-26,outfit_ranking,success,D,D,true,true,4,6,0,0.3333333333333333,0,1,,
+OR-27,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-28,outfit_ranking,success,D,A,false,true,3,6,14,0,0,1,,
+OR-29,outfit_ranking,success,D,C,false,true,2,6,21,-0.3333333333333333,0,1,,
+OR-30,outfit_ranking,success,C,A,false,true,3,6,12,0,0,1,,
+WX-01,weather_context,success,D,A,false,true,3,6,25,0,0,1,,
+WX-02,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-03,weather_context,success,D,B,false,false,1,6,24,-0.6666666666666666,0.5,1,,
+WX-04,weather_context,success,D,A,false,true,1,6,24,-0.6666666666666666,0.5,0.5,,
+WX-05,weather_context,success,A,C,false,true,5,6,6,0.6666666666666666,0.5,0.5,,
+WX-06,weather_context,success,C,B,false,true,2,6,16,-0.3333333333333333,0,1,,
+WX-07,weather_context,success,D,B,false,true,3,6,13,0,1,1,,
+WX-08,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-09,weather_context,success,D,A,false,true,4,6,19,0.3333333333333333,0,1,,
+WX-10,weather_context,success,C,C,true,true,6,6,0,1,0,1,,
+case_id,case_type,execution_status,engine_top1,gold_preferred,top1_match,top3_match,pairwise_correct,pairwise_total,regret,kendall_tau,acceptable_recall,not_acceptable_exclusion,dimension_agreement,dimension_detail
+GU-01,garment_classification,success,maxi-skirt,Ankara maxi skirt,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-02,garment_classification,success,t-shirt,fitted short-sleeve Ankara blouse,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-03,garment_classification,success,midi-skirt,Ankara midi skirt,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-04,garment_classification,success,maxi-dress,Ankara printed dress,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-05,garment_classification,success,shirt,fitted Ankara top/blouse,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-06,garment_classification,success,wide-leg,wide-leg Ankara trousers,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-07,garment_classification,success,blazer,Ankara blazer,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-08,garment_classification,success,linen-set,matching Ankara two-piece set,false,,,,,,,,0.8,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-09,garment_classification,success,linen-set,Ankara two-piece set with colourway variation,false,,,,,,,,0.4,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-10,garment_classification,success,denim-jacket,Ankara dress with denim-jacket overlay,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-11,garment_classification,failed,,Ankara gele/head tie,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-12,garment_classification,success,maxi-dress,ivory French-lace A-line gown,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-13,garment_classification,success,midi-dress,deep-wine patterned lace midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-14,garment_classification,success,blouse,short-sleeve lace blouse,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":true}"
+GU-15,garment_classification,success,midi-skirt,guipure lace skirt,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-16,garment_classification,failed,,aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-17,garment_classification,failed,,aso-oke wrapper skirt,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-18,garment_classification,success,maxi-skirt,gold brocade evening skirt,false,,,,,,,,0.16666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-19,garment_classification,success,blouse,embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-20,garment_classification,success,kaftan,heavily embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-21,garment_classification,success,t-shirt,buba blouse,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-22,garment_classification,success,shirt,aso-oke buba,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-23,garment_classification,success,midi-skirt,iro/wrapper,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-24,garment_classification,success,linen-set,buba/iro/ipele three-piece set,false,,,,,,,,0.16666666666666666,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-25,garment_classification,success,midi-dress,casual home kaftan,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-26,garment_classification,success,kaftan,grand boubou / ceremonial kaftan,true,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":true,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-27,garment_classification,success,kaftan,lace kaftan,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-28,garment_classification,success,midi-dress,contemporary Ankara midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-29,garment_classification,failed,,Ankara blazer-and-wide-leg-trouser co-ord,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-30,garment_classification,success,linen-set,Ankara crop top with solid midi skirt,false,,,,,,,,0.5,"{""broad_category"":false,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-31,garment_classification,success,blouse,adire blouse,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":false}"
+GU-32,garment_classification,success,shirt,Kente-pattern woven stole,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-33,garment_classification,success,shirt,women's aso-oke buba,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-34,garment_classification,success,maxi-skirt,women's aso-oke iro/wrapper,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-35,garment_classification,success,blouse,women's embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-36,garment_classification,success,kaftan,women's embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-37,garment_classification,success,kaftan,women's grand boubou,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-38,garment_classification,success,midi-skirt,women's adire wrap skirt,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-39,garment_classification,failed,,women's Kente stole,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-40,garment_classification,failed,,women's aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+OC-01,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-02,occasion_distinction,success,A,A,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-03,occasion_distinction,success,C,A,false,true,5,6,6,0.6666666666666666,0.3333333333333333,1,,
+OC-04,occasion_distinction,success,B,A,false,true,4,6,6,0.3333333333333333,0,1,,
+OC-05,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-06,occasion_distinction,success,D,A,false,true,1,6,23,-0.6666666666666666,0,1,,
+OC-07,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-08,occasion_distinction,success,A,A,true,true,3,6,0,0,0,1,,
+OC-09,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-10,occasion_distinction,success,D,A,false,true,4,6,19,0.3333333333333333,0,0.5,,
+OC-11,occasion_distinction,success,A,B,false,true,4,6,6,0.3333333333333333,0.75,1,,
+OC-12,occasion_distinction,success,B,B,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-13,occasion_distinction,success,C,A,false,false,2,6,13,-0.3333333333333333,0,1,,
+OC-14,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-15,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-16,occasion_distinction,success,B,C,false,true,3,6,14,0,0.6666666666666666,1,,
+OC-17,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-18,occasion_distinction,success,D,B,false,true,3,6,23,0,0,1,,
+OC-19,occasion_distinction,success,C,A,false,true,3,6,13,0,0,1,,
+OC-20,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-01,outfit_ranking,success,D,A,false,true,8,10,13,0.6,0,1,,
+OR-02,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-03,outfit_ranking,success,B,A,false,true,4,6,13,0.3333333333333333,0.3333333333333333,1,,
+OR-04,outfit_ranking,success,C,A,false,true,4,6,11,0.3333333333333333,0,1,,
+OR-05,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-06,outfit_ranking,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-07,outfit_ranking,success,C,A,false,true,3,6,13,0,0,1,,
+OR-08,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-09,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-10,outfit_ranking,success,C,A,false,true,3,6,14,0,0,1,,
+OR-11,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-12,outfit_ranking,success,D,B,false,true,3,6,23,0,0,1,,
+OR-13,outfit_ranking,success,B,A,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-14,outfit_ranking,success,C,C,true,true,2,3,0,0.3333333333333333,0.6666666666666666,1,,
+OR-15,outfit_ranking,success,A,A,true,true,3,3,0,1,0.3333333333333333,1,,
+OR-16,outfit_ranking,success,A,A,true,true,1,1,0,,0.5,1,,
+OR-17,outfit_ranking,success,C,A,false,true,0,3,14,-1,0.3333333333333333,1,,
+OR-18,outfit_ranking,success,B,C,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-19,outfit_ranking,success,B,B,true,true,3,3,0,1,0,1,,
+OR-20,outfit_ranking,success,A,A,true,true,3,3,0,1,0,1,,
+OR-21,outfit_ranking,success,C,C,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-22,outfit_ranking,success,C,D,false,true,3,6,14,0,0,1,,
+OR-23,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-24,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-25,outfit_ranking,success,B,A,false,false,1,6,22,-0.6666666666666666,0,1,,
+OR-26,outfit_ranking,success,D,D,true,true,4,6,0,0.3333333333333333,0,1,,
+OR-27,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-28,outfit_ranking,success,D,A,false,true,3,6,14,0,0,1,,
+OR-29,outfit_ranking,success,D,C,false,true,2,6,21,-0.3333333333333333,0,1,,
+OR-30,outfit_ranking,success,C,A,false,true,3,6,12,0,0,1,,
+WX-01,weather_context,success,D,A,false,true,3,6,25,0,0,1,,
+WX-02,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-03,weather_context,success,D,B,false,false,1,6,24,-0.6666666666666666,0.5,1,,
+WX-04,weather_context,success,D,A,false,true,1,6,24,-0.6666666666666666,0.5,0.5,,
+WX-05,weather_context,success,A,C,false,true,5,6,6,0.6666666666666666,0.5,0.5,,
+WX-06,weather_context,success,C,B,false,true,2,6,16,-0.3333333333333333,0,1,,
+WX-07,weather_context,success,D,B,false,true,3,6,13,0,1,1,,
+WX-08,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-09,weather_context,success,D,A,false,true,4,6,19,0.3333333333333333,0,1,,
+WX-10,weather_context,success,C,C,true,true,6,6,0,1,0,1,,
+case_id,case_type,execution_status,engine_top1,gold_preferred,top1_match,top3_match,pairwise_correct,pairwise_total,regret,kendall_tau,acceptable_recall,not_acceptable_exclusion,dimension_agreement,dimension_detail
+GU-01,garment_classification,success,maxi-skirt,Ankara maxi skirt,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-02,garment_classification,success,t-shirt,fitted short-sleeve Ankara blouse,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-03,garment_classification,success,midi-skirt,Ankara midi skirt,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-04,garment_classification,success,maxi-dress,Ankara printed dress,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-05,garment_classification,success,shirt,fitted Ankara top/blouse,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-06,garment_classification,success,wide-leg,wide-leg Ankara trousers,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-07,garment_classification,success,blazer,Ankara blazer,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-08,garment_classification,success,linen-set,matching Ankara two-piece set,false,,,,,,,,0.8,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-09,garment_classification,success,linen-set,Ankara two-piece set with colourway variation,false,,,,,,,,0.4,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-10,garment_classification,success,denim-jacket,Ankara dress with denim-jacket overlay,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-11,garment_classification,failed,,Ankara gele/head tie,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-12,garment_classification,success,maxi-dress,ivory French-lace A-line gown,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-13,garment_classification,success,midi-dress,deep-wine patterned lace midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-14,garment_classification,success,blouse,short-sleeve lace blouse,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":true}"
+GU-15,garment_classification,success,midi-skirt,guipure lace skirt,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-16,garment_classification,failed,,aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-17,garment_classification,failed,,aso-oke wrapper skirt,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-18,garment_classification,success,maxi-skirt,gold brocade evening skirt,false,,,,,,,,0.16666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-19,garment_classification,success,blouse,embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-20,garment_classification,success,kaftan,heavily embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-21,garment_classification,success,t-shirt,buba blouse,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-22,garment_classification,success,shirt,aso-oke buba,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-23,garment_classification,success,midi-skirt,iro/wrapper,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-24,garment_classification,success,linen-set,buba/iro/ipele three-piece set,false,,,,,,,,0.16666666666666666,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-25,garment_classification,success,midi-dress,casual home kaftan,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-26,garment_classification,success,kaftan,grand boubou / ceremonial kaftan,true,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":true,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-27,garment_classification,success,kaftan,lace kaftan,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-28,garment_classification,success,midi-dress,contemporary Ankara midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-29,garment_classification,failed,,Ankara blazer-and-wide-leg-trouser co-ord,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-30,garment_classification,success,linen-set,Ankara crop top with solid midi skirt,false,,,,,,,,0.5,"{""broad_category"":false,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-31,garment_classification,success,blouse,adire blouse,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":false}"
+GU-32,garment_classification,success,shirt,Kente-pattern woven stole,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-33,garment_classification,success,shirt,women's aso-oke buba,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-34,garment_classification,success,maxi-skirt,women's aso-oke iro/wrapper,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-35,garment_classification,success,blouse,women's embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-36,garment_classification,success,kaftan,women's embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-37,garment_classification,success,kaftan,women's grand boubou,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-38,garment_classification,success,midi-skirt,women's adire wrap skirt,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-39,garment_classification,failed,,women's Kente stole,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-40,garment_classification,failed,,women's aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+OC-01,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-02,occasion_distinction,success,A,A,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-03,occasion_distinction,success,C,A,false,true,5,6,6,0.6666666666666666,0.3333333333333333,1,,
+OC-04,occasion_distinction,success,B,A,false,true,4,6,6,0.3333333333333333,0,1,,
+OC-05,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-06,occasion_distinction,success,D,A,false,true,1,6,23,-0.6666666666666666,0,1,,
+OC-07,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-08,occasion_distinction,success,A,A,true,true,3,6,0,0,0,1,,
+OC-09,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-10,occasion_distinction,success,D,A,false,true,4,6,19,0.3333333333333333,0,0.5,,
+OC-11,occasion_distinction,success,A,B,false,true,4,6,6,0.3333333333333333,0.75,1,,
+OC-12,occasion_distinction,success,B,B,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-13,occasion_distinction,success,C,A,false,false,2,6,13,-0.3333333333333333,0,1,,
+OC-14,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-15,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-16,occasion_distinction,success,B,C,false,true,3,6,14,0,0.6666666666666666,1,,
+OC-17,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-18,occasion_distinction,success,D,B,false,true,3,6,23,0,0,1,,
+OC-19,occasion_distinction,success,C,A,false,true,3,6,13,0,0,1,,
+OC-20,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-01,outfit_ranking,success,D,A,false,true,8,10,13,0.6,0,1,,
+OR-02,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-03,outfit_ranking,success,B,A,false,true,4,6,13,0.3333333333333333,0.3333333333333333,1,,
+OR-04,outfit_ranking,success,C,A,false,true,4,6,11,0.3333333333333333,0,1,,
+OR-05,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-06,outfit_ranking,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-07,outfit_ranking,success,C,A,false,true,3,6,13,0,0,1,,
+OR-08,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-09,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-10,outfit_ranking,success,C,A,false,true,3,6,14,0,0,1,,
+OR-11,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-12,outfit_ranking,success,D,B,false,true,3,6,23,0,0,1,,
+OR-13,outfit_ranking,success,B,A,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-14,outfit_ranking,success,C,C,true,true,2,3,0,0.3333333333333333,0.6666666666666666,1,,
+OR-15,outfit_ranking,success,A,A,true,true,3,3,0,1,0.3333333333333333,1,,
+OR-16,outfit_ranking,success,A,A,true,true,1,1,0,,0.5,1,,
+OR-17,outfit_ranking,success,C,A,false,true,0,3,14,-1,0.3333333333333333,1,,
+OR-18,outfit_ranking,success,B,C,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-19,outfit_ranking,success,B,B,true,true,3,3,0,1,0,1,,
+OR-20,outfit_ranking,success,A,A,true,true,3,3,0,1,0,1,,
+OR-21,outfit_ranking,success,C,C,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-22,outfit_ranking,success,C,D,false,true,3,6,14,0,0,1,,
+OR-23,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-24,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-25,outfit_ranking,success,B,A,false,false,1,6,22,-0.6666666666666666,0,1,,
+OR-26,outfit_ranking,success,D,D,true,true,4,6,0,0.3333333333333333,0,1,,
+OR-27,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-28,outfit_ranking,success,D,A,false,true,3,6,14,0,0,1,,
+OR-29,outfit_ranking,success,D,C,false,true,2,6,21,-0.3333333333333333,0,1,,
+OR-30,outfit_ranking,success,C,A,false,true,3,6,12,0,0,1,,
+WX-01,weather_context,success,D,A,false,true,3,6,25,0,0,1,,
+WX-02,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-03,weather_context,success,D,B,false,false,1,6,24,-0.6666666666666666,0.5,1,,
+WX-04,weather_context,success,D,A,false,true,1,6,24,-0.6666666666666666,0.5,0.5,,
+WX-05,weather_context,success,A,C,false,true,5,6,6,0.6666666666666666,0.5,0.5,,
+WX-06,weather_context,success,C,B,false,true,2,6,16,-0.3333333333333333,0,1,,
+WX-07,weather_context,success,D,B,false,true,3,6,13,0,1,1,,
+WX-08,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-09,weather_context,success,D,A,false,true,4,6,19,0.3333333333333333,0,1,,
+WX-10,weather_context,success,C,C,true,true,6,6,0,1,0,1,,
+case_id,case_type,execution_status,engine_top1,gold_preferred,top1_match,top3_match,pairwise_correct,pairwise_total,regret,kendall_tau,acceptable_recall,not_acceptable_exclusion,dimension_agreement,dimension_detail
+GU-01,garment_classification,success,maxi-skirt,Ankara maxi skirt,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-02,garment_classification,success,t-shirt,fitted short-sleeve Ankara blouse,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-03,garment_classification,success,midi-skirt,Ankara midi skirt,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-04,garment_classification,success,maxi-dress,Ankara printed dress,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-05,garment_classification,success,shirt,fitted Ankara top/blouse,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-06,garment_classification,success,wide-leg,wide-leg Ankara trousers,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-07,garment_classification,success,blazer,Ankara blazer,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-08,garment_classification,success,linen-set,matching Ankara two-piece set,false,,,,,,,,0.8,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-09,garment_classification,success,linen-set,Ankara two-piece set with colourway variation,false,,,,,,,,0.4,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-10,garment_classification,success,denim-jacket,Ankara dress with denim-jacket overlay,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-11,garment_classification,failed,,Ankara gele/head tie,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-12,garment_classification,success,maxi-dress,ivory French-lace A-line gown,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-13,garment_classification,success,midi-dress,deep-wine patterned lace midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-14,garment_classification,success,blouse,short-sleeve lace blouse,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":true}"
+GU-15,garment_classification,success,midi-skirt,guipure lace skirt,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-16,garment_classification,failed,,aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-17,garment_classification,failed,,aso-oke wrapper skirt,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-18,garment_classification,success,maxi-skirt,gold brocade evening skirt,false,,,,,,,,0.16666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-19,garment_classification,success,blouse,embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-20,garment_classification,success,kaftan,heavily embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-21,garment_classification,success,t-shirt,buba blouse,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-22,garment_classification,success,shirt,aso-oke buba,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-23,garment_classification,success,midi-skirt,iro/wrapper,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-24,garment_classification,success,linen-set,buba/iro/ipele three-piece set,false,,,,,,,,0.16666666666666666,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-25,garment_classification,success,midi-dress,casual home kaftan,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-26,garment_classification,success,kaftan,grand boubou / ceremonial kaftan,true,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":true,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-27,garment_classification,success,kaftan,lace kaftan,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-28,garment_classification,success,midi-dress,contemporary Ankara midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-29,garment_classification,failed,,Ankara blazer-and-wide-leg-trouser co-ord,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-30,garment_classification,success,linen-set,Ankara crop top with solid midi skirt,false,,,,,,,,0.5,"{""broad_category"":false,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-31,garment_classification,success,blouse,adire blouse,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":false}"
+GU-32,garment_classification,success,shirt,Kente-pattern woven stole,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-33,garment_classification,success,shirt,women's aso-oke buba,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-34,garment_classification,success,maxi-skirt,women's aso-oke iro/wrapper,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-35,garment_classification,success,blouse,women's embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-36,garment_classification,success,kaftan,women's embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-37,garment_classification,success,kaftan,women's grand boubou,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-38,garment_classification,success,midi-skirt,women's adire wrap skirt,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-39,garment_classification,failed,,women's Kente stole,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-40,garment_classification,failed,,women's aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+OC-01,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-02,occasion_distinction,success,A,A,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-03,occasion_distinction,success,C,A,false,true,5,6,6,0.6666666666666666,0.3333333333333333,1,,
+OC-04,occasion_distinction,success,B,A,false,true,4,6,6,0.3333333333333333,0,1,,
+OC-05,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-06,occasion_distinction,success,D,A,false,true,1,6,23,-0.6666666666666666,0,1,,
+OC-07,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-08,occasion_distinction,success,A,A,true,true,3,6,0,0,0,1,,
+OC-09,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-10,occasion_distinction,success,D,A,false,true,4,6,19,0.3333333333333333,0,0.5,,
+OC-11,occasion_distinction,success,A,B,false,true,4,6,6,0.3333333333333333,0.75,1,,
+OC-12,occasion_distinction,success,B,B,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-13,occasion_distinction,success,C,A,false,false,2,6,13,-0.3333333333333333,0,1,,
+OC-14,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-15,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-16,occasion_distinction,success,B,C,false,true,3,6,14,0,0.6666666666666666,1,,
+OC-17,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-18,occasion_distinction,success,D,B,false,true,3,6,23,0,0,1,,
+OC-19,occasion_distinction,success,C,A,false,true,3,6,13,0,0,1,,
+OC-20,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-01,outfit_ranking,success,D,A,false,true,8,10,13,0.6,0,1,,
+OR-02,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-03,outfit_ranking,success,B,A,false,true,4,6,13,0.3333333333333333,0.3333333333333333,1,,
+OR-04,outfit_ranking,success,C,A,false,true,4,6,11,0.3333333333333333,0,1,,
+OR-05,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-06,outfit_ranking,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-07,outfit_ranking,success,C,A,false,true,3,6,13,0,0,1,,
+OR-08,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-09,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-10,outfit_ranking,success,C,A,false,true,3,6,14,0,0,1,,
+OR-11,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-12,outfit_ranking,success,D,B,false,true,3,6,23,0,0,1,,
+OR-13,outfit_ranking,success,B,A,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-14,outfit_ranking,success,C,C,true,true,2,3,0,0.3333333333333333,0.6666666666666666,1,,
+OR-15,outfit_ranking,success,A,A,true,true,3,3,0,1,0.3333333333333333,1,,
+OR-16,outfit_ranking,success,A,A,true,true,1,1,0,,0.5,1,,
+OR-17,outfit_ranking,success,C,A,false,true,0,3,14,-1,0.3333333333333333,1,,
+OR-18,outfit_ranking,success,B,C,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-19,outfit_ranking,success,B,B,true,true,3,3,0,1,0,1,,
+OR-20,outfit_ranking,success,A,A,true,true,3,3,0,1,0,1,,
+OR-21,outfit_ranking,success,C,C,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-22,outfit_ranking,success,C,D,false,true,3,6,14,0,0,1,,
+OR-23,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-24,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-25,outfit_ranking,success,B,A,false,false,1,6,22,-0.6666666666666666,0,1,,
+OR-26,outfit_ranking,success,D,D,true,true,4,6,0,0.3333333333333333,0,1,,
+OR-27,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-28,outfit_ranking,success,D,A,false,true,3,6,14,0,0,1,,
+OR-29,outfit_ranking,success,D,C,false,true,2,6,21,-0.3333333333333333,0,1,,
+OR-30,outfit_ranking,success,C,A,false,true,3,6,12,0,0,1,,
+WX-01,weather_context,success,D,A,false,true,3,6,25,0,0,1,,
+WX-02,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-03,weather_context,success,D,B,false,false,1,6,24,-0.6666666666666666,0.5,1,,
+WX-04,weather_context,success,D,A,false,true,1,6,24,-0.6666666666666666,0.5,0.5,,
+WX-05,weather_context,success,A,C,false,true,5,6,6,0.6666666666666666,0.5,0.5,,
+WX-06,weather_context,success,C,B,false,true,2,6,16,-0.3333333333333333,0,1,,
+WX-07,weather_context,success,D,B,false,true,3,6,13,0,1,1,,
+WX-08,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-09,weather_context,success,D,A,false,true,4,6,19,0.3333333333333333,0,1,,
+WX-10,weather_context,success,C,C,true,true,6,6,0,1,0,1,,
+case_id,case_type,execution_status,engine_top1,gold_preferred,top1_match,top3_match,pairwise_correct,pairwise_total,regret,kendall_tau,acceptable_recall,not_acceptable_exclusion,dimension_agreement,dimension_detail
+GU-01,garment_classification,success,maxi-skirt,Ankara maxi skirt,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-02,garment_classification,success,t-shirt,fitted short-sleeve Ankara blouse,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-03,garment_classification,success,midi-skirt,Ankara midi skirt,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-04,garment_classification,success,maxi-dress,Ankara printed dress,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-05,garment_classification,success,shirt,fitted Ankara top/blouse,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-06,garment_classification,success,wide-leg,wide-leg Ankara trousers,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-07,garment_classification,success,blazer,Ankara blazer,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-08,garment_classification,success,linen-set,matching Ankara two-piece set,false,,,,,,,,0.8,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-09,garment_classification,success,linen-set,Ankara two-piece set with colourway variation,false,,,,,,,,0.4,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-10,garment_classification,success,denim-jacket,Ankara dress with denim-jacket overlay,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-11,garment_classification,failed,,Ankara gele/head tie,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-12,garment_classification,success,maxi-dress,ivory French-lace A-line gown,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-13,garment_classification,success,midi-dress,deep-wine patterned lace midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-14,garment_classification,success,blouse,short-sleeve lace blouse,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":true}"
+GU-15,garment_classification,success,midi-skirt,guipure lace skirt,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-16,garment_classification,failed,,aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-17,garment_classification,failed,,aso-oke wrapper skirt,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-18,garment_classification,success,maxi-skirt,gold brocade evening skirt,false,,,,,,,,0.16666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-19,garment_classification,success,blouse,embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-20,garment_classification,success,kaftan,heavily embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-21,garment_classification,success,t-shirt,buba blouse,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-22,garment_classification,success,shirt,aso-oke buba,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-23,garment_classification,success,midi-skirt,iro/wrapper,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-24,garment_classification,success,linen-set,buba/iro/ipele three-piece set,false,,,,,,,,0.16666666666666666,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-25,garment_classification,success,midi-dress,casual home kaftan,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-26,garment_classification,success,kaftan,grand boubou / ceremonial kaftan,true,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":true,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-27,garment_classification,success,kaftan,lace kaftan,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-28,garment_classification,success,midi-dress,contemporary Ankara midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-29,garment_classification,failed,,Ankara blazer-and-wide-leg-trouser co-ord,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-30,garment_classification,success,linen-set,Ankara crop top with solid midi skirt,false,,,,,,,,0.5,"{""broad_category"":false,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-31,garment_classification,success,blouse,adire blouse,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":false}"
+GU-32,garment_classification,success,shirt,Kente-pattern woven stole,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-33,garment_classification,success,shirt,women's aso-oke buba,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-34,garment_classification,success,maxi-skirt,women's aso-oke iro/wrapper,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-35,garment_classification,success,blouse,women's embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-36,garment_classification,success,kaftan,women's embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-37,garment_classification,success,kaftan,women's grand boubou,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-38,garment_classification,success,midi-skirt,women's adire wrap skirt,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-39,garment_classification,failed,,women's Kente stole,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-40,garment_classification,failed,,women's aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+OC-01,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-02,occasion_distinction,success,A,A,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-03,occasion_distinction,success,C,A,false,true,5,6,6,0.6666666666666666,0.3333333333333333,1,,
+OC-04,occasion_distinction,success,B,A,false,true,4,6,6,0.3333333333333333,0,1,,
+OC-05,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-06,occasion_distinction,success,D,A,false,true,1,6,23,-0.6666666666666666,0,1,,
+OC-07,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-08,occasion_distinction,success,A,A,true,true,3,6,0,0,0,1,,
+OC-09,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-10,occasion_distinction,success,D,A,false,true,4,6,19,0.3333333333333333,0,0.5,,
+OC-11,occasion_distinction,success,A,B,false,true,4,6,6,0.3333333333333333,0.75,1,,
+OC-12,occasion_distinction,success,B,B,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-13,occasion_distinction,success,C,A,false,false,2,6,13,-0.3333333333333333,0,1,,
+OC-14,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-15,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-16,occasion_distinction,success,B,C,false,true,3,6,14,0,0.6666666666666666,1,,
+OC-17,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-18,occasion_distinction,success,D,B,false,true,3,6,23,0,0,1,,
+OC-19,occasion_distinction,success,C,A,false,true,3,6,13,0,0,1,,
+OC-20,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-01,outfit_ranking,success,D,A,false,true,8,10,13,0.6,0,1,,
+OR-02,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-03,outfit_ranking,success,B,A,false,true,4,6,13,0.3333333333333333,0.3333333333333333,1,,
+OR-04,outfit_ranking,success,C,A,false,true,4,6,11,0.3333333333333333,0,1,,
+OR-05,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-06,outfit_ranking,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-07,outfit_ranking,success,C,A,false,true,3,6,13,0,0,1,,
+OR-08,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-09,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-10,outfit_ranking,success,C,A,false,true,3,6,14,0,0,1,,
+OR-11,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-12,outfit_ranking,success,D,B,false,true,3,6,23,0,0,1,,
+OR-13,outfit_ranking,success,B,A,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-14,outfit_ranking,success,C,C,true,true,2,3,0,0.3333333333333333,0.6666666666666666,1,,
+OR-15,outfit_ranking,success,A,A,true,true,3,3,0,1,0.3333333333333333,1,,
+OR-16,outfit_ranking,success,A,A,true,true,1,1,0,,0.5,1,,
+OR-17,outfit_ranking,success,C,A,false,true,0,3,14,-1,0.3333333333333333,1,,
+OR-18,outfit_ranking,success,B,C,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-19,outfit_ranking,success,B,B,true,true,3,3,0,1,0,1,,
+OR-20,outfit_ranking,success,A,A,true,true,3,3,0,1,0,1,,
+OR-21,outfit_ranking,success,C,C,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-22,outfit_ranking,success,C,D,false,true,3,6,14,0,0,1,,
+OR-23,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-24,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-25,outfit_ranking,success,B,A,false,false,1,6,22,-0.6666666666666666,0,1,,
+OR-26,outfit_ranking,success,D,D,true,true,4,6,0,0.3333333333333333,0,1,,
+OR-27,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-28,outfit_ranking,success,D,A,false,true,3,6,14,0,0,1,,
+OR-29,outfit_ranking,success,D,C,false,true,2,6,21,-0.3333333333333333,0,1,,
+OR-30,outfit_ranking,success,C,A,false,true,3,6,12,0,0,1,,
+WX-01,weather_context,success,D,A,false,true,3,6,25,0,0,1,,
+WX-02,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-03,weather_context,success,D,B,false,false,1,6,24,-0.6666666666666666,0.5,1,,
+WX-04,weather_context,success,D,A,false,true,1,6,24,-0.6666666666666666,0.5,0.5,,
+WX-05,weather_context,success,A,C,false,true,5,6,6,0.6666666666666666,0.5,0.5,,
+WX-06,weather_context,success,C,B,false,true,2,6,16,-0.3333333333333333,0,1,,
+WX-07,weather_context,success,D,B,false,true,3,6,13,0,1,1,,
+WX-08,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-09,weather_context,success,D,A,false,true,4,6,19,0.3333333333333333,0,1,,
+WX-10,weather_context,success,C,C,true,true,6,6,0,1,0,1,,
+case_id,case_type,execution_status,engine_top1,gold_preferred,top1_match,top3_match,pairwise_correct,pairwise_total,regret,kendall_tau,acceptable_recall,not_acceptable_exclusion,dimension_agreement,dimension_detail
+GU-01,garment_classification,success,maxi-skirt,Ankara maxi skirt,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-02,garment_classification,success,t-shirt,fitted short-sleeve Ankara blouse,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-03,garment_classification,success,midi-skirt,Ankara midi skirt,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-04,garment_classification,success,maxi-dress,Ankara printed dress,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-05,garment_classification,success,shirt,fitted Ankara top/blouse,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-06,garment_classification,success,wide-leg,wide-leg Ankara trousers,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-07,garment_classification,success,blazer,Ankara blazer,true,,,,,,,,1,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-08,garment_classification,success,linen-set,matching Ankara two-piece set,false,,,,,,,,0.8,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-09,garment_classification,success,linen-set,Ankara two-piece set with colourway variation,false,,,,,,,,0.4,"{""broad_category"":null,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-10,garment_classification,success,denim-jacket,Ankara dress with denim-jacket overlay,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-11,garment_classification,failed,,Ankara gele/head tie,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-12,garment_classification,success,maxi-dress,ivory French-lace A-line gown,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-13,garment_classification,success,midi-dress,deep-wine patterned lace midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-14,garment_classification,success,blouse,short-sleeve lace blouse,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":true}"
+GU-15,garment_classification,success,midi-skirt,guipure lace skirt,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-16,garment_classification,failed,,aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-17,garment_classification,failed,,aso-oke wrapper skirt,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-18,garment_classification,success,maxi-skirt,gold brocade evening skirt,false,,,,,,,,0.16666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-19,garment_classification,success,blouse,embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-20,garment_classification,success,kaftan,heavily embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-21,garment_classification,success,t-shirt,buba blouse,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-22,garment_classification,success,shirt,aso-oke buba,false,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-23,garment_classification,success,midi-skirt,iro/wrapper,false,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":true}"
+GU-24,garment_classification,success,linen-set,buba/iro/ipele three-piece set,false,,,,,,,,0.16666666666666666,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-25,garment_classification,success,midi-dress,casual home kaftan,false,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-26,garment_classification,success,kaftan,grand boubou / ceremonial kaftan,true,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":true,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-27,garment_classification,success,kaftan,lace kaftan,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-28,garment_classification,success,midi-dress,contemporary Ankara midi dress,true,,,,,,,,0.8333333333333334,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":true,""pattern_scale"":false,""colour"":true}"
+GU-29,garment_classification,failed,,Ankara blazer-and-wide-leg-trouser co-ord,false,,,,,,,,0,"{""broad_category"":false,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-30,garment_classification,success,linen-set,Ankara crop top with solid midi skirt,false,,,,,,,,0.5,"{""broad_category"":false,""garment_type"":false,""fabric"":true,""pattern"":true,""pattern_scale"":true,""colour"":false}"
+GU-31,garment_classification,success,blouse,adire blouse,true,,,,,,,,0.6666666666666666,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":true,""colour"":false}"
+GU-32,garment_classification,success,shirt,Kente-pattern woven stole,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-33,garment_classification,success,shirt,women's aso-oke buba,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-34,garment_classification,success,maxi-skirt,women's aso-oke iro/wrapper,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":false,""pattern"":true,""pattern_scale"":false,""colour"":false}"
+GU-35,garment_classification,success,blouse,women's embellished lace blouse,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-36,garment_classification,success,kaftan,women's embroidered ivory kaftan,true,,,,,,,,0.5,"{""broad_category"":true,""garment_type"":true,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-37,garment_classification,success,kaftan,women's grand boubou,false,,,,,,,,0.2,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":true}"
+GU-38,garment_classification,success,midi-skirt,women's adire wrap skirt,false,,,,,,,,0.3333333333333333,"{""broad_category"":true,""garment_type"":false,""fabric"":true,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-39,garment_classification,failed,,women's Kente stole,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+GU-40,garment_classification,failed,,women's aso-oke gele,false,,,,,,,,0,"{""broad_category"":null,""garment_type"":false,""fabric"":false,""pattern"":false,""pattern_scale"":false,""colour"":false}"
+OC-01,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-02,occasion_distinction,success,A,A,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-03,occasion_distinction,success,C,A,false,true,5,6,6,0.6666666666666666,0.3333333333333333,1,,
+OC-04,occasion_distinction,success,B,A,false,true,4,6,6,0.3333333333333333,0,1,,
+OC-05,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-06,occasion_distinction,success,D,A,false,true,1,6,23,-0.6666666666666666,0,1,,
+OC-07,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-08,occasion_distinction,success,A,A,true,true,3,6,0,0,0,1,,
+OC-09,occasion_distinction,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-10,occasion_distinction,success,D,A,false,true,4,6,19,0.3333333333333333,0,0.5,,
+OC-11,occasion_distinction,success,A,B,false,true,4,6,6,0.3333333333333333,0.75,1,,
+OC-12,occasion_distinction,success,B,B,true,true,6,6,0,1,0.3333333333333333,1,,
+OC-13,occasion_distinction,success,C,A,false,false,2,6,13,-0.3333333333333333,0,1,,
+OC-14,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OC-15,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OC-16,occasion_distinction,success,B,C,false,true,3,6,14,0,0.6666666666666666,1,,
+OC-17,occasion_distinction,success,A,A,true,true,6,6,0,1,0,1,,
+OC-18,occasion_distinction,success,D,B,false,true,3,6,23,0,0,1,,
+OC-19,occasion_distinction,success,C,A,false,true,3,6,13,0,0,1,,
+OC-20,occasion_distinction,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-01,outfit_ranking,success,D,A,false,true,8,10,13,0.6,0,1,,
+OR-02,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-03,outfit_ranking,success,B,A,false,true,4,6,13,0.3333333333333333,0.3333333333333333,1,,
+OR-04,outfit_ranking,success,C,A,false,true,4,6,11,0.3333333333333333,0,1,,
+OR-05,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-06,outfit_ranking,success,B,B,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-07,outfit_ranking,success,C,A,false,true,3,6,13,0,0,1,,
+OR-08,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-09,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0.3333333333333333,1,,
+OR-10,outfit_ranking,success,C,A,false,true,3,6,14,0,0,1,,
+OR-11,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-12,outfit_ranking,success,D,B,false,true,3,6,23,0,0,1,,
+OR-13,outfit_ranking,success,B,A,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-14,outfit_ranking,success,C,C,true,true,2,3,0,0.3333333333333333,0.6666666666666666,1,,
+OR-15,outfit_ranking,success,A,A,true,true,3,3,0,1,0.3333333333333333,1,,
+OR-16,outfit_ranking,success,A,A,true,true,1,1,0,,0.5,1,,
+OR-17,outfit_ranking,success,C,A,false,true,0,3,14,-1,0.3333333333333333,1,,
+OR-18,outfit_ranking,success,B,C,false,true,1,3,5,-0.3333333333333333,0.5,1,,
+OR-19,outfit_ranking,success,B,B,true,true,3,3,0,1,0,1,,
+OR-20,outfit_ranking,success,A,A,true,true,3,3,0,1,0,1,,
+OR-21,outfit_ranking,success,C,C,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-22,outfit_ranking,success,C,D,false,true,3,6,14,0,0,1,,
+OR-23,outfit_ranking,success,A,A,true,true,6,6,0,1,0,1,,
+OR-24,outfit_ranking,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+OR-25,outfit_ranking,success,B,A,false,false,1,6,22,-0.6666666666666666,0,1,,
+OR-26,outfit_ranking,success,D,D,true,true,4,6,0,0.3333333333333333,0,1,,
+OR-27,outfit_ranking,success,A,A,true,true,3,6,0,0,0,1,,
+OR-28,outfit_ranking,success,D,A,false,true,3,6,14,0,0,1,,
+OR-29,outfit_ranking,success,D,C,false,true,2,6,21,-0.3333333333333333,0,1,,
+OR-30,outfit_ranking,success,C,A,false,true,3,6,12,0,0,1,,
+WX-01,weather_context,success,D,A,false,true,3,6,25,0,0,1,,
+WX-02,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-03,weather_context,success,D,B,false,false,1,6,24,-0.6666666666666666,0.5,1,,
+WX-04,weather_context,success,D,A,false,true,1,6,24,-0.6666666666666666,0.5,0.5,,
+WX-05,weather_context,success,A,C,false,true,5,6,6,0.6666666666666666,0.5,0.5,,
+WX-06,weather_context,success,C,B,false,true,2,6,16,-0.3333333333333333,0,1,,
+WX-07,weather_context,success,D,B,false,true,3,6,13,0,1,1,,
+WX-08,weather_context,success,A,A,true,true,5,6,0,0.6666666666666666,0,1,,
+WX-09,weather_context,success,D,A,false,true,4,6,19,0.3333333333333333,0,1,,
+WX-10,weather_context,success,C,C,true,true,6,6,0,1,0,1,,
