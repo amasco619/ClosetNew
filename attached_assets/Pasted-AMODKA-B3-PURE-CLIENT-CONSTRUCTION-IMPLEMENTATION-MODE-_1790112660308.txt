@@ -1,0 +1,640 @@
+AMODKA — B3 PURE CLIENT CONSTRUCTION IMPLEMENTATION
+MODE: CONTROLLED IMPLEMENTATION
+AUTHORIZATION: B3 ONLY
+
+B1/B2 has passed its implementation and contract gates.
+
+The repository is clean and the B3 specification/contract review has concluded:
+
+READY FOR B3 IMPLEMENTATION.
+
+You are now authorized to implement ONLY the B3 pure client/domain transformation described below.
+
+==================================================
+1. AUTHORITATIVE B3 CONTRACT
+==================================================
+
+B3 consumes one already-validated public B1/B2 multi-item classification result.
+
+B3 produces:
+
+1. Exactly one pre-persistence wardrobe construction input per validated classifier item.
+2. One separate group construction metadata object.
+3. Classifier-local membership links.
+4. Approved source-region provenance.
+
+B3 is PURE.
+
+B3 is NOT persistence.
+
+==================================================
+2. ALLOWED FILES
+==================================================
+
+Preferred implementation scope:
+
+CREATE:
+- lib/multiItemConstruction.ts
+- __tests__/multiItemConstruction.test.ts
+
+OPTIONALLY UPDATE:
+- TECHNICAL.md
+
+TECHNICAL.md changes must document only the implemented B3 contract and stage boundary.
+
+Do not modify other application/source files unless an absolutely necessary type-only dependency is discovered.
+
+If implementation appears to require changes outside this scope, STOP and report the dependency instead of expanding scope.
+
+==================================================
+3. DO NOT MODIFY
+==================================================
+
+Do not modify:
+
+- server/classify-multi-item.ts
+- server/classify-garment.ts
+- server/routes.ts
+- constants/types.ts
+- constants/outfitScoring.ts
+- app/add-item.tsx
+- app/bulk-review.tsx
+- lib/bulkClassifyCore.ts
+- contexts/AppContext.tsx
+- lib/database.ts
+- lib/storage.ts
+- lib/garmentGroupMapper.ts
+- Supabase migrations
+- Recommendation Engine v3.7
+- classifier taxonomy
+- Phase A schemas/RLS/ACL/RPCs
+- create_garment_group()
+- B0.3 operation contract
+- B4/B5/B6/B7
+- benchmark fixtures
+- golden expected results
+- package files
+- configuration/workflows
+
+Do not install packages.
+
+==================================================
+4. PURE FUNCTION
+==================================================
+
+Implement a pure function conceptually equivalent to:
+
+constructMultiItemDraft(
+  input: MultiItemClassificationResult
+): B3ConstructionResult
+
+It must:
+
+- be synchronous
+- have no I/O
+- have no framework dependency
+- have no React dependency
+- have no Supabase dependency
+- have no Storage dependency
+- have no provider dependency
+- have no device dependency
+
+==================================================
+5. B3 OUTPUT
+==================================================
+
+Implement the reviewed conceptual contract:
+
+B3ConstructionResult:
+
+- schemaVersion: "b3-v1"
+- classifierSource:
+    - schemaVersion: "b1b2-v1"
+    - ref
+- items: B3WardrobeConstructionInput[]
+- group: B3GroupConstructionInput
+
+Each item must contain:
+
+- detectionId
+- ordinal
+- source.ref
+- source.region
+- wardrobeFields
+
+wardrobeFields must contain the approved normalized semantic fields:
+
+- category
+- subType
+- colorFamily
+- description
+- occasionTags
+- seasonTags
+- formalityLevel
+- modelConfidence
+
+and preserve the approved optional fields:
+
+- accentColor
+- pattern
+- patternScale
+- fabric
+- weight
+- fit
+- neckline
+- sleeveLength
+- rise
+- warmthBand
+- dominantHsl
+- dominantLab
+
+Do not invent additional fields.
+
+==================================================
+6. FIELDS EXPLICITLY ABSENT
+==================================================
+
+B3 MUST NOT populate:
+
+- wardrobe UUID
+- operation UUID
+- group UUID
+- user ID
+- photoUri
+- storagePath
+- sourceImagePath
+- createdAt
+- updatedAt
+- persistence status
+- upload status
+- retry state
+- signed URL
+- remote path
+- image bytes
+- crop bytes
+- database payload
+
+==================================================
+7. WARDROBE MAPPING
+==================================================
+
+Copy B2-normalized fields exactly.
+
+Do NOT rerun provider normalization.
+
+Do NOT introduce:
+
+- category fallback to "top"
+- colour fallback to "black"
+- season fallback to "all-season"
+- subtype fallback
+
+For:
+
+formalityLevel
+
+use the existing deterministic rule:
+
+SUBTYPE_FORMALITY[subType] ?? 5
+
+Use the existing exported constant read-only if technically possible.
+
+Do not modify the constant or scoring system.
+
+Optional fields remain absent when absent.
+
+Do not invent:
+
+- purchasePrice
+- metalTone
+- mood
+
+==================================================
+8. IDENTITY
+==================================================
+
+Preserve classifier-local IDs:
+
+det-001
+det-002
+...
+
+Do not generate:
+
+- Crypto.randomUUID()
+- UUIDs of any kind
+- operation IDs
+- group IDs
+
+`detectionId` is NOT `WardrobeItem.id`.
+
+B3 must preserve canonical input order.
+
+`ordinal` is the zero-based canonical array position.
+
+==================================================
+9. SOURCE PROVENANCE
+==================================================
+
+Copy:
+
+source.ref
+source.region.x
+source.region.y
+source.region.width
+source.region.height
+
+Do not:
+
+- load images
+- manipulate images
+- crop
+- resize
+- remove backgrounds
+- generate URLs
+- generate paths
+- upload
+- create photoUri
+
+The B3 result carries semantic provenance only.
+
+==================================================
+10. GROUP OUTPUT
+==================================================
+
+Produce separate group metadata:
+
+- relationshipType
+- relationshipConfidence
+- confirmationStatus
+- sharedAttributes
+- memberDetectionIds
+- source.ref
+
+Use:
+
+confirmationStatus = "ai_inferred"
+
+Never convert it to user_confirmed.
+
+Preserve:
+
+coordinated_set
+multi_item
+layered
+
+exactly.
+
+Preserve relationship confidence exactly.
+
+Preserve canonical member ordering.
+
+If sharedAttributes is absent, output `{}`.
+
+Do not construct Phase A persisted GarmentGroupMember objects.
+
+==================================================
+11. DEFENSIVE VALIDATION
+==================================================
+
+B2 has already performed provider-facing validation.
+
+B3 should NOT duplicate provider normalization.
+
+However, B3 MUST reject impossible construction states:
+
+- unsupported schemaVersion
+- invalid item count
+- validation.count mismatch
+- duplicate public detection IDs
+- missing required normalized fields
+- invalid membership bijection
+- unknown membership
+- duplicate membership
+- missing membership
+- unsupported ordering contract
+- missing relationship
+
+Use a small typed synchronous B3 error contract.
+
+For example:
+
+B3ConstructionError.code:
+
+- unsupported_schema
+- invalid_item_count
+- invalid_normalized_item
+- invalid_membership
+- invalid_order_contract
+
+The function must either:
+
+- return one complete valid result
+
+OR:
+
+- throw before returning a result.
+
+Never return partial construction output.
+
+==================================================
+12. IMMUTABILITY
+==================================================
+
+Do not mutate the B1/B2 input.
+
+Create new arrays/objects as needed.
+
+Do not retain mutable references where doing so could allow later mutation of the source envelope to mutate the B3 result.
+
+Preserve logical values exactly.
+
+==================================================
+13. DETERMINISM
+==================================================
+
+For identical validated input:
+
+B3 output must be deeply equal.
+
+Do not use:
+
+- Math.random()
+- Date.now()
+- new Date()
+- UUID generation
+- mutable global counters
+- device state
+- session state
+- network state
+- Storage state
+
+Do not sort the already-canonical B1/B2 items again.
+
+==================================================
+14. TESTS
+==================================================
+
+Create:
+
+__tests__/multiItemConstruction.test.ts
+
+Use the previously reviewed test matrix.
+
+At minimum cover:
+
+VALID:
+- 2-item coordinated_set
+- 2-item multi_item
+- 2-item layered
+- 3-item result
+- 6-item maximum
+- every item produces exactly one output
+- count matches
+- optional fields copied
+- absent optional fields remain absent
+- empty shared attributes become {}
+
+WARDROBE:
+- category exact
+- subtype exact
+- color exact
+- description exact
+- occasion exact
+- season exact
+- formality derivation
+- unknown subtype formality fallback 5
+- pattern/fabric/weight/fit exact
+- neckline/sleeve/rise/warmth exact
+- HSL/Lab preserved
+- confidence preserved
+- no invented purchasePrice/metalTone/mood
+
+IDENTITY:
+- detection IDs preserved
+- no UUID
+- no operation UUID
+- no group UUID
+- detection ID never becomes wardrobe id
+- canonical ordering preserved
+- membership maps one-to-one
+
+DETERMINISM:
+- repeated identical input deeply equal
+- input not mutated
+- no current time
+- no random values
+- no device/session dependency
+
+PROVENANCE:
+- source ref preserved
+- regions preserved
+- regions remain attached to correct detection
+- provider-local IDs absent
+- provider URLs absent
+- signed URLs absent
+- arbitrary paths absent
+- image bytes absent
+- photoUri absent
+- storagePath absent
+- sourceImagePath absent
+
+GROUP:
+- all three relationship types
+- confidence
+- ai_inferred
+- shared color
+- shared pattern
+- shared fabric
+- shared occasion
+- per-item attributes remain per-item
+- complete membership
+- no persisted member objects
+
+ISOLATION:
+- no UUID
+- no clock
+- no Supabase
+- no Storage
+- no network
+- no AsyncStorage
+- no filesystem
+- no RPC
+- no addWardrobeItem
+- no React state mutation
+
+DEFENSIVE:
+- unsupported schema
+- zero items
+- one item
+- >6
+- count mismatch
+- duplicate detection ID
+- missing category
+- missing subtype
+- missing color
+- missing relationship
+- duplicate member
+- unknown member
+- missing member
+- unsupported order
+- no partial output on error
+
+==================================================
+15. IMPORTANT TEST DESIGN RULE
+==================================================
+
+Tests must prove purity by construction.
+
+Do not mock or invoke application persistence.
+
+The module should have no such dependencies in the first place.
+
+Where practical, inspect imports/source structure to ensure no prohibited dependency exists.
+
+==================================================
+16. NO APPLICATION INTEGRATION
+==================================================
+
+DO NOT wire B3 into:
+
+- add-item
+- bulk-review
+- AppContext
+- wardrobe persistence
+- navigation
+- UI
+- Storage
+- Supabase
+
+B3 implementation must remain isolated.
+
+Integration belongs to later authorized stages.
+
+==================================================
+17. TECHNICAL.md
+==================================================
+
+If updating TECHNICAL.md, document:
+
+- B3 purpose
+- input contract
+- output contract
+- purity requirement
+- identity boundary
+- B3/B4 boundary
+- B4/B5 boundary
+- explicit non-responsibilities
+
+Do not document B4/B5 as implemented.
+
+==================================================
+18. VALIDATION
+==================================================
+
+After implementation run:
+
+- npm test
+- npm run typecheck
+- npm run lint
+- git diff --check
+
+Also run:
+
+- Recommendation Engine v3.7 golden set
+- relevant scalar classifier tests
+- relevant Phase A/group tests
+
+Do not alter expected results to make tests pass.
+
+==================================================
+19. SCOPE VERIFICATION
+==================================================
+
+Inspect:
+
+git status --short --untracked-files=all
+git diff --stat
+git diff --check
+
+Report every modified/untracked file.
+
+Any modification outside the explicitly authorized B3 scope is a blocking finding.
+
+Pay particular attention to:
+
+- Recommendation Engine v3.7 files
+- benchmark CSVs
+- scalar classifier
+- B1/B2 classifier
+- WardrobeItem
+- Phase A
+- Supabase
+- Storage
+- package files
+- configuration
+
+==================================================
+20. FINAL REPORT
+==================================================
+
+Return:
+
+# B3 Implementation Report
+
+## 1. Implementation verdict
+
+PASS
+or
+BLOCKED
+
+## 2. Files created/modified
+
+Exact paths and purpose.
+
+## 3. B3 contract implemented
+
+Explain input/output and invariants.
+
+## 4. Purity verification
+
+Explicitly confirm absence of:
+
+- network
+- Supabase
+- Storage
+- AsyncStorage
+- filesystem
+- UUID
+- clock
+- React state
+- navigation
+- haptics
+
+## 5. Test results
+
+Exact results.
+
+## 6. Regression results
+
+Exact results.
+
+## 7. Scope integrity
+
+Exact git status/diff.
+
+## 8. Protected-system verification
+
+Explicit confirmation.
+
+## 9. Remaining limitations
+
+Only genuine B3 limitations.
+
+## 10. Next-stage readiness
+
+State whether B4 SPECIFICATION REVIEW can begin.
+
+Do NOT implement B4.
+
+STOP.
