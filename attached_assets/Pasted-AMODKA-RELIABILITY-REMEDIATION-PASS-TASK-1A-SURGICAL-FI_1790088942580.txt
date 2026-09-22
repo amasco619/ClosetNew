@@ -1,0 +1,372 @@
+AMODKA — RELIABILITY REMEDIATION PASS
+TASK 1A: SURGICAL FIXES FROM POST-IMPLEMENTATION VERIFICATION
+
+STATUS: IMPLEMENTATION AUTHORIZED
+SCOPE: FOUR VERIFIED DEFECTS ONLY
+
+The post-implementation verification returned:
+
+VERIFICATION BLOCKED — ACTION REQUIRED
+
+Four concrete defects were verified.
+
+You are authorized to fix ONLY these four defects.
+
+Do not perform any other reliability improvements during this task.
+
+==================================================
+DEFECT 1 — AUTHENTICATED AUTO-PERSIST FALSE DURABLE SUCCESS
+==================================================
+
+Verified location:
+
+lib/bulkClassifyCore.ts
+runAutoPersistItem()
+
+Current defect:
+
+When resolveUploadArg() returns null, auto-persist can:
+
+1. skip cloud upload
+2. persist the original local URI
+3. omit storagePath
+4. mark the item auto-saved
+
+This can present an authenticated item as durably saved when no cloud upload occurred.
+
+REQUIRED FIX:
+
+For authenticated users:
+
+- null upload source MUST NOT be treated as successful durable upload
+- failed/missing cloud upload MUST result in the same honest local-only/pending semantics already established for the manual Save All path
+- do not mark the item as durable/auto-saved unless the required cloud persistence condition is actually satisfied
+- preserve local image protection
+- preserve guest/local behavior
+- preserve successful authenticated upload behavior
+
+DO NOT:
+
+- add operation records
+- add an outbox
+- add idempotency
+- add replay
+- change database schema
+- change IDs
+- change B0.3/B1/B5/B6 architecture
+- redesign persistence
+
+Add regression tests specifically covering:
+
+A. authenticated + upload source available + upload succeeds
+B. authenticated + upload source null
+C. authenticated + upload throws
+D. guest/local + upload source null
+E. mixed cloud/local outcomes
+F. retry after local-only outcome
+
+The test MUST fail if an authenticated null-upload outcome is represented as durable success.
+
+==================================================
+DEFECT 2 — SIGNED_IN INITIALIZATION BYPASSES STARTUP GENERATION GUARD
+==================================================
+
+Verified location:
+
+contexts/AppContext.tsx
+
+Current defect:
+
+The Supabase SIGNED_IN auth listener invokes loadUserDataFromDB() without the startup generation associated with the current startup attempt.
+
+This can allow an auth-listener initialization to overlap a timed-out startup/retry and commit state outside the generation guard.
+
+REQUIRED FIX:
+
+Ensure the SIGNED_IN initialization path participates in the same startup-generation safety model.
+
+Requirements:
+
+- stale initialization must not overwrite state belonging to a newer startup attempt
+- current valid initialization must still commit normally
+- retry must not create duplicate auth listeners
+- auth listener cleanup must remain unchanged
+- cold-start authentication behavior must remain unchanged
+- signed-in users must still hydrate correctly
+- signed-out users must remain unaffected
+
+Do NOT redesign authentication.
+
+Do NOT change Supabase Auth configuration.
+
+Do NOT change session semantics.
+
+Add regression coverage for:
+
+A. initial SIGNED_IN event during normal startup
+B. startup timeout followed by retry
+C. stale SIGNED_IN initialization completing after a newer retry starts
+D. current SIGNED_IN initialization completing during the current generation
+E. listener cleanup
+F. no duplicate initialization/listener behavior
+
+The critical assertion is:
+
+A stale SIGNED_IN initialization MUST NOT overwrite state belonging to a newer startup generation.
+
+==================================================
+DEFECT 3 — CLASSIFIER RAW UPSTREAM DETAIL LEAK
+==================================================
+
+Verified location:
+
+server/classify-garment.ts
+
+Current defects:
+
+1. malformed Gemini JSON can cause raw upstream response fragments to be logged
+2. upstream error detail can be logged
+3. HTTP 429 can return upstream error detail to the client
+
+This violates the existing observability/security contract.
+
+REQUIRED FIX:
+
+Remove raw upstream detail from:
+
+- logs
+- client responses
+
+For malformed upstream JSON:
+
+- log only safe structured metadata
+- use the existing redacting reporting mechanism
+- include safe category/code/operation/dependency/status where available
+- DO NOT include raw Gemini response text
+
+For upstream 429:
+
+- preserve a stable machine-readable classification
+- return a safe generic client-facing message
+- do not expose provider internals
+- do not expose raw upstream response text
+
+For other upstream failures:
+
+- preserve existing successful behavior
+- preserve existing stable client error codes where callers depend on them
+- remove raw upstream detail from logs and responses
+
+Do NOT modify:
+
+- classifier prompt
+- classifier taxonomy
+- classification heuristics
+- successful response schema
+- normalization semantics
+- classification business logic
+
+Add tests proving:
+
+- malformed Gemini response does not appear in logs
+- raw upstream error text does not appear in logs
+- raw upstream error text does not appear in HTTP responses
+- 429 response is safe
+- existing successful classification remains unchanged
+
+==================================================
+DEFECT 4 — CLASSIFIER TIMEOUT MUST BE MACHINE-DISTINGUISHABLE
+==================================================
+
+Verified location:
+
+server/classify-garment.ts
+
+Current behavior:
+
+Axios has a timeout, but timeout/network failures collapse into:
+
+classification_failed
+
+REQUIRED FIX:
+
+Distinguish at minimum:
+
+- classifier timeout
+- classifier network failure
+- classifier upstream 429
+- classifier upstream 5xx
+- malformed classifier response
+- unexpected classifier failure
+
+Use the existing shared error classification/error-code architecture where appropriate.
+
+Requirements:
+
+- timeout MUST have a stable machine-readable code
+- client must receive a safe generic message
+- no raw provider details
+- successful responses remain unchanged
+- existing callers remain compatible unless a specific timeout code is already expected
+- do not introduce automatic retries
+- do not change classifier timeout duration unless strictly necessary
+
+Add tests for:
+
+A. timeout
+B. network failure
+C. 429
+D. 5xx
+E. malformed response
+F. successful classification
+
+==================================================
+ABSOLUTE PROTECTED BOUNDARIES
+==================================================
+
+Do NOT modify:
+
+- Recommendation Engine v3.7
+- recommendation scoring/ranking/rotation
+- classifier taxonomy
+- classifier prompt
+- classifier heuristics
+- Phase A
+- create_garment_group()
+- garment-group schema
+- garment-group RLS/ACL
+- B0.3
+- B1
+- B5
+- B6
+- B7
+- Supabase schema
+- Supabase migrations
+- Supabase RLS
+- Supabase Storage policies
+- Supabase RPCs/functions
+- database grants
+- production database
+- payments
+- push notifications
+- virtual try-on
+- UI redesign
+- package versions
+- Expo/EAS configuration
+
+The classifier error-handling fix is explicitly allowed because it is an error-boundary/security correction.
+
+It must NOT change successful classification semantics.
+
+==================================================
+TEST REQUIREMENTS
+==================================================
+
+Before changes:
+
+Inspect current relevant tests and establish baseline.
+
+After changes run:
+
+npm test
+npm run typecheck
+npm run lint
+git diff --check
+
+Also run the directly relevant:
+
+- recommendation golden set
+- classifier tests
+- classifier integration tests
+- garment group tests
+- Phase 4 resilience tests
+- bulk auto-persist tests
+- startup/reliability tests
+
+Do not modify expected results to make tests pass.
+
+==================================================
+CHANGESET DISCIPLINE
+==================================================
+
+Keep this patch surgical.
+
+Expected primary implementation areas:
+
+- lib/bulkClassifyCore.ts
+- contexts/AppContext.tsx
+- server/classify-garment.ts
+
+Relevant test files may be added/modified.
+
+Avoid changing unrelated files.
+
+Do not perform cleanup/refactoring outside these defects.
+
+==================================================
+FINAL REPORT
+==================================================
+
+Return:
+
+# Surgical Remediation Report
+
+## Defect 1 — Auto-Persist
+- root cause
+- exact fix
+- tests
+
+## Defect 2 — SIGNED_IN Generation Race
+- root cause
+- exact fix
+- tests
+
+## Defect 3 — Classifier Leakage
+- root cause
+- exact fix
+- redaction verification
+- tests
+
+## Defect 4 — Classifier Timeout
+- root cause
+- exact fix
+- machine-readable code
+- tests
+
+## Files Changed
+
+## Files Added
+
+## Tests
+Exact command/results.
+
+## Protected-System Verification
+
+Explicitly confirm:
+
+- Recommendation Engine v3.7 unchanged
+- classifier taxonomy/prompt/heuristics unchanged
+- Phase A unchanged
+- B0.3/B1/B5/B6/B7 unchanged
+- Supabase unchanged
+- benchmarks unchanged
+
+## Supabase Impact
+
+Expected:
+
+NO changes.
+
+## Package/Config Impact
+
+Expected:
+
+NO changes.
+
+## Remaining Known Risks
+
+Only list risks that genuinely remain.
+
+STOP after this report.
+
+Do not proceed to another feature.

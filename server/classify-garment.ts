@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import axios from "axios";
+import { reportError } from "../shared/observability";
 
 type ItemCategory = "top" | "bottom" | "dress" | "outerwear" | "shoes" | "bag" | "jewelry";
 type OccasionTag = "work" | "casual" | "date-casual" | "date-dressy" | "event" | "interview" | "wedding" | "traditional-event" | "travel" | "brunch" | "active" | "resort" | "night-out";
@@ -805,8 +806,10 @@ export async function classifyGarment(req: Request, res: Response) {
       },
     };
 
-    // Try gemini-flash-lite-latest first (separate quota bucket), fall back to gemini-2.5-flash
-    const MODELS = ['gemini-flash-lite-latest', 'gemini-2.5-flash'];
+    // Preserve the existing quota fallback: the second model is only tried
+    // when the first model returns HTTP 429. Other failures are classified
+    // immediately and never retried.
+    const MODELS = ["gemini-flash-lite-latest", "gemini-2.5-flash"];
     let geminiRes: any;
     let lastErr: any;
     for (const model of MODELS) {
@@ -816,14 +819,11 @@ export async function classifyGarment(req: Request, res: Response) {
           geminiReq,
           { timeout: 20000 }
         );
-        break; // success — stop trying
+        break;
       } catch (err: any) {
         lastErr = err;
-        if (err?.response?.status === 429) {
-          console.warn(`[classify] ${model} quota exhausted, trying next model`);
-          continue;
-        }
-        throw err; // non-429 error — surface immediately
+        if (err?.response?.status === 429) continue;
+        throw err;
       }
     }
     if (!geminiRes) throw lastErr;
@@ -835,8 +835,17 @@ export async function classifyGarment(req: Request, res: Response) {
     try {
       parsed = JSON.parse(rawText);
     } catch {
-      console.error("[classify] Gemini returned non-JSON:", rawText.slice(0, 200));
-      return res.status(500).json({ error: "classification_failed" });
+      // Never include provider output in logs: it may contain prompt or
+      // image-derived data.  reportError emits only allow-listed metadata.
+      reportError(new Error("Malformed classifier response"), "classifier_parse", {
+        category: "malformed_response",
+        code: "MALFORMED_RESPONSE",
+        dependency: "gemini",
+        status: 502,
+        retryable: false,
+        route: "/api/classify-garment",
+      });
+      return res.status(502).json({ error: "classifier_malformed_response" });
     }
 
     // ── Delegate to pure processing function ─────────────────────────────────
@@ -853,12 +862,70 @@ export async function classifyGarment(req: Request, res: Response) {
     return res.json(result);
   } catch (err: any) {
     const status = err?.response?.status;
-    const detail = err?.response?.data?.error?.message ?? err.message;
-    console.error("[classify] Gemini error", status, detail);
-    // Forward rate-limit / quota errors so the client can surface a clear message
-    if (status === 429) {
-      return res.status(429).json({ error: "rate_limited", detail });
+    const isTimeout = err?.code === "ECONNABORTED"
+      || err?.code === "ETIMEDOUT"
+      || err?.name === "TimeoutError"
+      || (typeof err?.message === "string" && err.message.toLowerCase().includes("timeout"));
+    const hasResponse = Boolean(err?.response);
+    const errorMessage = typeof err?.message === "string" ? err.message.toLowerCase() : "";
+    const isNetwork = !hasResponse && (
+      axios.isAxiosError(err)
+      || ["ENOTFOUND", "ECONNRESET", "EHOSTUNREACH", "ECONNREFUSED"].includes(err?.code)
+      || errorMessage.includes("network")
+      || errorMessage.includes("offline")
+    );
+
+    if (isTimeout) {
+      reportError(new Error("Classifier request timed out"), "classifier_request", {
+        category: "timeout",
+        code: "REQUEST_TIMEOUT",
+        dependency: "gemini",
+        status: 504,
+        retryable: true,
+        route: "/api/classify-garment",
+      });
+      return res.status(504).json({ error: "classifier_timeout" });
     }
+    if (status === 429) {
+      reportError(new Error("Classifier upstream rate limit"), "classifier_request", {
+        category: "rate_limit",
+        code: "RATE_LIMITED",
+        dependency: "gemini",
+        status,
+        retryable: true,
+        route: "/api/classify-garment",
+      });
+      return res.status(429).json({ error: "rate_limited" });
+    }
+    if (status >= 500 && status <= 599) {
+      reportError(new Error("Classifier upstream failure"), "classifier_request", {
+        category: "external_dependency",
+        code: "EXTERNAL_DEPENDENCY_ERROR",
+        dependency: "gemini",
+        status,
+        retryable: true,
+        route: "/api/classify-garment",
+      });
+      return res.status(502).json({ error: "classifier_upstream_failure" });
+    }
+    if (isNetwork) {
+      reportError(new Error("Classifier network failure"), "classifier_request", {
+        category: "network",
+        code: "NETWORK_ERROR",
+        dependency: "gemini",
+        retryable: true,
+        route: "/api/classify-garment",
+      });
+      return res.status(503).json({ error: "classifier_network_failure" });
+    }
+    reportError(new Error("Unexpected classifier failure"), "classifier_request", {
+      category: "internal",
+      code: "INTERNAL_ERROR",
+      dependency: "gemini",
+      status,
+      retryable: false,
+      route: "/api/classify-garment",
+    });
     return res.status(500).json({ error: "classification_failed" });
   }
 }

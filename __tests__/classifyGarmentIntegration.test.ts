@@ -204,6 +204,133 @@ function buildLimitedApp(): express.Application {
     }
   }
 
+  section("classifier failures are safe and machine-distinguishable");
+  {
+    const savedKey = process.env.GEMINI_API_KEY;
+    const savedPost = axios.post;
+    process.env.GEMINI_API_KEY = "test-key";
+
+    const runFailure = async (failure: unknown) => {
+      axios.post = (async () => { throw failure; }) as typeof axios.post;
+      return request(buildApp())
+        .post("/api/classify-garment")
+        .send({ imageBase64: "dGVzdA==" });
+    };
+    const axiosError = (fields: Record<string, unknown>) =>
+      Object.assign(new Error("provider secret must never leak"), { isAxiosError: true, ...fields });
+
+    const savedError = console.error;
+    const logs: string[] = [];
+    console.error = (...args: unknown[]) => { logs.push(args.join(" ")); };
+    const assertSafe = (label: string, response: any, secret: string) => {
+      const body = JSON.stringify(response.body);
+      const output = logs.join("\n");
+      assert(!body.includes(secret) && !output.includes(secret),
+        `${label} does not expose raw provider detail in body or logs`);
+    };
+
+    try {
+      let calls = 0;
+      axios.post = (async () => {
+        calls++;
+        if (calls === 1) {
+          throw axiosError({ response: { status: 429 } });
+        }
+        return {
+          data: {
+            candidates: [{
+              content: {
+                parts: [{
+                  text: JSON.stringify({
+                    category: "top",
+                    subType: "t-shirt",
+                    colorFamily: "navy",
+                    dominantRgb: [26, 42, 74],
+                    modelConfidence: 0.91,
+                  }),
+                }],
+              },
+            }],
+          },
+        };
+      }) as typeof axios.post;
+      const fallbackSuccess = await request(buildApp())
+        .post("/api/classify-garment")
+        .send({ imageBase64: "dGVzdA==" });
+      assert(fallbackSuccess.status === 200 && calls === 2
+        && fallbackSuccess.body.category === "top",
+        "first-model 429 falls back to second model and preserves success");
+
+      const timeout = await runFailure({ code: "ECONNABORTED", message: "timeout provider secret" });
+      assert(timeout.status === 504 && timeout.body.error === "classifier_timeout",
+        "timeout returns stable classifier_timeout code");
+      assertSafe("timeout", timeout, "timeout provider secret");
+
+      const networkSecret = "network provider secret";
+      const network = await runFailure(axiosError({ message: `Network Error: ${networkSecret}` }));
+      assert(network.status === 503 && network.body.error === "classifier_network_failure",
+        "network failure returns stable classifier_network_failure code");
+      assertSafe("network failure", network, networkSecret);
+
+      const rateLimitSecret = "raw quota internals";
+      const rateLimited = await runFailure(axiosError({
+        response: { status: 429, data: { error: { message: rateLimitSecret } } },
+      }));
+      assert(rateLimited.status === 429 && rateLimited.body.error === "rate_limited"
+        , "429 response has safe code");
+      assertSafe("429", rateLimited, rateLimitSecret);
+
+      let exhaustedCalls = 0;
+      const exhaustedSecret = "raw exhausted quota internals";
+      axios.post = (async () => {
+        exhaustedCalls++;
+        throw axiosError({
+          response: { status: 429, data: { error: { message: exhaustedSecret } } },
+        });
+      }) as typeof axios.post;
+      const exhausted = await request(buildApp())
+        .post("/api/classify-garment")
+        .send({ imageBase64: "dGVzdA==" });
+      assert(exhausted.status === 429 && exhausted.body.error === "rate_limited"
+        && exhaustedCalls === 2
+        , "all-model 429 is safe rate_limited after the existing two-model fallback");
+      assertSafe("all-model 429", exhausted, exhaustedSecret);
+
+      const upstreamSecret = "raw outage internals";
+      const upstream = await runFailure(axiosError({
+        response: { status: 503, data: { error: { message: upstreamSecret } } },
+      }));
+      assert(upstream.status === 502 && upstream.body.error === "classifier_upstream_failure"
+        , "5xx response has safe code");
+      assertSafe("5xx", upstream, upstreamSecret);
+
+      const unexpectedSecret = "raw unexpected internals";
+      const unexpected = await runFailure(axiosError({
+        response: { status: 400, data: { error: { message: unexpectedSecret } } },
+      }));
+      assert(unexpected.status === 500 && unexpected.body.error === "classification_failed",
+        "unexpected failure remains safely coded");
+      assertSafe("unexpected failure", unexpected, unexpectedSecret);
+
+      const malformedSecret = "raw Gemini response secret";
+      axios.post = (async () => ({
+        data: { candidates: [{ content: { parts: [{ text: malformedSecret }] } }] },
+      })) as typeof axios.post;
+      const malformedResponse = await request(buildApp())
+        .post("/api/classify-garment")
+        .send({ imageBase64: "dGVzdA==" });
+      assert(malformedResponse.status === 502
+        && malformedResponse.body.error === "classifier_malformed_response",
+        "malformed response is safe");
+      assertSafe("malformed response", malformedResponse, malformedSecret);
+    } finally {
+      console.error = savedError;
+      axios.post = savedPost;
+      if (savedKey === undefined) delete process.env.GEMINI_API_KEY;
+      else process.env.GEMINI_API_KEY = savedKey;
+    }
+  }
+
   // ── Summary ────────────────────────────────────────────────────────────────
 
   console.log(

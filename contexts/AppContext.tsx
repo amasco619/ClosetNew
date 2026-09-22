@@ -34,7 +34,11 @@ import { mapDbRowToWardrobeItem } from '../lib/wardrobeMapper';
 import { supabase } from '../lib/supabase';
 import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl, getSignedWardrobeUrl } from '../lib/storage';
 import { reportError } from '@/shared/observability';
-import { isCurrentStartupGeneration } from '@/shared/reliability-guards';
+import {
+  canCommitStartupHydration,
+  isCurrentStartupGeneration,
+  shouldClaimStartupHydration,
+} from '@/shared/reliability-guards';
 import { rebaseGuestPhotoUri } from '../lib/rebaseGuestPhotoUri';
 import {
   RotationState, INITIAL_ROTATION_STATE,
@@ -239,6 +243,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [orphanedItems, setOrphanedItems] = useState<WardrobeItem[]>([]);
 
   const currentUserIdRef = useRef<string | null>(null);
+  const currentUserGenerationRef = useRef<number | null>(null);
   const startupGenerationRef = useRef(0);
 
   useEffect(() => { loadData(); }, [startupAttempt]);
@@ -284,9 +289,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // here as well would create a race where setAppReady(true) could fire before
           // the DB load started by this listener has completed.
           const userId = session.user.id;
+          // Tie listener hydration to the startup attempt that observed the
+          // event. A retry may begin while this async work is in flight; the
+          // generation guard in loadUserDataFromDB must then reject its
+          // completion rather than allowing stale account data to commit.
+          const generation = startupGenerationRef.current;
           // Dedup: loadData() may have already loaded this user's data.
-          if (currentUserIdRef.current === userId) return;
+          if (!shouldClaimStartupHydration(
+            currentUserIdRef.current,
+            currentUserGenerationRef.current,
+            userId,
+            generation,
+          )) return;
           currentUserIdRef.current = userId;
+          currentUserGenerationRef.current = generation;
           const authName: string =
             session.user.user_metadata?.full_name ||
             session.user.user_metadata?.name ||
@@ -294,12 +310,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // Snapshot local (potentially guest) profile before any DB operations
           const localRaw = await AsyncStorage.getItem(STORAGE_KEYS.profile).catch(() => null);
           const localSnap: UserProfile | null = localRaw ? mergeProfile(JSON.parse(localRaw)) : null;
-          await loadUserDataFromDB(userId, authName, localSnap);
+          await loadUserDataFromDB(userId, authName, localSnap, generation);
+          // The hydration may have completed after a retry advanced the
+          // startup generation. Never publish auth state from that stale
+          // listener callback.
+          if (!canCommitStartupHydration(
+            userId,
+            generation,
+            currentUserIdRef.current,
+            currentUserGenerationRef.current,
+            startupGenerationRef.current,
+          )) return;
           setIsAuthenticated(true);
         }
 
         if (event === 'SIGNED_OUT') {
+          // Invalidate any in-flight hydration before clearing account state.
+          // Its generation checks must fail rather than repopulating the
+          // signed-out provider after this event.
+          ++startupGenerationRef.current;
           currentUserIdRef.current = null;
+          currentUserGenerationRef.current = null;
           setIsAuthenticated(false);
           setProfile(defaultProfile);
           setWardrobeItems([]);
@@ -623,8 +654,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           initSession.user.user_metadata?.full_name ||
           initSession.user.user_metadata?.name ||
           '';
-        if (currentUserIdRef.current !== initUserId) {
+        if (shouldClaimStartupHydration(
+          currentUserIdRef.current,
+          currentUserGenerationRef.current,
+          initUserId,
+          generation,
+        )) {
           currentUserIdRef.current = initUserId;
+          currentUserGenerationRef.current = generation;
           await loadUserDataFromDB(initUserId, initAuthName, loadedProfile, generation);
           assertCurrent();
         }
@@ -718,6 +755,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           constraints: localSnap.constraints,
           onboarding_complete: localSnap.onboardingComplete ?? false,
         }).catch(console.error);
+        assertCurrent();
         setProfile(mergeProfile({ ...localSnap, isGuest: false, name: localSnap.name || authName || '' }));
       } else if (dbProfile) {
         const ext = (dbProfile.constraints?._profile as any) ?? {};
@@ -789,6 +827,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               }
             }),
           );
+          assertCurrent();
           if (Object.keys(recoveryMap).length > 0) {
             for (const item of mapped) {
               if (recoveryMap[item.id]) item.photoUri = recoveryMap[item.id];
@@ -820,6 +859,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }),
           );
         }
+        // URL recovery can outlive the startup attempt that began hydration.
+        // Do not let a stale listener completion publish its item snapshot.
+        assertCurrent();
         setWardrobeItems(mapped);
         // Save storage paths (not signed URLs) to AsyncStorage so cold starts
         // can resolve them fresh.  Signed URLs expire after 1h and would show

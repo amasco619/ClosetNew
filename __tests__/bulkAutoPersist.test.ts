@@ -111,6 +111,7 @@ interface MockDepsResult {
   addItemPayloads: Array<{ id: string; photoUri: string; classification: ClassifyResult }>;
   setItemsStatuses: string[];
   hapticFired: boolean;
+  failureCalls: number;
   resolveSession(userId: string | null): void;
   resolveUpload(url: string): void;
   rejectUpload(err: Error): void;
@@ -122,6 +123,7 @@ function makeDeferredDeps(overrides: {
   const addItemPayloads: Array<{ id: string; photoUri: string; classification: ClassifyResult }> = [];
   const setItemsStatuses: string[] = [];
   let hapticFired = false;
+  let failureCalls = 0;
 
   const sessionD = deferred<string | null>();
   const uploadD  = deferred<string>();
@@ -151,6 +153,7 @@ function makeDeferredDeps(overrides: {
       if (after[0]) setItemsStatuses.push(after[0].status);
     },
     onHaptic: () => { hapticFired = true; },
+    onFailure: () => { failureCalls++; },
   };
 
   return {
@@ -159,6 +162,7 @@ function makeDeferredDeps(overrides: {
     addItemPayloads,
     get setItemsStatuses() { return setItemsStatuses; },
     get hapticFired() { return hapticFired; },
+    get failureCalls() { return failureCalls; },
     resolveSession: (v) => sessionD.resolve(v),
     resolveUpload:  (v) => uploadD.resolve(v),
     rejectUpload:   (e) => uploadD.reject(e),
@@ -171,7 +175,7 @@ function makeDeferredDeps(overrides: {
 
   // ── 1. Happy path ────────────────────────────────────────────────────────
 
-  section('runAutoPersistItem — 1. happy path (authenticated + upload): addItem called, status → auto-saved');
+  section('runAutoPersistItem — A. authenticated + upload succeeds: durable auto-save');
   {
     const mountedRef = { current: true };
     const itemsRef   = makeItemsRef();
@@ -204,11 +208,11 @@ function makeDeferredDeps(overrides: {
 
   // ── 2. Auth gate ─────────────────────────────────────────────────────────
 
-  section('runAutoPersistItem — 2. auth gate (no session): addItem NOT called, status reverts to settled');
+  section('runAutoPersistItem — D. guest/local + null upload source: no durable record');
   {
     const mountedRef = { current: true };
     const itemsRef   = makeItemsRef();
-    const d = makeDeferredDeps();
+    const d = makeDeferredDeps({ resolveUploadArgResult: null });
 
     const p = runAutoPersistItem(makeInput(), mountedRef, itemsRef, d.deps);
     await tick();
@@ -361,7 +365,7 @@ function makeDeferredDeps(overrides: {
 
   // ── 7. Upload error ───────────────────────────────────────────────────────
 
-  section('runAutoPersistItem — 7. upload error: addItem NOT called, status reverts to settled');
+  section('runAutoPersistItem — C. authenticated + upload throws: pending retry');
   {
     const mountedRef = { current: true };
     const itemsRef   = makeItemsRef();
@@ -475,9 +479,9 @@ function makeDeferredDeps(overrides: {
       'removeItem NOT called when match is undefined (item not found)');
   }
 
-  // ── 11. Happy path (no upload — resolveUploadArg returns null) ────────────
+  // ── 11. Authenticated null upload source is local-only/pending ────────────
 
-  section('runAutoPersistItem — 11. no upload needed (resolveUploadArg returns null): local URI used');
+  section('runAutoPersistItem — B. authenticated + null upload source: pending, not durable success');
   {
     const mountedRef = { current: true };
     const itemsRef   = makeItemsRef();
@@ -489,17 +493,75 @@ function makeDeferredDeps(overrides: {
     d.resolveSession('user-abc');
     const result = await p;
 
-    assert(d.addItemCalls === 1,
-      'addItem called even when upload is skipped');
-    assert(d.addItemPayloads[0]?.photoUri === TEST_URI,
-      'photoUri falls back to the original local URI when upload is null');
-    assert(result === TEST_UUID,
-      'returns autoSavedId on success (no-upload path)');
+    assert(d.addItemCalls === 0,
+      'addItem is not called when authenticated upload source is missing');
+    assert(!d.hapticFired,
+      'haptic is not fired for a local-only/pending outcome');
+    assert(d.setItemsStatuses.includes('settled'),
+      'item remains settled so the local image and manual retry are preserved');
+    assert(d.failureCalls === 1,
+      'failure callback is called for the local-only/pending outcome');
+    assert(result === null,
+      'returns null when authenticated upload source is missing');
   }
 
-  // ── 12. applyAutoSavedEdits — empty list ─────────────────────────────────
+  // ── 12. Mixed outcomes and retry after a local-only result ───────────────
 
-  section('applyAutoSavedEdits — 12. empty list: updateItem NOT called, returns 0');
+  section('runAutoPersistItem — E/F. mixed durable + pending outcomes, then retry pending item');
+  {
+    const mountedRef = { current: true };
+    const cloudItemsRef = makeItemsRef('file:///photos/cloud-shirt.jpg');
+    const pendingItemsRef = makeItemsRef('file:///photos/pending-skirt.jpg');
+    const cloud = makeDeferredDeps();
+    const pending = makeDeferredDeps({ resolveUploadArgResult: null });
+    const cloudRun = runAutoPersistItem(
+      makeInput({ uri: 'file:///photos/cloud-shirt.jpg' }),
+      mountedRef,
+      cloudItemsRef,
+      cloud.deps,
+    );
+    const pendingRun = runAutoPersistItem(
+      makeInput({ uri: 'file:///photos/pending-skirt.jpg' }),
+      mountedRef,
+      pendingItemsRef,
+      pending.deps,
+    );
+    await tick();
+    cloud.resolveSession('user-abc');
+    pending.resolveSession('user-abc');
+    await tick();
+    cloud.resolveUpload(TEST_CLOUD_URI);
+    const [cloudResult, pendingResult] = await Promise.all([cloudRun, pendingRun]);
+
+    assert(cloudResult === TEST_UUID && cloud.addItemCalls === 1,
+      'mixed set durable item uploads and persists exactly once');
+    assert(pendingResult === null && pending.addItemCalls === 0,
+      'mixed set pending item has no durable record');
+    assert(pending.failureCalls === 1,
+      'mixed set pending item reports failure without discarding local image');
+
+    const retry = makeDeferredDeps();
+    const retryResult = runAutoPersistItem(
+      makeInput({ uri: 'file:///photos/pending-skirt.jpg' }),
+      mountedRef,
+      pendingItemsRef,
+      retry.deps,
+    );
+    await tick();
+    retry.resolveSession('user-abc');
+    await tick();
+    retry.resolveUpload(TEST_CLOUD_URI);
+    const finalResult = await retryResult;
+
+    assert(finalResult === TEST_UUID && retry.addItemCalls === 1,
+      'pending item can be retried and then becomes durable');
+    assert(retry.addItemPayloads[0]?.photoUri === TEST_CLOUD_URI,
+      'retry persists the uploaded URI rather than the local URI');
+  }
+
+  // ── 13. applyAutoSavedEdits — empty list ─────────────────────────────────
+
+  section('applyAutoSavedEdits — 13. empty list: updateItem NOT called, returns 0');
   {
     let updateCalled = false;
     const count = applyAutoSavedEdits([], {

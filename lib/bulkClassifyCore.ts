@@ -455,15 +455,22 @@ export async function runAutoPersistItem(
 
     const itemId = deps.generateId();
     const uploadArg = deps.resolveUploadArg(item.cleanBase64);
+    // An authenticated auto-save is only successful when the image has been
+    // uploaded.  In particular, do not turn a missing upload source into a
+    // durable wardrobe record pointing at the device-local URI: that record
+    // would look auto-saved while being unusable from another device.
+    // Returning through the failure path leaves the item settled so the
+    // caller can retry or use the explicit Save All local-only fallback.
+    if (!uploadArg) {
+      throw new Error('upload_source_unavailable');
+    }
     let finalUri = item.uri;
     let itemStoragePath: string | undefined;
-    if (uploadArg) {
-      // Compute the durable storage path before upload (formula is deterministic)
-      const ext = uploadArg.mimeType === 'image/png' ? 'png' : 'jpg';
-      itemStoragePath = `${userId}/${itemId}.${ext}`;
-      finalUri = await deps.upload(userId, uploadArg.base64, itemId, uploadArg.mimeType);
-      if (!mountedRef.current) return null;
-    }
+    // Compute the durable storage path before upload (formula is deterministic)
+    const ext = uploadArg.mimeType === 'image/png' ? 'png' : 'jpg';
+    itemStoragePath = `${userId}/${itemId}.${ext}`;
+    finalUri = await deps.upload(userId, uploadArg.base64, itemId, uploadArg.mimeType);
+    if (!mountedRef.current) return null;
 
     // Guard: abort if the item was removed while we were uploading.
     const afterUpload = itemsRef.current.find(it => it.uri === item.uri);
