@@ -301,8 +301,9 @@ lib/
 
 server/
   index.ts               Express server entry (port 5000, 10mb JSON body limit)
-  routes.ts              Route registration (classifyGarment, removeBackground, extractColor, upgrade, delete)
+  routes.ts              Route registration (single/multi-item classification, removeBackground, auth, account deletion)
   classify-garment.ts    POST /api/classify-garment — Gemini classifier
+  classify-multi-item.ts POST /api/classify-garments — isolated B1/B2 multi-item classifier and envelope validator
   remove-background.ts   POST /api/remove-background — Photoroom background removal; 15 s AbortController timeout; error codes from shared/photoroom-error-codes
   supabase.ts            Server-side Supabase admin client
   middleware/
@@ -533,6 +534,18 @@ A resized base64 image (≤1024 px, ~100–300 KB) is sent to `POST /api/classif
 **Low-confidence indicator:** Gemini's `modelConfidence` (0–1) is now stored on `WardrobeItem`. Items classified with `modelConfidence < LOW_CONFIDENCE_THRESHOLD (0.65)` display a subtle amber "Review" badge/pill in the wardrobe grid and list views, giving users an opportunity to correct potentially wrong classifications before they affect outfit recommendations. The threshold is exported from `constants/types.ts`.
 
 **Code:** `server/classify-garment.ts`, `server/routes.ts`, `constants/types.ts`, `app/(tabs)/wardrobe.tsx`
+
+#### B1/B2 Multi-Item Classification Prerequisite
+
+`POST /api/classify-garments` is an additive authenticated path; it does not replace or reroute `POST /api/classify-garment`. Set `MULTI_ITEM_CLASSIFIER_ENABLED=false` to disable only the multi-item path. The endpoint accepts one `imageBase64` field, detects 2–6 garment instances, and validates the complete result before returning it.
+
+- Every detected garment is normalized by the unchanged `processGeminiResult()` scalar machinery. A refused or invalid required member rejects the entire envelope.
+- Public detection IDs are classification-local (`det-001`, `det-002`, …), not wardrobe item UUIDs. Items are sorted by quantized region `y`, `x`, `height`, `width`, then provider-local detection ID; IDs and relationship members follow that order.
+- Relationship type is limited to `coordinated_set`, `multi_item`, or `layered`; member references must exactly match all detected items.
+- The public result is rebuilt from allowlisted fields. It contains normalized classification, bounded region provenance, relationship data, and validation metadata—never raw provider output, URLs, image bytes, tokens, operation IDs, or persistence identifiers.
+- This path performs no database, Storage, group, membership, manifest, or RPC operation.
+
+**Code:** `server/classify-multi-item.ts`, `server/routes.ts`, `__tests__/classifyMultiItem.test.ts`
 
 ---
 

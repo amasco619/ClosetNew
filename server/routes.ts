@@ -3,6 +3,7 @@ import { createServer, type Server } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { classifyGarment } from "./classify-garment";
+import { classifyMultiItem } from "./classify-multi-item";
 import { removeBackground } from "./remove-background";
 import { supabaseAdmin, supabaseAuth, supabaseAnon } from "./supabase";
 import { getUserEntitlement } from "./entitlements";
@@ -144,6 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── AI endpoints: authentication required ────────────────────────────────
   // Without auth, anyone can exhaust Gemini / Google Vision quota.
   app.post("/api/classify-garment", aiLimiter, requireAuth, withAiLimit(classifyGarment));
+  app.post("/api/classify-garments", aiLimiter, requireAuth, withAiLimit(classifyMultiItem));
   app.post("/api/remove-background", bgRemovalLimiter, withAiLimit(removeBackground));
 
   // ── Sign-in ───────────────────────────────────────────────────────────────

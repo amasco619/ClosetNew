@@ -1,0 +1,385 @@
+AMODKA — B1/B2 MULTI-ITEM CLASSIFIER PREREQUISITE IMPLEMENTATION
+IMPLEMENTATION-AUTHORIZED / STRICTLY BOUNDED
+
+OBJECTIVE
+
+Implement only the missing B1/B2 prerequisite required before B3/B4.
+
+B1:
+Create a separate, backward-compatible multi-item classifier path capable of representing N detected garments plus relationship metadata.
+
+B2:
+Normalize every detected garment through the existing scalar normalization machinery and validate the complete multi-item envelope.
+
+STOP after B1/B2.
+
+Do NOT implement B3, B4, B5, B6, or B7.
+
+==================================================
+ABSOLUTE PROTECTED BOUNDARIES
+==================================================
+
+DO NOT MODIFY:
+
+- Recommendation Engine v3.7
+- scoring
+- ranking
+- generation
+- rotation
+- recommendation benchmarks
+- expected benchmark results
+- existing /api/classify-garment behavior
+- existing scalar classifier prompt
+- scalar taxonomy
+- scalar heuristics
+- processGeminiResult() semantics
+- WardrobeItem
+- garment_groups schema
+- garment_group_members schema
+- create_garment_group()
+- Phase A RLS
+- Phase A ACLs
+- Supabase migrations
+- Supabase schema
+- Storage policies
+- Storage buckets
+- RPCs
+- grants
+- operation records
+- B0.3 persistence contract
+- B5 transactional persistence
+- B6 replay/reconciliation
+- B7 hydration
+- payments
+- push notifications
+- virtual try-on
+- weather
+- existing single-item upload behavior
+
+No Supabase changes.
+
+No migrations.
+
+No database writes.
+
+No Storage writes.
+
+No package installation.
+
+No configuration changes.
+
+==================================================
+B1 — SEPARATE MULTI-ITEM PATH
+==================================================
+
+Create a new isolated multi-item classifier path.
+
+It must NOT replace or alter:
+
+POST /api/classify-garment
+
+The legacy endpoint must continue returning its existing scalar ClassificationResult.
+
+The new path must be independently disableable.
+
+Use a clearly separate route/module/feature boundary.
+
+The multi-item result must be an explicit typed envelope.
+
+At minimum, establish types for:
+
+MultiItemClassificationResult
+
+items[]
+
+relationship
+
+validation metadata
+
+Each item must be able to represent:
+
+- stable detection identity
+- detection ordering/position
+- normalized scalar classification
+- item confidence
+- source-image provenance sufficient for later B3 use
+
+Relationship metadata must represent:
+
+- relationship type
+- relationship confidence
+- shared relationship attributes where supported
+
+Use the existing Phase A relationship vocabulary only:
+
+- coordinated_set
+- multi_item
+- layered
+
+Do not invent additional persisted relationship types.
+
+==================================================
+B1 — DETECTION MODEL
+==================================================
+
+The multi-item path must distinguish:
+
+1. source image
+2. detected garment instances
+3. scalar classification of each garment
+4. relationship between those garments
+
+Do not represent a multi-item image as one WardrobeItem.
+
+Do not add group fields to WardrobeItem.
+
+Do not persist anything.
+
+The implementation may use an intermediate provider response shape internally, but provider-specific raw data must not leak into the validated public contract.
+
+==================================================
+B2 — REUSE EXISTING NORMALIZATION
+==================================================
+
+Every detected garment must pass through the existing scalar normalization behavior.
+
+Reuse the existing normalization machinery rather than duplicating category/subtype/colour/attribute rules.
+
+Preserve existing scalar behavior.
+
+Do not alter:
+
+- category allowlist
+- subtype normalization
+- colour validation
+- attribute allowlists
+- confidence handling
+- derived fields
+- colour-signal behavior
+- guardrails
+
+B2 adds the envelope around this existing behavior.
+
+==================================================
+B2 — ENVELOPE VALIDATION
+==================================================
+
+Validate the complete result before exposing it to downstream code.
+
+Required validation:
+
+- items must be an array
+- item count must be >= 2 for a multi-item result
+- item count must have an explicit maximum
+- every item must have a unique detection identity
+- every required item must successfully normalize
+- malformed item entries must reject the envelope
+- unsupported relationship types must reject
+- relationship confidence must be valid
+- group/member consistency must be valid
+- deterministic item ordering must be established
+- duplicate detected garments must be rejected
+- missing required fields must reject
+- malformed envelope must reject
+- empty array must reject
+- excessive array must reject
+
+Do not silently drop an invalid item and continue with a partial set.
+
+The whole multi-item result must be rejected if required envelope validation fails.
+
+==================================================
+SINGLE-ITEM BEHAVIOR
+==================================================
+
+Do not change existing single-item behavior.
+
+Single-item images must continue through the existing scalar route.
+
+Do not automatically route existing single-item uploads through the new multi-item path.
+
+The new path must be additive.
+
+==================================================
+RELATIONSHIP SEMANTICS
+==================================================
+
+Use:
+
+coordinated_set
+multi_item
+layered
+
+Relationship metadata belongs to the envelope/group layer.
+
+It does not belong inside WardrobeItem.
+
+Do not call create_garment_group().
+
+Do not create groups.
+
+Do not create memberships.
+
+==================================================
+DETECTION IDENTITY
+==================================================
+
+B1/B2 needs a deterministic detection identity for validation and downstream B3 use.
+
+Do NOT confuse detection identity with the future persistent wardrobe item UUID.
+
+Do not generate the future persistence item UUID here.
+
+Detection identity must only identify detected garment instances within the classification result.
+
+Document exactly how it is generated and why it remains stable within one classifier result.
+
+==================================================
+DETERMINISTIC ORDER
+==================================================
+
+Establish deterministic ordering of items.
+
+Do not rely solely on provider array order if the provider can return nondeterministic ordering.
+
+Use an explicit deterministic ordering rule based only on validated detection information.
+
+Document the rule.
+
+==================================================
+SOURCE PROVENANCE
+==================================================
+
+The validated result may retain minimal source-image/detection provenance required by B3.
+
+Do NOT persist:
+
+- signed URLs
+- access tokens
+- provider raw response
+- raw image bytes
+- secrets
+
+Do not create a B4 manifest.
+
+==================================================
+TESTS
+==================================================
+
+Add focused B1/B2 tests.
+
+Required cases:
+
+1. valid two-item envelope
+2. valid three-item envelope
+3. malformed envelope
+4. missing items
+5. empty items
+6. excessive item count
+7. duplicate detection identity
+8. invalid item classification
+9. invalid category
+10. invalid subtype
+11. invalid colour
+12. invalid relationship
+13. invalid relationship confidence
+14. missing relationship
+15. inconsistent item/group references
+16. deterministic item ordering
+17. single-item legacy route remains unchanged
+18. existing scalar normalization regression
+19. successful multi-item normalization
+20. whole-envelope rejection when one item fails
+
+Also test that:
+
+- provider raw response does not escape the validated result
+- signed URLs cannot appear in the validated result
+- no database calls occur
+- no Storage calls occur
+- create_garment_group() is never called
+
+==================================================
+REGRESSION REQUIREMENTS
+==================================================
+
+Run:
+
+npm test
+npm run typecheck
+npm run lint
+git diff --check
+
+Run the relevant classifier tests.
+
+Run the recommendation golden set.
+
+Run relevant Phase A/group tests.
+
+Do not modify benchmark expected results.
+
+==================================================
+GIT / SCOPE INTEGRITY
+==================================================
+
+Before implementation record:
+
+- git status
+- git diff --name-status
+
+After implementation report:
+
+- every changed file
+- every added file
+- every deleted file
+- any pre-existing modifications
+- any untracked input assets
+
+No unrelated source files may be changed.
+
+==================================================
+FINAL REPORT
+==================================================
+
+Return:
+
+1. B1 implementation summary
+2. B2 implementation summary
+3. Exact files changed
+4. Exact files added
+5. Contract/type definitions introduced
+6. Detection identity rule
+7. Deterministic ordering rule
+8. Relationship semantics
+9. Validation behavior
+10. Test results
+11. Regression results
+12. Protected-system verification
+13. Supabase impact
+14. Package/config impact
+15. Remaining limitations
+16. Recommendation on whether B3 contract audit can now begin
+
+IMPORTANT:
+
+Do not implement B3.
+
+Do not implement B4.
+
+Do not implement persistence.
+
+Do not implement operationId.
+
+Do not implement item persistence UUIDs.
+
+Do not implement pending manifests.
+
+Do not implement deterministic Storage orchestration.
+
+Do not implement database RPCs.
+
+Do not modify Supabase.
+
+STOP after B1/B2.
+
+The next task will be a read-only B1/B2 contract audit.
