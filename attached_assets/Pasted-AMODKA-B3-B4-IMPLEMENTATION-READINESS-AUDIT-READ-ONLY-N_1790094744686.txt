@@ -1,0 +1,703 @@
+AMODKA — B3/B4 IMPLEMENTATION-READINESS AUDIT
+READ-ONLY / NO IMPLEMENTATION
+
+ROLE
+You are performing a senior production-readiness audit of the Amodka codebase.
+
+This is an AUDIT ONLY.
+
+Do not modify source code, tests, migrations, Supabase, configuration, package files, workflows, fixtures, benchmarks, or project state.
+
+Do not create implementation files.
+
+Do not “fix” anything you discover.
+
+Do not begin B3/B4 implementation.
+
+Your job is to determine whether Amodka is actually ready to enter B3/B4 implementation, identify exact gaps, and produce a precise handoff for the next authorization step.
+
+==================================================
+1. AUTHORITATIVE PHASE B BOUNDARY
+==================================================
+
+Use the existing project Phase B specification as the authoritative conceptual contract.
+
+The relevant sequence is:
+
+B1 — backward-compatible multi-item classifier
+B2 — reuse scalar normalization per detected item
+B3 — define client construction without changing WardrobeItem
+B4 — establish deterministic Storage provenance
+B5 — atomic authenticated persistence
+B6 — idempotent retry/reconciliation
+B7 — authenticated group hydration/lifecycle reconciliation
+
+For THIS audit, focus on B3 and B4.
+
+B3 objective:
+
+Convert valid multi-item classification results into:
+
+- N ordinary wardrobe inputs
+- separate group metadata
+
+WITHOUT changing WardrobeItem.
+
+B3 must be:
+
+- deterministic
+- pure
+- no I/O
+- independently unit-testable
+- compatible with single-item behavior
+- explicit about validation failures
+- explicit about group metadata
+- free of database/Storage side effects
+
+B4 objective:
+
+Establish deterministic Storage provenance.
+
+This includes:
+
+- stable operation ID
+- stable item IDs
+- deterministic Storage paths
+- upload orchestration
+- partial-upload handling
+- cleanup/reconciliation state
+- local pending manifest
+- signed-URL exclusion from durable payloads
+
+Critical B4 boundary:
+
+NO database transaction/persistence attempt may begin until all required Storage uploads have succeeded.
+
+B4 must prepare the inputs for B5; it must NOT implement B5.
+
+==================================================
+2. FIRST — VERIFY PREREQUISITES
+==================================================
+
+Before auditing B3/B4, establish the actual state of B1 and B2.
+
+Inspect the codebase and report:
+
+A. B1 multi-item classifier
+
+Determine whether a backward-compatible multi-item classifier path actually exists.
+
+Verify:
+
+- whether a separate multi-item endpoint/path exists
+- whether the legacy /api/classify-garment path remains intact
+- whether the multi-item result is an envelope rather than a replacement scalar response
+- whether N detected item classifications can be represented
+- whether relationship metadata exists
+- whether the implementation can be disabled without affecting legacy classification
+
+Do NOT change the classifier.
+
+B. B2 normalization
+
+Determine whether each detected item is passed through the existing scalar validation/normalization machinery.
+
+Verify:
+
+- category validation
+- subtype validation
+- colour validation
+- attributes
+- confidence bounds
+- malformed arrays
+- duplicate detection identity
+- unsupported relationship handling
+
+Most importantly:
+
+Determine whether B3 has a stable, validated contract to consume.
+
+If B1/B2 are incomplete or unstable, explicitly state:
+
+"B3/B4 implementation should NOT begin because the prerequisite contract is incomplete."
+
+Do not invent missing contracts.
+
+==================================================
+3. B3 — CLIENT CONSTRUCTION AUDIT
+==================================================
+
+Locate the current or intended B3 implementation surface.
+
+Determine whether there is a focused pure transformation module or whether this logic is currently mixed into UI/network/storage code.
+
+Audit whether valid multi-item classification can deterministically produce:
+
+ITEM INPUTS
+
+For each detected garment:
+
+- stable item identity
+- ordinary WardrobeItem-compatible fields
+- source image/provenance information where appropriate
+- no group-specific fields embedded into WardrobeItem
+
+GROUP INPUT
+
+Separate group metadata containing only the relationship-level information required by the approved Phase B design.
+
+Check relationship types against the existing Phase A schema:
+
+- coordinated_set
+- multi_item
+- layered
+
+Check confirmation semantics where applicable:
+
+- ai_inferred
+- user_confirmed
+- user_rejected
+
+Do NOT add fields to WardrobeItem.
+
+Do NOT modify Phase A schema.
+
+Do NOT modify create_garment_group().
+
+Verify:
+
+- two-item input
+- three-item input
+- single-item behavior
+- deterministic ordering
+- duplicate detection
+- malformed input
+- missing fields
+- invalid relationship
+- confidence boundary conditions
+- empty item list
+- excessive item count
+- inconsistent group/item identity
+
+Determine whether the transformation is:
+
+- pure
+- deterministic
+- side-effect free
+- testable without Supabase
+- testable without Storage
+- independent of the recommendation engine
+
+Report exact files/functions involved.
+
+==================================================
+4. B3 — DATA CONTRACT AUDIT
+==================================================
+
+Explicitly document the current data flow:
+
+multi-item classifier
+        ↓
+normalization
+        ↓
+B3 transformation
+        ↓
+ordinary wardrobe item inputs
+        +
+separate group metadata
+        ↓
+B4 provenance/upload preparation
+        ↓
+B5 persistence boundary
+
+For every boundary, identify:
+
+- actual type/interface/schema
+- actual function/module
+- whether validation occurs
+- whether information is lost
+- whether information is duplicated
+- whether any implicit coercion occurs
+- whether any UI-specific object leaks into persistence
+- whether any Storage-specific object leaks into the pure B3 transformation
+
+Flag any mismatch between the approved architecture and the actual implementation.
+
+==================================================
+5. B4 — STABLE ID AUDIT
+==================================================
+
+Determine exactly how stable identities will be generated.
+
+Audit:
+
+- operationId generation
+- item UUID generation
+- whether IDs are generated once or regenerated during retries
+- whether IDs survive app restart
+- whether IDs survive network timeout
+- whether IDs are persisted in the local pending manifest
+- whether IDs are owner-scoped where required
+- whether IDs can accidentally collide
+- whether single-item flows are affected
+
+The approved architecture requires:
+
+- client-generated stable operationId
+- stable item UUIDs
+- exact reuse during retry/reconciliation
+
+Do NOT implement operation records or B5.
+
+Do NOT create database persistence.
+
+Report any place where fresh IDs could accidentally be generated during retry.
+
+==================================================
+6. B4 — DETERMINISTIC STORAGE PATH AUDIT
+==================================================
+
+Audit the existing Storage helpers and determine whether B4 can produce deterministic paths.
+
+Approved convention:
+
+{userId}/{itemId}.{ext}
+
+Verify:
+
+- user ID is derived from the authenticated session rather than arbitrary client-controlled identity
+- item ID is stable
+- extension handling is deterministic
+- paths do not contain operationId unless the approved architecture explicitly requires it
+- signed URLs are never persisted as durable image references
+- path generation is deterministic across retry
+- retrying the same operation produces the same path
+
+Check for:
+
+- path traversal possibilities
+- unsafe characters
+- MIME/extension mismatch
+- accidental public URL persistence
+- temporary signed URL persistence
+- duplicate path generation
+- cross-user path collisions
+
+Do not modify Storage policies or buckets.
+
+==================================================
+7. B4 — UPLOAD ORCHESTRATION AUDIT
+==================================================
+
+Determine how multi-item uploads would be sequenced.
+
+Verify whether the current code can enforce:
+
+1. construct all required item identities
+2. construct all deterministic Storage paths
+3. upload required objects
+4. verify successful upload of every required object
+5. only then construct the B5 persistence request
+
+The critical rule is:
+
+NO DATABASE PERSISTENCE BEFORE ALL REQUIRED UPLOADS SUCCEED.
+
+Audit for any path that could:
+
+- insert wardrobe rows before upload completion
+- create a group before upload completion
+- call create_garment_group() before upload completion
+- mark items as durably saved before upload completion
+- navigate to a durable-success state prematurely
+- treat local URI as a cloud Storage path
+- silently continue after partial upload
+
+Do not fix these paths.
+
+Report them.
+
+==================================================
+8. B4 — PARTIAL UPLOAD / CLEANUP AUDIT
+==================================================
+
+Determine what happens if:
+
+- item 1 upload succeeds
+- item 2 upload succeeds
+- item 3 upload fails
+
+Also inspect:
+
+- network timeout
+- app termination during upload
+- backgrounding
+- retry
+- duplicate retry
+- authenticated session expiry
+- Storage permission failure
+
+Determine whether the system distinguishes:
+
+- upload complete
+- upload failed
+- cleanup pending
+- retry pending
+- unknown outcome
+
+Do NOT invent an unsafe automatic deletion strategy.
+
+The audit must specifically identify whether a failed multi-item upload can leave orphaned Storage objects and how the current architecture records that state.
+
+==================================================
+9. LOCAL PENDING MANIFEST AUDIT
+==================================================
+
+Determine whether the local manifest architecture exists or is missing.
+
+If present, verify it can contain at minimum:
+
+- operationId
+- payloadVersion
+- canonical payload/reference
+- item IDs
+- Storage paths
+- createdAt
+- appropriate state needed for recovery
+
+Check whether the manifest:
+
+- survives app restart
+- is scoped to the authenticated user
+- avoids storing signed URLs
+- avoids storing unnecessary secrets
+- can distinguish pending/cleanup/retry/unknown states
+- is removed only after authoritative completion/reconciliation
+
+If missing, say so.
+
+Do NOT implement it.
+
+==================================================
+10. CANONICAL PAYLOAD AUDIT
+==================================================
+
+Cross-check the current code against the approved B0.3 canonical-payload concept.
+
+The B5 RPC will eventually receive a canonical payload.
+
+B3/B4 must not create ambiguous payloads.
+
+Verify whether the client can deterministically produce:
+
+- versioned payload
+- deterministic item ordering
+- exact item ID set
+- exact group ID/item relationship information where applicable
+- normalized values
+- no signed URLs
+- no user-controlled user_id
+- no transient UI state
+- no provider-specific raw response data
+
+Do not implement the RPC.
+
+Do not modify the B0.3 contract.
+
+Flag mismatches.
+
+==================================================
+11. SINGLE-ITEM REGRESSION BOUNDARY
+==================================================
+
+This is critical.
+
+The existing successful single-item path must remain unchanged.
+
+Identify:
+
+- current single-item upload path
+- current scalar classification path
+- current WardrobeItem creation path
+- current save behavior
+
+Determine whether introducing B3/B4 could accidentally alter:
+
+- single-item IDs
+- single-item Storage paths
+- single-item classification
+- existing WardrobeItem shape
+- existing upload behavior
+- recommendation inputs
+- wardrobe rendering
+
+Do not change any of these.
+
+==================================================
+12. PROTECTED SYSTEMS
+==================================================
+
+The following are ABSOLUTELY READ-ONLY during this audit:
+
+Recommendation Engine v3.7
+- scoring
+- ranking
+- generation
+- rotation
+- benchmark expected results
+
+Classifier protected boundaries:
+- existing scalar classifier
+- taxonomy
+- prompts
+- heuristics
+- successful response schema
+- existing single-item normalization behavior
+
+Phase A:
+- WardrobeItem schema
+- garment_groups schema
+- garment_group_members schema
+- existing RLS
+- existing ACLs
+- create_garment_group()
+
+Persistence/security:
+- B0.3 contract
+- B1 migration
+- operation-record design
+- transactional RPC
+- Supabase schema
+- RLS
+- Storage policies
+- grants
+
+Other protected systems:
+- payments
+- push notifications
+- virtual try-on
+- weather implementation
+- recommendation benchmarks
+
+Do not modify any of them.
+
+==================================================
+13. TEST AUDIT
+==================================================
+
+Inspect existing tests and determine exactly what is already covered.
+
+Do NOT change tests.
+
+Report coverage/gaps for:
+
+B3:
+
+- single item
+- two items
+- three items
+- deterministic ordering
+- duplicate detection
+- invalid item
+- invalid relationship
+- confidence bounds
+- malformed envelope
+- empty array
+- excessive array
+
+B4:
+
+- stable operation ID
+- stable item IDs
+- deterministic paths
+- repeated invocation
+- retry
+- partial upload
+- upload failure
+- timeout
+- manifest persistence
+- signed URL exclusion
+- cross-user path isolation
+- no DB call before upload completion
+
+Also identify whether tests prove that the legacy single-item path remains unchanged.
+
+==================================================
+14. SECURITY AUDIT
+==================================================
+
+Check specifically for:
+
+- user ID forgery
+- Storage path traversal
+- cross-user Storage path collision
+- signed URL persistence
+- arbitrary path injection
+- MIME/extension confusion
+- operation ID tampering
+- item ID tampering
+- accidental leakage of provider responses
+- logging of image payloads
+- logging of signed URLs
+- logging of tokens/session data
+
+Do not change anything.
+
+Report severity and exact file/function where possible.
+
+==================================================
+15. SCOPE / DEPENDENCY AUDIT
+==================================================
+
+Determine which work can safely proceed immediately after this audit.
+
+Classify every finding as:
+
+P0 — blocks B3/B4 implementation
+P1 — must be resolved before B3/B4 verification
+P2 — should be resolved before B5 integration
+P3 — later hardening
+
+Explicitly identify:
+
+- what can be implemented without Supabase Pro
+- what requires migration-capable Supabase/PostgreSQL
+- what must wait for B5
+- what must wait for B6
+- what must remain untouched
+
+Do NOT claim Supabase Pro is required unless the actual evidence demonstrates it.
+
+==================================================
+16. GIT / CHANGE INTEGRITY
+==================================================
+
+Before finishing:
+
+- inspect git status
+- inspect git diff
+- identify all modified files
+- identify all untracked files
+- distinguish pre-existing changes from changes made during this audit
+
+No modifications are authorized.
+
+If the workspace was modified despite this instruction, report exactly what changed.
+
+==================================================
+17. REQUIRED FINAL REPORT FORMAT
+==================================================
+
+Return a structured report with these sections:
+
+1. EXECUTIVE VERDICT
+
+Choose exactly one:
+
+READY FOR B3/B4 IMPLEMENTATION
+
+READY WITH CONDITIONS
+
+NOT READY
+
+2. B1/B2 PREREQUISITE STATUS
+
+For each:
+- status
+- evidence
+- blockers
+
+3. B3 READINESS
+
+Include:
+- current state
+- exact files/functions
+- contract
+- gaps
+- tests
+- security findings
+
+4. B4 READINESS
+
+Include:
+- stable IDs
+- deterministic paths
+- upload orchestration
+- partial upload handling
+- manifest
+- canonical payload
+- tests
+- security findings
+
+5. DATA-FLOW DIAGRAM
+
+Show the actual current architecture using a concise text diagram.
+
+6. PROTECTED-SYSTEM INTEGRITY
+
+Explicitly confirm whether any protected system changed.
+
+7. SUPABASE IMPACT
+
+Explicitly confirm:
+- schema
+- migrations
+- RLS
+- Storage policies
+- RPC
+- grants
+- production database
+
+8. GIT INTEGRITY
+
+Exact status.
+
+9. FINDINGS TABLE
+
+Columns:
+
+ID | Severity | Area | Exact evidence | Risk | Required action
+
+10. TEST COVERAGE MATRIX
+
+Clearly distinguish:
+- covered
+- partially covered
+- missing
+
+11. IMPLEMENTATION GATE
+
+State exactly what must be true before authorization for B3/B4 implementation.
+
+12. RECOMMENDED NEXT STEP
+
+Do NOT implement anything.
+
+==================================================
+FINAL STOP CONDITION
+==================================================
+
+STOP after the audit.
+
+Do not:
+
+- edit code
+- edit tests
+- create migrations
+- touch Supabase
+- change Storage
+- change classifier behavior
+- change taxonomy
+- change Recommendation Engine v3.7
+- change Phase A
+- implement B3
+- implement B4
+- implement B5
+- implement B6
+- implement B7
+- install packages
+- change configuration
+
+This is a READ-ONLY GATE.
+
+The next implementation prompt will be issued only after this audit has been reviewed and explicitly authorized.
