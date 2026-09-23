@@ -149,11 +149,15 @@ assert(
   'no relationship cascade can delete wardrobe items',
 )
 const accountLists = routes.match(/const userIdTables = \[[\s\S]*?\];/g) ?? []
-assert(accountLists.length === 2, 'both account-deletion table lists exist')
-for (const [index, list] of accountLists.entries()) {
+assert(accountLists.length === 1, 'both account-deletion routes share one table list')
+assert(
+  (routes.match(/await deleteAccountData\(userId\)/g) ?? []).length === 2,
+  'both account-deletion routes use the shared cleanup',
+)
+for (const list of accountLists) {
   assert(
     list.indexOf('"garment_group_members"') < list.indexOf('"garment_groups"'),
-    `account deletion flow ${index + 1} processes members before groups`,
+    'account deletion processes members before groups',
   )
 }
 

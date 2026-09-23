@@ -7,6 +7,7 @@ import { classifyMultiItem } from "./classify-multi-item";
 import { removeBackground } from "./remove-background";
 import { supabaseAdmin, supabaseAuth, supabaseAnon } from "./supabase";
 import { getUserEntitlement } from "./entitlements";
+import { reportError } from "../shared/observability";
 import { aiLimiter, bgRemovalLimiter, accountLimiter, authLimiter, resetLimiter, checkAccountLockout, recordFailedAttempt, clearLockout } from "./middleware/rateLimiter";
 import {
   NATIVE_EMAIL_CONFIRMATION_URL,
@@ -55,6 +56,76 @@ function isValidPassword(val: unknown): val is string {
     val.length >= MIN_PASSWORD_LEN &&
     val.length <= MAX_PASSWORD_LEN
   );
+}
+
+class AccountDeletionError extends Error {
+  constructor(readonly stage: string) {
+    super(`account deletion failed at ${stage}`);
+  }
+}
+
+async function deleteAccountData(userId: string): Promise<void> {
+  async function checked<T extends { error: { message: string } | null }>(
+    stage: string,
+    operation: () => PromiseLike<T>,
+  ): Promise<T> {
+    try {
+      const result = await operation();
+      if (result.error) throw new AccountDeletionError(stage);
+      return result;
+    } catch {
+      throw new AccountDeletionError(stage);
+    }
+  }
+
+  // Collect pages before removing objects: deleting while paginating with an
+  // offset would shift the remaining pages and leave objects behind.
+  for (const bucketName of ["wardrobe-images", "tryon-photos"]) {
+    const bucket = supabaseAdmin.storage.from(bucketName);
+    const paths: string[] = [];
+    for (let offset = 0; ; offset += 100) {
+      const { data } = await checked(`storage_list_${bucketName}`, () =>
+        bucket.list(userId, { limit: 100, offset }),
+      );
+      if (!data) throw new AccountDeletionError(`storage_list_${bucketName}`);
+      // These two upload paths are flat. A folder would require recursive
+      // cleanup; failing closed avoids falsely claiming it was removed.
+      if (data.some(file => !file.id || !file.name)) {
+        throw new AccountDeletionError(`storage_list_${bucketName}`);
+      }
+      paths.push(...data.map(file => `${userId}/${file.name}`));
+      if (data.length < 100) break;
+    }
+    for (let i = 0; i < paths.length; i += 100) {
+      await checked(`storage_remove_${bucketName}`, () => bucket.remove(paths.slice(i, i + 100)));
+    }
+    const { data: remaining } = await checked(`storage_verify_${bucketName}`, () =>
+      bucket.list(userId, { limit: 1 }),
+    );
+    if (!remaining || remaining.length) throw new AccountDeletionError(`storage_verify_${bucketName}`);
+  }
+
+  // Child tables precede parents. Repeating a successful delete of zero rows
+  // is safe when retrying after a later stage failed.
+  const userIdTables = [
+    "affinity_signals", "pair_affinity_signals", "rotation_cursors",
+    "wear_logs", "slot_statuses", "tryon_profiles", "saved_looks",
+    "garment_group_members", "garment_groups", "wardrobe_items",
+  ];
+  for (const table of userIdTables) {
+    await checked(`table_${table}`, () =>
+      supabaseAdmin.from(table).delete().eq("user_id", userId),
+    );
+  }
+  await checked("table_user_profiles", () =>
+    supabaseAdmin.from("user_profiles").delete().eq("id", userId),
+  );
+  await checked("auth_delete", () => supabaseAdmin.auth.admin.deleteUser(userId));
+}
+
+function logAccountDeletionError(error: unknown, route: string): void {
+  const stage = error instanceof AccountDeletionError ? error.stage : "unexpected";
+  reportError(error, `account_deletion_${stage}`, { dependency: "supabase", route });
 }
 
 /** Return the ALLOWED_RESET_ORIGINS allowlist, or null when not configured. */
@@ -317,61 +388,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      // 1. Delete wardrobe-images storage objects for this user
-      const { data: wardrobeFiles } = await supabaseAdmin.storage
-        .from("wardrobe-images")
-        .list(userId);
-      if (wardrobeFiles && wardrobeFiles.length > 0) {
-        await supabaseAdmin.storage
-          .from("wardrobe-images")
-          .remove(wardrobeFiles.map((f) => `${userId}/${f.name}`));
-      }
-
-      // 2. Delete tryon-photos storage objects for this user
-      const { data: tryonFiles } = await supabaseAdmin.storage
-        .from("tryon-photos")
-        .list(userId);
-      if (tryonFiles && tryonFiles.length > 0) {
-        await supabaseAdmin.storage
-          .from("tryon-photos")
-          .remove(tryonFiles.map((f) => `${userId}/${f.name}`));
-      }
-
-      // 3. Explicitly delete all user DB records (defence-in-depth; independent
-      //    of whether cascade deletes are configured in the Supabase schema).
-      //    Delete child tables before parent tables.
-      const userIdTables = [
-        "affinity_signals",
-        "pair_affinity_signals",
-        "rotation_cursors",
-        "wear_logs",
-        "slot_statuses",
-        "tryon_profiles",
-        "saved_looks",
-        "garment_group_members",
-        "garment_groups",
-        "wardrobe_items",
-      ];
-      for (const table of userIdTables) {
-        const { error: tblErr } = await supabaseAdmin
-          .from(table)
-          .delete()
-          .eq("user_id", userId);
-        if (tblErr) {
-          // Non-fatal: log and continue so other tables still get cleaned up
-          console.warn(`[delete-account] Failed to delete ${table}:`, tblErr.message);
-        }
-      }
-      // user_profiles uses 'id' (not 'user_id') as its PK tied to auth.users.id
-      await supabaseAdmin.from("user_profiles").delete().eq("id", userId);
-
-      // 4. Delete the auth user (cascades any remaining references)
-      const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
-      if (error) throw new Error(error.message);
+      await deleteAccountData(userId);
       return res.json({ success: true });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[delete-account]", msg);
+      logAccountDeletionError(err, "/api/user/delete-account");
       return res.status(500).json({ success: false, error: "delete_failed" });
     }
   });
@@ -471,39 +491,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = verifyData.user.id;
 
     try {
-      // Mirror the in-app deletion flow: storage → DB rows → auth user.
-      const { data: wardrobeFiles } = await supabaseAdmin.storage
-        .from("wardrobe-images")
-        .list(userId);
-      if (wardrobeFiles && wardrobeFiles.length > 0) {
-        await supabaseAdmin.storage
-          .from("wardrobe-images")
-          .remove(wardrobeFiles.map((f) => `${userId}/${f.name}`));
-      }
-      const { data: tryonFiles } = await supabaseAdmin.storage
-        .from("tryon-photos")
-        .list(userId);
-      if (tryonFiles && tryonFiles.length > 0) {
-        await supabaseAdmin.storage
-          .from("tryon-photos")
-          .remove(tryonFiles.map((f) => `${userId}/${f.name}`));
-      }
-      const userIdTables = [
-        "affinity_signals", "pair_affinity_signals", "rotation_cursors",
-        "wear_logs", "slot_statuses", "tryon_profiles", "saved_looks",
-        "garment_group_members", "garment_groups", "wardrobe_items",
-      ];
-      for (const table of userIdTables) {
-        await supabaseAdmin.from(table).delete().eq("user_id", userId);
-      }
-      await supabaseAdmin.from("user_profiles").delete().eq("id", userId);
-      const { error: deleteErr } = await supabaseAdmin.auth.admin.deleteUser(userId);
-      if (deleteErr) throw new Error(deleteErr.message);
+      await deleteAccountData(userId);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[delete-account-web]", msg);
+      logAccountDeletionError(err, "/api/delete-account-confirm");
       return renderVerifyError(
-        "Something went wrong while deleting your account. Please try again or contact support.",
+        "Account deletion could not be completed. Some data may already have been removed. Please request a new code to retry or contact support.",
       );
     }
 

@@ -316,7 +316,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               28 test suites (see §11)
+__tests__/               57 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -428,7 +428,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 36 test suites once |
+| `npm test` | Run all 57 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -1295,10 +1295,11 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (36 total)
+### Test Suites (57 total)
 
 | Suite | What it tests |
 |-------|--------------|
+| `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, and retries after partial cleanup |
 | `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival, prune-interval state, DB integration (skipped when `DATABASE_URL` absent) |
 | `androidOAuthCancel.test.ts` | Android OAuth cancellation path: `useEffect` cleanup, loading-spinner reset on cancel, no stuck-spinner regression |
 | `blueprint-image-sync.test.ts` | Every blueprint slot imageKey maps to a valid SAMPLE_IMAGES entry (no broken placeholder fallbacks) |
@@ -2158,3 +2159,23 @@ confirmation status, evidence, and an optional durable source-image path.
   `WardrobeItem`; Recommendation Engine v3.7 remains group-unaware.
 - **Deployment:** the migration is forward-only and must be applied separately
   to the externally hosted Supabase project after review.
+
+## 26. AUTH-1 — Account deletion correctness
+
+Both the authenticated in-app endpoint and the OTP-verified public deletion
+endpoint use the same Storage → application tables → Auth deletion sequence.
+Each Storage list/remove, table delete, profile delete, and Auth delete checks
+the provider's returned error; exceptions also stop the sequence. Storage
+objects are listed in pages before removal, and each bucket is checked again
+afterward. Unexpected folder entries fail closed rather than being skipped.
+Auth deletion only runs if all prior cleanup succeeds.
+
+Failure responses do not assert that nothing was deleted: earlier steps may
+have completed. Repeating the cleanup against an account that still exists
+is safe for empty buckets and already-removed rows. The OTP web path requires
+a new verification code to retry. The in-app client clears its local cache
+and signs out only after explicit server success; if device cleanup fails
+after confirmed deletion, it reports that separate failure truthfully.
+No database transaction or rollback is implied, and no production data or
+Supabase settings were changed. `__tests__/accountDeletion.test.ts` injects
+failure at every stage for both routes and verifies partial-cleanup retries.

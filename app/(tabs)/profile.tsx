@@ -758,9 +758,21 @@ export default function ProfileScreen() {
                               const { data: { user } } = await supabase.auth.getUser();
                               if (!user?.id) throw new Error('Not signed in');
                               // Server deletes Storage objects + all DB records + auth user.
-                              // Only clear local caches AFTER the server succeeds so the user
-                              // can retry if deletion fails.
-                              await authenticatedApiRequest('DELETE', '/api/user/delete-account', { userId: user.id });
+                              // Do not clear local state until success is confirmed by the server.
+                              const response = await authenticatedApiRequest('DELETE', '/api/user/delete-account', { userId: user.id });
+                              const result = await response.json();
+                              if (result.success !== true) throw new Error('Deletion not confirmed');
+                            } catch {
+                              Alert.alert(
+                                'Deletion not confirmed',
+                                'Your account was not confirmed deleted. Some data may already have been removed. Please try again or contact support.',
+                              );
+                              return;
+                            }
+                            // The server has deleted the account. Local cleanup
+                            // failures must not be described as server deletion failures.
+                            let cacheCleared = true;
+                            try {
                               // Clear all user-owned local AsyncStorage caches.
                               // Keys cover AppContext, weather, database, wardrobe-view and auth.
                               await AsyncStorage.multiRemove([
@@ -798,18 +810,23 @@ export default function ProfileScreen() {
                                 '@auracloset_wear_log',
                                 '@auracloset_weather_v1',
                                 '@auracloset_weather_perm_asked_v1',
-                              ]).catch(err => {
-                                // Non-fatal — server deletion already succeeded;
-                                // stale local data is overwritten on next sign-in.
-                                console.warn('[profile] AsyncStorage.multiRemove failed:', err?.message);
-                              });
+                              ]);
+                            } catch {
+                              cacheCleared = false;
+                              console.warn('[profile] Deleted account local cache cleanup failed');
+                            }
+                            let signedOut = true;
+                            try {
                               await signOut();
-                              router.replace('/sign-in');
-                            } catch (err: any) {
-                              console.error('[profile] Delete account:', err.message);
+                            } catch {
+                              signedOut = false;
+                              console.warn('[profile] Deleted account local sign-out failed');
+                            }
+                            if (signedOut) router.replace('/sign-in');
+                            if (!cacheCleared || !signedOut) {
                               Alert.alert(
-                                'Account error',
-                                'Could not delete your account. Your local data has been preserved so you can try again.',
+                                'Account deleted — device cleanup incomplete',
+                                'Your account was deleted, but this device could not fully clear its local data or session. Clear this app’s data before anyone else uses this device.',
                               );
                             }
                           },

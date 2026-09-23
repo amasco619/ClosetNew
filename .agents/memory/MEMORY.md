@@ -19,3 +19,4 @@
 - [Premium entitlement boundary](premium-entitlement-boundary.md) — premium is expiry-aware server state; local cache, JWT claims, and client routes can never grant it
 - [Benchmark gold-label independence](benchmark-gold-label-independence.md) — reviewer package must carry zero author-assigned evaluative metadata; two-tier fixtures + validator enforce it
 - [Track C v3.7 baseline interpretation](track-c-baseline-interpretation.md) — keep fixed-candidate scoring and full-generator support separate; baseline recommends material remediation before launch
+- [Persistent rate-limiter tests](persistent-rate-limiter-tests.md) — use distinct client IPs across test runs when exercising real persistent limiters to avoid false 429s
