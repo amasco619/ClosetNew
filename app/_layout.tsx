@@ -4,13 +4,12 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import * as Linking from "expo-linking";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 import { AppProvider } from "@/contexts/AppContext";
-import { EMAIL_CONFIRMED_KEY, createSessionFromUrl } from "@/lib/auth";
+import { createSessionFromUrl } from "@/lib/auth";
 import {
   NATIVE_OAUTH_CALLBACK_URL,
   buildOAuthRelayUrl,
@@ -114,19 +113,6 @@ export default function RootLayout() {
     const relayUrl = buildOAuthRelayUrl(decoded, code, type, window.location.host);
     if (!relayUrl) return;
     window.location.href = relayUrl;
-  }, []);
-
-  // On web, Supabase processes the confirmation redirect automatically via
-  // detectSessionInUrl:true without calling createSessionFromUrl(). Inspect
-  // window.location once at boot — before any navigation — and write the
-  // one-time flag so the home screen banner can surface it.
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    if (typeof window === 'undefined') return;
-    const fullUrl = window.location.search + window.location.hash;
-    if (fullUrl.includes('type=signup')) {
-      AsyncStorage.setItem(EMAIL_CONFIRMED_KEY, '1').catch(() => {});
-    }
   }, []);
 
   // Android cold-start deep-link handler.

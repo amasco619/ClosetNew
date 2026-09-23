@@ -1,193 +1,113 @@
 /**
- * Confirms that password-reset failures are never silently swallowed:
+ * Contract tests for the real password-reset client flow.
  *
- *   1. Network error (fetch throws) → requestPasswordReset throws.
- *   2. Server returns 400 (invalid email) → requestPasswordReset throws.
- *   3. Server returns 200 { success: true } → requestPasswordReset resolves.
- *   4. Non-JSON response (fetch ok but json() throws) → requestPasswordReset throws.
- *
- * The test monkey-patches global fetch so no real HTTP calls are made.
- *
- * Run: `npx tsx __tests__/forgotPasswordSilent.test.ts`
- * Exits non-zero on any failed assertion.
+ * Run: npx tsx __tests__/forgotPasswordSilent.test.ts
  */
 
-// ── Assertion harness ─────────────────────────────────────────────────────────
+import { requestPasswordReset, _testOverrides } from '../lib/emailPasswordReset'
 
-let failed = 0;
+let failed = 0
+function assert(condition: boolean, message: string): void {
+  if (condition) console.log(`  ✓ ${message}`)
+  else {
+    console.error(`  ✗ ${message}`)
+    failed++
+  }
+}
+function section(message: string): void {
+  console.log(`\n${message}:`)
+}
 
-function assert(cond: boolean, msg: string): void {
-  if (cond) {
-    console.log(`  ✓ ${msg}`);
-  } else {
-    console.error(`  ✗ ${msg}`);
-    failed++;
+function response(ok: boolean, body: unknown, statusText = ok ? 'OK' : 'Bad Request'): Response {
+  return { ok, statusText, json: async () => body } as unknown as Response
+}
+
+function install(
+  result: Response | Error,
+  platform: 'web' | 'native' = 'web',
+): { calls: Array<{ url: string; init?: RequestInit }>; restore: () => void } {
+  const calls: Array<{ url: string; init?: RequestInit }> = []
+  _testOverrides.platform = platform
+  _testOverrides.webOrigin = 'https://app.example.test'
+  _testOverrides.apiUrl = 'https://api.example.test'
+  _testOverrides.fetch = async (url, init) => {
+    calls.push({ url: String(url), init })
+    if (result instanceof Error) throw result
+    return result
+  }
+  return {
+    calls,
+    restore: () => {
+      delete _testOverrides.fetch
+      delete _testOverrides.platform
+      delete _testOverrides.webOrigin
+      delete _testOverrides.apiUrl
+    },
   }
 }
 
-function section(label: string): void {
-  console.log(`\n${label}`);
-}
-
-// ── Minimal stub of requestPasswordReset (pure — no RN imports) ──────────────
-// We re-implement the function in-process using the same logic as lib/auth.ts
-// so the test doesn't need to import lib/auth.ts (which pulls in react-native).
-
-async function requestPasswordReset(
-  email: string,
-  fetchImpl: typeof fetch,
-): Promise<void> {
-  const url = new URL('/api/auth/reset-password', 'http://localhost:5000');
-  const res = await fetchImpl(url.toString(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email.trim().toLowerCase() }),
-  });
-  const json = await res.json();
-  if (!res.ok) {
-    throw new Error(`[requestPasswordReset] ${json.error ?? res.statusText}`);
+async function thrown(action: () => Promise<unknown>): Promise<string> {
+  try {
+    await action()
+    return ''
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error)
   }
 }
 
-// ── Mock fetch builders ───────────────────────────────────────────────────────
-
-function mockFetchNetworkError(): typeof fetch {
-  return async () => { throw new TypeError('Failed to fetch'); };
-}
-
-function mockFetchResponse(status: number, body: unknown): typeof fetch {
-  return async () => ({
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: status === 400 ? 'Bad Request' : 'OK',
-    json: async () => body,
-  } as Response);
-}
-
-function mockFetchBadJson(status: number): typeof fetch {
-  return async () => ({
-    ok: status >= 200 && status < 300,
-    status,
-    statusText: 'OK',
-    json: async () => { throw new SyntaxError('Unexpected token < in JSON'); },
-  } as unknown as Response);
-}
-
-// ── Tests ─────────────────────────────────────────────────────────────────────
-
-(async () => {
-
-  section('1. Network error: requestPasswordReset throws (user sees error)');
+;(async () => {
+  section('Acknowledged reset contract and request shape')
   {
-    let threw = false;
-    try {
-      await requestPasswordReset('user@example.com', mockFetchNetworkError());
-    } catch (e) {
-      threw = true;
-      assert(e instanceof TypeError, 'thrown error is a TypeError (network failure)');
-    }
-    assert(threw, 'requestPasswordReset throws on network error');
+    const mock = install(response(true, { acknowledged: true }))
+    await requestPasswordReset('  USER@Example.COM  ')
+    const body = JSON.parse(mock.calls[0]?.init?.body as string)
+    assert(mock.calls[0]?.url === 'https://api.example.test/api/auth/reset-password', 'uses reset API')
+    assert(mock.calls[0]?.init?.method === 'POST', 'uses POST')
+    assert(body.email === 'user@example.com', 'trims and lower-cases email')
+    assert(body.redirectTo === 'https://app.example.test/auth/update-password', 'uses web redirect')
+    mock.restore()
   }
 
-  section('2. Server 400 (invalid email): throws with [requestPasswordReset] prefix');
+  section('Native redirect override')
   {
-    let errorMsg = '';
-    try {
-      await requestPasswordReset(
-        'bad-email',
-        mockFetchResponse(400, { error: 'invalid_email' }),
-      );
-    } catch (e: any) {
-      errorMsg = e?.message ?? '';
-    }
-    assert(errorMsg.includes('[requestPasswordReset]'),
-      'error message has [requestPasswordReset] prefix on 400');
-    assert(errorMsg.includes('invalid_email'),
-      'server error code is propagated to the thrown error');
+    const mock = install(response(true, { acknowledged: true }), 'native')
+    await requestPasswordReset('user@example.com')
+    const body = JSON.parse(mock.calls[0]?.init?.body as string)
+    assert(body.redirectTo === 'amodka://auth/update-password', 'uses native recovery redirect')
+    mock.restore()
   }
 
-  section('3. Server 200 success: resolves without throwing');
+  section('Malformed and non-2xx responses')
   {
-    let threw = false;
-    try {
-      await requestPasswordReset(
-        'user@example.com',
-        mockFetchResponse(200, { success: true }),
-      );
-    } catch {
-      threw = true;
-    }
-    assert(!threw, 'requestPasswordReset resolves when server returns 200 + { success: true }');
+    const malformed = install(response(true, { acknowledged: false }))
+    const malformedMessage = await thrown(() => requestPasswordReset('user@example.com'))
+    assert(malformedMessage.includes('response was invalid'), 'rejects malformed 2xx response')
+    malformed.restore()
+
+    const non2xx = install(response(false, { error: 'invalid_email' }, 'Bad Request'))
+    const non2xxMessage = await thrown(() => requestPasswordReset('bad@example.com'))
+    assert(non2xxMessage.includes('[requestPasswordReset]'), 'prefixes non-2xx errors')
+    assert(non2xxMessage.includes('invalid_email'), 'propagates server error')
+    non2xx.restore()
   }
 
-  section('4. Non-JSON response body (json() throws): error propagates to caller');
+  section('Fetch and JSON failures')
   {
-    // This is the edge case where the server returns HTML (e.g. a 500 from nginx
-    // before the Express app handles the request).  res.json() throws a SyntaxError.
-    // The caller (forgot-password.tsx handleSubmit) must see this error.
-    let threw = false;
-    try {
-      await requestPasswordReset(
-        'user@example.com',
-        mockFetchBadJson(200),
-      );
-    } catch {
-      threw = true;
-    }
-    assert(threw, 'json parse failure propagates — not silently swallowed');
+    const network = install(new TypeError('Failed to fetch'))
+    const networkMessage = await thrown(() => requestPasswordReset('user@example.com'))
+    assert(networkMessage.includes('Failed to fetch'), 'propagates fetch rejection')
+    network.restore()
+
+    const invalidJson = install({
+      ok: true,
+      statusText: 'OK',
+      json: async () => { throw new SyntaxError('Unexpected token <') },
+    } as unknown as Response)
+    const jsonMessage = await thrown(() => requestPasswordReset('user@example.com'))
+    assert(jsonMessage.includes('response could not be read'), 'reports invalid JSON')
+    invalidJson.restore()
   }
 
-  section('5. Server 500 with error field: throws with server message');
-  {
-    let errorMsg = '';
-    try {
-      await requestPasswordReset(
-        'user@example.com',
-        mockFetchResponse(500, { error: 'internal_error' }),
-      );
-    } catch (e: any) {
-      errorMsg = e?.message ?? '';
-    }
-    assert(errorMsg.includes('internal_error'),
-      '500 response error field is propagated in the thrown message');
-  }
-
-  section('6. Server 500 without error field: falls back to statusText');
-  {
-    let errorMsg = '';
-    try {
-      await requestPasswordReset(
-        'user@example.com',
-        mockFetchResponse(500, {}), // no .error field
-      );
-    } catch (e: any) {
-      errorMsg = e?.message ?? '';
-    }
-    assert(errorMsg.length > 0, 'throws even when body has no error field');
-    assert(errorMsg.includes('[requestPasswordReset]'),
-      'prefix is present even when error field is absent');
-  }
-
-  section('7. Email normalisation: server receives trimmed lower-case email');
-  {
-    let capturedBody = '';
-    const captureFetch: typeof fetch = async (_url, init) => {
-      capturedBody = init?.body as string ?? '';
-      return {
-        ok: true, status: 200, statusText: 'OK',
-        json: async () => ({ success: true }),
-      } as Response;
-    };
-
-    await requestPasswordReset('  USER@Example.COM  ', captureFetch);
-    const parsed = JSON.parse(capturedBody);
-    assert(parsed.email === 'user@example.com',
-      'email is trimmed and lower-cased before being sent to the server');
-  }
-
-  // ── Summary ───────────────────────────────────────────────────────────────
-
-  console.log(`\n=== forgotPasswordSilent: ${failed === 0 ? 'all passed' : `${failed} FAILED`} ===`);
-  if (failed > 0) process.exit(1);
-
-})();
+  console.log(`\n=== forgotPasswordSilent: ${failed === 0 ? 'all tests passed' : `${failed} FAILED`} ===`)
+  if (failed > 0) process.exit(1)
+})()

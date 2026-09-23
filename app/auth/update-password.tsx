@@ -12,7 +12,7 @@ import {
   validatePassword,
 } from '../../lib/auth'
 import { supabase } from '../../lib/supabase'
-import { NATIVE_PASSWORD_RECOVERY_URL } from '../../lib/oauth-callback'
+import { prepareRecoverySession } from '../../lib/emailRecovery'
 
 export default function UpdatePasswordScreen() {
   const callback = useLocalSearchParams<{
@@ -26,6 +26,7 @@ export default function UpdatePasswordScreen() {
   const [newPasswordError, setNewPasswordError] = useState<string | null>(null)
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [recoveryStatus, setRecoveryStatus] = useState<'preparing' | 'ready' | 'invalid'>('preparing')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [showNew, setShowNew] = useState(false)
@@ -34,34 +35,22 @@ export default function UpdatePasswordScreen() {
   const [confirmFocused, setConfirmFocused] = useState(false)
 
   useEffect(() => {
-    async function prepareRecoverySession() {
-      const hasNativeCallback = Platform.OS !== 'web' && callback.code !== undefined
-      if (hasNativeCallback) {
-        const query = new URLSearchParams()
-        if (callback.code) query.set('code', callback.code)
-        if (callback.type) query.set('type', callback.type)
-        if (callback.error) query.set('error', callback.error)
-        if (callback.error_description) query.set('error_description', callback.error_description)
-        try {
-          await createPasswordRecoverySessionFromUrl(
-            `${NATIVE_PASSWORD_RECOVERY_URL}?${query.toString()}`,
-          )
-        } catch {
-          setAuthError('This password recovery link is invalid or has expired.')
-          return
-        }
-      }
-
-      const { data } = await supabase.auth.getClaims()
-      if (!data?.claims) {
-        router.replace('/sign-in')
-      }
+    let active = true
+    setRecoveryStatus('preparing')
+    async function prepare() {
+      await prepareRecoverySession(
+        { code: callback.code, type: callback.type, error: callback.error },
+        createPasswordRecoverySessionFromUrl,
+        () => supabase.auth.getClaims(),
+      )
+      if (active) setRecoveryStatus('ready')
     }
 
-    prepareRecoverySession().catch(() => {
-      setAuthError('This password recovery link is invalid or has expired.')
+    prepare().catch(() => {
+      if (active) setRecoveryStatus('invalid')
     })
-  }, [callback.code, callback.error, callback.error_description, callback.type])
+    return () => { active = false }
+  }, [callback.code, callback.error, callback.type])
 
   const validateNewPassword = () => {
     const err = validatePassword(newPassword)
@@ -79,6 +68,7 @@ export default function UpdatePasswordScreen() {
   }
 
   const handleSubmit = async () => {
+    if (recoveryStatus !== 'ready' || loading) return
     const validNew = validateNewPassword()
     const validConfirm = validateConfirmPassword()
     if (!validNew || !validConfirm) return
@@ -110,6 +100,28 @@ export default function UpdatePasswordScreen() {
         >
           <Text style={styles.ctaBtnText}>Go to my wardrobe</Text>
         </TouchableOpacity>
+      </View>
+    )
+  }
+
+  if (recoveryStatus !== 'ready') {
+    return (
+      <View style={styles.successContainer}>
+        <StatusBar style="dark" />
+        {recoveryStatus === 'preparing' ? (
+          <>
+            <ActivityIndicator color="#D0B892" size="large" />
+            <Text style={styles.successText}>Checking your recovery link...</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.heading}>Recovery link unavailable</Text>
+            <Text style={styles.successText}>This password recovery link is invalid or has expired.</Text>
+            <TouchableOpacity onPress={() => router.replace('/forgot-password')} style={styles.ctaBtn} accessibilityRole="button">
+              <Text style={styles.ctaBtnText}>Request another link</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     )
   }
@@ -162,7 +174,7 @@ export default function UpdatePasswordScreen() {
             </TouchableOpacity>
           </View>
           <Text style={styles.hint}>
-            At least 6 characters.
+            At least 8 characters, one uppercase letter and one number.
           </Text>
           {newPasswordError && (
             <View style={styles.errorBox}>

@@ -294,8 +294,8 @@ export default function SignInScreen() {
         <View style={styles.confirmedBody}>
           <Text style={styles.confirmedTitle}>Check your email</Text>
           <Text style={styles.confirmedText}>
-            We sent a confirmation link to{'\n'}{email}.{'\n\n'}
-            Once confirmed, you can sign in.
+            If this address can receive a confirmation link, check the inbox for{'\n'}{email}.{'\n\n'}
+            Follow the link to confirm your email, then sign in.
           </Text>
           <TouchableOpacity onPress={() => switchMode('sign-in')} activeOpacity={0.82} style={styles.backLink} accessibilityRole="button">
             <Text style={styles.backLinkText}>Back to sign in</Text>

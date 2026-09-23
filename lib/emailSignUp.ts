@@ -29,6 +29,9 @@ import { NATIVE_EMAIL_CONFIRMATION_URL } from './oauth-callback'
  */
 export const _testOverrides: {
   fetch?: (url: string, init?: RequestInit) => Promise<Response>
+  platform?: 'web' | 'native'
+  webOrigin?: string
+  apiUrl?: string
 } = {}
 
 /**
@@ -36,14 +39,13 @@ export const _testOverrides: {
  *
  * POST /api/auth/sign-up (Express proxy):
  *   Enforces server-side rate-limiting, input validation, and redirect URL
- *   allowlisting. The server always responds with { success: true,
- *   needsConfirmation: true } regardless of whether the email is already
- *   registered, preventing email-enumeration attacks. If the server returns
+ *   allowlisting. The server acknowledges receipt without promising account
+ *   creation or email delivery, preventing email-enumeration attacks.
+ *   If the server returns
  *   a non-2xx status (e.g. 400 invalid_email, 429 rate_limit), an error is
  *   thrown and the flow stops.
  *
- * The caller should always display a fixed "check your email for a
- * confirmation link" message without branching on enumerable account states.
+ * The caller should display conditional inbox guidance, not claim delivery.
  *
  * Trims and lower-cases the email before forwarding it to the server.
  * Throws with a `[signUpWithEmail] …` prefix on any non-2xx response.
@@ -61,9 +63,11 @@ export async function signUpWithEmail(
   let apiUrl: string
 
   if (_testOverrides.fetch) {
-    // Test path — skip dynamic RN imports and use a sentinel origin.
-    emailRedirectTo = 'https://test.invalid/auth/callback'
-    apiUrl = 'https://test.invalid'
+    // Test path — skip dynamic RN imports while exercising both redirect choices.
+    emailRedirectTo = _testOverrides.platform === 'native'
+      ? NATIVE_EMAIL_CONFIRMATION_URL
+      : `${_testOverrides.webOrigin ?? 'https://test.invalid'}/auth/callback`
+    apiUrl = _testOverrides.apiUrl ?? 'https://test.invalid'
   } else {
     const { Platform } = await import('react-native')
     emailRedirectTo =
@@ -90,12 +94,19 @@ export async function signUpWithEmail(
     }
   )
 
-  const json: { success?: boolean; needsConfirmation?: boolean; error?: string } =
-    await res.json()
+  let json: { acknowledged?: boolean; needsConfirmation?: boolean; error?: string }
+  try {
+    json = await res.json()
+  } catch {
+    throw new Error('[signUpWithEmail] The sign-up response could not be read. Please try again later.')
+  }
 
   if (!res.ok) {
     throw new Error(`[signUpWithEmail] ${json.error ?? res.statusText}`)
   }
 
-  return { needsConfirmation: json.needsConfirmation ?? true }
+  if (json?.acknowledged !== true || json.needsConfirmation !== true) {
+    throw new Error('[signUpWithEmail] The sign-up response was invalid. Please try again later.')
+  }
+  return { needsConfirmation: true }
 }

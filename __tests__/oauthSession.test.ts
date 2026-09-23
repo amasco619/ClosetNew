@@ -19,16 +19,24 @@ function assert(condition: boolean, message: string): void {
   }
 }
 
-function makeAdapter(options: { exchangeError?: string } = {}) {
+function makeAdapter(options: {
+  exchangeError?: string
+  exchangeThrows?: string
+  nullSession?: boolean
+} = {}) {
   const exchangeCodes: string[] = []
   let confirmations = 0
 
   const adapter: OAuthSessionAdapter<Session> = {
     async exchangeCodeForSession(code) {
       exchangeCodes.push(code)
+      if (options.exchangeThrows) throw new Error(options.exchangeThrows)
       return options.exchangeError
         ? { data: { session: null }, error: { message: options.exchangeError } }
-        : { data: { session: { id: 'pkce-session' } }, error: null }
+        : {
+            data: { session: options.nullSession ? null : { id: 'pkce-session' } },
+            error: null,
+          }
     },
     markEmailConfirmed() {
       confirmations++
@@ -72,6 +80,21 @@ console.log('\nOAuth session completion:')
   await completeOAuthCallback({ code: 'expired-code' }, spy.adapter)
     .then(() => assert(false, 'rejects invalid or expired PKCE codes'))
     .catch(error => assert(error.message.includes('invalid or expired code'), 'rejects invalid or expired PKCE codes'))
+}
+
+{
+  const spy = makeAdapter({ nullSession: true })
+  await completeOAuthCallback({ code: 'valid-but-sessionless-code' }, spy.adapter)
+    .then(() => assert(false, 'rejects a sessionless code exchange'))
+    .catch(error => assert(error.message.includes('Session was not established'), 'rejects a sessionless code exchange'))
+  assert(spy.exchangeCodes.join() === 'valid-but-sessionless-code', 'still exchanges a sessionless callback code')
+}
+
+{
+  const spy = makeAdapter({ exchangeThrows: 'network unavailable' })
+  await completeOAuthCallback({ code: 'network-failure-code' }, spy.adapter)
+    .then(() => assert(false, 'propagates adapter exceptions from callback exchange'))
+    .catch(error => assert(error.message === 'network unavailable', 'propagates adapter exceptions from callback exchange'))
 }
 
 {

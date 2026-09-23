@@ -1313,7 +1313,7 @@ These features are **not yet implemented**. They are the next development priori
 | `cancelDialogMessages.test.ts` | `selectCancelDialogBody()` branch selection across all batch states: all-settled → null, in-progress + no auto-saved → running message, in-progress + auto-saved → auto-saved-wins message |
 | `classifyGarment.test.ts` | `processGeminiResult` parsing, field validation (subType, colorFamily, modelConfidence), colour conversion helpers, edge cases (empty `{}`, null subType, mismatched category, boundary `modelConfidence`) |
 | `classifyGarmentIntegration.test.ts` | HTTP-layer tests for `POST /api/classify-garment`: 400 for missing/ambiguous image input, 500 for absent `GEMINI_API_KEY`, 429 after aiLimiter cap, JSON response shape |
-| `forgotPasswordSilent.test.ts` | `requestPasswordReset()` never swallows errors: throws on network failure and non-2xx; resolves on 200; non-JSON body propagates; email normalised before send |
+| `forgotPasswordSilent.test.ts` | Actual `requestPasswordReset()` contract: acknowledged response, redirects, network/non-JSON/malformed response failures, email normalisation |
 | `getProfileBlueprint.test.ts` | Algorithm tests calling `buildProfileBlueprintSlots()` directly (no mocking) |
 | `ghostItemRecovery.test.ts` | `detectNoPhotoOrphans`, `isGuestPhotoUri`, `detectFileOrphans` (file-exists/missing/throws/cloud-recovery/rebase-path), and `applyOrphanResolution` action routing; also exercises `applyRePhotographSave` |
 | `guestPhotoCleanup.test.ts` | `deleteGuestPhoto`, `runGuestRemoval`, `buildGuestPhotoDestPath` — cleanup guard (URI must start with documentDirectory), idempotent delete, rejection propagation, per-deletion isolation |
@@ -1332,7 +1332,9 @@ These features are **not yet implemented**. They are the next development priori
 | `rebaseGuestPhotoUri.test.ts` | `rebaseGuestPhotoUri()`: prefix unchanged, old prefix rebased, non-guest URIs untouched, malformed filenames untouched, edge cases (empty currentDocDir, same prefix) |
 | `removeBackground.test.ts` | `resolveClassifyBase64`/`selectClassifyPayload`/`resolvePhotoUri` pipeline helpers; server handler error codes (503 missing key, 400 missing body, 502 non-OK/empty-body/network-error/AbortError/mid-stream AbortError); `resolveWardrobeUploadArg`/`stripDataUriPrefix` |
 | `signInWithEmail.test.ts` | Email sign-in flow: credential validation, Supabase auth call, error propagation |
-| `signUpWithEmail.test.ts` | Email sign-up flow: input validation, Supabase account creation, error handling |
+| `signUpWithEmail.test.ts` | Sign-up client acknowledgement contract, web/native redirects, network/non-JSON/malformed response failures |
+| `auth2Routes.test.ts` | Real sign-up/reset routes: returned and thrown provider failures, privacy-equivalent replies, redirect policy, locked reset and mounted rate limits |
+| `emailRecovery.test.ts` | Recovery code/claims preparation gating and sanitized password-update provider failures |
 | `supabaseUrlStability.test.ts` | Supabase Storage public URL is deterministic from (userId, itemId, ext) alone — no session token embedded, no query parameters, stable across app reinstalls |
 | `wardrobeDiagnostics.test.ts` | `computeDiagnostics` health score, category stats, scenario coverage; `ALL_SCENARIOS` export integrity and alignment with `computeDiagnostics` output |
 | `weather.test.ts` | Weather-aware outerwear rules (temperature gating, rain-friendly subtype bias) |
@@ -2179,3 +2181,23 @@ after confirmed deletion, it reports that separate failure truthfully.
 No database transaction or rollback is implied, and no production data or
 Supabase settings were changed. `__tests__/accountDeletion.test.ts` injects
 failure at every stage for both routes and verifies partial-cleanup retries.
+
+## 27. AUTH-2 — Sign-up and password-recovery correctness
+
+The sign-up and reset routes now return a privacy-equivalent acknowledgement
+instead of claiming that an account was created or an email was delivered.
+Resolved Supabase errors and exceptions are checked and reported as fixed,
+allowlisted observability metadata; raw provider messages and account details
+are not logged. Existing, unknown, locked, and provider-failed requests cannot
+be distinguished from these public responses. Invalid supplied redirect URLs
+fail rather than silently switching a web request to a native callback.
+The UI uses conditional inbox instructions and rejects malformed 2xx contracts.
+
+The web recovery route exchanges its own PKCE code (automatic URL exchange is
+disabled on that route only), like native recovery. The password form remains
+unavailable until code exchange and claims verification succeed; invalid links
+offer a route to request another. Confirmation requires a non-null exchanged
+session, and callback failures have an actionable sign-in path. Password-update
+provider failures use a fixed user-facing message. No provider configuration,
+database, Storage, migration, or engine behavior was changed. Live email
+delivery and device callback behavior still require separate verification.

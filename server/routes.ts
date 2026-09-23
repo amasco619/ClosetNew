@@ -143,15 +143,17 @@ function getEnvAllowlist(): string[] | null {
  *   (b) the request's own `Origin` header (same-origin).
  *
  * The pathname must be one of `allowedPaths`. The one expected native deep
- * link is also accepted exactly. Anything else falls back to that route.
+ * link is also accepted exactly. An omitted redirect uses the native route;
+ * a supplied but invalid redirect is rejected rather than silently changed.
  */
 function sanitizeRedirectUrl(
   clientRedirectTo: unknown,
   requestOrigin: string | null,
   allowedPaths: string[],
   nativeFallback: string,
-): string {
-  if (typeof clientRedirectTo !== "string") return nativeFallback;
+): string | null {
+  if (clientRedirectTo === undefined) return nativeFallback;
+  if (typeof clientRedirectTo !== "string") return null;
   if (clientRedirectTo === nativeFallback) return clientRedirectTo;
   const envAllowlist = getEnvAllowlist();
   try {
@@ -168,7 +170,17 @@ function sanitizeRedirectUrl(
   } catch {
     // Malformed URL — fall through to the native scheme default.
   }
-  return nativeFallback;
+  return null;
+}
+
+function reportAuthRequestFailure(operation: string, route: string): void {
+  // Provider error messages can contain account status or user input.
+  reportError(new Error("Auth provider request failed"), operation, {
+    dependency: "supabase_auth",
+    route,
+    category: "external_dependency",
+    code: "EXTERNAL_DEPENDENCY_ERROR",
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -268,9 +280,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Sign-up ───────────────────────────────────────────────────────────────
   // Rate-limited (same authLimiter: 5 req / 15 min per IP).
   //
-  // Always responds with { success: true } regardless of whether the email
-  // already exists — prevents email enumeration attacks.  The caller should
-  // display a fixed "check your email for a confirmation link" message.
+  // Acknowledgement does not assert creation or email delivery. Provider
+  // failures and unknown/existing accounts must remain indistinguishable.
   app.post("/api/auth/sign-up", authLimiter, async (req, res) => {
     const { email, password, emailRedirectTo: clientRedirectTo } = req.body;
 
@@ -293,22 +304,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ["/auth/callback"],
       NATIVE_EMAIL_CONFIRMATION_URL,
     );
+    if (!redirectTo) return res.status(400).json({ error: "invalid_redirect" });
 
     try {
-      await supabaseAuth.auth.signUp({
+      const { error } = await supabaseAuth.auth.signUp({
         email: normalizedEmail,
         password: String(password),
         options: { emailRedirectTo: redirectTo },
       });
-      // Always return success — never leak Supabase errors (e.g. "User already
-      // registered") that would reveal account existence.
-      return res.json({ success: true, needsConfirmation: true });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[auth/sign-up]", msg);
-      // Return success even on internal error to prevent enumeration.
-      return res.json({ success: true, needsConfirmation: true });
+      if (error) reportAuthRequestFailure("auth_signup_returned_error", "/api/auth/sign-up");
+    } catch {
+      reportAuthRequestFailure("auth_signup_exception", "/api/auth/sign-up");
     }
+    return res.json({ acknowledged: true, needsConfirmation: true });
   });
 
   // ── Password reset ────────────────────────────────────────────────────────
@@ -320,8 +328,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //   2. resetLimiter (3 req / hour per IP) — tighter cap specific to the
   //      password-reset flow, independent of the shared counter above.
   //
-  // Always returns { success: true } regardless of whether the email is
-  // registered — prevents email enumeration.
+  // Acknowledgement is identical for unknown, locked and provider-failed
+  // requests; it never asserts that a recovery email was delivered.
   app.post("/api/auth/reset-password", authLimiter, resetLimiter, async (req, res) => {
     const { email, redirectTo: clientRedirectTo } = req.body;
 
@@ -329,38 +337,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "invalid_email" });
     }
 
-    // Honour per-email account lockout: a locked account cannot use the
-    // reset-password flow to bypass the sign-in throttle.
-    // Return the standard success response to avoid revealing lockout status.
-    const normalizedEmail = (email as string).trim().toLowerCase();
-    const lockout = checkAccountLockout(normalizedEmail);
-    if (lockout.locked) {
-      return res.json({ success: true });
-    }
-
     const requestOrigin =
       typeof req.headers.origin === "string" ? req.headers.origin : null;
-
     const redirectTo = sanitizeRedirectUrl(
       clientRedirectTo,
       requestOrigin,
       ["/auth/update-password"],
       NATIVE_PASSWORD_RECOVERY_URL,
     );
+    if (!redirectTo) return res.status(400).json({ error: "invalid_redirect" });
+
+    // Honour per-email account lockout: a locked account cannot use the
+    // reset-password flow to bypass the sign-in throttle.
+    // Return the standard success response to avoid revealing lockout status.
+    const normalizedEmail = (email as string).trim().toLowerCase();
+    const lockout = checkAccountLockout(normalizedEmail);
+    if (lockout.locked) {
+      return res.json({ acknowledged: true });
+    }
 
     try {
-      await supabaseAuth.auth.resetPasswordForEmail(
+      const { error } = await supabaseAuth.auth.resetPasswordForEmail(
         (email as string).trim().toLowerCase(),
         { redirectTo }
       );
-      // Always return success — never reveal whether the email is registered.
-      return res.json({ success: true });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[auth/reset-password]", msg);
-      // Return success even on internal error to prevent enumeration.
-      return res.json({ success: true });
+      if (error) reportAuthRequestFailure("auth_reset_returned_error", "/api/auth/reset-password");
+    } catch {
+      reportAuthRequestFailure("auth_reset_exception", "/api/auth/reset-password");
     }
+    return res.json({ acknowledged: true });
   });
 
   // ── Account management: authentication + ownership check required ─────────

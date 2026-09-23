@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { createEmailConfirmationSessionFromUrl } from '../../lib/auth'
@@ -28,7 +28,12 @@ export default function EmailConfirmationScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
       {error ? (
-        <Text style={styles.label}>{error}</Text>
+        <>
+          <Text style={styles.label}>{error}</Text>
+          <Pressable accessibilityRole="button" onPress={() => router.replace('/sign-in')}>
+            <Text style={styles.label}>Back to sign in or request a new link</Text>
+          </Pressable>
+        </>
       ) : (
         <>
           <ActivityIndicator color="#D0B892" size="large" />

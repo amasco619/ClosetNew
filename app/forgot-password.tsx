@@ -68,9 +68,9 @@ export default function ForgotPasswordScreen() {
         </TouchableOpacity>
         <Text style={styles.heading}>Reset your password</Text>
         <Text style={styles.successText}>
-          We have sent a password reset link to {email.trim().toLowerCase()}.
+          If this address can receive a reset link, check the inbox for {email.trim().toLowerCase()}.
           {'\n\n'}
-          Check your inbox and follow the link to set a new password.
+          Follow the link to set a new password if it arrives.
         </Text>
         <TouchableOpacity
           onPress={() => router.replace('/sign-in')}

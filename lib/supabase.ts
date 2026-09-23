@@ -43,6 +43,14 @@ const isNativeCallbackRelay =
   typeof window !== 'undefined' &&
   window.location.search.includes('nativeCallback')
 
+// The recovery screen must exchange its own code before enabling the password
+// form. Automatic web exchange could leave a prior session looking valid when
+// this recovery code failed.
+const isPasswordRecoveryCallback =
+  Platform.OS === 'web' &&
+  typeof window !== 'undefined' &&
+  window.location.pathname === '/auth/update-password'
+
 export const supabase = createClient(
   supabaseUrl,
   supabasePublishableKey,
@@ -59,7 +67,7 @@ export const supabase = createClient(
       // before the native app can exchange it.
       // On native: false because deep-link URL parsing is handled manually
       // via createSessionFromUrl() in lib/auth.ts.
-      detectSessionInUrl: Platform.OS === 'web' && !isNativeCallbackRelay,
+      detectSessionInUrl: Platform.OS === 'web' && !isNativeCallbackRelay && !isPasswordRecoveryCallback,
       lock: processLock,
     },
   }

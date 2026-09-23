@@ -5,23 +5,22 @@ import * as Linking from 'expo-linking'
 import Constants, { ExecutionEnvironment } from 'expo-constants'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { signOutDisposition } from '@/shared/reliability-guards'
-import { fetch } from 'expo/fetch'
 import { supabase } from './supabase'
-import { getApiUrl } from './query-client'
 import { handleOAuthBrowserResult, type OAuthBrowserResult } from './oauthGuard'
 import {
   AMODKA_URL_SCHEME,
   NATIVE_EMAIL_CONFIRMATION_URL,
   NATIVE_OAUTH_CALLBACK_URL,
-  NATIVE_PASSWORD_RECOVERY_URL,
   isOAuthCallbackUrl,
   parseEmailConfirmationCallback,
   parseOAuthCallback,
   parsePasswordRecoveryCallback,
 } from './oauth-callback'
 import { completeOAuthCallback } from './oauth-session'
+import { updatePasswordWith } from './emailRecovery'
 export { signInWithEmail } from './emailSignIn'
 export { signUpWithEmail } from './emailSignUp'
+export { requestPasswordReset } from './emailPasswordReset'
 
 export const EMAIL_CONFIRMED_KEY = '@amodka_email_confirmed'
 
@@ -117,28 +116,9 @@ export function createPasswordRecoverySessionFromUrl(url: string) {
   return completeEmailSession(parsePasswordRecoveryCallback(url))
 }
 
-export async function requestPasswordReset(email: string): Promise<void> {
-  const redirectTo =
-    Platform.OS === 'web' && typeof window !== 'undefined'
-      ? `${window.location.origin}/auth/update-password`
-      : NATIVE_PASSWORD_RECOVERY_URL
-
-  const url = new URL('/api/auth/reset-password', getApiUrl())
-  const res = await fetch(url.toString(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email.trim().toLowerCase(), redirectTo }),
-    credentials: 'include',
-  })
-  const json = await res.json()
-  if (!res.ok) {
-    throw new Error(`[requestPasswordReset] ${json.error ?? res.statusText}`)
-  }
-}
-
 export async function updatePassword(newPassword: string): Promise<void> {
-  const { error } = await supabase.auth.updateUser({ password: newPassword })
-  if (error) throw new Error(`[updatePassword] ${error.message}`)
+  return updatePasswordWith(newPassword, password =>
+    supabase.auth.updateUser({ password }).then(({ error }) => ({ error })))
 }
 
 /**

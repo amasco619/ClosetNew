@@ -31,6 +31,7 @@ export async function completeOAuthCallback<T>(
   if (params.code) {
     const { data, error } = await adapter.exchangeCodeForSession(String(params.code))
     if (error) throw new Error(`[createSessionFromUrl] ${error.message}`)
+    if (!data?.session) throw new Error('[createSessionFromUrl] Session was not established')
     if (params.type === 'signup') adapter.markEmailConfirmed()
     return data.session
   }
