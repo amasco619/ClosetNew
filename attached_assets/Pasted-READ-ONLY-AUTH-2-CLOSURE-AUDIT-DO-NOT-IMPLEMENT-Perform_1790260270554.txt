@@ -1,0 +1,45 @@
+READ-ONLY AUTH-2 CLOSURE AUDIT — DO NOT IMPLEMENT
+
+Perform a narrowly scoped, read-only closure audit of the already-implemented AUTH-2 work. Do not modify any files, database records, configuration, dependencies, Supabase settings, or app behavior. Do not run broad exploratory audits. Do not rerun the full test suite unless required to answer a specific question below.
+
+We need only these five answers:
+
+1. Development DB test-state
+
+Identify exactly what synthetic rate-limit/lockout records were created by the earlier AUTH-2 route tests.
+Identify where they exist and whether they are unquestionably test artifacts.
+Determine whether they can affect subsequent development/testing.
+Do not delete, update, or clean up anything.
+If you cannot establish their identity/safety from read-only inspection, say so explicitly.
+
+2. Web recovery auto-code-exchange change
+
+Identify the exact current setting/change that disables automatic code exchange for the web recovery route.
+Explain why AUTH-2 requires it.
+Determine its exact scope: recovery only, or any other web auth flow.
+Verify from source/configuration whether normal web sign-in, OAuth, and confirmation flows are affected.
+Do not change the setting.
+
+3. Production/data/configuration boundary
+
+Verify from repository state/configuration evidence whether AUTH-2 changed any production data, Supabase settings, schema, Storage, migrations, RPCs, or provider configuration.
+Do not access or expose secrets.
+
+4. Test/closure status
+
+Do NOT rerun the 59-test full suite unless the current repository state makes that necessary.
+Inspect the existing AUTH-2 implementation report/test results and current repository state.
+Confirm whether the reported 59 passed / 0 failed, typecheck pass, lint 0 errors / 31 warnings, and diff-check pass remain sufficient evidence.
+Confirm whether the missing mounted UI tests should be treated as an AUTH-2 closure blocker or as a later pre-launch verification item.
+
+5. Final recommendation
+Return exactly one of:
+
+READY TO CLOSE AUTH-2
+REQUIRES SURGICAL REMEDIATION
+
+If remediation is required, identify only the minimum next action. Do not perform it.
+
+Hard constraints: Do not modify anything. Do not delete test records. Do not rerun broad tests unnecessarily. Do not start AUTH-3. Do not touch Recommendation Engine v3.7, classifier/taxonomy, Phase A, B1/B2/B3, Track B, benchmark files, Track C CSV, payments, push, Apple Sign In, or any other launch workstream.
+
+Keep the final report concise and evidence-based. Stop immediately after answering these five questions.
