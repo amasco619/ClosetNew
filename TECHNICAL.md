@@ -1334,6 +1334,7 @@ These features are **not yet implemented**. They are the next development priori
 | `signInWithEmail.test.ts` | Email sign-in flow: credential validation, Supabase auth call, error propagation |
 | `signUpWithEmail.test.ts` | Sign-up client acknowledgement contract, web/native redirects, network/non-JSON/malformed response failures |
 | `auth2Routes.test.ts` | Real sign-up/reset routes: returned and thrown provider failures, privacy-equivalent replies, redirect policy, locked reset and mounted rate limits |
+| `auth2MountedUi.test.ts` | Mounted confirmation and recovery screens with isolated native/auth/navigation mocks: preparation, callback errors, submit gating, update outcomes and navigation |
 | `emailRecovery.test.ts` | Recovery code/claims preparation gating and sanitized password-update provider failures |
 | `supabaseUrlStability.test.ts` | Supabase Storage public URL is deterministic from (userId, itemId, ext) alone — no session token embedded, no query parameters, stable across app reinstalls |
 | `wardrobeDiagnostics.test.ts` | `computeDiagnostics` health score, category stats, scenario coverage; `ALL_SCENARIOS` export integrity and alignment with `computeDiagnostics` output |
@@ -2201,3 +2202,5 @@ session, and callback failures have an actionable sign-in path. Password-update
 provider failures use a fixed user-facing message. No provider configuration,
 database, Storage, migration, or engine behavior was changed. Live email
 delivery and device callback behavior still require separate verification.
+The two AUTH-2 handoff screens are also covered by a mounted, isolated
+`react-test-renderer` test (test-only dependency matching React 19.1).
