@@ -316,7 +316,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               62 test suites (see §11)
+__tests__/               63 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -428,7 +428,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 62 test suites once |
+| `npm test` | Run all 63 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -1295,7 +1295,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (62 total)
+### Test Suites (63 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1319,6 +1319,7 @@ These features are **not yet implemented**. They are the next development priori
 | `getProfileBlueprint.test.ts` | Algorithm tests calling `buildProfileBlueprintSlots()` directly (no mocking) |
 | `ghostItemRecovery.test.ts` | `detectNoPhotoOrphans`, `isGuestPhotoUri`, `detectFileOrphans` (file-exists/missing/throws/cloud-recovery/rebase-path), and `applyOrphanResolution` action routing; also exercises `applyRePhotographSave` |
 | `guestPhotoCleanup.test.ts` | `deleteGuestPhoto`, `runGuestRemoval`, `buildGuestPhotoDestPath` — cleanup guard (URI must start with documentDirectory), idempotent delete, rejection propagation, per-deletion isolation |
+| `imagePickerSelection.test.ts` | A single library image reaches the Add Item consent path; bulk selection and picker cancellation do not |
 | `lifestyle-blueprint.test.ts` | Lifestyle weight ordering and category priority adjustments |
 | `lifestyleSlotGroups.test.ts` | Slot group activation thresholds for active and brunch lifestyles |
 | `oauthDismissGuard.test.ts` | OAuth dismiss guard: browser session cleanup on back-navigation and modal dismiss |
@@ -2207,7 +2208,7 @@ delivery and device callback behavior still require separate verification.
 The two AUTH-2 handoff screens are also covered by a mounted, isolated
 `react-test-renderer` test (test-only dependency matching React 19.1).
 
-## 28. AI image-processing consent (wording approval pending)
+## 28. AI image-processing consent
 
 New AI-image requests use an account-level three-state preference in Supabase
 Auth app metadata: absent/invalid means not asked, and only explicit `allowed`
@@ -2218,14 +2219,15 @@ Metadata reads/writes that fail deny processing; no client-only preference can
 authorize an AI request. The shared five-per-hour account limiter protects
 preference writes, not the photo-by-photo read endpoint.
 
-Add Item retains the selected photo for manual entry or explicit AI retry;
+Add Item retains the selected camera or single-library photo for manual entry
+or explicit AI retry; multiple selected library photos go to Bulk Review.
 Bulk Review pauses its timers until the account state is allowed and retains
 the selected URIs on screen if declined. The Profile Privacy switch reads the
 account setting when focused; turning it off affects future processing only,
 without deleting wardrobe data, and turning it on does not trigger processing
-of existing photos. The consent surface has a Learn more boundary but no
-published Privacy Policy URL; its exact counsel-approved body wording is
-pending confirmation before this work can be considered ready. Existing saved
+of existing photos. The consent surface uses the counsel-approved wording
+and exposes a Learn more boundary; the View Privacy Policy link remains
+disabled until a real published destination is supplied. Existing saved
 items have no safe in-place reprocessing route, so this change does not
 silently send older stored photos to AI.
 

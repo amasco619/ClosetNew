@@ -25,6 +25,7 @@ import { applyRePhotographSave } from '../constants/rePhotographSave';
 import { uploadWardrobeImage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
 import { rs } from '../lib/responsive';
+import { selectedSingleAsset } from '../lib/imagePickerSelection';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
 import {
   getAiProcessingPreference,
@@ -614,6 +615,7 @@ export default function AddItemScreen() {
           });
           return;
         }
+        asset = selectedSingleAsset(result);
       }
 
       if (!asset) return;
