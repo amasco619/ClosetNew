@@ -1,8 +1,8 @@
-import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Platform, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Platform, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { signOut } from '../../lib/auth';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { supabase } from '../../lib/supabase';
@@ -10,13 +10,19 @@ import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal, LifePhase, Industry, FaceShape } from '@/constants/types';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 import CollapsibleSection from '@/components/CollapsibleSection';
 import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/constants/lifestyle';
 import * as Haptics from 'expo-haptics';
 import { rs } from '../../lib/responsive';
 import { AmodkaErrorState } from '@/components/AmodkaErrorState';
+import { AiProcessingConsent } from '@/components/AiProcessingConsent';
+import {
+  getAiProcessingPreference,
+  setAiProcessingPreference,
+  type AiProcessingPreference,
+} from '@/lib/aiProcessingPreference';
 
 const HAIR_OPTS: { id: HairColor; label: string }[] = [
   { id: 'black', label: 'Black' }, { id: 'dark-brown', label: 'Dark Brown' },
@@ -135,6 +141,13 @@ export default function ProfileScreen() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(profile.name || '');
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [aiProcessingPreference, setAiProcessingPreferenceState] = useState<AiProcessingPreference>('not_asked');
+  const [aiPreferenceLoading, setAiPreferenceLoading] = useState(true);
+  const [aiPreferenceSaving, setAiPreferenceSaving] = useState(false);
+  const [aiPreferenceError, setAiPreferenceError] = useState<string | null>(null);
+  const [aiPreferenceUnavailable, setAiPreferenceUnavailable] = useState(false);
+  const [aiPreferenceRetry, setAiPreferenceRetry] = useState(0);
+  const [showAiConsent, setShowAiConsent] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -142,6 +155,80 @@ export default function ProfileScreen() {
       if (email) setUserEmail(email);
     }).catch(() => {});
   }, []);
+
+  useFocusEffect(useCallback(() => {
+    if (isGuest) {
+      setAiProcessingPreferenceState('not_asked');
+      setAiPreferenceError(null);
+      setAiPreferenceLoading(false);
+      return;
+    }
+    let active = true;
+    setAiPreferenceLoading(true);
+    getAiProcessingPreference().then(preference => {
+      if (active) {
+        setAiProcessingPreferenceState(preference);
+        setAiPreferenceError(null);
+        setAiPreferenceUnavailable(false);
+      }
+    }).catch(() => {
+      if (active) {
+        setAiProcessingPreferenceState('not_asked');
+        setAiPreferenceError('Your preference could not be loaded.');
+        setAiPreferenceUnavailable(true);
+      }
+    }).finally(() => {
+      if (active) setAiPreferenceLoading(false);
+    });
+    return () => { active = false; };
+  }, [isGuest, aiPreferenceRetry]));
+
+  const changeAiProcessingPreference = async (enabled: boolean) => {
+    if (aiPreferenceSaving || isGuest) return;
+    if (enabled) {
+      setAiPreferenceError(null);
+      setShowAiConsent(true);
+      return;
+    }
+    setAiPreferenceSaving(true);
+    setAiPreferenceError(null);
+    try {
+      const saved = await setAiProcessingPreference('declined');
+      setAiProcessingPreferenceState(saved);
+      setAiPreferenceError(null);
+    } catch {
+      setAiPreferenceError('Your preference could not be saved. Please try again.');
+    } finally {
+      setAiPreferenceSaving(false);
+    }
+  };
+
+  const allowProfileAiProcessing = async () => {
+    if (aiPreferenceSaving || isGuest) return;
+    setAiPreferenceSaving(true);
+    setAiPreferenceError(null);
+    try {
+      const saved = await setAiProcessingPreference('allowed');
+      setAiProcessingPreferenceState(saved);
+      setShowAiConsent(false);
+    } catch {
+      setAiPreferenceError('Your preference could not be saved. AI processing remains unavailable.');
+    } finally {
+      setAiPreferenceSaving(false);
+    }
+  };
+
+  const declineProfileAiProcessing = () => {
+    setAiProcessingPreferenceState('declined');
+    setShowAiConsent(false);
+    setAiPreferenceError(null);
+    setAiPreferenceSaving(true);
+    void setAiProcessingPreference('declined')
+      .catch(() => {
+        setAiPreferenceError('Your choice could not be saved. AI processing remains unavailable until it can be checked.');
+      })
+      .finally(() => setAiPreferenceSaving(false));
+  };
 
   const saveName = () => {
     const trimmed = nameInput.trim();
@@ -712,6 +799,42 @@ export default function ProfileScreen() {
           )}
         </Animated.View>
 
+        {/* ── Privacy ──────────────────────────────────────────────────── */}
+        <Animated.View entering={FadeInDown.delay(360).duration(280)}>
+          <SectionHeader label="PRIVACY" title="Privacy" />
+          <View style={styles.card}>
+            <View style={styles.aiPreferenceRow}>
+              <View style={styles.aiPreferenceCopy}>
+                <Text style={styles.aiPreferenceTitle}>AI Processing</Text>
+                <Text style={styles.aiPreferenceDescription}>
+                  Allow AI services to prepare and identify garment photos. Turning this off prevents future processing; it does not remove existing wardrobe items or images.
+                </Text>
+              </View>
+              <Switch
+                value={aiProcessingPreference === 'allowed'}
+                onValueChange={changeAiProcessingPreference}
+                disabled={isGuest || aiPreferenceLoading || aiPreferenceSaving || aiPreferenceUnavailable}
+                accessibilityRole="switch"
+                accessibilityLabel="AI Processing"
+                trackColor={{ false: Colors.border, true: Colors.sage }}
+                thumbColor={aiProcessingPreference === 'allowed' ? Colors.primary : Colors.white}
+              />
+            </View>
+            {aiPreferenceLoading && <ActivityIndicator size="small" color={Colors.secondary} />}
+            {aiPreferenceError && <Text style={styles.aiPreferenceError}>{aiPreferenceError}</Text>}
+            {aiPreferenceUnavailable && (
+              <Pressable onPress={() => setAiPreferenceRetry(value => value + 1)} style={styles.aiSignInLink}>
+                <Text style={styles.aiSignInText}>Try loading your preference again</Text>
+              </Pressable>
+            )}
+            {isGuest && (
+              <Pressable onPress={() => router.push('/sign-in')} style={styles.aiSignInLink}>
+                <Text style={styles.aiSignInText}>Sign in to save this preference to your account</Text>
+              </Pressable>
+            )}
+          </View>
+        </Animated.View>
+
         {/* ── Account ──────────────────────────────────────────────────── */}
         <Animated.View entering={FadeInDown.delay(400).duration(280)}>
           <View style={styles.sectionHeaderBlock}>
@@ -849,6 +972,12 @@ export default function ProfileScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      <AiProcessingConsent
+        visible={showAiConsent}
+        busy={aiPreferenceSaving}
+        onAllow={allowProfileAiProcessing}
+        onCancel={declineProfileAiProcessing}
+      />
     </View>
   );
 }
@@ -928,6 +1057,15 @@ const styles = StyleSheet.create({
     shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 10, shadowOffset: { width: 0, height: 2 },
     elevation: 1, borderWidth: 1, borderColor: Colors.border,
   },
+  aiPreferenceRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, paddingVertical: 17,
+  },
+  aiPreferenceCopy: { flex: 1, gap: 5 },
+  aiPreferenceTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary },
+  aiPreferenceDescription: { fontFamily: 'Inter_400Regular', fontSize: rs(12), lineHeight: 18, color: Colors.textSecondary },
+  aiPreferenceError: { paddingHorizontal: 16, paddingBottom: 14, fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.error },
+  aiSignInLink: { paddingHorizontal: 16, paddingBottom: 16 },
+  aiSignInText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.sage },
 
   // ── DNA Pills ─────────────────────────────────────────────────────────────
   dnaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 16 },

@@ -25,6 +25,12 @@ import { applyRePhotographSave } from '../constants/rePhotographSave';
 import { uploadWardrobeImage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
 import { rs } from '../lib/responsive';
+import { AiProcessingConsent } from '@/components/AiProcessingConsent';
+import {
+  getAiProcessingPreference,
+  setAiProcessingPreference,
+  type AiProcessingPreference,
+} from '@/lib/aiProcessingPreference';
 
 // ─── Option lists ─────────────────────────────────────────────────────────────
 
@@ -326,6 +332,11 @@ export default function AddItemScreen() {
   const [persistedItemId, setPersistedItemId] = useState<string | null>(null);
   const [autoSaved,       setAutoSaved]       = useState(false);
   const [autoPersisting,  setAutoPersisting]  = useState(false);
+  const [aiPreference, setAiPreference] = useState<AiProcessingPreference>('not_asked');
+  const [showAiConsent, setShowAiConsent] = useState(false);
+  const [savingAiPreference, setSavingAiPreference] = useState(false);
+  const [aiPreferenceError, setAiPreferenceError] = useState<string | null>(null);
+  const pendingAiAsset = useRef<ImagePicker.ImagePickerAsset | null>(null);
   const [photoWidth,      setPhotoWidth]      = useState<number>(0);
   const [photoHeight,     setPhotoHeight]     = useState<number>(0);
   const [saving,          setSaving]          = useState(false);
@@ -569,24 +580,29 @@ export default function AddItemScreen() {
     setPhotoBase64(null);
   };
 
-  const pickImage = async (useCamera: boolean) => {
+  const pickImage = async (
+    useCamera: boolean,
+    existingAsset?: ImagePicker.ImagePickerAsset,
+    preferenceChecked = false,
+  ) => {
     resetAllFields();
     try {
-      let result: ImagePicker.ImagePickerResult;
-      if (useCamera) {
+      let asset = existingAsset;
+      if (!asset && useCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert('Permission needed', 'Camera access is required to photograph items');
           return;
         }
-        result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'] });
-      } else {
+        const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'] });
+        if (!result.canceled) asset = result.assets[0];
+      } else if (!asset) {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert('Permission needed', 'Photo library access is required');
           return;
         }
-        result = await ImagePicker.launchImageLibraryAsync({
+        const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
           allowsMultipleSelection: true,
           selectionLimit: 10,
@@ -600,8 +616,8 @@ export default function AddItemScreen() {
         }
       }
 
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
+      if (!asset) return;
+      {
         setPhotoUri(asset.uri);
         setPhotoBgRemoved(false);
         setBgStatus('idle');
@@ -619,6 +635,21 @@ export default function AddItemScreen() {
         setClassifyFlash('none');
         cardFadeOpacity.value = 1;
         completionFillWidth.value = 0;
+        if (!preferenceChecked) {
+          try {
+            const preference = await getAiProcessingPreference();
+            setAiPreference(preference);
+            if (preference !== 'allowed') {
+              pendingAiAsset.current = asset;
+              if (preference === 'not_asked') setShowAiConsent(true);
+              return;
+            }
+          } catch {
+            pendingAiAsset.current = asset;
+            setAiPreferenceError('Your AI preference could not be checked. This photo has not been sent.');
+            return;
+          }
+        }
         setClassifying(true);
         // Obtain base64 from ImageManipulator (picker no longer requests base64 to
         // support multi-select without eagerly decoding multiple full-res images).
@@ -814,6 +845,53 @@ export default function AddItemScreen() {
     } catch (e) {
       console.error('Image pick error:', e);
       setClassifying(false);
+    }
+  };
+
+  const allowAiForCurrentPhoto = async () => {
+    const asset = pendingAiAsset.current;
+    if (!asset || savingAiPreference) return;
+    setSavingAiPreference(true);
+    setAiPreferenceError(null);
+    try {
+      await setAiProcessingPreference('allowed');
+      setAiPreference('allowed');
+      setShowAiConsent(false);
+      await pickImage(false, asset, true);
+    } catch {
+      setAiPreferenceError('AI processing could not be enabled. Your photo has not been sent.');
+    } finally {
+      setSavingAiPreference(false);
+    }
+  };
+
+  const declineAiForCurrentPhoto = () => {
+    setShowAiConsent(false);
+    setAiPreference('declined');
+    setClassifying(false);
+    setAiPreferenceError(null);
+    setSavingAiPreference(true);
+    void setAiProcessingPreference('declined')
+      .catch(() => {
+        setAiPreferenceError('Your choice could not be saved. AI processing remains unavailable until it can be checked.');
+      })
+      .finally(() => setSavingAiPreference(false));
+  };
+
+  const retryAiForCurrentPhoto = async () => {
+    const asset = pendingAiAsset.current;
+    if (!asset || savingAiPreference) return;
+    setAiPreferenceError(null);
+    try {
+      const preference = await getAiProcessingPreference();
+      setAiPreference(preference);
+      if (preference === 'allowed') {
+        await pickImage(false, asset, true);
+      } else {
+        setShowAiConsent(true);
+      }
+    } catch {
+      setAiPreferenceError('Your AI preference could not be checked. This photo has not been sent.');
     }
   };
 
@@ -1120,6 +1198,24 @@ export default function AddItemScreen() {
                 <Image source={{ uri: photoUri }} style={styles.previewImage} contentFit="cover" />
                 <Pressable style={styles.changePhoto} onPress={() => setStep(0)}>
                   <Ionicons name="camera-reverse" size={18} color={Colors.white} />
+                </Pressable>
+              </View>
+            )}
+
+            {photoUri && aiPreference !== 'allowed' && !classifying && (
+              <View style={styles.aiPausedCard}>
+                <Text style={styles.aiPausedTitle}>AI processing is paused</Text>
+                <Text style={styles.aiPausedCopy}>
+                  Your selected photo stays here. You can enter item details yourself or choose to use AI for this photo.
+                </Text>
+                {aiPreferenceError && <Text style={styles.aiPausedError}>{aiPreferenceError}</Text>}
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={savingAiPreference || !pendingAiAsset.current}
+                  onPress={retryAiForCurrentPhoto}
+                  style={({ pressed }) => [styles.aiPausedAction, (savingAiPreference || !pendingAiAsset.current) && { opacity: 0.5 }, pressed && { opacity: 0.75 }]}
+                >
+                  <Text style={styles.aiPausedActionText}>Use AI for this photo</Text>
                 </Pressable>
               </View>
             )}
@@ -1698,6 +1794,12 @@ export default function AddItemScreen() {
           )}
         </View>
       )}
+      <AiProcessingConsent
+        visible={showAiConsent}
+        busy={savingAiPreference}
+        onAllow={allowAiForCurrentPhoto}
+        onCancel={declineAiForCurrentPhoto}
+      />
     </View>
     </SwipeToDismiss>
   );
@@ -1725,6 +1827,12 @@ const styles = StyleSheet.create({
   photoPreview:      { width: '100%', aspectRatio: 0.75, borderRadius: 16, overflow: 'hidden', marginBottom: 16, position: 'relative' },
   previewImage:      { width: '100%', height: '100%' },
   changePhoto:       { position: 'absolute', bottom: 12, right: 12, width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.overlay, alignItems: 'center', justifyContent: 'center' },
+  aiPausedCard:      { backgroundColor: Colors.white, borderRadius: 14, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: Colors.border, gap: 8 },
+  aiPausedTitle:     { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary },
+  aiPausedCopy:      { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary, lineHeight: 20 },
+  aiPausedError:     { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.error },
+  aiPausedAction:    { minHeight: 42, borderRadius: 9, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, marginTop: 2 },
+  aiPausedActionText:{ fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.primary },
   classifyingCard:   { backgroundColor: Colors.white, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 16, borderWidth: 1, borderColor: Colors.border, gap: 8 },
   classifyingRow:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
   classifyingText:   { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.primary },

@@ -21,3 +21,4 @@
 - [Track C v3.7 baseline interpretation](track-c-baseline-interpretation.md) — keep fixed-candidate scoring and full-generator support separate; baseline recommends material remediation before launch
 - [Persistent rate-limiter tests](persistent-rate-limiter-tests.md) — use distinct client IPs across test runs when exercising real persistent limiters to avoid false 429s
 - [Test-only npm installs](test-only-npm-installs.md) — package install callback saves npm packages as runtime deps; move test-only packages into devDependencies in both manifests.
+- [AI image consent storage](ai-consent-storage.md) — store preference in server-managed Auth app metadata; check fresh state before every provider-bound request, not client caches.

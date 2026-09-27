@@ -11,6 +11,7 @@ import {
   type ProviderItem,
 } from "../server/classify-multi-item";
 import { registerRoutes, _testOverrides as routeTestOverrides } from "../server/routes";
+import { _testOverrides as consentTestOverrides, AI_PROCESSING_KEY } from "../server/aiProcessingConsent";
 import { supabaseAdmin } from "../server/supabase";
 
 let passed = 0;
@@ -377,9 +378,9 @@ async function runHttpTests(): Promise<void> {
     const routeSource = fs.readFileSync(path.join(root, "server/routes.ts"), "utf8");
     assert.ok(!/from [\"'].*(?:database|storage|supabase)/.test(moduleSource));
     assert.ok(!/createGarmentGroup|create_garment_group|operationId/.test(moduleSource));
-    assert.ok(routeSource.includes('app.post("/api/classify-garment", aiLimiter, requireAuth, withAiLimit(classifyGarment))'));
-    assert.ok(routeSource.includes('app.post("/api/classify-garments", aiLimiter, requireAuth, withAiLimit(classifyMultiItem))'));
-    console.log("  ✓ 32. no DB/Storage/group dependency; legacy route unchanged; new route protected");
+    assert.ok(routeSource.includes('app.post("/api/classify-garment", aiLimiter, requireAuth, requireAiProcessingConsent, withAiLimit(classifyGarment))'));
+    assert.ok(routeSource.includes('app.post("/api/classify-garments", aiLimiter, requireAuth, requireAiProcessingConsent, withAiLimit(classifyMultiItem))'));
+    console.log("  ✓ 32. no DB/Storage/group dependency; both routes require account AI consent");
 
     const registeredApp = express();
     registeredApp.use(express.json({ limit: "10mb" }));
@@ -414,6 +415,7 @@ async function runHttpTests(): Promise<void> {
       throw new Error("group RPC call forbidden");
     });
     routeTestOverrides.authenticatedUser = { id: "b1b2-test-user" };
+    consentTestOverrides.load = async () => ({ [AI_PROCESSING_KEY]: "allowed" });
     try {
       response = await request(registeredApp)
         .post("/api/classify-garments")
@@ -423,6 +425,7 @@ async function runHttpTests(): Promise<void> {
       assert.equal(forbiddenCalls, 0);
     } finally {
       delete routeTestOverrides.authenticatedUser;
+      delete consentTestOverrides.load;
       Reflect.set(supabaseAdmin, "from", originalFrom);
       Reflect.set(supabaseAdmin.storage, "from", originalStorageFrom);
       Reflect.set(supabaseAdmin, "rpc", originalRpc);

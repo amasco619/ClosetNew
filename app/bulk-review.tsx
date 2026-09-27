@@ -39,6 +39,12 @@ import {
   type ClassifyDeps,
 } from '@/lib/bulkClassifyCore';
 import { rs } from '../lib/responsive';
+import { AiProcessingConsent } from '@/components/AiProcessingConsent';
+import {
+  getAiProcessingPreference,
+  setAiProcessingPreference,
+  type AiProcessingPreference,
+} from '@/lib/aiProcessingPreference';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -307,12 +313,74 @@ export default function BulkReviewScreen() {
   // Remaining-count pill: shown after the first successful BG removal so users
   // know how many free uses they have left before hitting the limit.
   const [bgRemaining, setBgRemaining] = useState<number | undefined>(undefined);
+  const [aiPreference, setAiPreference] = useState<AiProcessingPreference | 'checking' | 'unavailable'>('checking');
+  const [showAiConsent, setShowAiConsent] = useState(false);
+  const [savingAiPreference, setSavingAiPreference] = useState(false);
+  const [aiPreferenceError, setAiPreferenceError] = useState<string | null>(null);
+
+  const allowBulkAiProcessing = async () => {
+    if (savingAiPreference) return;
+    setSavingAiPreference(true);
+    setAiPreferenceError(null);
+    try {
+      await setAiProcessingPreference('allowed');
+      setAiPreference('allowed');
+      setShowAiConsent(false);
+    } catch {
+      setAiPreferenceError('AI processing could not be enabled. These photos have not been sent.');
+    } finally {
+      setSavingAiPreference(false);
+    }
+  };
+
+  const declineBulkAiProcessing = () => {
+    setAiPreference('declined');
+    setShowAiConsent(false);
+    setAiPreferenceError(null);
+    setSavingAiPreference(true);
+    void setAiProcessingPreference('declined')
+      .catch(() => {
+        setAiPreferenceError('Your choice could not be saved. AI processing remains unavailable until it can be checked.');
+      })
+      .finally(() => setSavingAiPreference(false));
+  };
+
+  const enableAiForSelectedPhotos = async () => {
+    if (savingAiPreference || aiPreference === 'checking') return;
+    setAiPreferenceError(null);
+    try {
+      const preference = await getAiProcessingPreference();
+      if (preference === 'allowed') {
+        setAiPreference('allowed');
+      } else {
+        setAiPreference(preference);
+        setShowAiConsent(true);
+      }
+    } catch {
+      setAiPreference('unavailable');
+      setAiPreferenceError('Your AI preference could not be checked. These photos have not been sent.');
+    }
+  };
 
   // Redirect if no URIs were passed — single-item redirect is handled below.
   useEffect(() => {
     if (uris.length === 0) {
       router.back();
     }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    getAiProcessingPreference().then(preference => {
+      if (!active) return;
+      setAiPreference(preference);
+      if (preference === 'not_asked') setShowAiConsent(true);
+    }).catch(() => {
+      if (!active) return;
+      setAiPreference('unavailable');
+      setAiPreferenceError('Your AI preference could not be checked. These photos have not been sent.');
+    });
+    return () => { active = false; };
   }, []);
 
   // ─── Single-item redirect ──────────────────────────────────────────────────
@@ -350,6 +418,10 @@ export default function BulkReviewScreen() {
   // If all items have already settled (or errored), exit immediately — there
   // is nothing destructive about leaving at that point.
   const handleCancel = useCallback(() => {
+    if (aiPreference !== 'allowed') {
+      router.back();
+      return;
+    }
     const hasInProgress = items.some(
       it => it.status === 'pending' || it.status === 'classifying'
     );
@@ -373,7 +445,7 @@ export default function BulkReviewScreen() {
         },
       ]
     );
-  }, [items]);
+  }, [items, aiPreference]);
 
   // Block the Android hardware back button while saving is in progress so the
   // user cannot navigate away mid-save and leave orphaned wardrobe entries.
@@ -435,23 +507,23 @@ export default function BulkReviewScreen() {
 
   // Effect 1: watch items; redirect as soon as the sole item settles or errors.
   useEffect(() => {
-    if (uris.length !== 1) return;
+    if (uris.length !== 1 || aiPreference !== 'allowed') return;
     const item = items[0];
     if (!item) return;
     if (item.status === 'settled') redirectSingle(item, true);
     else if (item.status === 'error') redirectSingle(item, false);
-  }, [items, uris.length, redirectSingle]);
+  }, [items, uris.length, redirectSingle, aiPreference]);
 
   // Effect 2: timeout guard — redirects without params if classification is
   // still running after SINGLE_REDIRECT_TIMEOUT_MS.
   useEffect(() => {
-    if (uris.length !== 1) return;
+    if (uris.length !== 1 || aiPreference !== 'allowed') return;
     const id = setTimeout(() => {
       const item = items[0];
       if (item) redirectSingle(item, false);
     }, SINGLE_REDIRECT_TIMEOUT_MS);
     return () => clearTimeout(id);
-  }, []);
+  }, [aiPreference]);
 
   // Cycle status micro-copy every 450ms while items are still classifying
   useEffect(() => {
@@ -559,6 +631,7 @@ export default function BulkReviewScreen() {
   // Classify one URI: resize → background removal → POST /api/classify-garment → settle card.
   // Core guard logic lives in lib/bulkClassifyCore.runClassifyUri (tested directly in Node).
   const classifyUri = useCallback(async (uri: string) => {
+    if (aiPreference !== 'allowed') return;
     await runClassifyUri(uri, mountedRef, {
       resize: (u) => ImageManipulator.manipulateAsync(
         u,
@@ -584,16 +657,17 @@ export default function BulkReviewScreen() {
       setItems: setItems as unknown as ClassifyDeps['setItems'],
       onHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
     });
-  }, []);
+  }, [aiPreference]);
 
   // Kick off staggered classify tasks on mount
   useEffect(() => {
+    if (aiPreference !== 'allowed') return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     uris.forEach((uri, i) => {
       timers.push(setTimeout(() => classifyUri(uri), i * STAGGER_MS));
     });
     return () => timers.forEach(clearTimeout);
-  }, []);
+  }, [aiPreference, classifyUri, uris]);
 
   const handleRemove = useCallback((uri: string) => {
     Haptics.selectionAsync();
@@ -781,7 +855,7 @@ export default function BulkReviewScreen() {
   const progressRatio   = totalCount > 0 ? classifiedCount / totalCount : 0;
   // Lock the CTA while any item is still pending/classifying OR uploading via
   // auto-persist, so the user cannot navigate away and abandon in-flight work.
-  const hasClassifying  = items.some(it => it.status === 'pending' || it.status === 'classifying');
+  const hasClassifying  = aiPreference === 'allowed' && items.some(it => it.status === 'pending' || it.status === 'classifying');
   const hasAutoSaving   = items.some(it => it.status === 'auto-saving');
   const hasActive       = hasClassifying || hasAutoSaving;
   const canSaveAll      = (settledCount + autoSavedCount) > 0 && !saving && !hasActive;
@@ -851,8 +925,28 @@ export default function BulkReviewScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          (bgNotAuthenticated && !bgUpsellDismissed) || (bgLimitReached && !bgLimitDismissed) || (bgRemaining !== undefined && !isPremium) ? (
+          aiPreference !== 'allowed' || (bgNotAuthenticated && !bgUpsellDismissed) || (bgLimitReached && !bgLimitDismissed) || (bgRemaining !== undefined && !isPremium) ? (
             <View style={styles.bgUpsellWrap}>
+              {aiPreference !== 'allowed' && (
+                <View style={styles.aiConsentBanner}>
+                  <Text style={styles.aiConsentTitle}>AI processing has not started</Text>
+                  <Text style={styles.aiConsentCopy}>
+                    Your photos remain on this screen. You can leave, or allow AI processing to continue with these photos.
+                  </Text>
+                  {aiPreferenceError && <Text style={styles.aiConsentError}>{aiPreferenceError}</Text>}
+                  {aiPreference === 'checking' && <ActivityIndicator size="small" color={Colors.secondary} />}
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={savingAiPreference || aiPreference === 'checking'}
+                    onPress={enableAiForSelectedPhotos}
+                    style={({ pressed }) => [styles.aiConsentAction, (savingAiPreference || aiPreference === 'checking') && { opacity: 0.5 }, pressed && { opacity: 0.75 }]}
+                  >
+                    <Text style={styles.aiConsentActionText}>
+                      {aiPreference === 'unavailable' ? 'Check preference again' : 'Enable AI processing'}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
               {bgNotAuthenticated && !bgUpsellDismissed && (
                 <Animated.View entering={FadeInDown.duration(260)}>
                   <Pressable
@@ -972,6 +1066,12 @@ export default function BulkReviewScreen() {
           saveBtnLabel={saveBtnLabel}
         />
       )}
+      <AiProcessingConsent
+        visible={showAiConsent}
+        busy={savingAiPreference}
+        onAllow={allowBulkAiProcessing}
+        onCancel={declineBulkAiProcessing}
+      />
     </View>
   );
 }
@@ -997,6 +1097,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 20, borderRadius: 1, marginBottom: 16, overflow: 'hidden',
   },
   progressFill: { height: '100%', backgroundColor: Colors.secondary, borderRadius: 1 },
+  aiConsentBanner: { backgroundColor: Colors.white, borderRadius: 14, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: Colors.border, gap: 8 },
+  aiConsentTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary },
+  aiConsentCopy: { fontFamily: 'Inter_400Regular', fontSize: rs(12), lineHeight: 19, color: Colors.textSecondary },
+  aiConsentError: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.error },
+  aiConsentAction: { minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 9, borderWidth: 1, borderColor: Colors.border, marginTop: 2 },
+  aiConsentActionText: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.primary },
 
   columnWrapper: { gap: CARD_GAP, paddingHorizontal: SCREEN_PAD, marginBottom: CARD_GAP },
   listContent:   { paddingTop: 4, paddingBottom: 8 },

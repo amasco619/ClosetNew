@@ -316,7 +316,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               57 test suites (see §11)
+__tests__/               62 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -428,7 +428,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 57 test suites once |
+| `npm test` | Run all 62 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -1295,12 +1295,14 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (57 total)
+### Test Suites (62 total)
 
 | Suite | What it tests |
 |-------|--------------|
 | `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, and retries after partial cleanup |
 | `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival, prune-interval state, DB integration (skipped when `DATABASE_URL` absent) |
+| `aiProcessingConsent.test.ts` | Mounted account preference API and server AI-route enforcement: unasked/malformed/declined denied, account isolation, metadata persistence, store errors fail closed |
+| `aiProcessingPreference.test.ts` | Client preference-state normalization; unknown responses cannot silently grant AI processing |
 | `androidOAuthCancel.test.ts` | Android OAuth cancellation path: `useEffect` cleanup, loading-spinner reset on cancel, no stuck-spinner regression |
 | `blueprint-image-sync.test.ts` | Every blueprint slot imageKey maps to a valid SAMPLE_IMAGES entry (no broken placeholder fallbacks) |
 | `blueprint-lifestyle-slots.test.ts` | Lifestyle slot group thresholds across all 6 blueprints (group existence, category ordering, proportionality) |
@@ -2204,3 +2206,28 @@ database, Storage, migration, or engine behavior was changed. Live email
 delivery and device callback behavior still require separate verification.
 The two AUTH-2 handoff screens are also covered by a mounted, isolated
 `react-test-renderer` test (test-only dependency matching React 19.1).
+
+## 28. AI image-processing consent (wording approval pending)
+
+New AI-image requests use an account-level three-state preference in Supabase
+Auth app metadata: absent/invalid means not asked, and only explicit `allowed`
+permits processing. The Express account API reads/writes the authenticated
+user's preference through the server-only Auth admin client; the server checks
+the current stored value before both Gemini routes and the PhotoRoom route.
+Metadata reads/writes that fail deny processing; no client-only preference can
+authorize an AI request. The shared five-per-hour account limiter protects
+preference writes, not the photo-by-photo read endpoint.
+
+Add Item retains the selected photo for manual entry or explicit AI retry;
+Bulk Review pauses its timers until the account state is allowed and retains
+the selected URIs on screen if declined. The Profile Privacy switch reads the
+account setting when focused; turning it off affects future processing only,
+without deleting wardrobe data, and turning it on does not trigger processing
+of existing photos. The consent surface has a Learn more boundary but no
+published Privacy Policy URL; its exact counsel-approved body wording is
+pending confirmation before this work can be considered ready. Existing saved
+items have no safe in-place reprocessing route, so this change does not
+silently send older stored photos to AI.
+
+No Supabase schema or provider setting was changed. Mounted server consent
+tests use test-only overrides; no live AI or Supabase data calls are required.

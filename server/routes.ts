@@ -5,6 +5,7 @@ import path from "node:path";
 import { classifyGarment } from "./classify-garment";
 import { classifyMultiItem } from "./classify-multi-item";
 import { removeBackground } from "./remove-background";
+import { getAiProcessingState, setAiProcessingState, requireAiProcessingConsent } from "./aiProcessingConsent";
 import { supabaseAdmin, supabaseAuth, supabaseAnon } from "./supabase";
 import { getUserEntitlement } from "./entitlements";
 import { reportError } from "../shared/observability";
@@ -227,9 +228,9 @@ async function requireAuth(req: Request, res: Response, next: NextFunction): Pro
 export async function registerRoutes(app: Express): Promise<Server> {
   // ── AI endpoints: authentication required ────────────────────────────────
   // Without auth, anyone can exhaust Gemini / Google Vision quota.
-  app.post("/api/classify-garment", aiLimiter, requireAuth, withAiLimit(classifyGarment));
-  app.post("/api/classify-garments", aiLimiter, requireAuth, withAiLimit(classifyMultiItem));
-  app.post("/api/remove-background", bgRemovalLimiter, withAiLimit(removeBackground));
+  app.post("/api/classify-garment", aiLimiter, requireAuth, requireAiProcessingConsent, withAiLimit(classifyGarment));
+  app.post("/api/classify-garments", aiLimiter, requireAuth, requireAiProcessingConsent, withAiLimit(classifyMultiItem));
+  app.post("/api/remove-background", bgRemovalLimiter, requireAuth, requireAiProcessingConsent, withAiLimit(removeBackground));
 
   // ── Sign-in ───────────────────────────────────────────────────────────────
   // Rate-limited (5 req / 15 min per IP) + per-account lockout (5 failures →
@@ -369,6 +370,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ── Account management: authentication + ownership check required ─────────
+  // Preference reads happen before each new photo selection and on Profile focus.
+  // Do not share the five-per-hour account mutation limiter with reads.
+  app.get("/api/user/ai-processing", requireAuth, async (req, res) => {
+    try {
+      return res.json({ state: await getAiProcessingState((req as AuthenticatedRequest).authenticatedUser.id) });
+    } catch {
+      return res.status(503).json({ error: "ai_processing_preference_unavailable" });
+    }
+  });
+
+  app.put("/api/user/ai-processing", accountLimiter, requireAuth, async (req, res) => {
+    const state = req.body?.state;
+    if (state !== "allowed" && state !== "declined") {
+      return res.status(400).json({ error: "invalid_ai_processing_preference" });
+    }
+    try {
+      await setAiProcessingState((req as AuthenticatedRequest).authenticatedUser.id, state);
+      return res.json({ state });
+    } catch {
+      return res.status(503).json({ error: "ai_processing_preference_unavailable" });
+    }
+  });
+
   app.get("/api/user/entitlements", accountLimiter, requireAuth, async (req, res) => {
     const authedUser = (req as AuthenticatedRequest).authenticatedUser;
 
