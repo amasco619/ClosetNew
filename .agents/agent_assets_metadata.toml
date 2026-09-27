@@ -421,3 +421,17 @@ mtime_ms = 1790006866946
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/319d9d91-c558-4600-86fb-9ad16d612c95/b95196cf-27dc-43a9-a4d2-1c4b203d4fb9"
 storage_version_token = "1790006882233684"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "UtUkHgQ1FylGqJfeXiJPJ"
+uri = "file://docs/payments-entitlements-readiness-audit.md"
+type = "text"
+title = "Amodka Payments & Entitlements Readiness Audit"
+description = "Read-only, evidence-based launch audit with 19 required sections, findings and final-gate recommendation."
+logical_id = "d602b4ac-f327-4616-bd4d-6565538fc301"
+content_hash = "sha256:6b2718bd557b8c8ba6d9321adffee0ce4267639abb5c20c883a54a2b465cb976"
+size = 41304
+mtime_ms = 1790530753986
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/d602b4ac-f327-4616-bd4d-6565538fc301/1cda1088-e212-454f-9943-cc88d2e759ae"
+storage_version_token = "1790530773097629"
+content_type = "text/markdown"
