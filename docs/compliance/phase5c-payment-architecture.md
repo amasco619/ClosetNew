@@ -138,7 +138,7 @@ Client                          Server                         App Store / Play
 
 | Feature | Free tier | Premium tier | Enforcement location |
 |---|---|---|---|
-| Wardrobe items | 30 | Unlimited | SERVER (add-item endpoint) |
+| Wardrobe items | 30 | 2,000 | SERVER (future add-item endpoint; B1 only updates the existing client cap) |
 | Outfits per scenario per day | 2 | 4 | SERVER (recommendation endpoint) |
 | AI classification calls | TBD per day | TBD per day | SERVER (classify-garment endpoint) |
 | Background removal | 0 (guest), 1 (free), unlimited (premium) | Already server-enforced ✅ | SERVER |

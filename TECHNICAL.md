@@ -510,7 +510,7 @@ Users photograph or select items from their photo library. Before any network ca
 - **Classify pass** — longest edge clamped to 1024 px, JPEG 0.8 compress → `classifyBase64` sent to Gemini (~100–300 KB)
 - **Storage pass** — longest edge clamped to 1600 px, JPEG 0.85 compress → `storageBase64` uploaded to Supabase (~300–600 KB)
 
-The original full-resolution asset is never sent over the network. Both resize calls fall back silently to the original base64 if `manipulateAsync` throws, so users are never blocked from adding an item. Item caps: Guest = 8, Free = 30, Premium = unlimited.
+The original full-resolution asset is never sent over the network. Both resize calls fall back silently to the original base64 if `manipulateAsync` throws, so users are never blocked from adding an item. Client-side item caps: Guest = 8, Free = 30, Premium = 2,000; server-side capacity enforcement is not part of B1.
 
 `uploadWardrobeImage()` accepts an optional `mimeType` parameter (`'image/jpeg'` default, `'image/png'` supported); the file extension is derived from the MIME type. `deleteWardrobeImage()` removes both `.jpg` and `.png` variants to handle items stored under either extension.
 
@@ -925,7 +925,7 @@ Unlocks: unlimited wardrobe items (free tier raised to 30, guest stays 8), 4 out
 - Basic wear log — last 7 days of entries; "Wearing this today" button is always accessible
 - Calibration signals — love/not-today taps and wear logging always build affinity, even on free
 
-Premium status is stored in Supabase `user_profiles` with an expiry timestamp. The app reads the authenticated, expiry-aware `GET /api/user/entitlements` endpoint; there is no client-callable upgrade endpoint.
+Premium status is stored in Supabase `user_profiles` with an expiry timestamp. The app reads the authenticated, expiry-aware `GET /api/user/entitlements` endpoint; there is no client-callable upgrade endpoint. B1 restricts authenticated INSERT/UPDATE on `user_profiles` to non-entitlement columns and removes authenticated profile DELETE; only the existing server-only entitlement writer may change Premium. Own-profile SELECT and server account deletion remain available. The Premium wardrobe capacity is 2,000 items in the client; a server-enforced capacity limit is outside B1.
 
 **Code:** `app/premium.tsx`, `server/routes.ts`
 

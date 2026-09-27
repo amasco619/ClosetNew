@@ -153,6 +153,7 @@ const defaultProfile: UserProfile = {
 
 const FREE_ITEM_CAP = 30;
 const GUEST_ITEM_CAP = 8;
+const PREMIUM_ITEM_CAP = 2000;
 
 const AppContext = createContext<AppContextValue | null>(null);
 
@@ -381,7 +382,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isLoading && !slotsInitialized) {
       const blueprint = getProfileBlueprint(profile);
-      const active = isPremium ? wardrobeItems : wardrobeItems.slice(0, FREE_ITEM_CAP);
+      const active = wardrobeItems.slice(0, isPremium ? PREMIUM_ITEM_CAP : FREE_ITEM_CAP);
       const slots = initializeSlots(active, blueprint);
       setRecommendationSlots(slots);
       setSlotsInitialized(true);
@@ -394,7 +395,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (slotsInitialized) {
       const blueprint = getProfileBlueprint(profile);
-      const active = isPremium ? wardrobeItems : wardrobeItems.slice(0, FREE_ITEM_CAP);
+      const active = wardrobeItems.slice(0, isPremium ? PREMIUM_ITEM_CAP : FREE_ITEM_CAP);
       const slots = initializeSlots(active, blueprint);
       setRecommendationSlots(slots);
       AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
@@ -1220,7 +1221,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const updated = prev.filter(item => item.id !== id);
       AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
       const blueprint = getProfileBlueprint(profile);
-      const activeUpdated = isPremium ? updated : updated.slice(0, FREE_ITEM_CAP);
+      const activeUpdated = updated.slice(0, isPremium ? PREMIUM_ITEM_CAP : FREE_ITEM_CAP);
       const refreshedSlots = initializeSlots(activeUpdated, blueprint);
       setRecommendationSlots(refreshedSlots);
       AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
@@ -1266,7 +1267,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updates.colorFamily !== undefined;
       if (matcherFieldChanged) {
         const blueprint = getProfileBlueprint(profile);
-        const activeNext = isPremium ? next : next.slice(0, FREE_ITEM_CAP);
+        const activeNext = next.slice(0, isPremium ? PREMIUM_ITEM_CAP : FREE_ITEM_CAP);
         const refreshedSlots = initializeSlots(activeNext, blueprint);
         setRecommendationSlots(refreshedSlots);
         AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
@@ -1280,12 +1281,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ── Rotation-based outfit generation ─────────────────────────────────────────
 
   // The slice of wardrobeItems that is active for display and outfit/slot
-  // computation. Free users see only the first FREE_ITEM_CAP items; all
-  // items are still persisted so upgrading restores the full wardrobe.
+  // computation. Items beyond the tier cap stay persisted but inactive.
   const activeWardrobeItems = useMemo(
-    () => isPremium
-      ? wardrobeItems
-      : wardrobeItems.slice(0, profile.isGuest ? GUEST_ITEM_CAP : FREE_ITEM_CAP),
+    () => wardrobeItems.slice(0, isPremium ? PREMIUM_ITEM_CAP : profile.isGuest ? GUEST_ITEM_CAP : FREE_ITEM_CAP),
     [isPremium, profile.isGuest, wardrobeItems],
   );
 
@@ -1340,7 +1338,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeWardrobeItems, profile, todayMood, outfitPool, rotationState.poolHash, rotationState.lastDate, isLoading, recentWornFingerprints, weather]);
 
-  const itemCap = isPremium ? Infinity : profile.isGuest ? GUEST_ITEM_CAP : FREE_ITEM_CAP;
+  const itemCap = isPremium ? PREMIUM_ITEM_CAP : profile.isGuest ? GUEST_ITEM_CAP : FREE_ITEM_CAP;
   const canAddItem = wardrobeItems.length < itemCap;
   const starterRecommendations = useMemo(() => getFirstNeededByCategory(recommendationSlots), [recommendationSlots]);
   const lifestyleSlotGroups = useMemo(

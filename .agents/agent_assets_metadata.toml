@@ -435,3 +435,17 @@ mtime_ms = 1790530753986
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/d602b4ac-f327-4616-bd4d-6565538fc301/1cda1088-e212-454f-9943-cc88d2e759ae"
 storage_version_token = "1790530773097629"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "vbRLwdRb1mDssKXkqu3XQ"
+uri = "file://docs/payment-b1-entitlement-security-implementation.md"
+type = "text"
+title = "Payment B1 Implementation and Verification"
+description = "Applied entitlement privilege boundary, isolated database test results, and remaining PostgREST verification limits."
+logical_id = "b5d8ac47-4ece-477b-9933-c8e2dcb6e516"
+content_hash = "sha256:ac5a4cd308785cd2a8f7692f1186e4fe1aaca04afae33f9c68fe524b5f738b91"
+size = 4194
+mtime_ms = 1790540781403
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/b5d8ac47-4ece-477b-9933-c8e2dcb6e516/a39bae2d-6ce3-4571-9666-a110f7769c3f"
+storage_version_token = "1790540867421821"
+content_type = "text/markdown"
