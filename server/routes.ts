@@ -8,8 +8,30 @@ import { removeBackground } from "./remove-background";
 import { getAiProcessingState, setAiProcessingState, requireAiProcessingConsent } from "./aiProcessingConsent";
 import { supabaseAdmin, supabaseAuth, supabaseAnon } from "./supabase";
 import { getUserEntitlement } from "./entitlements";
+import {
+  normalizeRevenueCatEvent,
+  processRevenueCatEvent,
+  verifyRevenueCatSignature,
+  reconcileRevenueCatCustomer,
+  tombstoneBillingAccount,
+  hasRevenueCatProductConfiguration,
+  recordUnknownRevenueCatEvent,
+  isSupportedRevenueCatEventType,
+  isRevenueCatBillingEnabled,
+  getBillingReadiness,
+} from "./billing";
 import { reportError } from "../shared/observability";
-import { aiLimiter, bgRemovalLimiter, accountLimiter, authLimiter, resetLimiter, checkAccountLockout, recordFailedAttempt, clearLockout } from "./middleware/rateLimiter";
+import {
+  aiLimiter,
+  bgRemovalLimiter,
+  billingReconcileLimiter,
+  accountLimiter,
+  authLimiter,
+  resetLimiter,
+  checkAccountLockout,
+  recordFailedAttempt,
+  clearLockout,
+} from "./middleware/rateLimiter";
 import {
   NATIVE_EMAIL_CONFIRMATION_URL,
   NATIVE_PASSWORD_RECOVERY_URL,
@@ -76,6 +98,19 @@ async function deleteAccountData(userId: string): Promise<void> {
       return result;
     } catch {
       throw new AccountDeletionError(stage);
+    }
+  }
+
+  // When billing is activated, quarantine its identity before removing
+  // profiles/auth rows. This RPC commits separately and is idempotent: a later
+  // cleanup failure leaves the account quarantined. Retrying deletion resumes
+  // cleanup only; there is deliberately no path that clears the tombstone or
+  // restores billing.
+  if (isRevenueCatBillingEnabled()) {
+    try {
+      await tombstoneBillingAccount(userId);
+    } catch {
+      throw new AccountDeletionError("billing_tombstone");
     }
   }
 
@@ -226,6 +261,79 @@ async function requireAuth(req: Request, res: Response, next: NextFunction): Pro
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.post("/api/billing/revenuecat/webhook", async (req, res) => {
+    const rawBody = (req as Request & { rawBody?: unknown }).rawBody;
+    if (!Buffer.isBuffer(rawBody)) return res.status(400).json({ error: "invalid_webhook_body" });
+    if (!isRevenueCatBillingEnabled() ||
+        !process.env.REVENUECAT_WEBHOOK_SECRET ||
+        !hasRevenueCatProductConfiguration()) {
+      return res.status(503).json({ error: "billing_configuration_unavailable" });
+    }
+    const signature = typeof req.headers["x-revenuecat-webhook-signature"] === "string"
+      ? req.headers["x-revenuecat-webhook-signature"] : undefined;
+    if (!verifyRevenueCatSignature(rawBody, signature)) {
+      return res.status(401).json({ error: "invalid_webhook_signature" });
+    }
+    let payload: unknown;
+    try {
+      payload = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      return res.status(400).json({ error: "invalid_webhook_json" });
+    }
+    const providerEventType = (payload as any)?.event?.type;
+    if (typeof providerEventType === "string" &&
+        !isSupportedRevenueCatEventType(providerEventType)) {
+      try {
+        await recordUnknownRevenueCatEvent(payload);
+        console.log(JSON.stringify({
+          type: "billing_event",
+          requestId: res.locals.requestId,
+          eventId: (payload as any).event.id,
+          eventType: providerEventType,
+          result: "ignored",
+        }));
+        return res.status(200).json({ received: true, status: "ignored" });
+      } catch {
+        return res.status(503).json({ error: "billing_event_processing_unavailable" });
+      }
+    }
+    const event = normalizeRevenueCatEvent(payload);
+    if (!event) return res.status(400).json({ error: "invalid_webhook_event" });
+    try {
+      const status = await processRevenueCatEvent(event);
+      console.log(JSON.stringify({
+        type: "billing_event",
+        requestId: res.locals.requestId,
+        eventId: event.eventId,
+        eventType: event.type,
+        userId: event.userId,
+        result: status,
+      }));
+      return res.status(200).json({ received: true, status });
+    } catch {
+      // 5xx requests are retried by RevenueCat; the pending event row is durable.
+      reportError(new Error("RevenueCat event processing unavailable"), "billing_event_processing", {
+        dependency: "revenuecat",
+        route: "/api/billing/revenuecat/webhook",
+        requestId: res.locals.requestId,
+        category: "external_dependency",
+      });
+      console.error(JSON.stringify({
+        type: "billing_event_failure",
+        requestId: res.locals.requestId,
+        eventId: event.eventId,
+        eventType: event.type,
+        userId: event.userId,
+        category: "processing_unavailable",
+      }));
+      return res.status(503).json({ error: "billing_event_processing_unavailable" });
+    }
+  });
+
+  app.get("/api/user/billing/readiness", requireAuth, async (_req, res) => {
+    return res.json(await getBillingReadiness());
+  });
+
   // ── AI endpoints: authentication required ────────────────────────────────
   // Without auth, anyone can exhaust Gemini / Google Vision quota.
   app.post("/api/classify-garment", aiLimiter, requireAuth, requireAiProcessingConsent, withAiLimit(classifyGarment));
@@ -393,7 +501,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/user/entitlements", accountLimiter, requireAuth, async (req, res) => {
+  app.get("/api/user/entitlements", requireAuth, async (req, res) => {
     const authedUser = (req as AuthenticatedRequest).authenticatedUser;
 
     try {
@@ -402,6 +510,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[entitlements]", msg);
       return res.status(500).json({ error: "entitlements_unavailable" });
+    }
+  });
+
+  // Authenticated clients can request a provider reconciliation after a
+  // purchase/restore, but the user ID is always taken from validated auth.
+  app.post("/api/user/entitlements/reconcile", requireAuth, billingReconcileLimiter, async (req, res) => {
+    try {
+      const state = await reconcileRevenueCatCustomer(
+        (req as AuthenticatedRequest).authenticatedUser.id,
+      );
+      return res.json(state);
+    } catch (err: unknown) {
+      const code = err instanceof Error ? err.message : "";
+      const status = code === "revenuecat_wrong_account"
+        ? 409
+        : code === "revenuecat_server_configuration_unavailable" ? 503 : 502;
+      return res.status(status).json({
+        error: status === 503
+          ? "billing_configuration_unavailable"
+          : status === 409 ? "billing_wrong_account" : "billing_reconciliation_unavailable",
+      });
     }
   });
 
@@ -523,8 +652,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await deleteAccountData(userId);
     } catch (err: unknown) {
       logAccountDeletionError(err, "/api/delete-account-confirm");
+      const billingQuarantined = isRevenueCatBillingEnabled() &&
+        !(err instanceof AccountDeletionError && err.stage === "billing_tombstone");
+      const retryPolicy = billingQuarantined
+        ? " Billing access remains quarantined; a retry completes only deletion and never restores billing."
+        : "";
       return renderVerifyError(
-        "Account deletion could not be completed. Some data may already have been removed. Please request a new code to retry or contact support.",
+        `Account deletion could not be completed. Some data may already have been removed.${retryPolicy} Please request a new code to retry deletion or contact support.`,
       );
     }
 

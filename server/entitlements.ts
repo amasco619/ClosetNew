@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabase";
+import { getAuthoritativeBillingState, isRevenueCatBillingEnabled } from "./billing";
 
 export interface Entitlement {
   isPremium: boolean;
@@ -31,6 +32,15 @@ export async function getUserEntitlement(
   const activeClient = process.env.NODE_ENV === "test" && _testOverrides.client
     ? _testOverrides.client
     : client;
+  // Preserve the existing explicit test seam. Runtime reads always derive
+  // access from durable billing subscriptions, never from the profile cache.
+  if (
+    !(process.env.NODE_ENV === "test" && _testOverrides.client) &&
+    client === supabaseAdmin &&
+    isRevenueCatBillingEnabled()
+  ) {
+    return getAuthoritativeBillingState(userId);
+  }
   const { data, error } = await activeClient
     .from("user_profiles")
     .select("premium,premium_expires_at")

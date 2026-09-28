@@ -2245,3 +2245,60 @@ silently send older stored photos to AI.
 
 No Supabase schema or provider setting was changed. Mounted server consent
 tests use test-only overrides; no live AI or Supabase data calls are required.
+
+## 29. RevenueCat billing rollout boundary
+
+The repository billing integration uses one `amodka_premium` entitlement for
+monthly and annual App Store / Play Store subscriptions. Authenticated Supabase
+user IDs are RevenueCat App User IDs. Store prices and trial details come from
+the current offering, not application constants. The native purchase and
+restore screens do not set Premium locally: after a provider operation, the
+authenticated server reconciles with RevenueCat, and the app re-reads the
+server-authoritative entitlement. Customer Center handles store management
+where available. Expo Go is only a non-purchase preview.
+
+The repository migration `supabase/migrations/20260930000000_revenuecat_billing.sql`
+is **not applied to production**. It establishes protected billing records,
+idempotent event processing, subscription/transaction facts, reconciliation,
+and deletion tombstones. The Express webhook verifies RevenueCat's HMAC over
+the raw body before parsing, checks a five-minute signing-time window, and
+persists normalized event facts without retaining raw purchase payloads.
+The Customer API snapshot can revoke an existing store-identified ledger
+subscription and recover a uniquely matched subscription that it previously
+revoked; it cannot create a new Premium grant without a verified webhook
+transaction or reactivate a refund/revocation. Older snapshots and delayed
+events are fenced. Purchases remain
+unavailable unless an authenticated server readiness check confirms the
+activation switch, server configuration, and migration schema.
+The existing B2.8 wardrobe limits and retained-item policy are unchanged.
+
+Rollout order matters: apply and verify the repository migration separately,
+configure monthly and annual store products (including the three-day store
+trial) and attach them to `amodka_premium` in RevenueCat, then configure the
+webhook with HMAC signing. Supply the four client public product IDs
+(`EXPO_PUBLIC_REVENUECAT_IOS_MONTHLY_PRODUCT_ID`,
+`EXPO_PUBLIC_REVENUECAT_IOS_ANNUAL_PRODUCT_ID`,
+`EXPO_PUBLIC_REVENUECAT_ANDROID_MONTHLY_PRODUCT_ID`,
+`EXPO_PUBLIC_REVENUECAT_ANDROID_ANNUAL_PRODUCT_ID`) and public SDK keys
+(`EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`,
+`EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`). Configure the corresponding
+server-side `REVENUECAT_IOS_MONTHLY_PRODUCT_ID`,
+`REVENUECAT_IOS_ANNUAL_PRODUCT_ID`,
+`REVENUECAT_ANDROID_MONTHLY_PRODUCT_ID`, and
+`REVENUECAT_ANDROID_ANNUAL_PRODUCT_ID`, plus server-only
+`REVENUECAT_WEBHOOK_SECRET` and `REVENUECAT_SECRET_API_KEY`. The entitlement
+identifier is fixed at `amodka_premium`. Enable server billing with
+`REVENUECAT_BILLING_ENABLED=true` **only after** the migration and provider
+configuration are ready; otherwise the existing protected profile projection
+remains the entitlement source. Never put the webhook or REST secret in an
+Expo-public variable. Keep RevenueCat's restore/transfer behavior configured
+to retain purchase ownership with its original Amodka account.
+
+Real purchase and restore verification requires an iOS/Android native
+development or store build and configured store sandbox products; no Expo Go
+preview is evidence of a real purchase. Account deletion must warn that it
+does not cancel a store subscription and leave a billing tombstone so late
+provider events cannot restore deleted-account access.
+If deletion fails after tombstoning, the account remains quarantined and a
+retry resumes deletion rather than re-enabling billing; do not describe that
+partial failure as a fully deleted account.

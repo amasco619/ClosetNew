@@ -891,7 +891,7 @@ export default function ProfileScreen() {
                   onPress={() => {
                     Alert.alert(
                       'Delete account',
-                      'This will permanently delete your account and all wardrobe data. This cannot be undone.',
+                      'This will permanently delete your account and all wardrobe data. This cannot be undone. Deleting your Amodka account does not cancel your App Store or Google Play subscription. Cancel it separately through your app store.',
                       [
                         { text: 'Cancel', style: 'cancel' },
                         {

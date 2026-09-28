@@ -94,6 +94,17 @@ function setupCors(app: express.Application) {
 }
 
 function setupBodyParsing(app: express.Application) {
+  // RevenueCat's signature covers the exact request bytes. Consume this route
+  // with express.raw() before any JSON parser can normalize or decode it.
+  app.use(
+    "/api/billing/revenuecat/webhook",
+    express.raw({ type: "application/json", limit: "1mb" }),
+    (req, _res, next) => {
+      req.rawBody = req.body;
+      next();
+    },
+  );
+
   app.use(
     express.json({
       limit: "10mb",

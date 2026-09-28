@@ -758,6 +758,7 @@ export function makeLimiterHandler() {
 export const LIMITER_CONFIGS = {
   aiLimiter:        { windowMs: 60 * 1000,      max: 10 },
   bgRemovalLimiter: { windowMs: 60 * 1000,      max: 8  },
+  billingReconcileLimiter: { windowMs: 60 * 1000, max: 10 },
   accountLimiter:   { windowMs: 60 * 60 * 1000, max: 5  },
   authLimiter:      { windowMs: 15 * 60 * 1000, max: 5  },
   resetLimiter:     { windowMs: 60 * 60 * 1000, max: 3  },
@@ -776,6 +777,14 @@ export const bgRemovalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: true,
   store: makeStore("bgremoval"),
+  handler: makeLimiterHandler(),
+});
+
+export const billingReconcileLimiter = rateLimit({
+  ...LIMITER_CONFIGS.billingReconcileLimiter,
+  standardHeaders: true,
+  legacyHeaders: true,
+  store: makeStore("billingreconcile"),
   handler: makeLimiterHandler(),
 });
 

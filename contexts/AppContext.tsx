@@ -22,6 +22,7 @@ import {
 import { centroidHsl, hslToLab } from '@/constants/colorPerceptual';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { fetchAuthoritativeEntitlement } from '@/lib/entitlements';
+import { setRevenueCatIdentity } from '@/lib/revenuecat';
 import {
   upsertUserProfile, getUserProfile, getWardrobeItems, getSelectedWardrobeItems, getFreeWardrobeSelection,
   getSlotStatuses, getWearLogs, getRotationCursors,
@@ -85,7 +86,9 @@ interface AppContextValue {
   retryInitialization: () => void;
   dataUnavailable: boolean;
   entitlementUnavailable: boolean;
+  refreshPremiumEntitlement: () => Promise<boolean>;
   isAuthenticated: boolean;
+  authenticatedUserId: string | null;
   canAddItem: boolean;
   itemCap: number;
   recommendationSlots: WardrobeSlot[];
@@ -260,6 +263,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [dataUnavailable, setDataUnavailable] = useState(false);
   const [entitlementUnavailable, setEntitlementUnavailable] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authenticatedUserId, setAuthenticatedUserId] = useState<string | null>(null);
   const [recommendationSlots, setRecommendationSlots] = useState<WardrobeSlot[]>([]);
   const [slotsInitialized, setSlotsInitialized] = useState(false);
   const [lastAddedSuggestions, setLastAddedSuggestions] = useState<OutfitSet[]>([]);
@@ -335,6 +339,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // here as well would create a race where setAppReady(true) could fire before
           // the DB load started by this listener has completed.
           const userId = session.user.id;
+          void setRevenueCatIdentity(userId).catch(error =>
+            reportError(error, 'revenuecat_identity', { dependency: 'revenuecat' }),
+          );
+          if (currentUserIdRef.current !== userId) {
+            setIsAuthenticated(false);
+            setAuthenticatedUserId(null);
+          }
           // Tie listener hydration to the startup attempt that observed the
           // event. A retry may begin while this async work is in flight; the
           // generation guard in loadUserDataFromDB must then reject its
@@ -380,9 +391,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
             startupGenerationRef.current,
           )) return;
           setIsAuthenticated(true);
+          setAuthenticatedUserId(userId);
         }
 
         if (event === 'SIGNED_OUT') {
+          void setRevenueCatIdentity(null).catch(error =>
+            reportError(error, 'revenuecat_identity_clear', { dependency: 'revenuecat' }),
+          );
           // Invalidate any in-flight hydration before clearing account state.
           // Its generation checks must fail rather than repopulating the
           // signed-out provider after this event.
@@ -391,6 +406,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           currentUserIdRef.current = null;
           currentUserGenerationRef.current = null;
           setIsAuthenticated(false);
+          setAuthenticatedUserId(null);
           setProfile(defaultProfile);
           setWardrobeItems([]);
           updateWardrobePagination(0, 0);
@@ -449,6 +465,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           } catch (error) {
             if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
             setEntitlementUnavailable(true);
+            setIsPremium(false);
+            isPremiumRef.current = false;
             reportError(error, 'entitlement_refresh', { dependency: 'supabase' });
           }
         }
@@ -809,6 +827,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setLastAddedSuggestions([]);
           }
           currentUserIdRef.current = initUserId;
+          await setRevenueCatIdentity(initUserId).catch(error =>
+            reportError(error, 'revenuecat_identity', { dependency: 'revenuecat' }),
+          );
           currentUserGenerationRef.current = generation;
           startingUserId = initUserId;
           startingAccountGeneration = accountGenerationRef.current;
@@ -816,6 +837,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           assertCurrent();
         }
         setIsAuthenticated(true);
+        setAuthenticatedUserId(initUserId);
       }
     } catch (error) {
       if (error instanceof Error && error.message === 'stale account hydration') return;
@@ -1043,6 +1065,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           throw error;
         }
         setEntitlementUnavailable(true);
+        setIsPremium(false);
+        isPremiumRef.current = false;
         reportError(error, 'entitlement_retrieval', { dependency: 'supabase' });
       }
 
@@ -1075,6 +1099,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
       reportError(err, 'profile_wardrobe_hydration', { dependency: 'supabase' });
     }
   };
+
+  const refreshPremiumEntitlement = useCallback(async (): Promise<boolean> => {
+    const userId = currentUserIdRef.current;
+    if (!userId) return false;
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    const isCurrent = () =>
+      currentUserIdRef.current === userId &&
+      accountGenerationRef.current === accountGeneration &&
+      isCurrentStartupGeneration(startupGeneration, startupGenerationRef.current);
+    try {
+      const entitlement = await fetchAuthoritativeEntitlement();
+      if (!isCurrent()) return false;
+      if (isPremiumRef.current && !entitlement.isPremium) {
+        const selection = await getFreeWardrobeSelection(userId);
+        if (!isCurrent()) return false;
+        const pageIds = new Set(wardrobeItemsRef.current.map(item => item.id));
+        const missingIds = selection.filter(id => !pageIds.has(id));
+        const selectedRows = await getSelectedWardrobeItems(userId, missingIds);
+        if (!isCurrent()) return false;
+        const selectedItems = selectedRows.map(mapDbRowToWardrobeItem);
+        await Promise.all(selectedItems.filter(item => isStoragePath(item.photoUri)).map(async item => {
+          try { item.photoUri = await resolveWardrobeImageUrl(item.photoUri); } catch {}
+        }));
+        if (!isCurrent()) return false;
+        setWardrobeItems(previous => {
+          const existing = new Set(previous.map(item => item.id));
+          return [...previous, ...selectedItems.filter(item => !existing.has(item.id))];
+        });
+        setFreeSelectedItemIds(selection);
+      }
+      setEntitlementUnavailable(false);
+      isPremiumRef.current = entitlement.isPremium;
+      setIsPremium(entitlement.isPremium);
+      return entitlement.isPremium;
+    } catch (error) {
+      if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return false;
+      setEntitlementUnavailable(true);
+      isPremiumRef.current = false;
+      setIsPremium(false);
+      reportError(error, 'entitlement_refresh', { dependency: 'supabase' });
+      return false;
+    }
+  }, []);
 
 
   const updateProfile = useCallback((updates: Partial<UserProfile>) => {
@@ -1863,8 +1931,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     wardrobeTotalCount, wardrobeHasMore: wardrobeLoadedCount < wardrobeTotalCount, freeSelectedItemIds,
     loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection,
     addWardrobeItem, addWardrobeItems, replaceWardrobeItem, removeWardrobeItem, updateWardrobeItem,
-    isPremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
-    isLoading, appReady, isAuthenticated, startupError, dataUnavailable, entitlementUnavailable,
+    isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
+    isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable,
     retryInitialization: () => {
       setStartupError(false);
       setIsLoading(true);
@@ -1885,8 +1953,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, wardrobeTotalCount, wardrobeLoadedCount, freeSelectedItemIds,
        loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection,
         addWardrobeItem, addWardrobeItems, replaceWardrobeItem, removeWardrobeItem, updateWardrobeItem,
-       isPremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
-       isLoading, appReady, isAuthenticated, startupError, dataUnavailable, entitlementUnavailable, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
+       isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
+       isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
        todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
        profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,

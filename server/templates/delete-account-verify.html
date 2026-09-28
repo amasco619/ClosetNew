@@ -50,6 +50,7 @@
       <h1>Enter verification code</h1>
       <p class="subtitle">Check your inbox for the 6-digit code we sent to <strong>{{EMAIL}}</strong>.</p>
       <div class="info">The code expires in 10 minutes. Check your spam folder if you don't see it.</div>
+      <div class="info">Deleting your Amodka account does not cancel an App Store or Google Play subscription. Cancel it through your store to avoid future charges.</div>
       {{ERROR_BLOCK}}
       <form method="POST" action="/api/delete-account-confirm">
         <input type="hidden" name="email" value="{{EMAIL}}" />

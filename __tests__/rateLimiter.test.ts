@@ -215,13 +215,18 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
     const authStore    = __makeStoreForTesting("auth");
     const resetStore   = __makeStoreForTesting("reset");
     const accountStore = __makeStoreForTesting("account");
+    const billingStore = __makeStoreForTesting("billingreconcile");
 
     assert(authStore.prefix    === "auth",    `authLimiter store prefix is "auth" (got "${authStore.prefix}")`);
     assert(resetStore.prefix   === "reset",   `resetLimiter store prefix is "reset" (got "${resetStore.prefix}")`);
     assert(accountStore.prefix === "account", `accountLimiter store prefix is "account" (got "${accountStore.prefix}")`);
+    assert(billingStore.prefix === "billingreconcile",
+      `billingReconcileLimiter store prefix is "billingreconcile" (got "${billingStore.prefix}")`);
 
     assert(authStore.prefix !== resetStore.prefix,   "authLimiter and resetLimiter use distinct prefixes");
     assert(authStore.prefix !== accountStore.prefix, "authLimiter and accountLimiter use distinct prefixes");
+    assert(billingStore.prefix !== accountStore.prefix,
+      "billing reconciliation and account mutation limits use distinct prefixes");
 
     if (savedUrl !== undefined) process.env.DATABASE_URL = savedUrl;
     __resetForTesting();
@@ -314,7 +319,8 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
   section("LIMITER_CONFIGS — all expected route-limiter keys are present");
   {
     const expected: Array<keyof typeof LIMITER_CONFIGS> = [
-      "authLimiter", "accountLimiter", "aiLimiter", "bgRemovalLimiter", "resetLimiter",
+      "authLimiter", "accountLimiter", "aiLimiter", "bgRemovalLimiter",
+      "billingReconcileLimiter", "resetLimiter",
     ];
     for (const key of expected) {
       assert(key in LIMITER_CONFIGS, `LIMITER_CONFIGS["${key}"] is defined`);
@@ -342,6 +348,11 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
     assert(
       LIMITER_CONFIGS.aiLimiter.max <= 20,
       `aiLimiter.max <= 20 (got ${LIMITER_CONFIGS.aiLimiter.max})`,
+    );
+    assert(
+      LIMITER_CONFIGS.billingReconcileLimiter.max <= 10 &&
+        LIMITER_CONFIGS.billingReconcileLimiter.windowMs <= 60 * 1000,
+      "billing reconciliation has an independent moderate 10/minute limit",
     );
     assert(
       LIMITER_CONFIGS.accountLimiter.max <= 10,
