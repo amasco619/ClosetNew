@@ -78,6 +78,55 @@ async function testCommitFailureDoesNotNavigate(): Promise<void> {
   assert(statuses[statuses.length - 1] === 'settled', 'uncommitted item remains retryable');
 }
 
+async function testCommitFailureCleansUploadsWithoutMaskingError(): Promise<void> {
+  const commitError = Object.assign(new Error('capacity rejected'), { code: 'WARDROBE_CAPACITY_REACHED' });
+  const cleanupCalls: string[] = [];
+  let surfaced: unknown;
+  const deps: SaveAllDeps = {
+    generateId: () => 'uploaded-item',
+    getSession: async () => 'user-1',
+    resize: async () => null,
+    upload: async () => 'https://storage/uploaded-item.jpg',
+    resolveUploadArg: () => ({ base64: 'clean-image', mimeType: 'image/jpeg' }),
+    addItems: async () => { throw commitError; },
+    deleteUploaded: async (userId, itemId) => {
+      cleanupCalls.push(`${userId}/${itemId}`);
+      throw new Error('cleanup unavailable');
+    },
+    setItems: () => {},
+    setSaving: () => {},
+    onItemHaptic: () => {},
+    onDoneHaptic: () => {},
+    onSaveError: error => { surfaced = error; },
+    navigate: () => {},
+  };
+
+  await runSaveAll([items[0]], { current: true }, deps);
+  assert(cleanupCalls.length === 1 && cleanupCalls[0] === 'user-1/uploaded-item',
+    'uploaded image is deleted after the database batch fails');
+  assert(surfaced === commitError, 'cleanup failure does not mask the database error');
+}
+
+async function testUncertainCommitDoesNotDeletePossibleSavedPhoto(): Promise<void> {
+  let cleanupCalls = 0;
+  const deps: SaveAllDeps = {
+    generateId: () => 'uncertain-item',
+    getSession: async () => 'user-1',
+    resize: async () => null,
+    upload: async () => 'https://storage/uncertain-item.jpg',
+    resolveUploadArg: () => ({ base64: 'clean-image', mimeType: 'image/jpeg' }),
+    addItems: async () => { throw new Error('response lost'); },
+    deleteUploaded: async () => { cleanupCalls++; },
+    setItems: () => {},
+    setSaving: () => {},
+    onItemHaptic: () => {},
+    onDoneHaptic: () => {},
+    navigate: () => {},
+  };
+  await runSaveAll([items[0]], { current: true }, deps);
+  assert(cleanupCalls === 0, 'a lost RPC response cannot prove whether the row committed');
+}
+
 async function testAuthenticatedUploadFailureSkipsCommit(): Promise<void> {
   let commitCalls = 0;
   let navigateCalls = 0;
@@ -144,6 +193,8 @@ async function testAuthenticatedLocalUriCannotCommit(): Promise<void> {
 void (async () => {
   await testBatchCommitsOnceAfterUploads();
   await testCommitFailureDoesNotNavigate();
+  await testCommitFailureCleansUploadsWithoutMaskingError();
+  await testUncertainCommitDoesNotDeletePossibleSavedPhoto();
   await testAuthenticatedUploadFailureSkipsCommit();
   await testAuthenticatedLocalUriCannotCommit();
   console.log('bulkSaveAtomic: all assertions passed');

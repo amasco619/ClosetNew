@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const source = readFileSync('lib/database.ts', 'utf8');
 const context = readFileSync('contexts/AppContext.tsx', 'utf8');
+const mapper = readFileSync('lib/wardrobeMapper.ts', 'utf8');
 
 assert.match(source, /rpc\('insert_wardrobe_item',\s*\{\s*p_item:\s*item\s*\}\)/);
 assert.match(source, /rpc\('insert_wardrobe_items',\s*\{\s*p_items:\s*items\s*\}\)/);
@@ -18,6 +19,18 @@ const dbReplace = source.slice(dbReplaceStart, dbReplaceEnd);
 assert.match(dbReplace, /garment_type:[\s\S]*sub_type:[\s\S]*color_family:[\s\S]*description:[\s\S]*occasion:[\s\S]*image_url:[\s\S]*cleaned_image_url:/);
 assert.match(dbReplace, /if \(!data \|\| data\.id !== itemId\)/);
 assert.doesNotMatch(dbReplace, /\.delete\(|\.insert\(/);
+const replacementPayload = dbReplace.match(/const payload = \{([\s\S]*?)\n  \}/)?.[1] ?? '';
+assert.deepEqual(
+  [...replacementPayload.matchAll(/^\s{4}([a-z_]+):/gm)].map(([, column]) => column),
+  ['garment_type', 'sub_type', 'color_family', 'description', 'occasion', 'image_url', 'cleaned_image_url'],
+  'replacement persists every mutable wardrobe_items field hydrated by the wardrobe mapper, without unsupported columns',
+);
+assert.match(mapper, /category:\s+it\.garment_type/);
+assert.match(mapper, /subType:\s+it\.sub_type/);
+assert.match(mapper, /colorFamily:\s+it\.color_family/);
+assert.match(mapper, /description:\s+it\.description/);
+assert.match(mapper, /occasionTags:\s+\(it\.occasion/);
+assert.match(mapper, /photoUri:\s+it\.cleaned_image_url \|\| it\.image_url/);
 
 assert.match(source, /WARDROBE_PAGE_SIZE = 100/);
 assert.match(source, /\.order\('created_at', \{ ascending: false \}\)[\s\S]*\.order\('id', \{ ascending: false \}\)[\s\S]*\.range\(offset, offset \+ WARDROBE_PAGE_SIZE - 1\)/);

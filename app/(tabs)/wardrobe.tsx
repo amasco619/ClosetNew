@@ -235,7 +235,7 @@ export default function WardrobeScreen() {
       </View>
 
       {/* Hidden items banner */}
-      {!isPremium && wardrobeTotalCount > 30 && (
+      {!isPremium && wardrobeTotalCount > 0 && (wardrobeTotalCount > 30 || activeWardrobeItems.length === 0) && (
         <Pressable style={styles.hiddenBanner} onPress={() => router.push('/choose-30')}>
           <Ionicons name="options-outline" size={15} color={Colors.secondary} />
           <Text style={styles.hiddenBannerText}>
@@ -252,11 +252,11 @@ export default function WardrobeScreen() {
             <Ionicons name="shirt-outline" size={40} color={Colors.secondary} />
           </View>
           <Text style={styles.emptyTitle}>
-            {activeWardrobeItems.length === 0 ? 'Start your closet' : 'No items here yet'}
+            {activeWardrobeItems.length === 0 && wardrobeTotalCount > 0 ? 'Choose your free wardrobe' : activeWardrobeItems.length === 0 ? 'Start your closet' : 'No items here yet'}
           </Text>
           <Text style={styles.emptySubtitle}>
             {activeWardrobeItems.length === 0
-              ? 'Add your first piece to begin building your wardrobe'
+              ? wardrobeTotalCount > 0 ? 'Your saved pieces are ready. Choose which ones to make active.' : 'Add your first piece to begin building your wardrobe'
               : 'Try a different category, or add an item here'}
           </Text>
           {activeWardrobeItems.length === 0 && (

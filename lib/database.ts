@@ -96,6 +96,7 @@ export class WardrobeDatabaseError extends Error {
 }
 
 export interface WardrobeItemReplacementInput {
+  // Keep this limited to wardrobe_items columns supported by wardrobeMapper.
   garment_type: string
   sub_type: string
   color_family: string

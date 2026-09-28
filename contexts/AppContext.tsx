@@ -1029,7 +1029,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Do not let a stale listener completion publish its item snapshot.
         assertCurrent();
         setWardrobeItems(mapped);
-        updateWardrobePagination(wardrobePage.totalCount, mapped.length);
+        updateWardrobePagination(wardrobePage.totalCount, wardrobePage.items.length);
       }
 
       try {
@@ -1439,6 +1439,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (userId === null) AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
       return updated;
     });
+    if (userId !== null && !isPremiumRef.current) {
+      setFreeSelectedItemIds(prev => [...new Set([...prev, ...items.map(item => item.id)])]);
+    }
     updateWardrobePagination(
       wardrobeTotalCountRef.current + items.length,
       wardrobeLoadedCountRef.current + (userId === null ? items.length : 0),
@@ -1476,6 +1479,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         image_url: (newItem as any).storagePath ?? newItem.photoUri,
         cleaned_image_url: (newItem as any).cleanedImageUrl,
       };
+      if (/^(file|content):\/\//i.test(payload.image_url)) {
+        throw new Error('Authenticated wardrobe images must be uploaded before saving.');
+      }
       const result = await insertWardrobeItem(payload);
       if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
       newItem.id = result.id;
@@ -1505,6 +1511,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         image_url: (item as any).storagePath ?? item.photoUri,
         cleaned_image_url: (item as any).cleanedImageUrl,
       }));
+      if (payloads.some(payload => /^(file|content):\/\//i.test(payload.image_url))) {
+        throw new Error('Authenticated wardrobe images must be uploaded before saving.');
+      }
       const ids = await insertWardrobeItems(payloads);
       if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
       prepared.forEach((item, index) => { item.id = ids[index]; });
@@ -1535,6 +1544,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
 
     if (userId !== null) {
+      if (/^(file|content):\/\//i.test(replacement.storagePath ?? replacement.photoUri)) {
+        throw new Error('Authenticated wardrobe images must be uploaded before saving.');
+      }
       await replaceWardrobeItemInDB(userId, existingId, {
         garment_type: replacement.category,
         sub_type: replacement.subType,

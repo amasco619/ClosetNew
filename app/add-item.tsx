@@ -21,7 +21,7 @@ import { resolvePhotoUri } from '@/lib/classifyPath';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
 import { buildGuestPhotoDestPath } from '../constants/guestPhotoCleanup';
-import { uploadWardrobeImage } from '../lib/storage';
+import { uploadWardrobeImage, deleteWardrobeImage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
 import { rs } from '../lib/responsive';
 import { selectedSingleAsset } from '../lib/imagePickerSelection';
@@ -207,7 +207,7 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
 
 export default function AddItemScreen() {
   const insets = useSafeAreaInsets();
-  const { addWardrobeItem, replaceWardrobeItem, isPremium } = useApp();
+  const { addWardrobeItem, replaceWardrobeItem, isPremium, isGuest } = useApp();
   const {
     initialUri,
     preClassified,
@@ -335,6 +335,11 @@ export default function AddItemScreen() {
   const [aiPreferenceError, setAiPreferenceError] = useState<string | null>(null);
   const pendingAiAsset = useRef<ImagePicker.ImagePickerAsset | null>(null);
   const saveConfirmOpenRef = useRef(false);
+  const saveMountedRef = useRef(true);
+  useEffect(() => {
+    saveMountedRef.current = true;
+    return () => { saveMountedRef.current = false; };
+  }, []);
   const [photoWidth,      setPhotoWidth]      = useState<number>(0);
   const [photoHeight,     setPhotoHeight]     = useState<number>(0);
   const [saving,          setSaving]          = useState(false);
@@ -898,6 +903,8 @@ export default function AddItemScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSaving(true);
     setSaveStage('resizing');
+    let uploadedPhoto: { userId: string; itemId: string } | null = null;
+    let dbStarted = false;
     try {
       const parsedPrice = parseFloat(purchasePrice.replace(/[^0-9.]/g, ''));
 
@@ -905,8 +912,10 @@ export default function AddItemScreen() {
       let finalUri = photoUri;
       let finalStoragePath: string | undefined;
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user && photoBase64) {
-        try {
+      if (session?.user || !isGuest) {
+        if (!session?.user || !photoBase64) {
+          throw new Error('Cloud photo upload is required to save an authenticated wardrobe item.');
+        }
           // Resize to ≤1600 px on the longest edge before uploading to Storage.
           // Cuts a typical 12 MP upload from 6–12 MB to ~300–600 KB with no
           // visible quality loss in wardrobe thumbnails.
@@ -945,22 +954,7 @@ export default function AddItemScreen() {
           const { signedUrl: _signedUrl, storagePath: _sp } = await uploadWardrobeImage(session.user.id, uploadBase64, itemId, uploadMime);
           finalUri = _signedUrl;
           finalStoragePath = _sp;
-        } catch (uploadErr) {
-          // Upload failed — copy to documentDirectory so the photo at least survives
-          // app restarts. The existing AppContext recovery logic will re-attempt the
-          // Supabase upload on next load and swap the local path for the remote URL.
-          console.warn('[add-item] Storage upload failed, attempting local copy fallback:', uploadErr);
-          const ext = photoBgRemoved ? 'png' : 'jpg';
-          const dest = buildGuestPhotoDestPath(FileSystem.documentDirectory!, itemId, ext);
-          try {
-            await FileSystem.copyAsync({ from: photoUri, to: dest });
-            finalUri = dest;
-            console.warn('[add-item] Upload failed — saved local copy; will recover on next launch.');
-          } catch (copyErr) {
-            console.error('[add-item] Local copy also failed:', copyErr);
-            throw new Error('Could not save photo — please check your storage and try again.');
-          }
-        }
+          uploadedPhoto = { userId: session.user.id, itemId };
       } else {
         // Guest user — copy the photo from the temp cache to the document directory
         // so the thumbnail survives an app restart (temp files are purged by the OS).
@@ -976,6 +970,7 @@ export default function AddItemScreen() {
           throw new Error('Could not save photo to device storage — please try again.');
         }
       }
+      if (uploadedPhoto && !saveMountedRef.current) throw new Error('Save cancelled before wardrobe persistence.');
       setSaveStage('saving');
       const wardrobeItem: Omit<WardrobeItem, 'id' | 'createdAt'> = {
         photoUri: finalUri,
@@ -1003,13 +998,22 @@ export default function AddItemScreen() {
         dominantLab,
         modelConfidence,
       };
+      dbStarted = true;
       if (replaceItemId) {
         await replaceWardrobeItem(replaceItemId, wardrobeItem);
       } else {
         await addWardrobeItem({ id: itemId, ...wardrobeItem });
       }
+      uploadedPhoto = null;
       router.back();
     } catch (e) {
+      // A lost RPC response does not prove the DB rolled back; do not delete
+      // a photo that could belong to a committed row.
+      const dbCode = (e as { code?: string })?.code;
+      if (uploadedPhoto && (!dbStarted || (dbCode && dbCode !== 'INVALID_RPC_RESULT'))) {
+        await deleteWardrobeImage(uploadedPhoto.userId, uploadedPhoto.itemId)
+          .catch(cleanupError => console.warn('[add-item] Could not clean up unsaved photo:', cleanupError));
+      }
       console.error('[add-item] Save failed:', e);
       setSaving(false);
       setSaveStage(null);

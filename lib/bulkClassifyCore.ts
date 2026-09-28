@@ -209,6 +209,8 @@ export interface SaveAllDeps {
     itemId: string,
     mimeType: string,
   ): Promise<string>;
+  /** Best-effort removal for an upload whose batch was not persisted. */
+  deleteUploaded?(userId: string, itemId: string): Promise<void>;
   /**
    * Pick the best upload source.  Pure — wraps resolveWardrobeUploadArg.
    * Returns null when neither source is usable (upload should be skipped).
@@ -251,6 +253,17 @@ export async function runSaveAll(
 ): Promise<void> {
   deps.setSaving(true);
   const localOnlyUris: string[] = [];
+  const uploadedItems: { userId: string; itemId: string }[] = [];
+  const cleanupUploads = async () => {
+    if (!deps.deleteUploaded) return;
+    await Promise.all(uploadedItems.map(async ({ userId: uploadedUserId, itemId }) => {
+      try {
+        await deps.deleteUploaded!(uploadedUserId, itemId);
+      } catch {
+        // Cleanup is best effort; preserve the original save outcome/error.
+      }
+    }));
+  };
 
   let userId: string | null;
   try {
@@ -267,7 +280,10 @@ export async function runSaveAll(
     }
     return;
   }
-  if (!mountedRef.current) return;
+  if (!mountedRef.current) {
+    await cleanupUploads();
+    return;
+  }
 
   const payloads: BulkSavePayload[] = [];
   const payloadUris: string[] = [];
@@ -291,7 +307,10 @@ export async function runSaveAll(
           let shrunkBase64: string | undefined;
           if (!item.cleanBase64) {
             const shrunk = await deps.resize(item.uri);
-            if (!mountedRef.current) return;
+            if (!mountedRef.current) {
+              await cleanupUploads();
+              return;
+            }
             shrunkBase64 = shrunk?.base64;
           }
           const uploadArg = deps.resolveUploadArg(item.cleanBase64, shrunkBase64);
@@ -299,8 +318,14 @@ export async function runSaveAll(
             // Compute the durable storage path before upload (formula is deterministic)
             const ext = uploadArg.mimeType === 'image/png' ? 'png' : 'jpg';
             itemStoragePath = `${userId}/${itemId}.${ext}`;
+            // The upload helper can fail after the object upload (e.g. while
+            // generating its signed URL), so retain the key before awaiting it.
+            uploadedItems.push({ userId, itemId });
             finalUri = await deps.upload(userId, uploadArg.base64, itemId, uploadArg.mimeType);
-            if (!mountedRef.current) return;
+            if (!mountedRef.current) {
+              await cleanupUploads();
+              return;
+            }
             if (/^(file|content):\/\//i.test(finalUri)) {
               throw new Error('Authenticated wardrobe upload returned a device-local URI.');
             }
@@ -338,8 +363,12 @@ export async function runSaveAll(
     }
   }
 
-  if (!mountedRef.current) return;
+  if (!mountedRef.current) {
+    await cleanupUploads();
+    return;
+  }
   if (preparationFailed || payloads.length !== toSave.length) {
+    await cleanupUploads();
     deps.setItems(prev => prev.map(it =>
       toSave.some(item => item.uri === it.uri)
         ? { ...it, status: 'settled' }
@@ -350,6 +379,7 @@ export async function runSaveAll(
     return;
   }
   if (userId && localOnlyUris.length > 0) {
+    await cleanupUploads();
     deps.setItems(prev => prev.map(it => !payloadUris.includes(it.uri)
       ? it
       : { ...it, status: localOnlyUris.includes(it.uri) ? 'local-only' : 'settled' },
@@ -362,6 +392,10 @@ export async function runSaveAll(
     try {
       await deps.addItems(payloads);
     } catch (error) {
+      // Only a database error code establishes that the transaction rejected
+      // the batch. A lost response could follow a successful commit.
+      const code = (error as { code?: string })?.code;
+      if (code && code !== 'INVALID_RPC_RESULT') await cleanupUploads();
       if (mountedRef.current) {
         deps.setItems(prev => prev.map(it =>
           toSave.some(item => item.uri === it.uri)

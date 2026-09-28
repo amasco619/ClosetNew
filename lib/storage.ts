@@ -83,7 +83,14 @@ export async function uploadWardrobeImage(
       upsert: true,
     })
   if (error) throw new Error(`[uploadWardrobeImage] ${error.message}`)
-  const signedUrl = await getSignedWardrobeUrl(storagePath)
+  let signedUrl: string
+  try {
+    signedUrl = await getSignedWardrobeUrl(storagePath)
+  } catch (signedUrlError) {
+    await deleteWardrobeImage(userId, itemId).catch(cleanupError =>
+      console.warn('[uploadWardrobeImage] Could not clean up unsigned upload:', cleanupError))
+    throw signedUrlError
+  }
   return { signedUrl, storagePath }
 }
 

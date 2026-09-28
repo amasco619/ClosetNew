@@ -173,44 +173,39 @@ async function main() {
   }
   console.log('  User B user_profiles inserted')
 
-  // User A: insert two wardrobe items (legitimately, via authenticated client)
-  const { data: item1Data, error: item1Err } = await userAClient
-    .from('wardrobe_items')
-    .insert({ user_id: userA_id, garment_type: 'top', color_family: 'blue', description: 'RLS test item 1' })
-    .select('id').single()
-  if (item1Err || !item1Data) {
+  // User A: insert wardrobe items through the authenticated RPC boundary.
+  const { data: item1_id, error: item1Err } = await userAClient.rpc('insert_wardrobe_item', {
+    p_item: { user_id: userA_id, garment_type: 'top', color_family: 'blue', description: 'RLS test item 1' },
+  })
+  if (item1Err || typeof item1_id !== 'string') {
     console.error('FATAL: wardrobe_items item1 insert failed:', item1Err?.message)
     await runCleanup()
     process.exit(1)
   }
-  const item1_id = item1Data.id
   console.log('  User A wardrobe item 1 inserted, id:', item1_id)
 
-  const { data: item2Data, error: item2Err } = await userAClient
-    .from('wardrobe_items')
-    .insert({ user_id: userA_id, garment_type: 'bottom', color_family: 'black', description: 'RLS test item 2' })
-    .select('id').single()
-  if (item2Err || !item2Data) {
+  const { data: item2_id, error: item2Err } = await userAClient.rpc('insert_wardrobe_item', {
+    p_item: { user_id: userA_id, garment_type: 'bottom', color_family: 'black', description: 'RLS test item 2' },
+  })
+  if (item2Err || typeof item2_id !== 'string') {
     console.error('FATAL: wardrobe_items item2 insert failed:', item2Err?.message)
     await runCleanup()
     process.exit(1)
   }
-  const item2_id = item2Data.id
   console.log('  User A wardrobe item 2 inserted, id:', item2_id)
 
   // item3: dedicated pair-affinity anchor — not deleted by B7, so the pair_affinity
   // row referencing item1+item3 survives until C1 runs.
-  const { data: item3Data, error: item3Err } = await userAClient
-    .from('wardrobe_items')
-    .insert({ user_id: userA_id, garment_type: 'accessory', color_family: 'white', description: 'RLS test item 3 (pair-affinity anchor)' })
-    .select('id').single()
-  if (item3Err || !item3Data) {
+  const { data: item3_id, error: item3Err } = await userAClient.rpc('insert_wardrobe_item', {
+    p_item: { user_id: userA_id, garment_type: 'accessory', color_family: 'white', description: 'RLS test item 3 (pair-affinity anchor)' },
+  })
+  if (item3Err || typeof item3_id !== 'string') {
     console.error('FATAL: wardrobe_items item3 insert failed:', item3Err?.message)
     await runCleanup()
     process.exit(1)
   }
-  const item3_id = item3Data.id
   console.log('  User A wardrobe item 3 inserted (pair-affinity anchor), id:', item3_id)
+  record('A', 'A1', 'User A', 'INSERT wardrobe fixtures via insert_wardrobe_item RPC', 'three item IDs returned', '3 item IDs returned', 'PASS')
 
   // ─── PART C — Inspect pair_affinity_signals constraints empirically ──────────
   console.log('\n[ Part C / Constraint Inspection ] pair_affinity_signals CHECK constraints...')
@@ -308,18 +303,32 @@ async function main() {
     const { error } = await userAClient.from('wardrobe_items').delete().eq('id', item2_id).eq('user_id', userA_id)
     record('B', 'B7', 'User A', 'DELETE own wardrobe_item (item2)', 'no error', fmtErr(error), !error ? 'PASS' : 'FAIL')
     // item2 is gone; re-insert for Part E service_role DELETE test
-    const { data: item2b, error: item2bErr } = await userAClient
-      .from('wardrobe_items')
-      .insert({ user_id: userA_id, garment_type: 'shoes', description: 'RLS test item 2b' })
-      .select('id').single()
-    if (!item2bErr && item2b) {
+    const { data: item2b, error: item2bErr } = await userAClient.rpc('insert_wardrobe_item', {
+      p_item: { user_id: userA_id, garment_type: 'shoes', description: 'RLS test item 2b' },
+    })
+    if (!item2bErr && typeof item2b === 'string') {
       // Update item2_id reference — just used for pair_affinity which is already inserted
-      console.log('  item2 re-inserted for Part E:', item2b.id)
+      console.log('  item2 re-inserted for Part E:', item2b)
     }
   }
 
   // ─── PART D — Cross-user INSERT attack ──────────────────────────────────────
   console.log('\n[ Part D ] Cross-user INSERT protection...')
+
+  // D0: Even User A cannot insert directly; successful wardrobe writes use the RPC above.
+  {
+    const { data, error } = await userAClient.from('wardrobe_items')
+      .insert({ user_id: userA_id, garment_type: 'top', description: 'ATTACK: direct wardrobe insert' })
+      .select('id')
+    const deniedByBoundary = error?.code === '42501'
+      || error?.message?.includes('row-level security')
+      || error?.message?.includes('permission denied')
+    const denied = deniedByBoundary && (!data || data.length === 0)
+    record('D', 'D0', 'User A', 'Direct INSERT own wardrobe_item', 'direct INSERT denied; use insert_wardrobe_item RPC', error ? fmtErr(error) : `inserted ${data?.length ?? 0} row(s)`, denied ? 'PASS' : 'FAIL')
+    if (!denied && data?.length) {
+      await supabaseAdmin.from('wardrobe_items').delete().in('id', data.map(row => row.id))
+    }
+  }
 
   // D1: User B INSERT wardrobe_items with user_id = User A
   {

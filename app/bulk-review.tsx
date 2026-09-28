@@ -24,7 +24,7 @@ import { SUBTYPE_FORMALITY } from '@/constants/outfitScoring';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { removeBackground } from '@/lib/photoroom';
 import { resolvePhotoUri } from '@/lib/classifyPath';
-import { uploadWardrobeImage } from '@/lib/storage';
+import { deleteWardrobeImage, uploadWardrobeImage } from '@/lib/storage';
 import { resolveWardrobeUploadArg } from '@/lib/uploadArg';
 import { supabase } from '@/lib/supabase';
 import {
@@ -605,6 +605,7 @@ export default function BulkReviewScreen() {
             const { signedUrl } = await uploadWardrobeImage(userId, base64, itemId, mimeType as 'image/jpeg' | 'image/png');
             return signedUrl;
           },
+          deleteUploaded: deleteWardrobeImage,
           resolveUploadArg: (cleanBase64, shrunkBase64) =>
             resolveWardrobeUploadArg(cleanBase64, shrunkBase64),
           addItems: (payloads) => addWardrobeItems(payloads.map(({ id: itemId, photoUri: finalUri, classification: c, storagePath }) => ({
