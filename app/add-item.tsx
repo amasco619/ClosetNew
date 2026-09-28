@@ -8,7 +8,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useApp, ItemCategory, OccasionTag, SeasonTag, subTypes, colorFamilies } from '@/contexts/AppContext';
+import { useApp, ItemCategory, OccasionTag, SeasonTag, subTypes, colorFamilies, type WardrobeItem } from '@/contexts/AppContext';
 import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, SleeveLength, Rise, WarmthBand } from '@/constants/types';
 import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
 import { SUBTYPE_FORMALITY, inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
@@ -21,7 +21,6 @@ import { resolvePhotoUri } from '@/lib/classifyPath';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
 import { buildGuestPhotoDestPath } from '../constants/guestPhotoCleanup';
-import { applyRePhotographSave } from '../constants/rePhotographSave';
 import { uploadWardrobeImage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
 import { rs } from '../lib/responsive';
@@ -208,7 +207,7 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
 
 export default function AddItemScreen() {
   const insets = useSafeAreaInsets();
-  const { addWardrobeItem, removeWardrobeItem, updateWardrobeItem, isPremium } = useApp();
+  const { addWardrobeItem, replaceWardrobeItem, isPremium } = useApp();
   const {
     initialUri,
     preClassified,
@@ -330,14 +329,12 @@ export default function AddItemScreen() {
   const [photoBgRemoved,  setPhotoBgRemoved]  = useState<boolean>(false);
   const [bgStatus,        setBgStatus]        = useState<'idle'|'success'|'limit-reached'|'not-authenticated'>('idle');
   const [bgRemaining,     setBgRemaining]     = useState<number | undefined>(undefined);
-  const [persistedItemId, setPersistedItemId] = useState<string | null>(null);
-  const [autoSaved,       setAutoSaved]       = useState(false);
-  const [autoPersisting,  setAutoPersisting]  = useState(false);
   const [aiPreference, setAiPreference] = useState<AiProcessingPreference>('not_asked');
   const [showAiConsent, setShowAiConsent] = useState(false);
   const [savingAiPreference, setSavingAiPreference] = useState(false);
   const [aiPreferenceError, setAiPreferenceError] = useState<string | null>(null);
   const pendingAiAsset = useRef<ImagePicker.ImagePickerAsset | null>(null);
+  const saveConfirmOpenRef = useRef(false);
   const [photoWidth,      setPhotoWidth]      = useState<number>(0);
   const [photoHeight,     setPhotoHeight]     = useState<number>(0);
   const [saving,          setSaving]          = useState(false);
@@ -624,12 +621,6 @@ export default function AddItemScreen() {
         setPhotoBgRemoved(false);
         setBgStatus('idle');
         setBgRemaining(undefined);
-        // If a previous photo was auto-persisted, remove that orphan first
-        if (persistedItemId) {
-          removeWardrobeItem(persistedItemId);
-          setPersistedItemId(null);
-          setAutoSaved(false);
-        }
         setPhotoWidth(asset.width ?? 0);
         setPhotoHeight(asset.height ?? 0);
         setStep(1);
@@ -767,55 +758,6 @@ export default function AddItemScreen() {
 
             finishClassifying(true);
 
-            // ── Auto-persist ──────────────────────────────────────────────
-            // When BG removal succeeded and the user is signed in, immediately
-            // save the item so progress is never lost if they leave the form.
-            // The CTA flips to "Update wardrobe" for any subsequent edits.
-            try {
-              if (bgUploadBase64 && bgFinalUri && validSub && validCol && !replaceItemId) {
-                const { data: { session: autoSession } } = await supabase.auth.getSession();
-                if (autoSession?.user) {
-                  const autoItemId = Crypto.randomUUID();
-                  setAutoPersisting(true);
-                  try {
-                    const { signedUrl: uploadedSignedUrl, storagePath: uploadedPath } = await uploadWardrobeImage(
-                      autoSession.user.id, bgUploadBase64, autoItemId, 'image/png',
-                    );
-                    addWardrobeItem({
-                      id: autoItemId,
-                      photoUri: uploadedSignedUrl,
-                      storagePath: uploadedPath,
-                      category: classified.category,
-                      subType: validSub,
-                      colorFamily: validCol,
-                      description: classified.description || undefined,
-                      occasionTags: classified.occasionTags.length > 0 ? classified.occasionTags : [],
-                      seasonTags: classified.seasonTags.length > 0 ? classified.seasonTags : [],
-                      formalityLevel: SUBTYPE_FORMALITY[validSub] ?? 5,
-                      pattern: asPattern(classified.pattern || 'solid'),
-                      patternScale: asPatternScale(classified.patternScale),
-                      fabric: asFabric(classified.fabric) ?? asFabric(inferFabric(validSub) ?? undefined),
-                      weight: asWeight(classified.weight) ?? asWeight(inferFabricWeight(validSub)),
-                      fit: asFit(classified.fit),
-                      accentColor: classified.accentColor && colorFamilies.includes(classified.accentColor) ? classified.accentColor : undefined,
-                      neckline: asNeckline(classified.neckline) ?? asNeckline(SUBTYPE_NECKLINE[validSub]),
-                      sleeveLength: asSleeve(classified.sleeveLength),
-                      rise: asRise(classified.rise) ?? asRise(SUBTYPE_RISE[validSub]),
-                      warmthBand: asWarmth(classified.warmthBand) ?? asWarmth(SUBTYPE_WARMTH[validSub]),
-                      dominantHsl: classified.dominantHsl,
-                      dominantLab: classified.dominantLab,
-                      modelConfidence: classified.modelConfidence,
-                    });
-                    setPersistedItemId(autoItemId);
-                    setAutoSaved(true);
-                  } finally {
-                    setAutoPersisting(false);
-                  }
-                }
-              }
-            } catch {
-              // Auto-persist failed silently — normal save flow still works.
-            }
           } catch (classifyErr: any) {
             if (classifyErr instanceof ContentGuardrailError) {
               // Photo rejected — reset immediately with no flash (card disappears with the step)
@@ -899,7 +841,7 @@ export default function AddItemScreen() {
 
   // ─── Save ─────────────────────────────────────────────────────────────────
 
-  const handleSave = async () => {
+  const saveConfirmed = async () => {
     if (!photoUri) return;
 
     if (!subType) {
@@ -958,39 +900,6 @@ export default function AddItemScreen() {
     setSaveStage('resizing');
     try {
       const parsedPrice = parseFloat(purchasePrice.replace(/[^0-9.]/g, ''));
-
-      // ── Update path: item was auto-persisted right after BG removal ──────
-      if (persistedItemId) {
-        setSaveStage('saving');
-        updateWardrobeItem(persistedItemId, {
-          photoUri,
-          category,
-          subType,
-          colorFamily,
-          description: description || undefined,
-          occasionTags: occasions,
-          seasonTags: seasons,
-          formalityLevel: SUBTYPE_FORMALITY[subType] ?? 5,
-          purchasePrice: isNaN(parsedPrice) || parsedPrice <= 0 ? undefined : parsedPrice,
-          pattern:      asPattern(pattern),
-          patternScale: asPatternScale(patternScale),
-          fabric:       asFabric(fabric),
-          weight:       asWeight(weight),
-          fit:          asFit(fit),
-          accentColor:  accentColor && colorFamilies.includes(accentColor) ? accentColor : undefined,
-          metalTone:    (metalTone === 'gold' || metalTone === 'silver' || metalTone === 'rose-gold' || metalTone === 'mixed' || metalTone === 'none') ? metalTone : undefined,
-          neckline:     asNeckline(neckline),
-          sleeveLength: asSleeve(sleeveLength),
-          rise:         asRise(rise),
-          warmthBand:   asWarmth(warmthBand),
-          dominantHsl,
-          dominantLab,
-          modelConfidence,
-        });
-        if (replaceItemId) removeWardrobeItem(replaceItemId);
-        router.back();
-        return;
-      }
 
       const itemId = Crypto.randomUUID();
       let finalUri = photoUri;
@@ -1068,48 +977,76 @@ export default function AddItemScreen() {
         }
       }
       setSaveStage('saving');
-      applyRePhotographSave(
-        addWardrobeItem,
-        removeWardrobeItem,
-        {
-          id: itemId,
-          photoUri: finalUri,
-          storagePath: finalStoragePath,
-          category,
-          subType,
-          colorFamily,
-          description: description || undefined,
-          occasionTags: occasions,
-          seasonTags: seasons,
-          formalityLevel: SUBTYPE_FORMALITY[subType] ?? 5,
-          purchasePrice: isNaN(parsedPrice) || parsedPrice <= 0 ? undefined : parsedPrice,
-          pattern:      asPattern(pattern),
-          patternScale: asPatternScale(patternScale),
-          fabric:       asFabric(fabric),
-          weight:       asWeight(weight),
-          fit:          asFit(fit),
-          accentColor:  accentColor && colorFamilies.includes(accentColor) ? accentColor : undefined,
-          metalTone:    (metalTone === 'gold' || metalTone === 'silver' || metalTone === 'rose-gold' || metalTone === 'mixed' || metalTone === 'none') ? metalTone : undefined,
-          neckline:     asNeckline(neckline),
-          sleeveLength: asSleeve(sleeveLength),
-          rise:         asRise(rise),
-          warmthBand:   asWarmth(warmthBand),
-          dominantHsl,
-          dominantLab,
-          modelConfidence,
-        },
-        replaceItemId,
-      );
+      const wardrobeItem: Omit<WardrobeItem, 'id' | 'createdAt'> = {
+        photoUri: finalUri,
+        storagePath: finalStoragePath,
+        category,
+        subType,
+        colorFamily,
+        description: description || undefined,
+        occasionTags: occasions,
+        seasonTags: seasons,
+        formalityLevel: SUBTYPE_FORMALITY[subType] ?? 5,
+        purchasePrice: isNaN(parsedPrice) || parsedPrice <= 0 ? undefined : parsedPrice,
+        pattern:      asPattern(pattern),
+        patternScale: asPatternScale(patternScale),
+        fabric:       asFabric(fabric),
+        weight:       asWeight(weight),
+        fit:          asFit(fit),
+        accentColor:  accentColor && colorFamilies.includes(accentColor) ? accentColor : undefined,
+        metalTone:    (metalTone === 'gold' || metalTone === 'silver' || metalTone === 'rose-gold' || metalTone === 'mixed' || metalTone === 'none') ? metalTone : undefined,
+        neckline:     asNeckline(neckline),
+        sleeveLength: asSleeve(sleeveLength),
+        rise:         asRise(rise),
+        warmthBand:   asWarmth(warmthBand),
+        dominantHsl,
+        dominantLab,
+        modelConfidence,
+      };
+      if (replaceItemId) {
+        await replaceWardrobeItem(replaceItemId, wardrobeItem);
+      } else {
+        await addWardrobeItem({ id: itemId, ...wardrobeItem });
+      }
       router.back();
     } catch (e) {
       console.error('[add-item] Save failed:', e);
       setSaving(false);
       setSaveStage(null);
-      Alert.alert(
-        'Could not save this item',
-        'Your photo is safe. Please try again.',
-      );
+      const errorCode = (e as { code?: string })?.code;
+      if (errorCode === 'WARDROBE_CAPACITY_REACHED') {
+        Alert.alert(
+          'Wardrobe is full',
+          'Choose which 30 items to keep in your free wardrobe, then try again.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Choose your 30', onPress: () => router.push('/choose-30') },
+          ],
+        );
+      } else {
+        Alert.alert('Could not save this item', 'Your photo is safe. Please try again.');
+      }
     }
+  };
+
+  const handleSave = () => {
+    if (saving || saveConfirmOpenRef.current) return;
+    saveConfirmOpenRef.current = true;
+    Alert.alert(
+      'Add this item?',
+      'Save this piece to your wardrobe now?',
+      [
+        { text: 'Keep editing', style: 'cancel', onPress: () => { saveConfirmOpenRef.current = false; } },
+        {
+          text: 'Save item',
+          onPress: () => {
+            saveConfirmOpenRef.current = false;
+            void saveConfirmed();
+          },
+        },
+      ],
+      { onDismiss: () => { saveConfirmOpenRef.current = false; } },
+    );
   };
 
   const toggleOccasion = (tag: OccasionTag) =>
@@ -1323,25 +1260,6 @@ export default function AddItemScreen() {
                 <Text style={styles.descriptionText}>{"Looks like " + description.charAt(0).toLowerCase() + description.slice(1)}</Text>
               </View>
             ) : null}
-
-            {/* ── Auto-saved banner ──────────────────────────────────────── */}
-            {autoPersisting && (
-              <Animated.View entering={FadeInDown.duration(200)} style={styles.addedBanner}>
-                <ActivityIndicator size="small" color={Colors.secondary} />
-                <Text style={styles.addedBannerText}>Saving to your wardrobe…</Text>
-              </Animated.View>
-            )}
-            {autoSaved && !autoPersisting && (
-              <Animated.View entering={FadeInUp.duration(260)} style={styles.addedBanner}>
-                <View style={styles.addedBannerIconWrap}>
-                  <Ionicons name="checkmark" size={13} color={Colors.white} />
-                </View>
-                <Text style={styles.addedBannerText}>Added to your wardrobe</Text>
-                <Pressable onPress={() => setAutoSaved(false)} hitSlop={8}>
-                  <Ionicons name="close" size={15} color={Colors.textSecondary} />
-                </Pressable>
-              </Animated.View>
-            )}
 
             {/* ── Category ────────────────────────────────────────────────── */}
             <Text style={styles.sectionTitle}>Category</Text>
@@ -1791,7 +1709,7 @@ export default function AddItemScreen() {
               disabled={!canSave}
             >
               <Ionicons name="checkmark" size={22} color={Colors.white} />
-              <Text style={styles.saveButtonText}>{persistedItemId ? 'Update wardrobe' : 'Save to Wardrobe'}</Text>
+              <Text style={styles.saveButtonText}>Save to Wardrobe</Text>
             </Pressable>
           )}
         </View>

@@ -70,7 +70,7 @@ function makeDeps(overrides: Partial<SaveAllDeps> = {}): SaveAllDeps & {
     resize: async () => null,
     upload: async () => 'https://example.com/photo.jpg',
     resolveUploadArg: () => null,
-    addItem: () => { addItemCount++; },
+    addItems: async (items) => { addItemCount += items.length; },
     setItems: () => {},
     setSaving: (v) => { savingValues.push(v); },
     onItemHaptic: () => {},

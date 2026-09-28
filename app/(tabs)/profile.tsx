@@ -133,7 +133,7 @@ function SettingRow({ icon, label, value, tint, onPress, last }: {
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const {
-    profile, updateProfile, wardrobeItems, isPremium, isGuest, wearHistory,
+    profile, updateProfile, wardrobeItems, wardrobeTotalCount, loadAllWardrobeItems, isPremium, isGuest, wearHistory,
     affinityActive, affinitySignalCount, topAffinityItems, topAffinityPairs,
     weather, setWeatherEnabled, dataUnavailable, entitlementUnavailable, retryInitialization,
   } = useApp();
@@ -148,6 +148,22 @@ export default function ProfileScreen() {
   const [aiPreferenceUnavailable, setAiPreferenceUnavailable] = useState(false);
   const [aiPreferenceRetry, setAiPreferenceRetry] = useState(0);
   const [showAiConsent, setShowAiConsent] = useState(false);
+  const [wardrobeLoadError, setWardrobeLoadError] = useState(false);
+  const wardrobeLoadStarted = useRef(false);
+
+  const loadWardrobeHistory = useCallback(async () => {
+    if (wardrobeLoadStarted.current) return;
+    wardrobeLoadStarted.current = true;
+    setWardrobeLoadError(false);
+    try {
+      await loadAllWardrobeItems();
+    } catch {
+      wardrobeLoadStarted.current = false;
+      setWardrobeLoadError(true);
+    }
+  }, [loadAllWardrobeItems]);
+
+  useEffect(() => { void loadWardrobeHistory(); }, [loadWardrobeHistory]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -297,6 +313,11 @@ export default function ProfileScreen() {
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       {(dataUnavailable || entitlementUnavailable) && <AmodkaErrorState type="network" onRetry={retryInitialization} />}
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {wardrobeLoadError && (
+          <Pressable onPress={() => { void loadWardrobeHistory(); }} accessibilityRole="button">
+            <Text style={styles.aiPreferenceError}>Wardrobe item details could not be loaded. Tap to retry.</Text>
+          </Pressable>
+        )}
 
         {/* ── Hero Header ─────────────────────────────────────────────────── */}
         <Animated.View entering={FadeInDown.delay(40).duration(280)} style={styles.hero}>
@@ -358,7 +379,7 @@ export default function ProfileScreen() {
         {/* ── Stats ───────────────────────────────────────────────────────── */}
         <Animated.View entering={FadeInDown.delay(100).duration(280)} style={styles.statsRow}>
           <View style={styles.statCell}>
-            <Text style={styles.statNum}>{wardrobeItems.length}</Text>
+            <Text style={styles.statNum}>{wardrobeTotalCount}</Text>
             <Text style={styles.statLabel}>Items</Text>
           </View>
           <View style={styles.statDivider} />
@@ -713,7 +734,7 @@ export default function ProfileScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.featureLabel}>Premium Active</Text>
-                  <Text style={styles.featureSub}>Unlimited items · Blueprint · Diagnostics</Text>
+                  <Text style={styles.featureSub}>Full wardrobe · Blueprint · Diagnostics</Text>
                 </View>
                 <Pressable
                   style={({ pressed }) => [styles.manageBtn, pressed && { opacity: 0.75 }]}
@@ -761,7 +782,7 @@ export default function ProfileScreen() {
               {/* Feature list */}
               <View style={styles.upgradeFeatures}>
                 {[
-                  { icon: 'infinite-outline', text: 'Unlimited wardrobe items' },
+                  { icon: 'infinite-outline', text: 'Full wardrobe access' },
                   { icon: 'analytics-outline', text: 'Deep Diagnostics & health score' },
                   { icon: 'map-outline', text: 'Personalized wardrobe blueprint' },
                 ].map((f, i) => (

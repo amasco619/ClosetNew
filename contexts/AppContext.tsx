@@ -23,10 +23,10 @@ import { centroidHsl, hslToLab } from '@/constants/colorPerceptual';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { fetchAuthoritativeEntitlement } from '@/lib/entitlements';
 import {
-  upsertUserProfile, getUserProfile, getWardrobeItems,
+  upsertUserProfile, getUserProfile, getWardrobeItems, getSelectedWardrobeItems, getFreeWardrobeSelection,
   getSlotStatuses, getWearLogs, getRotationCursors,
   getAffinitySignals, getPairAffinitySignals,
-  insertWardrobeItem, deleteWardrobeItem, insertWearLog, deleteWearLog,
+  insertWardrobeItem, insertWardrobeItems, replaceWardrobeItem as replaceWardrobeItemInDB, deleteWardrobeItem, setFreeWardrobeSelection as persistFreeWardrobeSelection, insertWearLog, deleteWearLog,
   insertAffinitySignal, insertPairAffinitySignal,
   getSavedLooks, upsertSavedLook, deleteSavedLook,
 } from '../lib/database';
@@ -55,12 +55,24 @@ export type {
   MoodGoal, OutfitReaction, ReactionType,
 } from '@/constants/types';
 
+type WardrobeItemReplacement = Omit<WardrobeItem, 'id' | 'createdAt'> & {
+  cleanedImageUrl?: string | null;
+};
+
 interface AppContextValue {
   profile: UserProfile;
   updateProfile: (updates: Partial<UserProfile>) => void;
   wardrobeItems: WardrobeItem[];
   activeWardrobeItems: WardrobeItem[];
-  addWardrobeItem: (item: Omit<WardrobeItem, 'createdAt'> & { id?: string }) => void;
+  wardrobeTotalCount: number;
+  wardrobeHasMore: boolean;
+  freeSelectedItemIds: string[];
+  loadMoreWardrobeItems: () => Promise<void>;
+  loadAllWardrobeItems: () => Promise<void>;
+  setFreeWardrobeSelection: (ids: string[]) => Promise<void>;
+  addWardrobeItem: (item: Omit<WardrobeItem, 'createdAt'> & { id?: string }) => Promise<void>;
+  addWardrobeItems: (items: (Omit<WardrobeItem, 'createdAt'> & { id?: string })[]) => Promise<void>;
+  replaceWardrobeItem: (existingId: string, replacement: WardrobeItemReplacement) => Promise<void>;
   removeWardrobeItem: (id: string) => void;
   updateWardrobeItem: (id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => void;
   isPremium: boolean;
@@ -220,9 +232,26 @@ function missingScoringDimensions(p: UserProfile): string[] {
   return Array.from(missing);
 }
 
+function selectActiveWardrobeItems(
+  items: WardrobeItem[],
+  isPremium: boolean,
+  isGuest: boolean,
+  selectedIds: string[],
+): WardrobeItem[] {
+  if (isPremium) return items;
+  if (isGuest) return items.slice(0, GUEST_ITEM_CAP);
+  const selected = new Set(selectedIds);
+  return items.filter(item => selected.has(item.id));
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
+  const wardrobeItemsRef = useRef(wardrobeItems);
+  wardrobeItemsRef.current = wardrobeItems;
+  const [wardrobeTotalCount, setWardrobeTotalCount] = useState(0);
+  const [wardrobeLoadedCount, setWardrobeLoadedCount] = useState(0);
+  const [freeSelectedItemIds, setFreeSelectedItemIds] = useState<string[]>([]);
   const [isPremium, setIsPremium] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [appReady, setAppReady] = useState(false);
@@ -244,8 +273,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [orphanedItems, setOrphanedItems] = useState<WardrobeItem[]>([]);
 
   const currentUserIdRef = useRef<string | null>(null);
+  const isPremiumRef = useRef(false);
+  const accountGenerationRef = useRef(0);
   const currentUserGenerationRef = useRef<number | null>(null);
   const startupGenerationRef = useRef(0);
+  const wardrobeLoadPromiseRef = useRef<Promise<void> | null>(null);
+  const wardrobeLoadedCountRef = useRef(0);
+  const wardrobeTotalCountRef = useRef(0);
+  const updateWardrobePagination = (total: number, loaded: number) => {
+    wardrobeTotalCountRef.current = total;
+    wardrobeLoadedCountRef.current = loaded;
+    setWardrobeTotalCount(total);
+    setWardrobeLoadedCount(loaded);
+  };
+  const isCurrentAccountRequest = (userId: string, accountGeneration: number, startupGeneration?: number) =>
+    currentUserIdRef.current === userId &&
+    accountGenerationRef.current === accountGeneration &&
+    (startupGeneration === undefined ||
+      isCurrentStartupGeneration(startupGeneration, startupGenerationRef.current));
 
   useEffect(() => { loadData(); }, [startupAttempt]);
 
@@ -302,6 +347,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
             userId,
             generation,
           )) return;
+          if (currentUserIdRef.current !== userId) {
+            accountGenerationRef.current += 1;
+            setWardrobeItems([]);
+            setFreeSelectedItemIds([]);
+            updateWardrobePagination(0, 0);
+            setIsPremium(false);
+            isPremiumRef.current = false;
+            setOrphanedItems([]);
+            setRecommendationSlots([]);
+            setSlotsInitialized(false);
+            setLastAddedSuggestions([]);
+          }
           currentUserIdRef.current = userId;
           currentUserGenerationRef.current = generation;
           const authName: string =
@@ -330,17 +387,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // Its generation checks must fail rather than repopulating the
           // signed-out provider after this event.
           ++startupGenerationRef.current;
+          accountGenerationRef.current += 1;
           currentUserIdRef.current = null;
           currentUserGenerationRef.current = null;
           setIsAuthenticated(false);
           setProfile(defaultProfile);
           setWardrobeItems([]);
+          updateWardrobePagination(0, 0);
+          setFreeSelectedItemIds([]);
           setIsPremium(false);
+          isPremiumRef.current = false;
           setRotationState(INITIAL_ROTATION_STATE);
           setWearHistory([]);
           setReactions([]);
           setMoodOfDay(null);
           setSavedLooks([]);
+          setOrphanedItems([]);
           setRecommendationSlots([]);
           setSlotsInitialized(false);
         }
@@ -352,11 +414,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const userId = session.user.id;
           // Only update if this is still the active user (guard against stale events)
           if (currentUserIdRef.current !== userId) return;
+          const accountGeneration = accountGenerationRef.current;
+          const startupGeneration = startupGenerationRef.current;
           try {
             const entitlement = await fetchAuthoritativeEntitlement();
+            if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
             setEntitlementUnavailable(false);
+            if (isPremiumRef.current !== entitlement.isPremium) {
+              const [page, selection] = await Promise.all([
+                getWardrobeItems(userId),
+                getFreeWardrobeSelection(userId),
+              ]);
+              if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+              const rows = [...page.items];
+              if (!entitlement.isPremium) {
+                const pageIds = new Set(rows.map(row => row.id));
+                const missingSelectionIds = selection.filter(id => !pageIds.has(id));
+                const selectedRows = await getSelectedWardrobeItems(userId, missingSelectionIds);
+                if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+                rows.push(...selectedRows);
+              }
+              const mapped = rows.map(mapDbRowToWardrobeItem);
+              await Promise.all(mapped.filter(it => isStoragePath(it.photoUri)).map(async it => {
+                try { it.photoUri = await resolveWardrobeImageUrl(it.photoUri); } catch {}
+              }));
+              if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+              setWardrobeItems(mapped);
+              updateWardrobePagination(page.totalCount, page.items.length);
+              setFreeSelectedItemIds(selection);
+              isPremiumRef.current = entitlement.isPremium;
+            }
             setIsPremium(entitlement.isPremium);
+            isPremiumRef.current = entitlement.isPremium;
           } catch (error) {
+            if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
             setEntitlementUnavailable(true);
             reportError(error, 'entitlement_refresh', { dependency: 'supabase' });
           }
@@ -382,27 +473,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isLoading && !slotsInitialized) {
       const blueprint = getProfileBlueprint(profile);
-      const active = wardrobeItems.slice(0, isPremium ? PREMIUM_ITEM_CAP : FREE_ITEM_CAP);
+      const active = selectActiveWardrobeItems(wardrobeItems, isPremium, profile.isGuest === true, freeSelectedItemIds);
       const slots = initializeSlots(active, blueprint);
       setRecommendationSlots(slots);
       setSlotsInitialized(true);
-      AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
-        slots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
-      ));
+      if (currentUserIdRef.current === null) {
+        AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
+          slots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
+        ));
+      }
     }
-  }, [isLoading, slotsInitialized, wardrobeItems, isPremium]);
+  }, [isLoading, slotsInitialized, wardrobeItems, isPremium, profile.isGuest, freeSelectedItemIds]);
 
   useEffect(() => {
     if (slotsInitialized) {
       const blueprint = getProfileBlueprint(profile);
-      const active = wardrobeItems.slice(0, isPremium ? PREMIUM_ITEM_CAP : FREE_ITEM_CAP);
+      const active = selectActiveWardrobeItems(wardrobeItems, isPremium, profile.isGuest === true, freeSelectedItemIds);
       const slots = initializeSlots(active, blueprint);
       setRecommendationSlots(slots);
-      AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
-        slots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
-      ));
+      if (currentUserIdRef.current === null) {
+        AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
+          slots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
+        ));
+      }
     }
-  }, [profileBlueprintKey, isPremium, wardrobeItems, slotsInitialized]);
+  }, [profileBlueprintKey, isPremium, wardrobeItems, slotsInitialized, profile.isGuest, freeSelectedItemIds]);
 
   const loadData = async () => {
     const generation = ++startupGenerationRef.current;
@@ -417,8 +512,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       await Promise.race([loadDataInner(generation), timeout]);
     } catch (error) {
       if (isCurrentStartupGeneration(generation, startupGenerationRef.current)) {
-        setStartupError(true);
-        reportError(error, 'startup_initialization', { dependency: 'app_bootstrap' });
+        if (!(error instanceof Error && error.message === 'stale account hydration')) {
+          setStartupError(true);
+          reportError(error, 'startup_initialization', { dependency: 'app_bootstrap' });
+        }
       }
     } finally {
       if (timer) clearTimeout(timer);
@@ -430,13 +527,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const loadDataInner = async (generation: number) => {
+    let startingUserId = currentUserIdRef.current;
+    let startingAccountGeneration = accountGenerationRef.current;
     const assertCurrent = () => {
       if (!isCurrentStartupGeneration(generation, startupGenerationRef.current)) throw new Error('stale startup attempt');
+      if (startingAccountGeneration !== accountGenerationRef.current || startingUserId !== currentUserIdRef.current) {
+        throw new Error('stale account hydration');
+      }
     };
     try {
-      const [profileData, wardrobeData, slotsData, rotationData, wearData, reactionsData, moodData, savedLooksData] = await Promise.all([
+      const [profileData, slotsData, rotationData, wearData, reactionsData, moodData, savedLooksData] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.profile),
-        AsyncStorage.getItem(STORAGE_KEYS.wardrobe),
         AsyncStorage.getItem(STORAGE_KEYS.slots),
         AsyncStorage.getItem(STORAGE_KEYS.rotation),
         AsyncStorage.getItem(STORAGE_KEYS.wearHistory),
@@ -447,7 +548,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       assertCurrent();
       const loadedProfile: UserProfile = profileData ? mergeProfile(JSON.parse(profileData)) : defaultProfile;
       if (profileData) setProfile(loadedProfile);
-      const rawItems: WardrobeItem[] = wardrobeData ? JSON.parse(wardrobeData) : [];
+      const { data: { session: initSession }, error: sessionError } = await supabase.auth.getSession();
+      assertCurrent();
+      if (sessionError) throw sessionError;
+      const mayLoadGuestCache = !initSession?.user && !currentUserIdRef.current && loadedProfile.isGuest === true;
+      const wardrobeData = mayLoadGuestCache ? await AsyncStorage.getItem(STORAGE_KEYS.wardrobe) : null;
+      assertCurrent();
+      const rawItems: WardrobeItem[] = wardrobeData
+        ? (JSON.parse(wardrobeData) as WardrobeItem[]).slice(0, GUEST_ITEM_CAP)
+        : [];
       // ── Guest photo path normalisation ────────────────────────────────────
       // On Android, FileSystem.documentDirectory can change between app
       // updates. Guest items were saved as absolute paths
@@ -516,8 +625,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         );
         assertCurrent();
       }
-      if (wardrobeData) setWardrobeItems(seededItems);
-      if (texturePersistIds.size > 0 || rebasedPathIds.size > 0) {
+      if (mayLoadGuestCache && wardrobeData) {
+        setWardrobeItems(seededItems);
+        updateWardrobePagination(seededItems.length, seededItems.length);
+      } else if (!mayLoadGuestCache) {
+        setWardrobeItems([]);
+        setFreeSelectedItemIds([]);
+        updateWardrobePagination(0, 0);
+      }
+      if (mayLoadGuestCache && (texturePersistIds.size > 0 || rebasedPathIds.size > 0)) {
         AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(seededItems));
       }
       // ── Temp-cache URI integrity check ────────────────────────────────────
@@ -529,13 +645,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // logs / Sentry before users report broken thumbnails. Guest photos use
       // the `wardrobe_*` naming convention and are already handled by the
       // rebase logic above — skip them here.
-      const nonGuestFileUris = seededItems.filter(
-        it => it.photoUri?.startsWith('file://') && !isGuestPhotoUri(it.photoUri),
-      );
+      const nonGuestFileUris = mayLoadGuestCache
+        ? seededItems.filter(it => it.photoUri?.startsWith('file://') && !isGuestPhotoUri(it.photoUri))
+        : [];
       // Immediately surface items with a completely absent photoUri — these
       // indicate a save that was interrupted before the URI was ever written.
       const noPhotoUriItems = detectNoPhotoOrphans(seededItems);
-      if (noPhotoUriItems.length > 0) {
+      if (mayLoadGuestCache && noPhotoUriItems.length > 0) {
         setOrphanedItems(prev => {
           const existing = new Set(prev.map(o => o.id));
           const toAdd = noPhotoUriItems.filter(it => !existing.has(it.id));
@@ -543,8 +659,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       }
       if (nonGuestFileUris.length > 0) {
+        const recoveryAccountGeneration = accountGenerationRef.current;
+        const recoveryUserId = currentUserIdRef.current;
         setTimeout(async () => {
           try {
+            if (
+              !isCurrentStartupGeneration(generation, startupGenerationRef.current) ||
+              accountGenerationRef.current !== recoveryAccountGeneration ||
+              currentUserIdRef.current !== recoveryUserId
+            ) return;
             const { orphans: unreachableItems, recovered: recoveredUpdates } =
             await detectFileOrphans(
               nonGuestFileUris,
@@ -562,15 +685,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 return filename ? `${currentDocDir}${filename}` : uri;
               },
             );
+          if (
+            !isCurrentStartupGeneration(generation, startupGenerationRef.current) ||
+            accountGenerationRef.current !== recoveryAccountGeneration ||
+            currentUserIdRef.current !== recoveryUserId
+          ) return;
           if (Object.keys(recoveredUpdates).length > 0) {
             console.log(
               `[Amodka] Recovered ${Object.keys(recoveredUpdates).length} wardrobe photo(s) from Storage`,
             );
             setWardrobeItems(prev => {
+              if (
+                !isCurrentStartupGeneration(generation, startupGenerationRef.current) ||
+                accountGenerationRef.current !== recoveryAccountGeneration ||
+                currentUserIdRef.current !== recoveryUserId
+              ) return prev;
               const next = prev.map(it =>
                 recoveredUpdates[it.id] ? { ...it, photoUri: recoveredUpdates[it.id] } : it,
               );
-              AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(next));
+              if (recoveryUserId === null) AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(next));
               return next;
             });
           }
@@ -582,7 +715,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
           // Surface items whose photo could not be recovered so the user can
           // choose to remove or re-add them.
-            if (unreachableItems.length > 0) {
+            if (
+              unreachableItems.length > 0 &&
+              isCurrentStartupGeneration(generation, startupGenerationRef.current) &&
+              accountGenerationRef.current === recoveryAccountGeneration &&
+              currentUserIdRef.current === recoveryUserId
+            ) {
               setOrphanedItems(prev => {
                 const existing = new Set(prev.map(o => o.id));
                 const toAdd = unreachableItems.filter(it => !existing.has(it.id));
@@ -614,7 +752,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return e;
         });
         setWearHistory(migrated);
-        if (mutated) AsyncStorage.setItem(STORAGE_KEYS.wearHistory, JSON.stringify(migrated));
+        if (mutated && mayLoadGuestCache) AsyncStorage.setItem(STORAGE_KEYS.wearHistory, JSON.stringify(migrated));
       }
       if (reactionsData) {
         const parsed: OutfitReaction[] = JSON.parse(reactionsData);
@@ -627,11 +765,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return r;
         });
         setReactions(migrated);
-        if (mutated) AsyncStorage.setItem(STORAGE_KEYS.reactions, JSON.stringify(migrated));
+        if (mutated && mayLoadGuestCache) AsyncStorage.setItem(STORAGE_KEYS.reactions, JSON.stringify(migrated));
       }
       if (moodData) setMoodOfDay(JSON.parse(moodData));
       if (savedLooksData) setSavedLooks(JSON.parse(savedLooksData));
-      if (slotsData) {
+      if (slotsData && mayLoadGuestCache) {
         // Always trust strict matcher recomputation against current items and
         // current blueprint — guarantees that legacy persisted statuses from a
         // looser matcher are corrected on load. Persisted status is no longer
@@ -646,9 +784,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       // Check for an existing Supabase session and load DB data before
       // signalling ready — eliminates the race with onAuthStateChange.
-      const { data: { session: initSession }, error: sessionError } = await supabase.auth.getSession();
-      assertCurrent();
-      if (sessionError) throw sessionError;
       if (initSession?.user) {
         const initUserId = initSession.user.id;
         const initAuthName: string =
@@ -661,14 +796,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
           initUserId,
           generation,
         )) {
+          if (currentUserIdRef.current !== initUserId) {
+            accountGenerationRef.current += 1;
+            setWardrobeItems([]);
+            setFreeSelectedItemIds([]);
+            updateWardrobePagination(0, 0);
+            setIsPremium(false);
+            isPremiumRef.current = false;
+            setOrphanedItems([]);
+            setRecommendationSlots([]);
+            setSlotsInitialized(false);
+            setLastAddedSuggestions([]);
+          }
           currentUserIdRef.current = initUserId;
           currentUserGenerationRef.current = generation;
+          startingUserId = initUserId;
+          startingAccountGeneration = accountGenerationRef.current;
           await loadUserDataFromDB(initUserId, initAuthName, loadedProfile, generation);
           assertCurrent();
         }
         setIsAuthenticated(true);
       }
     } catch (error) {
+      if (error instanceof Error && error.message === 'stale account hydration') return;
       reportError(error, 'startup_hydration', { dependency: 'app_context' });
       throw error;
     }
@@ -684,7 +834,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localSnap: UserProfile | null,
     startupGeneration?: number,
   ) => {
+    const accountGeneration = accountGenerationRef.current;
     const assertCurrent = () => {
+      if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) {
+        throw new Error('stale account hydration');
+      }
       if (startupGeneration !== undefined && !isCurrentStartupGeneration(startupGeneration, startupGenerationRef.current)) {
         throw new Error('stale startup attempt');
       }
@@ -695,7 +849,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setProfile(prev => {
       if (prev.isGuest) {
         const updated = { ...prev, isGuest: false };
-        AsyncStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(updated));
         return updated;
       }
       return prev;
@@ -705,14 +858,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       id: userId,
       ...(authName ? { name: authName } : {}),
     }).catch(console.error);
+    assertCurrent();
 
     try {
       const [
-        dbProfile, items, _slots, logs,
+        dbProfile, wardrobePage, freeSelection, _slots, logs,
         _cursors, _affinitySignals, _pairSignals,
       ] = await Promise.all([
         getUserProfile(userId),
         getWardrobeItems(userId),
+        getFreeWardrobeSelection(userId),
         getSlotStatuses(userId),
         getWearLogs(userId),
         getRotationCursors(userId),
@@ -720,6 +875,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         getPairAffinitySignals(userId),
       ]);
       assertCurrent();
+      const pageIds = new Set(wardrobePage.items.map(item => item.id));
+      const missingSelectionIds = freeSelection.filter(id => !pageIds.has(id));
+      const selectedRows = await getSelectedWardrobeItems(userId, missingSelectionIds);
+      assertCurrent();
+      const wardrobeRows = [
+        ...wardrobePage.items,
+        ...selectedRows,
+      ];
+      updateWardrobePagination(wardrobePage.totalCount, wardrobePage.items.length);
+      setFreeSelectedItemIds(freeSelection);
 
       // Load saved looks separately — table may not exist yet for some users
       const dbSavedLooks = await getSavedLooks(userId).catch(() => []);
@@ -798,8 +963,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setProfile(prev => ({ ...prev, name: prev.name || authName, isGuest: false }));
       }
 
-      if (items && items.length > 0) {
-        const mapped: WardrobeItem[] = items.map(mapDbRowToWardrobeItem);
+      {
+        const mapped: WardrobeItem[] = wardrobeRows.map(mapDbRowToWardrobeItem);
         // ── Stale file:// URI recovery (DB path) ──────────────────────────────
         // If the DB row's image_url is a file:// URI (upload was interrupted
         // before the cleaned_image_url was written back), silently swap it for
@@ -864,13 +1029,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Do not let a stale listener completion publish its item snapshot.
         assertCurrent();
         setWardrobeItems(mapped);
-        // Save storage paths (not signed URLs) to AsyncStorage so cold starts
-        // can resolve them fresh.  Signed URLs expire after 1h and would show
-        // as broken images on the next session if saved directly.
-        const forStorage = mapped.map(it =>
-          it.storagePath ? { ...it, photoUri: it.storagePath } : it
-        );
-        AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(forStorage));
+        updateWardrobePagination(wardrobePage.totalCount, mapped.length);
       }
 
       try {
@@ -878,6 +1037,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         assertCurrent();
         setEntitlementUnavailable(false);
         setIsPremium(entitlement.isPremium);
+        isPremiumRef.current = entitlement.isPremium;
       } catch (error) {
         if (startupGeneration !== undefined && !isCurrentStartupGeneration(startupGeneration, startupGenerationRef.current)) {
           throw error;
@@ -896,7 +1056,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           loggedAt: l.logged_at ?? new Date().toISOString(),
         }));
         setWearHistory(mappedLogs);
-        AsyncStorage.setItem(STORAGE_KEYS.wearHistory, JSON.stringify(mappedLogs));
       }
 
       if (dbSavedLooks.length > 0) {
@@ -906,9 +1065,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           savedAt: l.saved_at,
         }));
         setSavedLooks(mappedLooks);
-        AsyncStorage.setItem(STORAGE_KEYS.savedLooks, JSON.stringify(mappedLooks));
       }
     } catch (err: any) {
+      if (err instanceof Error && err.message === 'stale account hydration') return;
       if (startupGeneration !== undefined && startupGeneration !== startupGenerationRef.current) {
         throw err;
       }
@@ -1172,64 +1331,296 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── Wardrobe mutations ───────────────────────────────────────────────────────
 
-  const addWardrobeItem = useCallback((item: Omit<WardrobeItem, 'createdAt'> & { id?: string }) => {
-    const newItem: WardrobeItem = {
+  const loadMoreWardrobeItems = useCallback((): Promise<void> => {
+    const userId = currentUserIdRef.current;
+    if (!userId) return Promise.resolve();
+    if (wardrobeLoadPromiseRef.current) return wardrobeLoadPromiseRef.current;
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    const request = (async () => {
+      if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+      const offset = wardrobeLoadedCountRef.current;
+      if (offset >= wardrobeTotalCountRef.current) return;
+      const page = await getWardrobeItems(userId, offset);
+      if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+      const mapped = page.items.map(mapDbRowToWardrobeItem);
+      await Promise.all(mapped.filter(it => isStoragePath(it.photoUri)).map(async it => {
+        try { it.photoUri = await resolveWardrobeImageUrl(it.photoUri); } catch {}
+      }));
+      if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+      setWardrobeItems(prev => {
+        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return prev;
+        const ids = new Set(prev.map(item => item.id));
+        return [...prev, ...mapped.filter(item => !ids.has(item.id))];
+      });
+      if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+      updateWardrobePagination(page.totalCount, Math.min(page.totalCount, offset + page.items.length));
+    })();
+    wardrobeLoadPromiseRef.current = request;
+    void request.then(() => {
+      if (wardrobeLoadPromiseRef.current === request) wardrobeLoadPromiseRef.current = null;
+    }, () => {
+      if (wardrobeLoadPromiseRef.current === request) wardrobeLoadPromiseRef.current = null;
+    });
+    return request;
+  }, []);
+
+  const loadAllWardrobeItems = useCallback(async (): Promise<void> => {
+    const userId = currentUserIdRef.current;
+    if (!userId) return;
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    while (wardrobeLoadPromiseRef.current) {
+      await wardrobeLoadPromiseRef.current;
+      if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+    }
+    if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+    const request = (async () => {
+      let offset = 0;
+      let total = wardrobeTotalCountRef.current;
+      const rows: any[] = [];
+      while (offset < total || offset === 0) {
+        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+        const page = await getWardrobeItems(userId, offset);
+        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+        rows.push(...page.items);
+        total = page.totalCount;
+        if (page.items.length === 0) {
+          if (offset < total) throw new Error('Wardrobe pagination returned no rows before the exact total');
+          break;
+        }
+        offset += page.items.length;
+      }
+      const mapped = rows.map(mapDbRowToWardrobeItem);
+      await Promise.all(mapped.filter(it => isStoragePath(it.photoUri)).map(async it => {
+        try { it.photoUri = await resolveWardrobeImageUrl(it.photoUri); } catch {}
+      }));
+      if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+      setWardrobeItems(prev =>
+        isCurrentAccountRequest(userId, accountGeneration, startupGeneration) ? mapped : prev,
+      );
+      if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+      updateWardrobePagination(total, rows.length);
+    })();
+    wardrobeLoadPromiseRef.current = request;
+    try {
+      await request;
+    } finally {
+      if (wardrobeLoadPromiseRef.current === request) wardrobeLoadPromiseRef.current = null;
+    }
+  }, []);
+
+  const setFreeWardrobeSelection = useCallback(async (ids: string[]) => {
+    if (!currentUserIdRef.current) {
+      setFreeSelectedItemIds(ids);
+      return;
+    }
+    const userId = currentUserIdRef.current;
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    await persistFreeWardrobeSelection(ids);
+    if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+    setFreeSelectedItemIds(ids);
+  }, []);
+
+  const commitAddedWardrobeItems = useCallback((
+    items: WardrobeItem[],
+    userId: string | null,
+    accountGeneration: number,
+    startupGeneration: number,
+  ) => {
+    const isCurrent = () => currentUserIdRef.current === userId &&
+      accountGenerationRef.current === accountGeneration &&
+      startupGenerationRef.current === startupGeneration;
+    if (!isCurrent()) return;
+    setWardrobeItems(prev => {
+      if (!isCurrent()) return prev;
+      const updated = [...items, ...prev];
+      if (userId === null) AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
+      return updated;
+    });
+    updateWardrobePagination(
+      wardrobeTotalCountRef.current + items.length,
+      wardrobeLoadedCountRef.current + (userId === null ? items.length : 0),
+    );
+    for (const item of items) {
+      setRecommendationSlots(prev => {
+        if (!isCurrent()) return prev;
+        const updated = updateSlotsAfterAdd(prev, item);
+        if (userId === null) {
+          AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
+            updated.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
+          ));
+        }
+        return updated;
+      });
+    }
+    const latest = items[items.length - 1];
+    if (latest) setLastAddedSuggestions(generateOutfitsForItem(latest, [...items, ...wardrobeItems], profile, weather));
+  }, [profile, weather, wardrobeItems]);
+
+  const addWardrobeItem = useCallback(async (item: Omit<WardrobeItem, 'createdAt'> & { id?: string }): Promise<void> => {
+    const newItem: WardrobeItem = { ...item, id: item.id ?? Crypto.randomUUID(), createdAt: new Date().toISOString() };
+    const userId = currentUserIdRef.current;
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    if (userId) {
+      const payload = {
+        id: newItem.id,
+        user_id: userId,
+        garment_type: newItem.category,
+        sub_type: newItem.subType,
+        color_family: newItem.colorFamily,
+        description: newItem.description,
+        occasion: newItem.occasionTags,
+        image_url: (newItem as any).storagePath ?? newItem.photoUri,
+        cleaned_image_url: (newItem as any).cleanedImageUrl,
+      };
+      const result = await insertWardrobeItem(payload);
+      if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+      newItem.id = result.id;
+    }
+    commitAddedWardrobeItems([newItem], userId, accountGeneration, startupGeneration);
+  }, [commitAddedWardrobeItems]);
+
+  const addWardrobeItems = useCallback(async (items: (Omit<WardrobeItem, 'createdAt'> & { id?: string })[]): Promise<void> => {
+    if (items.length === 0) return;
+    const prepared = items.map(item => ({
       ...item,
       id: item.id ?? Crypto.randomUUID(),
       createdAt: new Date().toISOString(),
-    };
-    setWardrobeItems(prev => {
-      const updated = [...prev, newItem];
-      AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
-      if (currentUserIdRef.current) {
-        insertWardrobeItem({
-          id: newItem.id,
-          user_id: currentUserIdRef.current,
-          garment_type: newItem.category,
-          sub_type: newItem.subType,
-          color_family: newItem.colorFamily,
-          description: newItem.description,
-          occasion: newItem.occasionTags,
-          image_url: (newItem as any).storagePath ?? newItem.photoUri,
-          cleaned_image_url: (newItem as any).cleanedImageUrl,
-        }).catch(console.error);
-      }
-      const suggestions = generateOutfitsForItem(newItem, updated, profile, weather);
-      setLastAddedSuggestions(suggestions);
-      return updated;
+    } as WardrobeItem));
+    const userId = currentUserIdRef.current;
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    if (userId) {
+      const payloads = prepared.map(item => ({
+        id: item.id,
+        user_id: userId,
+        garment_type: item.category,
+        sub_type: item.subType,
+        color_family: item.colorFamily,
+        description: item.description,
+        occasion: item.occasionTags,
+        image_url: (item as any).storagePath ?? item.photoUri,
+        cleaned_image_url: (item as any).cleanedImageUrl,
+      }));
+      const ids = await insertWardrobeItems(payloads);
+      if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+      prepared.forEach((item, index) => { item.id = ids[index]; });
+    }
+    commitAddedWardrobeItems(prepared, userId, accountGeneration, startupGeneration);
+  }, [commitAddedWardrobeItems]);
+
+  const replaceWardrobeItem = useCallback(async (
+    existingId: string,
+    replacement: WardrobeItemReplacement,
+  ): Promise<void> => {
+    const userId = currentUserIdRef.current;
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    const isCurrent = () => currentUserIdRef.current === userId &&
+      accountGenerationRef.current === accountGeneration &&
+      startupGenerationRef.current === startupGeneration;
+    const currentItems = wardrobeItemsRef.current;
+    const existingItem = currentItems.find(item => item.id === existingId);
+    if (userId === null && !existingItem) {
+      throw new Error(`[replaceWardrobeItem] Local wardrobe item not found: ${existingId}`);
+    }
+    const { cleanedImageUrl, ...replacementItem } = replacement;
+    const mergeReplacement = (item: WardrobeItem): WardrobeItem => ({
+      ...replacementItem,
+      id: item.id,
+      createdAt: item.createdAt,
     });
-    setRecommendationSlots(prev => {
-      const updated = updateSlotsAfterAdd(prev, newItem);
-      AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
-        updated.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
-      ));
-      return updated;
-    });
-  }, [profile, weather]);
+
+    if (userId !== null) {
+      await replaceWardrobeItemInDB(userId, existingId, {
+        garment_type: replacement.category,
+        sub_type: replacement.subType,
+        color_family: replacement.colorFamily,
+        description: replacement.description,
+        occasion: replacement.occasionTags,
+        image_url: replacement.storagePath ?? replacement.photoUri,
+        cleaned_image_url: cleanedImageUrl ?? null,
+      });
+      if (!isCurrent()) return;
+      setWardrobeItems(prev => isCurrent()
+        ? prev.map(item => item.id === existingId ? mergeReplacement(item) : item)
+        : prev);
+      return;
+    }
+
+    const nextItems = currentItems.map(item =>
+      item.id === existingId ? mergeReplacement(item) : item,
+    );
+    await AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(nextItems));
+    if (!isCurrent()) return;
+    setWardrobeItems(prev => isCurrent()
+      ? prev.map(item => item.id === existingId ? mergeReplacement(item) : item)
+      : prev);
+  }, []);
 
   const removeWardrobeItem = useCallback((id: string) => {
-    if (currentUserIdRef.current) {
-      deleteWardrobeItem(currentUserIdRef.current, id).catch(console.error);
-      const item = wardrobeItems.find(i => i.id === id);
-      if (item?.photoUri) {
-        deleteWardrobeImage(currentUserIdRef.current!, id).catch(console.warn);
-      }
-    } else {
-      runGuestRemoval(id, wardrobeItems, FileSystem.documentDirectory, FileSystem.deleteAsync).catch(console.warn);
-    }
-    setWardrobeItems(prev => {
-      const updated = prev.filter(item => item.id !== id);
-      AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(updated));
-      const blueprint = getProfileBlueprint(profile);
-      const activeUpdated = updated.slice(0, isPremium ? PREMIUM_ITEM_CAP : FREE_ITEM_CAP);
-      const refreshedSlots = initializeSlots(activeUpdated, blueprint);
+    const userId = currentUserIdRef.current;
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    const item = wardrobeItems.find(i => i.id === id);
+    const applyRemoval = (remaining: WardrobeItem[]) => {
+      if (currentUserIdRef.current !== userId ||
+          accountGenerationRef.current !== accountGeneration ||
+          startupGenerationRef.current !== startupGeneration) return;
+      setWardrobeItems(remaining);
+      const total = Math.max(0, wardrobeTotalCountRef.current - 1);
+      const loaded = Math.max(0, wardrobeLoadedCountRef.current - 1);
+      updateWardrobePagination(total, loaded);
+      setFreeSelectedItemIds(ids => ids.filter(itemId => itemId !== id));
+      if (userId === null) AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(remaining));
+      const refreshedSlots = initializeSlots(
+        selectActiveWardrobeItems(remaining, isPremium, profile.isGuest === true, freeSelectedItemIds),
+        getProfileBlueprint(profile),
+      );
       setRecommendationSlots(refreshedSlots);
-      AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
-        refreshedSlots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
-      ));
-      return updated;
-    });
-  }, [profile, isPremium, wardrobeItems]);
+      if (userId === null) {
+        AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
+          refreshedSlots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
+        ));
+      }
+    };
+    if (userId) {
+      void (async () => {
+        await deleteWardrobeItem(userId, id);
+        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+        if (item?.photoUri) await deleteWardrobeImage(userId, id).catch(console.warn);
+        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+        const page = await getWardrobeItems(userId);
+        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+        const currentItemWasLoaded = wardrobeItemsRef.current.some(loaded => loaded.id === id);
+        setWardrobeItems(prev =>
+          isCurrentAccountRequest(userId, accountGeneration, startupGeneration)
+            ? prev.filter(loaded => loaded.id !== id)
+            : prev,
+        );
+        const nextLoadedCount = Math.max(
+          0,
+          wardrobeLoadedCountRef.current - (currentItemWasLoaded ? 1 : 0),
+        );
+        updateWardrobePagination(page.totalCount, Math.min(page.totalCount, nextLoadedCount));
+        const storedSelection = await getFreeWardrobeSelection(userId);
+        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+        const selected = storedSelection.filter(itemId => itemId !== id);
+        if (selected.length !== storedSelection.length) {
+          await persistFreeWardrobeSelection(selected);
+          if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+        }
+        setFreeSelectedItemIds(selected);
+      })().catch(console.error);
+    } else {
+      void runGuestRemoval(id, wardrobeItems, FileSystem.documentDirectory, FileSystem.deleteAsync)
+        .then(() => applyRemoval(wardrobeItems.filter(item => item.id !== id)))
+        .catch(console.warn);
+    }
+  }, [profile, isPremium, wardrobeItems, freeSelectedItemIds]);
 
   const resolveOrphan = useCallback((id: string, action: 'remove' | 'dismiss') => {
     setOrphanedItems(prev => prev.filter(o => o.id !== id));
@@ -1257,7 +1648,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         return merged;
       });
-      AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(next));
+      if (currentUserIdRef.current === null) {
+        AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(next));
+      }
       // Edits to category / sub-type / colour can change which blueprint slot
       // an item satisfies under strict matching. Recompute slot ownership so
       // Blueprint progress, Outfit Ideas, and Smart Buy stay in sync.
@@ -1267,24 +1660,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updates.colorFamily !== undefined;
       if (matcherFieldChanged) {
         const blueprint = getProfileBlueprint(profile);
-        const activeNext = next.slice(0, isPremium ? PREMIUM_ITEM_CAP : FREE_ITEM_CAP);
+        const activeNext = selectActiveWardrobeItems(next, isPremium, profile.isGuest === true, freeSelectedItemIds);
         const refreshedSlots = initializeSlots(activeNext, blueprint);
         setRecommendationSlots(refreshedSlots);
-        AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
-          refreshedSlots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
-        ));
+        if (currentUserIdRef.current === null) {
+          AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
+            refreshedSlots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
+          ));
+        }
       }
       return next;
     });
-  }, [profile, isPremium]);
+  }, [profile, isPremium, freeSelectedItemIds]);
 
   // ── Rotation-based outfit generation ─────────────────────────────────────────
 
   // The slice of wardrobeItems that is active for display and outfit/slot
   // computation. Items beyond the tier cap stay persisted but inactive.
   const activeWardrobeItems = useMemo(
-    () => wardrobeItems.slice(0, isPremium ? PREMIUM_ITEM_CAP : profile.isGuest ? GUEST_ITEM_CAP : FREE_ITEM_CAP),
-    [isPremium, profile.isGuest, wardrobeItems],
+    () => selectActiveWardrobeItems(wardrobeItems, isPremium, profile.isGuest === true, freeSelectedItemIds),
+    [isPremium, profile.isGuest, wardrobeItems, freeSelectedItemIds],
   );
 
   const affinityState = useMemo(
@@ -1339,7 +1734,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [activeWardrobeItems, profile, todayMood, outfitPool, rotationState.poolHash, rotationState.lastDate, isLoading, recentWornFingerprints, weather]);
 
   const itemCap = isPremium ? PREMIUM_ITEM_CAP : profile.isGuest ? GUEST_ITEM_CAP : FREE_ITEM_CAP;
-  const canAddItem = wardrobeItems.length < itemCap;
+  const canAddItem = isPremium
+    ? wardrobeTotalCount < PREMIUM_ITEM_CAP
+    : profile.isGuest
+      ? wardrobeTotalCount < GUEST_ITEM_CAP
+      : true;
   const starterRecommendations = useMemo(() => getFirstNeededByCategory(recommendationSlots), [recommendationSlots]);
   const lifestyleSlotGroups = useMemo(
     () => getLifestyleGatedSlots(
@@ -1436,7 +1835,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const affinityActive = affinityState.signalCount >= MIN_SIGNALS_TO_APPLY;
 
   const value = useMemo(() => ({
-    profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
+    profile, updateProfile, wardrobeItems, activeWardrobeItems,
+    wardrobeTotalCount, wardrobeHasMore: wardrobeLoadedCount < wardrobeTotalCount, freeSelectedItemIds,
+    loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection,
+    addWardrobeItem, addWardrobeItems, replaceWardrobeItem, removeWardrobeItem, updateWardrobeItem,
     isPremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
     isLoading, appReady, isAuthenticated, startupError, dataUnavailable, entitlementUnavailable,
     retryInitialization: () => {
@@ -1456,7 +1858,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     weather, weatherLoading, refreshWeather, setWeatherEnabled,
     isGuest: profile.isGuest === true,
     orphanedItems, resolveOrphan,
-  }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, addWardrobeItem, removeWardrobeItem, updateWardrobeItem,
+  }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, wardrobeTotalCount, wardrobeLoadedCount, freeSelectedItemIds,
+       loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection,
+        addWardrobeItem, addWardrobeItems, replaceWardrobeItem, removeWardrobeItem, updateWardrobeItem,
        isPremium, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, appReady, isAuthenticated, startupError, dataUnavailable, entitlementUnavailable, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,

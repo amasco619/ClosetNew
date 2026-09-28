@@ -1,5 +1,5 @@
 import {
-  StyleSheet, Text, View, ScrollView, Pressable,
+  StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator,
   Platform, Image, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,7 +8,7 @@ import { router } from 'expo-router';
 import { useApp, OutfitSet, OutfitComponent } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { OccasionTag, WearEntry, MoodGoal, ReactionType, WardrobeItem } from '@/constants/types';
 import * as Haptics from 'expo-haptics';
 import { captureRef } from 'react-native-view-shot';
@@ -462,6 +462,9 @@ export default function OutfitsScreen() {
   const {
     outfitSets,
     wardrobeItems,
+    wardrobeTotalCount,
+    wardrobeHasMore,
+    loadAllWardrobeItems,
     activeWardrobeItems,
     isPremium,
     lastAddedSuggestions,
@@ -482,7 +485,30 @@ export default function OutfitsScreen() {
     getItemWearCount,
   } = useApp();
   const [cpwToast, setCpwToast] = useState<{ text: string } | null>(null);
+  const [wardrobeLoadError, setWardrobeLoadError] = useState(false);
+  const [wardrobeLoading, setWardrobeLoading] = useState(true);
+  const [loadRetry, setLoadRetry] = useState(0);
   const cpwToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
+  useEffect(() => {
+    let active = true;
+    if (wardrobeDataComplete) {
+      setWardrobeLoading(false);
+      setWardrobeLoadError(false);
+      return () => { active = false; };
+    }
+    setWardrobeLoading(true);
+    setWardrobeLoadError(false);
+    loadAllWardrobeItems()
+      .catch(() => { if (active) setWardrobeLoadError(true); })
+      .finally(() => {
+        if (active) {
+          if (!wardrobeDataComplete) setWardrobeLoadError(true);
+          setWardrobeLoading(false);
+        }
+      });
+    return () => { active = false; };
+  }, [loadAllWardrobeItems, wardrobeDataComplete, wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
 
   function handleLogWear(outfit: OutfitSet) {
     logWear(outfit);
@@ -533,9 +559,37 @@ export default function OutfitsScreen() {
 
   const activeAccent = SCENARIO_ACCENT[selectedScenario] ?? Colors.secondary;
 
+  if (!wardrobeDataComplete) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerLabel}>STYLED FOR YOU</Text>
+            <Text style={styles.title}>Your Looks</Text>
+          </View>
+        </View>
+        {wardrobeLoading ? (
+          <View style={styles.wardrobeLoading}>
+            <ActivityIndicator color={Colors.secondary} size="large" />
+            <Text style={styles.wardrobeLoadErrorText}>Loading your full wardrobe for accurate looks…</Text>
+          </View>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => { setWardrobeLoadError(false); setLoadRetry(count => count + 1); }}
+            style={styles.wardrobeLoadError}
+          >
+            <Text style={styles.wardrobeLoadErrorText}>
+              {wardrobeLoadError ? 'Your full wardrobe could not be loaded. Tap to retry.' : 'Your full wardrobe is not available yet. Tap to retry.'}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
-
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <View style={styles.header}>
         <View>
@@ -789,6 +843,9 @@ export default function OutfitsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  wardrobeLoadError: { padding: 9, marginHorizontal: 20, backgroundColor: Colors.error + '12', borderRadius: 10 },
+  wardrobeLoadErrorText: { color: Colors.error, fontFamily: 'Inter_500Medium', fontSize: 12, textAlign: 'center' },
+  wardrobeLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
 
   // ── Header ────────────────────────────────────────────────────────────────
   header: {

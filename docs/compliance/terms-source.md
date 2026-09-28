@@ -78,7 +78,7 @@ Key disclosures that must be in published Terms:
 **NOT YET IMPLEMENTED. The following describes the planned product design.**
 
 Amodka will offer a Premium subscription tier providing:
-- Unlimited wardrobe items (free tier: 30 items; guest tier: 8 items)
+- Up to 2,000 active wardrobe items with Premium (Free: 30 active items; Guest: 8 items). Wardrobe data is retained on Premium expiry; Free users select their active 30.
 - Additional daily outfit recommendations per scenario
 - Wardrobe gap analysis features
 

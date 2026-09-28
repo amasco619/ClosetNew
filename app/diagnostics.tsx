@@ -8,7 +8,7 @@ import { router } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef, useState } from 'react';
 import { computeDiagnostics, CategoryStat, ScenarioCoverage, VersatileItem, GapItem } from '@/constants/wardrobeDiagnostics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { rs } from '../lib/responsive';
@@ -148,8 +148,19 @@ function GapRow({ gap }: { gap: GapItem }) {
 
 export default function DiagnosticsScreen() {
   const insets = useSafeAreaInsets();
-  const { wardrobeItems, profile, recommendationSlots } = useApp();
+  const { wardrobeItems, loadAllWardrobeItems, profile, recommendationSlots } = useApp();
+  const loadStarted = useRef(false);
+  const [loadError, setLoadError] = useState(false);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+  useEffect(() => {
+    if (loadStarted.current) return;
+    loadStarted.current = true;
+    loadAllWardrobeItems().catch(() => setLoadError(true));
+  }, [loadAllWardrobeItems]);
+  const retryLoad = () => {
+    setLoadError(false);
+    loadAllWardrobeItems().catch(() => setLoadError(true));
+  };
 
   const diag = useMemo(
     () => computeDiagnostics(wardrobeItems, profile, recommendationSlots),
@@ -171,6 +182,11 @@ export default function DiagnosticsScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {loadError && (
+          <Pressable onPress={retryLoad} accessibilityRole="button" style={styles.loadError}>
+            <Text style={styles.loadErrorText}>Full wardrobe data could not be loaded. Tap to retry.</Text>
+          </Pressable>
+        )}
 
         <Animated.View entering={FadeInDown.delay(80).duration(500)}>
           <LinearGradient
@@ -335,6 +351,8 @@ export default function DiagnosticsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  loadError: { marginBottom: 12, padding: 10, backgroundColor: Colors.error + '12', borderRadius: 10 },
+  loadErrorText: { color: Colors.error, fontFamily: 'Inter_500Medium', fontSize: 12, textAlign: 'center' },
 
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

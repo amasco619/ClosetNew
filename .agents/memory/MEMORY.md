@@ -23,3 +23,4 @@
 - [Test-only npm installs](test-only-npm-installs.md) — package install callback saves npm packages as runtime deps; move test-only packages into devDependencies in both manifests.
 - [AI image consent storage](ai-consent-storage.md) — store preference in server-managed Auth app metadata; check fresh state before every provider-bound request, not client caches.
 - [Local PostgreSQL child-process startup](local-postgres-child-process.md) — redirect daemon output when starting disposable PostgreSQL from a test with captured child-process streams.
+- [Free wardrobe retained-row policy](free-wardrobe-retention-policy.md) — active-item admission is not a retained-row storage cap; changing that rule needs a separate product decision.

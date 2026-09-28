@@ -1,8 +1,8 @@
 /**
  * Confirms that a missing shrunk.base64 from ImageManipulator cannot silently
  * skip a bulk upload: when resize returns null/undefined base64 AND there is no
- * cleanBase64, resolveUploadArg returns null, the upload is skipped, but
- * addItem is still called with the original local URI.
+ * cleanBase64, resolveUploadArg returns null, the upload is skipped, and
+ * the authenticated item remains in review without a database commit.
  *
  * This guards against a regression where the item would simply be dropped from
  * the wardrobe save without any user-visible feedback, or be presented as a
@@ -97,8 +97,8 @@ function makeDeps(userId: string | null): DepsResult {
       if (s) return { base64: s, mimeType: 'image/jpeg' };
       return null;
     },
-    addItem: (payload) => {
-      addItemPayloads.push({ id: payload.id, photoUri: payload.photoUri });
+    addItems: async (payloads) => {
+      addItemPayloads.push(...payloads.map(payload => ({ id: payload.id, photoUri: payload.photoUri })));
     },
     setItems: (updater) => {
       const after = updater([{ uri: TEST_URI, status: 'pending', classification: null }]);
@@ -129,13 +129,12 @@ function makeDeps(userId: string | null): DepsResult {
 
 (async () => {
 
-  section('1. Missing shrunk.base64 + no cleanBase64 (authenticated): local-only and no navigation');
+  section('1. Missing shrunk.base64 + no cleanBase64 (authenticated): review-only and no commit');
   {
     // Scenario: ImageManipulator.resize() returns an object where .base64 is
     // undefined (e.g. manipulateAsync succeeded but base64 encoding was skipped).
     // resolveUploadArg(undefined, undefined) → null → upload is skipped.
-    // addItem must still be called with the original file:// URI so the item
-    // is not lost from the wardrobe.
+    // A local file URI must never be committed to the authenticated wardrobe.
     const d = makeDeps(TEST_USER_ID);
     const item = makeSaveItem({ cleanBase64: undefined });
     const mountedRef = { current: true };
@@ -150,10 +149,8 @@ function makeDeps(userId: string | null): DepsResult {
     d.resolveResize({ base64: undefined });
     await p;
 
-    assert(d.addItemCalls === 1,
-      'addItem IS called even when shrunk.base64 is undefined');
-    assert(d.addItemPayloads[0]?.photoUri === TEST_URI,
-      'addItem receives the original local URI as fallback');
+    assert(d.addItemCalls === 0,
+      'database batch is not called when authenticated upload source is absent');
     assert(!d.uploadCalled,
       'upload is NOT called when resolveUploadArg returns null');
     assert(!d.navigateCalled,
@@ -164,7 +161,7 @@ function makeDeps(userId: string | null): DepsResult {
       'local-only completion exposes an explicit recovery item');
   }
 
-  section('2. resize returns null entirely: addItem called with local URI');
+  section('2. resize returns null entirely: no file URI is committed');
   {
     // Scenario: ImageManipulator.manipulateAsync() returns null (crash path).
     const d = makeDeps(TEST_USER_ID);
@@ -180,10 +177,8 @@ function makeDeps(userId: string | null): DepsResult {
     d.resolveResize(null); // entire result is null
     await p;
 
-    assert(d.addItemCalls === 1,
-      'addItem IS called even when resize returns null');
-    assert(d.addItemPayloads[0]?.photoUri === TEST_URI,
-      'addItem receives the original local URI when resize is null');
+    assert(d.addItemCalls === 0,
+      'database batch is not called when resize returns null');
     assert(!d.uploadCalled,
       'upload NOT called when resize result is null');
     assert(!d.navigateCalled,
@@ -194,7 +189,7 @@ function makeDeps(userId: string | null): DepsResult {
 
   section('3. cleanBase64 present: upload proceeds normally (sanity check)');
   {
-    // Sanity: when cleanBase64 IS present, upload is called and addItem
+    // Sanity: when cleanBase64 IS present, upload is called and addItems
     // receives the cloud URI, not the local one.
     let uploadedUri: string | null = null;
     const item = makeSaveItem({ cleanBase64: 'abc123pngbase64' });
@@ -212,9 +207,9 @@ function makeDeps(userId: string | null): DepsResult {
       resolveUploadArg: (clean, _shrunk) => {
         return clean ? { base64: clean, mimeType: 'image/png' } : null;
       },
-      addItem: (payload) => {
-        assert(payload.photoUri === uploadedUri,
-          'addItem receives the cloud URI when upload succeeds');
+      addItems: async (payloads) => {
+        assert(payloads[0]?.photoUri === uploadedUri,
+          'addItems receives the cloud URI when upload succeeds');
       },
       setItems: (_updater) => {},
       setSaving: () => {},
@@ -252,10 +247,8 @@ function makeDeps(userId: string | null): DepsResult {
 
     assert(!d.uploadCalled,
       'upload NOT called when both cleanBase64 and shrunkBase64 are data: URIs');
-    assert(d.addItemCalls === 1,
-      'addItem still called (with local URI fallback) when upload arg is null');
-    assert(d.addItemPayloads[0]?.photoUri === TEST_URI,
-      'photoUri falls back to local URI when data: URI is rejected');
+    assert(d.addItemCalls === 0,
+      'database batch remains uncommitted when data URI is rejected');
     assert(!d.navigateCalled,
       'navigate is suppressed when data URI is rejected');
     assert(d.setItemsStatuses.includes('local-only'),

@@ -1,5 +1,5 @@
 import {
-  StyleSheet, Text, View, ScrollView, Pressable, Platform, Image,
+  StyleSheet, Text, View, ScrollView, Pressable, Platform, Image, ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { OccasionTag } from '@/constants/types';
 import { computeItemCpw, formatCpw, computeWardrobeDividends, DividendItem } from '@/constants/cpw';
 import { rs } from '../lib/responsive';
+import { useEffect, useState } from 'react';
 
 const FREE_LOG_DAYS = 7;
 
@@ -104,8 +105,31 @@ function DividendCard({ dividend }: { dividend: DividendItem }) {
 
 export default function WearLogScreen() {
   const insets = useSafeAreaInsets();
-  const { wearHistory, undoWear, wardrobeItems, isPremium, getItemWearCount } = useApp();
+  const { wearHistory, undoWear, wardrobeItems, wardrobeTotalCount, wardrobeHasMore, loadAllWardrobeItems, isPremium, getItemWearCount } = useApp();
+  const [wardrobeLoadError, setWardrobeLoadError] = useState(false);
+  const [wardrobeLoading, setWardrobeLoading] = useState(true);
+  const [loadRetry, setLoadRetry] = useState(0);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+  const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
+  useEffect(() => {
+    let active = true;
+    if (wardrobeDataComplete) {
+      setWardrobeLoading(false);
+      setWardrobeLoadError(false);
+      return () => { active = false; };
+    }
+    setWardrobeLoading(true);
+    setWardrobeLoadError(false);
+    loadAllWardrobeItems()
+      .catch(() => { if (active) setWardrobeLoadError(true); })
+      .finally(() => {
+        if (active) {
+          if (!wardrobeDataComplete) setWardrobeLoadError(true);
+          setWardrobeLoading(false);
+        }
+      });
+    return () => { active = false; };
+  }, [loadAllWardrobeItems, wardrobeDataComplete, wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
 
   const cutoff = (() => {
     if (isPremium) return null;
@@ -129,6 +153,38 @@ export default function WearLogScreen() {
     return entry.itemIds
       .map(id => wardrobeItems.find(w => w.id === id))
       .filter((w): w is WardrobeItem => Boolean(w));
+  }
+
+  if (!wardrobeDataComplete) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+        <StatusBar style="dark" />
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+            <Ionicons name="chevron-back" size={22} color={Colors.primary} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Wear Log</Text>
+            <Text style={styles.subtitle}>Loading outfit details…</Text>
+          </View>
+        </View>
+        {wardrobeLoading ? (
+          <View style={styles.wardrobeLoading}>
+            <ActivityIndicator color={Colors.secondary} size="large" />
+          </View>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => { setWardrobeLoadError(false); setLoadRetry(count => count + 1); }}
+            style={styles.wardrobeLoadError}
+          >
+            <Text style={styles.wardrobeLoadErrorText}>
+              {wardrobeLoadError ? 'Item details could not be loaded. Tap to retry.' : 'Full wardrobe details are not ready. Tap to retry.'}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+    );
   }
 
   return (
@@ -330,6 +386,9 @@ export default function WearLogScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  wardrobeLoadError: { marginHorizontal: 20, marginTop: 8, padding: 9, backgroundColor: Colors.error + '12', borderRadius: 10 },
+  wardrobeLoadErrorText: { color: Colors.error, fontFamily: 'Inter_500Medium', fontSize: 12, textAlign: 'center' },
+  wardrobeLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
 
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,

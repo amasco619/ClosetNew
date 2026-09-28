@@ -59,27 +59,144 @@ export async function insertWardrobeItem(item: {
   image_url?: string
   cleaned_image_url?: string
 }): Promise<{ id: string }> {
+  const { data, error } = await supabase.rpc('insert_wardrobe_item', { p_item: item })
+  if (error) throw normalizeWardrobeError(error, 'insertWardrobeItem')
+  if (typeof data !== 'string') throw new WardrobeDatabaseError('[insertWardrobeItem] RPC returned no item id', 'INVALID_RPC_RESULT')
+  return { id: data }
+}
+
+export type WardrobeItemInput = Parameters<typeof insertWardrobeItem>[0]
+
+export async function insertWardrobeItems(items: WardrobeItemInput[]): Promise<string[]> {
+  const { data, error } = await supabase.rpc('insert_wardrobe_items', { p_items: items })
+  if (error) throw normalizeWardrobeError(error, 'insertWardrobeItems')
+  if (!Array.isArray(data) || data.length !== items.length || data.some(id => typeof id !== 'string')) {
+    throw new WardrobeDatabaseError('[insertWardrobeItems] RPC returned invalid item ids', 'INVALID_RPC_RESULT')
+  }
+  return data
+}
+
+export class WardrobeCapacityError extends Error {
+  readonly code = 'WARDROBE_CAPACITY_REACHED'
+
+  constructor(message = 'Wardrobe capacity reached') {
+    super(message)
+    this.name = 'WardrobeCapacityError'
+  }
+}
+
+export class WardrobeDatabaseError extends Error {
+  constructor(
+    message: string,
+    readonly code?: string,
+  ) {
+    super(message)
+    this.name = 'WardrobeDatabaseError'
+  }
+}
+
+export interface WardrobeItemReplacementInput {
+  garment_type: string
+  sub_type: string
+  color_family: string
+  description?: string
+  occasion: string[]
+  image_url: string
+  cleaned_image_url?: string | null
+}
+
+export async function replaceWardrobeItem(
+  userId: string,
+  itemId: string,
+  replacement: WardrobeItemReplacementInput,
+): Promise<{ id: string }> {
+  const payload = {
+    garment_type: replacement.garment_type,
+    sub_type: replacement.sub_type,
+    color_family: replacement.color_family,
+    description: replacement.description ?? null,
+    occasion: replacement.occasion,
+    image_url: replacement.image_url,
+    cleaned_image_url: replacement.cleaned_image_url ?? null,
+  }
   const { data, error } = await supabase
     .from('wardrobe_items')
-    .insert(item)
+    .update(payload)
+    .eq('id', itemId)
+    .eq('user_id', userId)
     .select('id')
-    .single()
-  if (error) throw new Error(`[insertWardrobeItem] ${error.message}`)
-  const raw = await AsyncStorage.getItem('@amodka_item_ids')
-  const ids: string[] = raw ? JSON.parse(raw) : []
-  ids.push(data.id)
-  await AsyncStorage.setItem('@amodka_item_ids', JSON.stringify(ids))
+    .maybeSingle()
+  if (error) throw new WardrobeDatabaseError(`[replaceWardrobeItem] ${error.message}`, error.code)
+  if (!data || data.id !== itemId) {
+    throw new WardrobeDatabaseError('[replaceWardrobeItem] No owned wardrobe item was updated', 'ROW_NOT_UPDATED')
+  }
   return { id: data.id }
 }
 
-export async function getWardrobeItems(userId: string): Promise<any[]> {
+function normalizeWardrobeError(error: { code?: string; message?: string }, operation: string): Error {
+  if (error.code === 'P0001' && error.message?.includes('WARDROBE_CAPACITY_REACHED')) {
+    return new WardrobeCapacityError()
+  }
+  return new WardrobeDatabaseError(`[${operation}] ${error.message ?? 'Unknown database error'}`, error.code)
+}
+
+export const WARDROBE_PAGE_SIZE = 100
+export const WARDROBE_FREE_SELECTION_MAX = 30
+
+export async function getWardrobeItems(
+  userId: string,
+  offset = 0,
+): Promise<{ items: any[]; totalCount: number }> {
+  const [page, count] = await Promise.all([
+    supabase
+      .from('wardrobe_items')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(offset, offset + WARDROBE_PAGE_SIZE - 1),
+    supabase
+      .from('wardrobe_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId),
+  ])
+  if (page.error) throw new Error(`[getWardrobeItems] ${page.error.message}`)
+  if (count.error) throw new Error(`[getWardrobeItems] ${count.error.message}`)
+  return { items: page.data ?? [], totalCount: count.count ?? 0 }
+}
+
+export async function getFreeWardrobeSelection(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('wardrobe_free_selections')
+    .select('item_id')
+    .eq('user_id', userId)
+  if (error) throw new Error(`[getFreeWardrobeSelection] ${error.message}`)
+  return (data ?? []).map((row: { item_id: string }) => row.item_id)
+}
+
+export async function getSelectedWardrobeItems(userId: string, itemIds: string[]): Promise<any[]> {
+  const ids = [...new Set(itemIds)]
+  if (ids.length > WARDROBE_FREE_SELECTION_MAX) {
+    throw new WardrobeDatabaseError(
+      `[getSelectedWardrobeItems] Selection exceeds ${WARDROBE_FREE_SELECTION_MAX} item IDs`,
+      'SELECTION_TOO_LARGE',
+    )
+  }
+  if (ids.length === 0) return []
   const { data, error } = await supabase
     .from('wardrobe_items')
     .select('*')
     .eq('user_id', userId)
+    .in('id', ids)
     .order('created_at', { ascending: false })
-  if (error) throw new Error(`[getWardrobeItems] ${error.message}`)
+    .order('id', { ascending: false })
+  if (error) throw new Error(`[getSelectedWardrobeItems] ${error.message}`)
   return data ?? []
+}
+
+export async function setFreeWardrobeSelection(ids: string[]): Promise<void> {
+  const { error } = await supabase.rpc('set_free_wardrobe_selection', { p_ids: ids })
+  if (error) throw normalizeWardrobeError(error, 'setFreeWardrobeSelection')
 }
 
 export async function deleteWardrobeItem(userId: string, itemId: string): Promise<void> {

@@ -48,6 +48,7 @@ function RootLayoutNav() {
       <Stack.Screen name="bulk-review" options={{ headerShown: false, gestureEnabled: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="premium" options={{ headerShown: false, ...MODAL_OPTIONS }} />
       <Stack.Screen name="item-detail" options={{ headerShown: false, ...MODAL_OPTIONS }} />
+      <Stack.Screen name="choose-30" options={{ headerShown: false, ...MODAL_OPTIONS }} />
       <Stack.Screen name="outfit-ideas" options={{ headerShown: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="forgot-password" options={{ headerShown: false, ...FADE_OPTIONS }} />

@@ -31,10 +31,7 @@ import {
   runClassifyUri,
   runRedirectSingle,
   runSaveAll,
-  runAutoPersistItem,
   runHandleRemove,
-  applyAutoSavedEdits,
-  selectAutoPersistCandidates,
   type ClassifyResult,
   type ClassifyDeps,
 } from '@/lib/bulkClassifyCore';
@@ -70,8 +67,6 @@ type ItemStatus =
   | 'pending'
   | 'classifying'
   | 'settled'
-  | 'auto-saving'
-  | 'auto-saved'
   | 'saving'
   | 'saved'
   | 'local-only'
@@ -84,7 +79,6 @@ interface BulkItem {
   cleanBase64?: string;
   status: ItemStatus;
   classification: ClassifyResult | null;
-  autoSavedId?: string;
 }
 
 // ─── Type guards (mirrors add-item.tsx) ──────────────────────────────────────
@@ -146,10 +140,8 @@ function BulkCard({
   onPress?: () => void;
 }) {
   const isActive     = item.status === 'pending' || item.status === 'classifying';
-  const isAutoSaving = item.status === 'auto-saving';
-  const isAutoSaved  = item.status === 'auto-saved';
   const isLocalOnly  = item.status === 'local-only';
-  const isSettled    = item.status === 'settled' || isAutoSaving || isAutoSaved || item.status === 'saving' || item.status === 'saved' || isLocalOnly;
+  const isSettled    = item.status === 'settled' || item.status === 'saving' || item.status === 'saved' || isLocalOnly;
   const isSaved      = item.status === 'saved';
   const isSaving     = item.status === 'saving';
   const isError      = item.status === 'error';
@@ -204,17 +196,6 @@ function BulkCard({
           >
             <Ionicons name="checkmark-circle" size={28} color={Colors.white} />
             <Text style={styles.savedOverlayLabel}>Saved</Text>
-          </Animated.View>
-        )}
-
-        {isAutoSaved && (
-          <Animated.View
-            entering={FadeInDown.duration(220)}
-            style={[StyleSheet.absoluteFill, styles.autoSavedOverlay]}
-            pointerEvents="none"
-          >
-            <Ionicons name="checkmark-circle" size={20} color={Colors.secondary} />
-            <Text style={styles.autoSavedOverlayLabel}>Saved</Text>
           </Animated.View>
         )}
 
@@ -288,7 +269,7 @@ function BulkCard({
 
 export default function BulkReviewScreen() {
   const insets = useSafeAreaInsets();
-  const { addWardrobeItem, updateWardrobeItem, removeWardrobeItem, isPremium } = useApp();
+  const { addWardrobeItems, removeWardrobeItem, isPremium } = useApp();
 
   const { uris: urisParam } = useLocalSearchParams<{ uris: string }>();
   const uris = useMemo<string[]>(() => {
@@ -399,11 +380,6 @@ export default function BulkReviewScreen() {
   const singleRedirectedRef = useRef(false);
   const mountedRef = useRef(true);
   const savingRef = useRef(false);
-  // Tracks URIs that have had auto-persist attempted so we don't re-fire.
-  const autoPersistAttemptedRef = useRef<Set<string>>(new Set());
-  // Tracks URIs whose auto-persist upload is currently in flight.
-  // handleSaveAll excludes these from toSave to prevent duplicate wardrobe entries.
-  const autoPersistInFlightRef  = useRef<Set<string>>(new Set());
   // Stable items snapshot for callbacks that can't take items as a dep.
   const itemsRef = useRef<BulkItem[]>([]);
   useEffect(() => { itemsRef.current = items; }, [items]);
@@ -429,13 +405,9 @@ export default function BulkReviewScreen() {
       router.back();
       return;
     }
-    const hasAutoSaved = items.some(it => it.status === 'auto-saved');
-    const dialogBody = hasAutoSaved
-      ? 'Some items have already been saved to your wardrobe. Any items still analysing will be discarded.'
-      : 'AI analysis is still running. Leaving now will discard all pending results and you will need to re-upload the photos.';
     Alert.alert(
       'Cancel batch review?',
-      dialogBody,
+      'AI analysis is still running. Leaving now will discard all pending results and you will need to re-upload the photos.',
       [
         { text: 'Keep waiting', style: 'cancel' },
         {
@@ -533,101 +505,6 @@ export default function BulkReviewScreen() {
     return () => clearInterval(id);
   }, [items]);
 
-  // Auto-persist: when an item settles with a clean BG-removed image and the user is
-  // authenticated, immediately upload + addWardrobeItem and flip status to 'auto-saved'.
-  // Disabled for single-item mode (uris.length === 1) because that path immediately
-  // redirects to add-item; auto-persisting there would create a duplicate wardrobe entry.
-  // autoPersistAttemptedRef guards against re-firing on subsequent renders.
-  // Core pipeline is extracted to lib/bulkClassifyCore.runAutoPersistItem (tested directly).
-  useEffect(() => {
-    if (uris.length <= 1) return;
-    const itemsToAutoSave = selectAutoPersistCandidates(items, autoPersistAttemptedRef.current);
-    if (itemsToAutoSave.length === 0) return;
-
-    // Batch-flip all qualifying items to 'auto-saving' before launching async work.
-    // This makes the in-flight state visible to React so the CTA lock fires immediately.
-    const urisToAutoSave = itemsToAutoSave.map(it => it.uri);
-    setItems(prev => prev.map(it =>
-      urisToAutoSave.includes(it.uri) && it.status === 'settled'
-        ? { ...it, status: 'auto-saving' }
-        : it
-    ));
-
-    for (const item of itemsToAutoSave) {
-      autoPersistAttemptedRef.current.add(item.uri);
-      autoPersistInFlightRef.current.add(item.uri);
-      const captured = item;
-
-      void runAutoPersistItem(
-        { uri: captured.uri, cleanBase64: captured.cleanBase64!, classification: captured.classification! },
-        mountedRef,
-        itemsRef,
-        {
-          generateId: () => Crypto.randomUUID(),
-          getSession: async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            return session?.user?.id ?? null;
-          },
-          resolveUploadArg: (cleanBase64) => resolveWardrobeUploadArg(cleanBase64, undefined),
-          upload: async (userId, base64, itemId, mimeType) => {
-            const { signedUrl } = await uploadWardrobeImage(userId, base64, itemId, mimeType as 'image/jpeg' | 'image/png');
-            return signedUrl;
-          },
-          addItem: ({ id: itemId, photoUri: finalUri, classification: c, storagePath }) => {
-            addWardrobeItem({
-              id: itemId,
-              photoUri:        finalUri,
-              storagePath,
-              category:        c.category,
-              subType:         c.subType      || 'top',
-              colorFamily:     c.colorFamily  || 'black',
-              description:     c.description  || undefined,
-              occasionTags:    c.occasionTags,
-              seasonTags:      c.seasonTags.length ? c.seasonTags : ['all-season'],
-              formalityLevel:  SUBTYPE_FORMALITY[c.subType] ?? 5,
-              pattern:         asPattern(c.pattern),
-              patternScale:    asPatternScale(c.patternScale),
-              fabric:          asFabric(c.fabric),
-              weight:          asWeight(c.weight),
-              fit:             asFit(c.fit),
-              neckline:        asNeckline(c.neckline),
-              sleeveLength:    asSleeve(c.sleeveLength),
-              rise:            asRise(c.rise),
-              warmthBand:      asWarmth(c.warmthBand),
-              dominantHsl:     c.dominantHsl,
-              dominantLab:     c.dominantLab,
-              accentColor:     c.accentColor,
-              modelConfidence: c.modelConfidence,
-            });
-          },
-          setItems: (updater) => setItems(prev => updater(prev) as BulkItem[]),
-          onHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
-          onFailure: () => {
-            if (mountedRef.current) {
-              Alert.alert(
-                'Auto-save paused',
-                'This item is ready to save. Review it and tap Save to retry.',
-              );
-            }
-          },
-        },
-      ).catch(() => {
-        // Keep the promise observed even if a dependency escapes the core
-        // guard. The core normally reverts to settled; this is a final
-        // navigation-safe unlock against an unhandled rejection.
-        if (mountedRef.current) {
-          setItems(prev => prev.map(it =>
-            it.uri === captured.uri && it.status === 'auto-saving'
-              ? { ...it, status: 'settled' }
-              : it,
-          ));
-        }
-      }).finally(() => {
-        autoPersistInFlightRef.current.delete(captured.uri);
-      });
-    }
-  }, [items, addWardrobeItem]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Classify one URI: resize → background removal → POST /api/classify-garment → settle card.
   // Core guard logic lives in lib/bulkClassifyCore.runClassifyUri (tested directly in Node).
   const classifyUri = useCallback(async (uri: string) => {
@@ -691,67 +568,26 @@ export default function BulkReviewScreen() {
     ));
   }, []);
 
-  // Save all settled items to wardrobe sequentially.
+  // Save all settled items in one atomic wardrobe batch.
   // savingRef is checked synchronously so a rapid second tap cannot slip
   // through the gap before the first call's setSaving(true) completes a
   // React render cycle.  The state guard is kept as a belt-and-suspenders
   // check; the ref is the primary race-condition lock.
-  const handleSaveAll = async () => {
+  const saveAllConfirmed = async () => {
     if (savingRef.current) return;
     savingRef.current = true;
     if (saving) { savingRef.current = false; return; }
 
-    // Items already auto-persisted: apply any edits from the BulkItemEditPanel.
-    const autoSavedItems = items.filter(
-      it => it.status === 'auto-saved' && it.autoSavedId != null && it.classification != null
-    );
     const toSave = items
       .filter(it =>
-        it.status === 'settled' &&
-        it.classification != null &&
-        // Skip items whose auto-persist is currently in flight to prevent
-        // duplicate wardrobe entries (they'll flip to 'auto-saved' shortly).
-        !autoPersistInFlightRef.current.has(it.uri)
+        (it.status === 'settled' || it.status === 'local-only') &&
+        it.classification != null
       )
       .map(it => ({ uri: it.uri, cleanBase64: it.cleanBase64, classification: it.classification! }));
 
-    if (toSave.length === 0 && autoSavedItems.length === 0) { savingRef.current = false; return; }
-
-    // Apply any classification edits to already-persisted items (sync, instant).
-    applyAutoSavedEdits(
-      autoSavedItems.map(it => ({ autoSavedId: it.autoSavedId!, classification: it.classification! })),
-      {
-        updateItem: (id, c) => {
-          updateWardrobeItem(id, {
-            category:      c.category,
-            subType:       c.subType      || 'top',
-            colorFamily:   c.colorFamily  || 'black',
-            description:   c.description  || undefined,
-            occasionTags:  c.occasionTags,
-            seasonTags:    c.seasonTags.length ? c.seasonTags : ['all-season'],
-            formalityLevel: SUBTYPE_FORMALITY[c.subType] ?? 5,
-            pattern:       asPattern(c.pattern),
-            patternScale:  asPatternScale(c.patternScale),
-            fabric:        asFabric(c.fabric),
-            weight:        asWeight(c.weight),
-            fit:           asFit(c.fit),
-            neckline:      asNeckline(c.neckline),
-            sleeveLength:  asSleeve(c.sleeveLength),
-            rise:          asRise(c.rise),
-            warmthBand:    asWarmth(c.warmthBand),
-            dominantHsl:     c.dominantHsl,
-            dominantLab:     c.dominantLab,
-            accentColor:     c.accentColor,
-            modelConfidence: c.modelConfidence,
-          });
-        },
-      },
-    );
-
-    if (toSave.length > 0) {
-      // Normal upload + add path for items that weren't auto-persisted.
-      try {
-        await runSaveAll(toSave, mountedRef, {
+    if (toSave.length === 0) { savingRef.current = false; return; }
+    try {
+      await runSaveAll(toSave, mountedRef, {
           generateId: () => Crypto.randomUUID(),
           getSession: async () => {
             const { data: { session } } = await supabase.auth.getSession();
@@ -771,8 +607,7 @@ export default function BulkReviewScreen() {
           },
           resolveUploadArg: (cleanBase64, shrunkBase64) =>
             resolveWardrobeUploadArg(cleanBase64, shrunkBase64),
-          addItem: ({ id: itemId, photoUri: finalUri, classification: c, storagePath }) => {
-            addWardrobeItem({
+          addItems: (payloads) => addWardrobeItems(payloads.map(({ id: itemId, photoUri: finalUri, classification: c, storagePath }) => ({
               id: itemId,
               photoUri:        finalUri,
               storagePath,
@@ -796,37 +631,51 @@ export default function BulkReviewScreen() {
               dominantLab:     c.dominantLab,
               accentColor:     c.accentColor,
               modelConfidence: c.modelConfidence,
-            });
-          },
+            }))),
           setItems: (updater) => setItems(prev => updater(prev) as BulkItem[]),
           setSaving,
           onItemHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
-          onUploadFallback: (uri) => {
-            if (!mountedRef.current) return;
-            setItems(prev => prev.map(it =>
-              it.uri === uri ? { ...it, status: 'local-only' } : it,
-            ));
-          },
           onLocalOnlyComplete: (uris) => {
             if (!mountedRef.current) return;
             Alert.alert(
               'Upload pending',
-              `${uris.length === 1 ? 'This item is' : 'These items are'} saved on this device, but cloud image upload did not complete. The existing recovery path will retry the upload when the app is reopened.`,
-              [{ text: 'Keep local copy', style: 'cancel' }],
+              `${uris.length === 1 ? 'This item remains' : 'These items remain'} in review because cloud upload did not complete. Nothing from this batch was saved; check your connection and retry.`,
+              [{ text: 'Keep reviewing', style: 'cancel' }],
             );
+          },
+          onSaveError: (error) => {
+            if (!mountedRef.current) return;
+            const code = (error as { code?: string })?.code;
+            if (code === 'WARDROBE_CAPACITY_REACHED') {
+              Alert.alert(
+                'Wardrobe is full',
+                'Choose which 30 items to keep in your free wardrobe, then try saving again.',
+                [
+                  { text: 'Keep reviewing', style: 'cancel' },
+                  { text: 'Choose your 30', onPress: () => router.push('/choose-30') },
+                ],
+              );
+            } else {
+              Alert.alert('Could not save these items', 'Nothing from this batch was added. Check your connection and try again.');
+            }
           },
           onDoneHaptic: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
           navigate: () => router.navigate('/(tabs)/wardrobe'),
         });
-      } finally {
-        savingRef.current = false;
-      }
-    } else {
-      // All items were already auto-persisted — navigate directly.
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (mountedRef.current) router.navigate('/(tabs)/wardrobe');
+    } finally {
       savingRef.current = false;
     }
+  };
+  const handleSaveAll = () => {
+    if (savingRef.current || saving) return;
+    Alert.alert(
+      'Save all reviewed items?',
+      'All reviewed items will be added to your wardrobe together.',
+      [
+        { text: 'Keep reviewing', style: 'cancel' },
+        { text: 'Save all', onPress: () => { void saveAllConfirmed(); } },
+      ],
+    );
   };
 
   // Derived values
@@ -834,7 +683,7 @@ export default function BulkReviewScreen() {
   // editableItems: items the carousel can actually display/edit (have a classification).
   // pending/classifying/error items are never navigable within the panel.
   const editableItems   = visibleItems.filter(it =>
-    it.status === 'settled' || it.status === 'auto-saving' || it.status === 'auto-saved' || it.status === 'saving' || it.status === 'saved'
+    it.status === 'settled' || it.status === 'saving' || it.status === 'saved' || it.status === 'local-only'
   );
   // Derive a stable integer index from the URI so the panel never drifts to
   // the wrong garment when new items settle and editableItems grows/reorders.
@@ -846,33 +695,26 @@ export default function BulkReviewScreen() {
     ? visibleItems.findIndex(it => it.uri === editingUri) + 1
     : 1;
   const displayTotal    = visibleItems.length;
-  const settledCount    = items.filter(it => it.status === 'settled').length;
-  const autoSavedCount  = items.filter(it => it.status === 'auto-saved').length;
+  const settledCount    = items.filter(it => it.status === 'settled' || it.status === 'local-only').length;
+  const localOnlyCount  = items.filter(it => it.status === 'local-only').length;
   const classifiedCount = items.filter(it =>
-    ['settled','auto-saving','auto-saved','saving','saved','local-only','error'].includes(it.status)
+    ['settled','saving','saved','local-only','error'].includes(it.status)
   ).length;
   const totalCount      = visibleItems.length;
   const progressRatio   = totalCount > 0 ? classifiedCount / totalCount : 0;
-  // Lock the CTA while any item is still pending/classifying OR uploading via
-  // auto-persist, so the user cannot navigate away and abandon in-flight work.
+  // Lock the CTA while any item is still pending/classifying.
   const hasClassifying  = aiPreference === 'allowed' && items.some(it => it.status === 'pending' || it.status === 'classifying');
-  const hasAutoSaving   = items.some(it => it.status === 'auto-saving');
-  const hasActive       = hasClassifying || hasAutoSaving;
-  const canSaveAll      = (settledCount + autoSavedCount) > 0 && !saving && !hasActive;
+  const canSaveAll      = settledCount > 0 && !saving && !hasClassifying;
 
   const saveBtnLabel = saving
     ? 'Saving...'
     : hasClassifying
       ? 'Analysing items...'
-      : hasAutoSaving
-        ? 'Saving items...'
-        : settledCount === 0 && autoSavedCount > 0
-          ? 'Update wardrobe'
-          : settledCount > 0 && autoSavedCount > 0
-            ? `Save ${settledCount} + update wardrobe`
-            : settledCount > 0
-              ? `Save ${settledCount} Item${settledCount !== 1 ? 's' : ''} to Wardrobe`
-              : 'Saving items...';
+      : localOnlyCount > 0
+        ? `Retry save for ${settledCount} Item${settledCount !== 1 ? 's' : ''}`
+        : settledCount > 0
+        ? `Save ${settledCount} Item${settledCount !== 1 ? 's' : ''} to Wardrobe`
+        : 'Saving items...';
 
   return (
     <View style={[
@@ -1008,9 +850,8 @@ export default function BulkReviewScreen() {
             onRemove={handleRemove}
             onRetry={handleRetry}
             onPress={() => {
-              // Only settled/auto-saved/saving/saved items are editable; guard by status.
+              // Only settled/saving/saved items are editable; guard by status.
               const isEditable = item.status === 'settled'
-                || item.status === 'auto-saved'
                 || item.status === 'saving'
                 || item.status === 'saved';
               if (!isEditable) return;
@@ -1153,15 +994,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
-  autoSavedOverlay: {
-    backgroundColor: 'rgba(208, 184, 146, 0.12)',
-    alignItems: 'center', justifyContent: 'center', gap: 3,
-    borderWidth: 1.5, borderColor: Colors.secondary + '55',
-  },
-  autoSavedOverlayLabel: {
-    fontFamily: 'Inter_500Medium', fontSize: rs(11),
-    color: Colors.secondary, letterSpacing: 0.3,
-  },
   localOnlyOverlay: {
     alignItems: 'center',
     justifyContent: 'center',

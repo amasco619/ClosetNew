@@ -217,8 +217,8 @@ export interface SaveAllDeps {
     cleanBase64: string | undefined,
     shrunkBase64: string | undefined,
   ): { base64: string; mimeType: string } | null;
-  /** Persist one item to the wardrobe store. */
-  addItem(payload: BulkSavePayload): void;
+  /** Persist the complete batch atomically after all uploads have settled. */
+  addItems(payloads: BulkSavePayload[]): Promise<void>;
   /** Updater for the items state array. */
   setItems(updater: (prev: BulkItemCore[]) => BulkItemCore[]): void;
   /** Set the saving spinner flag. */
@@ -227,8 +227,10 @@ export interface SaveAllDeps {
   onItemHaptic(): void;
   /** Surface an authenticated upload fallback as local-only/pending. */
   onUploadFallback?(uri: string): void;
-  /** Called after local-only items are persisted; caller must keep review visible. */
+  /** Called when authenticated uploads fail; no batch commit occurs and review must remain visible. */
   onLocalOnlyComplete?(uris: string[]): void;
+  /** Surface a failed atomic wardrobe commit; caller must keep review visible. */
+  onSaveError?(error: unknown): void;
   /** Success haptic after all items are saved. */
   onDoneHaptic(): void;
   /** Navigate away once the save loop finishes. */
@@ -253,18 +255,23 @@ export async function runSaveAll(
   let userId: string | null;
   try {
     userId = await deps.getSession();
-  } catch {
+  } catch (error) {
     if (mountedRef.current) {
       deps.setItems(prev => prev.map(it =>
         toSave.some(item => item.uri === it.uri && it.classification)
-          ? { ...it, status: 'error' }
+          ? { ...it, status: 'settled' }
           : it,
       ));
       deps.setSaving(false);
+      deps.onSaveError?.(error);
     }
     return;
   }
   if (!mountedRef.current) return;
+
+  const payloads: BulkSavePayload[] = [];
+  const payloadUris: string[] = [];
+  let preparationFailed = false;
 
   for (const item of toSave) {
     if (!mountedRef.current) break;
@@ -294,32 +301,35 @@ export async function runSaveAll(
             itemStoragePath = `${userId}/${itemId}.${ext}`;
             finalUri = await deps.upload(userId, uploadArg.base64, itemId, uploadArg.mimeType);
             if (!mountedRef.current) return;
+            if (/^(file|content):\/\//i.test(finalUri)) {
+              throw new Error('Authenticated wardrobe upload returned a device-local URI.');
+            }
           } else {
             // An authenticated item without an upload source is not a
             // successful cloud save. Preserve the local fallback, but make
             // the outcome explicit and block automatic navigation.
             uploadFailed = true;
-            localOnlyUris.push(item.uri);
             deps.onUploadFallback?.(item.uri);
           }
         } catch {
           // Upload failed — fall back to local URI; storagePath stays undefined
           itemStoragePath = undefined;
           uploadFailed = true;
-          localOnlyUris.push(item.uri);
           deps.onUploadFallback?.(item.uri);
         }
       }
 
       if (!mountedRef.current) break;
-      deps.addItem({ id: itemId, photoUri: finalUri, classification: item.classification, storagePath: itemStoragePath });
-      deps.setItems(prev =>
-        prev.map(it => it.uri === item.uri
-          ? { ...it, status: uploadFailed ? 'local-only' : 'saved' }
-          : it),
-      );
-      deps.onItemHaptic();
+      payloads.push({
+        id: itemId,
+        photoUri: finalUri,
+        classification: item.classification,
+        storagePath: itemStoragePath,
+      });
+      payloadUris.push(item.uri);
+      if (uploadFailed) localOnlyUris.push(item.uri);
     } catch {
+      preparationFailed = true;
       if (mountedRef.current) {
         deps.setItems(prev =>
           prev.map(it => it.uri === item.uri ? { ...it, status: 'error' } : it),
@@ -329,6 +339,47 @@ export async function runSaveAll(
   }
 
   if (!mountedRef.current) return;
+  if (preparationFailed || payloads.length !== toSave.length) {
+    deps.setItems(prev => prev.map(it =>
+      toSave.some(item => item.uri === it.uri)
+        ? { ...it, status: 'settled' }
+        : it,
+    ));
+    deps.setSaving(false);
+    deps.onSaveError?.(new Error('The batch could not be prepared for saving.'));
+    return;
+  }
+  if (userId && localOnlyUris.length > 0) {
+    deps.setItems(prev => prev.map(it => !payloadUris.includes(it.uri)
+      ? it
+      : { ...it, status: localOnlyUris.includes(it.uri) ? 'local-only' : 'settled' },
+    ));
+    deps.setSaving(false);
+    deps.onLocalOnlyComplete?.(localOnlyUris);
+    return;
+  }
+  if (payloads.length > 0) {
+    try {
+      await deps.addItems(payloads);
+    } catch (error) {
+      if (mountedRef.current) {
+        deps.setItems(prev => prev.map(it =>
+          toSave.some(item => item.uri === it.uri)
+            ? { ...it, status: 'settled' }
+            : it,
+        ));
+        deps.setSaving(false);
+        deps.onSaveError?.(error);
+      }
+      return;
+    }
+    if (!mountedRef.current) return;
+    deps.setItems(prev => prev.map(it => !payloadUris.includes(it.uri)
+      ? it
+      : { ...it, status: localOnlyUris.includes(it.uri) ? 'local-only' : 'saved' },
+    ));
+    payloads.forEach(() => deps.onItemHaptic());
+  }
   deps.setSaving(false);
   if (localOnlyUris.length > 0) {
     deps.onLocalOnlyComplete?.(localOnlyUris);

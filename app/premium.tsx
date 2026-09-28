@@ -11,7 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { rs } from '../lib/responsive';
 
 const FEATURES = [
-  { icon: 'infinite-outline', title: 'Unlimited Wardrobe', desc: 'No 30-item cap. Add every piece you own.' },
+  { icon: 'infinite-outline', title: 'Full Wardrobe', desc: 'Use every piece you own, with no 30-item limit.' },
   { icon: 'map-outline', title: 'Wardrobe Blueprint', desc: 'See exactly what pieces you need to build a complete wardrobe.' },
   { icon: 'sparkles-outline', title: 'Mood Styling', desc: 'Set your mood each day — Confident, Soft, Powerful — and get outfits that match how you want to feel.' },
   { icon: 'calendar-outline', title: 'Wear Log', desc: 'Track every outfit you wear, review your full history, and discover your cost-per-wear.' },

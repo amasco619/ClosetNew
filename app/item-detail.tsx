@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { StyleSheet, Text, View, Pressable, Platform, Alert, TextInput, ScrollView } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, Pressable, Platform, Alert, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import SwipeToDismiss from '@/components/SwipeToDismiss';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,9 +33,22 @@ function formatCPW(price: number, wears: number): string {
 export default function ItemDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { wardrobeItems, removeWardrobeItem, getItemWearCount, updateWardrobeItem } = useApp();
+  const { wardrobeItems, loadAllWardrobeItems, removeWardrobeItem, getItemWearCount, updateWardrobeItem } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const item = wardrobeItems.find(i => i.id === id);
+  const lookupAttempted = useRef<string | undefined>(undefined);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState(false);
+
+  useEffect(() => {
+    if (item || !id || lookupAttempted.current === id) return;
+    lookupAttempted.current = id;
+    setLookupLoading(true);
+    setLookupError(false);
+    loadAllWardrobeItems()
+      .catch(() => setLookupError(true))
+      .finally(() => setLookupLoading(false));
+  }, [id, item, loadAllWardrobeItems]);
 
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceInput, setPriceInput] = useState('');
@@ -52,8 +65,31 @@ export default function ItemDetailScreen() {
           </Pressable>
         </View>
         <View style={styles.emptyState}>
-          <Ionicons name="alert-circle-outline" size={48} color={Colors.textLight} />
-          <Text style={styles.emptyText}>Item not found</Text>
+          {lookupLoading ? (
+            <ActivityIndicator size="large" color={Colors.secondary} />
+          ) : lookupError ? (
+            <>
+              <Ionicons name="cloud-offline-outline" size={42} color={Colors.textLight} />
+              <Text style={styles.emptyText}>Item details could not be loaded</Text>
+              <Pressable
+                style={styles.retryLookup}
+                onPress={() => {
+                  setLookupError(false);
+                  setLookupLoading(true);
+                  loadAllWardrobeItems()
+                    .catch(() => setLookupError(true))
+                    .finally(() => setLookupLoading(false));
+                }}
+              >
+                <Text style={styles.retryLookupText}>Try again</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Ionicons name="alert-circle-outline" size={48} color={Colors.textLight} />
+              <Text style={styles.emptyText}>Item not found</Text>
+            </>
+          )}
         </View>
       </View>
     );
@@ -342,6 +378,8 @@ const styles = StyleSheet.create({
   tagText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.sage, textTransform: 'capitalize' },
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { fontFamily: 'Inter_500Medium', fontSize: rs(16), color: Colors.textSecondary, marginTop: 12 },
+  retryLookup: { marginTop: 14, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, backgroundColor: Colors.primary },
+  retryLookupText: { color: Colors.white, fontFamily: 'Inter_600SemiBold', fontSize: 13 },
 
   statsCard: {
     flexDirection: 'row', backgroundColor: Colors.white, borderRadius: 16,

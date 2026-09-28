@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, Pressable, Platform, Image, Modal } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, Platform, Image, Modal, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -46,13 +46,31 @@ const LIFESTYLE_ICON: Record<string, React.ComponentProps<typeof Ionicons>['name
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const {
-    profile, wardrobeItems, activeWardrobeItems, outfitSets, isPremium, canAddItem,
+    profile, wardrobeItems, activeWardrobeItems, wardrobeTotalCount, wardrobeHasMore, loadAllWardrobeItems, outfitSets, isPremium, canAddItem,
     starterRecommendations, lifestyleSlotGroups, recommendationSlots, todaysWear, wearHistory,
     reactToOutfit, getOutfitReaction, logWear, undoWear, isWornToday,
     weather, weatherLoading, isGuest,
     orphanedItems, resolveOrphan,
     affinitySignalCount, affinityActive,
   } = useApp();
+  const [wardrobeLoadError, setWardrobeLoadError] = useState(false);
+  const [loadingStyles, setLoadingStyles] = useState(false);
+  const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
+  useEffect(() => {
+    if (wardrobeDataComplete) setWardrobeLoadError(false);
+  }, [wardrobeDataComplete]);
+  const handleLoadStyles = async () => {
+    if (loadingStyles) return;
+    setLoadingStyles(true);
+    setWardrobeLoadError(false);
+    try {
+      await loadAllWardrobeItems();
+    } catch {
+      setWardrobeLoadError(true);
+    } finally {
+      setLoadingStyles(false);
+    }
+  };
   // Resolve the temperature unit: user override, or auto-detect from locale.
   const effectiveTempUnit = profile.tempUnit ?? defaultTempUnit();
 
@@ -85,14 +103,14 @@ export default function HomeScreen() {
 
   // A "ready" outfit requires all pieces to be owned AND a complete core:
   // (dress OR top+bottom) AND shoes together.
-  const readyOutfitsList = useMemo(() => outfitSets.filter(o => {
+  const readyOutfitsList = useMemo(() => !wardrobeDataComplete ? [] : outfitSets.filter(o => {
     if (!o.components.every(c => c.owned)) return false;
     const hasDress  = o.components.some(c => c.category === 'dress');
     const hasTop    = o.components.some(c => c.category === 'top');
     const hasBottom = o.components.some(c => c.category === 'bottom');
     const hasShoes  = o.components.some(c => c.category === 'shoes');
     return (hasDress || (hasTop && hasBottom)) && hasShoes;
-  }), [outfitSets]);
+  }), [outfitSets, wardrobeDataComplete]);
   const readyOutfits = readyOutfitsList.length;
   // Surface one "Today's Pick" — the highest-confidence ready outfit — so the
   // calibration loop can collect signals straight from the dashboard.
@@ -269,31 +287,67 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
+        {!wardrobeDataComplete && (
+          <View style={styles.wardrobeLoadNotice}>
+            <Text style={styles.wardrobeLoadTitle}>Full style results need your whole wardrobe</Text>
+            <Text style={styles.wardrobeLoadNoticeText}>
+              Open Outfits to calculate all looks, or load every style here when you’re ready.
+            </Text>
+            {wardrobeLoadError && (
+              <Text accessibilityRole="alert" style={styles.wardrobeLoadErrorText}>
+                The full wardrobe could not be loaded. Please try again.
+              </Text>
+            )}
+            <View style={styles.wardrobeLoadActions}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={loadingStyles}
+                onPress={() => { void handleLoadStyles(); }}
+                style={styles.loadStylesButton}
+              >
+                {loadingStyles
+                  ? <ActivityIndicator size="small" color={Colors.white} />
+                  : <Text style={styles.loadStylesButtonText}>{wardrobeLoadError ? 'Retry loading styles' : 'Load styles'}</Text>}
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/(tabs)/outfits')}
+                style={styles.openOutfitsButton}
+              >
+                <Text style={styles.openOutfitsButtonText}>Open Outfits</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
         <Animated.View entering={FadeInDown.delay(120).duration(280)} style={styles.statsRow}>
           <Pressable
             style={({ pressed }) => [styles.statCard, pressed && styles.cardPressed]}
             onPress={() => { Haptics.selectionAsync(); router.push('/(tabs)/wardrobe'); }}
           >
-            <Text style={styles.statNumber}>{activeWardrobeItems.length}</Text>
+            <Text style={styles.statNumber}>{wardrobeDataComplete ? activeWardrobeItems.length : '—'}</Text>
+            {wardrobeDataComplete && wardrobeTotalCount > activeWardrobeItems.length && (
+              <Text style={styles.statLabel}>of {wardrobeTotalCount} total</Text>
+            )}
             <Text style={styles.statLabel}>Items</Text>
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.statCard, pressed && styles.cardPressed]}
             onPress={() => { Haptics.selectionAsync(); router.push('/(tabs)/outfits'); }}
           >
-            <Text style={styles.statNumber}>{readyOutfits}</Text>
+            <Text style={styles.statNumber}>{wardrobeDataComplete ? readyOutfits : '—'}</Text>
             <Text style={styles.statLabel}>Ready Outfits</Text>
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.statCard, pressed && styles.cardPressed]}
             onPress={() => { Haptics.selectionAsync(); router.push('/outfit-ideas'); }}
           >
-            <Text style={styles.statNumber}>{outfitIdeas}</Text>
+            <Text style={styles.statNumber}>{wardrobeDataComplete ? outfitIdeas : '—'}</Text>
             <Text style={styles.statLabel}>Outfit Ideas</Text>
           </Pressable>
         </Animated.View>
 
-        {(() => {
+        {wardrobeDataComplete && (() => {
           // Only surface a gap card AFTER the engine has found no valid outfit.
           // Then diagnose whether the failure is likely weather-capability related.
           const condition = diagnoseWeatherGap(
@@ -382,7 +436,7 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        {readyOutfits > 0 && (
+        {wardrobeDataComplete && readyOutfits > 0 && (
           <Animated.View entering={FadeInDown.delay(210).duration(280)} style={styles.learningStrip}>
             <Ionicons
               name={affinityActive ? 'sparkles' : 'time-outline'}
@@ -472,7 +526,7 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
-        {Object.values(starterRecommendations).some(Boolean) && (
+        {wardrobeDataComplete && Object.values(starterRecommendations).some(Boolean) && (
           <Animated.View entering={FadeInDown.delay(340).duration(280)}>
             <Text style={styles.sectionTitle}>Starter Recommendations</Text>
             <Text style={styles.recSubtitle}>
@@ -502,7 +556,7 @@ export default function HomeScreen() {
           </Animated.View>
         )}
 
-        {lifestyleSlotGroups.map((group, gi) => (
+        {wardrobeDataComplete && lifestyleSlotGroups.map((group, gi) => (
           <Animated.View key={group.lifestyle} entering={FadeInDown.delay(360 + gi * 40).duration(280)}>
             <View style={styles.lifestyleGroupHeader}>
               <Ionicons
@@ -540,7 +594,7 @@ export default function HomeScreen() {
           </Animated.View>
         ))}
 
-        {activeWardrobeItems.length > 0 && (
+        {wardrobeDataComplete && activeWardrobeItems.length > 0 && (
           <Animated.View entering={FadeInDown.delay(380).duration(280)}>
             <Text style={styles.sectionTitle}>Wardrobe Breakdown</Text>
             <View style={styles.breakdownCard}>
@@ -677,6 +731,18 @@ const styles = StyleSheet.create({
   cardPressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
   statNumber: { fontFamily: 'Inter_700Bold', fontSize: rs(28), color: Colors.primary, letterSpacing: -0.5 },
   statLabel: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, marginTop: 4, textAlign: 'center' },
+  wardrobeLoadNotice: {
+    marginBottom: 16, padding: 16, backgroundColor: Colors.white, borderRadius: 16,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  wardrobeLoadTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.primary },
+  wardrobeLoadNoticeText: { marginTop: 5, color: Colors.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 18 },
+  wardrobeLoadErrorText: { marginTop: 8, color: Colors.error, fontFamily: 'Inter_500Medium', fontSize: 12 },
+  wardrobeLoadActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  loadStylesButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 10, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  loadStylesButtonText: { color: Colors.white, fontFamily: 'Inter_600SemiBold', fontSize: 12 },
+  openOutfitsButton: { minHeight: 38, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  openOutfitsButtonText: { color: Colors.primary, fontFamily: 'Inter_600SemiBold', fontSize: 12 },
 
   styleCard: {
     backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 20,

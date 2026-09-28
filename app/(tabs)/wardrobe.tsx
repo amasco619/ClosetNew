@@ -39,9 +39,13 @@ const formatSeasonTag = (tag: string) =>
 
 export default function WardrobeScreen() {
   const insets = useSafeAreaInsets();
-  const { wardrobeItems, activeWardrobeItems, canAddItem, isPremium, isGuest, itemCap, dataUnavailable, retryInitialization } = useApp();
+  const {
+    activeWardrobeItems, canAddItem, isPremium, wardrobeTotalCount,
+    loadMoreWardrobeItems, wardrobeHasMore, dataUnavailable, retryInitialization,
+  } = useApp();
   const [filter, setFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [loadingMore, setLoadingMore] = useState(false);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   useEffect(() => {
@@ -56,7 +60,6 @@ export default function WardrobeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
-  const hiddenCount = wardrobeItems.length - activeWardrobeItems.length;
   const filteredItems = filter === 'all'
     ? activeWardrobeItems
     : activeWardrobeItems.filter(item => item.category === filter);
@@ -69,10 +72,26 @@ export default function WardrobeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (canAddItem) {
       router.push('/add-item');
+    } else if (!isPremium) {
+      router.push('/choose-30');
     } else {
       router.push('/premium');
     }
   };
+  const handleLoadMore = async () => {
+    if (!wardrobeHasMore || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      await loadMoreWardrobeItems();
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+  const listFooter = wardrobeHasMore ? (
+    <Pressable onPress={handleLoadMore} style={styles.loadMoreButton} disabled={loadingMore}>
+      <Text style={styles.loadMoreText}>{loadingMore ? 'Loading…' : 'Load more items'}</Text>
+    </Pressable>
+  ) : null;
 
   const renderListItem = ({ item, index }: { item: WardrobeItem; index: number }) => (
     <Animated.View entering={FadeInDown.delay(index * 40).duration(400)}>
@@ -156,7 +175,7 @@ export default function WardrobeScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.subtitle}>
-            {activeWardrobeItems.length} items{!isPremium ? ` · ${itemCap} max` : ''}
+            {wardrobeTotalCount} total items{!isPremium ? ' · 30 included' : ''}
           </Text>
           <Text style={styles.title}>Wardrobe</Text>
         </View>
@@ -216,11 +235,11 @@ export default function WardrobeScreen() {
       </View>
 
       {/* Hidden items banner */}
-      {hiddenCount > 0 && (
-        <Pressable style={styles.hiddenBanner} onPress={() => router.push('/premium')}>
-          <Ionicons name="lock-closed" size={13} color={Colors.secondary} />
+      {!isPremium && wardrobeTotalCount > 30 && (
+        <Pressable style={styles.hiddenBanner} onPress={() => router.push('/choose-30')}>
+          <Ionicons name="options-outline" size={15} color={Colors.secondary} />
           <Text style={styles.hiddenBannerText}>
-            {hiddenCount} item{hiddenCount > 1 ? 's' : ''} hidden — upgrade to show all
+            Choose the 30 items in your free wardrobe
           </Text>
           <Ionicons name="chevron-forward" size={13} color={Colors.secondary} />
         </Pressable>
@@ -258,6 +277,9 @@ export default function WardrobeScreen() {
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.35}
+          ListFooterComponent={listFooter}
         />
       ) : (
         <FlatList
@@ -269,6 +291,9 @@ export default function WardrobeScreen() {
           columnWrapperStyle={styles.gridRow}
           contentContainerStyle={styles.gridContent}
           showsVerticalScrollIndicator={false}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.35}
+          ListFooterComponent={listFooter}
         />
       )}
     </View>
@@ -326,6 +351,8 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.secondary + '25',
   },
   hiddenBannerText: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.secondary, flex: 1 },
+  loadMoreButton: { alignItems: 'center', paddingVertical: 18 },
+  loadMoreText: { color: Colors.secondary, fontFamily: 'Inter_600SemiBold', fontSize: 13 },
 
   // Empty state
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },

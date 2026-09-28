@@ -498,7 +498,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
         if (!b || b.startsWith('data:')) return null;
         return { base64: b, mimeType: 'image/jpeg' };
       },
-      addItem: () => { addItemCalls++; },
+      addItems: async (items) => { addItemCalls += items.length; },
       setItems: (updater) => {
         const after = updater([{ uri: 'file:///photos/shirt.jpg', status: 'pending', classification: null }]);
         setItemsStatuses.push(after[0]?.status ?? 'unknown');
@@ -883,7 +883,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'only one of five concurrent taps reaches runSaveAll');
   }
 
-  section('runSaveAll — 24. upload failure on first item does not block second item');
+  section('runSaveAll — 24. authenticated upload failure blocks the entire DB batch');
   {
     const mountedRef = { current: true };
 
@@ -928,7 +928,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
         if (!b) return null;
         return { base64: b, mimeType: 'image/jpeg' };
       },
-      addItem: (payload) => { addItemPayloads.push({ photoUri: payload.photoUri }); },
+      addItems: async (payloads) => { addItemPayloads.push(...payloads.map(payload => ({ photoUri: payload.photoUri }))); },
       setItems: (updater) => {
         const prev = [
           { uri: item1.uri, status: finalStatuses[item1.uri] ?? 'pending', classification: null },
@@ -947,25 +947,14 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
 
     await runSaveAll([item1, item2], mountedRef, deps);
 
-    assert(
-      addItemPayloads.length === 2,
-      'addItem called for both items even though first upload failed',
-    );
-    assert(
-      addItemPayloads[0]?.photoUri === item1.uri,
-      'first item falls back to local URI when upload throws',
-    );
-    assert(
-      addItemPayloads[1]?.photoUri === 'https://storage.example.com/item2.jpg',
-      'second item uses the uploaded cloud URI',
-    );
+    assert(addItemPayloads.length === 0, 'no database batch runs when any authenticated upload fails');
     assert(
       finalStatuses[item1.uri] === 'local-only',
-      'first item ends in local-only after upload failure (not durable-saved)',
+      'failed item remains local-only and retryable',
     );
     assert(
-      finalStatuses[item2.uri] === 'saved',
-      'second item ends in saved (not stuck in saving)',
+      finalStatuses[item2.uri] === 'settled',
+      'successfully uploaded item remains uncommitted and retryable',
     );
     assert(
       finalStatuses[item1.uri] !== 'saving',
@@ -992,7 +981,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       resize: async () => ({ base64: undefined }),
       upload: async () => 'https://unused.example.com/image.jpg',
       resolveUploadArg: () => null,
-      addItem: () => {},
+      addItems: async () => {},
       setItems: (updater: (prev: any[]) => any[]) => {
         finalStatus = updater([{ uri: item.uri, status: finalStatus, classification: null }])[0].status;
       },

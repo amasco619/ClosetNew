@@ -316,7 +316,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               63 test suites (see §11)
+__tests__/               69 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -428,7 +428,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 63 test suites once |
+| `npm test` | Run all 69 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -918,14 +918,21 @@ A slim contextual strip on the Home tab surfaces the AI personalisation status t
 ---
 
 ### Premium Tier
-Unlocks: unlimited wardrobe items (free tier raised to 30, guest stays 8), 4 outfits/scenario/day (vs 2 free / 1 guest), resort and night-out scenario filters, Deep Diagnostics, close-colour-match hints on Blueprint, full wear history (all-time), Wardrobe Dividends (CPW ranking of hardest-working pieces), and unlimited background removal (free tier limited to 20 lifetime uses).
+Unlocks: up to 2,000 active wardrobe items (Free: 30 selected active items; Guest: 8), 4 outfits/scenario/day (vs 2 free / 1 guest), resort and night-out scenario filters, Deep Diagnostics, close-colour-match hints on Blueprint, full wear history (all-time), Wardrobe Dividends (CPW ranking of hardest-working pieces), and unlimited background removal (free tier limited to 20 lifetime uses).
 
 **What is NOT gated (available to all free and guest users):**
 - Blueprint overview — full 19-slot map with owned/needed status (premium locks only "Next smart buy" highlight and close-colour-match hints)
 - Basic wear log — last 7 days of entries; "Wearing this today" button is always accessible
 - Calibration signals — love/not-today taps and wear logging always build affinity, even on free
 
-Premium status is stored in Supabase `user_profiles` with an expiry timestamp. The app reads the authenticated, expiry-aware `GET /api/user/entitlements` endpoint; there is no client-callable upgrade endpoint. B1 restricts authenticated INSERT/UPDATE on `user_profiles` to non-entitlement columns and removes authenticated profile DELETE; only the existing server-only entitlement writer may change Premium. Own-profile SELECT and server account deletion remain available. The Premium wardrobe capacity is 2,000 items in the client; a server-enforced capacity limit is outside B1.
+Premium status is stored in Supabase `user_profiles` with an expiry timestamp. The app reads the authenticated, expiry-aware `GET /api/user/entitlements` endpoint; there is no client-callable upgrade endpoint. B1 restricts authenticated INSERT/UPDATE on `user_profiles` to non-entitlement columns and removes authenticated profile DELETE; only the existing server-only entitlement writer may change Premium. Own-profile SELECT and server account deletion remain available. B2.8 enforces wardrobe capacity in database insert functions using the current expiry-aware entitlement and a per-user transaction lock. The new migration must be reviewed and applied separately; this repository change does not apply it to any Supabase environment.
+
+#### Wardrobe capacity and pagination (B2.8)
+
+- Authenticated single-item and bulk saves call `insert_wardrobe_item` and `insert_wardrobe_items` respectively, and only show success after the database acknowledges the write. Bulk Save All commits the reviewed batch once instead of auto-persisting each classification; this prevents a capacity rejection from leaving a partially saved batch. A full wardrobe returns `WARDROBE_CAPACITY_REACHED`; other database failures remain distinct. Direct authenticated INSERT is revoked after the migration. Photo upload failure does not count as a successful cloud save. Re-photographing updates the existing owned row after acknowledgment rather than consuming an extra slot.
+- `wardrobe_free_selections` stores the selected Free-access IDs separately from `wardrobe_items`. Premium expiry retains all item rows; Free users with more than 30 rows choose the 30 active items explicitly. Selection and admission are serialized per user. Deleting an item cascades its selection entry. Cancelling Premium before its actual expiry does not revoke Premium access.
+- Startup loads one bounded page, ordered by `created_at DESC, id DESC`. The authoritative exact total is separate from loaded pages. The Wardrobe screen pages as needed; outfit, history, diagnostics, and selection views request all needed pages on demand. These consumers must wait for loading before treating a partial collection as complete.
+- Review `supabase/migrations/20260928000000_free_wardrobe_selection.sql` before applying it; the client save paths require that migration. No production migration is applied by this change.
 
 **Code:** `app/premium.tsx`, `server/routes.ts`
 
@@ -1295,7 +1302,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (63 total)
+### Test Suites (69 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1307,7 +1314,12 @@ These features are **not yet implemented**. They are the next development priori
 | `blueprint-image-sync.test.ts` | Every blueprint slot imageKey maps to a valid SAMPLE_IMAGES entry (no broken placeholder fallbacks) |
 | `blueprint-lifestyle-slots.test.ts` | Lifestyle slot group thresholds across all 6 blueprints (group existence, category ordering, proportionality) |
 | `blueprint-slots.test.ts` | Slot structure invariants (required fields, valid categories, no duplicate IDs) |
-| `bulkAutoPersist.test.ts` | Bulk-review auto-persist: items are saved incrementally as classification completes, not only on final submit |
+| `bulkAutoPersist.test.ts` | Legacy auto-persist helper contract; the B2.8 review UI now commits Save All atomically instead |
+| `addItemReplacementContract.test.ts` | Replacement at capacity updates the existing item rather than deleting it or consuming another slot |
+| `bulkSaveAtomic.test.ts` | Bulk Save All uploads before a single acknowledged commit; failed uploads and rejected commits do not navigate or report success |
+| `freeWardrobeSelectionDb.test.ts` | Disposable PostgreSQL verification of capacity, expiry, role privileges, ownership, selection, concurrency, rollback and cascading deletion |
+| `freeWardrobeSelectionSql.test.ts` | Static contract checks for authenticated insert RPCs, selection, and ordering index |
+| `wardrobeDatabaseContract.test.ts` | Acknowledged item persistence, deterministic pagination, account isolation and selected-row loading contracts |
 | `bulkCarousel.test.ts` | Bulk-review carousel scroll contract: index clamping, null FlatList ref guard, empty-list safety |
 | `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard in bulk-review: async state setters are not called after the component unmounts |
 | `bulkSaveLock.test.ts` | Save-lock ref in bulk-review: concurrent save attempts are blocked by the `saveLockRef` guard |
