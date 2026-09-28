@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { rs } from '../../lib/responsive';
 import { AmodkaErrorState } from '@/components/AmodkaErrorState';
+import { shouldShowFreeWardrobeChooser } from '@/lib/freeWardrobeVisibility';
 
 type ViewMode = 'list' | 'grid';
 
@@ -40,7 +41,8 @@ const formatSeasonTag = (tag: string) =>
 export default function WardrobeScreen() {
   const insets = useSafeAreaInsets();
   const {
-    activeWardrobeItems, canAddItem, isPremium, wardrobeTotalCount,
+    activeWardrobeItems, canAddItem, isPremium, isAuthenticated, profile,
+    wardrobeTotalCount, freeSelectedItemIds,
     loadMoreWardrobeItems, wardrobeHasMore, dataUnavailable, retryInitialization,
   } = useApp();
   const [filter, setFilter] = useState<string>('all');
@@ -235,11 +237,11 @@ export default function WardrobeScreen() {
       </View>
 
       {/* Hidden items banner */}
-      {!isPremium && wardrobeTotalCount > 0 && (wardrobeTotalCount > 30 || activeWardrobeItems.length === 0) && (
+      {shouldShowFreeWardrobeChooser(isAuthenticated, isPremium, profile.isGuest === true, wardrobeTotalCount, freeSelectedItemIds.length) && (
         <Pressable style={styles.hiddenBanner} onPress={() => router.push('/choose-30')}>
           <Ionicons name="options-outline" size={15} color={Colors.secondary} />
           <Text style={styles.hiddenBannerText}>
-            Choose the 30 items in your free wardrobe
+            Choose your free wardrobe
           </Text>
           <Ionicons name="chevron-forward" size={13} color={Colors.secondary} />
         </Pressable>

@@ -1478,6 +1478,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         occasion: newItem.occasionTags,
         image_url: (newItem as any).storagePath ?? newItem.photoUri,
         cleaned_image_url: (newItem as any).cleanedImageUrl,
+        fabric: newItem.fabric,
+        fit: newItem.fit,
+        pattern: newItem.pattern,
+        pattern_scale: newItem.patternScale,
       };
       if (/^(file|content):\/\//i.test(payload.image_url)) {
         throw new Error('Authenticated wardrobe images must be uploaded before saving.');
@@ -1510,6 +1514,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         occasion: item.occasionTags,
         image_url: (item as any).storagePath ?? item.photoUri,
         cleaned_image_url: (item as any).cleanedImageUrl,
+        fabric: item.fabric,
+        fit: item.fit,
+        pattern: item.pattern,
+        pattern_scale: item.patternScale,
       }));
       if (payloads.some(payload => /^(file|content):\/\//i.test(payload.image_url))) {
         throw new Error('Authenticated wardrobe images must be uploaded before saving.');
@@ -1555,6 +1563,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         occasion: replacement.occasionTags,
         image_url: replacement.storagePath ?? replacement.photoUri,
         cleaned_image_url: cleanedImageUrl ?? null,
+        fabric: replacement.fabric ?? null,
+        fit: replacement.fit ?? null,
+        pattern: replacement.pattern ?? null,
+        pattern_scale: replacement.patternScale ?? null,
       });
       if (!isCurrent()) return;
       setWardrobeItems(prev => isCurrent()

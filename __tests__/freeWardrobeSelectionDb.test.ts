@@ -6,6 +6,7 @@ import { tmpdir, userInfo } from 'node:os'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
+import { mapDbRowToWardrobeItem } from '../lib/wardrobeMapper'
 
 // Disposable local PostgreSQL only; this test never reads application config or Supabase credentials.
 const dir = mkdtempSync(join(tmpdir(), 'amodka-wardrobe-cap-'))
@@ -117,12 +118,19 @@ async function main(): Promise<void> {
       await admin.query('ROLLBACK')
       throw error
     }
+    await admin.query(readFileSync(
+      'supabase/migrations/20260929000000_wardrobe_garment_metadata.sql', 'utf8',
+    ))
 
     const grants = await admin.query(`
       SELECT has_table_privilege('authenticated','public.wardrobe_items','INSERT') AS table_insert,
         has_column_privilege('authenticated','public.wardrobe_items','id','INSERT') AS id_insert,
         has_column_privilege('authenticated','public.wardrobe_items','user_id','INSERT') AS user_insert,
         has_column_privilege('authenticated','public.wardrobe_items','garment_type','INSERT') AS type_insert,
+        has_column_privilege('authenticated','public.wardrobe_items','fabric','INSERT') AS fabric_insert,
+        has_column_privilege('authenticated','public.wardrobe_items','fit','INSERT') AS fit_insert,
+        has_column_privilege('authenticated','public.wardrobe_items','pattern','INSERT') AS pattern_insert,
+        has_column_privilege('authenticated','public.wardrobe_items','pattern_scale','INSERT') AS scale_insert,
         has_column_privilege('anon','public.wardrobe_items','garment_type','INSERT') AS anon_type_insert,
         has_table_privilege('authenticated','public.wardrobe_items','SELECT') AS can_select,
         has_table_privilege('authenticated','public.wardrobe_items','UPDATE') AS can_update,
@@ -133,6 +141,10 @@ async function main(): Promise<void> {
       id_insert: false,
       user_insert: false,
       type_insert: false,
+      fabric_insert: false,
+      fit_insert: false,
+      pattern_insert: false,
+      scale_insert: false,
       anon_type_insert: false,
       can_select: true,
       can_update: true,
@@ -174,6 +186,81 @@ async function main(): Promise<void> {
       'SELECT id FROM public.wardrobe_items WHERE user_id=$1 ORDER BY created_at, id',
       [freeId],
     )).rows.map(row => row.id as string)
+    const legacy = (await admin.query(
+      'SELECT * FROM public.wardrobe_items WHERE id=$1', [freeInitialIds[0]],
+    )).rows[0]
+    const legacyItem = mapDbRowToWardrobeItem(legacy)
+    assert.equal(legacyItem.fabric, undefined)
+    assert.equal(legacyItem.fit, undefined)
+    assert.equal(legacyItem.pattern, undefined)
+    assert.equal(legacyItem.patternScale, undefined)
+    assert.equal(legacy.fabric, null)
+
+    await as(bobId, async db => {
+      const first = (await db.query(
+        'SELECT public.insert_wardrobe_item($1::jsonb) AS id',
+        [JSON.stringify({
+          garment_type: 'top', fabric: 'lace', fit: 'tailored',
+          pattern: 'wax-print', pattern_scale: 'large',
+        })],
+      )).rows[0].id as string
+      const single = mapDbRowToWardrobeItem((await db.query(
+        'SELECT * FROM public.wardrobe_items WHERE id=$1', [first],
+      )).rows[0])
+      assert.deepEqual(
+        [single.fabric, single.fit, single.pattern, single.patternScale],
+        ['lace', 'tailored', 'wax-print', 'large'],
+        'single RPC metadata survives a DB reload',
+      )
+
+      const members = [
+        { garment_type: 'top', fabric: 'cotton', fit: 'loose', pattern: 'floral', pattern_scale: 'small' },
+        { garment_type: 'bottom', fabric: 'silk', fit: 'slim', pattern: 'solid', pattern_scale: null },
+      ]
+      const ids = await insertMany(db, members)
+      assert.equal(ids.length, 2)
+      const loaded = (await db.query(
+        'SELECT * FROM public.wardrobe_items WHERE id = ANY($1::uuid[])', [ids],
+      )).rows.map(mapDbRowToWardrobeItem)
+      const byId = new Map(loaded.map(row => [row.id, row]))
+      for (let index = 0; index < ids.length; index++) {
+        const member = byId.get(ids[index])!
+        assert.deepEqual(
+          [member.fabric, member.fit, member.pattern, member.patternScale],
+          [members[index].fabric, members[index].fit, members[index].pattern, members[index].pattern_scale ?? undefined],
+          'each bulk/multi-item member retains its own metadata',
+        )
+      }
+
+      await db.query(
+        `UPDATE public.wardrobe_items SET fabric=$1, fit=$2, pattern=$3, pattern_scale=$4
+         WHERE id=$5 AND user_id=$6`,
+        ['velvet', 'regular', 'geometric', 'medium', first, bobId],
+      )
+      const replaced = mapDbRowToWardrobeItem((await db.query(
+        'SELECT * FROM public.wardrobe_items WHERE id=$1', [first],
+      )).rows[0])
+      assert.deepEqual(
+        [replaced.fabric, replaced.fit, replaced.pattern, replaced.patternScale],
+        ['velvet', 'regular', 'geometric', 'medium'],
+        'owned replacement metadata survives reload',
+      )
+      for (const [key, invalid] of [
+        ['fabric', 'ankara'], ['fit', 'relaxed'], ['pattern', 'unknown'], ['pattern_scale', 'huge'],
+      ]) {
+        await expectCode(
+          insertMany(db, [{ garment_type: 'top', [key]: invalid }]).then(() => undefined),
+          '23514',
+        )
+      }
+      await expectCode(
+        db.query('UPDATE public.wardrobe_items SET fabric=$1 WHERE id=$2', ['ankara', first]),
+        '23514',
+      )
+      assert.equal((await db.query(
+        'SELECT count(*) FROM public.wardrobe_items WHERE user_id=$1', [bobId],
+      )).rows[0].count, '3', 'invalid values never add a row')
+    })
 
     assert.equal((await admin.query(
       'SELECT count(*) FROM public.wardrobe_free_selections WHERE user_id=$1', [freeId],
@@ -280,7 +367,11 @@ async function main(): Promise<void> {
     ))).rows.map(row => row.item_id as string)
     assert.equal(aliceSelection.length, 29)
     await as(bobId, async db => {
-      assert.equal((await db.query('SELECT item_id FROM public.wardrobe_free_selections')).rowCount, 0,
+      const ownSelections = (await db.query(
+        'SELECT item_id FROM public.wardrobe_free_selections',
+      )).rows.map(row => row.item_id as string)
+      assert.equal(ownSelections.length, 3)
+      assert.equal(ownSelections.some(id => aliceSelection.includes(id)), false,
         'selection SELECT RLS hides other users')
       await expectCode(
         db.query('SELECT public.set_free_wardrobe_selection($1::uuid[])', [[aliceSelection[0]]]),

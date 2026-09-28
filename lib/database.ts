@@ -58,6 +58,10 @@ export async function insertWardrobeItem(item: {
   occasion?: string[]
   image_url?: string
   cleaned_image_url?: string
+  fabric?: string
+  fit?: string
+  pattern?: string
+  pattern_scale?: string
 }): Promise<{ id: string }> {
   const { data, error } = await supabase.rpc('insert_wardrobe_item', { p_item: item })
   if (error) throw normalizeWardrobeError(error, 'insertWardrobeItem')
@@ -104,6 +108,10 @@ export interface WardrobeItemReplacementInput {
   occasion: string[]
   image_url: string
   cleaned_image_url?: string | null
+  fabric?: string | null
+  fit?: string | null
+  pattern?: string | null
+  pattern_scale?: string | null
 }
 
 export async function replaceWardrobeItem(
@@ -119,6 +127,10 @@ export async function replaceWardrobeItem(
     occasion: replacement.occasion,
     image_url: replacement.image_url,
     cleaned_image_url: replacement.cleaned_image_url ?? null,
+    fabric: replacement.fabric ?? null,
+    fit: replacement.fit ?? null,
+    pattern: replacement.pattern ?? null,
+    pattern_scale: replacement.pattern_scale ?? null,
   }
   const { data, error } = await supabase
     .from('wardrobe_items')

@@ -22,9 +22,8 @@ assert.match(commit, /userId !== null && !isPremiumRef\.current[\s\S]*setFreeSel
 assert.match(context, /await insertWardrobeItem\(payload\)[\s\S]*commitAddedWardrobeItems\(\[newItem\]/);
 assert.match(context, /await insertWardrobeItems\(payloads\)[\s\S]*commitAddedWardrobeItems\(prepared/);
 
-// A downgraded account with <=30 retained rows and no selected IDs can
-// reach the selector from the empty wardrobe, then confirm all retained rows.
-assert.match(wardrobe, /!isPremium && wardrobeTotalCount > 0 && \(wardrobeTotalCount > 30 \|\| activeWardrobeItems\.length === 0\)/);
+// Any authenticated Free wardrobe with unselected retained rows can reach the chooser.
+assert.match(wardrobe, /shouldShowFreeWardrobeChooser\(isAuthenticated, isPremium, profile\.isGuest === true, wardrobeTotalCount, freeSelectedItemIds\.length\)/);
 assert.match(wardrobe, /hiddenBanner[\s\S]*router\.push\('\/choose-30'\)/);
 assert.match(choose, /validSelectedIds\.length !== Math\.min\(30, wardrobeTotalCount\)/);
 assert.match(choose, /await setFreeWardrobeSelection\(validSelectedIds\)/);

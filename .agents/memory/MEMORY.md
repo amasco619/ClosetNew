@@ -25,3 +25,4 @@
 - [Local PostgreSQL child-process startup](local-postgres-child-process.md) — redirect daemon output when starting disposable PostgreSQL from a test with captured child-process streams.
 - [Free wardrobe retained-row policy](free-wardrobe-retention-policy.md) — active-item admission is not a retained-row storage cap; changing that rule needs a separate product decision.
 - [Upload cleanup after ambiguous saves](upload-cleanup-ambiguity.md) — only a confirmed DB rejection makes it safe to delete a just-uploaded image; a lost response may follow a commit.
+- [Per-garment metadata persistence](garment-metadata-persistence.md) — store normalized recommendation attributes per wardrobe row, not on group shared attributes; leave legacy rows NULL.

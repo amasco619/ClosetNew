@@ -22,7 +22,7 @@ assert.doesNotMatch(dbReplace, /\.delete\(|\.insert\(/);
 const replacementPayload = dbReplace.match(/const payload = \{([\s\S]*?)\n  \}/)?.[1] ?? '';
 assert.deepEqual(
   [...replacementPayload.matchAll(/^\s{4}([a-z_]+):/gm)].map(([, column]) => column),
-  ['garment_type', 'sub_type', 'color_family', 'description', 'occasion', 'image_url', 'cleaned_image_url'],
+  ['garment_type', 'sub_type', 'color_family', 'description', 'occasion', 'image_url', 'cleaned_image_url', 'fabric', 'fit', 'pattern', 'pattern_scale'],
   'replacement persists every mutable wardrobe_items field hydrated by the wardrobe mapper, without unsupported columns',
 );
 assert.match(mapper, /category:\s+it\.garment_type/);
