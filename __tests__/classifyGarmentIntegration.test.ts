@@ -170,7 +170,7 @@ function buildLimitedApp(): express.Application {
           content: {
             parts: [{
               text: JSON.stringify({
-                category: "tops",
+                category: "top",
                 subType: "t-shirt",
                 colorFamily: "navy",
                 displayName: "Navy T-shirt",
@@ -308,8 +308,9 @@ function buildLimitedApp(): express.Application {
       const unexpected = await runFailure(axiosError({
         response: { status: 400, data: { error: { message: unexpectedSecret } } },
       }));
-      assert(unexpected.status === 500 && unexpected.body.error === "classification_failed",
-        "unexpected failure remains safely coded");
+      assert(unexpected.status === 500 && unexpected.body.error === "classification_failed"
+        && unexpected.body.code === "INTERNAL_ERROR",
+        "unexpected 500 carries a stable machine-readable diagnostic code");
       assertSafe("unexpected failure", unexpected, unexpectedSecret);
 
       const malformedSecret = "raw Gemini response secret";
@@ -320,9 +321,81 @@ function buildLimitedApp(): express.Application {
         .post("/api/classify-garment")
         .send({ imageBase64: "dGVzdA==" });
       assert(malformedResponse.status === 502
-        && malformedResponse.body.error === "classifier_malformed_response",
-        "malformed response is safe");
+        && malformedResponse.body.error === "classifier_malformed_response"
+        && malformedResponse.body.code === "MALFORMED_RESPONSE",
+        "malformed response has a stable machine-readable code");
       assertSafe("malformed response", malformedResponse, malformedSecret);
+
+      axios.post = (async () => ({
+        data: { candidates: [{ content: { parts: [{ text: "null" }] } }] },
+      })) as typeof axios.post;
+      const nonObjectResponse = await request(buildApp())
+        .post("/api/classify-garment")
+        .send({ imageBase64: "dGVzdA==" });
+      assert(nonObjectResponse.status === 502
+        && nonObjectResponse.body.error === "classifier_malformed_response"
+        && nonObjectResponse.body.code === "MALFORMED_RESPONSE",
+        "valid JSON with a non-object payload is a safe malformed-response error");
+
+      for (const partialPayload of [
+        {},
+        { subType: "t-shirt", colorFamily: "black" },
+        { category: "top", colorFamily: "black" },
+        { category: "top", subType: "t-shirt" },
+        { category: "not-a-category", subType: "t-shirt", colorFamily: "black" },
+      ]) {
+        axios.post = (async () => ({
+          data: { candidates: [{ content: { parts: [{ text: JSON.stringify(partialPayload) }] } }] },
+        })) as typeof axios.post;
+        const partial = await request(buildApp())
+          .post("/api/classify-garment")
+          .send({ imageBase64: "dGVzdA==" });
+        assert(partial.status === 502
+          && partial.body.error === "classifier_malformed_response"
+          && partial.body.code === "MALFORMED_RESPONSE",
+          `partial/invalid classification ${JSON.stringify(partialPayload)} never returns a null classification`);
+      }
+
+      axios.post = (async () => ({
+        data: {
+          candidates: [{
+            content: {
+              parts: [{ text: JSON.stringify({ refused: true, reason: { raw: "not user-safe" } }) }],
+            },
+          }],
+        },
+      })) as typeof axios.post;
+      const sanitizedRefusal = await request(buildApp())
+        .post("/api/classify-garment")
+        .send({ imageBase64: "dGVzdA==" });
+      assert(sanitizedRefusal.status === 422
+        && typeof sanitizedRefusal.body.reason === "string"
+        && sanitizedRefusal.body.reason === "This image could not be classified as a clothing item."
+        && Object.keys(sanitizedRefusal.body).sort().join(",") === "error,reason",
+        "guardrail returns only a sanitized refusal reason string");
+
+      let forwardedMimeType: unknown;
+      axios.post = (async (_url: string, data: any) => {
+        forwardedMimeType = data.contents[0].parts[1].inlineData.mimeType;
+        return {
+          data: {
+            candidates: [{
+              content: {
+                parts: [{
+                  text: JSON.stringify({
+                    category: "top", subType: "t-shirt", colorFamily: "navy",
+                  }),
+                }],
+              },
+            }],
+          },
+        };
+      }) as typeof axios.post;
+      const pngInput = await request(buildApp())
+        .post("/api/classify-garment")
+        .send({ imageBase64: "dGVzdA==", imageMimeType: "image/png" });
+      assert(pngInput.status === 200 && forwardedMimeType === "image/png",
+        "classifier forwards explicitly supported PNG MIME type for frozen synthetic fixtures");
     } finally {
       console.error = savedError;
       axios.post = savedPost;

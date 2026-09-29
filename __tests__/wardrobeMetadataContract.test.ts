@@ -22,8 +22,8 @@ for (const [name, authenticated, premium, guest, total, selected, visible] of [
 }
 
 for (const field of ['fabric', 'fit', 'pattern'] as const) {
-  assert.equal((context.match(new RegExp(`${field}: (newItem|item)\\.${field}`, 'g')) ?? []).length, 2,
-    `single and bulk payloads preserve ${field}`)
+  assert.equal((context.match(new RegExp(`${field}: (newItem|item)\\.${field}`, 'g')) ?? []).length, 3,
+    `single, bulk, and group payloads preserve ${field}`)
   assert.match(context, new RegExp(`${field}: replacement\\.${field} \\?\\? null`))
   assert.match(database, new RegExp(`${field}: replacement\\.${field} \\?\\? null`))
 }

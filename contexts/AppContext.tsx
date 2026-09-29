@@ -7,7 +7,7 @@ import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCat
 import {
   BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag,
   Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet, WearEntry,
-  MoodGoal, OutfitReaction, ReactionType, MoodOfDay, SavedLook, WeatherSnapshot,
+  MoodGoal, OutfitReaction, ReactionType, MoodOfDay, SavedLook, WeatherSnapshot, GarmentRelationshipType,
 } from '@/constants/types';
 import { generateOutfitsForItem } from '@/constants/outfitGenerator';
 import { loadWeather, getCachedWeather, clearCachedWeather } from '@/constants/weather';
@@ -27,7 +27,7 @@ import {
   upsertUserProfile, getUserProfile, getWardrobeItems, getSelectedWardrobeItems, getFreeWardrobeSelection,
   getSlotStatuses, getWearLogs, getRotationCursors,
   getAffinitySignals, getPairAffinitySignals,
-  insertWardrobeItem, insertWardrobeItems, replaceWardrobeItem as replaceWardrobeItemInDB, deleteWardrobeItem, setFreeWardrobeSelection as persistFreeWardrobeSelection, insertWearLog, deleteWearLog,
+  insertWardrobeItem, insertWardrobeItems, insertWardrobeGroupItems, replaceWardrobeItem as replaceWardrobeItemInDB, deleteWardrobeItem, setFreeWardrobeSelection as persistFreeWardrobeSelection, insertWearLog, deleteWearLog,
   insertAffinitySignal, insertPairAffinitySignal,
   getSavedLooks, upsertSavedLook, deleteSavedLook,
 } from '../lib/database';
@@ -73,6 +73,14 @@ interface AppContextValue {
   setFreeWardrobeSelection: (ids: string[]) => Promise<void>;
   addWardrobeItem: (item: Omit<WardrobeItem, 'createdAt'> & { id?: string }) => Promise<void>;
   addWardrobeItems: (items: (Omit<WardrobeItem, 'createdAt'> & { id?: string })[]) => Promise<void>;
+  addWardrobeGroupItems: (
+    items: (Omit<WardrobeItem, 'createdAt'> & { id?: string })[],
+    relationship: {
+      relationshipType: GarmentRelationshipType;
+      relationshipConfidence?: number;
+      sharedAttributes?: Record<string, unknown>;
+    },
+  ) => Promise<void>;
   replaceWardrobeItem: (existingId: string, replacement: WardrobeItemReplacement) => Promise<void>;
   removeWardrobeItem: (id: string) => void;
   updateWardrobeItem: (id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => void;
@@ -451,8 +459,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 rows.push(...selectedRows);
               }
               const mapped = rows.map(mapDbRowToWardrobeItem);
-              await Promise.all(mapped.filter(it => isStoragePath(it.photoUri)).map(async it => {
-                try { it.photoUri = await resolveWardrobeImageUrl(it.photoUri); } catch {}
+              await Promise.all(mapped.filter(it => it.storagePath).map(async it => {
+                try { it.photoUri = await resolveWardrobeImageUrl(it.storagePath!); } catch {}
               }));
               if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
               setWardrobeItems(mapped);
@@ -1035,12 +1043,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Resolve storage paths (new items stored with path instead of public URL)
         // to short-lived signed URLs for display. Must run after file:// recovery
         // so the two passes do not overlap.
-        const storagePathItems = mapped.filter(it => isStoragePath(it.photoUri));
+        const storagePathItems = mapped.filter(it => it.storagePath);
         if (storagePathItems.length > 0) {
           await Promise.all(
             storagePathItems.map(async it => {
               try {
-                it.photoUri = await resolveWardrobeImageUrl(it.photoUri);
+                it.photoUri = await resolveWardrobeImageUrl(it.storagePath!);
               } catch (err) {
                 console.warn(`[Amodka] Could not resolve signed URL for item id=${it.id}`, err);
               }
@@ -1120,8 +1128,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const selectedRows = await getSelectedWardrobeItems(userId, missingIds);
         if (!isCurrent()) return false;
         const selectedItems = selectedRows.map(mapDbRowToWardrobeItem);
-        await Promise.all(selectedItems.filter(item => isStoragePath(item.photoUri)).map(async item => {
-          try { item.photoUri = await resolveWardrobeImageUrl(item.photoUri); } catch {}
+        await Promise.all(selectedItems.filter(item => item.storagePath).map(async item => {
+          try { item.photoUri = await resolveWardrobeImageUrl(item.storagePath!); } catch {}
         }));
         if (!isCurrent()) return false;
         setWardrobeItems(previous => {
@@ -1412,8 +1420,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const page = await getWardrobeItems(userId, offset);
       if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
       const mapped = page.items.map(mapDbRowToWardrobeItem);
-      await Promise.all(mapped.filter(it => isStoragePath(it.photoUri)).map(async it => {
-        try { it.photoUri = await resolveWardrobeImageUrl(it.photoUri); } catch {}
+      await Promise.all(mapped.filter(it => it.storagePath).map(async it => {
+        try { it.photoUri = await resolveWardrobeImageUrl(it.storagePath!); } catch {}
       }));
       if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
       setWardrobeItems(prev => {
@@ -1460,8 +1468,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         offset += page.items.length;
       }
       const mapped = rows.map(mapDbRowToWardrobeItem);
-      await Promise.all(mapped.filter(it => isStoragePath(it.photoUri)).map(async it => {
-        try { it.photoUri = await resolveWardrobeImageUrl(it.photoUri); } catch {}
+      await Promise.all(mapped.filter(it => it.storagePath).map(async it => {
+        try { it.photoUri = await resolveWardrobeImageUrl(it.storagePath!); } catch {}
       }));
       if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
       setWardrobeItems(prev =>
@@ -1594,6 +1602,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
       prepared.forEach((item, index) => { item.id = ids[index]; });
     }
+    commitAddedWardrobeItems(prepared, userId, accountGeneration, startupGeneration);
+  }, [commitAddedWardrobeItems]);
+
+  const addWardrobeGroupItems = useCallback(async (
+    items: (Omit<WardrobeItem, 'createdAt'> & { id?: string })[],
+    relationship: {
+      relationshipType: GarmentRelationshipType;
+      relationshipConfidence?: number;
+      sharedAttributes?: Record<string, unknown>;
+    },
+  ): Promise<void> => {
+    if (items.length < 2 || items.length > 6) {
+      throw new Error('A wardrobe group must contain between 2 and 6 items.');
+    }
+    const userId = currentUserIdRef.current;
+    if (!userId) throw new Error('Wardrobe groups require an authenticated account.');
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    const prepared = items.map(item => ({
+      ...item,
+      id: item.id ?? Crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+    } as WardrobeItem));
+    const payloads = prepared.map(item => ({
+      id: item.id,
+      user_id: userId,
+      garment_type: item.category,
+      sub_type: item.subType,
+      color_family: item.colorFamily,
+      description: item.description,
+      occasion: item.occasionTags,
+      image_url: item.storagePath ?? item.photoUri,
+      cleaned_image_url: (item as any).cleanedImageUrl,
+      fabric: item.fabric,
+      fit: item.fit,
+      pattern: item.pattern,
+      pattern_scale: item.patternScale,
+    }));
+    if (payloads.some(payload => /^(file|content):\/\//i.test(payload.image_url))) {
+      throw new Error('Authenticated wardrobe images must be uploaded before saving.');
+    }
+    const ids = await insertWardrobeGroupItems(payloads, relationship);
+    if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+    prepared.forEach((item, index) => { item.id = ids[index]; });
     commitAddedWardrobeItems(prepared, userId, accountGeneration, startupGeneration);
   }, [commitAddedWardrobeItems]);
 
@@ -1930,7 +1982,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     profile, updateProfile, wardrobeItems, activeWardrobeItems,
     wardrobeTotalCount, wardrobeHasMore: wardrobeLoadedCount < wardrobeTotalCount, freeSelectedItemIds,
     loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection,
-    addWardrobeItem, addWardrobeItems, replaceWardrobeItem, removeWardrobeItem, updateWardrobeItem,
+    addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem, updateWardrobeItem,
     isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
     isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable,
     retryInitialization: () => {
@@ -1952,7 +2004,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     orphanedItems, resolveOrphan,
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, wardrobeTotalCount, wardrobeLoadedCount, freeSelectedItemIds,
        loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection,
-        addWardrobeItem, addWardrobeItems, replaceWardrobeItem, removeWardrobeItem, updateWardrobeItem,
+        addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem, updateWardrobeItem,
        isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,

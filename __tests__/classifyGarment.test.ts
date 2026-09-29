@@ -46,6 +46,7 @@ import {
   normalizeGarmentFabric,
   normalizeGarmentPattern,
   normalizeGarmentSubType,
+  GEMINI_PROMPT,
 } from '../server/classify-garment';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
@@ -96,6 +97,21 @@ assertEq(
   (guardrailNoReason as any).reason,
   'This image could not be classified as a clothing item.',
   'guardrail with no reason → default message',
+);
+
+const unsafeGuardrailReason = processGeminiResult({
+  refused: true,
+  reason: `  Unsupported\u0000 item \n ${'x'.repeat(400)}`,
+} as any);
+assertEq(
+  (unsafeGuardrailReason as any).reason.length,
+  300,
+  'guardrail reason is a bounded string with control characters removed',
+);
+assertEq(
+  typeof (processGeminiResult({ refused: true, reason: { secret: 'not a string' } } as any) as any).reason,
+  'string',
+  'non-string guardrail reason is replaced with the safe default string',
 );
 
 const notGuardrail = processGeminiResult({ category: 'top', subType: 't-shirt', colorFamily: 'black' });
@@ -159,6 +175,52 @@ assertEq(normalizeGarmentSubType('caftan'), 'kaftan', 'caftan → kaftan');
 assertEq(normalizeGarmentPattern('Ankara'), 'wax-print', 'Ankara → wax-print');
 assertEq(normalizeGarmentPattern('wax print'), 'wax-print', 'wax print → wax-print');
 assertEq(normalizeGarmentFabric('French lace'), 'lace', 'French lace → lace');
+
+// ── P0 cultural classifier semantics (offline; no provider calls) ─────────────
+
+console.log('\nP0 cultural classifier semantics:');
+
+const culturalP0Cases: Array<{
+  id: string;
+  input: Record<string, unknown>;
+  subtype?: string;
+  pattern?: string;
+  refusal?: boolean;
+}> = [
+  { id: 'GU-11', input: { category: 'jewelry', subType: 'gele', pattern: 'Ankara' }, subtype: 'gele', pattern: 'wax-print' },
+  { id: 'GU-16', input: { category: 'jewelry', subType: 'aso-oke gele' }, subtype: 'gele' },
+  { id: 'GU-17', input: { category: 'bottom', subType: 'wrapper' }, subtype: 'wrapper' },
+  { id: 'GU-29', input: { refused: true, reason: 'Please photograph each garment separately.' }, refusal: true },
+  { id: 'GU-39', input: { refused: true, reason: 'This item cannot be represented accurately.' }, refusal: true },
+  { id: 'GU-40', input: { category: 'jewelry', subType: 'structured-headpiece' }, subtype: 'structured-headpiece' },
+];
+
+for (const testCase of culturalP0Cases) {
+  const result = processGeminiResult(testCase.input as any) as any;
+  if (testCase.refusal) {
+    assert(result.refused === true, `${testCase.id} remains a clear guardrail refusal`);
+  } else {
+    assertEq(result.subType, testCase.subtype, `${testCase.id} resolves to its supported subtype`);
+    if (testCase.pattern) {
+      assertEq(result.pattern, testCase.pattern, `${testCase.id} preserves Ankara as wax-print pattern`);
+    }
+  }
+}
+
+assert(
+  GEMINI_PROMPT.includes('Do not refuse a clear fashion head covering just because it is culturally specific'),
+  'culturally specific headwear is not refused solely for cultural specificity',
+);
+assert(
+  GEMINI_PROMPT.includes('A Kente stole/strip-cloth accessory has no supported subtype')
+    && GEMINI_PROMPT.includes('Do not invent a Kente subtype'),
+  'GU-39 remains explicitly unresolved without adding Kente taxonomy',
+);
+assert(
+  GEMINI_PROMPT.includes('multiple independent garments as a set')
+    && GEMINI_PROMPT.includes('return a refusal asking for separate garment photos'),
+  'multi-garment sets are not forced into an unsupported subtype',
+);
 
 {
   const r = processGeminiResult({

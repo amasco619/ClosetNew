@@ -2,6 +2,9 @@ import { fetch } from "expo/fetch";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 export const API_REQUEST_TIMEOUT_MS = 15_000;
+// Gemini may make one 20s attempt per model when the primary returns 429.
+// Keep other API calls at 15s; classification still has a finite deadline.
+export const CLASSIFICATION_REQUEST_TIMEOUT_MS = 45_000;
 
 export type ApiErrorKind = "timeout" | "abort" | "network" | "non_json" | "client" | "server";
 
@@ -134,7 +137,8 @@ export async function authenticatedApiRequest(
     });
     await throwIfResNotOk(res);
     return res;
-  });
+  }, route === "/api/classify-garment" || route === "/api/classify-garments"
+    ? CLASSIFICATION_REQUEST_TIMEOUT_MS : API_REQUEST_TIMEOUT_MS);
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

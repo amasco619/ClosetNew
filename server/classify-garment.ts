@@ -523,12 +523,20 @@ export interface ClassificationResult {
 
 export type GuardrailResult = { refused: true; reason: string };
 
+const DEFAULT_REFUSAL_REASON = "This image could not be classified as a clothing item.";
+
+function sanitizeRefusalReason(reason: unknown): string {
+  if (typeof reason !== "string") return DEFAULT_REFUSAL_REASON;
+  const sanitized = reason.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+  return sanitized || DEFAULT_REFUSAL_REASON;
+}
+
 export function processGeminiResult(parsed: GeminiResult): ClassificationResult | GuardrailResult {
   // Content guardrail
   if (parsed.refused) {
     return {
       refused: true,
-      reason: parsed.reason ?? "This image could not be classified as a clothing item.",
+      reason: sanitizeRefusalReason(parsed.reason),
     };
   }
 
@@ -660,7 +668,7 @@ export function processGeminiResult(parsed: GeminiResult): ClassificationResult 
 
 // ─── Gemini classifier ────────────────────────────────────────────────────────
 
-const GEMINI_PROMPT = `You are a fashion classification AI for a wardrobe styling app. Your job is to identify the clothing item shown in the image and return a structured JSON response.
+export const GEMINI_PROMPT = `You are a fashion classification AI for a wardrobe styling app. Your job is to identify the clothing item shown in the image and return a structured JSON response.
 
 CONTENT GUARDRAILS — check these FIRST before classifying:
 If the image is ANY of the following, do NOT classify — return a refusal:
@@ -689,13 +697,14 @@ subType (required): Exactly one value from the list for the chosen category:
   jewelry   → "necklace" | "earrings" | "bracelet" | "ring" | "watch" | "brooch" | "statement-earrings" | "sunglasses" | "sunhat" | "gele" | "headwrap" | "head-scarf" | "structured-headpiece"
 
 African/Nigerian garment guidance:
-- Classify a gele/head tie as category "jewelry", subType "gele".
-- Use "headwrap" for a wrapped head covering that is not specifically a gele.
-- Use "head-scarf" for a soft scarf worn on the head; use fabric "chiffon" when applicable.
-- Use "structured-headpiece" for sculptural or structured ceremonial headwear.
+- Do not refuse a clear fashion head covering just because it is culturally specific or is not a conventional Western garment.
+- Classify a gele/head tie, including an Ankara or aso-oke gele, as category "jewelry", subType "gele". For Ankara, describe the textile with pattern "wax-print"; only name a fabric when it is supported by the available fabric values.
+- Use "headwrap" for a wrapped head covering that is not specifically a gele; use "head-scarf" for a soft scarf worn on the head (fabric "chiffon" only when applicable); use "structured-headpiece" for sculptural or structured ceremonial headwear.
 - Use "buba" for an individual buba blouse, "iro" or "wrapper" for an individual wrapped lower garment, and "iro-and-buba" when the coordinated outfit is shown as one wardrobe item.
 - Use "aso-ebi" for a complete coordinated aso-ebi outfit, and "boubou" for a boubou/grand boubou.
 - Ankara/African wax print describes pattern, not silhouette: keep the garment's canonical subType and use pattern "wax-print".
+- A Kente stole/strip-cloth accessory has no supported subtype in this taxonomy. Keep it explicitly unresolved: do not force it into "head-scarf", "headwrap", "jewelry", or another subtype, and return a refusal explaining that it cannot be represented accurately. Do not invent a Kente subtype.
+- When a photo presents multiple independent garments as a set rather than one supported garment, do not invent a set subtype; return a refusal asking for separate garment photos.
 
 displayName (required): A concise human-readable name for the specific item, e.g. "Trench coat", "Floral midi dress", "Leather ankle boots". Use title case.
 
@@ -754,12 +763,47 @@ interface GeminiResult {
   modelConfidence?: number;
 }
 
+function isClassificationResponse(value: unknown): value is GeminiResult {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const parsed = value as GeminiResult;
+  if (parsed.refused === true) return true;
+  if (
+    typeof parsed.category !== "string" ||
+    typeof parsed.subType !== "string" ||
+    typeof parsed.colorFamily !== "string" ||
+    !VALID_CATEGORIES.has(parsed.category) ||
+    !VALID_COLOR_FAMILIES.has(parsed.colorFamily)
+  ) {
+    return false;
+  }
+  const normalizedSubType = normalizeGarmentSubType(parsed.subType);
+  return VALID_SUBTYPES_BY_CATEGORY[parsed.category]?.includes(normalizedSubType) ?? false;
+}
+
+function malformedClassifierResponse(res: Response) {
+  reportError(new Error("Malformed classifier response"), "classifier_parse", {
+    category: "malformed_response",
+    code: "MALFORMED_RESPONSE",
+    dependency: "gemini",
+    status: 502,
+    retryable: false,
+    route: "/api/classify-garment",
+  });
+  return res.status(502).json({
+    error: "classifier_malformed_response",
+    code: "MALFORMED_RESPONSE",
+  });
+}
+
 export async function classifyGarment(req: Request, res: Response) {
   try {
-    const { imageBase64, imageUrl, userId } = req.body;
+    const { imageBase64, imageUrl, userId, imageMimeType } = req.body;
 
     if ((!imageBase64 && !imageUrl) || (imageBase64 && imageUrl)) {
       return res.status(400).json({ error: "imageBase64 or imageUrl required" });
+    }
+    if (imageMimeType !== undefined && !["image/jpeg", "image/png"].includes(imageMimeType)) {
+      return res.status(400).json({ error: "unsupported_image_mime_type" });
     }
 
     if (imageBase64) {
@@ -780,7 +824,7 @@ export async function classifyGarment(req: Request, res: Response) {
     if (imageBase64) {
       imagePart = {
         inlineData: {
-          mimeType: "image/jpeg",
+          mimeType: imageMimeType ?? "image/jpeg",
           data: imageBase64,
         },
       };
@@ -833,19 +877,15 @@ export async function classifyGarment(req: Request, res: Response) {
 
     let parsed: GeminiResult;
     try {
-      parsed = JSON.parse(rawText);
+      const responseValue: unknown = JSON.parse(rawText);
+      if (!isClassificationResponse(responseValue)) {
+        return malformedClassifierResponse(res);
+      }
+      parsed = responseValue;
     } catch {
       // Never include provider output in logs: it may contain prompt or
       // image-derived data.  reportError emits only allow-listed metadata.
-      reportError(new Error("Malformed classifier response"), "classifier_parse", {
-        category: "malformed_response",
-        code: "MALFORMED_RESPONSE",
-        dependency: "gemini",
-        status: 502,
-        retryable: false,
-        route: "/api/classify-garment",
-      });
-      return res.status(502).json({ error: "classifier_malformed_response" });
+      return malformedClassifierResponse(res);
     }
 
     // ── Delegate to pure processing function ─────────────────────────────────
@@ -926,6 +966,9 @@ export async function classifyGarment(req: Request, res: Response) {
       retryable: false,
       route: "/api/classify-garment",
     });
-    return res.status(500).json({ error: "classification_failed" });
+    return res.status(500).json({
+      error: "classification_failed",
+      code: "INTERNAL_ERROR",
+    });
   }
 }

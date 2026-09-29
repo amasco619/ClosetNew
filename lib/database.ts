@@ -80,6 +80,27 @@ export async function insertWardrobeItems(items: WardrobeItemInput[]): Promise<s
   return data
 }
 
+export async function insertWardrobeGroupItems(
+  items: WardrobeItemInput[],
+  relationship: {
+    relationshipType: GarmentRelationshipType
+    relationshipConfidence?: number | null
+    sharedAttributes?: Record<string, unknown>
+  },
+): Promise<string[]> {
+  const { data, error } = await supabase.rpc('insert_wardrobe_group_items', {
+    p_items: items,
+    p_relationship_type: relationship.relationshipType,
+    p_relationship_confidence: relationship.relationshipConfidence ?? null,
+    p_shared_attributes: relationship.sharedAttributes ?? {},
+  })
+  if (error) throw normalizeWardrobeError(error, 'insertWardrobeGroupItems')
+  if (!Array.isArray(data) || data.length !== items.length || data.some(id => typeof id !== 'string')) {
+    throw new WardrobeDatabaseError('[insertWardrobeGroupItems] RPC returned invalid item ids', 'INVALID_RPC_RESULT')
+  }
+  return data
+}
+
 export class WardrobeCapacityError extends Error {
   readonly code = 'WARDROBE_CAPACITY_REACHED'
 

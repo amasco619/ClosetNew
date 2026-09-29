@@ -301,6 +301,7 @@ export default function AddItemScreen() {
   };
 
   const [photoUri,        setPhotoUri]        = useState<string | null>(initialUri ?? null);
+  const [multiplePieces, setMultiplePieces] = useState(false);
   const [category,        setCategory]        = useState<ItemCategory>(initCategory);
   const [subType,         setSubType]         = useState<string>(initSubType);
   const [colorFamily,     setColorFamily]     = useState<string>(initColorFamily);
@@ -607,8 +608,8 @@ export default function AddItemScreen() {
         }
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
-          allowsMultipleSelection: true,
-          selectionLimit: 10,
+          allowsMultipleSelection: !multiplePieces,
+          selectionLimit: multiplePieces ? 1 : 10,
         });
         if (!result.canceled && result.assets.length > 1) {
           router.push({
@@ -621,6 +622,10 @@ export default function AddItemScreen() {
       }
 
       if (!asset) return;
+      if (multiplePieces) {
+        router.push({ pathname: '/multi-item-review', params: { uri: asset.uri } });
+        return;
+      }
       {
         setPhotoUri(asset.uri);
         setPhotoBgRemoved(false);
@@ -1115,6 +1120,17 @@ export default function AddItemScreen() {
                 <Text style={styles.photoBtnLabel}>From Gallery</Text>
               </Pressable>
             </View>
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: multiplePieces }}
+              onPress={() => setMultiplePieces(value => !value)}
+              style={[styles.categoryChip, { marginTop: 16, alignSelf: 'flex-start' }, multiplePieces && styles.categoryChipActive]}
+            >
+              <Text style={[styles.categoryLabel, multiplePieces && styles.categoryLabelActive]}>
+                {multiplePieces ? '✓ ' : '○ '}Several pieces in one photo
+              </Text>
+            </Pressable>
+            {multiplePieces && <Text style={{ color: Colors.textSecondary, marginTop: 8 }}>Choose one photo of 2–6 separate garments to review as a set.</Text>}
 
             <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Category</Text>
             <View style={styles.categoryGrid}>

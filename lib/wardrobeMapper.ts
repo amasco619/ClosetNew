@@ -7,7 +7,7 @@
  * that is what makes legacy items score neutrally on signals added in later
  * phases.
  *
- * IMPORTANT: do NOT add phase-specific fields (rise, fit, neckline, …) here
+ * IMPORTANT: do NOT add phase-specific fields (rise, neckline, …) here
  * until the Supabase schema column exists. NULL legacy values must stay
  * undefined on hydrated items so the
  * scorer falls back to its 0/neutral default.
@@ -41,6 +41,8 @@ export function mapDbRowToWardrobeItem(it: any): WardrobeItem {
     fit:          it.fit ?? undefined,
     pattern:      it.pattern ?? undefined,
     patternScale: it.pattern_scale ?? undefined,
+    storagePath:  it.image_url && !it.image_url.startsWith('http') &&
+      !it.image_url.startsWith('file') ? it.image_url : undefined,
     // rise is intentionally absent — see module-level comment above.
   };
 }

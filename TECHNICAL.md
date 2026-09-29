@@ -2302,3 +2302,47 @@ provider events cannot restore deleted-account access.
 If deletion fails after tombstoning, the account remains quarantined and a
 retry resumes deletion rather than re-enabling billing; do not describe that
 partial failure as a fully deleted account.
+
+## 30. African garment classification and multi-piece upload
+
+Add Item defaults to the unchanged single-piece upload. Users may explicitly
+choose “Several pieces in one photo” before picking one image; that choice
+routes to a 2–6-piece review instead of making both classifier requests.
+The review checks the stored AI-processing preference, requires sign-in, sends
+the image to the existing consent- and rate-limit-protected multi-item
+endpoint, crops each detected region into its own image, and asks the user
+to confirm at least two independently wearable pieces and their relationship.
+Only confirmed members upload. Each member is saved with its own image and
+normalized classification, not as a single combined wardrobe item.
+
+`insert_wardrobe_group_items` is an additive, authenticated-only transaction
+wrapper around the existing quota-enforcing `insert_wardrobe_items` RPC and
+the existing `create_garment_group` RPC. Group and member rows are committed
+together or neither is; the existing group security and single-item insert
+contracts remain unchanged. The group is `user_confirmed`, not merely
+AI-inferred. The nullable per-row fabric, fit, pattern and pattern-scale
+columns retain their values through inserts and hydration; legacy NULLs
+remain undefined. Persisted image paths are retained alongside display URLs
+for signed-URL renewal. These migrations are repository files only and have
+**not** been applied to production; multi-piece saves require them on the
+target Supabase database.
+
+The single classifier prompt now identifies supported gele, wrapper and
+structured-headwear cases more specifically, without changing its content
+guardrails or inventing an unsupported Kente-stole subtype. Unexpected
+internal 500s carry an allowlisted code; malformed provider JSON is a bounded
+502, not a partial success. These diagnostics do not explain the historical
+GU-17 500. Both classification calls have a finite 45-second client deadline
+to allow the server's bounded primary/429-fallback provider attempts; other
+API calls keep their 15-second deadline.
+
+`scripts/syntheticGuProviderV1.ts` is opt-in and off by default. When
+explicitly enabled it reads the existing frozen synthetic GU images, calls
+the real classifier, compares results to read-only gold *after* the call,
+and writes a separately versioned report under `artifacts/synthetic-gu/`.
+It does not evaluate rights-cleared real photographs. Neither Kente taxonomy
+nor real-image accuracy is settled by these offline tests or synthetic images.
+The Recommendation Engine v3.7 and protected benchmark outputs remain
+unchanged. The existing Track C root `case-results.csv` has 3231 apparent
+rows instead of the expected 100; the validator failure predates this work
+and must not be “fixed” by regenerating protected output.
