@@ -191,7 +191,8 @@ const culturalP0Cases: Array<{
   { id: 'GU-16', input: { category: 'jewelry', subType: 'aso-oke gele' }, subtype: 'gele' },
   { id: 'GU-17', input: { category: 'bottom', subType: 'wrapper' }, subtype: 'wrapper' },
   { id: 'GU-29', input: { refused: true, reason: 'Please photograph each garment separately.' }, refusal: true },
-  { id: 'GU-39', input: { refused: true, reason: 'This item cannot be represented accurately.' }, refusal: true },
+  { id: 'GU-39', input: { category: 'jewelry', subType: 'kente stole', wearPosition: 'shoulder-neck',
+    colorFamily: 'blue', displayName: 'Kente-pattern stole' }, subtype: 'stole' },
   { id: 'GU-40', input: { category: 'jewelry', subType: 'structured-headpiece' }, subtype: 'structured-headpiece' },
 ];
 
@@ -212,9 +213,9 @@ assert(
   'culturally specific headwear is not refused solely for cultural specificity',
 );
 assert(
-  GEMINI_PROMPT.includes('A Kente stole/strip-cloth accessory has no supported subtype')
-    && GEMINI_PROMPT.includes('Do not invent a Kente subtype'),
-  'GU-39 remains explicitly unresolved without adding Kente taxonomy',
+  GEMINI_PROMPT.includes('including a Kente or Kente-pattern stole')
+    && GEMINI_PROMPT.includes('Refuse loose/non-wearable textiles'),
+  'GU-39 supports a worn stole but refuses loose Kente textile',
 );
 assert(
   GEMINI_PROMPT.includes('multiple independent garments as a set')

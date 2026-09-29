@@ -13,6 +13,7 @@ import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, Sleeve
 import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
 import { SUBTYPE_FORMALITY, inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
 import Colors from '@/constants/colors';
+import { wardrobeCategoryLabel } from '@/constants/wardrobeLabels';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInUp, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
 import { authenticatedApiRequest } from '@/lib/query-client';
@@ -52,7 +53,7 @@ const CATEGORIES: { id: ItemCategory; label: string; icon: string }[] = [
   { id: 'outerwear',label: 'Outerwear',icon: 'cloudy-outline' },
   { id: 'shoes',    label: 'Shoes',    icon: 'footsteps-outline' },
   { id: 'bag',      label: 'Bag',      icon: 'bag-handle-outline' },
-  { id: 'jewelry',  label: 'Jewelry',  icon: 'diamond-outline' },
+  { id: 'jewelry',  label: 'Jewelry & accessories', icon: 'diamond-outline' },
 ];
 
 const OCCASIONS: OccasionTag[] = [
@@ -453,6 +454,7 @@ export default function AddItemScreen() {
   // ─── Derived requirements ──────────────────────────────────────────────────
 
   const isCore       = isCoreCategory(category);
+  const showsTextileFields = isCore || (category === 'jewelry' && subType === 'stole');
   const needsFit     = isCore;
   const needsPattern = isCore;
   const needsFabric  = isCore;
@@ -759,7 +761,7 @@ export default function AddItemScreen() {
             // didn't return a value — fabric/weight are checked inside the setter)
             if (validSub) {
               if (!classified.fabric)     { const f = inferFabric(validSub);     if (f) setFabric(f); }
-              if (!classified.weight)     { setWeight(inferFabricWeight(validSub)); }
+              if (!classified.weight && validSub !== 'stole') { setWeight(inferFabricWeight(validSub)); }
               if (!classified.pattern)    setPattern('solid');
               if (!classified.neckline)   { const inf = SUBTYPE_NECKLINE[validSub]; if (inf) setNeckline(inf); }
               if (!classified.rise)       { const inf = SUBTYPE_RISE[validSub];     if (inf) setRise(inf);     }
@@ -1141,7 +1143,7 @@ export default function AddItemScreen() {
                   onPress={() => { setCategory(cat.id); Haptics.selectionAsync(); }}
                 >
                   <Ionicons name={cat.icon as any} size={18} color={category === cat.id ? Colors.white : Colors.textSecondary} />
-                  <Text style={[styles.categoryLabel, category === cat.id && styles.categoryLabelActive]}>{cat.label}</Text>
+                  <Text style={[styles.categoryLabel, category === cat.id && styles.categoryLabelActive]}>{category === cat.id && subType === 'stole' ? wardrobeCategoryLabel(category, subType) : cat.label}</Text>
                 </Pressable>
               ))}
             </View>
@@ -1299,7 +1301,7 @@ export default function AddItemScreen() {
                       setWarmthBand(undefined);
                     }}
                   >
-                    <Text style={[styles.chipSmallText, category === cat.id && styles.chipSmallTextActive]}>{cat.label}</Text>
+                    <Text style={[styles.chipSmallText, category === cat.id && styles.chipSmallTextActive]}>{category === cat.id && subType === 'stole' ? wardrobeCategoryLabel(category, subType) : cat.label}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -1386,13 +1388,15 @@ export default function AddItemScreen() {
               ))}
             </View>
 
-            {/* ── Pattern * (required for core, hidden for shoes/bag/jewelry) */}
-            {isCore && (
+            {/* Textile accessories can record a pattern without guessing one. */}
+            {showsTextileFields && (
               <>
                 <Text style={styles.sectionTitle}>
-                  Pattern <Text style={styles.requiredAsterisk}>*</Text>
+                  Pattern {needsPattern
+                    ? <Text style={styles.requiredAsterisk}>*</Text>
+                    : <Text style={styles.optionalLabel}>(optional)</Text>}
                 </Text>
-                {!pattern && (
+                {needsPattern && !pattern && (
                   <Text style={styles.requiredHint}>Select a pattern — choose Solid if the item has no print.</Text>
                 )}
                 <View style={styles.chipRowWrap}>
@@ -1401,9 +1405,9 @@ export default function AddItemScreen() {
                       key={p}
                       style={[styles.chipSmall, pattern === p && styles.chipSmallActive]}
                       onPress={() => {
-                        const next = pattern === p ? 'solid' : p;
+                        const next = pattern === p ? (needsPattern ? 'solid' : undefined) : p;
                         setPattern(next);
-                        if (next === 'solid') setPatternScale(undefined);
+                        if (!next || next === 'solid') setPatternScale(undefined);
                       }}
                     >
                       <Text style={[styles.chipSmallText, pattern === p && styles.chipSmallTextActive]}>
@@ -1433,13 +1437,15 @@ export default function AddItemScreen() {
               </>
             )}
 
-            {/* ── Fabric * (required for core, hidden for shoes/bag/jewelry) */}
-            {isCore && (
+            {/* Fabric is optional for a stole: a visual motif cannot prove fiber. */}
+            {showsTextileFields && (
               <>
                 <Text style={styles.sectionTitle}>
-                  Fabric <Text style={styles.requiredAsterisk}>*</Text>
+                  Fabric {needsFabric
+                    ? <Text style={styles.requiredAsterisk}>*</Text>
+                    : <Text style={styles.optionalLabel}>(optional)</Text>}
                 </Text>
-                {!fabric && (
+                {needsFabric && !fabric && (
                   <Text style={styles.requiredHint}>Fabric drives texture-harmony scoring. Pick the closest match.</Text>
                 )}
                 <View style={styles.chipRowWrap}>
@@ -1447,7 +1453,7 @@ export default function AddItemScreen() {
                     <Pressable
                       key={f}
                       style={[styles.chipSmall, fabric === f && styles.chipSmallActive]}
-                      onPress={() => setFabric(f)}
+                      onPress={() => setFabric(fabric === f && !needsFabric ? undefined : f)}
                     >
                       <Text style={[styles.chipSmallText, fabric === f && styles.chipSmallTextActive]}>{f}</Text>
                     </Pressable>

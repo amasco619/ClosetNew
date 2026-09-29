@@ -79,6 +79,7 @@ Rules:
 - dominantRgb is the representative [R,G,B], each integer 0-255, matching colorFamily.
 - modelConfidence is a decimal from 0 to 1.
 - Ankara/African wax print uses pattern "wax-print"; classify gele/head tie as jewelry/gele.
+- Classify a clearly identifiable shoulder/neck stole as jewelry/stole and set wearPosition "shoulder-neck" on that member; refuse a loose/decorative Kente textile instead of making it a member. Never map Kente to wax-print or infer cotton/silk solely from its motif. Keep waist sashes, neck scarves, lower-body wrappers and gele/headwrap distinct.
 No markdown, code fences, commentary, URLs, tokens, image bytes, or provider metadata.`;
 
 /**

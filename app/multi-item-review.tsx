@@ -5,6 +5,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as Crypto from 'expo-crypto';
 import { router, useLocalSearchParams } from 'expo-router';
 import Colors from '@/constants/colors';
+import { wardrobeCategoryLabel } from '@/constants/wardrobeLabels';
 import { useApp } from '@/contexts/AppContext';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
 import { authenticatedApiRequest } from '@/lib/query-client';
@@ -163,7 +164,7 @@ export default function MultiItemReview() {
                 <Image source={{ uri: piece.uri }} style={styles.photo} contentFit="cover" />
                 <View style={styles.details}>
                   <Text style={styles.name}>{piece.classification.description}</Text>
-                  <Text style={styles.help}>{piece.classification.category} · {piece.classification.subType}</Text>
+                  <Text style={styles.help}>{wardrobeCategoryLabel(piece.classification.category, piece.classification.subType)} · {piece.classification.subType === 'stole' ? 'Stole' : piece.classification.subType}</Text>
                 </View>
                 <Text style={styles.name}>{selected.includes(piece.detectionId) ? '✓' : '○'}</Text>
               </Pressable>

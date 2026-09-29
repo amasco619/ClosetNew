@@ -269,7 +269,7 @@ const EXTRA_SUBTYPES = {
   bag: ['gym-bag', 'wicker-bag', 'evening-bag', 'beach-bag'],
   jewelry: [
     'brooch', 'statement-earrings', 'sunglasses', 'sunhat',
-    'gele', 'headwrap', 'head-scarf', 'structured-headpiece',
+    'gele', 'headwrap', 'head-scarf', 'structured-headpiece', 'stole',
   ],
 } satisfies Record<ItemCategory, string[]>;
 
@@ -377,6 +377,9 @@ const SUBTYPE_ALIASES: Record<string, string> = {
   'headscarf': 'head-scarf',
   'chiffon head scarf': 'head-scarf',
   'structured headpiece': 'structured-headpiece',
+  'kente stole': 'stole',
+  'kente-pattern stole': 'stole',
+  'woven stole': 'stole',
   'aso ebi': 'aso-ebi',
   'iro & buba': 'iro-and-buba',
   'iro and buba': 'iro-and-buba',

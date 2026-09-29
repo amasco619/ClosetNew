@@ -9,6 +9,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useApp, subTypes, colorFamilies } from '@/contexts/AppContext';
 import type { Neckline } from '@/constants/types';
 import Colors from '@/constants/colors';
+import { wardrobeCategoryLabel } from '@/constants/wardrobeLabels';
 import * as Haptics from 'expo-haptics';
 import { rs } from '../lib/responsive';
 
@@ -157,7 +158,7 @@ export default function ItemDetailScreen() {
 
         <View style={styles.details}>
           <Pressable style={styles.itemTypeRow} onPress={() => setEditingType(v => !v)} hitSlop={6}>
-            <Text style={styles.itemType}>{item.subType.replace('-', ' ')}</Text>
+            <Text style={styles.itemType}>{item.subType === 'stole' ? 'Stole' : item.subType.replace('-', ' ')}</Text>
             <Ionicons name={editingType ? 'chevron-up' : 'pencil-outline'} size={15} color={Colors.textSecondary} />
           </Pressable>
           {editingType && (
@@ -172,7 +173,7 @@ export default function ItemDetailScreen() {
                     setEditingType(false);
                   }}
                 >
-                  <Text style={[styles.editChipText, item.subType === st && styles.editChipTextActive]}>{st.replace('-', ' ')}</Text>
+                  <Text style={[styles.editChipText, item.subType === st && styles.editChipTextActive]}>{st === 'stole' ? 'Stole' : st.replace('-', ' ')}</Text>
                 </Pressable>
               ))}
             </View>
@@ -181,7 +182,7 @@ export default function ItemDetailScreen() {
             <View style={[styles.dot, { backgroundColor: colorDots[item.colorFamily] || '#ccc' }]} />
             <Text style={styles.metaText}>{item.colorFamily}</Text>
             <Text style={styles.metaDivider}>|</Text>
-            <Text style={styles.metaText}>{item.category}</Text>
+            <Text style={styles.metaText}>{wardrobeCategoryLabel(item.category, item.subType)}</Text>
             <Ionicons name={editingColor ? 'chevron-up' : 'pencil-outline'} size={13} color={Colors.textSecondary} style={{ marginLeft: 4 }} />
           </Pressable>
           {editingColor && (

@@ -21,7 +21,7 @@ const STORAGE_KEY = '@amodka_wardrobe_view';
 const categoryFilters = ['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes', 'bag', 'jewelry'] as const;
 const categoryLabels: Record<string, string> = {
   all: 'All', top: 'Tops', bottom: 'Bottoms', dress: 'Dresses',
-  outerwear: 'Outerwear', shoes: 'Shoes', bag: 'Bags', jewelry: 'Jewelry',
+  outerwear: 'Outerwear', shoes: 'Shoes', bag: 'Bags', jewelry: 'Jewelry & accessories',
 };
 
 const colorDots: Record<string, string> = {
@@ -108,7 +108,7 @@ export default function WardrobeScreen() {
         />
         <View style={styles.listMeta}>
           <Text style={styles.listItemType} numberOfLines={1}>
-            {item.subType.replace(/-/g, ' ')}
+             {item.subType === 'stole' ? 'Stole · textile accessory' : item.subType.replace(/-/g, ' ')}
           </Text>
           <View style={styles.listColorRow}>
             <View style={[styles.colorDot, { backgroundColor: colorDots[item.colorFamily] || '#ccc' }]} />
@@ -159,7 +159,7 @@ export default function WardrobeScreen() {
           )}
           <View style={styles.gridLabel}>
             <Text style={styles.gridLabelText} numberOfLines={1}>
-              {item.fabric
+              {item.subType === 'stole' ? 'Stole · textile accessory' : item.fabric
                 ? `${item.fabric.charAt(0).toUpperCase() + item.fabric.slice(1)} · ${item.colorFamily}`
                 : item.subType.replace(/-/g, ' ')}
             </Text>

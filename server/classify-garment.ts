@@ -418,7 +418,7 @@ export const VALID_SUBTYPES_BY_CATEGORY: Record<string, string[]> = {
   jewelry: [
     "necklace","earrings","bracelet","ring","watch","brooch",
     "statement-earrings","sunglasses","sunhat",
-    "gele","headwrap","head-scarf","structured-headpiece",
+    "gele","headwrap","head-scarf","structured-headpiece","stole",
   ],
 };
 
@@ -451,6 +451,9 @@ const SUBTYPE_ALIASES: Record<string, string> = {
   "headscarf": "head-scarf",
   "chiffon head scarf": "head-scarf",
   "structured headpiece": "structured-headpiece",
+  "kente stole": "stole",
+  "kente-pattern stole": "stole",
+  "woven stole": "stole",
   "aso ebi": "aso-ebi",
   "iro & buba": "iro-and-buba",
   "iro and buba": "iro-and-buba",
@@ -538,6 +541,14 @@ export function processGeminiResult(parsed: GeminiResult): ClassificationResult 
       refused: true,
       reason: sanitizeRefusalReason(parsed.reason),
     };
+  }
+
+  // A textile or a waist sash is not a stole. Require an explicit garment-use
+  // assessment before accepting this accessory from either classifier route.
+  if (parsed.category === "jewelry" &&
+      normalizeGarmentSubType(parsed.subType) === "stole" &&
+      parsed.wearPosition !== "shoulder-neck") {
+    return { refused: true, reason: "This does not clearly show a shoulder or neck stole. Please photograph the wearable item." };
   }
 
   // Validate and sanitise each field
@@ -694,7 +705,7 @@ subType (required): Exactly one value from the list for the chosen category:
   outerwear → "blazer" | "coat" | "peacoat" | "trench" | "jacket" | "hoodie" | "bomber-jacket" | "leather-jacket" | "puffer" | "raincoat" | "vest" | "denim-jacket"
   shoes     → "sneakers" | "training-shoes" | "heels" | "pumps" | "stilettos" | "strappy-heels" | "block-heels" | "flats" | "boots" | "ankle-boots" | "sandals" | "espadrilles" | "loafers" | "mules"
   bag       → "tote" | "crossbody" | "clutch" | "backpack" | "shoulder-bag" | "mini-bag" | "gym-bag" | "wicker-bag" | "evening-bag" | "beach-bag"
-  jewelry   → "necklace" | "earrings" | "bracelet" | "ring" | "watch" | "brooch" | "statement-earrings" | "sunglasses" | "sunhat" | "gele" | "headwrap" | "head-scarf" | "structured-headpiece"
+  jewelry   → "necklace" | "earrings" | "bracelet" | "ring" | "watch" | "brooch" | "statement-earrings" | "sunglasses" | "sunhat" | "gele" | "headwrap" | "head-scarf" | "structured-headpiece" | "stole"
 
 African/Nigerian garment guidance:
 - Do not refuse a clear fashion head covering just because it is culturally specific or is not a conventional Western garment.
@@ -703,10 +714,13 @@ African/Nigerian garment guidance:
 - Use "buba" for an individual buba blouse, "iro" or "wrapper" for an individual wrapped lower garment, and "iro-and-buba" when the coordinated outfit is shown as one wardrobe item.
 - Use "aso-ebi" for a complete coordinated aso-ebi outfit, and "boubou" for a boubou/grand boubou.
 - Ankara/African wax print describes pattern, not silhouette: keep the garment's canonical subType and use pattern "wax-print".
-- A Kente stole/strip-cloth accessory has no supported subtype in this taxonomy. Keep it explicitly unresolved: do not force it into "head-scarf", "headwrap", "jewelry", or another subtype, and return a refusal explaining that it cannot be represented accurately. Do not invent a Kente subtype.
+- For a clearly identifiable shoulder/neck stole (including a Kente or Kente-pattern stole), use category "jewelry" and subType "stole" with wearPosition "shoulder-neck". A garment on a hanger can qualify if its intended shoulder/neck use is clear. Do not use stole for bare Kente cloth, loose/decorative textile, a waist sash, a neck scarf, a lower-body wrapper or a gele/headwrap. Refuse loose/non-wearable textiles rather than treating them as jewelry.
+- "Kente" describes a textile tradition or visual motif, not the garment's cut or proof of authentic hand-weaving. Name a Kente or Kente-pattern stole only when visually justified; do not infer cotton or silk from its appearance, and never convert a Kente motif to pattern "wax-print". If the material or pattern cannot be identified independently, omit that field.
 - When a photo presents multiple independent garments as a set rather than one supported garment, do not invent a set subtype; return a refusal asking for separate garment photos.
 
 displayName (required): A concise human-readable name for the specific item, e.g. "Trench coat", "Floral midi dress", "Leather ankle boots". Use title case.
+
+wearPosition (required only for jewelry/stole, omit otherwise): Exactly "shoulder-neck" when the image clearly identifies an accessory intended to be worn over the shoulders or around the neck as a stole. If this cannot be established, return a refusal, not a stole classification.
 
 colorFamily (required): The primary/dominant colour of the garment. Exactly one of:
   "black" | "white" | "grey" | "cream" | "beige" | "camel" | "brown" | "red" | "burgundy" | "coral" | "orange" | "yellow" | "olive" | "green" | "blue" | "navy" | "lavender" | "pink"
@@ -761,6 +775,7 @@ interface GeminiResult {
   warmthBand?: string;
   dominantRgb?: [number, number, number];
   modelConfidence?: number;
+  wearPosition?: string;
 }
 
 function isClassificationResponse(value: unknown): value is GeminiResult {

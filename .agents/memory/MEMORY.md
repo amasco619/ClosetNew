@@ -26,3 +26,4 @@
 - [Free wardrobe retained-row policy](free-wardrobe-retention-policy.md) — active-item admission is not a retained-row storage cap; changing that rule needs a separate product decision.
 - [Upload cleanup after ambiguous saves](upload-cleanup-ambiguity.md) — only a confirmed DB rejection makes it safe to delete a just-uploaded image; a lost response may follow a commit.
 - [Per-garment metadata persistence](garment-metadata-persistence.md) — store normalized recommendation attributes per wardrobe row, not on group shared attributes; leave legacy rows NULL.
+- [Stole taxonomy boundary](stole-taxonomy-boundary.md) — use existing accessory backing with a textile-specific UI label; require explicit shoulder/neck identification before accepting a stole.
