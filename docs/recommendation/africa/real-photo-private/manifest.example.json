@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "private-real-photo-v1",
+  "dataset": {
+    "status": "draft",
+    "owner": "",
+    "approvalReference": ""
+  },
+  "cases": [
+    {
+      "caseId": "KENTE-01",
+      "split": "development",
+      "image": {
+        "path": "images/KENTE-01.jpg",
+        "sha256": null,
+        "mimeType": "image/jpeg"
+      },
+      "rights": {
+        "licenseName": "",
+        "consentReference": "",
+        "internalEvaluation": "",
+        "classifierProcessing": ""
+      },
+      "provenance": {
+        "sourceType": "",
+        "sourceReference": "",
+        "verifiedBy": "",
+        "verifiedDate": ""
+      },
+      "privacy": { "identifiable": "no" },
+      "captureConditions": ""
+    }
+  ]
+}

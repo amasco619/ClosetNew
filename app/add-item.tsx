@@ -784,8 +784,8 @@ export default function AddItemScreen() {
               // show error flash, then keep the photo so the user can fill in manually.
               finishClassifying(false);
               Alert.alert(
-                "We couldn't identify this piece just yet",
-                'Your photo is safe. You can try again or review the details below.',
+                'Auto-fill unavailable',
+                'The classification service could not complete this request. Your photo is safe; please try again or enter the details manually.',
                 [{ text: 'Got it' }],
               );
             }

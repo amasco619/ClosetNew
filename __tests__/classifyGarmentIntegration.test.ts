@@ -308,9 +308,9 @@ function buildLimitedApp(): express.Application {
       const unexpected = await runFailure(axiosError({
         response: { status: 400, data: { error: { message: unexpectedSecret } } },
       }));
-      assert(unexpected.status === 500 && unexpected.body.error === "classification_failed"
-        && unexpected.body.code === "INTERNAL_ERROR",
-        "unexpected 500 carries a stable machine-readable diagnostic code");
+      assert(unexpected.status === 502 && unexpected.body.error === "classifier_upstream_failure"
+        && unexpected.body.code === "PROVIDER_HTTP_ERROR",
+        "provider 400 is identified as an upstream error, not an internal or garment refusal");
       assertSafe("unexpected failure", unexpected, unexpectedSecret);
 
       const malformedSecret = "raw Gemini response secret";

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Private governed real-photo evaluation manifest",
+  "type": "object",
+  "required": ["schemaVersion", "dataset", "cases"],
+  "properties": {
+    "schemaVersion": { "const": "private-real-photo-v1" },
+    "dataset": {
+      "type": "object",
+      "required": ["status", "owner", "approvalReference"],
+      "properties": {
+        "status": { "const": "rights-cleared" },
+        "owner": { "type": "string", "minLength": 1 },
+        "approvalReference": { "type": "string", "minLength": 1 }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["caseId", "split", "image", "rights", "provenance", "privacy", "captureConditions"],
+        "properties": {
+          "caseId": { "type": "string", "minLength": 1 },
+          "split": { "enum": ["development", "validation", "test"] },
+          "image": {
+            "type": "object",
+            "required": ["path", "sha256", "mimeType"],
+            "properties": {
+              "path": { "type": "string", "minLength": 1, "description": "Relative path within the private local data root." },
+              "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+              "mimeType": { "enum": ["image/jpeg", "image/png"] }
+            }
+          },
+          "rights": {
+            "type": "object",
+            "required": ["licenseName", "consentReference", "internalEvaluation", "classifierProcessing"],
+            "properties": {
+              "licenseName": { "type": "string", "minLength": 1 },
+              "consentReference": { "type": "string", "minLength": 1, "description": "Private documentary reference; never put consent documents or subject names in this repository." },
+              "internalEvaluation": { "const": "approved" },
+              "classifierProcessing": { "const": "approved", "description": "Explicit permission for the chosen classifier processing route." },
+              "subjectConsentReference": { "type": "string", "description": "Required by preflight if a person is identifiable." }
+            }
+          },
+          "provenance": {
+            "type": "object",
+            "required": ["sourceType", "sourceReference", "verifiedBy", "verifiedDate"],
+            "properties": {
+              "sourceType": { "const": "real-photo" },
+              "sourceReference": { "type": "string", "minLength": 1 },
+              "verifiedBy": { "type": "string", "minLength": 1, "description": "Role, not personal name." },
+              "verifiedDate": { "type": "string", "format": "date" }
+            }
+          },
+          "privacy": {
+            "type": "object",
+            "required": ["identifiable"],
+            "properties": { "identifiable": { "enum": ["yes", "no"] } }
+          },
+          "captureConditions": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Non-label capture conditions only (for example, neutral background and daylight); item identity/cultural context belong in reviewer-only gold."
+          }
+        }
+      }
+    }
+  }
+}

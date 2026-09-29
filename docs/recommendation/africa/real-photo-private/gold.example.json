@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "private-real-photo-gold-v1",
+  "split": "development",
+  "manifestSha256": "",
+  "reviewerReference": "",
+  "lockedDate": "",
+  "cases": [
+    {
+      "caseId": "KENTE-01",
+      "inputSha256": "",
+      "provenanceSha256": "",
+      "adjudication": {
+        "status": "",
+        "adjudicatorReference": "",
+        "decisionReference": ""
+      },
+      "reviewContext": {
+        "description": "",
+        "culturalContext": "",
+        "relationship": "",
+        "boxes": [
+          { "item": "", "x": 0, "y": 0, "width": 0, "height": 0 }
+        ]
+      },
+      "expected": { "outcome": "" },
+      "goldToCurrentOutput": {
+        "itemType": { "status": "supported", "currentField": "subType" },
+        "broadCategory": { "status": "supported", "currentField": "category" },
+        "outcome": { "status": "supported", "currentField": "outcome" },
+        "wearPositionProviderAssertion": { "status": "unsupported", "reason": "Transient provider assertion; not part of the persisted classifier output." },
+        "constructionOrMaterial": { "status": "unsupported", "reason": "Current output fabric/material vocabulary does not distinguish all textile manufacture claims." },
+        "pattern": { "status": "supported", "currentField": "pattern" },
+        "wearability": { "status": "unrepresentable", "reason": "Current output has no wearable-versus-decorative field." }
+      }
+    }
+  ]
+}

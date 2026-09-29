@@ -1,0 +1,15 @@
+{
+  "notice": "Required evaluation case shapes and intended distinctions only. No images, measured results, or reviewer gold are included.",
+  "suite": "Kente and stole boundary cases",
+  "cases": [
+    { "caseId": "KENTE-01", "caseShape": "worn Kente / Kente-pattern stole", "intendedOutcome": "Recognize a stole worn over the shoulders as an accessory; distinguish the worn item from loose cloth." },
+    { "caseId": "KENTE-02", "caseShape": "plain stole", "intendedOutcome": "Recognize a worn stole/accessory without inferring Kente material or pattern." },
+    { "caseId": "KENTE-03", "caseShape": "bare Kente cloth", "intendedOutcome": "Recognize unconstructed loose textile, not a worn garment or stole." },
+    { "caseId": "KENTE-04", "caseShape": "printed Kente fabric", "intendedOutcome": "Recognize printed Kente-style fabric; do not infer hand-woven Kente from appearance alone." },
+    { "caseId": "KENTE-05", "caseShape": "waist sash", "intendedOutcome": "Recognize a waist-worn sash/accessory, not a shoulder stole." },
+    { "caseId": "KENTE-06", "caseShape": "neck scarf", "intendedOutcome": "Recognize a neck-worn scarf; distinguish its placement/use from a shoulder stole where evidence permits." },
+    { "caseId": "KENTE-07", "caseShape": "lower-body wrapper", "intendedOutcome": "Recognize a lower-body wrapped garment, not a stole." },
+    { "caseId": "KENTE-08", "caseShape": "gele / headwrap", "intendedOutcome": "Recognize headwear/headwrap, not a stole." },
+    { "caseId": "KENTE-09", "caseShape": "decorative nonwearable textile", "intendedOutcome": "Recognize a decorative textile as nonwearable, not a garment/accessory." }
+  ]
+}

@@ -139,7 +139,7 @@ Whenever you make a change that affects any section of this document — new API
 
 | Technology | Role |
 |-----------|------|
-| **Google Gemini API** | Garment classification from photos. Primary model: `gemini-flash-lite-latest`. Fallback model: `gemini-2.5-flash` (used when primary returns 429). Requires `GEMINI_API_KEY`. |
+| **Google Gemini API** | Garment classification from photos. Primary alias: `gemini-flash-lite-latest`. Fallback model: `gemini-2.5-flash` (used when primary returns 429). Requires `GEMINI_API_KEY`. |
 | **Open-Meteo** | Free weather forecast API (no API key required). Returns daily high/low temps and precipitation probability. |
 | **ipapi.co** | IP-geolocation fallback when the user has not granted device location permission. |
 
@@ -527,7 +527,7 @@ The original full-resolution asset is never sent over the network. Both resize c
 ---
 
 ### Gemini Garment Classification
-A resized base64 image (≤1024 px, ~100–300 KB) is sent to `POST /api/classify-garment`. Gemini classifies the item into category, subType, colourFamily, fabric, pattern, fit, neckline, sleeveLength, rise, warmthBand, and returns a dominant RGB for perceptual colour scoring. The server applies deterministic occasion and season rules on top of Gemini's output for consistency. Two-model fallback: `gemini-flash-lite-latest` → `gemini-2.5-flash` on 429. Content guardrails reject selfies, blurry images, non-clothing subjects. A `[classify] payload N KB` log line is emitted at the start of each request for observability.
+A resized base64 image (≤1024 px, ~100–300 KB) is sent to `POST /api/classify-garment`. Gemini classifies the item into category, subType, colourFamily, fabric, pattern, fit, neckline, sleeveLength, rise, warmthBand, and returns a dominant RGB for perceptual colour scoring. The server applies deterministic occasion and season rules on top of Gemini's output for consistency. Two-model fallback: `gemini-flash-lite-latest` → `gemini-2.5-flash` on 429. The primary remains a rolling alias because a pinned Flash-Lite probe returned HTTP 404 here; real-photo scoring must have a provider-resolved model version or fail closed. Content guardrails reject selfies, blurry images, non-clothing subjects. Safe structured classification logs include a generated ID, SHA-256/size/MIME, model/attempt/status, prompt SHA-256, stage and error code, but never raw image or provider content.
 
 **RGB/colourFamily consistency validation:** `processGeminiResult` validates that `dominantRgb`-derived HSL is consistent with the stated `colorFamily` before storing perceptual colour values. Truly achromatic families (`black`, `white`, `grey`) are checked for saturation contamination (threshold: 0.25). All other families are checked for hue distance against a centroid lookup (threshold: 40°). When the RGB is inconsistent — e.g. because background contamination skewed the sampled pixel — both `dominantHsl` and `dominantLab` are corrected to the family centroid rather than discarding the classification. A `[classify] dominantRgb corrected…` warning is logged. The `colorFamily` label itself is never changed. Constants: `DOMINANT_RGB_HUE_THRESHOLD_DEG = 40`, `DOMINANT_RGB_ACHROMATIC_SAT_THRESHOLD = 0.25`, `SERVER_FAMILY_CENTROID_HSL` (18-family lookup).
 

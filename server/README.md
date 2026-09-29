@@ -19,7 +19,7 @@ The backend starts automatically via the **Start Backend** workflow, which runs 
 
 Classifies a garment image using Google Gemini AI and maps the result to Amodka's internal schema.
 
-**Model strategy:** The primary model is `gemini-flash-lite-latest`. If that model returns a 429 (quota exceeded), the request is automatically retried once against `gemini-2.5-flash`. Any non-429 error from the primary model surfaces immediately without a retry.
+**Model strategy:** The primary alias is `gemini-flash-lite-latest`. If that model returns a 429 (quota exceeded), the request is automatically retried once against `gemini-2.5-flash`. Any non-429 error from the primary model surfaces immediately without a retry. A pinned `gemini-2.5-flash-lite` probe returned HTTP 404 here, so the primary was not changed without compatibility. Evaluation must retain the provider-resolved model version; an unresolved alias cannot support reproducible scoring. Classification diagnostic logs contain only a generated classification ID, input hash/size/MIME, prompt hash, model/attempt/status, stage, elapsed time, and normalized outcome; never image bytes or provider bodies.
 
 ### Request
 
