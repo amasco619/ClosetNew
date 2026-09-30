@@ -2,11 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Private governed real-photo evaluation manifest",
   "type": "object",
+  "additionalProperties": false,
   "required": ["schemaVersion", "dataset", "cases"],
   "properties": {
     "schemaVersion": { "const": "private-real-photo-v1" },
     "dataset": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["status", "owner", "approvalReference"],
       "properties": {
         "status": { "const": "rights-cleared" },
@@ -19,12 +21,14 @@
       "minItems": 1,
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "required": ["caseId", "split", "image", "rights", "provenance", "privacy", "captureConditions"],
         "properties": {
           "caseId": { "type": "string", "minLength": 1 },
           "split": { "enum": ["development", "validation", "test"] },
           "image": {
             "type": "object",
+            "additionalProperties": false,
             "required": ["path", "sha256", "mimeType"],
             "properties": {
               "path": { "type": "string", "minLength": 1, "description": "Relative path within the private local data root." },
@@ -34,17 +38,19 @@
           },
           "rights": {
             "type": "object",
+            "additionalProperties": false,
             "required": ["licenseName", "consentReference", "internalEvaluation", "classifierProcessing"],
             "properties": {
               "licenseName": { "type": "string", "minLength": 1 },
               "consentReference": { "type": "string", "minLength": 1, "description": "Private documentary reference; never put consent documents or subject names in this repository." },
               "internalEvaluation": { "const": "approved" },
               "classifierProcessing": { "const": "approved", "description": "Explicit permission for the chosen classifier processing route." },
-              "subjectConsentReference": { "type": "string", "description": "Required by preflight if a person is identifiable." }
+              "subjectConsentReference": { "type": "string", "minLength": 1, "description": "Required by preflight if a person is identifiable." }
             }
           },
           "provenance": {
             "type": "object",
+            "additionalProperties": false,
             "required": ["sourceType", "sourceReference", "verifiedBy", "verifiedDate"],
             "properties": {
               "sourceType": { "const": "real-photo" },
@@ -55,6 +61,7 @@
           },
           "privacy": {
             "type": "object",
+            "additionalProperties": false,
             "required": ["identifiable"],
             "properties": { "identifiable": { "enum": ["yes", "no"] } }
           },

@@ -18,7 +18,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInUp, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
-import { resolvePhotoUri } from '@/lib/classifyPath';
+import { classificationImagePayload, resolvePhotoUri } from '@/lib/classifyPath';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
 import { buildGuestPhotoDestPath } from '../constants/guestPhotoCleanup';
@@ -520,7 +520,7 @@ export default function AddItemScreen() {
     modelConfidence?: number;
   }> => {
     try {
-      const res  = await authenticatedApiRequest('POST', '/api/classify-garment', { imageBase64: base64 });
+      const res  = await authenticatedApiRequest('POST', '/api/classify-garment', classificationImagePayload(base64));
       const data = await res.json();
       const fallback = localClassifyFallback(cat);
       return {
@@ -684,7 +684,8 @@ export default function AddItemScreen() {
 
             // Remove background via Photoroom — silent fallback if unavailable.
             // Photoroom returns a PNG; re-encode to JPEG so the classify endpoint
-            // always receives image/jpeg (its hardcoded MIME type for Gemini).
+            // normally receives JPEG; the request MIME is checked against the
+            // actual submitted bytes, including any PNG result.
             // We store the clean PNG base64 separately for the storage upload
             // (higher quality, transparent background) and update the preview URI.
             // IMPORTANT: use the file URI returned by ImageManipulator (never the

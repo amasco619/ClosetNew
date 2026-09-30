@@ -5,6 +5,18 @@
  * directly in unit tests running in Node without pulling in React Native.
  */
 
+/** Identify the bytes being submitted, not the original picker URI's format. */
+export function classificationImagePayload(imageBase64: string): {
+  imageBase64: string;
+  imageMimeType: 'image/jpeg' | 'image/png';
+} {
+  // Standard base64 signatures for JPEG (FF D8 FF) and PNG's eight-byte header.
+  const imageMimeType = imageBase64.startsWith('/9j/') ? 'image/jpeg'
+    : imageBase64.startsWith('iVBORw0KGgo') ? 'image/png' : null;
+  if (!imageMimeType) throw new Error('Unsupported classification image format');
+  return { imageBase64, imageMimeType };
+}
+
 /**
  * Selects the base64 string that should be forwarded to the Gemini classify
  * endpoint after a background-removal attempt.

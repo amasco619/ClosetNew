@@ -4,6 +4,7 @@ import express from 'express';
 import request from 'supertest';
 import axios from 'axios';
 import { classifyGarment, GEMINI_PROMPT } from '../server/classify-garment';
+import { classificationImagePayload } from '../lib/classifyPath';
 
 const app = express();
 app.use(express.json());
@@ -13,11 +14,13 @@ const originalKey = process.env.GEMINI_API_KEY;
 const originalInfo = console.info;
 const originalLog = console.log;
 const originalError = console.error;
+const originalWarn = console.warn;
 const lines: string[] = [];
 process.env.GEMINI_API_KEY = 'mock-secret-key';
 console.info = (...parts: unknown[]) => { lines.push(parts.join(' ')); };
 console.log = (...parts: unknown[]) => { lines.push(parts.join(' ')); };
 console.error = (...parts: unknown[]) => { lines.push(parts.join(' ')); };
+console.warn = (...parts: unknown[]) => { lines.push(parts.join(' ')); };
 
 const imageBase64 = Buffer.from('synthetic gu17 test bytes').toString('base64');
 const sha256 = createHash('sha256').update(Buffer.from(imageBase64, 'base64')).digest('hex');
@@ -29,11 +32,15 @@ const output = (classification: unknown) => ({
 });
 const wrapper = { category: 'bottom', subType: 'wrapper', colorFamily: 'blue',
   displayName: 'Aso-oke wrapper', pattern: 'geometric', modelConfidence: 0.9 };
-async function run(mock: () => Promise<unknown>) {
+async function run(mock: () => Promise<unknown>, payload = { imageBase64, imageMimeType: 'image/png' }) {
   lines.length = 0;
-  axios.post = (async () => mock()) as typeof axios.post;
+  let providerMimeType: string | undefined;
+  axios.post = (async (_url: string, body: any) => {
+    providerMimeType = body.contents[0].parts[1].inlineData.mimeType;
+    return mock();
+  }) as typeof axios.post;
   const response = await request(app).post('/api/classify-garment')
-    .send({ imageBase64, imageMimeType: 'image/png', userId: 'sensitive-user-id' });
+    .send({ ...payload, userId: 'sensitive-user-id' });
   const traces = lines.flatMap(line => {
     try { const value = JSON.parse(line); return value.type?.startsWith('classification') ? [value] : []; }
     catch { return []; }
@@ -42,9 +49,9 @@ async function run(mock: () => Promise<unknown>) {
   assert.ok(traces.length > 0);
   assert.ok(traces.every(trace => trace.classificationId === response.headers['x-classification-id']));
   assert.ok(traces.every(trace => !JSON.stringify(trace).includes('sensitive-user-id')));
-  assert.ok(!lines.join('\n').includes(imageBase64));
+  assert.ok(!lines.join('\n').includes(payload.imageBase64));
   assert.ok(!lines.join('\n').includes('mock-secret-key'));
-  return { response, traces };
+  return { response, traces, providerMimeType };
 }
 
 (async () => {
@@ -59,6 +66,27 @@ try {
   assert.equal(result.traces.at(-1).promptSha256, createHash('sha256').update(GEMINI_PROMPT).digest('hex'));
   assert.equal(result.traces.at(-1).modelVersion, 'gemini-2.5-flash-lite');
   assert.equal(result.traces.at(-1).code, 'OK');
+
+  // The same byte-based payload builder used by Add Item reaches provider and traces.
+  for (const [bytes, mimeType] of [
+    [Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 1]), 'image/jpeg'],
+    [Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]), 'image/png'],
+  ] as const) {
+    const payload = classificationImagePayload(bytes.toString('base64'));
+    result = await run(async () => output(wrapper), payload);
+    assert.equal(result.response.status, 200);
+    assert.equal(payload.imageMimeType, mimeType);
+    assert.equal(result.providerMimeType, mimeType);
+    assert.equal(result.traces.at(-1).mimeType, mimeType);
+    assert.equal(result.traces.at(-1).imageSha256, createHash('sha256').update(bytes).digest('hex'));
+  }
+  assert.throws(() => classificationImagePayload(imageBase64), /Unsupported classification image format/);
+
+  result = await run(async () => output({ ...wrapper, dominantRgb: [255, 0, 0] }));
+  assert.equal(result.response.status, 200, 'colour correction behavior is retained');
+  assert.ok(!lines.join('\n').includes('dominantRgb corrected'));
+  assert.ok(!lines.join('\n').includes('derived-hue'));
+  assert.ok(!lines.join('\n').includes('derived-sat'));
 
   result = await run(async () => output({ ...wrapper, fabric: 'aso-oke' }));
   assert.equal(result.response.status, 200, 'unsupported textile field does not fail the garment');
@@ -122,6 +150,7 @@ try {
   console.info = originalInfo;
   console.log = originalLog;
   console.error = originalError;
+  console.warn = originalWarn;
   if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
   else process.env.GEMINI_API_KEY = originalKey;
 }

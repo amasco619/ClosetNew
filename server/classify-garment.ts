@@ -638,12 +638,7 @@ export function processGeminiResult(parsed: GeminiResult): ClassificationResult 
     const rawHsl = rgbToHsl(r, g, b);
     const { hsl: validatedHsl, corrected } = validateDominantHsl(rawHsl, colorFamily);
     if (corrected) {
-      const centroidH = SERVER_FAMILY_CENTROID_HSL[colorFamily!]?.h ?? "n/a";
-      console.warn(
-        `[classify] dominantRgb corrected to ${colorFamily} centroid ` +
-        `(derived-hue=${rawHsl.h.toFixed(0)}° centroid-hue=${centroidH}° ` +
-        `derived-sat=${rawHsl.s.toFixed(2)})`
-      );
+      // Image-derived colour values are not operational diagnostics.
       const [cr, cg, cb] = hslToRgb(validatedHsl.h, validatedHsl.s, validatedHsl.l);
       dominantHsl = validatedHsl;
       dominantLab = rgbToLab(cr, cg, cb);

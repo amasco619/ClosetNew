@@ -529,7 +529,7 @@ The original full-resolution asset is never sent over the network. Both resize c
 ### Gemini Garment Classification
 A resized base64 image (≤1024 px, ~100–300 KB) is sent to `POST /api/classify-garment`. Gemini classifies the item into category, subType, colourFamily, fabric, pattern, fit, neckline, sleeveLength, rise, warmthBand, and returns a dominant RGB for perceptual colour scoring. The server applies deterministic occasion and season rules on top of Gemini's output for consistency. Two-model fallback: `gemini-flash-lite-latest` → `gemini-2.5-flash` on 429. The primary remains a rolling alias because a pinned Flash-Lite probe returned HTTP 404 here; real-photo scoring must have a provider-resolved model version or fail closed. Content guardrails reject selfies, blurry images, non-clothing subjects. Safe structured classification logs include a generated ID, SHA-256/size/MIME, model/attempt/status, prompt SHA-256, stage and error code, but never raw image or provider content.
 
-**RGB/colourFamily consistency validation:** `processGeminiResult` validates that `dominantRgb`-derived HSL is consistent with the stated `colorFamily` before storing perceptual colour values. Truly achromatic families (`black`, `white`, `grey`) are checked for saturation contamination (threshold: 0.25). All other families are checked for hue distance against a centroid lookup (threshold: 40°). When the RGB is inconsistent — e.g. because background contamination skewed the sampled pixel — both `dominantHsl` and `dominantLab` are corrected to the family centroid rather than discarding the classification. A `[classify] dominantRgb corrected…` warning is logged. The `colorFamily` label itself is never changed. Constants: `DOMINANT_RGB_HUE_THRESHOLD_DEG = 40`, `DOMINANT_RGB_ACHROMATIC_SAT_THRESHOLD = 0.25`, `SERVER_FAMILY_CENTROID_HSL` (18-family lookup).
+**RGB/colourFamily consistency validation:** `processGeminiResult` validates that `dominantRgb`-derived HSL is consistent with the stated `colorFamily` before storing perceptual colour values. Truly achromatic families (`black`, `white`, `grey`) are checked for saturation contamination (threshold: 0.25). All other families are checked for hue distance against a centroid lookup (threshold: 40°). When the RGB is inconsistent — e.g. because background contamination skewed the sampled pixel — both `dominantHsl` and `dominantLab` are corrected to the family centroid rather than discarding the classification. Image-derived colour/hue/saturation values are not logged; the existing safe structured classification diagnostics remain. The `colorFamily` label itself is never changed. Constants: `DOMINANT_RGB_HUE_THRESHOLD_DEG = 40`, `DOMINANT_RGB_ACHROMATIC_SAT_THRESHOLD = 0.25`, `SERVER_FAMILY_CENTROID_HSL` (18-family lookup).
 
 **Low-confidence indicator:** Gemini's `modelConfidence` (0–1) is now stored on `WardrobeItem`. Items classified with `modelConfidence < LOW_CONFIDENCE_THRESHOLD (0.65)` display a subtle amber "Review" badge/pill in the wardrobe grid and list views, giving users an opportunity to correct potentially wrong classifications before they affect outfit recommendations. The threshold is exported from `constants/types.ts`.
 
@@ -2346,3 +2346,41 @@ The Recommendation Engine v3.7 and protected benchmark outputs remain
 unchanged. The existing Track C root `case-results.csv` has 3231 apparent
 rows instead of the expected 100; the validator failure predates this work
 and must not be “fixed” by regenerating protected output.
+
+## 31. Private real-image evaluation reliability and privacy
+
+`scripts/privateRealPhotoEvaluation.ts` is an offline/private evaluation CLI,
+not a new production endpoint. Its manifest allows only the documented keys at
+every object level, with scalar metadata values; extra or nested reviewer/gold/
+context objects are rejected. The runner validates the manifest on entry and
+rechecks the exact freshly read image buffer's SHA-256 immediately before each
+classifier submission. A mismatch aborts before that case reaches the provider.
+The adapter receives only those verified bytes and MIME, never gold or context.
+
+Supported crosswalk mappings use a strict schema over the known normalized
+scalar output fields. A typo, unknown field, or transient `wearPosition` is
+rejected, rather than becoming an ordinary classifier error in accuracy.
+`outcome` maps only to the classification/refusal outcome. Unsupported and
+unrepresentable labels stay outside the accuracy denominator. Existing signed
+test authorization, run attestation, reviewer/adjudication checks, and the
+separate `real-image-classification` report namespace are preserved.
+
+Add Item uses `classificationImagePayload` in `lib/classifyPath.ts` to identify
+JPEG/PNG from the submitted base64 byte signature and send `imageMimeType`.
+It does not infer MIME from the original picker filename or silently label PNG
+as JPEG; an unknown format follows the existing manual-entry error recovery.
+Colour correction still operates but no longer logs image-derived values.
+
+Production retains the rolling `gemini-flash-lite-latest` primary and its
+existing quota-only fallback. The earlier GU-17 reproduction explicitly
+requested `gemini-2.5-flash-lite` and returned provider 404 before classification;
+this was not a permanent production pin and does not establish the historical
+2026-09-10 HTTP 500 cause. See `docs/classifier-gu17-forensics.md`.
+
+The nine Kente/stole case shapes are unchanged. No real photographs, populated
+gold, provider-backed accuracy run, or measured recognition result is supplied
+by this infrastructure. Human-verified processing rights/consent, independent
+adjudicated gold, and locked splits remain prerequisites for evidence generation.
+Offline checks are in `__tests__/privateRealPhotoEvaluation.test.ts` and
+`__tests__/gu17Diagnostics.test.ts`. No database or protected benchmark change
+is required.

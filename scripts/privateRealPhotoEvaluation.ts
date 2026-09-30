@@ -8,6 +8,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import axios from "axios";
 import type { Request, Response } from "express";
+import { z } from "zod";
 import { classifyGarment, GEMINI_PROMPT } from "../server/classify-garment";
 
 type Json = Record<string, any>;
@@ -25,6 +26,24 @@ type Provider = (image: Buffer, mimeType: string) => Promise<ProviderResult>;
 const SHA256 = /^[a-f0-9]{64}$/i;
 const REQUIRED_RIGHTS = ["licenseName", "consentReference", "internalEvaluation", "classifierProcessing"] as const;
 const REQUIRED_KENTE_CASES = Array.from({ length: 9 }, (_, index) => `KENTE-${String(index + 1).padStart(2, "0")}`);
+const SUPPORTED_OUTPUT_FIELDS = [
+  "category", "subType", "colorFamily", "accentColor", "pattern", "patternScale",
+  "fit", "neckline", "sleeveLength", "rise", "warmthBand", "fabric", "weight",
+] as const;
+const crosswalkMappingSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("supported"),
+    currentField: z.enum([...SUPPORTED_OUTPUT_FIELDS, "outcome"]),
+  }).strict(),
+  z.object({
+    status: z.literal("unsupported"),
+    reason: z.string().trim().min(1),
+  }).strict(),
+  z.object({
+    status: z.literal("unrepresentable"),
+    reason: z.string().trim().min(1),
+  }).strict(),
+]);
 const RESOLVED_MODELS: Record<string, Set<string>> = {
   "gemini-flash-lite-latest": new Set(["gemini-2.5-flash-lite-001"]),
   "gemini-2.5-flash-lite": new Set(["gemini-2.5-flash-lite-001"]),
@@ -39,6 +58,11 @@ function digest(data: Buffer | string): string {
   return createHash("sha256").update(data).digest("hex");
 }
 
+function sameImageDigest(left: unknown, right: unknown): boolean {
+  return typeof left === "string" && typeof right === "string" &&
+    left.toLowerCase() === right.toLowerCase();
+}
+
 function provenanceDigest(row: Json): string {
   return digest(JSON.stringify(row.provenance));
 }
@@ -51,41 +75,73 @@ function within(root: string, candidate: string): boolean {
   return candidate === root || candidate.startsWith(`${root}${path.sep}`);
 }
 
+function assertObject(value: unknown, label: string): asserts value is Json {
+  assert(value !== null && typeof value === "object" && !Array.isArray(value), `${label} must be an object.`);
+}
+
+function assertKeys(value: Json, required: string[], allowed: string[], label: string): void {
+  const keys = Object.keys(value);
+  assert(keys.every(key => allowed.includes(key)), `${label} contains an unsupported property.`);
+  assert(required.every(key => Object.hasOwn(value, key)), `${label} is missing a required property.`);
+}
+
+function assertText(value: unknown, label: string): void {
+  assert(typeof value === "string" && value.trim().length > 0, `${label} must be a non-empty string.`);
+}
+
 function validateManifest(manifest: Json): void {
+  assertObject(manifest, "Manifest");
+  assertKeys(manifest, ["schemaVersion", "dataset", "cases"], ["schemaVersion", "dataset", "cases"], "Manifest");
   assert(manifest.schemaVersion === "private-real-photo-v1", "Unsupported private photo manifest schema.");
-  assert(!["gold", "reviewerGold", "expected", "context", "reviewContext"].some(key => Object.hasOwn(manifest, key)),
-    "Reviewer gold/context belongs in a separate file, never the classifier manifest.");
+  assertObject(manifest.dataset, "Dataset");
+  assertKeys(manifest.dataset, ["status", "owner", "approvalReference"],
+    ["status", "owner", "approvalReference"], "Dataset");
   assert(manifest.dataset?.status === "rights-cleared", "Dataset must be explicitly rights-cleared.");
-  assert(typeof manifest.dataset.owner === "string" && manifest.dataset.owner.trim(), "Dataset owner is required.");
-  assert(typeof manifest.dataset.approvalReference === "string" && manifest.dataset.approvalReference.trim(), "Dataset approval reference is required.");
+  assertText(manifest.dataset.owner, "Dataset owner");
+  assertText(manifest.dataset.approvalReference, "Dataset approval reference");
   assert(Array.isArray(manifest.cases) && manifest.cases.length > 0, "A governed real-photo dataset with at least one case is required.");
   const seen = new Set<string>();
   const hashesBySplit = new Map<string, string>();
   for (const row of manifest.cases) {
-    assert(!Object.hasOwn(row, "gold") && !Object.hasOwn(row, "expected") &&
-      !Object.hasOwn(row, "context") && !Object.hasOwn(row, "reviewContext"),
-    `${row.caseId}: reviewer labels/context must be stored separately from classifier inputs.`);
-    assert(typeof row.caseId === "string" && row.caseId.trim() && !seen.has(row.caseId), "Every case needs a unique caseId.");
+    assertObject(row, "Case");
+    assertKeys(row, ["caseId", "split", "image", "rights", "provenance", "privacy", "captureConditions"],
+      ["caseId", "split", "image", "rights", "provenance", "privacy", "captureConditions"], "Case");
+    assertText(row.caseId, "Case caseId");
+    assert(!seen.has(row.caseId), "Every case needs a unique caseId.");
     seen.add(row.caseId);
     assert(["development", "validation", "test"].includes(row.split), `${row.caseId}: invalid split.`);
-    assert(typeof row.image?.path === "string" && row.image.path.trim(), `${row.caseId}: local image path is required.`);
-    assert(SHA256.test(row.image.sha256 ?? ""), `${row.caseId}: a SHA256 image hash is required.`);
+    assertObject(row.image, `${row.caseId}: image`);
+    assertKeys(row.image, ["path", "sha256", "mimeType"], ["path", "sha256", "mimeType"], `${row.caseId}: image`);
+    assertText(row.image.path, `${row.caseId}: local image path`);
+    assertText(row.image.sha256, `${row.caseId}: image SHA256`);
+    assert(SHA256.test(row.image.sha256), `${row.caseId}: a SHA256 image hash is required.`);
     const previousSplit = hashesBySplit.get(row.image.sha256.toLowerCase());
     assert(!previousSplit || previousSplit === row.split, `${row.caseId}: image hashes must not cross dataset splits.`);
     hashesBySplit.set(row.image.sha256.toLowerCase(), row.split);
-    assert(/^image\/(jpeg|png)$/.test(row.image.mimeType ?? ""), `${row.caseId}: only JPEG and PNG images are supported.`);
+    assert(typeof row.image.mimeType === "string" && /^image\/(jpeg|png)$/.test(row.image.mimeType),
+      `${row.caseId}: only JPEG and PNG images are supported.`);
+    assertObject(row.rights, `${row.caseId}: rights`);
+    assertKeys(row.rights, [...REQUIRED_RIGHTS], [...REQUIRED_RIGHTS, "subjectConsentReference"], `${row.caseId}: rights`);
     for (const key of REQUIRED_RIGHTS) {
       const value = row.rights?.[key];
-      assert(typeof value === "string" && value.trim(), `${row.caseId}: rights.${key} is required.`);
+      assertText(value, `${row.caseId}: rights.${key}`);
+    }
+    if (Object.hasOwn(row.rights, "subjectConsentReference")) {
+      assertText(row.rights.subjectConsentReference, `${row.caseId}: rights.subjectConsentReference`);
     }
     assert(row.rights.internalEvaluation === "approved" && row.rights.classifierProcessing === "approved",
       `${row.caseId}: internal evaluation and classifier processing must both be approved.`);
+    assertObject(row.provenance, `${row.caseId}: provenance`);
+    assertKeys(row.provenance, ["sourceType", "sourceReference", "verifiedBy", "verifiedDate"],
+      ["sourceType", "sourceReference", "verifiedBy", "verifiedDate"], `${row.caseId}: provenance`);
     assert(row.provenance?.sourceType === "real-photo", `${row.caseId}: synthetic or unverified image sources cannot enter real-photo evaluation.`);
-    assert(typeof row.provenance?.sourceReference === "string" && row.provenance.sourceReference.trim(), `${row.caseId}: provenance sourceReference is required.`);
-    assert(typeof row.provenance?.verifiedBy === "string" && row.provenance.verifiedBy.trim(), `${row.caseId}: provenance verifier is required.`);
-    assert(typeof row.provenance?.verifiedDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(row.provenance.verifiedDate), `${row.caseId}: provenance verifiedDate must be YYYY-MM-DD.`);
-    assert(typeof row.captureConditions === "string" && row.captureConditions.trim(),
-      `${row.caseId}: non-label capture conditions are required; item descriptions and cultural labels belong in reviewer gold.`);
+    assertText(row.provenance.sourceReference, `${row.caseId}: provenance sourceReference`);
+    assertText(row.provenance.verifiedBy, `${row.caseId}: provenance verifier`);
+    assertText(row.provenance.verifiedDate, `${row.caseId}: provenance verifiedDate`);
+    assert(/^\d{4}-\d{2}-\d{2}$/.test(row.provenance.verifiedDate), `${row.caseId}: provenance verifiedDate must be YYYY-MM-DD.`);
+    assertText(row.captureConditions, `${row.caseId}: non-label capture conditions`);
+    assertObject(row.privacy, `${row.caseId}: privacy`);
+    assertKeys(row.privacy, ["identifiable"], ["identifiable"], `${row.caseId}: privacy`);
     assert(row.privacy?.identifiable === "yes" || row.privacy?.identifiable === "no", `${row.caseId}: privacy.identifiable must be yes or no.`);
     if (row.privacy.identifiable === "yes") {
       assert(typeof row.rights.subjectConsentReference === "string" && row.rights.subjectConsentReference.trim(),
@@ -120,6 +176,7 @@ export async function runClassification(
   split: string,
   provider: Provider,
 ): Promise<Json> {
+  validateManifest(manifest);
   const root = await realpath(path.resolve(dataRoot));
   const cases = manifest.cases.filter((row: Json) => row.split === split);
   assert(cases.length > 0, `No cases in split '${split}'.`);
@@ -130,6 +187,9 @@ export async function runClassification(
     const imagePath = await realpath(lexicalPath);
     assert(within(root, imagePath), `${row.caseId}: image symlinks must remain inside the private data root.`);
     const image = await readFile(imagePath);
+    const inputSha256 = digest(image);
+    assert(inputSha256.toLowerCase() === row.image.sha256.toLowerCase(),
+      `${row.caseId}: image SHA256 does not match manifest immediately before provider submission.`);
     const providerResult = await provider(image, row.image.mimeType);
     assert(providerResult.promptSha256 === digest(GEMINI_PROMPT), `${row.caseId}: prompt hash does not match the current classifier prompt.`);
     assert(knownModelPair(providerResult.modelRequested, providerResult.modelResolved),
@@ -142,7 +202,7 @@ export async function runClassification(
       caseId: row.caseId,
       outcome: refusal ? "refusal" : "classified",
       prediction: refusal ? null : providerResult.body,
-      inputSha256: row.image.sha256,
+      inputSha256,
       provenanceSha256: provenanceDigest(row),
       modelRequested: providerResult.modelRequested,
       modelResolved: providerResult.modelResolved,
@@ -281,7 +341,7 @@ function validateGoldBinding(gold: Json, manifest: Json, manifestSha256: string,
     const input = source.get(row.caseId) as Json | undefined;
     assert(input && !goldIds.has(row.caseId), "Gold contains an unexpected or duplicate case ID.");
     goldIds.add(row.caseId);
-    assert(row.inputSha256 === input.image.sha256, `${row.caseId}: gold image hash does not match the manifest.`);
+    assert(sameImageDigest(row.inputSha256, input.image.sha256), `${row.caseId}: gold image hash does not match the manifest.`);
     assert(row.provenanceSha256 === provenanceDigest(input), `${row.caseId}: gold provenance digest does not match the manifest.`);
     assert(["accepted", "resolved"].includes(row.adjudication?.status) &&
       typeof row.adjudication?.adjudicatorReference === "string" && row.adjudication.adjudicatorReference.trim() &&
@@ -301,18 +361,21 @@ function validateGoldBinding(gold: Json, manifest: Json, manifestSha256: string,
         box.x + box.width <= 1 && box.y + box.height <= 1,
       `${row.caseId}: reviewer gold boxes need an item and normalized image coordinates.`);
     }
+    assertObject(row.goldToCurrentOutput, `${row.caseId}: goldToCurrentOutput`);
     assert(row.goldToCurrentOutput?.outcome?.status === "supported" &&
       row.goldToCurrentOutput.outcome.currentField === "outcome",
     `${row.caseId}: gold must explicitly score the persisted classification/guardrail outcome.`);
     for (const [field, mapping] of Object.entries(row.goldToCurrentOutput) as [string, Json][]) {
-      assert(["supported", "unsupported", "unrepresentable"].includes(mapping.status),
-        `${row.caseId}: explicit crosswalk status required for ${field}.`);
-      if (mapping.status === "supported") {
-        assert(typeof mapping.currentField === "string" && mapping.currentField.trim(),
-          `${row.caseId}: supported crosswalk field ${field} needs a current output field.`);
-      } else {
-        assert(typeof mapping.reason === "string" && mapping.reason.trim(),
-          `${row.caseId}: non-supported crosswalk field ${field} needs a reason.`);
+      const parsedMapping = crosswalkMappingSchema.safeParse(mapping);
+      const mappingIssue = parsedMapping.success ? undefined : parsedMapping.error.issues[0];
+      assert(parsedMapping.success,
+        mappingIssue?.path[0] === "currentField"
+          ? `${row.caseId}: supported crosswalk field ${field} must use a known normalized scalar output field or outcome.`
+          : `${row.caseId}: invalid crosswalk mapping for ${field}: ${mappingIssue?.message ?? "invalid mapping"}.`);
+      if (parsedMapping.data.status === "supported") {
+        assert((field === "outcome" && parsedMapping.data.currentField === "outcome") ||
+          (field !== "outcome" && parsedMapping.data.currentField !== "outcome"),
+        `${row.caseId}: outcome must map only to outcome; garment fields must map only to garment output fields.`);
       }
     }
     assert(Object.keys(row.expected).every(field => Object.hasOwn(row.goldToCurrentOutput, field)),
@@ -413,9 +476,10 @@ export async function evaluate(
   for (const row of gold.cases) {
     const result = runCases.get(row.caseId) as Json;
     const sourceCase = source.get(row.caseId) as Json;
-    assert(row.inputSha256 === result.inputSha256, `${row.caseId}: gold image hash does not match the recorded run.`);
+    assert(sameImageDigest(row.inputSha256, result.inputSha256), `${row.caseId}: gold image hash does not match the recorded run.`);
     assert(row.provenanceSha256 === result.provenanceSha256, `${row.caseId}: gold provenance digest does not match the recorded run.`);
-    assert(result.inputSha256 === sourceCase.image.sha256 && result.provenanceSha256 === provenanceDigest(sourceCase),
+    assert(sameImageDigest(result.inputSha256, sourceCase.image.sha256) &&
+      result.provenanceSha256 === provenanceDigest(sourceCase),
       `${row.caseId}: run image/provenance does not match the verified manifest.`);
     assert(knownModelPair(result.modelRequested, result.modelResolved),
       `${row.caseId}: run has unknown or unresolved model identity.`);

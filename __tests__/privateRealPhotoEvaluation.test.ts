@@ -57,13 +57,20 @@ function goldCase(row: ReturnType<typeof caseRow>) {
     },
     expected: {
       outcome: refusal ? "refusal" : "classified",
-      ...(!refusal ? { itemType: subType, wearPositionProviderAssertion: "not persisted" } : {}),
+      ...(!refusal ? {
+        itemType: subType,
+        material: "cotton",
+        wearPositionProviderAssertion: "not persisted",
+        legacyFit: "unavailable",
+      } : {}),
     },
     goldToCurrentOutput: {
       outcome: { status: "supported", currentField: "outcome" },
       ...(!refusal ? {
         itemType: { status: "supported", currentField: "subType" },
+        material: { status: "supported", currentField: "fabric" },
         wearPositionProviderAssertion: { status: "unsupported", reason: "Transient provider assertion is not persisted." },
+        legacyFit: { status: "unrepresentable", reason: "The current output has no legacy fit field." },
       } : {}),
     },
   };
@@ -95,6 +102,26 @@ async function main() {
     const checked = await preflight(manifestPath, root);
     assert.equal(checked.manifestSha256, sha256(manifestBytes));
     assert.equal(checked.manifest.cases.length, 9);
+    let invalidManifestProviderCalls = 0;
+    await assert.rejects(
+      runClassification({ ...checked.manifest, reviewerGold: {} }, checked.manifestSha256, root, "validation", async () => {
+        invalidManifestProviderCalls++;
+        throw new Error("provider must not receive invalid manifest input");
+      }),
+      /Manifest contains an unsupported property/,
+    );
+    assert.equal(invalidManifestProviderCalls, 0);
+    await writeFile(path.join(root, rows[0].image.path), Buffer.from("changed after preflight"));
+    let changedImageProviderCalls = 0;
+    await assert.rejects(
+      runClassification(checked.manifest, checked.manifestSha256, root, "validation", async () => {
+        changedImageProviderCalls++;
+        throw new Error("provider must not receive changed bytes");
+      }),
+      /image SHA256 does not match manifest immediately before provider submission/,
+    );
+    assert.equal(changedImageProviderCalls, 0);
+    await writeFile(path.join(root, rows[0].image.path), fixtureBytes.get(rows[0].caseId)!);
     rows[0].provenance.sourceType = "synthetic";
     await writeFile(manifestPath, JSON.stringify(manifest));
     await assert.rejects(preflight(manifestPath, root), /synthetic or unverified image sources/);
@@ -111,6 +138,7 @@ async function main() {
       body: isMockRefusal(image) ? { error: "content_guardrail" } : {
         category: image.equals(fixtureBytes.get("KENTE-07")!) ? "bottom" : "jewelry",
         subType: mockSubtypes[Object.keys(mockSubtypes).find(id => image.equals(fixtureBytes.get(id)!)) ?? ""] ?? "stole",
+        fabric: "cotton",
       },
       modelRequested: CLASSIFIER_MODELS[0],
       modelResolved: "gemini-2.5-flash-lite-001",
@@ -118,6 +146,22 @@ async function main() {
       preprocessing: "none-original-bytes",
       mimeType,
     });
+    let raceProviderCalls = 0;
+    try {
+      await assert.rejects(
+        runClassification(checked.manifest, checked.manifestSha256, root, "validation", async (image, mimeType) => {
+          raceProviderCalls++;
+          if (raceProviderCalls === 1) {
+            await writeFile(path.join(root, rows[1].image.path), Buffer.from("changed during provider call 1"));
+          }
+          return offlineProvider(image, mimeType);
+        }),
+        /image SHA256 does not match manifest immediately before provider submission/,
+      );
+    } finally {
+      await writeFile(path.join(root, rows[1].image.path), fixtureBytes.get(rows[1].caseId)!);
+    }
+    assert.equal(raceProviderCalls, 1);
     const run = await runClassification(checked.manifest, checked.manifestSha256, root, "validation", offlineProvider);
     assert.equal(run.track, "real-image-classification");
     assert.equal(run.manifestSha256, checked.manifestSha256);
@@ -128,6 +172,7 @@ async function main() {
     assert.equal(run.cases[0].promptSha256, promptSha256);
     assert.equal(run.cases[0].preprocessing, "none-original-bytes");
     assert.equal(run.cases[0].mimeType, originalMime);
+    assert.equal(run.cases[0].inputSha256, rows[0].image.sha256);
 
     const goldPath = path.join(root, "gold-validation.json");
     const validationRows = rows.filter(row => row.split === "validation");
@@ -145,17 +190,48 @@ async function main() {
     const report = await evaluate(runPath, goldPath, manifestPath, root);
     assert.equal(report.track, "real-image-classification");
     assert.equal(report.accuracy, 1);
-    assert.equal(report.supported, 13);
+    assert.equal(report.supported, 18);
     assert.equal(report.perFieldAccuracy.outcome.supported, 8);
     assert.equal(report.perFieldAccuracy.itemType.supported, 5);
+    assert.equal(report.perFieldAccuracy.material.supported, 5);
     assert.equal(report.crosswalkCoverage.unsupported, 5);
+    assert.equal(report.crosswalkCoverage.unrepresentable, 5);
     assert.equal(Object.hasOwn(report, "top3Accuracy"), false);
     assert.match(report.runSha256, /^[a-f0-9]{64}$/);
     assert.equal(report.manifestSha256, checked.manifestSha256);
+    const originalRunBytes = Buffer.from(JSON.stringify(run));
+    const uppercaseManifest = structuredClone(manifest);
+    for (const row of uppercaseManifest.cases) row.image.sha256 = row.image.sha256.toUpperCase();
+    await writeFile(manifestPath, JSON.stringify(uppercaseManifest));
+    const uppercaseChecked = await preflight(manifestPath, root);
+    const uppercaseRun = await runClassification(
+      uppercaseChecked.manifest, uppercaseChecked.manifestSha256, root, "validation", offlineProvider,
+    );
+    const uppercaseGold = structuredClone(gold);
+    uppercaseGold.manifestSha256 = uppercaseChecked.manifestSha256;
+    for (const goldRow of uppercaseGold.cases) {
+      goldRow.inputSha256 = uppercaseManifest.cases.find(row => row.caseId === goldRow.caseId)!.image.sha256;
+    }
+    await writeFile(goldPath, JSON.stringify(uppercaseGold));
+    await writeFile(runPath, JSON.stringify(uppercaseRun));
+    const uppercaseReport = await evaluate(runPath, goldPath, manifestPath, root);
+    assert.equal(uppercaseReport.accuracy, 1);
+    await writeFile(manifestPath, manifestBytes);
+    await writeFile(goldPath, JSON.stringify(gold));
+    await writeFile(runPath, originalRunBytes);
     const unadjudicated = structuredClone(gold);
     delete (unadjudicated.cases[0] as any).adjudication;
     await writeFile(goldPath, JSON.stringify(unadjudicated));
     await assert.rejects(evaluate(runPath, goldPath, manifestPath, root), /adjudication decision/);
+    await writeFile(goldPath, JSON.stringify(gold));
+    for (const currentField of ["subTypo", "wearPosition", "arbitraryField"]) {
+      const invalidCrosswalk = structuredClone(gold);
+      const itemTypeMapping = invalidCrosswalk.cases[0].goldToCurrentOutput.itemType;
+      assert.ok(itemTypeMapping);
+      itemTypeMapping.currentField = currentField;
+      await writeFile(goldPath, JSON.stringify(invalidCrosswalk));
+      await assert.rejects(evaluate(runPath, goldPath, manifestPath, root), /known normalized scalar output field/);
+    }
     await writeFile(goldPath, JSON.stringify(gold));
 
     process.env.GEMINI_API_KEY = "offline-test-only-key";
@@ -281,13 +357,22 @@ async function main() {
 
     const broken = { ...manifest, cases: rows.map((row, index) => index ? row : { ...row, rights: { ...row.rights, classifierProcessing: "" } }) };
     await writeFile(manifestPath, JSON.stringify(broken));
-    await assert.rejects(preflight(manifestPath, root), /classifierProcessing is required/);
+    await assert.rejects(preflight(manifestPath, root), /rights.classifierProcessing must be a non-empty string/);
     const webp = { ...manifest, cases: rows.map((row, index) => index ? row : { ...row, image: { ...row.image, mimeType: "image/webp" } }) };
     await writeFile(manifestPath, JSON.stringify(webp));
     await assert.rejects(preflight(manifestPath, root), /only JPEG and PNG/);
     const leakedContext = { ...manifest, cases: rows.map((row, index) => index ? row : { ...row, context: { culturalContext: "review-only label" } }) };
     await writeFile(manifestPath, JSON.stringify(leakedContext));
-    await assert.rejects(preflight(manifestPath, root), /reviewer labels\/context must be stored separately/);
+    await assert.rejects(preflight(manifestPath, root), /unsupported property/);
+    const extraNestedMetadata = {
+      ...manifest,
+      cases: rows.map((row, index) => index ? row : { ...row, image: { ...row.image, reviewer: { label: "private" } } }),
+    };
+    await writeFile(manifestPath, JSON.stringify(extraNestedMetadata));
+    await assert.rejects(preflight(manifestPath, root), /image contains an unsupported property/);
+    const objectInAllowedScalar = { ...manifest, dataset: { ...manifest.dataset, owner: { name: "not a scalar" } } };
+    await writeFile(manifestPath, JSON.stringify(objectInAllowedScalar));
+    await assert.rejects(preflight(manifestPath, root), /Dataset owner must be a non-empty string/);
     console.log("Private real-image evaluation checks passed (temporary offline fixtures only).");
   } finally {
     axios.post = originalPost;
