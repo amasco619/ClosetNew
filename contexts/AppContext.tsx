@@ -33,6 +33,7 @@ import {
 } from '../lib/database';
 import { mapDbRowToWardrobeItem } from '../lib/wardrobeMapper';
 import { serializeRecommendationSemantics, saveWardrobeCorrection } from '../lib/wardrobeSemantics';
+import { projectWardrobeForStyling } from '../lib/stylingWardrobe';
 import { supabase } from '../lib/supabase';
 import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl, getSignedWardrobeUrl } from '../lib/storage';
 import { reportError } from '@/shared/observability';
@@ -1529,7 +1530,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     }
     const latest = items[items.length - 1];
-    if (latest) setLastAddedSuggestions(generateOutfitsForItem(latest, [...items, ...wardrobeItems], profile, weather));
+    if (latest) {
+      const styling = projectWardrobeForStyling([...items, ...wardrobeItems]);
+      setLastAddedSuggestions(generateOutfitsForItem(styling.v37Items[items.length - 1], styling.v37Items, profile, weather));
+    }
   }, [profile, weather, wardrobeItems]);
 
   const addWardrobeItem = useCallback(async (item: Omit<WardrobeItem, 'createdAt'> & { id?: string }): Promise<void> => {
@@ -1846,7 +1850,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const outfitPool = useMemo(
     () => generateOutfitPool(
-      activeWardrobeItems, profile, todayMood, reactions, todayString(), wearHistory, affinityState, weather, isPremium,
+      projectWardrobeForStyling(activeWardrobeItems).v37Items, profile, todayMood, reactions, todayString(), wearHistory, affinityState, weather, isPremium,
     ),
     [activeWardrobeItems, profile, todayMood, reactions, wearHistory, affinityState, weather, isPremium],
   );

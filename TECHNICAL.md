@@ -316,7 +316,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               81 test suites (see §11)
+__tests__/               82 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -428,7 +428,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 81 test suites once |
+| `npm test` | Run all 82 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -1302,12 +1302,13 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (81 total)
+### Test Suites (82 total)
 
 | Suite | What it tests |
 |-------|--------------|
 | `canonicalWardrobeSemantics.test.ts` | Complete semantic serialization/hydration, legacy unknowns, explicit correction persistence, failed-save barrier, corrected-vs-manual canonical equivalence, owned update and all insertion/replacement payload contracts |
 | `canonicalWardrobeUi.test.ts` | Actual Add Item response guards against late AI and stale-photo results; mounted saved-item screen through the actual owned database-update function with a controlled PostgREST boundary: pending state, success, mapper cold reload, failure and retry |
+| `stylingWardrobe.test.ts` | P0.2 canonical projection, African identifiers, unknowns, corrections, provenance independence, Phase A relationships, deterministic non-mutating snapshots, provider-free dependency graph, and unchanged v3.7 pool/hash/rotation/just-added outputs for the existing golden candidate fixture |
 | `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, and retries after partial cleanup |
 | `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival, prune-interval state, DB integration (skipped when `DATABASE_URL` absent) |
 | `aiProcessingConsent.test.ts` | Mounted account preference API and server AI-route enforcement: unasked/malformed/declined denied, account isolation, metadata persistence, store errors fail closed |
@@ -2450,3 +2451,48 @@ round-trip, correction, validation and RLS checks with mounted actual-screen/
 database-function contract tests. Mounted tests control the PostgREST boundary;
 they do not claim a live-account Supabase end-to-end login. Standard validation
 remains `npm test`, `npm run typecheck`, `npm run lint` and `npm run server:build`.
+
+## 33. P0.2 — Canonical wardrobe → Styling Intelligence contract
+
+`lib/stylingWardrobe.ts` exposes one pure, strongly typed
+`projectWardrobeForStyling(canonicalItems, optionalPhaseAGroups)` boundary.
+Inputs are already-hydrated/saved P0.1 `WardrobeItem` records, not classifier
+responses. Existing `SEMANTIC_FIELDS` defines the styling attributes, avoiding
+a second field registry or persistence representation.
+
+- `garments`: readonly identity and canonical semantic fields, with exact
+  supplied subtype/category/colours, optional signals and unknowns preserved.
+  Photo/account/bookkeeping fields, confidence and correction provenance are
+  excluded from styling truth. No fabric/formality/season/colour/context
+  defaults or subtype aliases are introduced.
+- `relationships`: detached readonly existing Phase A `GarmentGroup` records,
+  including full memberships, type, confirmation status, confidence, shared
+  attributes, source and timestamps. Garment `groupIds` is solely an index of
+  those existing memberships. Shared attributes never replace garment facts;
+  membership does not imply approval or styling eligibility.
+- Omitting groups means relationships and membership are unknown (`undefined`).
+  Supplying `[]` means no relationships in the supplied read snapshot. Partial
+  wardrobe views retain supplied group members outside the loaded item slice.
+- `v37Items`: a detached, lossless, original-order `WardrobeItem[]` compatibility
+  snapshot, including existing diagnostic/photo/mood/bookkeeping fields. It is
+  deliberately separate from styling semantics so the frozen engine receives
+  identical inputs, not invented required-field substitutes.
+
+Current daily-pool and just-added suggestion callers in `AppContext` pass through
+this boundary. They are v3.7-only consumers and do not load groups. A relationship-
+aware consumer passes existing `getGarmentGroups(userId)` read results directly
+as the second argument; the adapter performs no I/O and creates no new group
+cache, lifecycle, table, relationship inference or backend service.
+
+African identifiers and supplied wax-print/lace/chiffon signals remain unchanged.
+No cultural identity, authenticity, ceremony, participation, required headwear,
+traditional context or African/Western intent is inferred. No new derived
+styling scores are needed: the existing engine accepts optional fields. Its
+read-time interpretations remain frozen and are not canonical garment facts.
+
+Validation is targeted: P0.2 plus P0.1 canonical, Phase A/group and rotation
+suites; typecheck and changed-file lint. The new test compares complete pool,
+hash, rotation and just-added outputs before/after projection using the existing
+golden candidate-generation fixture, without changing frozen fixtures or engine
+code. No database migration, provider invocation or later styling feature is
+part of this foundation.

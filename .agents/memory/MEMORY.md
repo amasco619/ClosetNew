@@ -28,3 +28,4 @@
 - [Per-garment metadata persistence](garment-metadata-persistence.md) — store normalized recommendation attributes per wardrobe row, not on group shared attributes; leave legacy rows NULL.
 - [Stole taxonomy boundary](stole-taxonomy-boundary.md) — use existing accessory backing with a textile-specific UI label; require explicit shoulder/neck identification before accepting a stole.
 - [Expo restart verification](expo-restart-verification.md) — a restart acknowledgement does not prove a fresh Metro process owns the frontend port; watch for an interactive port-conflict prompt.
+- [Styling boundary authority](styling-boundary-authority.md) — canonical truth and legacy engine interpretation are distinct; African garment labels do not authorize cultural/context inference.
