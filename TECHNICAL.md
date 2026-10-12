@@ -316,7 +316,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               69 test suites (see §11)
+__tests__/               81 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -428,7 +428,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 69 test suites once |
+| `npm test` | Run all 81 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -1302,10 +1302,12 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (69 total)
+### Test Suites (81 total)
 
 | Suite | What it tests |
 |-------|--------------|
+| `canonicalWardrobeSemantics.test.ts` | Complete semantic serialization/hydration, legacy unknowns, explicit correction persistence, failed-save barrier, corrected-vs-manual canonical equivalence, owned update and all insertion/replacement payload contracts |
+| `canonicalWardrobeUi.test.ts` | Actual Add Item response guards against late AI and stale-photo results; mounted saved-item screen through the actual owned database-update function with a controlled PostgREST boundary: pending state, success, mapper cold reload, failure and retry |
 | `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, and retries after partial cleanup |
 | `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival, prune-interval state, DB integration (skipped when `DATABASE_URL` absent) |
 | `aiProcessingConsent.test.ts` | Mounted account preference API and server AI-route enforcement: unasked/malformed/declined denied, account isolation, metadata persistence, store errors fail closed |
@@ -2384,3 +2386,67 @@ adjudicated gold, and locked splits remain prerequisites for evidence generation
 Offline checks are in `__tests__/privateRealPhotoEvaluation.test.ts` and
 `__tests__/gu17Diagnostics.test.ts`. No database or protected benchmark change
 is required.
+
+## 32. P0.1 — Canonical garment semantics and progressive Add Item review
+
+Recommendation inputs belong to individual wardrobe rows, never group shared
+attributes. Existing identity/colour/occasion and normalized fabric/fit/pattern/
+pattern-scale columns remain authoritative. The additive migration
+`supabase/migrations/20261012000000_canonical_wardrobe_semantics.sql` adds one
+nullable, bounded, validated `recommendation_semantics` JSONB column for:
+
+- Accent colour, perceived weight, neckline, sleeve length, rise, warmth band.
+- Explicit optional formality, seasons, accessory metal tone, HSL and Lab.
+- Explicit user-correction field names, including intentionally cleared unknowns.
+- The already-existing purchase-price edit, retained for cost-per-wear rather
+  than falsely reporting a cloud save of an unsupported local-only value.
+
+The pure serializer/validator and mapper preserve supplied values exactly.
+Legacy NULL metadata hydrates without invented fabric, weight, formality,
+season or detail values. Guest hydration no longer stores guessed material/
+weight backfills. Add Item no longer fills absent garment details from generic
+subtype guesses, and bulk saves no longer invent all-season tags.
+Deterministic perceptual colour derivation is distinct from
+claiming a user confirmed an unknown garment attribute.
+
+The existing authenticated single, bulk and group insertion boundaries and
+full replacement receive the same serialized semantics. The multi-insert RPC
+retains ownership, advisory-lock, entitlement, capacity, free-selection and
+atomicity behavior. Direct table INSERT remains revoked; saved-item semantic
+UPDATE remains owner-filtered and protected by existing RLS. The metadata
+constraint rejects unsupported keys, invalid enums, types and ranges. No
+legacy backfill, group-schema change, storage-path change or policy relaxation
+is part of this migration.
+
+Inline saved-item corrections now await durable cloud (or guest local) storage
+before committing canonical state or closing the editor. Failures retain the
+old item and expose a retryable error. Overlapping corrections are guarded;
+account generation and refresh revision checks prevent a stale account or
+refresh from restoring old truth. Colour edits also replace old image-derived
+HSL/Lab with the selected family centroid, leaving identity and photo untouched.
+
+Add Item defaults to a compact identity/colour review. “Refine styling details”
+reveals optional contextual controls. Pattern/material are available for core
+garments, shoes, bags and supported textile accessories; fit/weight/neckline/
+sleeve/rise remain garment-contextual; outerwear exposes warmth and accessories
+expose metal tone. Iro/wrapper do not require Western rise; stole and existing
+headwear retain their textile semantics without changing taxonomy.
+
+Only explicit semantic edits are marked user-corrected. Late classifier results
+and subtype suggestions cannot overwrite them, even when the correction is an
+intentional unknown. Old-photo responses are ignored. Reprocessing the same
+photo preserves corrections and optional formality. AI/provider prompts,
+PhotoRoom and consent boundaries are unchanged.
+
+The recommendation algorithms remain frozen: hydration supplies canonical
+inputs but does not alter scoring or promise a particular ranking improvement.
+In particular, existing v3.7 effective-formality subtype precedence is unchanged.
+The legacy phase-3.2 diagnostic script received only erased TypeScript assertions
+for its already-fully-populated fixtures, not calculations or benchmark data.
+No adapter, Traditional generator, event-context model or later phase is included.
+
+Validation combines real authenticated-role disposable PostgreSQL migration,
+round-trip, correction, validation and RLS checks with mounted actual-screen/
+database-function contract tests. Mounted tests control the PostgREST boundary;
+they do not claim a live-account Supabase end-to-end login. Standard validation
+remains `npm test`, `npm run typecheck`, `npm run lint` and `npm run server:build`.

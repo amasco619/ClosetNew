@@ -56,6 +56,29 @@ export default function ItemDetailScreen() {
   const [editingType, setEditingType] = useState(false);
   const [editingColor, setEditingColor] = useState(false);
   const [editingNeckline, setEditingNeckline] = useState(false);
+  const [savingCorrection, setSavingCorrection] = useState(false);
+  const [correctionError, setCorrectionError] = useState<string | null>(null);
+  const correctionPending = useRef(false);
+
+  const saveCorrection = async (
+    updates: Parameters<typeof updateWardrobeItem>[1],
+    onSaved: () => void,
+  ) => {
+    if (!id || correctionPending.current) return;
+    correctionPending.current = true;
+    setSavingCorrection(true);
+    setCorrectionError(null);
+    try {
+      await updateWardrobeItem(id, updates);
+      onSaved();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      setCorrectionError('Your change wasn’t saved. Please try again.');
+    } finally {
+      correctionPending.current = false;
+      setSavingCorrection(false);
+    }
+  };
 
   if (!item) {
     return (
@@ -124,15 +147,13 @@ export default function ItemDetailScreen() {
     }
   };
 
-  const handleSavePrice = () => {
+  const handleSavePrice = async () => {
     const parsed = parseFloat(priceInput.replace(/[^0-9.]/g, ''));
     if (!isNaN(parsed) && parsed > 0) {
-      updateWardrobeItem(item.id, { purchasePrice: parsed });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await saveCorrection({ purchasePrice: parsed }, () => setEditingPrice(false));
     } else if (priceInput === '') {
-      updateWardrobeItem(item.id, { purchasePrice: undefined });
+      await saveCorrection({ purchasePrice: undefined }, () => setEditingPrice(false));
     }
-    setEditingPrice(false);
   };
 
   const startEditingPrice = () => {
@@ -157,6 +178,15 @@ export default function ItemDetailScreen() {
         <Image source={{ uri: item.photoUri }} style={styles.image} contentFit="cover" />
 
         <View style={styles.details}>
+          {savingCorrection && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }} accessibilityLiveRegion="polite">
+              <ActivityIndicator size="small" color={Colors.secondary} />
+              <Text style={{ color: Colors.textSecondary }}>Saving your change…</Text>
+            </View>
+          )}
+          {correctionError && (
+            <Text accessibilityRole="alert" style={{ color: Colors.error, marginBottom: 16 }}>{correctionError}</Text>
+          )}
           <Pressable style={styles.itemTypeRow} onPress={() => setEditingType(v => !v)} hitSlop={6}>
             <Text style={styles.itemType}>{item.subType === 'stole' ? 'Stole' : item.subType.replace('-', ' ')}</Text>
             <Ionicons name={editingType ? 'chevron-up' : 'pencil-outline'} size={15} color={Colors.textSecondary} />
@@ -166,11 +196,10 @@ export default function ItemDetailScreen() {
               {subTypes[item.category].map(st => (
                 <Pressable
                   key={st}
+                  disabled={savingCorrection}
                   style={[styles.editChip, item.subType === st && styles.editChipActive]}
                   onPress={() => {
-                    updateWardrobeItem(item.id, { subType: st, modelConfidence: undefined });
-                    Haptics.selectionAsync();
-                    setEditingType(false);
+                    void saveCorrection({ subType: st }, () => setEditingType(false));
                   }}
                 >
                   <Text style={[styles.editChipText, item.subType === st && styles.editChipTextActive]}>{st === 'stole' ? 'Stole' : st.replace('-', ' ')}</Text>
@@ -190,11 +219,10 @@ export default function ItemDetailScreen() {
               {colorFamilies.map(cf => (
                 <Pressable
                   key={cf}
+                  disabled={savingCorrection}
                   style={[styles.editColorChip, item.colorFamily === cf && styles.editColorChipActive]}
                   onPress={() => {
-                    updateWardrobeItem(item.id, { colorFamily: cf, modelConfidence: undefined });
-                    Haptics.selectionAsync();
-                    setEditingColor(false);
+                    void saveCorrection({ colorFamily: cf }, () => setEditingColor(false));
                   }}
                 >
                   <View style={[styles.editColorDot, { backgroundColor: colorDots[cf] || '#ccc' }]} />
@@ -228,11 +256,10 @@ export default function ItemDetailScreen() {
                   {NECKLINES.map(n => (
                     <Pressable
                       key={n}
+                      disabled={savingCorrection}
                       style={[styles.editChip, item.neckline === n && styles.editChipActive]}
                       onPress={() => {
-                        updateWardrobeItem(item.id, { neckline: item.neckline === n ? undefined : n });
-                        Haptics.selectionAsync();
-                        setEditingNeckline(false);
+                        void saveCorrection({ neckline: item.neckline === n ? undefined : n }, () => setEditingNeckline(false));
                       }}
                     >
                       <Text style={[styles.editChipText, item.neckline === n && styles.editChipTextActive]}>{n.replace('-', ' ')}</Text>
@@ -331,7 +358,7 @@ export default function ItemDetailScreen() {
                     onSubmitEditing={handleSavePrice}
                   />
                 </View>
-                <Pressable style={styles.priceSaveBtn} onPress={handleSavePrice}>
+                <Pressable disabled={savingCorrection} style={styles.priceSaveBtn} onPress={handleSavePrice}>
                   <Text style={styles.priceSaveBtnText}>Save</Text>
                 </Pressable>
                 <Pressable style={styles.priceCancelBtn} onPress={() => setEditingPrice(false)}>

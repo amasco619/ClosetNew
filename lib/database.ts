@@ -1,10 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from './supabase'
 import { mapDbRowToGarmentGroup } from './garmentGroupMapper'
+import { serializeRecommendationSemantics, type RecommendationSemantics } from './wardrobeSemantics'
 import type {
   GarmentGroup,
   GarmentGroupConfirmationStatus,
   GarmentRelationshipType,
+  WardrobeItem,
 } from '../constants/types'
 
 // ══ USER PROFILE ════════════════════════════════════════════════════════════
@@ -62,6 +64,7 @@ export async function insertWardrobeItem(item: {
   fit?: string
   pattern?: string
   pattern_scale?: string
+  recommendation_semantics?: RecommendationSemantics
 }): Promise<{ id: string }> {
   const { data, error } = await supabase.rpc('insert_wardrobe_item', { p_item: item })
   if (error) throw normalizeWardrobeError(error, 'insertWardrobeItem')
@@ -133,6 +136,7 @@ export interface WardrobeItemReplacementInput {
   fit?: string | null
   pattern?: string | null
   pattern_scale?: string | null
+  recommendation_semantics?: RecommendationSemantics
 }
 
 export async function replaceWardrobeItem(
@@ -152,6 +156,7 @@ export async function replaceWardrobeItem(
     fit: replacement.fit ?? null,
     pattern: replacement.pattern ?? null,
     pattern_scale: replacement.pattern_scale ?? null,
+    recommendation_semantics: replacement.recommendation_semantics ?? null,
   }
   const { data, error } = await supabase
     .from('wardrobe_items')
@@ -165,6 +170,21 @@ export async function replaceWardrobeItem(
     throw new WardrobeDatabaseError('[replaceWardrobeItem] No owned wardrobe item was updated', 'ROW_NOT_UPDATED')
   }
   return { id: data.id }
+}
+
+/** Semantic correction only: image identity and bookkeeping are never rewritten. */
+export async function updateWardrobeItemSemantics(userId: string, item: WardrobeItem): Promise<void> {
+  const { data, error } = await supabase.from('wardrobe_items').update({
+    garment_type: item.category, sub_type: item.subType, color_family: item.colorFamily,
+    description: item.description ?? null, occasion: item.occasionTags,
+    fabric: item.fabric ?? null, fit: item.fit ?? null, pattern: item.pattern ?? null,
+    pattern_scale: item.patternScale ?? null,
+    recommendation_semantics: serializeRecommendationSemantics(item),
+  }).eq('id', item.id).eq('user_id', userId).select('id').maybeSingle()
+  if (error) throw new WardrobeDatabaseError(`[updateWardrobeItemSemantics] ${error.message}`, error.code)
+  if (!data || data.id !== item.id) {
+    throw new WardrobeDatabaseError('No owned wardrobe item was updated', 'ROW_NOT_UPDATED')
+  }
 }
 
 function normalizeWardrobeError(error: { code?: string; message?: string }, operation: string): Error {

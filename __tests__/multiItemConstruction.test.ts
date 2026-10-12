@@ -95,7 +95,7 @@ test('valid 3-item and maximum 6-item results preserve one output per item', () 
   }
 })
 
-test('required wardrobe fields copy exactly and formality is deterministic', () => {
+test('required wardrobe fields copy exactly and unknown formality is not invented', () => {
   const result = constructMultiItemDraft(envelope())
   const fields = result.items[0].wardrobeFields
   assert.deepEqual(fields.occasionTags, ['casual'])
@@ -105,11 +105,11 @@ test('required wardrobe fields copy exactly and formality is deterministic', () 
   assert.equal(fields.colorFamily, 'blue')
   assert.equal(fields.description, 'Blue blouse')
   assert.equal(fields.modelConfidence, 0.91)
-  assert.equal(fields.formalityLevel, 4)
+  assert.equal(fields.formalityLevel, undefined, 'subtype fallback is not canonical formality')
 
   const unknown = envelope()
   unknown.items[0].classification.subType = 'future-subtype'
-  assert.equal(constructMultiItemDraft(unknown).items[0].wardrobeFields.formalityLevel, 5)
+  assert.equal(constructMultiItemDraft(unknown).items[0].wardrobeFields.formalityLevel, undefined)
 })
 
 test('optional wardrobe fields and perceptual values copy without mutable references', () => {

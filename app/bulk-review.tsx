@@ -20,7 +20,6 @@ import type { ItemCategory, OccasionTag, SeasonTag } from '@/constants/types';
 import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
 import BulkItemEditPanel from '@/components/BulkItemEditPanel';
 import Colors from '@/constants/colors';
-import { SUBTYPE_FORMALITY } from '@/constants/outfitScoring';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { removeBackground } from '@/lib/photoroom';
 import { resolvePhotoUri } from '@/lib/classifyPath';
@@ -617,8 +616,9 @@ export default function BulkReviewScreen() {
               colorFamily:     c.colorFamily  || 'black',
               description:     c.description  || undefined,
               occasionTags:    c.occasionTags,
-              seasonTags:      c.seasonTags.length ? c.seasonTags : ['all-season'],
-              formalityLevel:  SUBTYPE_FORMALITY[c.subType] ?? 5,
+              seasonTags:      [...c.seasonTags],
+              // Subtype formality remains an engine fallback, not a stored fact.
+              confirmedFields: [],
               pattern:         asPattern(c.pattern),
               patternScale:    asPatternScale(c.patternScale),
               fabric:          asFabric(c.fabric),

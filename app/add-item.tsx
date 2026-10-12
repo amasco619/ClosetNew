@@ -11,7 +11,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useApp, ItemCategory, OccasionTag, SeasonTag, subTypes, colorFamilies, type WardrobeItem } from '@/contexts/AppContext';
 import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, SleeveLength, Rise, WarmthBand } from '@/constants/types';
 import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
-import { SUBTYPE_FORMALITY, inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
+import { centroidHsl, centroidLab } from '@/constants/colorPerceptual';
 import Colors from '@/constants/colors';
 import { wardrobeCategoryLabel } from '@/constants/wardrobeLabels';
 import * as Haptics from 'expo-haptics';
@@ -80,61 +80,6 @@ const colorDots: Record<string, string> = {
   lavender: '#B57EDC', purple: '#7D3C98', pink: '#E8A0BF',
 };
 
-// ─── Sub-type inference maps (UI-level, used for smart defaults) ──────────────
-
-/** Obvious neckline for a given sub-type — reduces required-field friction. */
-const SUBTYPE_NECKLINE: Partial<Record<string, Neckline>> = {
-  'turtleneck':   'turtleneck',
-  'polo-shirt':   'collared',
-  'rugby-shirt':  'collared',
-  'shirt':        'collared',
-  'button-down':  'collared',
-  't-shirt':      'crew',
-  'long-sleeve':  'crew',
-  'henley':       'crew',
-  'hoodie':       'crew',
-  'sweatshirt':   'crew',
-  'sweater':      'crew',
-  'knit-top':     'crew',
-  'camisole':     'scoop',
-  'tank-top':     'scoop',
-  'crop-top':     'crew',
-  'cardigan':     'v-neck',
-  'wrap-dress':   'v-neck',
-  'shirt-dress':  'collared',
-};
-
-/** Typical rise for a given bottom sub-type. */
-const SUBTYPE_RISE: Partial<Record<string, Rise>> = {
-  'jeans':        'mid',
-  'chinos':       'mid',
-  'shorts':       'mid',
-  'leggings':     'high',
-  'joggers':      'mid',
-  'trousers':     'high',
-  'wide-leg':     'high',
-  'midi-skirt':   'mid',
-  'maxi-skirt':   'mid',
-  'mini-skirt':   'mid',
-  'pencil-skirt': 'high',
-};
-
-/** Warmth band implied by outerwear sub-type. */
-const SUBTYPE_WARMTH: Partial<Record<string, WarmthBand>> = {
-  'puffer':           'cold',
-  'coat':             'cold',
-  'peacoat':          'cold',
-  'raincoat':         'cool',
-  'leather-jacket':   'cool',
-  'bomber-jacket':    'cool',
-  'jacket':           'mild',
-  'trench':           'mild',
-  'denim-jacket':     'mild',
-  'blazer':           'mild',
-  'vest':             'mild',
-  'hoodie':           'cool',
-};
-
 // ─── Category-level requirement logic ────────────────────────────────────────
 
 const CORE_CATEGORIES = new Set<ItemCategory>(['top','bottom','dress','outerwear']);
@@ -152,14 +97,6 @@ const asNeckline      = (v?: string): Neckline | undefined      => v && (NECKLIN
 const asSleeve        = (v?: string): SleeveLength | undefined  => v && (SLEEVES         as readonly string[]).includes(v) ? v as SleeveLength  : undefined;
 const asRise          = (v?: string): Rise | undefined          => v && (RISES           as readonly string[]).includes(v) ? v as Rise          : undefined;
 const asWarmth        = (v?: string): WarmthBand | undefined    => v && (WARMTHS         as readonly string[]).includes(v) ? v as WarmthBand    : undefined;
-
-function localClassifyFallback(category: ItemCategory): { subType: string; colorFamily: string } {
-  const types = subTypes[category];
-  return {
-    subType: types[Math.floor(Math.random() * types.length)],
-    colorFamily: colorFamilies[Math.floor(Math.random() * colorFamilies.length)],
-  };
-}
 
 class ContentGuardrailError extends Error {
   constructor(public reason: string) {
@@ -286,7 +223,7 @@ export default function AddItemScreen() {
         if (parsed.length > 0) return parsed;
       } catch { /* fall through */ }
     }
-    return ['all-season'];
+    return [];
   };
   const initDominantHsl = (): { h: number; s: number; l: number } | undefined => {
     if (hasPreClassified && pcDominantHsl) {
@@ -302,6 +239,12 @@ export default function AddItemScreen() {
   };
 
   const [photoUri,        setPhotoUri]        = useState<string | null>(initialUri ?? null);
+  const photoRequestRef = useRef(0);
+  const currentPhotoUriRef = useRef<string | null>(initialUri ?? null);
+  const correctedFieldsRef = useRef<Set<string>>(new Set());
+  const categoryRef = useRef<ItemCategory>(initCategory());
+  const subTypeRef = useRef<string>(initSubType());
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [multiplePieces, setMultiplePieces] = useState(false);
   const [category,        setCategory]        = useState<ItemCategory>(initCategory);
   const [subType,         setSubType]         = useState<string>(initSubType);
@@ -321,11 +264,14 @@ export default function AddItemScreen() {
   const [dominantHsl,     setDominantHsl]     = useState<{ h: number; s: number; l: number } | undefined>(initDominantHsl);
   const [dominantLab,     setDominantLab]     = useState<{ L: number; a: number; b: number } | undefined>(initDominantLab);
   const [modelConfidence, setModelConfidence] = useState<number | undefined>(undefined);
+  const [formalityLevel, setFormalityLevel] = useState<number | undefined>(undefined);
   const [fit,             setFit]             = useState<string | undefined>(hasPreClassified && pcFit ? pcFit : undefined);
   const [metalTone,       setMetalTone]       = useState<string | undefined>(undefined);
   const [neckline,        setNeckline]        = useState<string | undefined>(hasPreClassified && pcNeckline ? pcNeckline : undefined);
   const [sleeveLength,    setSleeveLength]    = useState<string | undefined>(hasPreClassified && pcSleeveLength ? pcSleeveLength : undefined);
-  const [rise,            setRise]            = useState<string | undefined>(hasPreClassified && pcRise ? pcRise : undefined);
+  const [rise,            setRise]            = useState<string | undefined>(
+    hasPreClassified && pcRise && !['iro', 'wrapper'].includes(initSubType()) ? pcRise : undefined
+  );
   const [warmthBand,      setWarmthBand]      = useState<string | undefined>(hasPreClassified && pcWarmthBand ? pcWarmthBand : undefined);
   const [photoBase64,     setPhotoBase64]     = useState<string | null>(null);
   const [photoBgRemoved,  setPhotoBgRemoved]  = useState<boolean>(false);
@@ -350,21 +296,10 @@ export default function AddItemScreen() {
   const stageLabelOpacity = useSharedValue(1);
   const stageLabelStyle   = useAnimatedStyle(() => ({ opacity: stageLabelOpacity.value }));
 
-  // ─── Pre-classified inference fallbacks ───────────────────────────────────
-  // When arriving from a bulk-review redirect that already has classification
-  // results, fill any gaps using the same sub-type inference the normal
-  // classifyWithServer post-process applies. Runs once on mount.
-  useEffect(() => {
-    if (!hasPreClassified) return;
-    const validSub = initSubType();
-    if (!validSub) return;
-    if (!pcFabric)       { const f = inferFabric(validSub);      if (f) setFabric(f); }
-    if (!pcWeight)       setWeight(inferFabricWeight(validSub));
-    if (!pcPattern)      setPattern('solid');
-    if (!pcNeckline)     { const inf = SUBTYPE_NECKLINE[validSub]; if (inf) setNeckline(inf); }
-    if (!pcRise)         { const inf = SUBTYPE_RISE[validSub];     if (inf) setRise(inf);     }
-    if (!pcWarmthBand)   { const inf = SUBTYPE_WARMTH[validSub];   if (inf) setWarmthBand(inf); }
-  }, []);
+  const markCorrected = (field: string) => {
+    correctedFieldsRef.current.add(field);
+    setModelConfidence(undefined);
+  };
 
   useEffect(() => {
     const next = SAVE_STAGES.find(s => s.key === saveStage)?.label ?? 'Saving…';
@@ -454,49 +389,62 @@ export default function AddItemScreen() {
   // ─── Derived requirements ──────────────────────────────────────────────────
 
   const isCore       = isCoreCategory(category);
-  const showsTextileFields = isCore || (category === 'jewelry' && subType === 'stole');
-  const needsFit     = isCore;
-  const needsPattern = isCore;
-  const needsFabric  = isCore;
-  const needsWeight  = isCore;
-  const needsNeckline    = category === 'top'    || category === 'dress';
-  const needsSleeveLength = category === 'top'   || category === 'dress';
-  const needsRise        = category === 'bottom';
-  const needsWarmth      = category === 'outerwear';
+  const showsTextileFields = isCore || (category === 'jewelry' && ['stole', 'gele', 'headwrap', 'head-scarf'].includes(subType));
+  const showsMaterialFields = showsTextileFields || category === 'shoes' || category === 'bag';
+  const needsFit     = false;
+  const needsPattern = false;
+  const needsFabric  = false;
+  const needsNeckline    = false;
+  const needsSleeveLength = false;
 
-  // ─── Smart defaults when sub-type is selected ─────────────────────────────
-
-  /**
-   * Auto-infer fabric, weight, neckline, rise, warmthBand and default pattern
-   * to 'solid' from a chosen sub-type. The user can always override any chip.
-   * This fires on every sub-type change so correcting a mis-classified type
-   * also updates the inferred fields.
-   */
+  // Subtype is identity, not evidence of fabric, cut, thickness or warmth.
+  // Keep known details; leave absent facts unknown rather than saving guesses.
   const handleSubTypeSelect = (st: string) => {
+    markCorrected('subType');
+    subTypeRef.current = st;
     setSubType(st);
 
-    // Fabric — use existing inference map exported from outfitScoring
-    const inferredFabric = inferFabric(st);
-    if (inferredFabric) setFabric(inferredFabric);
+    // A wrapper/iro has no Western trouser-rise semantic. Choosing that
+    // subtype is the explicit action that invalidates any earlier rise draft.
+    if (['iro', 'wrapper'].includes(st)) {
+      setRise(undefined);
+      correctedFieldsRef.current.add('rise');
+    }
+  };
 
-    // Weight — use existing inference map exported from outfitScoring
-    const inferredWeight = inferFabricWeight(st);
-    setWeight(inferredWeight);
-
-    // Pattern — default to solid (most items are solid); user overrides if needed
-    if (!pattern) setPattern('solid');
-
-    // Neckline — infer for obvious sub-types
-    const inferredNeckline = SUBTYPE_NECKLINE[st];
-    if (inferredNeckline) setNeckline(inferredNeckline);
-
-    // Rise — infer for obvious bottom sub-types
-    const inferredRise = SUBTYPE_RISE[st];
-    if (inferredRise) setRise(inferredRise);
-
-    // WarmthBand — infer for obvious outerwear sub-types
-    const inferredWarmth = SUBTYPE_WARMTH[st];
-    if (inferredWarmth) setWarmthBand(inferredWarmth);
+  const handleCategoryChange = (nextCategory: ItemCategory) => {
+    if (nextCategory === categoryRef.current) return;
+    Alert.alert(
+      'Change garment category?',
+      'The type and details tied to the current category will be cleared so they can be reviewed for this piece.',
+      [
+        { text: 'Keep current', style: 'cancel' },
+        {
+          text: 'Change category',
+          onPress: () => {
+            markCorrected('category');
+            correctedFieldsRef.current.add('subType');
+            categoryRef.current = nextCategory;
+            subTypeRef.current = '';
+            setCategory(nextCategory);
+            setSubType('');
+            setPattern(undefined);
+            setPatternScale(undefined);
+            setFabric(undefined);
+            setWeight(undefined);
+            setFit(undefined);
+            setNeckline(undefined);
+            setSleeveLength(undefined);
+            setRise(undefined);
+            setWarmthBand(undefined);
+            setMetalTone(undefined);
+            for (const field of ['pattern', 'patternScale', 'fabric', 'weight', 'fit', 'neckline', 'sleeveLength', 'rise', 'warmthBand', 'metalTone']) {
+              correctedFieldsRef.current.delete(field);
+            }
+          },
+        },
+      ],
+    );
   };
 
   // ─── Classifier ───────────────────────────────────────────────────────────
@@ -522,11 +470,10 @@ export default function AddItemScreen() {
     try {
       const res  = await authenticatedApiRequest('POST', '/api/classify-garment', classificationImagePayload(base64));
       const data = await res.json();
-      const fallback = localClassifyFallback(cat);
       return {
         category:     (data.category as ItemCategory) || cat,
-        subType:      data.subType      || fallback.subType,
-        colorFamily:  data.colorFamily  || fallback.colorFamily,
+        subType:      data.subType      || '',
+        colorFamily:  data.colorFamily  || '',
         accentColor:  data.accentColor,
         description:  data.description  || '',
         occasionTags: Array.isArray(data.occasionTags) ? data.occasionTags : [],
@@ -581,6 +528,7 @@ export default function AddItemScreen() {
     setSleeveLength(undefined);
     setRise(undefined);
     setWarmthBand(undefined);
+    setMetalTone(undefined);
     setDominantHsl(undefined);
     setDominantLab(undefined);
     setPhotoBase64(null);
@@ -591,7 +539,7 @@ export default function AddItemScreen() {
     existingAsset?: ImagePicker.ImagePickerAsset,
     preferenceChecked = false,
   ) => {
-    resetAllFields();
+    let requestId = photoRequestRef.current + 1;
     try {
       let asset = existingAsset;
       if (!asset && useCamera) {
@@ -624,11 +572,33 @@ export default function AddItemScreen() {
       }
 
       if (!asset) return;
+      requestId = photoRequestRef.current + 1;
+      photoRequestRef.current = requestId;
+      const isNewPhoto = asset.uri !== currentPhotoUriRef.current;
+      if (isNewPhoto) resetAllFields();
+      currentPhotoUriRef.current = asset.uri;
       if (multiplePieces) {
         router.push({ pathname: '/multi-item-review', params: { uri: asset.uri } });
         return;
       }
       {
+        const categoryWasConfirmed = correctedFieldsRef.current.has('category');
+        if (isNewPhoto) correctedFieldsRef.current.clear();
+        if (categoryWasConfirmed) correctedFieldsRef.current.add('category');
+        categoryRef.current = category;
+        if (isNewPhoto) subTypeRef.current = '';
+        setClassifying(false);
+        setClassifyFlash('none');
+        if (isNewPhoto) {
+          setSubType('');
+          setColorFamily('');
+          setDescription('');
+          setOccasions([]);
+          setSeasons([]);
+          setDetailsExpanded(false);
+        }
+        setModelConfidence(undefined);
+        if (isNewPhoto) setFormalityLevel(undefined);
         setPhotoUri(asset.uri);
         setPhotoBgRemoved(false);
         setBgStatus('idle');
@@ -731,47 +701,54 @@ export default function AddItemScreen() {
         if (classifyBase64) {
           try {
             const classified = await classifyWithServer(classifyBase64, category);
-            setCategory(classified.category);
-
-            const validSub = subTypes[classified.category]?.includes(classified.subType) ? classified.subType : '';
-            const validCol = colorFamilies.includes(classified.colorFamily) ? classified.colorFamily : '';
-            setSubType(validSub);
-            setColorFamily(validCol);
-            setDescription(classified.description);
-            if (classified.occasionTags.length > 0) setOccasions(classified.occasionTags);
-            if (classified.seasonTags.length > 0)   setSeasons(classified.seasonTags);
-
-            // Set classifier results — then fire sub-type inference to fill any gaps
-            if (classified.pattern)      setPattern(classified.pattern);
-            if (classified.patternScale) setPatternScale(classified.patternScale);
-            if (classified.fabric)       setFabric(classified.fabric);
-            if (classified.weight)       setWeight(classified.weight);
-            if (classified.accentColor)  setAccentColor(classified.accentColor);
-            if (classified.dominantHsl)  setDominantHsl(classified.dominantHsl);
-            if (classified.dominantLab)  setDominantLab(classified.dominantLab);
-            if (classified.modelConfidence !== undefined) setModelConfidence(classified.modelConfidence);
-
-            // Apply Gemini-returned detail fields (fit/neckline/sleeveLength/rise/warmthBand)
-            if (classified.fit)          setFit(classified.fit);
-            if (classified.neckline)     setNeckline(classified.neckline);
-            if (classified.sleeveLength) setSleeveLength(classified.sleeveLength);
-            if (classified.rise)         setRise(classified.rise);
-            if (classified.warmthBand)   setWarmthBand(classified.warmthBand);
-
-            // Fill any gaps from sub-type inference (only fires when classifier
-            // didn't return a value — fabric/weight are checked inside the setter)
-            if (validSub) {
-              if (!classified.fabric)     { const f = inferFabric(validSub);     if (f) setFabric(f); }
-              if (!classified.weight && validSub !== 'stole') { setWeight(inferFabricWeight(validSub)); }
-              if (!classified.pattern)    setPattern('solid');
-              if (!classified.neckline)   { const inf = SUBTYPE_NECKLINE[validSub]; if (inf) setNeckline(inf); }
-              if (!classified.rise)       { const inf = SUBTYPE_RISE[validSub];     if (inf) setRise(inf);     }
-              if (!classified.warmthBand) { const inf = SUBTYPE_WARMTH[validSub];   if (inf) setWarmthBand(inf); }
+            // A response belongs only to the photo draft that initiated it.
+            if (requestId !== photoRequestRef.current) return;
+            const categoryWasCorrected = correctedFieldsRef.current.has('category');
+            const resultCategory = categoryWasCorrected ? categoryRef.current : classified.category;
+            if (!categoryWasCorrected) {
+              categoryRef.current = classified.category;
+              setCategory(classified.category);
             }
 
+            const modelSub = subTypes[resultCategory]?.includes(classified.subType) ? classified.subType : '';
+            const validSub = correctedFieldsRef.current.has('subType')
+              ? (subTypes[resultCategory]?.includes(subTypeRef.current) ? subTypeRef.current : '')
+              : modelSub;
+            const validCol = colorFamilies.includes(classified.colorFamily) ? classified.colorFamily : '';
+            if (validSub && !correctedFieldsRef.current.has('subType')) {
+              subTypeRef.current = validSub;
+              setSubType(validSub);
+            }
+            if (validCol && !correctedFieldsRef.current.has('colorFamily')) setColorFamily(validCol);
+            if (!correctedFieldsRef.current.has('description')) setDescription(classified.description);
+            if (classified.occasionTags.length > 0 && !correctedFieldsRef.current.has('occasionTags')) setOccasions(classified.occasionTags);
+            if (classified.seasonTags.length > 0 && !correctedFieldsRef.current.has('seasonTags')) setSeasons(classified.seasonTags);
+
+            // Set classifier results — then fire sub-type inference to fill any gaps
+            if (classified.pattern && !correctedFieldsRef.current.has('pattern')) setPattern(classified.pattern);
+            if (classified.patternScale && !correctedFieldsRef.current.has('patternScale')) setPatternScale(classified.patternScale);
+            if (classified.fabric && !correctedFieldsRef.current.has('fabric')) setFabric(classified.fabric);
+            if (classified.weight && !correctedFieldsRef.current.has('weight')) setWeight(classified.weight);
+            if (classified.accentColor && !correctedFieldsRef.current.has('accentColor')) setAccentColor(classified.accentColor);
+            if (!correctedFieldsRef.current.has('colorFamily')) {
+              if (classified.dominantHsl) setDominantHsl(classified.dominantHsl);
+              if (classified.dominantLab) setDominantLab(classified.dominantLab);
+            }
+            if (classified.modelConfidence !== undefined && correctedFieldsRef.current.size === 0) setModelConfidence(classified.modelConfidence);
+
+            // Apply Gemini-returned detail fields (fit/neckline/sleeveLength/rise/warmthBand)
+            if (classified.fit && !correctedFieldsRef.current.has('fit')) setFit(classified.fit);
+            if (classified.neckline && !correctedFieldsRef.current.has('neckline')) setNeckline(classified.neckline);
+            if (classified.sleeveLength && !correctedFieldsRef.current.has('sleeveLength')) setSleeveLength(classified.sleeveLength);
+            if (classified.rise && !correctedFieldsRef.current.has('rise') && !['iro', 'wrapper'].includes(validSub)) setRise(classified.rise);
+            if (classified.warmthBand && !correctedFieldsRef.current.has('warmthBand')) setWarmthBand(classified.warmthBand);
+
+            // Omitted classifier details stay unknown. Frozen recommendation
+            // fallbacks remain read-time interpretation, not saved garment facts.
             finishClassifying(true);
 
           } catch (classifyErr: any) {
+            if (requestId !== photoRequestRef.current) return;
             if (classifyErr instanceof ContentGuardrailError) {
               // Photo rejected — reset immediately with no flash (card disappears with the step)
               setClassifying(false);
@@ -792,16 +769,13 @@ export default function AddItemScreen() {
             }
           }
         } else {
-          const fallback = localClassifyFallback(category);
-          setSubType(fallback.subType);
-          setColorFamily(fallback.colorFamily);
           setDescription('');
           setClassifying(false);
         }
       }
     } catch (e) {
       console.error('Image pick error:', e);
-      setClassifying(false);
+      if (requestId === photoRequestRef.current) setClassifying(false);
     }
   };
 
@@ -867,47 +841,6 @@ export default function AddItemScreen() {
       Alert.alert('Color required', 'Choose the dominant color family before saving.');
       return;
     }
-    if (needsFit && !fit) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('Fit required', 'Fit (slim, regular, loose…) is used to balance proportions across your outfit. Please pick one.');
-      return;
-    }
-    if (needsPattern && !pattern) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('Pattern required', 'Select a pattern — choose Solid if the item has no print.');
-      return;
-    }
-    if (needsFabric && !fabric) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('Fabric required', 'Fabric drives texture harmony in your outfits. Please pick the closest match.');
-      return;
-    }
-    if (needsWeight && !weight) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('Weight required', 'Weight (light / mid / heavy) helps balance layering across seasons. Please pick one.');
-      return;
-    }
-    if (needsNeckline && !neckline) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('Neckline required', 'Neckline is used to coordinate jewelry and flatter your face shape. Please pick one.');
-      return;
-    }
-    if (needsSleeveLength && !sleeveLength) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('Sleeve length required', 'Sleeve length lets the engine honour your no-sleeveless setting and balance proportions. Please pick one.');
-      return;
-    }
-    if (needsRise && !rise) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('Rise required', 'Rise (low / mid / high) affects proportion balance. Please pick one.');
-      return;
-    }
-    if (needsWarmth && !warmthBand) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('Warmth required', 'Warmth level helps the engine decide when to suggest this layer based on today\'s forecast.');
-      return;
-    }
-
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSaving(true);
     setSaveStage('resizing');
@@ -989,7 +922,7 @@ export default function AddItemScreen() {
         description: description || undefined,
         occasionTags: occasions,
         seasonTags: seasons,
-        formalityLevel: SUBTYPE_FORMALITY[subType] ?? 5,
+        formalityLevel,
         purchasePrice: isNaN(parsedPrice) || parsedPrice <= 0 ? undefined : parsedPrice,
         pattern:      asPattern(pattern),
         patternScale: asPatternScale(patternScale),
@@ -1005,6 +938,7 @@ export default function AddItemScreen() {
         dominantHsl,
         dominantLab,
         modelConfidence,
+        confirmedFields: Array.from(correctedFieldsRef.current),
       };
       dbStarted = true;
       if (replaceItemId) {
@@ -1061,24 +995,20 @@ export default function AddItemScreen() {
     );
   };
 
-  const toggleOccasion = (tag: OccasionTag) =>
+  const toggleOccasion = (tag: OccasionTag) => {
+    markCorrected('occasionTags');
     setOccasions(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+  };
 
-  const toggleSeason = (tag: SeasonTag) =>
+  const toggleSeason = (tag: SeasonTag) => {
+    markCorrected('seasonTags');
     setSeasons(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+  };
 
   // ─── Whether the form is complete enough to save ──────────────────────────
 
   const canSave =
-    !!photoUri && !classifying && classifyFlash === 'none' && !saving && !!subType && !!colorFamily &&
-    (!needsFit          || !!fit) &&
-    (!needsPattern      || !!pattern) &&
-    (!needsFabric       || !!fabric) &&
-    (!needsWeight       || !!weight) &&
-    (!needsNeckline     || !!neckline) &&
-    (!needsSleeveLength || !!sleeveLength) &&
-    (!needsRise         || !!rise) &&
-    (!needsWarmth       || !!warmthBand);
+    !!photoUri && !classifying && classifyFlash === 'none' && !saving && !!subType && !!colorFamily;
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -1141,7 +1071,12 @@ export default function AddItemScreen() {
                 <Pressable
                   key={cat.id}
                   style={[styles.categoryChip, category === cat.id && styles.categoryChipActive]}
-                  onPress={() => { setCategory(cat.id); Haptics.selectionAsync(); }}
+                  onPress={() => {
+                    categoryRef.current = cat.id;
+                    setCategory(cat.id);
+                    markCorrected('category');
+                    Haptics.selectionAsync();
+                  }}
                 >
                   <Ionicons name={cat.icon as any} size={18} color={category === cat.id ? Colors.white : Colors.textSecondary} />
                   <Text style={[styles.categoryLabel, category === cat.id && styles.categoryLabelActive]}>{category === cat.id && subType === 'stole' ? wardrobeCategoryLabel(category, subType) : cat.label}</Text>
@@ -1284,6 +1219,26 @@ export default function AddItemScreen() {
               </View>
             ) : null}
 
+            <View style={styles.reviewIntro}>
+              <Text style={styles.eyebrow}>THE STYLIST&apos;S READ</Text>
+              <Text style={styles.reviewTitle}>A first impression, not a final word.</Text>
+              <Text style={styles.reviewCopy}>Check the piece and colour. Keep details you know; leave anything uncertain blank.</Text>
+            </View>
+
+            <View style={styles.semanticSummary}>
+              <View style={[styles.summarySwatch, colorFamily ? { backgroundColor: colorDots[colorFamily] || Colors.border } : null]} />
+              <View style={styles.summaryCopy}>
+                <Text style={styles.summaryTitle}>
+                  {subType ? subType.replace(/-/g, ' ') : 'Garment type to review'}
+                </Text>
+                <Text style={styles.summaryMeta}>
+                  {[wardrobeCategoryLabel(category, subType), colorFamily || 'Colour to review'].filter(Boolean).join('  ·  ')}
+                </Text>
+              </View>
+              <Ionicons name="sparkles-outline" size={17} color={Colors.secondary} />
+            </View>
+            <Text style={styles.draftHint}>Suggestions are a starting point. Your selections are the authority.</Text>
+
             {/* ── Category ────────────────────────────────────────────────── */}
             <Text style={styles.sectionTitle}>Category</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
@@ -1292,15 +1247,7 @@ export default function AddItemScreen() {
                   <Pressable
                     key={cat.id}
                     style={[styles.chipSmall, category === cat.id && styles.chipSmallActive]}
-                    onPress={() => {
-                      setCategory(cat.id);
-                      setSubType('');
-                      // Reset category-specific required fields so they are
-                      // re-inferred when the user picks a new sub-type
-                      setNeckline(undefined);
-                      setRise(undefined);
-                      setWarmthBand(undefined);
-                    }}
+                    onPress={() => handleCategoryChange(cat.id)}
                   >
                     <Text style={[styles.chipSmallText, category === cat.id && styles.chipSmallTextActive]}>{category === cat.id && subType === 'stole' ? wardrobeCategoryLabel(category, subType) : cat.label}</Text>
                   </Pressable>
@@ -1344,10 +1291,11 @@ export default function AddItemScreen() {
                   key={cf}
                   style={[styles.colorChip, colorFamily === cf && styles.colorChipActive]}
                   onPress={() => {
-                    if (cf !== colorFamily) {
-                      setDominantHsl(undefined);
-                      setDominantLab(undefined);
-                    }
+                    markCorrected('colorFamily');
+                    // Family corrections must not keep perceptual coordinates
+                    // from the previous image suggestion.
+                    setDominantHsl(centroidHsl(cf));
+                    setDominantLab(centroidLab(cf));
                     setColorFamily(cf);
                   }}
                 >
@@ -1357,7 +1305,27 @@ export default function AddItemScreen() {
               ))}
             </View>
 
-            {/* ── Fit * (required for core categories) ────────────────────── */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: detailsExpanded }}
+              onPress={() => setDetailsExpanded(value => !value)}
+              style={({ pressed }) => [styles.detailsToggle, pressed && { opacity: 0.82, transform: [{ scale: 0.99 }] }]}
+            >
+              <View style={styles.detailsToggleCopy}>
+                <Text style={styles.detailsToggleTitle}>Refine styling details</Text>
+                <Text style={styles.detailsToggleHint}>
+                  {detailsExpanded ? 'Only details relevant to this piece are shown' : 'Optional · fabric, silhouette, wear occasions'}
+                </Text>
+              </View>
+              <Ionicons name={detailsExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.primary} />
+            </Pressable>
+
+            {detailsExpanded && (
+            <View style={styles.detailsPanel}>
+            <Text style={styles.detailsIntro}>Add only what you can confidently recognise. These help the stylist balance texture, proportion and occasion.</Text>
+
+            {/* ── Fit (core garments) ─────────────────────────────────────── */}
+            {isCore && <>
             <Text style={[styles.sectionTitle, { marginTop: 20 }]}>
               Fit{' '}
               {needsFit
@@ -1376,21 +1344,18 @@ export default function AddItemScreen() {
                   key={f}
                   style={[styles.chipSmall, fit === f && styles.chipSmallActive]}
                   onPress={() => {
-                    // Required field: allow selecting but not de-selecting to blank
-                    if (needsFit) {
-                      setFit(f);
-                    } else {
-                      setFit(fit === f ? undefined : f);
-                    }
+                    markCorrected('fit');
+                    setFit(fit === f ? undefined : f);
                   }}
                 >
                   <Text style={[styles.chipSmallText, fit === f && styles.chipSmallTextActive]}>{f}</Text>
                 </Pressable>
               ))}
             </View>
+            </>}
 
             {/* Textile accessories can record a pattern without guessing one. */}
-            {showsTextileFields && (
+            {showsMaterialFields && (
               <>
                 <Text style={styles.sectionTitle}>
                   Pattern {needsPattern
@@ -1406,9 +1371,13 @@ export default function AddItemScreen() {
                       key={p}
                       style={[styles.chipSmall, pattern === p && styles.chipSmallActive]}
                       onPress={() => {
-                        const next = pattern === p ? (needsPattern ? 'solid' : undefined) : p;
+                        const next = pattern === p ? undefined : p;
+                        markCorrected('pattern');
                         setPattern(next);
-                        if (!next || next === 'solid') setPatternScale(undefined);
+                        if (!next || next === 'solid') {
+                          setPatternScale(undefined);
+                          correctedFieldsRef.current.add('patternScale');
+                        }
                       }}
                     >
                       <Text style={[styles.chipSmallText, pattern === p && styles.chipSmallTextActive]}>
@@ -1427,7 +1396,10 @@ export default function AddItemScreen() {
                         <Pressable
                           key={s}
                           style={[styles.chipSmall, patternScale === s && styles.chipSmallActive]}
-                          onPress={() => setPatternScale(patternScale === s ? undefined : s)}
+                          onPress={() => {
+                            markCorrected('patternScale');
+                            setPatternScale(patternScale === s ? undefined : s);
+                          }}
                         >
                           <Text style={[styles.chipSmallText, patternScale === s && styles.chipSmallTextActive]}>{s}</Text>
                         </Pressable>
@@ -1454,7 +1426,10 @@ export default function AddItemScreen() {
                     <Pressable
                       key={f}
                       style={[styles.chipSmall, fabric === f && styles.chipSmallActive]}
-                      onPress={() => setFabric(fabric === f && !needsFabric ? undefined : f)}
+                      onPress={() => {
+                        markCorrected('fabric');
+                        setFabric(fabric === f ? undefined : f);
+                      }}
                     >
                       <Text style={[styles.chipSmallText, fabric === f && styles.chipSmallTextActive]}>{f}</Text>
                     </Pressable>
@@ -1463,21 +1438,22 @@ export default function AddItemScreen() {
               </>
             )}
 
-            {/* ── Weight * (required for core, hidden for shoes/bag/jewelry) */}
+            {/* ── Weight (layering signal for core garments) ──────────────── */}
             {isCore && (
               <>
                 <Text style={styles.sectionTitle}>
-                  Weight <Text style={styles.requiredAsterisk}>*</Text>
+                  Weight <Text style={styles.optionalLabel}>(optional)</Text>
                 </Text>
-                {!weight && (
-                  <Text style={styles.requiredHint}>Weight helps balance layering — light tee under heavy coat.</Text>
-                )}
+                <Text style={styles.detailsIntro}>A visual estimate can help balance layers; leave it unset if unclear.</Text>
                 <View style={styles.chipRow}>
                   {FABRIC_WEIGHTS.map(w => (
                     <Pressable
                       key={w}
                       style={[styles.chipSmall, weight === w && styles.chipSmallActive]}
-                      onPress={() => setWeight(w)}
+                      onPress={() => {
+                        markCorrected('weight');
+                        setWeight(weight === w ? undefined : w);
+                      }}
                     >
                       <Text style={[styles.chipSmallText, weight === w && styles.chipSmallTextActive]}>{w}</Text>
                     </Pressable>
@@ -1486,7 +1462,7 @@ export default function AddItemScreen() {
               </>
             )}
 
-            {/* ── Neckline * (required for top / dress) ───────────────────── */}
+            {/* ── Neckline (tops, dresses and outerwear) ──────────────────── */}
             {(category === 'top' || category === 'dress' || category === 'outerwear') && (
               <>
                 <Text style={styles.sectionTitle}>
@@ -1507,11 +1483,8 @@ export default function AddItemScreen() {
                       key={n}
                       style={[styles.chipSmall, neckline === n && styles.chipSmallActive]}
                       onPress={() => {
-                        if (needsNeckline) {
-                          setNeckline(n);
-                        } else {
-                          setNeckline(neckline === n ? undefined : n);
-                        }
+                        markCorrected('neckline');
+                        setNeckline(neckline === n ? undefined : n);
                       }}
                     >
                       <Text style={[styles.chipSmallText, neckline === n && styles.chipSmallTextActive]}>
@@ -1523,7 +1496,7 @@ export default function AddItemScreen() {
               </>
             )}
 
-            {/* ── Sleeve (required for top/dress; optional for outerwear) ──── */}
+            {/* ── Sleeve (garments with sleeves) ──────────────────────────── */}
             {(category === 'top' || category === 'dress' || category === 'outerwear') && (
               <>
                 <Text style={styles.sectionTitle}>
@@ -1542,11 +1515,8 @@ export default function AddItemScreen() {
                       key={s}
                       style={[styles.chipSmall, sleeveLength === s && styles.chipSmallActive]}
                       onPress={() => {
-                        if (needsSleeveLength) {
-                          setSleeveLength(s);
-                        } else {
-                          setSleeveLength(sleeveLength === s ? undefined : s);
-                        }
+                        markCorrected('sleeveLength');
+                        setSleeveLength(sleeveLength === s ? undefined : s);
                       }}
                     >
                       <Text style={[styles.chipSmallText, sleeveLength === s && styles.chipSmallTextActive]}>
@@ -1558,21 +1528,22 @@ export default function AddItemScreen() {
               </>
             )}
 
-            {/* ── Rise * (required for bottom) ─────────────────────────────── */}
+            {/* ── Rise (optional, conventional bottoms only) ──────────────── */}
             {category === 'bottom' && (
               <>
                 <Text style={styles.sectionTitle}>
-                  Rise <Text style={styles.requiredAsterisk}>*</Text>
+                  Rise <Text style={styles.optionalLabel}>(optional)</Text>
                 </Text>
-                {!rise && (
-                  <Text style={styles.requiredHint}>Rise affects waist-definition and proportion balance.</Text>
-                )}
+                {!rise && <Text style={styles.detailsIntro}>Leave unset if rise is unclear or not applicable to the construction.</Text>}
                 <View style={styles.chipRow}>
                   {RISES.map(r => (
                     <Pressable
                       key={r}
                       style={[styles.chipSmall, rise === r && styles.chipSmallActive]}
-                      onPress={() => setRise(r)}
+                      onPress={() => {
+                        markCorrected('rise');
+                        setRise(rise === r ? undefined : r);
+                      }}
                     >
                       <Text style={[styles.chipSmallText, rise === r && styles.chipSmallTextActive]}>{r}</Text>
                     </Pressable>
@@ -1581,37 +1552,52 @@ export default function AddItemScreen() {
               </>
             )}
 
-            {/* ── Warmth * (required for outerwear, optional elsewhere) ────── */}
-            <Text style={styles.sectionTitle}>
-              Warmth{' '}
-              {needsWarmth
-                ? <Text style={styles.requiredAsterisk}>*</Text>
-                : <Text style={styles.optionalLabel}>(optional)</Text>
-              }
-            </Text>
-            {needsWarmth && !warmthBand && (
-              <Text style={styles.requiredHint}>
-                {"Warmth level lets the engine match this layer to today's forecast."}
-              </Text>
+            {/* ── Warmth (weather-relevant layer) ─────────────────────────── */}
+            {category === 'outerwear' && (
+              <>
+                <Text style={styles.sectionTitle}>Warmth <Text style={styles.optionalLabel}>(optional)</Text></Text>
+                <View style={styles.chipRowWrap}>
+                  {WARMTHS.map(w => (
+                    <Pressable
+                      key={w}
+                      style={[styles.chipSmall, warmthBand === w && styles.chipSmallActive]}
+                      onPress={() => {
+                        markCorrected('warmthBand');
+                        setWarmthBand(warmthBand === w ? undefined : w);
+                      }}
+                    >
+                      <Text style={[styles.chipSmallText, warmthBand === w && styles.chipSmallTextActive]}>{WARMTH_LABELS[w]}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
             )}
-            <View style={styles.chipRowWrap}>
-              {WARMTHS.map(w => (
-                <Pressable
-                  key={w}
-                  style={[styles.chipSmall, warmthBand === w && styles.chipSmallActive]}
-                  onPress={() => {
-                    if (needsWarmth) {
-                      setWarmthBand(w);
-                    } else {
-                      setWarmthBand(warmthBand === w ? undefined : w);
-                    }
-                  }}
-                >
-                  <Text style={[styles.chipSmallText, warmthBand === w && styles.chipSmallTextActive]}>
-                    {needsWarmth ? WARMTH_LABELS[w] : w}
-                  </Text>
-                </Pressable>
-              ))}
+
+            <Text style={styles.sectionTitle}>Formality <Text style={styles.optionalLabel}>(optional)</Text></Text>
+            <Text style={styles.detailsIntro}>A personal rating from 1 to 10. Leave blank if you would rather not label it.</Text>
+            <View style={styles.formalityRow}>
+              <TextInput
+                accessibilityLabel="Formality level from 1 to 10, optional"
+                style={styles.formalityInput}
+                placeholder="Not set"
+                placeholderTextColor={Colors.textLight}
+                keyboardType="decimal-pad"
+                value={formalityLevel === undefined ? '' : String(formalityLevel)}
+                onChangeText={value => {
+                  setModelConfidence(undefined);
+                  if (!value.trim()) {
+                    setFormalityLevel(undefined);
+                    correctedFieldsRef.current.add('formalityLevel');
+                    return;
+                  }
+                  const numeric = Number(value);
+                  if (Number.isFinite(numeric)) {
+                    correctedFieldsRef.current.add('formalityLevel');
+                    setFormalityLevel(Math.min(10, Math.max(1, numeric)));
+                  }
+                }}
+              />
+              <Text style={styles.formalityScale}>1 · relaxed     10 · formal</Text>
             </View>
 
             {/* ── Metal tone (optional — jewelry / bag / shoes) ────────────── */}
@@ -1625,7 +1611,10 @@ export default function AddItemScreen() {
                     <Pressable
                       key={m}
                       style={[styles.chipSmall, metalTone === m && styles.chipSmallActive]}
-                      onPress={() => setMetalTone(metalTone === m ? undefined : m)}
+                      onPress={() => {
+                        markCorrected('metalTone');
+                        setMetalTone(metalTone === m ? undefined : m);
+                      }}
                     >
                       <Text style={[styles.chipSmallText, metalTone === m && styles.chipSmallTextActive]}>
                         {m === 'rose-gold' ? 'Rose gold' : m}
@@ -1677,7 +1666,10 @@ export default function AddItemScreen() {
                 <Pressable
                   key={cf}
                   style={[styles.chipSmall, accentColor === cf && styles.chipSmallActive]}
-                  onPress={() => setAccentColor(accentColor === cf ? undefined : cf)}
+                  onPress={() => {
+                    markCorrected('accentColor');
+                    setAccentColor(accentColor === cf ? undefined : cf);
+                  }}
                 >
                   <Text style={[styles.chipSmallText, accentColor === cf && styles.chipSmallTextActive]}>{cf}</Text>
                 </Pressable>
@@ -1703,6 +1695,9 @@ export default function AddItemScreen() {
               />
             </View>
             <Text style={styles.priceHint}>Used to calculate cost per wear as you log outfits</Text>
+
+            </View>
+            )}
 
           </Animated.View>
         )}
@@ -1760,7 +1755,26 @@ const styles = StyleSheet.create({
   closeBtn:          { minWidth: 56, height: 44, alignItems: 'flex-start', justifyContent: 'center' },
   cancelText:        { fontFamily: 'Inter_400Regular', fontSize: rs(16), color: Colors.textSecondary, letterSpacing: -0.1 },
   topTitle:          { fontFamily: 'Inter_600SemiBold', fontSize: rs(17), color: Colors.primary },
-  scrollContent:     { paddingHorizontal: 20 },
+  scrollContent:     { paddingHorizontal: 20, paddingBottom: 24 },
+  reviewIntro:       { marginTop: 4, marginBottom: 14 },
+  eyebrow:           { fontFamily: 'Inter_500Medium', fontSize: rs(10), letterSpacing: 1, color: Colors.sage, marginBottom: 7 },
+  reviewTitle:       { fontFamily: 'Inter_600SemiBold', fontSize: rs(21), color: Colors.primary, letterSpacing: -0.5, marginBottom: 5 },
+  reviewCopy:        { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary, lineHeight: 19 },
+  semanticSummary:   { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border, borderRadius: 15, paddingHorizontal: 14, paddingVertical: 13, marginBottom: 6, shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  summarySwatch:     { width: 34, height: 34, borderRadius: 11, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background },
+  summaryCopy:       { flex: 1, gap: 3 },
+  summaryTitle:      { fontFamily: 'Inter_600SemiBold', fontSize: rs(15), color: Colors.primary, textTransform: 'capitalize' },
+  summaryMeta:       { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, textTransform: 'capitalize' },
+  draftHint:         { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textLight, marginBottom: 19 },
+  detailsToggle:    { minHeight: 62, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.white, borderRadius: 14, paddingHorizontal: 15, paddingVertical: 11, marginTop: 19, marginBottom: 12, borderWidth: 1, borderColor: Colors.border },
+  detailsToggleCopy: { gap: 3 },
+  detailsToggleTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary },
+  detailsToggleHint: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary },
+  detailsPanel:     { backgroundColor: Colors.white, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 14, marginBottom: 8 },
+  detailsIntro:     { fontFamily: 'Inter_400Regular', fontSize: rs(12), lineHeight: 18, color: Colors.textSecondary, marginBottom: 12 },
+  formalityRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
+  formalityInput:   { width: 98, minHeight: 46, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 13, backgroundColor: Colors.background, fontFamily: 'Inter_500Medium', fontSize: rs(15), color: Colors.primary },
+  formalityScale:   { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, flex: 1 },
   sectionTitle:      { fontFamily: 'Inter_600SemiBold', fontSize: rs(15), color: Colors.primary, marginBottom: 12, letterSpacing: -0.3, marginTop: 4 },
   photoActions:      { flexDirection: 'row', gap: 14 },
   photoBtn:          { flex: 1, backgroundColor: Colors.white, borderRadius: 16, padding: 24, alignItems: 'center' },

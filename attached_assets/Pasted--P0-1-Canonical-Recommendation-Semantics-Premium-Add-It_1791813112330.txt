@@ -1,0 +1,474 @@
+# P0.1 — Canonical Recommendation Semantics + Premium Add Item UX
+
+## Objective
+
+Implement P0.1 of the approved Amodka Styling Intelligence roadmap.
+
+The goal is to make Amodka's wardrobe data a trustworthy, durable canonical representation of the user's clothes while materially improving the Add Item experience.
+
+After this work:
+
+> If Gemini proposes incorrect garment semantics and the user corrects them, the corrected values must become the authoritative wardrobe truth and survive save, authenticated cold start, reload, and subsequent recommendation generation.
+
+At the same time, redesign the Add Item semantic-review experience so it feels like a premium luxury stylist reviewing a garment with the user—not a database form.
+
+This is a production implementation, not an audit or architectural proposal.
+
+---
+
+# EXISTING AUTHORITATIVE DIRECTION
+
+The following work has already been audited and approved:
+
+- The Stylist Independence / African Styling Intelligence audit.
+- The African Fashion Capability Audit.
+- Phase A Garment Groups.
+- B0.1/B0.2 transactional multi-item architecture.
+- Recommendation Engine v3.7 remains frozen.
+
+Do NOT repeat a repository-wide audit or produce another architecture report.
+
+Use the existing audit findings and current implementation as the basis for this change.
+
+Inspect only the specific existing files/components required to implement and validate P0.1.
+
+---
+
+# PRODUCT PRINCIPLE
+
+Amodka is a premium AI wardrobe/styling product.
+
+The user should NOT need to describe every possible property of every garment.
+
+The target is:
+
+> Minimum complete recommendation-critical semantics.
+
+Every semantic captured in Add Item must have a clear purpose in styling, eligibility, candidate generation, or recommendation quality.
+
+Do NOT turn Add Item into an exhaustive fashion database.
+
+Do NOT add attributes merely because they are fashionable, interesting, or technically possible.
+
+For every new user-facing semantic, there must be a concrete recommendation/styling reason for capturing it.
+
+---
+
+# RECOMMENDATION-CRITICAL SEMANTICS
+
+Use the existing semantic model and audit findings as the starting point.
+
+Ensure the canonical wardrobe representation can durably preserve the recommendation-critical information already supported by Amodka, including where applicable:
+
+- category
+- subtype
+- primary colour
+- accent colour
+- pattern
+- pattern scale
+- fabric/material
+- fit
+- perceived/visual weight
+- neckline
+- sleeve length
+- rise
+- warmth
+- formality
+- relevant season information
+- relevant occasion suitability
+- metal tone for applicable accessories
+- perceptual colour data where already part of the styling model
+
+Do NOT blindly add all of these as new database columns.
+
+First reuse the existing schema/domain model wherever possible.
+
+If a required semantic currently exists in memory but is lost during persistence/hydration, fix the persistence path.
+
+If a semantic genuinely has no durable representation and is demonstrably recommendation-critical, add the smallest appropriate schema change.
+
+Because Amodka has not yet launched publicly, do not preserve an avoidable schema deficiency merely to avoid a migration.
+
+---
+
+# IMPORTANT SEMANTIC BOUNDARIES
+
+Do NOT treat the following as permanent garment attributes simply because they matter to recommendations:
+
+- Nigerian traditional wedding context
+- church dress expectations
+- aso-ebi participation
+- guest role
+- specific ceremony requirements
+- African-only vs African/Western styling intent
+- required headwear for a particular event
+- venue/exposure requirements
+
+These belong to styling context and/or confirmed relationships and will be addressed in later phases.
+
+Do NOT implement the African Styling Intelligence adapter in this task.
+
+Do NOT implement Traditional generation in this task.
+
+Those are subsequent approved phases.
+
+---
+
+# USER AUTHORITY
+
+Establish this precedence for canonical wardrobe semantics:
+
+1. User-confirmed/corrected value
+2. Existing explicitly stored canonical value
+3. Derived value, where deterministic and trustworthy
+4. AI/model suggestion
+5. Subtype/default fallback
+
+A lower-priority source must never silently overwrite a higher-priority user-confirmed value.
+
+In particular:
+
+- Gemini is allowed to propose.
+- The user is allowed to correct.
+- The user's correction becomes canonical truth.
+- A later Gemini result must not silently replace that correction.
+- Hydration must not replace a saved value with a generic default.
+
+Do not use model confidence as a substitute for user confirmation.
+
+Do not represent guessed/default values as user-confirmed facts.
+
+---
+
+# ADD ITEM UX REQUIREMENTS
+
+The current Add Item experience feels cluttered after garment upload.
+
+Improve the information architecture and presentation without changing the underlying product scope.
+
+The desired experience is:
+
+> "A luxury stylist is helping me catalogue this piece."
+
+NOT:
+
+> "I am filling out a database record."
+
+## UX principles
+
+### 1. Progressive disclosure
+
+Do not show every possible field at once.
+
+Only expose fields relevant to the current garment/category/subtype.
+
+Examples:
+
+- Rise is relevant to bottoms, not dresses.
+- Sleeve length is relevant to garments with sleeves.
+- Metal tone is relevant to applicable jewelry/accessories.
+- Neckline should not appear for footwear.
+- Warmth should be relevant where it can affect styling/weather decisions.
+
+### 2. AI proposes; user confirms
+
+After classification, present a concise, visually elegant review summary.
+
+The user should immediately understand:
+
+- what Amodka thinks the item is;
+- the important characteristics Amodka detected;
+- what they can correct.
+
+Do not overwhelm the user with every stored property.
+
+### 3. Prioritise recommendation-critical information
+
+The most important corrections should be visually prominent.
+
+Avoid presenting low-value metadata before recommendation-critical semantics.
+
+### 4. Premium visual hierarchy
+
+Use the existing Amodka design language.
+
+Preserve existing:
+
+- typography
+- quiet-luxury visual direction
+- spacing system
+- component conventions
+- navigation
+- image treatment
+- existing colour system
+
+Do not introduce an unrelated design language.
+
+Aim for:
+
+- generous whitespace
+- clear hierarchy
+- elegant cards/sections
+- restrained controls
+- concise labels
+- minimal visual noise
+- obvious primary action
+- polished loading/error/success states
+
+Do not add gratuitous animation.
+
+### 5. No giant form
+
+Do not simply rearrange the current form into a long scrolling list.
+
+The implementation should materially reduce perceived complexity.
+
+Use progressive disclosure, contextual controls, compact selection components, sections, or other existing app patterns where appropriate.
+
+### 6. Do not ask the user for information Amodka can reliably derive
+
+Keep deterministic/derived values automatic where appropriate.
+
+The user should primarily confirm or correct information that materially affects styling.
+
+---
+
+# IMPORTANT AFRICAN-FASHION UX REQUIREMENT
+
+The Add Item experience must work naturally for the supported African taxonomy already implemented.
+
+It must not feel like African garments are being forced through a Western-only generic form.
+
+Existing supported concepts such as:
+
+- buba
+- iro
+- wrapper
+- iro-and-buba
+- boubou
+- aso-ebi
+- gele
+- headwrap
+- head-scarf
+- structured-headpiece
+- wax-print
+- lace/chiffon
+- kaftan
+
+must remain supported through the existing taxonomy.
+
+Do NOT expand the taxonomy indiscriminately in this task.
+
+Do NOT infer cultural requirements from garment names.
+
+For example:
+
+- do not assume every aso-ebi garment is ceremonial;
+- do not assume every wedding requires a gele;
+- do not assume every boubou is formal;
+- do not assume every kaftan is casual.
+
+Those are later context/styling decisions.
+
+---
+
+# DATABASE / PERSISTENCE
+
+Implement whatever database changes are actually necessary to make the canonical semantic contract durable.
+
+Requirements:
+
+- Authenticated wardrobe items must round-trip without losing recommendation-critical semantics.
+- Existing valid stored values must remain compatible.
+- Unknown values must remain unknown rather than being fabricated.
+- User corrections must persist.
+- Saved-item editing must update the authenticated canonical record, not merely local UI state.
+- Hydration must reconstruct the same semantic representation that was saved.
+- Existing image/storage identity must remain intact.
+- Existing ownership/RLS boundaries must remain intact.
+- Do not weaken existing security controls.
+- Do not alter Phase A garment-group security or identity.
+
+If a migration is necessary:
+
+1. Create the smallest correct migration.
+2. Preserve existing data.
+3. Do not invent historical values.
+4. Validate locally.
+5. Validate affected application paths.
+6. Do not modify unrelated tables.
+
+Because the application is pre-release, correctness takes priority over avoiding a necessary migration.
+
+---
+
+# MIRROR-READY DESIGN
+
+P0.1 should establish the foundation for the later Mirror Test.
+
+The eventual requirement is:
+
+Manual correct entry
+
+AND
+
+Incorrect Gemini draft → user correction
+
+must produce equivalent canonical wardrobe semantics.
+
+Do not implement the complete recommendation-equivalence test yet unless it naturally falls within this change.
+
+For P0.1, establish the semantic persistence/correction contract and focused tests that make that later test possible.
+
+---
+
+# SAVED ITEM CORRECTION
+
+Where the current saved-item detail/edit experience allows semantic correction:
+
+- ensure the correction is persisted to the authenticated database;
+- ensure local state does not falsely imply that a correction was saved;
+- ensure the next authenticated hydration returns the corrected value;
+- ensure recommendation consumers receive the corrected canonical value.
+
+Do not create a separate competing semantic model for editing.
+
+Reuse the same canonical semantic contract used by Add Item.
+
+---
+
+# PROTECTED / FROZEN AREAS
+
+DO NOT modify:
+
+- Recommendation Engine v3.7 scoring
+- Recommendation Engine v3.7 ranking
+- v3.7 candidate-generation heuristics
+- v3.7 affinity/pair-affinity logic
+- v3.7 weather logic
+- outfit rotation logic
+- Track B benchmark definitions
+- Track B gold labels/images
+- Track C historical outputs
+- Gemini model/prompt behaviour
+- PhotoRoom behaviour
+- Phase A garment-group schema/security
+- B0.1/B0.2 operation architecture
+- authentication
+- entitlement logic
+- wardrobe image/storage identity
+- existing privacy/security boundaries
+
+Do not attempt to "fix" recommendation quality by changing v3.7 during this task.
+
+Do not create a second recommendation engine.
+
+Do not implement the African Styling Intelligence adapter yet.
+
+Do not implement Traditional generation yet.
+
+---
+
+# TESTING REQUIREMENTS
+
+Add or update focused tests for:
+
+## 1. Semantic persistence round-trip
+
+For a representative garment with populated recommendation-critical fields:
+
+- save
+- reload from the database
+- map back into WardrobeItem
+- verify the relevant canonical semantics are unchanged.
+
+## 2. User correction persistence
+
+Start with an AI-proposed value.
+
+Change it through the user-facing correction path.
+
+Save.
+
+Reload.
+
+Verify the corrected value remains authoritative.
+
+## 3. No silent default overwrite
+
+Where a valid saved value exists, hydration must not replace it with a subtype/default value.
+
+## 4. Unknown remains unknown
+
+Where a value genuinely was not provided, do not fabricate a user-confirmed value merely to satisfy the mapper.
+
+## 5. Saved-item editing
+
+Change a recommendation-critical semantic on an authenticated saved item.
+
+Verify:
+
+UI → database → hydration → canonical WardrobeItem
+
+all agree.
+
+## 6. Existing regression coverage
+
+Run the relevant existing Add Item, wardrobe persistence, mapper, database, and recommendation regression tests.
+
+Do not rewrite frozen benchmark outputs.
+
+---
+
+# VALIDATION
+
+At the end of the implementation:
+
+1. Run focused tests.
+2. Run TypeScript/type checking.
+3. Run relevant frontend tests.
+4. Run relevant backend/database tests.
+5. Verify the migration if one was created.
+6. Verify git diff.
+7. Verify no protected/frozen files were changed unintentionally.
+
+If the project has existing standard validation commands, use those rather than inventing new tooling.
+
+---
+
+# REPORT FORMAT
+
+When finished, report ONLY:
+
+## Implemented
+- concise list of actual changes
+
+## Database
+- migrations created, if any
+- what semantics are now durably persisted
+
+## UX
+- what changed in Add Item
+- how progressive disclosure works
+- which fields are contextual
+
+## User authority
+- how user corrections now take precedence
+
+## Validation
+- exact tests/checks run
+- results
+
+## Files changed
+- concise list
+
+## Blockers
+- only genuine blockers
+
+Do not provide another repository-wide audit.
+
+Do not propose unrelated improvements.
+
+Do not continue into P0.2/P0.3/P1.
+
+STOP after P0.1 is implemented and validated.

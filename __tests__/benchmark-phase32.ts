@@ -180,9 +180,9 @@ function formalityScore(items: WardrobeItem[], targetOccasion: OccasionTag): { s
   };
   const core = items.filter(i => ['top', 'bottom', 'dress'].includes(i.category));
   if (!core.length) return { score: 5, reason: 'No core items' };
-  const avg = core.reduce((s, i) => s + i.formalityLevel, 0) / core.length;
+  const avg = core.reduce((s, i) => s + i.formalityLevel!, 0) / core.length;
   const range = OCCASION_TARGET[targetOccasion] ?? { min: 3, max: 6, label: 'mid (3–6)' };
-  const spread = core.map(i => i.formalityLevel);
+  const spread = core.map(i => i.formalityLevel!);
   const spreadRange = Math.max(...spread) - Math.min(...spread);
 
   let score = 7;
@@ -199,7 +199,7 @@ function formalityScore(items: WardrobeItem[], targetOccasion: OccasionTag): { s
 function coherenceScore(items: WardrobeItem[]): { score: number; reason: string } {
   const patterns = items.map(i => i.pattern ?? 'solid').filter(p => p !== 'solid');
   const styleGoals = items.flatMap(i => i.mood ?? []);
-  const formalityLevels = items.filter(i => ['top','bottom','dress'].includes(i.category)).map(i => i.formalityLevel);
+  const formalityLevels = items.filter(i => ['top','bottom','dress'].includes(i.category)).map(i => i.formalityLevel!);
   const spread = formalityLevels.length ? Math.max(...formalityLevels) - Math.min(...formalityLevels) : 0;
 
   let score = 7;

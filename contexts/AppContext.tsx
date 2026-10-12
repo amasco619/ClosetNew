@@ -11,7 +11,6 @@ import {
 } from '@/constants/types';
 import { generateOutfitsForItem } from '@/constants/outfitGenerator';
 import { loadWeather, getCachedWeather, clearCachedWeather } from '@/constants/weather';
-import { inferFabric, inferFabricWeight } from '@/constants/outfitScoring';
 import { runGuestRemoval } from '@/constants/guestPhotoCleanup';
 import {
   detectNoPhotoOrphans,
@@ -28,10 +27,12 @@ import {
   getSlotStatuses, getWearLogs, getRotationCursors,
   getAffinitySignals, getPairAffinitySignals,
   insertWardrobeItem, insertWardrobeItems, insertWardrobeGroupItems, replaceWardrobeItem as replaceWardrobeItemInDB, deleteWardrobeItem, setFreeWardrobeSelection as persistFreeWardrobeSelection, insertWearLog, deleteWearLog,
+  updateWardrobeItemSemantics,
   insertAffinitySignal, insertPairAffinitySignal,
   getSavedLooks, upsertSavedLook, deleteSavedLook,
 } from '../lib/database';
 import { mapDbRowToWardrobeItem } from '../lib/wardrobeMapper';
+import { serializeRecommendationSemantics, saveWardrobeCorrection } from '../lib/wardrobeSemantics';
 import { supabase } from '../lib/supabase';
 import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl, getSignedWardrobeUrl } from '../lib/storage';
 import { reportError } from '@/shared/observability';
@@ -83,7 +84,7 @@ interface AppContextValue {
   ) => Promise<void>;
   replaceWardrobeItem: (existingId: string, replacement: WardrobeItemReplacement) => Promise<void>;
   removeWardrobeItem: (id: string) => void;
-  updateWardrobeItem: (id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => void;
+  updateWardrobeItem: (id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => Promise<void>;
   isPremium: boolean;
   outfitSets: OutfitSet[];
   lastAddedSuggestions: OutfitSet[];
@@ -259,6 +260,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
   const wardrobeItemsRef = useRef(wardrobeItems);
+  const wardrobeCorrectionPendingRef = useRef(false);
+  const wardrobeCorrectionRevisionRef = useRef(0);
   wardrobeItemsRef.current = wardrobeItems;
   const [wardrobeTotalCount, setWardrobeTotalCount] = useState(0);
   const [wardrobeLoadedCount, setWardrobeLoadedCount] = useState(0);
@@ -595,7 +598,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Items missing dominantHsl/Lab are seeded from the colour-family centroid
       // (cheap pure math) so the scorer never sees null values on first load.
       // Texture and path migrations are also applied here before first render.
-      const texturePersistIds = new Set<string>();
       const rebasedPathIds = new Set<string>();
       const seededItems = rawItems.map((it) => {
         // Rebase guest photo paths if documentDirectory has changed
@@ -615,20 +617,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           (t as string) === 'date' ? 'date-dressy' : t,
         ) as typeof it.occasionTags;
         const withTags = occasionTags === it.occasionTags ? it : { ...it, occasionTags };
-        // Texture pairing migration (April 2026): items uploaded before
-        // fabric/weight capture get a sub-type-derived default so the new
-        // textureHarmony scorer has something to reason about. User-tagged
-        // values are preserved.
-        const fabricBackfill = withTags.fabric ?? inferFabric(withTags.subType);
-        const weightBackfill = withTags.weight ?? inferFabricWeight(withTags.subType);
-        const needsTextureBackfill = fabricBackfill !== withTags.fabric || weightBackfill !== withTags.weight;
-        const withTexture = needsTextureBackfill
-          ? { ...withTags, fabric: fabricBackfill, weight: weightBackfill }
-          : withTags;
-        // Texture-only backfills should persist to disk but must NOT enrol the
-        // item in the expensive image-based perceptual migration pass — that
-        // path is reserved for items missing HSL/Lab.
-        if (needsTextureBackfill) texturePersistIds.add(withTexture.id);
+        // Unknown material/weight stay unknown in canonical guest data too.
+        // The frozen scorer may interpret subtype fallbacks without storing them.
+        const withTexture = withTags;
         if (withTexture.dominantHsl && withTexture.dominantLab) return withTexture;
         const hsl = withTexture.dominantHsl ?? centroidHsl(withTexture.colorFamily);
         const lab = withTexture.dominantLab ?? hslToLab(hsl.h, hsl.s, hsl.l);
@@ -659,7 +650,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setFreeSelectedItemIds([]);
         updateWardrobePagination(0, 0);
       }
-      if (mayLoadGuestCache && (texturePersistIds.size > 0 || rebasedPathIds.size > 0)) {
+      if (mayLoadGuestCache && rebasedPathIds.size > 0) {
         AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(seededItems));
       }
       // ── Temp-cache URI integrity check ────────────────────────────────────
@@ -1451,6 +1442,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
     }
     if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+    const correctionRevision = wardrobeCorrectionRevisionRef.current;
     const request = (async () => {
       let offset = 0;
       let total = wardrobeTotalCountRef.current;
@@ -1472,6 +1464,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         try { it.photoUri = await resolveWardrobeImageUrl(it.storagePath!); } catch {}
       }));
       if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+      // A refresh started before/during a correction cannot restore old truth.
+      if (correctionRevision !== wardrobeCorrectionRevisionRef.current) return;
       setWardrobeItems(prev =>
         isCurrentAccountRequest(userId, accountGeneration, startupGeneration) ? mapped : prev,
       );
@@ -1558,6 +1552,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         fit: newItem.fit,
         pattern: newItem.pattern,
         pattern_scale: newItem.patternScale,
+        recommendation_semantics: serializeRecommendationSemantics(newItem),
       };
       if (/^(file|content):\/\//i.test(payload.image_url)) {
         throw new Error('Authenticated wardrobe images must be uploaded before saving.');
@@ -1594,6 +1589,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         fit: item.fit,
         pattern: item.pattern,
         pattern_scale: item.patternScale,
+        recommendation_semantics: serializeRecommendationSemantics(item),
       }));
       if (payloads.some(payload => /^(file|content):\/\//i.test(payload.image_url))) {
         throw new Error('Authenticated wardrobe images must be uploaded before saving.');
@@ -1639,6 +1635,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       fit: item.fit,
       pattern: item.pattern,
       pattern_scale: item.patternScale,
+      recommendation_semantics: serializeRecommendationSemantics(item),
     }));
     if (payloads.some(payload => /^(file|content):\/\//i.test(payload.image_url))) {
       throw new Error('Authenticated wardrobe images must be uploaded before saving.');
@@ -1687,6 +1684,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         fit: replacement.fit ?? null,
         pattern: replacement.pattern ?? null,
         pattern_scale: replacement.patternScale ?? null,
+        recommendation_semantics: serializeRecommendationSemantics(replacement),
       });
       if (!isCurrent()) return;
       setWardrobeItems(prev => isCurrent()
@@ -1771,30 +1769,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     applyOrphanResolution(id, action, removeWardrobeItem);
   }, [removeWardrobeItem]);
 
-  const updateWardrobeItem = useCallback((id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => {
+  const updateWardrobeItem = useCallback(async (id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>): Promise<void> => {
+    if (wardrobeCorrectionPendingRef.current) throw new Error('Please wait for the current correction to save');
+    wardrobeCorrectionPendingRef.current = true;
+    wardrobeCorrectionRevisionRef.current += 1;
+    try {
+    const userId = currentUserIdRef.current;
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    // Do not race an already-running cold-start/page refresh with a correction.
+    if (wardrobeLoadPromiseRef.current) await wardrobeLoadPromiseRef.current;
+    if (currentUserIdRef.current !== userId ||
+        accountGenerationRef.current !== accountGeneration ||
+        startupGenerationRef.current !== startupGeneration) throw new Error('Account changed while saving');
+    const item = wardrobeItemsRef.current.find(candidate => candidate.id === id);
+    if (!item) throw new Error('Wardrobe item not found');
+    const corrected = await saveWardrobeCorrection(item, updates, async merged => {
+      if (userId !== null) {
+        await updateWardrobeItemSemantics(userId, merged);
+      } else {
+        const next = wardrobeItemsRef.current.map(candidate => candidate.id === id ? merged : candidate);
+        await AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(next));
+      }
+    });
+    if (currentUserIdRef.current !== userId ||
+        accountGenerationRef.current !== accountGeneration ||
+        startupGenerationRef.current !== startupGeneration) throw new Error('Account changed while saving');
+    wardrobeItemsRef.current = wardrobeItemsRef.current.map(candidate => candidate.id === id ? corrected : candidate);
     setWardrobeItems(prev => {
+      if (currentUserIdRef.current !== userId ||
+          accountGenerationRef.current !== accountGeneration ||
+          startupGenerationRef.current !== startupGeneration) return prev;
       const next = prev.map(item => {
         if (item.id !== id) return item;
-        const merged = { ...item, ...updates };
-        // Consistency rule: when the user changes colorFamily without supplying
-        // fresh perceptual values, reseed dominantHsl/Lab from the centroid of
-        // the new family. Otherwise the scorer would keep using stale values
-        // sampled from an image whose colour the user has just overridden.
-        if (
-          updates.colorFamily !== undefined &&
-          updates.colorFamily !== item.colorFamily &&
-          updates.dominantHsl === undefined &&
-          updates.dominantLab === undefined
-        ) {
-          const hsl = centroidHsl(updates.colorFamily);
-          merged.dominantHsl = hsl;
-          merged.dominantLab = hslToLab(hsl.h, hsl.s, hsl.l);
-        }
-        return merged;
+        return corrected;
       });
-      if (currentUserIdRef.current === null) {
-        AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(next));
-      }
       // Edits to category / sub-type / colour can change which blueprint slot
       // an item satisfies under strict matching. Recompute slot ownership so
       // Blueprint progress, Outfit Ideas, and Smart Buy stay in sync.
@@ -1815,6 +1824,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       return next;
     });
+    } finally {
+      wardrobeCorrectionRevisionRef.current += 1;
+      wardrobeCorrectionPendingRef.current = false;
+    }
   }, [profile, isPremium, freeSelectedItemIds]);
 
   // ── Rotation-based outfit generation ─────────────────────────────────────────

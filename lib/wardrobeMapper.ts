@@ -2,18 +2,13 @@
  * wardrobeMapper.ts — pure DB→WardrobeItem hydration.
  *
  * Extracted from AppContext so the same mapping path is used by both the
- * app (cold-start Supabase load) and tests. Any field that is intentionally
- * NOT copied from the DB row (e.g. `rise`) must be absent here —
- * that is what makes legacy items score neutrally on signals added in later
- * phases.
- *
- * IMPORTANT: do NOT add phase-specific fields (rise, neckline, …) here
- * until the Supabase schema column exists. NULL legacy values must stay
- * undefined on hydrated items so the
- * scorer falls back to its 0/neutral default.
+ * app (cold-start Supabase load) and tests. Missing legacy semantics stay
+ * unknown; subtype/default interpretation belongs to the frozen engine,
+ * not to the canonical mapper.
  */
 
 import type { WardrobeItem, ItemCategory, OccasionTag } from '../constants/types';
+import { recommendationSemanticsSchema } from './wardrobeSemantics';
 
 /**
  * Map a raw Supabase wardrobe_items row to a WardrobeItem value object.
@@ -21,11 +16,10 @@ import type { WardrobeItem, ItemCategory, OccasionTag } from '../constants/types
  * The row is typed `any` because Supabase returns untyped JSON; we
  * defensively extract only the fields we know about and discard the rest.
  *
- * Fields intentionally absent from this mapping (must remain undefined):
- *   • rise        — Phase 3.1 addition; not yet backfilled for legacy rows.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapDbRowToWardrobeItem(it: any): WardrobeItem {
+  const semantics = recommendationSemanticsSchema.parse(it.recommendation_semantics ?? {});
   return {
     id:           it.id,
     photoUri:     it.cleaned_image_url || it.image_url || '',
@@ -34,15 +28,14 @@ export function mapDbRowToWardrobeItem(it: any): WardrobeItem {
     colorFamily:  it.color_family || '',
     description:  it.description,
     occasionTags: (it.occasion as OccasionTag[]) || [],
-    seasonTags:   [],
+    ...semantics,
+    seasonTags:   semantics.seasonTags ?? [],
     createdAt:    it.created_at,
-    formalityLevel: 5,
     fabric:       it.fabric ?? undefined,
     fit:          it.fit ?? undefined,
     pattern:      it.pattern ?? undefined,
     patternScale: it.pattern_scale ?? undefined,
     storagePath:  it.image_url && !it.image_url.startsWith('http') &&
       !it.image_url.startsWith('file') ? it.image_url : undefined,
-    // rise is intentionally absent — see module-level comment above.
   };
 }

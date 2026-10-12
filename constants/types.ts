@@ -92,7 +92,10 @@ export interface WardrobeItem {
   description?: string;
   occasionTags: OccasionTag[];
   seasonTags: SeasonTag[];
-  formalityLevel: number;
+  formalityLevel?: number;
+  /** Explicit user corrections, including a deliberate unknown value.
+   *  Suggestions/defaults must not overwrite these fields. */
+  confirmedFields?: string[];
   purchasePrice?: number;
   createdAt: string;
   // Sophisticated stylist signals (all optional)

@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
 import { mapDbRowToWardrobeItem } from '../lib/wardrobeMapper'
+import { mergeWardrobeCorrection, serializeRecommendationSemantics } from '../lib/wardrobeSemantics'
 
 // Disposable local PostgreSQL only; this test never reads application config or Supabase credentials.
 const dir = mkdtempSync(join(tmpdir(), 'amodka-wardrobe-cap-'))
@@ -120,6 +121,9 @@ async function main(): Promise<void> {
     }
     await admin.query(readFileSync(
       'supabase/migrations/20260929000000_wardrobe_garment_metadata.sql', 'utf8',
+    ))
+    await admin.query(readFileSync(
+      'supabase/migrations/20261012000000_canonical_wardrobe_semantics.sql', 'utf8',
     ))
 
     const grants = await admin.query(`
@@ -389,7 +393,67 @@ async function main(): Promise<void> {
       [freeId, deletedId],
     )).rows[0].count, '0', 'deleting an owned wardrobe item cascades its selection')
 
-    console.log('Free wardrobe local PostgreSQL migration, ACL, capacity, atomicity and RLS checks passed')
+    // P0.1 real authenticated SQL round-trip and correction. Dedicated owner:
+    // never rely on, or mutate, application/Supabase credentials or live rows.
+    const semanticOwner = randomUUID()
+    await admin.query('INSERT INTO public.user_profiles (id) VALUES ($1)', [semanticOwner])
+    await as(semanticOwner, async db => {
+      const semantics = {
+        accentColor: 'gold', weight: 'heavy', neckline: 'boat',
+        sleeveLength: 'long', rise: 'high', warmthBand: 'cold',
+        formalityLevel: 8, seasonTags: ['winter'], metalTone: 'gold',
+        dominantHsl: { h: 220, s: 0.4, l: 0.5 },
+        dominantLab: { L: 50, a: 10, b: -12 },
+        confirmedFields: ['subType', 'formalityLevel'],
+      }
+      const [id] = await insertMany(db, [{
+        garment_type: 'top', sub_type: 'buba', color_family: 'blue',
+        image_url: `${semanticOwner}/item.jpg`, fabric: 'lace', fit: 'loose',
+        pattern: 'wax-print', pattern_scale: 'large', recommendation_semantics: semantics,
+      }])
+      const read = async () => mapDbRowToWardrobeItem((await db.query(
+        'SELECT * FROM public.wardrobe_items WHERE id=$1', [id],
+      )).rows[0])
+      const saved = await read()
+      assert.deepEqual(JSON.parse(JSON.stringify(serializeRecommendationSemantics(saved))), semantics)
+      assert.equal(saved.formalityLevel, 8)
+      assert.equal(saved.fabric, 'lace')
+      const corrected = mergeWardrobeCorrection(saved, { subType: 'blouse', colorFamily: 'red', neckline: undefined })
+      await db.query(`UPDATE public.wardrobe_items
+        SET sub_type=$1, color_family=$2, recommendation_semantics=$3
+        WHERE id=$4 AND user_id=$5`, [
+        corrected.subType, corrected.colorFamily,
+        JSON.stringify(serializeRecommendationSemantics(corrected)), id, semanticOwner,
+      ])
+      const loaded = await read()
+      assert.equal(loaded.subType, 'blouse')
+      assert.equal(loaded.colorFamily, 'red')
+      assert.equal(loaded.neckline, undefined)
+      assert.deepEqual(loaded.dominantHsl, corrected.dominantHsl)
+      assert.deepEqual(loaded.confirmedFields, corrected.confirmedFields)
+      assert.equal(loaded.storagePath, saved.storagePath)
+      for (const bad of [
+        { formalityLevel: 42 }, { weight: 'invented' }, { premium: true },
+        { dominantHsl: { h: 12, s: 90, l: 0.2 } },
+        { confirmedFields: ['premium'] }, { seasonTags: ['monsoon'] },
+      ]) {
+        await expectCode(insertMany(db, [{ garment_type: 'dress', recommendation_semantics: bad }]), '22023')
+        await expectCode(db.query('UPDATE public.wardrobe_items SET recommendation_semantics=$1 WHERE id=$2',
+          [JSON.stringify(bad), id]), '23514')
+      }
+      await as(bobId, async other => {
+        assert.equal((await other.query(
+          'UPDATE public.wardrobe_items SET recommendation_semantics=$1 WHERE id=$2',
+          [JSON.stringify({ formalityLevel: 2 }), id],
+        )).rowCount, 0, 'RLS denies correction of another owner’s item')
+      })
+      assert.equal((await db.query(`SELECT
+        has_column_privilege('authenticated','public.wardrobe_items','recommendation_semantics','INSERT') AS allowed
+      `)).rows[0].allowed, false)
+    })
+    assert.equal((await admin.query('SELECT recommendation_semantics FROM public.wardrobe_items WHERE id=$1',
+      [freeInitialIds[0]])).rows[0]?.recommendation_semantics ?? null, null, 'migration does not invent legacy values')
+    console.log('Free wardrobe and canonical semantics local PostgreSQL migration, ACL, capacity, atomicity, correction and RLS checks passed')
   } finally {
     await admin.end()
   }

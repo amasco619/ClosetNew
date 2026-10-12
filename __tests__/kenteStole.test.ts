@@ -102,7 +102,7 @@ const ui = readFileSync('app/add-item.tsx', 'utf8');
 const review = readFileSync('app/multi-item-review.tsx', 'utf8');
 const wardrobe = readFileSync('app/(tabs)/wardrobe.tsx', 'utf8');
 assert.match(blueprint, /jewelry:\s*\[[\s\S]*?'stole'/);
-assert.match(ui, /showsTextileFields = isCore \|\| \(category === 'jewelry' && subType === 'stole'\)/);
+assert.match(ui, /showsTextileFields = isCore \|\| \(category === 'jewelry' && \['stole', 'gele', 'headwrap', 'head-scarf'\]\.includes\(subType\)\)/);
 assert.match(review, /wardrobeCategoryLabel\(piece\.classification\.category, piece\.classification\.subType\)/);
 assert.match(wardrobe, /Stole · textile accessory/);
 

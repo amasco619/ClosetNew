@@ -1,4 +1,3 @@
-import { SUBTYPE_FORMALITY } from '../constants/outfitScoring'
 import type {
   Fabric,
   FabricWeight,
@@ -68,7 +67,7 @@ export interface MultiItemClassificationResult {
 }
 
 export interface B3WardrobeFields extends Omit<B3NormalizedClassification, 'source'> {
-  formalityLevel: number
+  formalityLevel?: number
 }
 
 export interface B3WardrobeConstructionInput {
@@ -177,7 +176,7 @@ export function constructMultiItemDraft(input: MultiItemClassificationResult): B
           description: c.description,
           occasionTags: [...c.occasionTags],
           seasonTags: [...c.seasonTags],
-          formalityLevel: SUBTYPE_FORMALITY[c.subType] ?? 5,
+          // Unknown formality remains unknown; v3.7 retains its own fallback.
           modelConfidence: c.modelConfidence,
           ...(c.accentColor !== undefined && { accentColor: c.accentColor }),
           ...(c.pattern !== undefined && { pattern: c.pattern }),
