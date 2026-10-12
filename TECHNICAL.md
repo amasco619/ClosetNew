@@ -316,7 +316,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               84 test suites (see §11)
+__tests__/               85 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -428,7 +428,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 84 test suites once |
+| `npm test` | Run all 85 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -1302,7 +1302,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (84 total)
+### Test Suites (85 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1311,6 +1311,7 @@ These features are **not yet implemented**. They are the next development priori
 | `stylingWardrobe.test.ts` | P0.2 canonical projection, African identifiers, unknowns, corrections, provenance independence, Phase A relationships, deterministic non-mutating snapshots, provider-free dependency graph, and unchanged v3.7 pool/hash/rotation/just-added outputs for the existing golden candidate fixture |
 | `traditionalStyling.test.ts` | Explicit context changes real core eligibility/candidates and daily outputs; confirmed-set atomicity, unknown/corrected canonical truth, layered relationships, owned Western complements, gap/fallback handling, existing rain filtering, provider-free dependency graph and unchanged generic generation |
 | `traditionalStylingUi.test.ts` | Mounted actual Outfits screen with real context adapter/generator/rotation: no implicit selection, generated owned coordinated-set photos, loading, retry, ignored late responses, honest gaps and unchanged premium chip gate |
+| `stylingRelationships.test.ts` | Additive Phase A membership projection, owner/parent checks, all three types, pre-evaluation coordinated construction under shortlist crowding, relationship removal and renamed-garment controls, Western complements, normal alternatives, immutable canonical/shared facts, transient provenance and provider-free graph |
 | `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, and retries after partial cleanup |
 | `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival, prune-interval state, DB integration (skipped when `DATABASE_URL` absent) |
 | `aiProcessingConsent.test.ts` | Mounted account preference API and server AI-route enforcement: unasked/malformed/declined denied, account isolation, metadata persistence, store errors fail closed |
@@ -2565,3 +2566,60 @@ supports; a controlled group-read HTTP 500 displayed retry rather than a false
 wardrobe gap, and retry recovered the real generated card. No cloud mutation or
 billing/AI-provider request left the fixture interceptors. This is browser
 integration proof, not live-auth, billing, provider or database verification.
+
+## 35. P1.2 — Relationship-aware candidate construction
+
+`stylingRelationships` adds a transient typed view on top of the unchanged P0.2
+projection. The original garment facts and full Phase A records remain intact.
+Units expose existing type/status/member IDs plus available/missing membership;
+unloaded relationships remain undefined. The live Traditional caller supplies
+the authenticated owner ID. Foreign-owner groups, inconsistent member ownership
+or parent IDs, and duplicate membership are excluded from the usable view
+without rewriting source records. Missing members never become owned garments.
+
+The existing P1.1 Traditional adapter now constructs eligible input cohorts for
+complete user-confirmed coordinated units before calling v3.7. Membership pins
+occupied category slots; a complete dress or top/bottom core excludes unrelated
+core alternatives in that cohort. Other owned categories remain available as
+complements. This construction uses relationship records, not garment-name,
+colour, print, shared-attribute or cultural-association pairing rules.
+
+Each cohort is evaluated and ranked by unchanged `generateOutfitPool`. Existing
+integrity/anchor checks remain in place. Successful set cohorts are preferred
+over arbitrary pairings; their engine-ranked sequences are combined in supplied
+group order with identical owned combinations deduplicated. There is no
+cross-cohort scoring formula, relationship bonus or changed ranking weight.
+The existing occasion bridge and isolated daily-rotation path are reused.
+If no viable coordinated cohort survives the frozen constraints, normal P1.1
+preferred/fallback construction remains available. Thus a coordinated set is
+not mandatory, and generic styling does not acquire Traditional's all-or-none
+requirement or an additional group-read lifecycle.
+
+Layered and multi-item links retain membership/type/status without becoming
+coordinated constraints, inherited attributes or inferred wearing order.
+Selected outfits carry transient usage provenance for participating available
+members of all three types. Only a fully used, user-confirmed coordinated set
+gets the small accessible **“Styled as a set”** cue on the existing card.
+No large UI section, cultural label or mandatory headwear is introduced.
+Saved-look and wear persistence still store their existing IDs/timestamps/item
+IDs only; this provenance is not a durable derived relationship record.
+
+**Exact candidate-level change:** with six equally compatible standalone
+iro-shaped bottoms preceding the linked iro, ordinary frozen generation chooses
+standalone bottoms and misses the real partner in its limited shortlists.
+Supplying the confirmed buba–iro relationship creates a pinned input cohort, so
+that same engine evaluates and returns the real buba + iro with Western
+shoes/bag. Removing the relationship removes this benefit; renaming garment
+subtypes while retaining explicit occasion tags and membership still works.
+No frozen benchmark or golden fixture is edited to accommodate the change.
+
+Validation: ten targeted P1.2/P1.1/P0.2/P0.1/Phase A/rotation suites passed,
+typecheck passed, changed-file lint has zero errors and 20 pre-existing
+warnings, and the frozen v3.7 golden regression passed 35/35. Browser integration
+at 402×874 used a 15-row synthetic HTTP/auth fixture: the confirmed relationship
+produced BUBA + IRO and the set cue despite six earlier decoys; returning no
+groups and reselecting Traditional instead produced BUBA + DECOY IRO 3 without
+the cue. This verifies real AppContext integration against controlled responses,
+not live authentication/cloud/billing. All outbound mutations/providers were
+intercepted or blocked. No database, migration, dependency, taxonomy, provider,
+authentication, entitlement or protected engine changes are part of P1.2.

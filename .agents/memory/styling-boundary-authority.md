@@ -26,3 +26,15 @@ protects canonical truth and v3.7 subtype precedence, even when they disagree.
 
 **How to apply:** Keep context intent separate from item facts in future styling
 work. A legacy rejection does not authorize reclassification or fabrication.
+
+Coordinated membership comes from authoritative Phase A records, not matching
+names, colours, prints or cultural association. Independently wearable set
+members must not acquire a global all-or-none requirement merely because
+Traditional needs coherent sets.
+
+**Why:** The user distinguishes relationship truth from individual garment
+truth, and explicitly permits independent wear outside contexts requiring a
+complete set. Layered/multi-item links do not imply coordinated styling.
+
+**How to apply:** Keep coherence constraints context-specific. Preserve all
+relationship types without inventing compatibility, layer order or durable links.

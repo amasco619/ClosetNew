@@ -8,8 +8,9 @@ import { projectWardrobeForStyling } from '../lib/stylingWardrobe';
 import { buildStylingContextCandidates, asTraditionalOutfits } from '../lib/traditionalStyling';
 import { applyDailyRotation, INITIAL_ROTATION_STATE } from '../constants/outfitRotation';
 import { EMPTY_AFFINITY } from '../constants/affinity';
+import { annotateStylingRelationships } from '../lib/stylingRelationships';
 
-let premium = true, failure = false, empty = false;
+let premium = true, failure = false, empty = false, grouped = true;
 let pending: Promise<void> | undefined;
 const calls: string[] = [], navigation: unknown[] = [];
 const request = async (context: 'traditional') => {
@@ -17,11 +18,11 @@ const request = async (context: 'traditional') => {
   if (pending) await pending;
   if (failure) throw new Error('controlled group-read failure');
   const result = buildStylingContextCandidates(
-    projectWardrobeForStyling(empty ? [] : traditionalWardrobe, empty ? [] : traditionalGroups),
+    projectWardrobeForStyling(empty ? [] : traditionalWardrobe, empty || !grouped ? [] : traditionalGroups),
     context, traditionalProfile, null, [], '2026-10-12', [], EMPTY_AFFINITY, null, true,
   );
   const daily = applyDailyRotation(result.pool, INITIAL_ROTATION_STATE, '2026-10-12', new Set(), true, false);
-  return { outfits: asTraditionalOutfits(daily.outfits), notice: result.notice };
+  return { outfits: annotateStylingRelationships(asTraditionalOutfits(daily.outfits), result.relationshipUnits ?? []), notice: result.notice };
 };
 const m = {
   push: (route: unknown) => navigation.push(route),
@@ -101,6 +102,7 @@ async function main() {
   pending = undefined;
   assert.ok(!hasText('Styling from your wardrobe'));
   assert.ok(hasPhoto('buba') && hasPhoto('iro'), 'real generated coordinated owned photos appear on actual screen');
+  assert.ok(hasText('Styled as a set'), 'confirmed set is communicated naturally on the existing card');
   await React.act(async () => press('Casual'));
   assert.ok(!hasText('African-first traditional occasion'));
   assert.equal(calls.length, 1, 'generic styling never enters Traditional boundary');
@@ -113,6 +115,13 @@ async function main() {
   await React.act(async () => press('Retry loading traditional looks'));
   assert.ok(!hasText('could not be loaded'));
   assert.ok(hasPhoto('buba') && hasPhoto('iro'));
+
+  await React.act(async () => press('Casual'));
+  grouped = false;
+  await React.act(async () => press('Traditional styling'));
+  assert.ok(hasPhoto('buba') && hasPhoto('iro'), 'ordinary compatible pairing still allowed without group');
+  assert.ok(!hasText('Styled as a set'), 'matching garments do not fabricate a relationship cue');
+  grouped = true;
 
   await React.act(async () => press('Casual'));
   pending = new Promise<void>(resolve => { release = resolve; });

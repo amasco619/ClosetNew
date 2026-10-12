@@ -110,7 +110,7 @@ assert.ok(weatherResult.pool[weatherResult.sourceScenario!].every(outfit => !out
   'existing weather evaluator remains in control');
 const contextSource = readFileSync('contexts/AppContext.tsx', 'utf8');
 assert.match(contextSource, /const groups = userId \? await getGarmentGroups\(userId\) : \[\]/);
-assert.match(contextSource, /projectWardrobeForStyling\(activeWardrobeItems, groups\), context/);
+assert.match(contextSource, /projectRelationshipsForStyling\(projectWardrobeForStyling\(activeWardrobeItems, groups\), userId \?\? undefined\), context/);
 assert.match(contextSource, /currentUserIdRef\.current !== userId/);
 assert.match(contextSource, /if \(!isPremium\) throw/);
 const screen = readFileSync('app/(tabs)/outfits.tsx', 'utf8');

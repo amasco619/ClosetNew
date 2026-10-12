@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useApp, OutfitSet, OutfitComponent } from '@/contexts/AppContext';
+import { usesConfirmedCoordinatedSet } from '../../lib/stylingRelationships';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useState, useCallback, useRef, useEffect } from 'react';
@@ -266,6 +267,12 @@ function OutfitCard({
         {moodText ? (
           <Text style={styles.moodText}>{moodText}</Text>
         ) : null}
+
+        {usesConfirmedCoordinatedSet(outfit) && (
+          <View style={{ marginBottom: 12 }} accessible accessibilityRole="text" accessibilityLabel="Styled as a coordinated set">
+            <Text style={[styles.scenarioPillText, { color: accent }]}>Styled as a set</Text>
+          </View>
+        )}
 
         {/* ── Rewear advisor ──────────────────────────────────────── */}
         {showRewearAdvisor && !wornToday && (

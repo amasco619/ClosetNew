@@ -36,6 +36,7 @@ import { mapDbRowToWardrobeItem } from '../lib/wardrobeMapper';
 import { serializeRecommendationSemantics, saveWardrobeCorrection } from '../lib/wardrobeSemantics';
 import { projectWardrobeForStyling } from '../lib/stylingWardrobe';
 import { buildStylingContextCandidates, asTraditionalOutfits } from '../lib/traditionalStyling';
+import { annotateStylingRelationships, projectRelationshipsForStyling } from '../lib/stylingRelationships';
 import { supabase } from '../lib/supabase';
 import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl, getSignedWardrobeUrl } from '../lib/storage';
 import { reportError } from '@/shared/observability';
@@ -1890,7 +1891,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     const today = todayString();
     const result = buildStylingContextCandidates(
-      projectWardrobeForStyling(activeWardrobeItems, groups), context,
+      projectRelationshipsForStyling(projectWardrobeForStyling(activeWardrobeItems, groups), userId ?? undefined), context,
       profile, todayMood, reactions, today, wearHistory, affinityState, weather, isPremium,
     );
     const rotated = applyDailyRotation(
@@ -1899,7 +1900,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Reuse the existing daily selector without adding Traditional to the
     // frozen rotation loop or persisting a competing cursor system.
     return {
-      outfits: asTraditionalOutfits(rotated.outfits.filter(outfit => outfit.scenario === result.sourceScenario)),
+      outfits: annotateStylingRelationships(
+        asTraditionalOutfits(rotated.outfits.filter(outfit => outfit.scenario === result.sourceScenario)),
+        result.relationshipUnits ?? [],
+      ),
       notice: result.notice,
     };
   }, [activeWardrobeItems, profile, todayMood, reactions, wearHistory, affinityState, weather, isPremium, rotationState, recentWornFingerprints]);
