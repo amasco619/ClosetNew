@@ -461,6 +461,7 @@ export default function OutfitsScreen() {
   const insets = useSafeAreaInsets();
   const {
     outfitSets,
+    getStylingRecommendations,
     wardrobeItems,
     wardrobeTotalCount,
     wardrobeHasMore,
@@ -531,9 +532,61 @@ export default function OutfitsScreen() {
   }
 
   const [selectedScenario, setSelectedScenario] = useState<OccasionTag>('casual');
+  const [traditionalOutfits, setTraditionalOutfits] = useState<OutfitSet[]>([]);
+  const [traditionalNotice, setTraditionalNotice] = useState<string | null>(null);
+  const [traditionalLoading, setTraditionalLoading] = useState(false);
+  const [traditionalError, setTraditionalError] = useState(false);
+  const [traditionalRetry, setTraditionalRetry] = useState(0);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
-  const filtered = outfitSets.filter(o => o.scenario === selectedScenario);
+  useEffect(() => {
+    if (
+      selectedScenario !== 'traditional-event' ||
+      !isPremium ||
+      !wardrobeDataComplete ||
+      wardrobeLoading ||
+      wardrobeLoadError
+    ) {
+      setTraditionalLoading(false);
+      setTraditionalError(false);
+      setTraditionalOutfits([]);
+      setTraditionalNotice(null);
+      return;
+    }
+
+    let active = true;
+    setTraditionalLoading(true);
+    setTraditionalError(false);
+    setTraditionalOutfits([]);
+    setTraditionalNotice(null);
+
+    getStylingRecommendations('traditional')
+      .then(result => {
+        if (!active) return;
+        setTraditionalOutfits(result.outfits);
+        setTraditionalNotice(result.notice ?? null);
+      })
+      .catch(() => {
+        if (active) setTraditionalError(true);
+      })
+      .finally(() => {
+        if (active) setTraditionalLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [
+    selectedScenario,
+    isPremium,
+    wardrobeDataComplete,
+    wardrobeLoading,
+    wardrobeLoadError,
+    getStylingRecommendations,
+    traditionalRetry,
+  ]);
+
+  const filtered = selectedScenario === 'traditional-event'
+    ? traditionalOutfits.filter(o => o.scenario === 'traditional-event')
+    : outfitSets.filter(o => o.scenario === selectedScenario);
   const isPremiumScenario = PREMIUM_SCENARIOS.includes(selectedScenario);
   const hasWardrobe = activeWardrobeItems.length > 0;
 
@@ -646,6 +699,9 @@ export default function OutfitsScreen() {
           return (
             <Pressable
               key={s}
+              accessibilityRole="button"
+              accessibilityLabel={s === 'traditional-event' ? 'Traditional styling' : scenarioLabels[s].label}
+              accessibilityState={{ selected: isActive }}
               style={({ pressed }) => [
                 styles.scenarioChip,
                 styles.scenarioChipPremium,
@@ -723,6 +779,20 @@ export default function OutfitsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {selectedScenario === 'traditional-event' && (
+          <View
+            style={styles.traditionalContext}
+            accessible
+            accessibilityRole="summary"
+            accessibilityLabel="Style from your wardrobe with an African-first traditional occasion in mind."
+          >
+            <Ionicons name="information-circle-outline" size={16} color={SCENARIO_ACCENT['traditional-event']} />
+            <Text style={styles.traditionalContextText}>
+              Style from your wardrobe with an African-first traditional occasion in mind.
+            </Text>
+          </View>
+        )}
+
         {/* Profile nudge */}
         {shouldShowProfileNudge && hasWardrobe && (
           <Animated.View entering={FadeInDown.delay(40).duration(280)} style={styles.profileNudge}>
@@ -785,8 +855,46 @@ export default function OutfitsScreen() {
           </Animated.View>
         )}
 
-        {/* Outfit cards or empty state */}
-        {filtered.length === 0 ? (
+        {selectedScenario === 'traditional-event' && traditionalNotice && (
+          <View
+            style={styles.traditionalNotice}
+            accessibilityLiveRegion="polite"
+            accessibilityRole="text"
+          >
+            <Ionicons name="information-circle-outline" size={15} color={Colors.secondary} />
+            <Text style={styles.traditionalNoticeText}>{traditionalNotice}</Text>
+          </View>
+        )}
+
+        {selectedScenario === 'traditional-event' && traditionalLoading ? (
+          <View
+            style={styles.traditionalStatus}
+            accessibilityRole="progressbar"
+            accessibilityState={{ busy: true }}
+            accessibilityLabel="Loading traditional occasion looks"
+            accessibilityLiveRegion="polite"
+          >
+            <ActivityIndicator size="small" color={Colors.secondary} />
+            <Text style={styles.traditionalStatusText}>Styling from your wardrobe…</Text>
+          </View>
+        ) : selectedScenario === 'traditional-event' && traditionalError ? (
+          <View style={styles.traditionalError} accessibilityLiveRegion="polite">
+            <Text style={styles.traditionalErrorText}>
+              Traditional looks could not be loaded. Please try again.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading traditional looks"
+              accessibilityState={{ disabled: traditionalLoading }}
+              testID="traditional-retry"
+              style={({ pressed }) => [styles.traditionalRetry, pressed && { opacity: 0.75 }]}
+              onPress={() => setTraditionalRetry(count => count + 1)}
+            >
+              <Ionicons name="refresh-outline" size={14} color={Colors.primary} />
+              <Text style={styles.traditionalRetryText}>Try again</Text>
+            </Pressable>
+          </View>
+        ) : filtered.length === 0 ? (
           <Animated.View entering={FadeInDown.delay(120).duration(280)} style={styles.emptyState}>
             <View style={styles.emptyIconWrap}>
               <Ionicons
@@ -802,7 +910,9 @@ export default function OutfitsScreen() {
             </Text>
             <Text style={styles.emptySub}>
               {hasWardrobe
-                ? (SCENARIO_EMPTY_HINT[selectedScenario] ?? `Add more items suited to ${scenarioLabels[selectedScenario]?.label.toLowerCase()} occasions and we'll style complete looks for you.`)
+                ? (selectedScenario === 'traditional-event'
+                  ? 'Your current wardrobe did not yield a complete look for this occasion. Add pieces you would like considered and we will try again.'
+                  : (SCENARIO_EMPTY_HINT[selectedScenario] ?? `Add more items suited to ${scenarioLabels[selectedScenario]?.label.toLowerCase()} occasions and we'll style complete looks for you.`))
                 : 'Start adding clothing and the app will build complete outfit suggestions from your wardrobe.'}
             </Text>
             <Pressable
@@ -911,6 +1021,49 @@ const styles = StyleSheet.create({
 
   // ── Main scroll ───────────────────────────────────────────────────────────
   scrollContent: { paddingHorizontal: 20 },
+  traditionalContext: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 9,
+    paddingHorizontal: 13, paddingVertical: 11, marginBottom: 14,
+    borderRadius: 12, backgroundColor: '#C17B4A0C',
+    borderWidth: 1, borderColor: '#C17B4A24',
+  },
+  traditionalContextText: {
+    flex: 1, fontFamily: 'Inter_400Regular', fontSize: rs(12),
+    color: Colors.textSecondary, lineHeight: 17,
+  },
+  traditionalNotice: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    padding: 12, marginBottom: 12, borderRadius: 12,
+    backgroundColor: Colors.secondary + '0D',
+    borderWidth: 1, borderColor: Colors.secondary + '24',
+  },
+  traditionalNoticeText: {
+    flex: 1, fontFamily: 'Inter_400Regular', fontSize: rs(12),
+    color: Colors.textSecondary, lineHeight: 17,
+  },
+  traditionalStatus: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    paddingVertical: 24, marginTop: 8,
+  },
+  traditionalStatusText: {
+    fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary,
+  },
+  traditionalError: {
+    alignItems: 'center', padding: 18, marginTop: 8, borderRadius: 16,
+    backgroundColor: Colors.error + '0A', borderWidth: 1, borderColor: Colors.error + '24',
+  },
+  traditionalErrorText: {
+    fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.textSecondary,
+    lineHeight: 19, textAlign: 'center',
+  },
+  traditionalRetry: {
+    minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 7, paddingHorizontal: 16, marginTop: 10, borderRadius: 12,
+    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border,
+  },
+  traditionalRetryText: {
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: Colors.primary,
+  },
 
   // ── Profile nudge ─────────────────────────────────────────────────────────
   profileNudge: {

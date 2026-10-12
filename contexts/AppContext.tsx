@@ -26,6 +26,7 @@ import {
   upsertUserProfile, getUserProfile, getWardrobeItems, getSelectedWardrobeItems, getFreeWardrobeSelection,
   getSlotStatuses, getWearLogs, getRotationCursors,
   getAffinitySignals, getPairAffinitySignals,
+  getGarmentGroups,
   insertWardrobeItem, insertWardrobeItems, insertWardrobeGroupItems, replaceWardrobeItem as replaceWardrobeItemInDB, deleteWardrobeItem, setFreeWardrobeSelection as persistFreeWardrobeSelection, insertWearLog, deleteWearLog,
   updateWardrobeItemSemantics,
   insertAffinitySignal, insertPairAffinitySignal,
@@ -34,6 +35,7 @@ import {
 import { mapDbRowToWardrobeItem } from '../lib/wardrobeMapper';
 import { serializeRecommendationSemantics, saveWardrobeCorrection } from '../lib/wardrobeSemantics';
 import { projectWardrobeForStyling } from '../lib/stylingWardrobe';
+import { buildStylingContextCandidates, asTraditionalOutfits } from '../lib/traditionalStyling';
 import { supabase } from '../lib/supabase';
 import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl, getSignedWardrobeUrl } from '../lib/storage';
 import { reportError } from '@/shared/observability';
@@ -89,6 +91,7 @@ interface AppContextValue {
   isPremium: boolean;
   outfitSets: OutfitSet[];
   lastAddedSuggestions: OutfitSet[];
+  getStylingRecommendations: (context: 'traditional') => Promise<{ outfits: OutfitSet[]; notice?: string }>;
   clearLastAddedSuggestions: () => void;
   isLoading: boolean;
   appReady: boolean;
@@ -1871,6 +1874,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return outfits;
   }, [outfitPool, rotationState, activeWardrobeItems.length, recentWornFingerprints, isPremium]);
 
+  const getStylingRecommendations = useCallback(async (context: 'traditional') => {
+    if (!isPremium) throw new Error('Traditional styling requires Premium.');
+    const userId = currentUserIdRef.current;
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    // Read the existing Phase A contract on demand; no second relationship
+    // cache/lifecycle and no silent "no groups" fallback on a read failure.
+    const groups = userId ? await getGarmentGroups(userId) : [];
+    if (!isPremiumRef.current) throw new Error('Traditional styling requires Premium.');
+    if (currentUserIdRef.current !== userId ||
+        accountGenerationRef.current !== accountGeneration ||
+        !isCurrentStartupGeneration(startupGenerationRef.current, startupGeneration)) {
+      throw new Error('Your wardrobe changed accounts. Please try again.');
+    }
+    const today = todayString();
+    const result = buildStylingContextCandidates(
+      projectWardrobeForStyling(activeWardrobeItems, groups), context,
+      profile, todayMood, reactions, today, wearHistory, affinityState, weather, isPremium,
+    );
+    const rotated = applyDailyRotation(
+      result.pool, rotationState, today, recentWornFingerprints, isPremium, profile.isGuest,
+    );
+    // Reuse the existing daily selector without adding Traditional to the
+    // frozen rotation loop or persisting a competing cursor system.
+    return {
+      outfits: asTraditionalOutfits(rotated.outfits.filter(outfit => outfit.scenario === result.sourceScenario)),
+      notice: result.notice,
+    };
+  }, [activeWardrobeItems, profile, todayMood, reactions, wearHistory, affinityState, weather, isPremium, rotationState, recentWornFingerprints]);
+
   useEffect(() => {
     if (isLoading || activeWardrobeItems.length === 0) return;
     const today = todayString();
@@ -1998,7 +2031,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({
     profile, updateProfile, wardrobeItems, activeWardrobeItems,
     wardrobeTotalCount, wardrobeHasMore: wardrobeLoadedCount < wardrobeTotalCount, freeSelectedItemIds,
-    loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection,
+    loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection, getStylingRecommendations,
     addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem, updateWardrobeItem,
     isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
     isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable,
@@ -2020,7 +2053,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isGuest: profile.isGuest === true,
     orphanedItems, resolveOrphan,
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, wardrobeTotalCount, wardrobeLoadedCount, freeSelectedItemIds,
-       loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection,
+       loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection, getStylingRecommendations,
         addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem, updateWardrobeItem,
        isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,

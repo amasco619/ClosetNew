@@ -316,7 +316,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               82 test suites (see §11)
+__tests__/               84 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -428,7 +428,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 82 test suites once |
+| `npm test` | Run all 84 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -1302,13 +1302,15 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (82 total)
+### Test Suites (84 total)
 
 | Suite | What it tests |
 |-------|--------------|
 | `canonicalWardrobeSemantics.test.ts` | Complete semantic serialization/hydration, legacy unknowns, explicit correction persistence, failed-save barrier, corrected-vs-manual canonical equivalence, owned update and all insertion/replacement payload contracts |
 | `canonicalWardrobeUi.test.ts` | Actual Add Item response guards against late AI and stale-photo results; mounted saved-item screen through the actual owned database-update function with a controlled PostgREST boundary: pending state, success, mapper cold reload, failure and retry |
 | `stylingWardrobe.test.ts` | P0.2 canonical projection, African identifiers, unknowns, corrections, provenance independence, Phase A relationships, deterministic non-mutating snapshots, provider-free dependency graph, and unchanged v3.7 pool/hash/rotation/just-added outputs for the existing golden candidate fixture |
+| `traditionalStyling.test.ts` | Explicit context changes real core eligibility/candidates and daily outputs; confirmed-set atomicity, unknown/corrected canonical truth, layered relationships, owned Western complements, gap/fallback handling, existing rain filtering, provider-free dependency graph and unchanged generic generation |
+| `traditionalStylingUi.test.ts` | Mounted actual Outfits screen with real context adapter/generator/rotation: no implicit selection, generated owned coordinated-set photos, loading, retry, ignored late responses, honest gaps and unchanged premium chip gate |
 | `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, and retries after partial cleanup |
 | `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival, prune-interval state, DB integration (skipped when `DATABASE_URL` absent) |
 | `aiProcessingConsent.test.ts` | Mounted account preference API and server AI-route enforcement: unasked/malformed/declined denied, account isolation, metadata persistence, store errors fail closed |
@@ -2496,3 +2498,70 @@ hash, rotation and just-added outputs before/after projection using the existing
 golden candidate-generation fixture, without changing frozen fixtures or engine
 code. No database migration, provider invocation or later styling feature is
 part of this foundation.
+
+## 34. P1.1 — Explicit Traditional styling context
+
+The existing premium Traditional chip now requests a real `traditional`
+Styling Intelligence context after wardrobe pagination is complete. Selection
+remains local, just like the other scenario chips. Other scenarios retain their
+existing `outfitSets` filter and generation path. There is no new setting,
+provider request, wardrobe field, taxonomy or migration.
+
+`AppContext.getStylingRecommendations` reads the existing owner-scoped Phase A
+groups on demand, projects the active canonical wardrobe and full relationships
+through the unchanged P0.2 contract, and calls `traditionalStyling`. Group-read
+errors propagate to a retryable screen state, not a silent empty-group fallback.
+Account/startup generation guards and a current premium-ref recheck protect
+asynchronous reads. Screen cleanup ignores stale/unmounted results.
+
+The deterministic context adapter:
+
+- Gates known core formality against the existing Traditional band (6–9);
+  unknowns remain unknown and full canonical values are never edited.
+- Prefers existing African core identifiers, explicit Traditional occasion tags
+  and wax-print cores only after the user's explicit selection. Lace/chiffon,
+  headwear and all other garment semantics are preserved, not evidence of an
+  inferred ceremony, cultural identity, participation or required headwear.
+- Prefers stronger core options category-wise, allows owned Western supports
+  and appropriate Western core complements, and falls back to valid eligible
+  owned occasion-ready pieces with an explanatory notice when necessary.
+- Keeps every user-confirmed `coordinated_set` all-or-none, including when a
+  member is absent from the active wardrobe. AI-inferred/rejected relationships
+  are not upgraded to confirmed truth. Layered metadata survives without an
+  invented wearing order or inherited garment fields.
+- Uses the existing v3.7 wedding evaluator as a compatibility bridge with the
+  same 6–9 band, then the existing event evaluator as a broader fallback.
+  This is an evaluator choice, not wedding/ceremony intent inference.
+- Filters integrity/anchor eligibility without reranking. It isolates the
+  bridge pool before unchanged daily rotation: otherwise cross-scenario
+  fingerprint deduplication can consume its results in an earlier generic slot.
+  Existing weather, mood, affinity, wear history, cursor state, freshness and
+  premium slot count are passed through unchanged. No parallel ranking or
+  rotation state is created.
+- Relabels selected outputs to `traditional-event` only for presentation, with
+  stable owned-component-derived IDs; canonical identities and explanations
+  remain intact.
+
+The UI displays the explicit African-first context, generated owned cards,
+loading, retry, and honest compatibility/wardrobe gaps using existing patterns.
+No missing piece is synthesized, and headwear is never required.
+
+**Frozen compatibility limitation:** v3.7 still interprets the kaftan subtype
+with resort-level formality, even when canonical formality is higher. A wardrobe
+containing only that core and formal supports may produce a gap. Neither a
+Western alias nor falsified canonical formality is used to hide this limitation.
+
+Focused fixture evidence: a confirmed buba + iro set with Western alternatives
+produces intact Traditional candidates and actual displayed owned photos;
+generic generation still equals the direct pre-context v3.7 output. Focused
+context/screen tests, relevant P0.1/P0.2/group/rotation regressions, typecheck and
+changed-file lint are used; the unchanged v3.7 golden regression passes 35/35.
+No Track B/C fixtures or benchmark definitions are changed.
+
+Browser validation at 402×874 also passed using synthetic session/HTTP fixtures
+through the real AppContext: generic Casual remained Western-led and unselected;
+explicit Traditional rendered the owned buba + iro photos together with Western
+supports; a controlled group-read HTTP 500 displayed retry rather than a false
+wardrobe gap, and retry recovered the real generated card. No cloud mutation or
+billing/AI-provider request left the fixture interceptors. This is browser
+integration proof, not live-auth, billing, provider or database verification.
