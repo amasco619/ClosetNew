@@ -67,7 +67,7 @@ export interface UserProfile {
   faceShape?: FaceShape | null;
   dismissedProfileNudge?: string; // YYYY-MM-DD
   weatherEnabled?: boolean;       // weather-aware outerwear (defaults true)
-  tempUnit?: 'C' | 'F';           // temperature unit override (auto-detected from locale when unset)
+  tempUnit?: 'C' | 'F';           // explicit temperature unit preference (Celsius when unset)
   isGuest?: boolean;              // true while using app without an account
 }
 

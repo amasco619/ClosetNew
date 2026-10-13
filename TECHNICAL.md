@@ -316,7 +316,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               85 test suites (see §11)
+__tests__/               86 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -428,7 +428,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 85 test suites once |
+| `npm test` | Run all 86 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -824,6 +824,8 @@ Range: [−1, +1]. Does not stack with `bodyTypeProportion` or `heightProportion
 
 ### Weather-Aware Outerwear
 Uses Open-Meteo (free, no key) with device GPS (`expo-location`) and an IP-geolocation fallback (`ipapi.co`). Weather snapshot cached for 6 hours. Outfit engine gates outerwear by forecast: required when daily low <12°C, suppressed when low >18°C and high >24°C. Rain probability ≥60% biases toward rain-friendly subtypes (trench, raincoat, parka, jacket, bomber-jacket) and deprioritises wool/cashmere/suede. Home tab shows a weather chip; Profile has a weather toggle. Disabling clears the cache.
+
+Celsius is the global display default when no explicit temperature-unit preference exists, regardless of country, device locale or location (including UK/US). This replaces the former locale-based Fahrenheit default. Home and Profile retain `profile.tempUnit ?? defaultTempUnit()`, so saved Fahrenheit choices remain untouched. Open-Meteo forecasts, GPS/IP fallback snapshots and the six-hour cache remain Celsius; existing formatters convert only for explicit Fahrenheit display. No cache migration, conversion change, UI redesign or weather-decision change was needed.
 
 **Code:** `constants/weather.ts`, `app/(tabs)/index.tsx`, `app/(tabs)/profile.tsx`
 
@@ -1302,7 +1304,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (85 total)
+### Test Suites (86 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1360,6 +1362,7 @@ These features are **not yet implemented**. They are the next development priori
 | `supabaseUrlStability.test.ts` | Supabase Storage public URL is deterministic from (userId, itemId, ext) alone — no session token embedded, no query parameters, stable across app reinstalls |
 | `wardrobeDiagnostics.test.ts` | `computeDiagnostics` health score, category stats, scenario coverage; `ALL_SCENARIOS` export integrity and alignment with `computeDiagnostics` output |
 | `weather.test.ts` | Weather-aware outerwear rules (temperature gating, rain-friendly subtype bias) |
+| `temperatureUnits.test.ts` | Global Celsius default, explicit C/F preferences, UK/US/unknown locale, Home/Profile preference wiring, GPS/IP forecast and cache consistency, no double conversion, and unavailable-forecast fallback |
 
 ### Running tests
 

@@ -15,7 +15,6 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
-import * as Localization from 'expo-localization';
 import type { WeatherSnapshot } from '@/constants/types';
 export type {
   OuterwearRule,
@@ -164,27 +163,10 @@ export async function loadWeather(force = false): Promise<WeatherSnapshot | null
 // ── Temperature unit helpers ──────────────────────────────────────────────────
 
 /**
- * Detect whether the device locale defaults to Fahrenheit.
- * Fahrenheit countries: US, UK (GB), Belize, Cayman Islands, Palau,
- * Bahamas, Micronesia, Marshall Islands, Liberia.
- * Uses expo-localization for reliable region detection, with an Intl fallback.
- * Falls back to Celsius for any locale that can't be resolved.
+ * Celsius is the global default. Fahrenheit is an explicit profile preference,
+ * never inferred from the device locale or location.
  */
 export function defaultTempUnit(): import('@/constants/weatherPure').TempUnit {
-  const fahrenheitRegions = new Set(['US', 'GB', 'BZ', 'KY', 'PW', 'BS', 'FM', 'MH', 'LR']);
-  try {
-    // expo-localization returns e.g. [{languageTag: 'en-US', regionCode: 'US', ...}]
-    const locales = Localization.getLocales();
-    for (const loc of locales) {
-      const region = loc.regionCode?.toUpperCase();
-      if (region && fahrenheitRegions.has(region)) return 'F';
-    }
-  } catch { /* noop — fall through to Intl */ }
-  try {
-    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
-    const region = locale.split('-')[1]?.toUpperCase();
-    if (region && fahrenheitRegions.has(region)) return 'F';
-  } catch { /* noop */ }
   return 'C';
 }
 
