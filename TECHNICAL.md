@@ -316,7 +316,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               86 test suites (see §11)
+__tests__/               88 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -428,7 +428,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 86 test suites once |
+| `npm test` | Run all 88 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -1304,10 +1304,12 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (86 total)
+### Test Suites (88 total)
 
 | Suite | What it tests |
 |-------|--------------|
+| `concierge.test.ts` | Five validated today-only occasions with actual candidate construction; readiness precedence; actual AppContext strict entitlement-refresh contract and unchanged default behavior |
+| `conciergeUi.test.ts` | Mounted planner/Outfits: exact generic outputs, confirmed Traditional set, dual fresh access checks, failures/retries, complete pagination, same-occasion refresh, account/blur/stale cleanup, C/F and no incidental mutations |
 | `canonicalWardrobeSemantics.test.ts` | Complete semantic serialization/hydration, legacy unknowns, explicit correction persistence, failed-save barrier, corrected-vs-manual canonical equivalence, owned update and all insertion/replacement payload contracts |
 | `canonicalWardrobeUi.test.ts` | Actual Add Item response guards against late AI and stale-photo results; mounted saved-item screen through the actual owned database-update function with a controlled PostgREST boundary: pending state, success, mapper cold reload, failure and retry |
 | `stylingWardrobe.test.ts` | P0.2 canonical projection, African identifiers, unknowns, corrections, provenance independence, Phase A relationships, deterministic non-mutating snapshots, provider-free dependency graph, and unchanged v3.7 pool/hash/rotation/just-added outputs for the existing golden candidate fixture |
@@ -2626,3 +2628,59 @@ the cue. This verifies real AppContext integration against controlled responses,
 not live authentication/cloud/billing. All outbound mutations/providers were
 intercepted or blocked. No database, migration, dependency, taxonomy, provider,
 authentication, entitlement or protected engine changes are part of P1.2.
+
+## 36. P1.3 — Today-only occasion Concierge
+
+**Scope:** signed-in Premium users can select Work (`work`), Dressy date
+(`date-dressy`), Event (`event`), Wedding (`wedding`) or Traditional occasion
+(`traditional-event`). The first four are in the actual frozen generator's
+`SCENARIOS` loop and construct candidates from a supporting owned test wardrobe.
+Traditional is deliberately outside that loop and uses the existing explicit
+Traditional service. Support means a verified styling path, not a guaranteed
+look for every wardrobe or daily rotation.
+
+**Integration:** a restrained Outfits entry opens `components/OccasionPlanner.tsx`
+as a safe-area-aware, scrollable modal. Keeping the planner in the results
+screen avoids a new route, route parameters, navigation tab, card implementation
+or generator. `lib/concierge.ts` owns only the small allowlist, transient intent
+validation and readiness-state precedence. Accepted generic intents select
+the exact existing `outfitSets` scenario output. Traditional invokes
+`getStylingRecommendations('traditional')`, retaining the existing owned group
+retrieval, canonical projection, relationship-aware construction, rotation,
+explanations and confirmed coordinated-set cue. Layered/multi-item relationships
+are not advertised as construction constraints. Existing wear, reaction and
+sharing actions remain on existing cards.
+
+**Access:** opening and submitting each perform
+`refreshPremiumEntitlement(true)`. The new opt-in argument rejects failed,
+missing-session and superseded refreshes; existing callers retain the default
+fail-closed boolean contract. This is a client error-contract extension, not
+an authentication, server authority or billing change. Confirmed non-entitlement
+uses the existing Premium screen; unavailable verification pauses selection
+with retry; guests use the existing sign-in screen. Results additionally require
+the current signed-in owner, Premium state and no entitlement-unavailable flag.
+
+**Lifecycle and readiness:** transient request versions and owner checks ignore
+late verification; the existing Traditional effect ignores late styling responses.
+Account changes, tab blur, closing/exiting and manual scenario selection clear
+Concierge intent. Same-occasion Traditional submission clears old results and
+starts a new request. Generic results remain the existing reactive scenario
+output, without generating a competing pool or advancing quota/rotation.
+Readiness distinguishes loading/incomplete pagination, retrieval failure,
+successfully loaded empty active wardrobe (insufficient), successful nonempty
+wardrobe with no viable output (empty), and returned results (ready). No weather
+readiness summary is shown while loading/failing; available weather is formatted
+with the existing Celsius default/explicit Fahrenheit preference. Switched-off
+or absent weather is stated honestly.
+
+**Boundaries:** no planning persistence, profile/mood/history/saved-look writes
+from selection, provider or forecast calls, taxonomy changes, schemas/migrations,
+subscription changes, engine/scoring/ranking/affinity/rotation/weather-decision
+changes or benchmark changes. Packing/travel capsules, future dates, destination
+weather, chat, commerce, notifications and virtual try-on are not included.
+
+**Verification:** focused Concierge, styling/relationships, entitlement/ACL,
+canonical UI/serialization, rotation and temperature/weather suites; actual
+refresh-body strict/default contract tests; typecheck; changed-file lint;
+unchanged v3.7 golden regression. The accompanying P1.3 report records the exact
+validation results and mobile browser evidence/limitations.

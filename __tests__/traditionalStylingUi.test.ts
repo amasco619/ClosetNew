@@ -44,7 +44,7 @@ const modules: Record<string, string> = {
   'react-native': `
     import React from 'react';const host=n=>({children,...p})=>React.createElement(n,p,children);
     export const View=host('View'),Text=host('Text'),Pressable=host('Pressable'),Image=host('Image'),
-      ScrollView=host('ScrollView'),ActivityIndicator=host('ActivityIndicator');
+      ScrollView=host('ScrollView'),ActivityIndicator=host('ActivityIndicator'),Modal=host('Modal');
     export const Platform={OS:'web'},StyleSheet={create:s=>s},Alert={alert:()=>{}};
   `,
   'react-native-reanimated': `
@@ -53,7 +53,7 @@ const modules: Record<string, string> = {
     export default {View:({children,...p})=>React.createElement('View',p,children)};
   `,
   'react-native-safe-area-context': `export const useSafeAreaInsets=()=>({top:0,bottom:0});`,
-  'expo-router': `export const router={push:globalThis.__traditionalUi.push};`,
+  'expo-router': `import React from 'react';export const router={push:globalThis.__traditionalUi.push};export const useFocusEffect=cb=>React.useEffect(cb,[cb]);`,
   '@expo/vector-icons': `export const Ionicons=()=>null;`,
   'expo-haptics': `export const selectionAsync=async()=>{},notificationAsync=async()=>{},impactAsync=async()=>{},
     NotificationFeedbackType={Warning:'warning',Success:'success'},ImpactFeedbackStyle={Light:'light'};`,
@@ -61,12 +61,14 @@ const modules: Record<string, string> = {
   'expo-sharing': `export const isAvailableAsync=async()=>false,shareAsync=async()=>{};`,
   '@/components/OOTDStoryCard': `export default ()=>null;`,
   '../../lib/responsive': `export const rs=x=>x;`,
+  '@/lib/responsive': `export const rs=x=>x;`,
+  '@/constants/weather': `export const defaultTempUnit=()=>'C';export {formatTemp,formatTempValue} from '${path.join(process.cwd(), 'constants/weatherPure.ts')}';`,
   '@/contexts/AppContext': `export const useApp=()=>globalThis.__traditionalUi.state();`,
 };
 const plugin: Plugin = { name: 'traditional-native-boundaries', setup(bundle) {
   bundle.onResolve({ filter: /.*/ }, args => Object.hasOwn(modules, args.path)
     ? { path: args.path, namespace: 'traditional-mock' } : undefined);
-  bundle.onLoad({ filter: /.*/, namespace: 'traditional-mock' }, args => ({ contents: modules[args.path], loader: 'js' }));
+  bundle.onLoad({ filter: /.*/, namespace: 'traditional-mock' }, args => ({ contents: modules[args.path], loader: 'js', resolveDir: process.cwd() }));
 } };
 type Node = { children: (Node | string)[]; props: Record<string, unknown>; findAllByType(type: string): Node[] };
 const words = (node: Node | string): string => typeof node === 'string' ? node : node.children.map(words).join('');

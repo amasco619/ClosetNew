@@ -30,3 +30,5 @@
 - [Expo restart verification](expo-restart-verification.md) — a restart acknowledgement does not prove a fresh Metro process owns the frontend port; watch for an interactive port-conflict prompt.
 - [Styling boundary authority](styling-boundary-authority.md) — canonical truth and legacy engine interpretation are distinct; African garment labels do not authorize cultural/context inference.
 - [Temperature-unit policy](temperature-unit-policy.md) — Celsius globally; Fahrenheit only by explicit preference, never inferred from location or locale.
+- [Concierge scope approval](concierge-scope-approval.md) — first release is today-only, signed-in Premium; trips, chat and durable plans were intentionally not approved.
+- [Native/web accessibility](native-web-accessibility.md) — native host-mock props do not prove browser radio, dialog, heading or announcement semantics; check the rendered DOM.

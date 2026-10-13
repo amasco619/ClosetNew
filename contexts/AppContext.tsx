@@ -100,7 +100,7 @@ interface AppContextValue {
   retryInitialization: () => void;
   dataUnavailable: boolean;
   entitlementUnavailable: boolean;
-  refreshPremiumEntitlement: () => Promise<boolean>;
+  refreshPremiumEntitlement: (rejectUnavailable?: boolean) => Promise<boolean>;
   isAuthenticated: boolean;
   authenticatedUserId: string | null;
   canAddItem: boolean;
@@ -1104,9 +1104,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshPremiumEntitlement = useCallback(async (): Promise<boolean> => {
+  const refreshPremiumEntitlement = useCallback(async (rejectUnavailable = false): Promise<boolean> => {
+    // Concierge needs a confirmed false, not a failed/superseded read.
+    // Existing callers retain the fail-closed boolean contract by default.
+    const unavailable = () => {
+      if (rejectUnavailable) throw new Error('Premium verification is unavailable or superseded');
+      return false;
+    };
     const userId = currentUserIdRef.current;
-    if (!userId) return false;
+    if (!userId) return unavailable();
     const accountGeneration = accountGenerationRef.current;
     const startupGeneration = startupGenerationRef.current;
     const isCurrent = () =>
@@ -1115,19 +1121,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       isCurrentStartupGeneration(startupGeneration, startupGenerationRef.current);
     try {
       const entitlement = await fetchAuthoritativeEntitlement();
-      if (!isCurrent()) return false;
+      if (!isCurrent()) return unavailable();
       if (isPremiumRef.current && !entitlement.isPremium) {
         const selection = await getFreeWardrobeSelection(userId);
-        if (!isCurrent()) return false;
+        if (!isCurrent()) return unavailable();
         const pageIds = new Set(wardrobeItemsRef.current.map(item => item.id));
         const missingIds = selection.filter(id => !pageIds.has(id));
         const selectedRows = await getSelectedWardrobeItems(userId, missingIds);
-        if (!isCurrent()) return false;
+        if (!isCurrent()) return unavailable();
         const selectedItems = selectedRows.map(mapDbRowToWardrobeItem);
         await Promise.all(selectedItems.filter(item => item.storagePath).map(async item => {
           try { item.photoUri = await resolveWardrobeImageUrl(item.storagePath!); } catch {}
         }));
-        if (!isCurrent()) return false;
+        if (!isCurrent()) return unavailable();
         setWardrobeItems(previous => {
           const existing = new Set(previous.map(item => item.id));
           return [...previous, ...selectedItems.filter(item => !existing.has(item.id))];
@@ -1139,11 +1145,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setIsPremium(entitlement.isPremium);
       return entitlement.isPremium;
     } catch (error) {
-      if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return false;
+      if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return unavailable();
       setEntitlementUnavailable(true);
       isPremiumRef.current = false;
       setIsPremium(false);
       reportError(error, 'entitlement_refresh', { dependency: 'supabase' });
+      if (rejectUnavailable) throw error;
       return false;
     }
   }, []);

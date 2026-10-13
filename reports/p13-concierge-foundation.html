@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amodka P1.3 — Concierge Foundation Implementation Report</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f2ec;color:#16202c;font:16px/1.65 system-ui,sans-serif}main{max-width:1040px;margin:auto;padding:48px 24px 80px}h1{font-size:34px;line-height:1.2;margin:8px 0 20px}h2{font-size:23px;margin:36px 0 12px}h3{font-size:18px}p{margin:12px 0}.eyebrow{letter-spacing:2px;text-transform:uppercase;color:#7a6448;font-size:12px}.summary{background:#16202c;color:#fff;border-radius:16px;padding:24px}table{border-collapse:collapse;width:100%;background:#fff;font-size:14px}th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid #e5e2da}th{background:#eae5db}code{overflow-wrap:anywhere;font-size:.9em}.table{overflow:auto;border-radius:12px}li{margin:8px 0}.note{border-left:3px solid #a88660;padding:10px 18px;background:#fff}footer{margin-top:40px;color:#626970;font-size:13px}@media(max-width:600px){main{padding:28px 16px 48px}h1{font-size:28px}th,td{min-width:140px;padding:10px}}
+</style>
+</head>
+<body><main>
+<div class="eyebrow">Amodka · P1.3 implementation</div>
+<h1>Today-only Luxury Concierge Foundation</h1>
+<div class="summary">
+<strong>Implemented within the approved scope.</strong>
+<p>A signed-in Premium user can choose one of five supported occasions in Outfits, pass fresh access verification, and see actual existing styling results. No new generator, navigation tab, planning persistence or P1.4 capability was introduced.</p>
+<p>Validation: 13 focused suites passed; frozen v3.7 golden regression 35/35; typecheck passed; changed-file lint 0 errors / 19 pre-existing warnings; mobile web integration and targeted accessibility recheck passed.</p>
+</div>
+
+<h2>1. Files changed and purpose</h2>
+<div class="table"><table>
+<thead><tr><th>File</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>app/(tabs)/outfits.tsx</code></td><td>Restrained planner entry, modal integration, fresh entry/submission access checks, validated real scenario handoff, guarded readiness summary, fresh Traditional requests, stale/account/tab-exit cleanup and existing-card reuse. Unrelated just-added suggestions are not mixed into active Concierge results.</td></tr>
+<tr><td><code>components/OccasionPlanner.tsx</code></td><td>Presentational mobile modal: five choices, local selection, scope guidance, checking/sign-in/non-entitled/unavailable states, safe areas, scrolling, disabled submit, named dialog, heading and explicit checked/announcement semantics.</td></tr>
+<tr><td><code>lib/concierge.ts</code></td><td>Small central allowlist, transient intent validation and deterministic readiness classification. No API, scoring, generation or persistence.</td></tr>
+<tr><td><code>contexts/AppContext.tsx</code></td><td>Opt-in <code>refreshPremiumEntitlement(true)</code> rejects unavailable or superseded verification. Default callers retain their existing fail-closed boolean contract. No authentication listener, entitlement resolver or billing flow was changed.</td></tr>
+<tr><td><code>__tests__/concierge.test.ts</code></td><td>Valid/invalid intents, every displayed path actually constructing candidates, canonical non-mutation, readiness precedence, source-of-truth handoff guards and execution of the actual AppContext refresh body with controlled I/O.</td></tr>
+<tr><td><code>__tests__/conciergeUi.test.ts</code></td><td>Mounted actual planner and Outfits with real styling modules: exact generic output, coordinated Traditional photos/cue, fresh dual checks, guest/denial/unavailable/retry, pending pagination, repeat/stale/account/blur behavior, C/F and no incidental mutations; accessibility regression assertions.</td></tr>
+<tr><td><code>__tests__/traditionalStylingUi.test.ts</code></td><td>Native fixture exports for Modal/focus hook/responsiveness/weather imports required by the added UI. Existing functional assertions retained.</td></tr>
+<tr><td><code>TECHNICAL.md</code></td><td>P1.3 architecture, access/error contract, state/lifecycle boundaries and validation documented; suite inventory updated from 86 to 88.</td></tr>
+<tr><td><code>.agents/memory/concierge-scope-approval.md</code>, <code>native-web-accessibility.md</code> and <code>.agents/memory/MEMORY.md</code></td><td>Approved product scope/intentional omissions and the non-obvious native-prop-versus-browser-accessibility testing boundary recorded for future work, without credentials, personal data or an implementation changelog.</td></tr>
+<tr><td><code>reports/p13-concierge-foundation.html</code></td><td>This self-contained final report, covering all eight requested report sections.</td></tr>
+</tbody></table></div>
+<p>No root stack or tab-layout edits were needed. The uploaded implementation specification is input material, not an implementation code change.</p>
+
+<h2>2. Exact supported occasions and evidence</h2>
+<div class="table"><table>
+<thead><tr><th>Displayed choice</th><th>Identifier</th><th>Verified path</th></tr></thead><tbody>
+<tr><td>Work</td><td><code>work</code></td><td>Actual frozen <code>SCENARIOS</code> loop; nonempty candidates from supporting owned fixtures; exact current AppContext scenario results displayed.</td></tr>
+<tr><td>Dressy date</td><td><code>date-dressy</code></td><td>Same verified generic pipeline, with that exact identifier—not an invented “date-night” identifier.</td></tr>
+<tr><td>Event</td><td><code>event</code></td><td>Same verified generic pipeline and real candidate construction.</td></tr>
+<tr><td>Wedding</td><td><code>wedding</code></td><td>Same verified Premium generic scenario. Browser fixture produced a truthful empty outcome, not a substituted Traditional result.</td></tr>
+<tr><td>Traditional occasion</td><td><code>traditional-event</code></td><td>Explicit <code>getStylingRecommendations('traditional')</code>; deliberately outside the generic <code>SCENARIOS</code> loop. Actual owned BUBA + IRO and coordinated-set cue verified.</td></tr>
+</tbody></table></div>
+<p>Tests verify actual generation behavior, not only type membership. The four generic choices construct candidates from a supporting owned wardrobe and their displayed image sets match the existing selected-scenario output exactly.</p>
+<p>All five initial proposed choices have supported paths; none required an engine change. Other baseline occasions were intentionally not added to this small planner. Travel/resort, free text, destination/future-date intents and unsupported identifiers are rejected by its allowlist; exclusion does not mean every excluded identifier is unsupported by the ordinary Outfits engine.</p>
+<div class="note">A supported path is not a guarantee of a viable look for every wardrobe or daily selection. Existing eligibility, weather rules, rotation and deduplication may legitimately produce no output.</div>
+
+<h2>3. Actual journey and styling handoff</h2>
+<ol>
+<li>Open Outfits and tap <strong>Plan an occasion</strong>. The guided modal stays on the existing route; the four-tab navigation is unchanged.</li>
+<li>Guests see the existing sign-in path. Signed-in users receive a fresh authoritative Premium refresh before the choices are enabled. Confirmed non-Premium users can open the existing Premium screen; failed verification offers retry instead.</li>
+<li>Select one supported radio option. Submit stays disabled until there is a valid choice. Details explain today-only scope and the limited Traditional context.</li>
+<li>Submission performs a second fresh verification and runtime intent validation. Only a current successful request can commit a transient plan and scenario.</li>
+<li>Generic choices display <code>outfitSets.filter(o =&gt; o.scenario === selectedScenario)</code>. Traditional clears old output and starts the existing dedicated request. This is a real handoff, not a new title over stale cards.</li>
+<li>The existing result cards display owned pieces, explanations, wear actions, reactions and sharing. A readiness summary is in the existing vertical results scroll.</li>
+<li>Retry retrieval failures, change the occasion, or exit. Closing/exiting, manual scenario changes, account changes and tab blur discard the transient intent. No plan is saved.</li>
+</ol>
+<p>Same-occasion Traditional submission increments its request revision and rereads relationships. Generic resubmission continues using the current reactive AppContext scenario output; it does not regenerate a competing pool, reset quotas or advance a separate rotation.</p>
+
+<h2>4. Traditional styling and confirmed relationships</h2>
+<p>The existing AppContext service remains responsible for owner-checked garment-group retrieval, account/startup continuity, canonical wardrobe projection, typed relationship projection, Traditional candidate construction and the existing daily selector. None of those styling modules were edited.</p>
+<p>The browser fixture deliberately included six earlier decoy bottoms. Explicit Traditional still returned the actual BUBA + IRO coordinated unit, owned heels/bag and <strong>Styled as a set</strong>. Reselecting the same brief caused another groups GET. Returning a failed groups read produced failure, not an empty relationship list.</p>
+<p>Unknown semantics, persisted user corrections and raw confirmed relationships remain intact. Generic outputs are not advertised as universally relationship-aware. Layered/multi-item membership is not promoted into new construction rules. Traditional intent does not establish ceremony role, cultural identity, matching requirements or mandatory headwear.</p>
+
+<h2>5. Access, readiness and stale-response behavior</h2>
+<h3>Authentication and entitlement</h3>
+<p>Entry and submission reuse the existing authoritative entitlement refresh. Its opt-in strict mode distinguishes a confirmed false from failed/missing-session/superseded verification; default callers remain backward-compatible. The results boundary also checks current signed-in identity, plan ownership, Premium state and absence of an unavailable-entitlement flag. There are no route parameters to trust.</p>
+<p>Unavailable access pauses the planner with retry and no upgrade claim. Confirmed non-entitlement uses the existing Premium screen. No client cache, claims or planner selection grants Premium. Revocation between entry and submit was verified to block the handoff.</p>
+<h3>Distinct outcomes</h3>
+<div class="table"><table>
+<thead><tr><th>State</th><th>Condition and response</th></tr></thead><tbody>
+<tr><td>Loading</td><td>Wardrobe/pagination/startup or Traditional styling still pending. No insufficiency or weather-readiness conclusion.</td></tr>
+<tr><td>Ready</td><td>Known complete wardrobe and completed styling with actual returned results.</td></tr>
+<tr><td>Insufficient wardrobe</td><td>Successful complete load with an empty active wardrobe. Guidance is to add owned clothing—not an invented culturally mandatory piece.</td></tr>
+<tr><td>Empty result</td><td>Known nonempty wardrobe and successful relevant styling outcome without a viable look. Review owned pieces or choose another occasion.</td></tr>
+<tr><td>Failure</td><td>Wardrobe/startup/relationship/styling retrieval failed. Explicitly not presented as a wardrobe gap; existing initialization/load/Traditional retry paths are reused.</td></tr>
+<tr><td>Access unavailable</td><td>Fresh Premium verification failed or was superseded. Selection pauses with retry.</td></tr>
+<tr><td>Not entitled</td><td>Fresh current verification successfully confirmed non-Premium. Existing Premium CTA, not an outage message.</td></tr>
+</tbody></table></div>
+<p>Transient request versions and current-owner checks reject late access results; existing active-effect guards and AppContext account continuity reject late Traditional results. Old cards are cleared on repeated Traditional submission and suppressed during Concierge loading/failure. Account/blur/exit cleanup prevents a plan from carrying into another session.</p>
+<p>Selection does not update profile preferences, daily mood, wear history or saved looks. Existing actions only run when explicitly pressed. Existing weather is displayed only when its underlying state is known: global Celsius default and explicit Fahrenheit are preserved, switched-off weather is stated, and absent weather is not described as warm or dry.</p>
+
+<h2>6. Tests and validation</h2>
+<div class="table"><table>
+<thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>
+<tr><td>Focused suites</td><td><strong>13 passed, 0 failed</strong>: Concierge contract/UI; entitlement and profile entitlement ACL; rotation; relationship and canonical styling projection; Traditional service/UI; weather and temperature units; canonical garment semantics/UI.</td></tr>
+<tr><td>Exact test files</td><td><code>concierge.test.ts</code>, <code>conciergeUi.test.ts</code>, <code>entitlements.test.ts</code>, <code>profileEntitlementAcl.test.ts</code>, <code>outfitRotation.test.ts</code>, <code>stylingRelationships.test.ts</code>, <code>stylingWardrobe.test.ts</code>, <code>traditionalStyling.test.ts</code>, <code>traditionalStylingUi.test.ts</code>, <code>weather.test.ts</code>, <code>temperatureUnits.test.ts</code>, <code>canonicalWardrobeSemantics.test.ts</code>, <code>canonicalWardrobeUi.test.ts</code>.</td></tr>
+<tr><td>Actual refresh contract</td><td>Executed the actual AppContext refresh body with isolated hooks/I/O: confirmed grant/denial, unavailable/superseded/no-session rejection and unchanged default false behavior.</td></tr>
+<tr><td>Frozen regression</td><td><code>npx tsx __tests__/recommendation-golden-set.ts</code>: <strong>35 passed, 0 failed</strong>, unchanged expectations.</td></tr>
+<tr><td>Typecheck</td><td><code>npm run typecheck</code> passed.</td></tr>
+<tr><td>Relevant lint</td><td>Changed source/tests: <strong>0 errors, 19 pre-existing AppContext warnings</strong>. No new dependency or lint suppression.</td></tr>
+<tr><td>Mobile browser</td><td>Actual Expo/AppContext flow at <strong>402×874</strong>, synthetic session/HTTP fixtures. Five choices fit with readable selection/submit controls; correct Traditional/Work/empty-Wedding handoffs; held/failed groups requests; retry; unavailable/confirmed-free access; revocation at submission; guest prompt; close/exit/tab cleanup.</td></tr>
+<tr><td>Accessibility</td><td>Initial pass found missing web checked-state/dialog/title semantics. Fixed with explicit ARIA/native aliases. Targeted recheck passed: named dialog, heading, true/false radio state switching, disabled/enabled submit and <code>aria-live="polite"</code> result summary. New mounted assertions guard these properties.</td></tr>
+<tr><td>Workflow/diff</td><td>Fresh Metro on 8081 and backend on 5000; successful bundles and no new runtime error observed. Final diff/whitespace and protected-area inspection clean.</td></tr>
+</tbody></table></div>
+<p>The browser pass used deny-by-default external interception. Three bootstrap profile POSTs were fulfilled locally during initialization/rehydration; no choice-triggered profile/mood/wear/reaction/saved write was observed. Provider, storage, billing and cloud mutations were blocked/intercepted.</p>
+<p>Browser screenshot evidence: Traditional owned set <code>bm1hbd</code>; readiness/weather-off <code>7bno99</code>; truthful Wedding empty <code>bo684y</code>; Work result <code>yq1b4p</code>; pending <code>d3jp4m</code>; failure <code>5kh8fy</code>; unavailable access <code>flr6li</code>; revoked access <code>7dxhzx</code>; guest <code>ctn0rk</code>; final accessible chooser/selection <code>cmnk7k</code>, <code>0xu77t</code>, <code>0fruln</code>; live result <code>nbdadn</code>; tab cleanup <code>nrc9c0</code>. These IDs identify the attached browser evidence, not external URLs.</p>
+<p>Broader relevant canonical regressions and the standalone golden set were run; a new full 88-suite run was not performed. Deprecated react-test-renderer notices come from the existing test tool, not the application.</p>
+
+<h2>7. Protected areas unchanged</h2>
+<ul>
+<li>Recommendation Engine v3.7, scoring, ranking, candidate generation, affinity, rotation, weather decisions and benchmark/golden expectations.</li>
+<li>Canonical semantics, styling projection/relationships, Traditional construction, garment taxonomy and confirmed-group schema.</li>
+<li>Database schemas, migrations, RLS and persistence models; no production query, migration or data write performed by this implementation.</li>
+<li>AI providers/models/APIs, dependencies, forecast calls and environmental credentials.</li>
+<li>Authentication implementation, server entitlement authority, RevenueCat integration, subscriptions and purchase/restore flows.</li>
+<li>Existing navigation structure: no new tab or root stack screen. No P1.4 packing/travel capability.</li>
+</ul>
+<p>The only entitlement-related source change is the opt-in client refresh error contract described above; it neither grants access nor changes the authoritative server decision.</p>
+
+<h2>8. Limitations and unverified claims</h2>
+<ul>
+<li>No unresolved blocker within the approved P1.3 scope.</li>
+<li>Live billing, real authentication/cloud data, store purchase/restore, production readiness, native-device behavior and VoiceOver/TalkBack were not verified. Browser access/data came from controlled synthetic HTTP responses.</li>
+<li>Browser live regions and roles were inspected; this is not an actual screen-reader announcement test.</li>
+<li>Real weather/network-provider behavior was not browser-tested; existing weather/unit suites passed and no weather decision logic changed.</li>
+<li>Existing client-side styling remains client-side; this report does not claim tamper-proof server execution of recommendations.</li>
+<li>A wardrobe may legitimately return no result under frozen eligibility and daily rotation. No semantic aliases, fabricated substitutes, cultural inferences or rescoring were introduced to force a result.</li>
+<li>Intent is transient and today-only. There is no event/trip persistence, future date, destination weather, packing, chat, commerce, try-on or notification feature. No P1.4 implementation or additional implementation proposal is part of this run.</li>
+</ul>
+<footer>Prepared for the approved Amodka P1.3 implementation scope. Self-contained report: no remote assets, scripts, fonts or analytics.</footer>
+</main></body></html>

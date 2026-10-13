@@ -1,0 +1,202 @@
+# AMODKA P1.3 — Luxury Concierge Foundation
+## Implementation: Today-Only Guided Occasion Planner
+
+### Objective
+
+Implement the smallest genuinely useful Luxury Concierge experience within Amodka's existing production architecture.
+
+The user should be able to select a supported occasion, understand whether Amodka is ready to style them for it, and receive relevant outfit recommendations from the existing styling pipeline.
+
+The experience should feel like a premium personal stylist—not a generic chatbot, a cosmetic wizard, or a second outfit generator.
+
+**This is implementation only for P1.3. Do not implement P1.4 Packing/Travel Capsule Concierge.**
+
+### 1. Inspect before editing
+
+Use the approved P1.3 read-only audit as the architecture starting point. Verify the current implementations and call sites for:
+
+- `app/(tabs)/outfits.tsx`
+- `app/(tabs)/_layout.tsx` and `app/_layout.tsx`
+- `contexts/AppContext.tsx`
+- `lib/stylingWardrobe.ts`
+- `lib/stylingRelationships.ts`
+- `lib/traditionalStyling.ts`
+- `lib/entitlements.ts`
+- `constants/types.ts`
+- `components/AmodkaErrorState.tsx`
+- Relevant existing styling, weather, entitlement and UI tests.
+
+Confirm the actual occasion identifiers, generation paths, readiness guards and response semantics before choosing the implementation.
+
+Do not perform a broad repository audit. Reuse the existing architecture and make the smallest safe change.
+
+### 2. Product experience
+
+Add a restrained **“Plan an occasion”** entry point to the existing Outfits screen.
+
+Implement a guided, mobile-friendly, today-only journey that:
+
+1. Lets the user choose a supported occasion.
+2. Clearly indicates what Amodka can currently support.
+3. Hands the validated intent to the existing Outfits results flow.
+4. Shows real recommendations produced by the existing pipeline.
+5. Provides honest loading, readiness, empty-result and failure states.
+6. Lets the user retry or change their occasion without losing unrelated profile preferences.
+
+Use existing quiet-luxury design tokens, components and interaction conventions. Do not redesign the app navigation or add a new tab.
+
+### 3. Occasion support must be verified
+
+Before implementing the selection UI, inspect the existing occasion types and actual generation paths.
+
+- Include only occasions that can genuinely reach a supported styling path.
+- Verify each proposed option against its actual identifier and generation behaviour.
+- Traditional Occasion must use the existing explicit Traditional styling path.
+- Do not assume that an occasion displayed in the UI is supported by the generator merely because its identifier exists.
+- If an option cannot reliably reach a supported path, exclude it from P1.3 and report it.
+- Do not expand the taxonomy, introduce new occasion types, or modify the frozen engine to make an option appear supported.
+
+Keep the initial selection list small and useful. Do not add arbitrary free text or a conversational AI interface.
+
+### 4. Correct styling handoff — critical acceptance requirement
+
+Use the existing styling source of truth:
+
+- For supported generic occasions, consume the correct existing scenario results through the established AppContext pipeline.
+- For explicit Traditional Occasion, reuse `getStylingRecommendations('traditional')` and its existing readiness, account-continuity and relationship-aware construction behaviour.
+- Reuse the existing outfit cards, explanations, wear actions, reactions and coordinated-set cue wherever applicable.
+- Do not implement another generator, rescore results, fabricate combinations, silently substitute garments, or claim universal relationship-aware construction.
+
+**A changed title or selected chip alone is not a successful implementation.** The selected occasion must correspond to the actual results displayed.
+
+Verify how the current Outfits screen initializes and refreshes its scenario. Ensure the new handoff does not display stale results from a previous occasion. Re-selecting the same occasion must refresh results when the existing pipeline requires a new request.
+
+Preserve unknown garment semantics and all existing user-confirmed corrections and relationships.
+
+### 5. Readiness and outcome states
+
+Keep these states distinct:
+
+- **Loading:** wardrobe or styling request is still in progress.
+- **Ready:** supported outfit results have been returned.
+- **Insufficient wardrobe:** the relevant wardrobe load completed successfully, but the available items cannot produce a viable result.
+- **Empty result:** the relevant styling request completed successfully without a viable outfit.
+- **Failure:** wardrobe, relationship or styling retrieval failed.
+- **Access unavailable:** authoritative Premium verification could not be completed.
+- **Not entitled:** the authoritative entitlement check confirmed the user does not have access.
+
+Do not report insufficient wardrobe when pagination or data loading is incomplete. Do not treat failed relationship retrieval as an empty relationship list. Do not treat missing weather as warm, dry or otherwise favourable.
+
+Use existing error presentation and retry patterns. Explain what the user can do next without inventing a missing garment or claiming that a cultural requirement is mandatory.
+
+Only show a readiness summary when the underlying state is known.
+
+### 6. Authentication and entitlement
+
+The proposed first release is for **signed-in Premium users**, reusing the existing product and entitlement system.
+
+- Use the existing authoritative entitlement refresh/check.
+- Enforce access at both the planner entry point and the results/handoff path.
+- Never trust route parameters, cached flags or client-supplied claims as proof of Premium access.
+- Distinguish confirmed non-entitlement from an unavailable entitlement service.
+- When verification fails, pause Concierge access and provide an appropriate retry path.
+- Reuse the existing Premium screen for confirmed non-entitled users.
+- Do not change subscriptions, purchase flows, RevenueCat integration or server entitlement logic.
+- Clear transient Concierge intent and stale results when the account changes or the user exits.
+
+Do not claim live billing or native production readiness has been verified by this implementation.
+
+### 7. Architecture and data boundaries
+
+Keep the architecture minimal.
+
+A small `lib/concierge.ts` module may be introduced if the verified implementation needs a central allowlist, a transient intent type and runtime validation. Do not create abstractions that existing types and functions already provide.
+
+Keep the flow within the established boundaries:
+
+- **Planner UI:** collects supported intent and presents states.
+- **Minimal orchestration:** validates the intent and manages handoff/stale-response protection.
+- **AppContext:** remains responsible for wardrobe readiness, account continuity, entitlements and existing recommendation services.
+- **Styling modules:** remain responsible for canonical semantics, relationships and existing engine integration.
+- **Results UI:** displays actual existing results.
+
+Planning intent should remain transient. Do not introduce durable event records, saved-trip records, chat history or a new persistence model.
+
+Do not mutate the user's daily mood, profile preferences, wear history or saved looks merely because they selected an occasion.
+
+### 8. Weather and African-fashion integrity
+
+- Reuse existing weather data and presentation where relevant.
+- Preserve the global Celsius default and explicit Fahrenheit preference.
+- Do not add destination weather, multi-day forecasts, new weather calls or new weather decision logic.
+- Respect unavailable weather and existing privacy choices.
+- Preserve the explicit Traditional styling path and its confirmed coordinated-set behaviour.
+- Do not advertise generic relationship-aware styling as equivalent to the Traditional implementation.
+- Do not invent cultural context, garment attributes, matching relationships, headwear requirements or user ownership.
+- Support African, Western and mixed-fashion results only to the extent the existing styling pipeline actually supports them.
+
+### 9. Protected areas
+
+These are non-negotiable:
+
+- **Recommendation Engine v3.7 is frozen.**
+- No changes to scoring, ranking, candidate generation, affinity, rotation, weather decision logic or benchmark expectations.
+- No new database schema, migrations, production data changes or persistence layer.
+- No new AI provider, model, API integration or dependency.
+- No changes to authentication implementation, RLS, Phase A garment-group schema, server entitlement authority or subscription products.
+- No redesign of the existing navigation.
+- No packing lists, travel destinations, future dates, trip persistence, commerce recommendations, virtual try-on, notifications or unrelated polish.
+- Do not weaken tests or alter benchmark expectations to make the feature pass.
+
+If a requirement cannot be met without changing a protected area, stop and report the blocker instead of expanding scope.
+
+### 10. Targeted tests and validation
+
+Add focused tests for the actual implementation, including:
+
+1. Valid and invalid occasion intent.
+2. Every displayed occasion reaching its verified styling path.
+3. Generic results matching the existing selected-scenario output.
+4. Traditional selection invoking the existing Traditional pipeline and preserving confirmed coordinated sets.
+5. Unsupported occasions never being presented as working features.
+6. Guest, confirmed non-Premium, Premium and entitlement-verification failure.
+7. Complete wardrobe loading before any insufficiency conclusion.
+8. Distinct loading, empty, insufficient-data, failure and retry states.
+9. Same-occasion resubmission, account changes and stale-response rejection.
+10. No unintended profile, mood, wear-history or saved-look mutations.
+11. Celsius default and explicit Fahrenheit preference remaining unchanged.
+12. Existing frozen-engine regression tests continuing to pass.
+
+Run focused tests first, followed by the required typecheck, relevant lint checks and final diff inspection. Run broader tests only where warranted by the changes or project requirements.
+
+Perform a mobile-sized UI check for navigation, touch targets, selected states, safe areas, readable text and announced status changes.
+
+Do not claim a live production or native-device test unless one was actually performed.
+
+### 11. Stop condition
+
+Stop when:
+
+- The supported occasion list is verified.
+- A user can complete the guided journey and receive actual existing styling results.
+- Traditional uses the existing relationship-aware path.
+- Access, readiness, retry and stale-response handling are correct.
+- Focused tests and required checks pass.
+- Protected files and logic remain unchanged.
+
+If the current architecture requires more extensive changes than this scope permits, stop and report the specific blocker and smallest proposed resolution.
+
+### 12. Final report
+
+Provide:
+
+1. Files changed and the purpose of each change.
+2. The exact occasions included and evidence that each reaches a supported path.
+3. The actual user journey and styling handoff.
+4. How Traditional styling and confirmed relationships are preserved.
+5. Authentication, entitlement, readiness and stale-response behaviour.
+6. Focused test results, typecheck, lint, UI validation and any broader tests run.
+7. Confirmation that v3.7, schemas, providers, subscriptions and weather decision logic were not changed.
+8. Any limitations, unverified claims or unresolved blockers.
+
+Do not begin P1.4 or recommend additional implementation work within this run.

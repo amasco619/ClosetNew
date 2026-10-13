@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useApp, OutfitSet, OutfitComponent } from '@/contexts/AppContext';
 import { usesConfirmedCoordinatedSet } from '../../lib/stylingRelationships';
 import Colors from '@/constants/colors';
@@ -17,6 +17,9 @@ import * as Sharing from 'expo-sharing';
 import OOTDStoryCard from '@/components/OOTDStoryCard';
 import { computeItemCpw, formatCpw } from '@/constants/cpw';
 import { rs } from '../../lib/responsive';
+import OccasionPlanner, { type ConciergeAccess } from '../../components/OccasionPlanner';
+import { CONCIERGE_OCCASIONS, conciergeReadiness, parseConciergeIntent, type ConciergeIntent } from '../../lib/concierge';
+import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 
 const MOOD_OPTIONS: { id: MoodGoal; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
   { id: 'confident', label: 'Confident', icon: 'flash-outline' },
@@ -468,6 +471,9 @@ export default function OutfitsScreen() {
   const insets = useSafeAreaInsets();
   const {
     outfitSets,
+    profile, weather, isAuthenticated, authenticatedUserId,
+    refreshPremiumEntitlement, entitlementUnavailable,
+    isLoading, appReady, dataUnavailable, startupError, retryInitialization,
     getStylingRecommendations,
     wardrobeItems,
     wardrobeTotalCount,
@@ -544,6 +550,72 @@ export default function OutfitsScreen() {
   const [traditionalLoading, setTraditionalLoading] = useState(false);
   const [traditionalError, setTraditionalError] = useState(false);
   const [traditionalRetry, setTraditionalRetry] = useState(0);
+  const [traditionalResolved, setTraditionalResolved] = useState(false);
+  const [plannerOpen, setPlannerOpen] = useState(false);
+  const [plannerAccess, setPlannerAccess] = useState<ConciergeAccess | 'denied'>('checking');
+  const [conciergePlan, setConciergePlan] = useState<(ConciergeIntent & { owner: string }) | null>(null);
+  const requestVersion = useRef(0);
+  const intentRef = useRef<ConciergeIntent | null>(null);
+  const identityRef = useRef({ isAuthenticated, authenticatedUserId });
+  identityRef.current = { isAuthenticated, authenticatedUserId };
+  const actor = isAuthenticated ? authenticatedUserId : null;
+  const previousActor = useRef(actor);
+  if (previousActor.current !== actor) {
+    previousActor.current = actor;
+    requestVersion.current += 1;
+  }
+  const clearConcierge = useCallback(() => {
+    requestVersion.current += 1;
+    if (intentRef.current) setSelectedScenario('casual');
+    intentRef.current = null;
+    setConciergePlan(null);
+    setPlannerOpen(false);
+  }, []);
+  useFocusEffect(useCallback(() => () => { clearConcierge(); }, [clearConcierge]));
+  useEffect(() => { clearConcierge(); }, [actor, clearConcierge]);
+  const conciergeAuthorized = !!conciergePlan && isAuthenticated &&
+    authenticatedUserId === conciergePlan.owner && isPremium && !entitlementUnavailable;
+  useEffect(() => {
+    if (conciergePlan && !conciergeAuthorized) clearConcierge();
+  }, [conciergePlan, conciergeAuthorized, clearConcierge]);
+
+  async function verifyConcierge(intent?: ConciergeIntent) {
+    const version = ++requestVersion.current;
+    const owner = identityRef.current.authenticatedUserId;
+    if (!identityRef.current.isAuthenticated || !owner) {
+      setPlannerAccess('sign-in');
+      return;
+    }
+    setPlannerAccess('checking');
+    const current = () => requestVersion.current === version &&
+      identityRef.current.isAuthenticated && identityRef.current.authenticatedUserId === owner;
+    try {
+      const approved = await refreshPremiumEntitlement(true);
+      if (!current()) return;
+      if (!approved) { setPlannerAccess('denied'); return; }
+      if (!intent) { setPlannerAccess('choose'); return; }
+      const validated = parseConciergeIntent(intent);
+      if (!validated) { setPlannerAccess('choose'); return; }
+      intentRef.current = validated;
+      setConciergePlan({ ...validated, owner });
+      setSelectedScenario(validated.occasion);
+      // A repeated Traditional brief is a new request, not a relabelled old card.
+      setTraditionalOutfits([]);
+      setTraditionalNotice(null);
+      setTraditionalError(false);
+      setTraditionalResolved(false);
+      setTraditionalLoading(validated.occasion === 'traditional-event');
+      setTraditionalRetry(count => count + 1);
+      setPlannerOpen(false);
+    } catch {
+      if (current()) setPlannerAccess('unavailable');
+    }
+  }
+  function openPlanner() {
+    clearConcierge();
+    setPlannerOpen(true);
+    void verifyConcierge();
+  }
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   useEffect(() => {
@@ -555,6 +627,7 @@ export default function OutfitsScreen() {
       wardrobeLoadError
     ) {
       setTraditionalLoading(false);
+      setTraditionalResolved(false);
       setTraditionalError(false);
       setTraditionalOutfits([]);
       setTraditionalNotice(null);
@@ -563,6 +636,7 @@ export default function OutfitsScreen() {
 
     let active = true;
     setTraditionalLoading(true);
+    setTraditionalResolved(false);
     setTraditionalError(false);
     setTraditionalOutfits([]);
     setTraditionalNotice(null);
@@ -571,6 +645,7 @@ export default function OutfitsScreen() {
       .then(result => {
         if (!active) return;
         setTraditionalOutfits(result.outfits);
+        setTraditionalResolved(true);
         setTraditionalNotice(result.notice ?? null);
       })
       .catch(() => {
@@ -591,13 +666,14 @@ export default function OutfitsScreen() {
     traditionalRetry,
   ]);
 
-  const filtered = selectedScenario === 'traditional-event'
+  const filtered = conciergePlan && !conciergeAuthorized ? [] : selectedScenario === 'traditional-event'
     ? traditionalOutfits.filter(o => o.scenario === 'traditional-event')
     : outfitSets.filter(o => o.scenario === selectedScenario);
   const isPremiumScenario = PREMIUM_SCENARIOS.includes(selectedScenario);
   const hasWardrobe = activeWardrobeItems.length > 0;
 
   function handleScenarioPress(scenario: OccasionTag) {
+    clearConcierge();
     if (PREMIUM_SCENARIOS.includes(scenario) && !isPremium) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       router.push('/premium');
@@ -618,6 +694,68 @@ export default function OutfitsScreen() {
   }
 
   const activeAccent = SCENARIO_ACCENT[selectedScenario] ?? Colors.secondary;
+  const planningState = conciergePlan ? conciergeReadiness({
+    failed: wardrobeLoadError || dataUnavailable === true || startupError === true ||
+      (selectedScenario === 'traditional-event' && traditionalError),
+    loading: wardrobeLoading || isLoading === true || appReady === false ||
+      (selectedScenario === 'traditional-event' && traditionalLoading),
+    wardrobeComplete: wardrobeDataComplete,
+    stylingComplete: selectedScenario !== 'traditional-event' || traditionalResolved,
+    itemCount: activeWardrobeItems.length,
+    resultCount: filtered.length,
+  }) : null;
+  const planningCopy = {
+    loading: 'Checking your full wardrobe and styling this occasion…',
+    failure: 'We could not complete your wardrobe or styling request. This is not a wardrobe gap.',
+    insufficient: 'Your active wardrobe is empty. Add owned clothing, then try this occasion again.',
+    empty: 'Your wardrobe was checked, but no complete owned look was returned for this occasion. Review your pieces or choose another occasion.',
+    ready: `${filtered.length} ${filtered.length === 1 ? 'look is' : 'looks are'} ready from your wardrobe. Your existing style preferences have been kept.`,
+  };
+  const unit = profile?.tempUnit ?? defaultTempUnit();
+  const weatherCopy = profile?.weatherEnabled === false ? 'Weather guidance is switched off.' : weather
+    ? `Today: ${formatTemp(weather.currentTempC, unit)} · L${formatTempValue(weather.lowC, unit)}/H${formatTempValue(weather.highC, unit)}°${unit}.`
+    : 'Current weather is unavailable; no warm or dry conditions are assumed.';
+  const conciergeSummary = conciergeAuthorized && planningState && (
+        <View testID={`concierge-result-${planningState}`} accessibilityLiveRegion="polite" aria-live="polite" style={styles.traditionalContext}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.premiumStripTitle}>{CONCIERGE_OCCASIONS.find(option => option.id === conciergePlan?.occasion)?.label} · Today</Text>
+            <Text style={styles.traditionalContextText}>{planningCopy[planningState]}</Text>
+            {['ready', 'empty', 'insufficient'].includes(planningState) && <Text style={styles.traditionalContextText}>{weatherCopy}</Text>}
+            {planningState === 'failure' && <Pressable testID="concierge-result-retry" accessibilityRole="button"
+              onPress={() => {
+                if (dataUnavailable || startupError) retryInitialization();
+                else { setWardrobeLoadError(false); setLoadRetry(count => count + 1); setTraditionalRetry(count => count + 1); }
+              }} style={{ minHeight: 44, justifyContent: 'center' }}>
+              <Text style={styles.premiumStripTitle}>Try again</Text>
+            </Pressable>}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
+              <Pressable testID="concierge-change" accessibilityRole="button" onPress={openPlanner} style={{ minHeight: 44, justifyContent: 'center' }}>
+                <Text style={styles.premiumStripTitle}>Change occasion</Text>
+              </Pressable>
+              <Pressable testID="concierge-exit" accessibilityRole="button" onPress={clearConcierge} style={{ minHeight: 44, justifyContent: 'center' }}>
+                <Text style={styles.premiumStripTitle}>Exit planning</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      );
+  const conciergeControls = (
+    <View style={{ marginHorizontal: 20, marginBottom: 12 }}>
+      <Pressable testID="concierge-entry" accessibilityRole="button" accessibilityLabel="Plan an occasion today"
+        onPress={openPlanner} style={({ pressed }) => [styles.premiumStrip, { minHeight: 44, marginHorizontal: 0 }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}>
+        <Ionicons name="sparkles-outline" size={18} color={Colors.secondary} />
+        <Text style={styles.premiumStripTitle}>Plan an occasion</Text>
+        <Text style={styles.premiumStripSub}>Today · Premium</Text>
+      </Pressable>
+      {plannerOpen && <OccasionPlanner
+        access={plannerAccess === 'denied' ? (entitlementUnavailable ? 'unavailable' : 'not-entitled') : plannerAccess}
+        onClose={clearConcierge} onRetry={() => { void verifyConcierge(); }}
+        onSubmit={intent => { void verifyConcierge(intent); }}
+        onSignIn={() => { clearConcierge(); router.push('/sign-in'); }}
+        onUpgrade={() => { clearConcierge(); router.push('/premium'); }}
+      />}
+    </View>
+  );
 
   if (!wardrobeDataComplete) {
     return (
@@ -628,6 +766,8 @@ export default function OutfitsScreen() {
             <Text style={styles.title}>Your Looks</Text>
           </View>
         </View>
+        {conciergeControls}
+        {conciergeSummary}
         {wardrobeLoading ? (
           <View style={styles.wardrobeLoading}>
             <ActivityIndicator color={Colors.secondary} size="large" />
@@ -665,6 +805,7 @@ export default function OutfitsScreen() {
         )}
       </View>
 
+      {conciergeControls}
       {/* ── Scenario chips ──────────────────────────────────────────────── */}
       <ScrollView
         horizontal
@@ -786,6 +927,7 @@ export default function OutfitsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {conciergeSummary}
         {selectedScenario === 'traditional-event' && (
           <View
             style={styles.traditionalContext}
@@ -848,7 +990,7 @@ export default function OutfitsScreen() {
         )}
 
         {/* Just-added banner */}
-        {lastAddedSuggestions.length > 0 && (
+        {!conciergePlan && lastAddedSuggestions.length > 0 && (
           <JustAddedBanner
             suggestions={lastAddedSuggestions}
             onDismiss={clearLastAddedSuggestions}
@@ -873,7 +1015,7 @@ export default function OutfitsScreen() {
           </View>
         )}
 
-        {selectedScenario === 'traditional-event' && traditionalLoading ? (
+        {conciergePlan && (!conciergeAuthorized || planningState === 'loading' || planningState === 'failure') ? null : selectedScenario === 'traditional-event' && traditionalLoading ? (
           <View
             style={styles.traditionalStatus}
             accessibilityRole="progressbar"
