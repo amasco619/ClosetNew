@@ -34,3 +34,4 @@
 - [Concierge scope approval](concierge-scope-approval.md) — P1.3 stays today-only; P1.4 approves transient selected-look travel planning, not forecasts, optimisation or durable trips.
 - [Native/web accessibility](native-web-accessibility.md) — native host-mock props do not prove browser radio, dialog, heading or announcement semantics; check the rendered DOM.
 - [SDK 57 Reanimated lint exception](sdk57-reanimated-lint.md) — stable SharedValues mutated inside callbacks may need a narrowly documented exhaustive-deps exception.
+- [Mounted screen test fixtures](mounted-screen-fixture-stability.md) — keep mocked context arrays and callbacks stable across renders to avoid effect loops unrelated to the screen.
