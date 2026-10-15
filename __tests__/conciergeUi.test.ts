@@ -71,6 +71,7 @@ const fixture = {
 };
 Object.assign(globalThis, { __conciergeUi: fixture, IS_REACT_ACT_ENVIRONMENT: true });
 const mocks: Record<string, string> = {
+  '../../components/TravelPlanner': `export default ()=>null;`,
   'react-native': `import React from 'react';const host=n=>({children,...p})=>React.createElement(n,p,children);
     export const View=host('View'),Text=host('Text'),Pressable=host('Pressable'),Image=host('Image'),
     ScrollView=host('ScrollView'),ActivityIndicator=host('ActivityIndicator'),Modal=host('Modal');

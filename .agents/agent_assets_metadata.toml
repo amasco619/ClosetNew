@@ -463,3 +463,17 @@ mtime_ms = 1791909723021
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/7dda6634-2d12-4705-97fe-8b5ff66b1e55/450ec02d-9bf5-4e5f-b215-a75af7fa19c6"
 storage_version_token = "1791909813570386"
 content_type = "text/html"
+
+[[outputs]]
+id = "ZH4Ly0wWLyO-4Mad-EaW-"
+uri = "file://reports/p14-travel-capsule.html"
+type = "html"
+title = "P1.4 Travel Capsule — Implementation Report"
+description = "Implemented behavior, changed files, focused test results, protected-area checks, existing failures and verification limits."
+logical_id = "fcb1f323-a43e-44dd-a277-0d8083402d2b"
+content_hash = "sha256:2cb762c41b7a3ead4f76974af7e0a8596b51ba06cb0255f87fb28e56032cd888"
+size = 14731
+mtime_ms = 1792094186462
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/fcb1f323-a43e-44dd-a277-0d8083402d2b/539c20c8-1c12-4598-8896-e603ed2b8031"
+storage_version_token = "1792094205909356"
+content_type = "text/html"

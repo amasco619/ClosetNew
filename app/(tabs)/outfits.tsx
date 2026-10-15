@@ -18,6 +18,7 @@ import OOTDStoryCard from '@/components/OOTDStoryCard';
 import { computeItemCpw, formatCpw } from '@/constants/cpw';
 import { rs } from '../../lib/responsive';
 import OccasionPlanner, { type ConciergeAccess } from '../../components/OccasionPlanner';
+import TravelPlanner from '../../components/TravelPlanner';
 import { CONCIERGE_OCCASIONS, conciergeReadiness, parseConciergeIntent, type ConciergeIntent } from '../../lib/concierge';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 
@@ -552,6 +553,8 @@ export default function OutfitsScreen() {
   const [traditionalRetry, setTraditionalRetry] = useState(0);
   const [traditionalResolved, setTraditionalResolved] = useState(false);
   const [plannerOpen, setPlannerOpen] = useState(false);
+  const [travelOpen, setTravelOpen] = useState(false);
+  const closeTravel = useCallback(() => setTravelOpen(false), []);
   const [plannerAccess, setPlannerAccess] = useState<ConciergeAccess | 'denied'>('checking');
   const [conciergePlan, setConciergePlan] = useState<(ConciergeIntent & { owner: string }) | null>(null);
   const requestVersion = useRef(0);
@@ -747,6 +750,14 @@ export default function OutfitsScreen() {
         <Text style={styles.premiumStripTitle}>Plan an occasion</Text>
         <Text style={styles.premiumStripSub}>Today · Premium</Text>
       </Pressable>
+      <Pressable testID="travel-entry" accessibilityRole="button" accessibilityLabel="Plan a temporary travel capsule"
+        onPress={() => { clearConcierge(); setTravelOpen(true); }}
+        style={({ pressed }) => [styles.premiumStrip, { minHeight: 44, marginHorizontal: 0, marginTop: 8 }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}>
+        <Ionicons name="bag-handle-outline" size={18} color={Colors.secondary} />
+        <Text style={styles.premiumStripTitle}>Plan a travel capsule</Text>
+        <Text style={styles.premiumStripSub}>Temporary · Premium</Text>
+      </Pressable>
+      {travelOpen && <TravelPlanner onClose={closeTravel} />}
       {plannerOpen && <OccasionPlanner
         access={plannerAccess === 'denied' ? (entitlementUnavailable ? 'unavailable' : 'not-entitled') : plannerAccess}
         onClose={clearConcierge} onRetry={() => { void verifyConcierge(); }}

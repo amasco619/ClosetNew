@@ -3,15 +3,18 @@ name: Concierge scope approval
 description: Approved product boundary for the first Concierge release and intentionally excluded capabilities.
 ---
 
-The user approved a today-only guided occasion planner for signed-in Premium
-users, not a chat assistant or a packing/travel capsule. Trips, future dates,
-destination forecasts, durable plans, commerce, virtual try-on and notifications
-were explicitly excluded, not overlooked.
+P1.3 remains a today-only guided occasion planner for signed-in Premium users.
+The user subsequently approved a separate, constrained P1.4 session-only travel
+planner: current selected public generic looks, the dedicated Traditional path,
+explicit reuse, partial coverage and an owned-ID packing checklist. This does
+not approve future-date generation, destination forecasts, durable plans,
+optimisation, chat, commerce, virtual try-on or notifications.
 
-**Why:** The user requested the smallest useful Concierge foundation inside the
-existing styling architecture, with v3.7 frozen and no new subscription product,
-provider or persistence model.
+**Why:** The user explicitly approved bounded orchestration over existing
+selected results, with v3.7 frozen and no new provider or persistence model.
 
-**How to apply:** Treat these omissions as intentional scope boundaries unless
-a new user brief approves an extension. Preserve the existing personal
-preferences and require explicit actions before recording wear or changing them.
+**How to apply:** Keep P1.3 behaviour separate from P1.4. Treat the remaining
+omissions as intentional boundaries unless a new brief approves an extension.
+Never backfill empty travel slots with hidden engine candidates or call them
+wardrobe gaps. Planning/checklist actions must not record wear or change
+preferences, mood, reactions, saved looks or daily rotation.

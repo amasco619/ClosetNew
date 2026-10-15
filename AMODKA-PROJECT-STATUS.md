@@ -220,19 +220,22 @@ Do not turn notifications into a second recommendation engine.
 
 ## 10. PACKING CONCIERGE
 
-Not implemented.
+P1.4 constrained session-only planner is implemented in Outfits.
+Signed-in Premium users may assign currently selected public looks to ordinal
+day/activity slots and explicitly reuse a look, then review an owned-item-ID
+deduplicated checklist. Unsupported/unavailable slots remain unfilled, not gaps.
 
-Build as orchestration over existing capabilities:
-- wardrobe
-- profile/style
-- weather
-- occasion
-- wear history
-- rotation
-- existing outfit generation
-- wardrobe gaps
+Generic choices use exact scenario matches from public `outfitSets`; Traditional
+uses the dedicated existing service. Authoritative owner-scoped groups supply
+confirmed-set/partial-use disclosures, not inferred visual relationships.
+Fresh Premium verification, full wardrobe readiness and stale-request guards
+protect choices. Group reads failing pause the planner with retry.
 
-Do NOT create Recommendation Engine v4 merely for packing.
+Drafts are local component state only and discarded on dismissal/tab exit or
+account changes. No destination/date collection, destination forecasts,
+future-day generation, optimisation, full-coverage guarantee or saved trip.
+Engine v3.7, Phase A and P1.3 styling behaviour remain unchanged.
+See TECHNICAL.md §37 and reports/p14-travel-capsule.html for checks/limitations.
 
 ## 11. VISUAL / BRAND
 

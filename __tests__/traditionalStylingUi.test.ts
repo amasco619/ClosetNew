@@ -41,6 +41,7 @@ const m = {
 };
 Object.assign(globalThis, { __traditionalUi: m, IS_REACT_ACT_ENVIRONMENT: true });
 const modules: Record<string, string> = {
+  '../../components/TravelPlanner': `export default ()=>null;`,
   'react-native': `
     import React from 'react';const host=n=>({children,...p})=>React.createElement(n,p,children);
     export const View=host('View'),Text=host('Text'),Pressable=host('Pressable'),Image=host('Image'),

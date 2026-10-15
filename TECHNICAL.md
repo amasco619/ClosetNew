@@ -316,7 +316,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               88 test suites (see §11)
+__tests__/               90 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -428,7 +428,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 88 test suites once |
+| `npm test` | Run all 90 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
@@ -1304,10 +1304,12 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (88 total)
+### Test Suites (90 total)
 
 | Suite | What it tests |
 |-------|--------------|
+| `travelCapsule.test.ts` | Exact activity/scenario matching and source separation, owned/current IDs, stable look identity, authoritative coordinated membership/partial use, checklist deduplication, partial coverage and no write/generation imports |
+| `travelCapsuleUi.test.ts` | Mounted actual session planner/view: fresh checks, explicit reuse, unsupported/empty slots, separate essentials, group failures/retry, wardrobe/account/entitlement invalidation, superseded responses, blur/remount cleanup and unchanged domain state |
 | `concierge.test.ts` | Five validated today-only occasions with actual candidate construction; readiness precedence; actual AppContext strict entitlement-refresh contract and unchanged default behavior |
 | `conciergeUi.test.ts` | Mounted planner/Outfits: exact generic outputs, confirmed Traditional set, dual fresh access checks, failures/retries, complete pagination, same-occasion refresh, account/blur/stale cleanup, C/F and no incidental mutations |
 | `canonicalWardrobeSemantics.test.ts` | Complete semantic serialization/hydration, legacy unknowns, explicit correction persistence, failed-save barrier, corrected-vs-manual canonical equivalence, owned update and all insertion/replacement payload contracts |
@@ -2684,3 +2686,63 @@ canonical UI/serialization, rotation and temperature/weather suites; actual
 refresh-body strict/default contract tests; typecheck; changed-file lint;
 unchanged v3.7 golden regression. The accompanying P1.3 report records the exact
 validation results and mobile browser evidence/limitations.
+
+## 37. P1.4 — Session-only Packing & Travel Capsule Concierge
+
+`app/(tabs)/outfits.tsx` adds a separate **Plan a travel capsule** entry alongside
+the unchanged occasion planner. `components/TravelPlanner.tsx` owns only
+component-local session state and access/read lifecycle; `TravelPlannerView.tsx`
+is the safe-area-aware scrollable modal. No new route, provider or storage key.
+Trip length is 1–7 ordinal days, with up to 28 explicitly added activity slots.
+Activities map exactly to casual, work, date-dressy, event, wedding, travel,
+resort, active, or traditional-event. Other/unsupported activities may be
+recorded but stay unfilled. Coverage counts assigned versus total activity slots,
+not implied complete day coverage. Removing slots changes that denominator.
+
+`lib/travelCapsule.ts` is a pure orchestration boundary. Generic choices are
+only exact scenario matches in public `outfitSets`; the private pool is neither
+read nor exposed. Traditional calls only the existing dedicated
+`getStylingRecommendations('traditional')`, preserving notices and transient
+relationship provenance. No future-date simulation, cursor advancement,
+reseeding, hidden-pool reconstruction, backfill or new generator is introduced.
+Look identity is scenario plus sorted unique owned IDs, not daily array IDs.
+Using an already assigned look in another slot requires the explicitly labelled
+reuse action. Reusing clothing creates no wear event.
+
+Every component must be marked owned and reference an item in the current
+active wardrobe. The checklist uses current wardrobe objects, deduplicated by
+actual item ID; optional documents/chargers/toiletries remain a separate list.
+Generic coordinated-set disclosures use owner-scoped Phase A group reads and
+the existing relationship projection: full participation is stated as membership,
+not relationship-aware construction; partial use states included/total members.
+No similarity inference, inherited semantics or generic all-or-none rule.
+Traditional partial confirmed sets and stale provenance are rejected, not repaired.
+
+Entry, selected-slot retrieval and assignment use strict fresh authoritative
+Premium refresh; confirmed denial clears protected state and differs from failed
+verification. Complete startup/wardrobe pagination is required. Group reads are
+retryable failures, never silently `[]`. Traditional requests reconcile group
+snapshots before/after the service. Assignments revalidate against current inputs;
+account/wardrobe/catalogue/profile/weather changes invalidate choices. Account
+changes and confirmed entitlement loss reset the entire draft, including days,
+activities, assignments, checklist ticks, essentials and candidate/notice state. Verification failure
+pauses protected review. Request revisions reject superseded/late responses.
+
+A read-only 30-second group poll detects external membership edits; foreground
+rechecks authority/groups. Membership changes clear assignments; failed reads
+pause review with retry. This is bounded polling, not instantaneous realtime.
+Polling does not call entitlement or styling services. Normal AppContext
+hydration/entitlement/rotation effects retain their pre-existing lifecycle; the
+planner never invokes mutation or persistence APIs for planning/checklist actions.
+Dismissal, navigation blur and unmount discard the temporary draft.
+
+No destination or calendar dates are collected. Current recommendations may
+reflect the existing current-weather inputs but are not destination/future-day
+styling. Finite daily results can leave any supported activity unfilled; this is
+not called a wardrobe gap. There is no capsule optimisation or completeness
+guarantee. No engine, Phase A schema/security, provider, dependency, migration or
+saved-look/wear/mood/reaction/profile persistence change.
+
+Verification and known limits are recorded in `reports/p14-travel-capsule.html`.
+Mounted tests run real planner/view code against isolated context/group/native
+fixtures; they are not live-account, native-device or screen-reader verification.

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amodka P1.4 — Session-only Travel Capsule Implementation Report</title>
+<style>
+body{margin:0;background:#f5f3f0;color:#101826;font:16px/1.65 system-ui,sans-serif}main{max-width:1000px;margin:auto;padding:40px 24px 72px}h1{line-height:1.2;font-size:32px}h2{margin-top:32px;font-size:22px}table{border-collapse:collapse;width:100%;font-size:14px;background:white}th,td{text-align:left;vertical-align:top;padding:12px;border:1px solid #ddd9d1}th{background:#e9e4da}code{overflow-wrap:anywhere}.summary{padding:20px;border-left:4px solid #d0b892;background:white}.table{overflow:auto}li{margin:7px 0}small{color:#58616b}@media(max-width:600px){main{padding:24px 16px}h1{font-size:27px}}
+</style>
+<main>
+<small>AMODKA · P1.4 IMPLEMENTATION MILESTONE</small>
+<h1>Session-only Packing &amp; Travel Capsule Concierge</h1>
+<div class="summary"><strong>Implemented within the constrained scope.</strong>
+<p>Signed-in Premium users can assign currently available looks to short-trip activity slots, explicitly reuse a look, and review a deduplicated owned-garment checklist. Unfilled slots remain unfilled; no wardrobe-gap, future-date, destination-weather or optimisation claim is made. No publishing or deployment was performed.</p></div>
+
+<h2>1. Inputs and scope decisions</h2>
+<p>Read the current <code>AMODKA-PROJECT-STATUS.md</code>, <code>TECHNICAL.md</code>, attached P1.4-A clarification, P1.3 implementation and <code>reports/p13-concierge-foundation.html</code> before editing. The new explicit implementation approval supersedes the earlier read-only task restriction, not the engine freeze.</p>
+<p>The source contract is option A: finite public selected results. <code>outfitPool</code> remains private; its exposure assumed in the clarification's introductory premise is not implemented. No alternate candidate pool or planner generator was created.</p>
+
+<h2>2. Files changed</h2>
+<div class="table"><table><tr><th>File</th><th>Purpose</th></tr>
+<tr><td><code>app/(tabs)/outfits.tsx</code></td><td>Separate travel entry, local open/close state and conditional planner mount. Eleven additive lines; no existing occasion handoff, result filtering or card behavior rewritten.</td></tr>
+<tr><td><code>components/TravelPlanner.tsx</code></td><td>Transient state, complete-wardrobe and fresh-access gating, owner-scoped group reads, named Traditional service, validated assignment/reuse, checklist ticks, periodic/foreground freshness and stale-response cleanup.</td></tr>
+<tr><td><code>components/TravelPlannerView.tsx</code></td><td>Presentational scrollable safe-area modal, day/activity controls, actual look photos/explanations/disclosures, coverage, owned checklist, separate essentials and loading/failure/access states.</td></tr>
+<tr><td><code>lib/travelCapsule.ts</code></td><td>Pure activity map, exact-source selection, current owned-ID validation, scenario/component-derived identity, authoritative membership disclosures, coverage, revisions and checklist derivation.</td></tr>
+<tr><td><code>__tests__/travelCapsule.test.ts</code></td><td>Pure contract, immutable inputs and prohibited generation/persistence access checks.</td></tr>
+<tr><td><code>__tests__/travelCapsuleUi.test.ts</code></td><td>Mounted actual planner and view with controlled context/group/native fixtures. Exercises assignment, reuse, failure, invalidation and lifecycle paths.</td></tr>
+<tr><td><code>__tests__/conciergeUi.test.ts</code><br><code>__tests__/traditionalStylingUi.test.ts</code></td><td>One isolated new-component stub per existing screen test, retaining all existing P1.3/Traditional assertions. The travel component has its own mounted test.</td></tr>
+<tr><td><code>TECHNICAL.md</code></td><td>Section 37 documents the approved behavior and limits; current suite inventory becomes 90.</td></tr>
+<tr><td><code>AMODKA-PROJECT-STATUS.md</code></td><td>Replaces only the obsolete “Packing Concierge not implemented” section with the bounded implementation status.</td></tr>
+<tr><td><code>.agents/memory/concierge-scope-approval.md</code><br><code>.agents/memory/MEMORY.md</code></td><td>Records the newly approved product boundary without treating previous exclusions as permanent.</td></tr>
+<tr><td><code>reports/p14-travel-capsule.html</code></td><td>This self-contained implementation report.</td></tr>
+</table></div>
+
+<h2>3. Exact behavior implemented</h2>
+<ul>
+<li>Open <strong>Plan a travel capsule</strong> in Outfits. Sign-in is required. Successful authoritative Premium verification enables the temporary planner only after startup and full wardrobe pagination are complete.</li>
+<li>Choose 1–7 ordinal days. Add/remove up to 28 activity slots. The initial slot is Day 1 / Casual. No destination, calendar dates, travel history or new profile preference is collected.</li>
+<li>Supported exact mappings: Casual→<code>casual</code>, Work→<code>work</code>, Dressy date→<code>date-dressy</code>, Event→<code>event</code>, Wedding→<code>wedding</code>, Travel→<code>travel</code>, Resort→<code>resort</code>, Active→<code>active</code>, Traditional→<code>traditional-event</code>. Other/unsupported has no scenario and stays unfilled.</li>
+<li>Generic selection uses only exact matches from <code>useApp().outfitSets</code>. Traditional calls <code>getStylingRecommendations('traditional')</code>, not a generic fallback. Its notice and original relationship-bearing outfit object survive assignment and review.</li>
+<li>Every component must be <code>owned === true</code> with a nonblank ID in the current active wardrobe. Invalid or unavailable looks are rejected rather than repaired or partially packed.</li>
+<li>Stable look keys combine exact scenario and sorted unique owned component IDs. Daily result IDs and array positions are not identity. Selecting an already assigned look for another slot uses an explicitly labelled <strong>Reuse this look</strong> action.</li>
+<li>Coverage is assigned/total <em>activity slots</em>, including unsupported and empty slots in the denominator. It is not a statement that every trip day is planned. Removing an activity removes it from the denominator.</li>
+<li>The owned checklist uses current wardrobe objects and deduplicates by actual item ID. Documents, chargers and toiletries are separate optional essentials, never invented wardrobe garments.</li>
+<li>Canonical wardrobe/catalogue/profile/weather changes invalidate assignments. Account changes and confirmed entitlement loss reset the entire draft. Closing, tab blur, unmount or ending the session discards it.</li>
+</ul>
+
+<h2>4. Relationships, access and failure handling</h2>
+<p><code>getGarmentGroups(owner)</code> supplies authoritative Phase A records, passed through the existing owner/member validation projection. Generic full-set participation is disclosed as membership, not construction provenance. Partial participation explicitly states used/total pieces. No matching-colour/name/photo inference and no new generic all-or-none rule. Dedicated Traditional outputs with partial confirmed sets or obsolete supplied provenance are rejected.</p>
+<p>Entry/slot retrieval and every accepted choice perform strict <code>refreshPremiumEntitlement(true)</code>. A confirmed false is a non-entitlement state and resets protected draft data; failed verification is an unavailable/retry state. Group-read failure is a retryable failure, not an empty group list. Traditional reads reconcile group membership before/after service completion.</p>
+<p>Request revisions and current identity/input snapshots reject superseded results. A read-only 30-second group poll detects external membership changes without requesting more styling results or polling Premium; foreground rechecks access/groups. Membership changes clear assignments. Read failure pauses protected review. This is bounded polling, not instant realtime.</p>
+<p>Planner actions invoke no profile, mood, reaction, wear, saved-look, rotation or persistence mutation APIs. Existing AppContext hydration and entitlement-related effects retain their normal lifecycle; this report does not claim a running app performs zero background writes. The planning draft, checklist ticks and essentials exist only in component memory.</p>
+
+<h2>5. Checks actually run</h2>
+<div class="table"><table><tr><th>Check</th><th>Result</th></tr>
+<tr><td>Focused tests and relevant existing regressions</td><td><strong>11 distinct suites passed after correction.</strong> Initial batch was 10 pass / 1 fail: the new mounted test exposed a missing in-place access-recheck action after denial. Added the action; both new suites passed on rerun.</td></tr>
+<tr><td>Exact focused suite list</td><td><code>travelCapsule.test.ts</code>, <code>travelCapsuleUi.test.ts</code>, <code>concierge.test.ts</code>, <code>conciergeUi.test.ts</code>, <code>traditionalStyling.test.ts</code>, <code>traditionalStylingUi.test.ts</code>, <code>stylingRelationships.test.ts</code>, <code>stylingWardrobe.test.ts</code>, <code>outfitRotation.test.ts</code>, <code>entitlements.test.ts</code>, <code>profileEntitlementAcl.test.ts</code>.</td></tr>
+<tr><td>Mounted journey coverage</td><td>Fresh authority before assignment, actual look rendering, explicit reuse, deduplicated ticks, separate essentials, unsupported/empty activities, notices retained after switching activity, partial-set disclosure, group failure/retry/change, canonical wardrobe edits, incomplete readiness, failed access versus denial (including confirmed loss after an outage), account/entitlement resets, pending stale reads, foreground/blur/remount behavior and unchanged domain snapshots. Latest run exercised 33 strict checks and 33 group reads against fixtures.</td></tr>
+<tr><td>Frozen golden regression</td><td><code>npx tsx __tests__/recommendation-golden-set.ts</code>: <strong>35 passed / 0 failed</strong>; expectations unchanged.</td></tr>
+<tr><td>TypeScript</td><td><code>npm run typecheck</code>: <strong>passed</strong>. Four initial nullable-status errors in the new view were corrected before the passing run.</td></tr>
+<tr><td>Changed-file lint</td><td><code>npx eslint components/TravelPlanner.tsx components/TravelPlannerView.tsx lib/travelCapsule.ts 'app/(tabs)/outfits.tsx' __tests__/travelCapsule.test.ts __tests__/travelCapsuleUi.test.ts __tests__/conciergeUi.test.ts __tests__/traditionalStylingUi.test.ts</code>: <strong>passed, 0 errors / 0 warnings</strong>.</td></tr>
+<tr><td>Preview</td><td>Restarted the existing frontend workflow once. Metro served port 8081 and bundled 1879 modules successfully. A 402×874 screenshot of <code>/outfits</code> showed the unchanged occasion entry and the new temporary travel entry. First cold-bundle capture was blank; the subsequent settled capture rendered correctly. No signed-in interactive browser journey was run.</td></tr>
+<tr><td>Diff/whitespace</td><td><code>git diff --check</code> passed. Explicit protected-path diff checks returned no changes.</td></tr>
+</table></div>
+<p>Tests were invoked through <code>npm test -- [the focused filenames above]</code>; the final new-suite rerun used <code>npm test -- travelCapsule.test.ts travelCapsuleUi.test.ts</code>. No new full-suite run was performed.</p>
+
+<h2>6. Existing failures and warnings</h2>
+<ul>
+<li>The already-failed configured <code>test</code> workflow contains an earlier 88-suite result: 87 passed / 1 failed. Its <code>revenuecatClient.test.ts</code> failure is a source-regex assertion expecting a no-argument entitlement-refresh signature. The current pre-existing P1.3 implementation accepts the optional strict argument. AppContext and that billing test are unchanged by this milestone. This historical workflow is not claimed as a passing full regression.</li>
+<li>The existing full-lint workflow reports 32 warnings / 0 errors in unrelated files. Changed-file lint is clean. These existing warnings were not refactored.</li>
+<li>Mounted tests emit the existing <code>react-test-renderer</code> deprecation notice. Browser development logs include existing shadow-style and pointerEvents deprecation warnings.</li>
+</ul>
+
+<h2>7. Protected areas verified unchanged</h2>
+<p>Git diff checks confirmed no edits to <code>constants/</code> (including engine/scoring/generation/affinity/rotation/weather logic), <code>contexts/AppContext.tsx</code>, canonical/relationship/Traditional styling modules, <code>lib/database.ts</code>, P1.3 <code>OccasionPlanner</code>/<code>lib/concierge.ts</code>, <code>server/</code>, <code>supabase/</code>, dependency manifests/lockfile, the golden regression file or frozen African benchmark package. Existing occasion/Traditional mounted regressions pass.</p>
+<p>No migrations, provider configuration, dependency additions, schema/security changes, production queries, manual database operations, publishing or deployment were performed. The existing backend workflow retained its normal operation; focused ACL verification used the existing isolated PostgreSQL test.</p>
+
+<h2>8. Limitations and unverified behavior</h2>
+<ul>
+<li>The finite currently selected catalogue can supply zero looks for a supported activity; no backfill, reseeding or hidden-pool workaround. Four days may require explicit reuse or remain partly unfilled.</li>
+<li>No destination forecasts, calendar-specific styling, optimisation or full-coverage guarantee. Current selected outfits may already reflect the existing current-weather pipeline.</li>
+<li>The draft is deliberately not saved or resumable. Dismissal, navigation and session loss discard it; input changes can clear choices. This limitation is displayed in the planner.</li>
+<li>External group changes are detected on the polling/foreground/acceptance freshness paths, not instantaneously.</li>
+<li>Mounted native-host tests use controlled context and group boundaries, not real authentication, real subscription billing, live Supabase data or an instrumented real-AppContext network/persistence trace.</li>
+<li>The new signed-in planner has not been interactively browser-tested or tested on an iOS/Android device. Native layout, VoiceOver/TalkBack and actual browser accessibility announcements remain unverified. Native/ARIA control semantics are present and mounted tests cover checked state, but do not establish actual screen-reader behavior.</li>
+<li>The entire 90-suite project suite was not run for this bounded change. The existing billing-contract failure remains outside scope; no full-project-green claim.</li>
+</ul>
+<p><strong>Final status:</strong> requested bounded functionality implemented; focused checks and golden regression pass. No protected-area expansion or deployment.</p>
+</main>
+</html>
