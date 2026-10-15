@@ -52,6 +52,12 @@ async function main() {
   registerRoutes = routes.registerRoutes;
   supabaseAuth = auth.supabaseAuth;
   ({ __resetForTesting, checkAccountLockout, recordFailedAttempt } = limiter);
+  assert.equal(
+    (supabaseAuth as unknown as { supabaseKey?: string }).supabaseKey ===
+      process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    true,
+    "server user-auth proxy uses the publishable key",
+  );
   const originalSignUp = supabaseAuth.auth.signUp;
   const originalSignIn = supabaseAuth.auth.signInWithPassword;
   const originalReset = supabaseAuth.auth.resetPasswordForEmail;
@@ -79,10 +85,7 @@ async function main() {
         password: PASSWORD,
       }, ALLOWED_ORIGIN);
       assert.equal(res.status, 200, `sign-up ${outcome} status`);
-      assert.deepEqual(res.body, {
-        acknowledged: true,
-        needsConfirmation: true,
-      }, `sign-up ${outcome} contract`);
+      assert.deepEqual(res.body, { acknowledged: true }, `sign-up ${outcome} contract`);
       assert.doesNotMatch(res.text, new RegExp(PROVIDER_ERROR));
     }
 

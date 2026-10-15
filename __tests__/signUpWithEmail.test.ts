@@ -70,7 +70,7 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
 ;(async () => {
   section('Acknowledged sign-up contract and request shape')
   {
-    const mock = install(response(true, { acknowledged: true, needsConfirmation: true }))
+    const mock = install(response(true, { acknowledged: true }))
     await signUpWithEmail('  User@EXAMPLE.COM  ', 'Password1')
     const body = JSON.parse(mock.calls[0]?.init?.body as string)
     assert(mock.calls[0]?.url === 'https://api.example.test/api/auth/sign-up', 'uses the sign-up API')
@@ -86,7 +86,7 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
   section('Rejected sign-in is not presented as email confirmation')
   {
     const mock = install(
-      response(true, { acknowledged: true, needsConfirmation: true }),
+      response(true, { acknowledged: true }),
       'web',
       new Error('[signInWithEmail] invalid_credentials'),
     )
@@ -99,7 +99,7 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
   section('Sign-in service failures are surfaced')
   {
     const mock = install(
-      response(true, { acknowledged: true, needsConfirmation: true }),
+      response(true, { acknowledged: true }),
       'web',
       new Error('[signInWithEmail] rate_limited'),
     )
@@ -110,7 +110,7 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
 
   section('Native redirect override')
   {
-    const mock = install(response(true, { acknowledged: true, needsConfirmation: true }), 'native')
+    const mock = install(response(true, { acknowledged: true }), 'native')
     await signUpWithEmail('user@example.com', 'Password1')
     const body = JSON.parse(mock.calls[0]?.init?.body as string)
     assert(body.emailRedirectTo === 'amodka://auth/confirm', 'uses native confirmation redirect')
@@ -126,14 +126,14 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
     mock.restore()
   }
 
-  section('Acknowledged response no longer depends on confirmation metadata')
+  section('Acknowledged response contract')
   {
     const missingAcknowledgement = install(response(true, { acknowledged: true }))
     await signUpWithEmail('user@example.com', 'Password1')
-    assert(missingAcknowledgement.signInCalls.length === 1, 'attempts sign-in without needsConfirmation metadata')
+    assert(missingAcknowledgement.signInCalls.length === 1, 'attempts sign-in after acknowledgment')
     missingAcknowledgement.restore()
 
-    const malformed = install(response(true, { needsConfirmation: true }))
+    const malformed = install(response(true, {}))
     const message = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
     assert(message.includes('response was invalid'), 'rejects 2xx without acknowledged:true')
     malformed.restore()

@@ -9,4 +9,10 @@ The supabase anon client (with RLS policies) is the correct pattern for AuraClos
 
 **How to apply:** lib/database.ts calls `supabase` (the anon client from lib/supabase.ts) directly. RLS policies use `auth.uid() = user_id` to enforce per-user isolation. Never re-introduce the Express proxy pattern unless RLS genuinely cannot handle the access pattern.
 
+For user-facing Auth operations such as sign-up, sign-in, and password reset, use the publishable key even when the call is rate-limited through the server. Keep the secret key for admin-only operations.
+
+**Why:** Supabase's user-facing password Auth examples use the publishable key; using the privileged secret key for these operations is unnecessary.
+
+**How to apply:** keep server Auth proxy clients stateless and publishable-key-backed; do not switch them to the admin secret.
+
 **Saved looks:** The saved_looks table is a 9th table that must exist. It has a composite PK of (user_id, id) where id is the outfit fingerprint string.

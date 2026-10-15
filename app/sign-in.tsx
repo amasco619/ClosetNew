@@ -105,17 +105,13 @@ export default function SignInScreen() {
   const [mode, setMode] = useState<Mode>('sign-in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
   const [passwordError, setPasswordError] = useState<string | null>(null)
-  const [confirmError, setConfirmError] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
   const [loading, setLoading] = useState<LoadingAction>(null)
   const [emailFocused, setEmailFocused] = useState(false)
   const [passwordFocused, setPasswordFocused] = useState(false)
-  const [confirmFocused, setConfirmFocused] = useState(false)
 
   // Guards the isAuthenticated effect so it only triggers navigation when the
   // user has actively pressed a sign-in button in this session. Without this,
@@ -172,7 +168,6 @@ export default function SignInScreen() {
   const clearErrors = () => {
     setEmailError(null)
     setPasswordError(null)
-    setConfirmError(null)
     setAuthError(null)
   }
 
@@ -200,18 +195,10 @@ export default function SignInScreen() {
     return !err
   }
 
-  const validateConfirmField = () => {
-    if (mode !== 'sign-up') return true
-    if (confirmPassword !== password) { setConfirmError('Passwords do not match.'); return false }
-    setConfirmError(null)
-    return true
-  }
-
   const handleEmailSubmit = async () => {
     const validEmail = validateEmailField()
     const validPassword = validatePasswordField()
-    const validConfirm = mode === 'sign-up' ? validateConfirmField() : true
-    if (!validEmail || !validPassword || !validConfirm) return
+    if (!validEmail || !validPassword) return
 
     setAuthError(null)
     setLoading('email')
@@ -370,8 +357,8 @@ export default function SignInScreen() {
                   placeholderTextColor="rgba(255,255,255,0.32)"
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
-                  returnKeyType={mode === 'sign-up' ? 'next' : 'done'}
-                  onSubmitEditing={mode === 'sign-in' ? handleEmailSubmit : undefined}
+                  returnKeyType="done"
+                  onSubmitEditing={handleEmailSubmit}
                   value={password}
                   onChangeText={setPassword}
                   onFocus={() => setPasswordFocused(true)}
@@ -402,38 +389,6 @@ export default function SignInScreen() {
               )}
               {passwordError && <View style={styles.errorBox}><Text style={styles.errorText}>{passwordError}</Text></View>}
             </View>
-
-            {/* Confirm Password (sign-up only) */}
-            {mode === 'sign-up' && (
-              <View style={styles.fieldBlock}>
-                <Text style={styles.fieldLabel}>Confirm password *</Text>
-                <View style={[styles.glassInputContainer, confirmFocused && styles.inputFocused, !!confirmError && styles.inputError]}>
-                  <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
-                  <TextInput
-                    style={[styles.textInput, styles.textInputFlex]}
-                    placeholder="Re-enter password"
-                    placeholderTextColor="rgba(255,255,255,0.32)"
-                    secureTextEntry={!showConfirm}
-                    autoCapitalize="none"
-                    returnKeyType="done"
-                    onSubmitEditing={handleEmailSubmit}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    onFocus={() => setConfirmFocused(true)}
-                    onBlur={() => { setConfirmFocused(false); validateConfirmField() }}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowConfirm(v => !v)}
-                    style={styles.eyeBtn}
-                    hitSlop={8}
-                    accessibilityLabel={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
-                  >
-                    <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={20} color="rgba(255,255,255,0.4)" />
-                  </TouchableOpacity>
-                </View>
-                {confirmError && <View style={styles.errorBox}><Text style={styles.errorText}>{confirmError}</Text></View>}
-              </View>
-            )}
 
           </Animated.View>
 

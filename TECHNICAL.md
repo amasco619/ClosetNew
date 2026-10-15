@@ -205,7 +205,7 @@ Whenever you make a change that affects any section of this document — new API
 3. On native redirect, `createSessionFromUrl()` accepts only the exact expected callback base, parses a PKCE `code`, and calls `supabase.auth.exchangeCodeForSession()` with the SecureStore-bound verifier. Native implicit token callbacks are deliberately rejected.
 4. Session tokens are stored in `expo-secure-store` on native (iOS Keychain / Android Keystore) via `SecureStoreAdapter`. They are **not** in `AsyncStorage`.
 5. For email auth: `signInWithEmail()` first uses the rate-limited server check, then calls `supabase.auth.signInWithPassword()` on the client to establish the session
-6. Email sign-up goes through the rate-limited server proxy, then attempts the same email sign-in flow. A successful sign-in establishes the session; rejected sign-in displays a generic sign-up error and does not imply that an email was sent.
+6. Email sign-up goes through the rate-limited server proxy using the publishable Auth key, then attempts the same email sign-in flow. A successful sign-in establishes the session; rejected sign-in displays a generic sign-up error and does not imply that an email was sent.
 7. `AppContext` listens to `supabase.auth.onAuthStateChange()` for **subsequent** events only — `INITIAL_SESSION` is intentionally excluded (see Startup Initialization below)
 
 Email confirmation is controlled by the hosted Supabase Auth setting **Authentication → Providers → Email → Confirm Email**, not by an app-side mail-sending toggle. It is currently off in the development project, as confirmed by the user on 2026-10-16. Before enabling it for launch, restore an in-app confirmation guidance flow. Do not auto-confirm users through a service-role admin path.
@@ -462,7 +462,7 @@ All three entry screens were redesigned with a quiet-luxury visual system:
 - `expo-image` used (not RN `Image`) for `closet.jpg` to support the `transition` prop
 
 **Sign-in screen (`app/sign-in.tsx`):**
-- All existing auth logic preserved: `signInWithEmail`, `signInWithPassword`, Google/Apple OAuth, `validateEmailField`/`validatePassword`/`validateConfirmPassword`, confirmed-email state, forgot-password routing, error display
+- Email sign-up asks only for email and one password; the password requirements are shown inline. `signInWithEmail`, Google/Apple OAuth, email validation, forgot-password routing, and error display remain.
 - Visual layer replaced: closet.jpg background with deepened scrim, `BlurView` (intensity 30) glass inputs with gold focus border (`Colors.glassBorderWhite` → `Colors.secondary`), social auth as `BlurView` glass cards, gold underline tab switcher, champagne gold submit button
 
 **Onboarding screen (`app/onboarding.tsx`):**

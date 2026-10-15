@@ -427,7 +427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch {
       reportAuthRequestFailure("auth_signup_exception", "/api/auth/sign-up");
     }
-    return res.json({ acknowledged: true, needsConfirmation: true });
+    return res.json({ acknowledged: true });
   });
 
   // ── Password reset ────────────────────────────────────────────────────────
