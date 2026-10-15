@@ -7,12 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "amodka",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F5F3F0"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.amodka.app"
@@ -42,6 +36,15 @@
       ],
       "expo-font",
       "expo-web-browser",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 100,
+          "resizeMode": "contain",
+          "backgroundColor": "#F5F3F0"
+        }
+      ],
       [
         "expo-image-picker",
         {

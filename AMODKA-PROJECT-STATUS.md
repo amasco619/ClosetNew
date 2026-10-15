@@ -261,7 +261,7 @@ Do not redesign the entire app unless evidence shows a problem.
 Current configuration is already substantially prepared:
 - Amodka app identity
 - `com.amodka.app` package/bundle identifiers
-- Expo SDK 54 / React Native 0.81
+- Expo SDK 57 / React Native 0.86 (upgraded to match the installed Expo Go SDK)
 
 Do not upgrade Expo merely for Android API compliance without evidence requiring it.
 
@@ -269,7 +269,8 @@ Remaining work:
 - EAS configuration/credentials
 - Google/Apple provider configuration
 - production environment/secrets
-- real iOS device/TestFlight validation
+- real iOS/Android Expo Go device validation with VoiceOver/TalkBack
+- TestFlight validation
 - real Android device/Play internal testing
 - signing/release pipeline
 

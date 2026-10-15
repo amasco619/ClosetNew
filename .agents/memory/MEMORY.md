@@ -28,6 +28,7 @@
 - [Per-garment metadata persistence](garment-metadata-persistence.md) — store normalized recommendation attributes per wardrobe row, not on group shared attributes; leave legacy rows NULL.
 - [Stole taxonomy boundary](stole-taxonomy-boundary.md) — use existing accessory backing with a textile-specific UI label; require explicit shoulder/neck identification before accepting a stole.
 - [Expo restart verification](expo-restart-verification.md) — a restart acknowledgement does not prove a fresh Metro process owns the frontend port; watch for an interactive port-conflict prompt.
+- [Expo SDK 57 asset URLs](expo-sdk57-asset-urls.md) — SDK 57 already supports HTTPS dev-server asset URLs, so the older Expo asset patch is obsolete.
 - [Styling boundary authority](styling-boundary-authority.md) — canonical truth and legacy engine interpretation are distinct; African garment labels do not authorize cultural/context inference.
 - [Temperature-unit policy](temperature-unit-policy.md) — Celsius globally; Fahrenheit only by explicit preference, never inferred from location or locale.
 - [Concierge scope approval](concierge-scope-approval.md) — P1.3 stays today-only; P1.4 approves transient selected-look travel planning, not forecasts, optimisation or durable trips.

@@ -90,10 +90,10 @@ Whenever you make a change that affects any section of this document — new API
 
 | Technology | Role |
 |-----------|------|
-| **Expo SDK 53+** | Native app runtime and build toolchain |
-| **React Native** | Cross-platform UI framework |
+| **Expo SDK 57** | Native app runtime and build toolchain |
+| **React 19.2 / React Native 0.86** | Cross-platform UI framework |
 | **Expo Router** (file-based routing) | Screen navigation using `app/` directory conventions |
-| **React Native Reanimated 3** | Smooth declarative animations (`withSpring`, `useSharedValue`, `FadeInDown`) |
+| **React Native Reanimated 4** | Smooth declarative animations (`withSpring`, `useSharedValue`, `FadeInDown`) |
 | **React Native Gesture Handler** | Touch and gesture processing |
 | **Expo Image** | High-performance image rendering with caching |
 | **Expo Image Picker** | Camera and photo library access |
