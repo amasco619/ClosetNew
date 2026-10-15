@@ -20,7 +20,7 @@ import {
 } from '@/constants/orphanDetection';
 import { centroidHsl, hslToLab } from '@/constants/colorPerceptual';
 import { authenticatedApiRequest } from '@/lib/query-client';
-import { fetchAuthoritativeEntitlement } from '@/lib/entitlements';
+import { fetchAuthoritativeEntitlement, readCurrentEntitlement } from '@/lib/entitlements';
 import { setRevenueCatIdentity } from '@/lib/revenuecat';
 import {
   upsertUserProfile, getUserProfile, getWardrobeItems, getSelectedWardrobeItems, getFreeWardrobeSelection,
@@ -1119,9 +1119,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       currentUserIdRef.current === userId &&
       accountGenerationRef.current === accountGeneration &&
       isCurrentStartupGeneration(startupGeneration, startupGenerationRef.current);
+    const entitlement = await readCurrentEntitlement(
+      fetchAuthoritativeEntitlement,
+      isCurrent,
+      rejectUnavailable,
+      error => {
+        setEntitlementUnavailable(true);
+        isPremiumRef.current = false;
+        setIsPremium(false);
+        reportError(error, 'entitlement_refresh', { dependency: 'supabase' });
+      },
+    );
+    if (!entitlement) return false;
     try {
-      const entitlement = await fetchAuthoritativeEntitlement();
-      if (!isCurrent()) return unavailable();
       if (isPremiumRef.current && !entitlement.isPremium) {
         const selection = await getFreeWardrobeSelection(userId);
         if (!isCurrent()) return unavailable();
@@ -1140,6 +1150,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
         setFreeSelectedItemIds(selection);
       }
+      if (!isCurrent()) return unavailable();
       setEntitlementUnavailable(false);
       isPremiumRef.current = entitlement.isPremium;
       setIsPremium(entitlement.isPremium);

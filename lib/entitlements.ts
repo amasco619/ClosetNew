@@ -16,3 +16,25 @@ export async function fetchAuthoritativeEntitlement(): Promise<Entitlement> {
   const response = await authenticatedApiRequest("GET", "/api/user/entitlements");
   return normalizeEntitlement(await response.json());
 }
+
+export async function readCurrentEntitlement(
+  read: () => Promise<Entitlement>,
+  isCurrent: () => boolean,
+  rejectUnavailable: boolean,
+  onUnavailable: (error: unknown) => void,
+): Promise<Entitlement | null> {
+  const unavailable = () => {
+    if (rejectUnavailable) throw new Error("Premium verification is unavailable or superseded");
+    return null;
+  };
+
+  try {
+    const entitlement = await read();
+    return isCurrent() ? entitlement : unavailable();
+  } catch (error) {
+    if (!isCurrent()) return unavailable();
+    onUnavailable(error);
+    if (rejectUnavailable) throw error;
+    return null;
+  }
+}

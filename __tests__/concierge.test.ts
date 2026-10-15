@@ -7,6 +7,7 @@ import { projectWardrobeForStyling } from '../lib/stylingWardrobe';
 import { projectRelationshipsForStyling } from '../lib/stylingRelationships';
 import { buildStylingContextCandidates } from '../lib/traditionalStyling';
 import { EMPTY_AFFINITY } from '../constants/affinity';
+import { readCurrentEntitlement } from '../lib/entitlements';
 import { transform } from 'esbuild';
 
 assert.deepEqual(CONCIERGE_OCCASIONS.map(option => option.id), ['work', 'date-dressy', 'event', 'wedding', 'traditional-event']);
@@ -68,6 +69,7 @@ async function checkRefreshContract() {
     wardrobeItemsRef: { current: [] },
     isCurrentStartupGeneration: (a: number, b: number) => a === b,
     isCurrentAccountRequest: (user: string, generation: number, boot: number) => owner.current === user && account.current === generation && startup.current === boot,
+    readCurrentEntitlement,
     fetchAuthoritativeEntitlement: async () => {
       if (pending) await pending;
       if (fail) throw new Error('read unavailable');

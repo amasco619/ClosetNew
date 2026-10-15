@@ -23,3 +23,10 @@ Any `lib/` module that is tested directly in Node.js via tsx MUST NOT have stati
 
 ## Applied in
 `lib/photoroom.ts` — now imports only from `shared/photoroom-error-codes` and `lib/classifyPath.ts` statically; supabase is a guarded dynamic import; getApiUrl is inlined.
+
+## Executing extracted provider callbacks
+When a test extracts a React provider callback and executes it with `new Function`, every newly referenced module helper must be imported by the test and passed into that function's dependency object. Prefer the real pure helper over a test-only reimplementation.
+
+**Why:** Extracted callback bodies do not retain their original module scope, so an otherwise valid helper call fails at runtime with `ReferenceError`.
+
+**How to apply:** Update the callback test harness whenever the callback gains a module-level helper dependency; keep importing framework-heavy providers out of Node tests.

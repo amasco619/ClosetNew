@@ -59,7 +59,8 @@ const refreshMethod = appContext.match(
   /const refreshPremiumEntitlement = useCallback\(async \(rejectUnavailable = false\): Promise<boolean> => \{([\s\S]*?)\n  \}, \[\]\);/,
 );
 assert.ok(refreshMethod, 'the billing UI must update access only through AppContext');
-assert.match(refreshMethod[1], /fetchAuthoritativeEntitlement\(\)/);
+assert.match(refreshMethod[1], /readCurrentEntitlement\(\s*fetchAuthoritativeEntitlement/);
 assert.doesNotMatch(refreshMethod[1], /RevenueCat|CustomerInfo/);
+assert.doesNotMatch(refreshMethod[1], /STORAGE_KEYS\.premium|AsyncStorage/);
 
 console.log('RevenueCat client billing contracts passed.');
