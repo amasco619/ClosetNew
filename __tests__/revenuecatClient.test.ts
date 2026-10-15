@@ -56,7 +56,7 @@ assert.match(appContext, /setRevenueCatIdentity\(userId\)/);
 assert.match(appContext, /const entitlement = await fetchAuthoritativeEntitlement\(\)/);
 
 const refreshMethod = appContext.match(
-  /const refreshPremiumEntitlement = useCallback\(async \(\): Promise<boolean> => \{([\s\S]*?)\n  \}, \[\]\);/,
+  /const refreshPremiumEntitlement = useCallback\(async \(rejectUnavailable = false\): Promise<boolean> => \{([\s\S]*?)\n  \}, \[\]\);/,
 );
 assert.ok(refreshMethod, 'the billing UI must update access only through AppContext');
 assert.match(refreshMethod[1], /fetchAuthoritativeEntitlement\(\)/);
