@@ -357,6 +357,68 @@ async function main() {
     await React.act(async () => mounted.unmount());
     console.log(`${screenCase.name}: same-count account switches ignore late success and failure`);
   }
+
+  for (const screenCase of screens) {
+    model.authenticatedUserId = 'account-partial';
+    model.wardrobeItems = [];
+    model.wardrobeTotalCount = 1;
+    model.wardrobeHasMore = screenCase.name === 'Home' || screenCase.name === 'Wear Log';
+    model.requests = [];
+    const Screen = await loadScreen(screenCase.entry);
+    let mounted!: Mounted;
+    const element = () => React.createElement(Screen);
+    const text = (fragment: string) => mounted.root.findAllByType('Text')
+      .some(node => words(node).toLowerCase().includes(fragment.toLowerCase()));
+    const button = (fragment: string) => {
+      const found = mounted.root.findAllByType('Pressable').find(node =>
+        words(node).toLowerCase().includes(fragment.toLowerCase()));
+      assert.ok(found, `${screenCase.name}: incomplete wardrobe has a retry control`);
+      return found;
+    };
+    const press = async (fragment: string) => React.act(async () => {
+      (button(fragment).props.onPress as () => void)();
+    });
+    const rerender = async () => React.act(async () => { mounted.update(element()); });
+    const assertLoading = (message: string) => {
+      if (screenCase.name === 'Home' || screenCase.name === 'Wear Log') {
+        assert.ok(mounted.root.findAllByType('ActivityIndicator').length > 0, message);
+      } else {
+        assert.ok(text('loading your') || text('loading your full wardrobe'), message);
+      }
+    };
+
+    const partial = deferred();
+    model.requests.push(partial);
+    await React.act(async () => { mounted = renderer.create(element()); });
+    if (screenCase.name === 'Home') await press('Load styles');
+    assert.equal(model.requests.length, 0, `${screenCase.name}: partial-load request started`);
+    partial.resolve();
+    await React.act(async () => { await partial.promise; });
+    await rerender();
+    assert.ok(
+      text(screenCase.name === 'Home' ? 'full wardrobe is still incomplete' : 'tap to retry'),
+      `${screenCase.name}: successful partial load shows a retryable incomplete state`,
+    );
+    assert.equal(mounted.root.findAllByType('ActivityIndicator').length, 0, `${screenCase.name}: partial load stops spinning`);
+    const retryLabel = screenCase.name === 'Home' ? 'Retry loading styles' : 'Tap to retry';
+    button(retryLabel);
+
+    const complete = deferred();
+    model.requests.push(complete);
+    await press(retryLabel);
+    assertLoading(`${screenCase.name}: retry shows loading`);
+    assert.equal(model.requests.length, 0, `${screenCase.name}: retry starts a fresh request`);
+    model.wardrobeTotalCount = 0;
+    model.wardrobeHasMore = false;
+    await rerender();
+    complete.resolve();
+    await React.act(async () => { await complete.promise; });
+    await rerender();
+    assert.ok(!text('tap to retry') && !text('full wardrobe is still incomplete'), `${screenCase.name}: complete load clears incomplete state`);
+    assert.equal(mounted.root.findAllByType('ActivityIndicator').length, 0, `${screenCase.name}: complete load clears loading`);
+    await React.act(async () => mounted.unmount());
+    console.log(`${screenCase.name}: partial success, retry, and complete recovery passed`);
+  }
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });

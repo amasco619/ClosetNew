@@ -55,24 +55,38 @@ export default function HomeScreen() {
   } = useApp();
   const accountKey = JSON.stringify([authenticatedUserId, isGuest]);
   const [wardrobeLoadErrorKey, setWardrobeLoadErrorKey] = useState<string | null>(null);
+  const [wardrobeLoadIncompleteKey, setWardrobeLoadIncompleteKey] = useState<string | null>(null);
   const [loadingStylesKey, setLoadingStylesKey] = useState<string | null>(null);
   const activeAccountKeyRef = useRef(accountKey);
+  const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
+  const wardrobeDataCompleteRef = useRef(wardrobeDataComplete);
   useLayoutEffect(() => {
     activeAccountKeyRef.current = accountKey;
   }, [accountKey]);
+  useLayoutEffect(() => {
+    wardrobeDataCompleteRef.current = wardrobeDataComplete;
+  }, [wardrobeDataComplete]);
   const wardrobeLoadError = wardrobeLoadErrorKey === accountKey;
+  const wardrobeLoadIncomplete = wardrobeLoadIncompleteKey === accountKey;
   const loadingStyles = loadingStylesKey === accountKey;
-  const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
   const showWardrobeLoadError = wardrobeLoadError && !wardrobeDataComplete;
   const handleLoadStyles = async () => {
     if (loadingStyles) return;
     const requestAccountKey = accountKey;
     setLoadingStylesKey(requestAccountKey);
     setWardrobeLoadErrorKey(null);
+    setWardrobeLoadIncompleteKey(null);
     try {
       await loadAllWardrobeItems();
+      if (activeAccountKeyRef.current === requestAccountKey && !wardrobeDataCompleteRef.current) {
+        setWardrobeLoadErrorKey(requestAccountKey);
+        setWardrobeLoadIncompleteKey(requestAccountKey);
+      }
     } catch {
-      if (activeAccountKeyRef.current === requestAccountKey) setWardrobeLoadErrorKey(requestAccountKey);
+      if (activeAccountKeyRef.current === requestAccountKey) {
+        setWardrobeLoadErrorKey(requestAccountKey);
+        setWardrobeLoadIncompleteKey(null);
+      }
     } finally {
       if (activeAccountKeyRef.current === requestAccountKey) setLoadingStylesKey(null);
     }
@@ -301,7 +315,9 @@ export default function HomeScreen() {
             </Text>
               {showWardrobeLoadError && (
               <Text accessibilityRole="alert" style={styles.wardrobeLoadErrorText}>
-                The full wardrobe could not be loaded. Please try again.
+                {wardrobeLoadIncomplete
+                  ? 'The full wardrobe is still incomplete. Tap “Retry loading styles” to continue.'
+                  : 'The full wardrobe could not be loaded. Please try again.'}
               </Text>
             )}
             <View style={styles.wardrobeLoadActions}>
