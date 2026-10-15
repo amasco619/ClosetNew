@@ -67,11 +67,11 @@ export default function PremiumScreen() {
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const availability = getBillingAvailability();
 
-  const isCurrentBillingIdentity = (userId: string, generation: number) =>
+  const isCurrentBillingIdentity = React.useCallback((userId: string, generation: number) =>
     currentIdentityRef.current.userId === userId &&
-    currentIdentityRef.current.generation === generation;
+    currentIdentityRef.current.generation === generation, []);
 
-  const assertAuthenticatedBillingIdentity = async (userId: string, generation: number) => {
+  const assertAuthenticatedBillingIdentity = React.useCallback(async (userId: string, generation: number) => {
     if (!isCurrentBillingIdentity(userId, generation)) {
       throw new RevenueCatBillingError('identity_changed');
     }
@@ -79,7 +79,7 @@ export default function PremiumScreen() {
     if (error || session?.user.id !== userId || !isCurrentBillingIdentity(userId, generation)) {
       throw new RevenueCatBillingError('identity_changed');
     }
-  };
+  }, [isCurrentBillingIdentity]);
 
   const isServerBillingReady = async (): Promise<boolean> => {
     try {
@@ -165,7 +165,7 @@ export default function PremiumScreen() {
     };
     void loadPlans();
     return () => { mounted = false; };
-  }, [isAuthenticated, authenticatedUserId, billingReadinessRetry]);
+  }, [isAuthenticated, authenticatedUserId, billingReadinessRetry, assertAuthenticatedBillingIdentity, isCurrentBillingIdentity]);
 
   const reconcileThenCheckServerAccess = async (userId: string, generation: number) => {
     await assertAuthenticatedBillingIdentity(userId, generation);

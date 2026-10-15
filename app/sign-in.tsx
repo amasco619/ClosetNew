@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator,
-  AccessibilityInfo, Pressable,
+  Pressable,
 } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { Image } from 'expo-image'
@@ -101,7 +101,6 @@ function SocialButton({
 
 export default function SignInScreen() {
   const insets = useSafeAreaInsets()
-  const webTop = Platform.OS === 'web' ? 67 : 0
   const { isAuthenticated } = useApp()
   const [mode, setMode] = useState<Mode>('sign-in')
   const [email, setEmail] = useState('')
@@ -156,7 +155,7 @@ export default function SignInScreen() {
       -1,
       true,
     )
-  }, [])
+  }, [bgScale])
   const animatedBgStyle = useAnimatedStyle(() => ({
     transform: [{ scale: bgScale.value }],
   }))

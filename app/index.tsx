@@ -44,7 +44,7 @@ export default function IndexScreen() {
     accentScaleX.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
 
     taglineOpacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.ease) });
-  }, []);
+  }, [containerOpacity, wordmarkOpacity, accentScaleX, taglineOpacity]);
 
   const url = Linking.useLinkingURL();
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function IndexScreen() {
     }
 
     fadeOutThenNavigate('/welcome');
-  }, [appReady, startupError, isAuthenticated, profile.onboardingComplete, profile.isGuest, profile.name, profile.bodyType, profile.eyeColor, profile.skinTone, profile.undertone, profile.styleGoalPrimary]);
+  }, [appReady, startupError, isAuthenticated, profile, containerOpacity]);
 
   const containerStyle = useAnimatedStyle(() => ({
     opacity: containerOpacity.value,

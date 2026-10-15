@@ -179,7 +179,7 @@ export default function BulkItemEditPanel({
 
   useEffect(() => {
     translateY.value = withSpring(0, SPRING_IN);
-  }, []);
+  }, [translateY]);
 
   const handleClose = useCallback(() => {
     commitDesc();
@@ -188,7 +188,7 @@ export default function BulkItemEditPanel({
       'worklet';
       if (finished) runOnJS(onClose)();
     });
-  }, [onClose, commitDesc]);
+  }, [onClose, commitDesc, translateY]);
 
   // ── Android hardware back ────────────────────────────────────────────────────
   useEffect(() => {

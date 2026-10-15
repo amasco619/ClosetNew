@@ -43,6 +43,7 @@ export default function CollapsibleSection({
     rotation.value = withTiming(next ? 180 : 0, { duration: 220 });
     setOpen(next);
     Haptics.selectionAsync();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Reanimated SharedValue is stable for this component; reading its .value here is intentional.
   }, [open]);
 
   return (

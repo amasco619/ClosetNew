@@ -107,7 +107,7 @@ export default function WelcomeScreen() {
       -1,
       true,
     );
-  }, []);
+  }, [bgScale]);
 
   useEffect(() => {
     if (isAuthenticated) {

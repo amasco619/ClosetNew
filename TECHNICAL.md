@@ -2122,7 +2122,7 @@ Google Play (and App Store) require a web URL where users can request account/da
 | **Stable sorts** | All sort operations use an original-index tie-breaker to guarantee deterministic output across JS runtimes |
 | **Responsive font sizes** | All `fontSize` values use `rs(n)` from `lib/responsive.ts` (moderate scale, factor 0.35, baseline 390pt). Never use a raw numeric literal for `fontSize` in StyleSheet. |
 | **Mood/scenario chip rows** | Horizontal `ScrollView` filter rows must have `minHeight` on the scroll container **and** `alignItems: 'flex-start'` on `contentContainerStyle` — never `alignItems: 'center'`, which collapses the view height on some devices. |
-| **SDK 57 lint exceptions** | Do not disable React hook/compiler rules globally. Fix lifecycle and render-time ref issues; any unavoidable exception must be line-specific and explain the platform or security reason beside the suppression. |
+| **SDK 57 lint exceptions** | Keep `npm run lint` warning-free and never disable React hook/compiler rules globally. Fix hook dependencies; if a stable Reanimated SharedValue must be mutated inside a callback, keep the dependency omission line-specific and explain the stable-value reason beside it. |
 | **Update TECHNICAL.md** | Every code change that affects architecture, endpoints, file structure, packages, tests, or conventions must update TECHNICAL.md in the same commit |
 
 ---

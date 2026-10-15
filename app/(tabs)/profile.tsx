@@ -110,26 +110,6 @@ function SectionHeader({ label, title }: { label: string; title: string }) {
   );
 }
 
-function SettingRow({ icon, label, value, tint, onPress, last }: {
-  icon: string; label: string; value: string; tint?: string; onPress?: () => void; last?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.settingRow, !last && styles.settingRowBorder, pressed && onPress && { opacity: 0.7 }]}
-    >
-      <View style={[styles.settingIcon, { backgroundColor: (tint || Colors.secondary) + '18' }]}>
-        <Ionicons name={icon as any} size={17} color={tint || Colors.secondary} />
-      </View>
-      <View style={styles.settingBody}>
-        <Text style={styles.settingLabel}>{label}</Text>
-        <Text style={styles.settingValue} numberOfLines={1}>{value}</Text>
-      </View>
-      {onPress && <Ionicons name="chevron-forward" size={14} color={Colors.border} />}
-    </Pressable>
-  );
-}
-
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const {
@@ -179,6 +159,10 @@ export default function ProfileScreen() {
       setAiPreferenceError(null);
       setAiPreferenceLoading(false);
       return;
+    }
+    if (aiPreferenceRetry > 0) {
+      setAiPreferenceError(null);
+      setAiPreferenceUnavailable(false);
     }
     let active = true;
     setAiPreferenceLoading(true);
@@ -1157,14 +1141,6 @@ const styles = StyleSheet.create({
   toggleRowBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
   toggleLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(14), color: Colors.primary },
   toggleSub: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 2, lineHeight: 17 },
-
-  // ── Setting rows (unused, kept for future) ────────────────────────────────
-  settingRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
-  settingRowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.border },
-  settingIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  settingBody: { flex: 1 },
-  settingLabel: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary },
-  settingValue: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary, marginTop: 1 },
 
   // ── Feature rows (Wear Log, Premium features) ─────────────────────────────
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },

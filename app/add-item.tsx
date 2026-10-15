@@ -15,7 +15,7 @@ import { centroidHsl, centroidLab } from '@/constants/colorPerceptual';
 import Colors from '@/constants/colors';
 import { wardrobeCategoryLabel } from '@/constants/wardrobeLabels';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, FadeInUp, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
+import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
 import { classificationImagePayload, resolvePhotoUri } from '@/lib/classifyPath';
@@ -122,7 +122,7 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
     if (isActive && segWidth > 0) {
       fillWidth.value = withTiming(segWidth, { duration: 260 });
     }
-  }, [isActive, segWidth]);
+  }, [isActive, segWidth, fillWidth]);
 
   const fillStyle = useAnimatedStyle(() => ({ width: fillWidth.value }));
 
@@ -309,7 +309,7 @@ export default function AddItemScreen() {
         stageLabelOpacity.value = withTiming(1, { duration: 170 });
       }
     });
-  }, [saveStage]);
+  }, [saveStage, stageLabelOpacity]);
 
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
@@ -325,7 +325,7 @@ export default function AddItemScreen() {
       cancelAnimation(shimmerOffset);
       shimmerOffset.value = 0;
     }
-  }, [classifying]);
+  }, [classifying, shimmerOffset]);
 
   const shimmerStyle = useAnimatedStyle(() => {
     const trackW = classifyingTrackWidth.value;
@@ -639,8 +639,6 @@ export default function AddItemScreen() {
         // The result is also stored in photoBase64 as the fallback for the storage
         // upload step (which re-encodes at ≤1600 px from the URI anyway).
         let classifyBase64: string | undefined;
-        let bgUploadBase64: string | null = null;
-        let bgFinalUri: string | null = null;
         try {
           const MAX_CLASSIFY_PX = 1024;
           const w = asset.width ?? 0;
@@ -678,7 +676,6 @@ export default function AddItemScreen() {
             }
             if (bgResult.status === 'success' && bgResult.base64) {
               const cleanPngBase64 = bgResult.base64;
-              bgUploadBase64 = cleanPngBase64;
               setPhotoBase64(cleanPngBase64);
               try {
                 const reencoded = await ImageManipulator.manipulateAsync(
@@ -689,14 +686,12 @@ export default function AddItemScreen() {
                 // resolvePhotoUri guards against data: URIs — only accepts
                 // file:// or https:// paths; falls back to original asset URI.
                 const resolvedUri = resolvePhotoUri(asset.uri, reencoded.uri);
-                bgFinalUri = resolvedUri;
                 setPhotoUri(resolvedUri);
                 setPhotoBgRemoved(true);
                 classifyBase64 = resolveClassifyBase64(classifyBase64, reencoded.base64);
               } catch {
                 // Re-encode failed — keep original JPEG for classify;
                 // leave photoUri as the original asset URI (no data URI stored)
-                bgFinalUri = asset.uri;
               }
             }
           }

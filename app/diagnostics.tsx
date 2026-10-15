@@ -102,7 +102,6 @@ function ColorSwatch({ item }: { item: { color: string; count: number; isNeutral
 
 function ScenarioRow({ cov }: { cov: ScenarioCoverage }) {
   const s = STRENGTH_COLORS[cov.strength];
-  const barWidth = Math.min(cov.scoringItems / 7, 1);
   return (
     <View style={styles.scenarioRow}>
       <Ionicons name={cov.icon as any} size={14} color={Colors.textSecondary} />

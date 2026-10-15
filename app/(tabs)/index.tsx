@@ -10,7 +10,7 @@ import { countRecommendedOutfits } from '@/constants/wardrobeBlueprint';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 import { EMAIL_CONFIRMED_KEY } from '@/lib/auth';
 import Colors from '@/constants/colors';
-import Animated, { FadeInDown, FadeInUp, FadeOutUp, useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { rs } from '../../lib/responsive';
 import { WardrobeGapCard } from '@/components/WardrobeGapCard';
 import { diagnoseWeatherGap } from '@/lib/wardrobeGapDiagnosis';

@@ -16,7 +16,6 @@ import Animated, {
   withRepeat, withTiming, cancelAnimation,
 } from 'react-native-reanimated';
 import { useApp } from '@/contexts/AppContext';
-import type { ItemCategory, OccasionTag, SeasonTag } from '@/constants/types';
 import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
 import BulkItemEditPanel from '@/components/BulkItemEditPanel';
 import Colors from '@/constants/colors';
@@ -111,7 +110,7 @@ function GoldOverlay({
       cancelAnimation(opacity);
       opacity.value = withTiming(0, { duration: 260 });
     }
-  }, [isActive]);
+  }, [isActive, opacity]);
 
   const washStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
 
@@ -347,7 +346,7 @@ export default function BulkReviewScreen() {
     if (uris.length === 0) {
       router.back();
     }
-  }, []);
+  }, [uris.length]);
 
   useEffect(() => {
     let active = true;
@@ -490,11 +489,11 @@ export default function BulkReviewScreen() {
   useEffect(() => {
     if (uris.length !== 1 || aiPreference !== 'allowed') return;
     const id = setTimeout(() => {
-      const item = items[0];
+      const item = itemsRef.current[0];
       if (item) redirectSingle(item, false);
     }, SINGLE_REDIRECT_TIMEOUT_MS);
     return () => clearTimeout(id);
-  }, [aiPreference]);
+  }, [uris.length, aiPreference, redirectSingle]);
 
   // Cycle status micro-copy every 450ms while items are still classifying
   useEffect(() => {
