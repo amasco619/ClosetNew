@@ -59,7 +59,7 @@ async function checkRefreshContract() {
   const source = readFileSync('contexts/AppContext.tsx', 'utf8');
   const body = source.match(/const refreshPremiumEntitlement = useCallback\([\s\S]*?\}, \[\]\);/)?.[0];
   assert.ok(body);
-  let serverPremium = true, fail = false, pending: Promise<void> | undefined;
+  let serverPremium = true, fail = false, serverReads = 0, pending: Promise<void> | undefined;
   const owner = { current: 'fixture-owner' as string | null };
   const account = { current: 1 }, startup = { current: 1 }, premium = { current: false };
   let unavailable = false;
@@ -71,6 +71,7 @@ async function checkRefreshContract() {
     isCurrentAccountRequest: (user: string, generation: number, boot: number) => owner.current === user && account.current === generation && startup.current === boot,
     readCurrentEntitlement,
     fetchAuthoritativeEntitlement: async () => {
+      serverReads++;
       if (pending) await pending;
       if (fail) throw new Error('read unavailable');
       return { isPremium: serverPremium };
@@ -92,7 +93,15 @@ async function checkRefreshContract() {
   assert.equal(await refresh(), false, 'default callers keep fail-closed boolean semantics');
   assert.equal(unavailable, true);
   await assert.rejects(refresh(true), /read unavailable/);
+  assert.equal(premium.current, false, 'failed authoritative reads leave Premium off');
+  assert.equal(unavailable, true, 'failed authoritative reads leave entitlement unavailable');
+  const readsBeforeRecovery = serverReads;
+  serverPremium = true;
   fail = false;
+  assert.equal(await refresh(true), true, 'a fresh server-confirmed Premium response restores access');
+  assert.equal(premium.current, true, 'server-confirmed Premium is restored after an outage');
+  assert.equal(unavailable, false, 'a successful authoritative read clears entitlement unavailable');
+  assert.equal(serverReads, readsBeforeRecovery + 1, 'recovery requires a new authoritative server read');
   let release = () => {};
   pending = new Promise<void>(resolve => { release = resolve; });
   const stale = refresh(true);

@@ -5,11 +5,13 @@ async function main() {
   const outage = new Error('entitlement service unavailable');
   let premium = true;
   let unavailable = false;
+  let shouldFail = true;
   let reads = 0;
   let errorsReported = 0;
   const read = async () => {
     reads++;
-    throw outage;
+    if (shouldFail) throw outage;
+    return { isPremium: true, expiresAt: '2099-01-01T00:00:00.000Z' };
   };
   const onUnavailable = (error: unknown) => {
     assert.equal(error, outage);
@@ -38,6 +40,12 @@ async function main() {
   assert.equal(unavailable, true, 'rejectUnavailable still marks the entitlement unavailable');
   assert.equal(premium, false, 'rejectUnavailable also fails closed');
   assert.equal(reads, 2, 'rejectUnavailable does not consult another access source');
+
+  shouldFail = false;
+  const recoveredEntitlement = await readCurrentEntitlement(read, () => true, false, onUnavailable);
+  assert.equal(recoveredEntitlement?.isPremium, true, 'a later successful server read returns confirmed Premium');
+  assert.equal(reads, 3, 'recovery performs another authoritative read');
+  assert.equal(errorsReported, 2, 'a successful recovery does not report another outage');
 
   let current = true;
   let staleUnavailableCalls = 0;
