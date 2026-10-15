@@ -205,10 +205,10 @@ Whenever you make a change that affects any section of this document — new API
 3. On native redirect, `createSessionFromUrl()` accepts only the exact expected callback base, parses a PKCE `code`, and calls `supabase.auth.exchangeCodeForSession()` with the SecureStore-bound verifier. Native implicit token callbacks are deliberately rejected.
 4. Session tokens are stored in `expo-secure-store` on native (iOS Keychain / Android Keystore) via `SecureStoreAdapter`. They are **not** in `AsyncStorage`.
 5. For email auth: `signInWithEmail()` first uses the rate-limited server check, then calls `supabase.auth.signInWithPassword()` on the client to establish the session
-6. Email sign-up goes through the rate-limited server proxy, then attempts the same email sign-in flow. If Supabase email confirmation is disabled, a successful sign-in establishes the session; otherwise the app keeps the generic inbox guidance.
+6. Email sign-up goes through the rate-limited server proxy, then attempts the same email sign-in flow. A successful sign-in establishes the session; rejected sign-in displays a generic sign-up error and does not imply that an email was sent.
 7. `AppContext` listens to `supabase.auth.onAuthStateChange()` for **subsequent** events only — `INITIAL_SESSION` is intentionally excluded (see Startup Initialization below)
 
-Email confirmation is controlled by the hosted Supabase Auth setting **Authentication → Providers → Email → Confirm Email**, not by an app-side mail-sending toggle. It may be disabled only for development/testing and must be enabled before launch. Do not auto-confirm users through a service-role admin path.
+Email confirmation is controlled by the hosted Supabase Auth setting **Authentication → Providers → Email → Confirm Email**, not by an app-side mail-sending toggle. It is currently off in the development project, as confirmed by the user on 2026-10-16. Before enabling it for launch, restore an in-app confirmation guidance flow. Do not auto-confirm users through a service-role admin path.
 
 ### Startup Initialization (deterministic, race-free)
 

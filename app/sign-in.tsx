@@ -113,7 +113,6 @@ export default function SignInScreen() {
   const [confirmError, setConfirmError] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
   const [loading, setLoading] = useState<LoadingAction>(null)
-  const [confirmed, setConfirmed] = useState(false)
   const [emailFocused, setEmailFocused] = useState(false)
   const [passwordFocused, setPasswordFocused] = useState(false)
   const [confirmFocused, setConfirmFocused] = useState(false)
@@ -181,7 +180,6 @@ export default function SignInScreen() {
     Haptics.selectionAsync()
     setMode(m)
     clearErrors()
-    setConfirmed(false)
   }
 
   const validateEmailField = () => {
@@ -226,10 +224,7 @@ export default function SignInScreen() {
         // router.replace('/') here would navigate before the DB load is
         // complete, causing a flash of the welcome screen.
       } else {
-        const { needsConfirmation } = await signUpWithEmail(email, password)
-        if (needsConfirmation) {
-          setConfirmed(true)
-        }
+        await signUpWithEmail(email, password)
       }
     } catch (err: any) {
       const msg = (err.message ?? '')
@@ -272,39 +267,6 @@ export default function SignInScreen() {
   }
 
   const isSignIn = mode === 'sign-in'
-
-  // Email-confirmed confirmation screen
-  if (confirmed) {
-    return (
-      <View style={styles.container}>
-        <StatusBar style="light" />
-        <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]}>
-          <Image source={require('../assets/images/closet.jpg')} style={StyleSheet.absoluteFill} contentFit="cover" />
-        </Animated.View>
-        <LinearGradient
-          colors={[Colors.navyScrimTop, Colors.navyScrimAuthMid, Colors.navyScrimAuthBottom]}
-          locations={[0, 0.35, 0.85]}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={[styles.topNav, { paddingTop: Math.max(insets.top + 10, 36) }]}>
-          <Pressable onPress={() => router.replace('/welcome')} hitSlop={12} style={styles.backBtn} accessibilityRole="button" accessibilityLabel="Back">
-            <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-          </Pressable>
-        </View>
-        <View style={styles.confirmedBody}>
-          <Text style={styles.confirmedTitle}>Check your email</Text>
-          <Text style={styles.confirmedText}>
-            If this address can receive a confirmation link, check the inbox for{'\n'}{email}.{'\n\n'}
-            Follow the link to confirm your email, then sign in.
-          </Text>
-          <TouchableOpacity onPress={() => switchMode('sign-in')} activeOpacity={0.82} style={styles.backLink} accessibilityRole="button">
-            <Text style={styles.backLinkText}>Back to sign in</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    )
-  }
 
   return (
     <View style={styles.container}>
@@ -755,37 +717,6 @@ const styles = StyleSheet.create({
   forgotText: {
     fontFamily: 'Inter_400Regular',
     fontSize: 13,
-    color: Colors.sage,
-  },
-  // Confirmed screen
-  confirmedBody: {
-    flex: 1,
-    paddingHorizontal: 28,
-    paddingTop: 40,
-  },
-  confirmedTitle: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 30,
-    color: '#FFFFFF',
-    letterSpacing: -0.8,
-    marginBottom: 16,
-  },
-  confirmedText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.70)',
-    lineHeight: 24,
-    marginBottom: 28,
-  },
-  backLink: {
-    paddingVertical: 12,
-    alignSelf: 'flex-start',
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  backLinkText: {
-    fontFamily: 'Inter_500Medium',
-    fontSize: 14,
     color: Colors.sage,
   },
 })

@@ -71,9 +71,8 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
   section('Acknowledged sign-up contract and request shape')
   {
     const mock = install(response(true, { acknowledged: true, needsConfirmation: true }))
-    const result = await signUpWithEmail('  User@EXAMPLE.COM  ', 'Password1')
+    await signUpWithEmail('  User@EXAMPLE.COM  ', 'Password1')
     const body = JSON.parse(mock.calls[0]?.init?.body as string)
-    assert(result.needsConfirmation === false, 'returns needsConfirmation:false after sign-in succeeds')
     assert(mock.calls[0]?.url === 'https://api.example.test/api/auth/sign-up', 'uses the sign-up API')
     assert(mock.calls[0]?.init?.method === 'POST', 'uses POST')
     assert(body.email === 'user@example.com', 'trims and lower-cases email')
@@ -84,15 +83,16 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
     mock.restore()
   }
 
-  section('Email confirmation remains supported')
+  section('Rejected sign-in is not presented as email confirmation')
   {
     const mock = install(
       response(true, { acknowledged: true, needsConfirmation: true }),
       'web',
       new Error('[signInWithEmail] invalid_credentials'),
     )
-    const result = await signUpWithEmail('user@example.com', 'Password1')
-    assert(result.needsConfirmation === true, 'keeps inbox flow when sign-in is rejected')
+    const message = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
+    assert(message.includes('Sign-up could not be completed'), 'shows a generic signup error')
+    assert(!message.toLowerCase().includes('confirm'), 'does not imply that a confirmation email was sent')
     mock.restore()
   }
 
@@ -126,17 +126,17 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
     mock.restore()
   }
 
-  section('Malformed successful responses')
+  section('Acknowledged response no longer depends on confirmation metadata')
   {
-    const missingAcknowledgement = install(response(true, { needsConfirmation: true }))
-    const first = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
-    assert(first.includes('response was invalid'), 'rejects 2xx without acknowledged:true')
+    const missingAcknowledgement = install(response(true, { acknowledged: true }))
+    await signUpWithEmail('user@example.com', 'Password1')
+    assert(missingAcknowledgement.signInCalls.length === 1, 'attempts sign-in without needsConfirmation metadata')
     missingAcknowledgement.restore()
 
-    const missingConfirmation = install(response(true, { acknowledged: true }))
-    const second = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
-    assert(second.includes('response was invalid'), 'rejects 2xx without needsConfirmation:true')
-    missingConfirmation.restore()
+    const malformed = install(response(true, { needsConfirmation: true }))
+    const message = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
+    assert(message.includes('response was invalid'), 'rejects 2xx without acknowledged:true')
+    malformed.restore()
   }
 
   section('Fetch and JSON failures')

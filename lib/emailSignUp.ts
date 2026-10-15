@@ -47,8 +47,8 @@ export const _testOverrides: {
  *   thrown and the flow stops.
  *
  * After the generic acknowledgement, attempts the normal rate-limited sign-in
- * flow. If email confirmation is disabled, this establishes the new session;
- * otherwise the caller keeps the existing inbox guidance.
+ * flow. Successful sign-in establishes the new session. Rejected sign-in is
+ * surfaced as a generic sign-up error; this flow does not show email guidance.
  *
  * Trims and lower-cases the email before forwarding it to the server.
  * Throws with a `[signUpWithEmail] …` prefix for request and sign-in failures.
@@ -56,7 +56,7 @@ export const _testOverrides: {
 export async function signUpWithEmail(
   email: string,
   password: string
-): Promise<{ needsConfirmation: boolean }> {
+): Promise<void> {
   const _fetch = (_testOverrides.fetch ?? globalThis.fetch) as (
     url: string,
     init?: RequestInit
@@ -97,7 +97,7 @@ export async function signUpWithEmail(
     }
   )
 
-  let json: { acknowledged?: boolean; needsConfirmation?: boolean; error?: string }
+  let json: { acknowledged?: boolean; error?: string }
   try {
     json = await res.json()
   } catch {
@@ -108,7 +108,7 @@ export async function signUpWithEmail(
     throw new Error(`[signUpWithEmail] ${json.error ?? res.statusText}`)
   }
 
-  if (json?.acknowledged !== true || json.needsConfirmation !== true) {
+  if (json?.acknowledged !== true) {
     throw new Error('[signUpWithEmail] The sign-up response was invalid. Please try again later.')
   }
 
@@ -116,11 +116,10 @@ export async function signUpWithEmail(
     (await import('./emailSignIn')).signInWithEmail
   try {
     await signIn(email.trim().toLowerCase(), password)
-    return { needsConfirmation: false }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     if (message === '[signInWithEmail] invalid_credentials') {
-      return { needsConfirmation: true }
+      throw new Error('[signUpWithEmail] Sign-up could not be completed. Try again or sign in if you already have an account.')
     }
     throw new Error(`[signUpWithEmail] ${message.replace(/^\[signInWithEmail\]\s*/, '')}`)
   }
