@@ -56,7 +56,7 @@ This installs all packages, applies patches (via `patch-package`), and auto-inst
 Start the **Start Backend** workflow. It runs `npm run server:dev` and listens on port 5000. Wait until you see the server is ready before starting the frontend.
 
 ### Step 5 — Start the frontend
-Start the **Start Frontend** workflow. It runs Expo with the correct `EXPO_PACKAGER_PROXY_URL` and `REACT_NATIVE_PACKAGER_HOSTNAME` environment variables pre-set for the Replit dev domain. The Expo QR code will appear in the console.
+Start the **Start Frontend** workflow. It runs Replit's managed `create-launch login --session "$REPLIT_EXPO_SESSION_SECRET"` step before Expo, then starts Metro with the `EXPO_PACKAGER_PROXY_URL` and `REACT_NATIVE_PACKAGER_HOSTNAME` variables for the Replit dev domain. The login step is deliberately non-fatal so Metro can still start if the short-lived session is unavailable. The Expo QR code will appear in the console. If the login reports an unexpected response, refresh the workspace to renew the session and restart this workflow.
 
 ### Step 6 — Verify the app
 Open the app on a physical device using Expo Go, or in a simulator. Confirm:

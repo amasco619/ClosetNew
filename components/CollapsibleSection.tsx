@@ -1,14 +1,10 @@
 import { useState, useCallback } from 'react';
-import { Pressable, View, Text, StyleSheet, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { Pressable, View, Text, StyleSheet, LayoutAnimation } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/colors';
 import { rs } from '../lib/responsive';
-
-if (Platform.OS === 'android') {
-  UIManager.setLayoutAnimationEnabledExperimental?.(true);
-}
 
 interface CollapsibleSectionProps {
   title: string;
