@@ -56,9 +56,7 @@ export default function HomeScreen() {
   const [wardrobeLoadError, setWardrobeLoadError] = useState(false);
   const [loadingStyles, setLoadingStyles] = useState(false);
   const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
-  useEffect(() => {
-    if (wardrobeDataComplete) setWardrobeLoadError(false);
-  }, [wardrobeDataComplete]);
+  const showWardrobeLoadError = wardrobeLoadError && !wardrobeDataComplete;
   const handleLoadStyles = async () => {
     if (loadingStyles) return;
     setLoadingStyles(true);
@@ -293,7 +291,7 @@ export default function HomeScreen() {
             <Text style={styles.wardrobeLoadNoticeText}>
               Open Outfits to calculate all looks, or load every style here when you’re ready.
             </Text>
-            {wardrobeLoadError && (
+              {showWardrobeLoadError && (
               <Text accessibilityRole="alert" style={styles.wardrobeLoadErrorText}>
                 The full wardrobe could not be loaded. Please try again.
               </Text>

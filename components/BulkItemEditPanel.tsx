@@ -148,17 +148,22 @@ export default function BulkItemEditPanel({
   // ── Local description state (controlled for smooth typing) ─────────────────
   // Changes are written back to shared state immediately on every keystroke
   // via patchItem so the parent items array always reflects the latest text.
-  const [localDesc, setLocalDesc] = useState(cl?.description ?? '');
+  const [descriptionDraft, setDescriptionDraft] = useState({
+    uri: currentItem?.uri,
+    value: cl?.description ?? '',
+  });
+  const localDesc = descriptionDraft.uri === currentItem?.uri
+    ? descriptionDraft.value
+    : cl?.description ?? '';
 
   useEffect(() => {
-    setLocalDesc(cl?.description ?? '');
     // Scroll to top whenever the garment changes
     scrollRef.current?.scrollTo({ x: 0, y: 0, animated: false });
   }, [editingIndex]);
 
   const handleDescChange = useCallback((text: string) => {
     if (isReadOnly || !currentItem) return;
-    setLocalDesc(text);
+    setDescriptionDraft({ uri: currentItem.uri, value: text });
     patchItem(currentItem.uri, { description: text });
   }, [isReadOnly, currentItem, patchItem]);
 
@@ -178,6 +183,7 @@ export default function BulkItemEditPanel({
 
   const handleClose = useCallback(() => {
     commitDesc();
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue controls the panel's exit animation.
     translateY.value = withSpring(SCREEN_H, SPRING_OUT, (finished) => {
       'worklet';
       if (finished) runOnJS(onClose)();

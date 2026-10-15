@@ -151,19 +151,20 @@ export default function ProfileScreen() {
   const [wardrobeLoadError, setWardrobeLoadError] = useState(false);
   const wardrobeLoadStarted = useRef(false);
 
-  const loadWardrobeHistory = useCallback(async () => {
-    if (wardrobeLoadStarted.current) return;
+  const loadWardrobeHistory = useCallback(() => {
+    if (wardrobeLoadStarted.current) return Promise.resolve();
     wardrobeLoadStarted.current = true;
-    setWardrobeLoadError(false);
-    try {
-      await loadAllWardrobeItems();
-    } catch {
+    return loadAllWardrobeItems().catch(error => {
       wardrobeLoadStarted.current = false;
-      setWardrobeLoadError(true);
-    }
+      throw error;
+    });
   }, [loadAllWardrobeItems]);
 
-  useEffect(() => { void loadWardrobeHistory(); }, [loadWardrobeHistory]);
+  useEffect(() => {
+    let active = true;
+    void loadWardrobeHistory().catch(() => { if (active) setWardrobeLoadError(true); });
+    return () => { active = false; };
+  }, [loadWardrobeHistory]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -314,7 +315,10 @@ export default function ProfileScreen() {
       {(dataUnavailable || entitlementUnavailable) && <AmodkaErrorState type="network" onRetry={retryInitialization} />}
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {wardrobeLoadError && (
-          <Pressable onPress={() => { void loadWardrobeHistory(); }} accessibilityRole="button">
+          <Pressable onPress={() => {
+            setWardrobeLoadError(false);
+            void loadWardrobeHistory().catch(() => setWardrobeLoadError(true));
+          }} accessibilityRole="button">
             <Text style={styles.aiPreferenceError}>Wardrobe item details could not be loaded. Tap to retry.</Text>
           </Pressable>
         )}

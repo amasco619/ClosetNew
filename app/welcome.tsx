@@ -45,12 +45,16 @@ function GlassButton({ label, subLabel, iconName, variant, onPress, delay }: Gla
         ? Haptics.ImpactFeedbackStyle.Medium
         : Haptics.ImpactFeedbackStyle.Light,
     );
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue writes are imperative press animations.
     scale.value = withSpring(0.97, { damping: 15, stiffness: 300 });
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue writes are imperative press animations.
     opacity.value = withSpring(0.85, { damping: 15, stiffness: 300 });
   };
 
   const onPressOut = () => {
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue writes are imperative press animations.
     scale.value = withSpring(1, { damping: 15, stiffness: 300 });
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue writes are imperative press animations.
     opacity.value = withSpring(1, { damping: 15, stiffness: 300 });
   };
 

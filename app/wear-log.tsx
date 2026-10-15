@@ -106,30 +106,29 @@ function DividendCard({ dividend }: { dividend: DividendItem }) {
 export default function WearLogScreen() {
   const insets = useSafeAreaInsets();
   const { wearHistory, undoWear, wardrobeItems, wardrobeTotalCount, wardrobeHasMore, loadAllWardrobeItems, isPremium, getItemWearCount } = useApp();
-  const [wardrobeLoadError, setWardrobeLoadError] = useState(false);
-  const [wardrobeLoading, setWardrobeLoading] = useState(true);
+  const [wardrobeLoadFailureKey, setWardrobeLoadFailureKey] = useState<string | null>(null);
+  const [loadedWardrobeKey, setLoadedWardrobeKey] = useState<string | null>(null);
   const [loadRetry, setLoadRetry] = useState(0);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
+  const wardrobeLoadKey = JSON.stringify([wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
+  const wardrobeLoading = !wardrobeDataComplete && loadedWardrobeKey !== wardrobeLoadKey;
+  const wardrobeLoadError = wardrobeLoadFailureKey === wardrobeLoadKey;
   useEffect(() => {
     let active = true;
     if (wardrobeDataComplete) {
-      setWardrobeLoading(false);
-      setWardrobeLoadError(false);
       return () => { active = false; };
     }
-    setWardrobeLoading(true);
-    setWardrobeLoadError(false);
     loadAllWardrobeItems()
-      .catch(() => { if (active) setWardrobeLoadError(true); })
+      .catch(() => { if (active) setWardrobeLoadFailureKey(wardrobeLoadKey); })
       .finally(() => {
         if (active) {
-          if (!wardrobeDataComplete) setWardrobeLoadError(true);
-          setWardrobeLoading(false);
+          if (!wardrobeDataComplete) setWardrobeLoadFailureKey(wardrobeLoadKey);
+          setLoadedWardrobeKey(wardrobeLoadKey);
         }
       });
     return () => { active = false; };
-  }, [loadAllWardrobeItems, wardrobeDataComplete, wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
+  }, [loadAllWardrobeItems, wardrobeDataComplete, wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry, wardrobeLoadKey]);
 
   const cutoff = (() => {
     if (isPremium) return null;
@@ -175,7 +174,7 @@ export default function WearLogScreen() {
         ) : (
           <Pressable
             accessibilityRole="button"
-            onPress={() => { setWardrobeLoadError(false); setLoadRetry(count => count + 1); }}
+            onPress={() => { setLoadRetry(count => count + 1); }}
             style={styles.wardrobeLoadError}
           >
             <Text style={styles.wardrobeLoadErrorText}>

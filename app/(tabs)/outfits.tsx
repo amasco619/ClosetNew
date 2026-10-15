@@ -9,7 +9,7 @@ import { useApp, OutfitSet, OutfitComponent } from '@/contexts/AppContext';
 import { usesConfirmedCoordinatedSet } from '../../lib/stylingRelationships';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
 import { OccasionTag, WearEntry, MoodGoal, ReactionType, WardrobeItem } from '@/constants/types';
 import * as Haptics from 'expo-haptics';
 import { captureRef } from 'react-native-view-shot';
@@ -500,30 +500,29 @@ export default function OutfitsScreen() {
     getItemWearCount,
   } = useApp();
   const [cpwToast, setCpwToast] = useState<{ text: string } | null>(null);
-  const [wardrobeLoadError, setWardrobeLoadError] = useState(false);
-  const [wardrobeLoading, setWardrobeLoading] = useState(true);
+  const [wardrobeLoadFailureKey, setWardrobeLoadFailureKey] = useState<string | null>(null);
+  const [loadedWardrobeKey, setLoadedWardrobeKey] = useState<string | null>(null);
   const [loadRetry, setLoadRetry] = useState(0);
   const cpwToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
+  const wardrobeLoadKey = JSON.stringify([wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
+  const wardrobeLoading = !wardrobeDataComplete && loadedWardrobeKey !== wardrobeLoadKey;
+  const wardrobeLoadError = wardrobeLoadFailureKey === wardrobeLoadKey;
   useEffect(() => {
     let active = true;
     if (wardrobeDataComplete) {
-      setWardrobeLoading(false);
-      setWardrobeLoadError(false);
       return () => { active = false; };
     }
-    setWardrobeLoading(true);
-    setWardrobeLoadError(false);
     loadAllWardrobeItems()
-      .catch(() => { if (active) setWardrobeLoadError(true); })
+      .catch(() => { if (active) setWardrobeLoadFailureKey(wardrobeLoadKey); })
       .finally(() => {
         if (active) {
-          if (!wardrobeDataComplete) setWardrobeLoadError(true);
-          setWardrobeLoading(false);
+          if (!wardrobeDataComplete) setWardrobeLoadFailureKey(wardrobeLoadKey);
+          setLoadedWardrobeKey(wardrobeLoadKey);
         }
       });
     return () => { active = false; };
-  }, [loadAllWardrobeItems, wardrobeDataComplete, wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
+  }, [loadAllWardrobeItems, wardrobeDataComplete, wardrobeLoadKey]);
 
   function handleLogWear(outfit: OutfitSet) {
     logWear(outfit);
@@ -560,13 +559,11 @@ export default function OutfitsScreen() {
   const requestVersion = useRef(0);
   const intentRef = useRef<ConciergeIntent | null>(null);
   const identityRef = useRef({ isAuthenticated, authenticatedUserId });
-  identityRef.current = { isAuthenticated, authenticatedUserId };
   const actor = isAuthenticated ? authenticatedUserId : null;
-  const previousActor = useRef(actor);
-  if (previousActor.current !== actor) {
-    previousActor.current = actor;
+  useLayoutEffect(() => {
     requestVersion.current += 1;
-  }
+    identityRef.current = { isAuthenticated, authenticatedUserId };
+  }, [actor, isAuthenticated, authenticatedUserId]);
   const clearConcierge = useCallback(() => {
     requestVersion.current += 1;
     if (intentRef.current) setSelectedScenario('casual');
@@ -575,11 +572,19 @@ export default function OutfitsScreen() {
     setPlannerOpen(false);
   }, []);
   useFocusEffect(useCallback(() => () => { clearConcierge(); }, [clearConcierge]));
-  useEffect(() => { clearConcierge(); }, [actor, clearConcierge]);
+  useEffect(() => {
+    // Clear account-specific planning state after the identity changes; the
+    // render-time authorization gate already hides it before this cleanup.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Identity changes must revoke the previous account's transient concierge state.
+    clearConcierge();
+  }, [actor, clearConcierge]);
   const conciergeAuthorized = !!conciergePlan && isAuthenticated &&
     authenticatedUserId === conciergePlan.owner && isPremium && !entitlementUnavailable;
   useEffect(() => {
-    if (conciergePlan && !conciergeAuthorized) clearConcierge();
+    if (conciergePlan && !conciergeAuthorized) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Entitlement loss must discard the in-memory premium plan.
+      clearConcierge();
+    }
   }, [conciergePlan, conciergeAuthorized, clearConcierge]);
 
   async function verifyConcierge(intent?: ConciergeIntent) {
@@ -629,6 +634,7 @@ export default function OutfitsScreen() {
       wardrobeLoading ||
       wardrobeLoadError
     ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear premium-only styling data as soon as its access prerequisites are lost.
       setTraditionalLoading(false);
       setTraditionalResolved(false);
       setTraditionalError(false);
@@ -727,7 +733,7 @@ export default function OutfitsScreen() {
             {planningState === 'failure' && <Pressable testID="concierge-result-retry" accessibilityRole="button"
               onPress={() => {
                 if (dataUnavailable || startupError) retryInitialization();
-                else { setWardrobeLoadError(false); setLoadRetry(count => count + 1); setTraditionalRetry(count => count + 1); }
+                else { setLoadRetry(count => count + 1); setTraditionalRetry(count => count + 1); }
               }} style={{ minHeight: 44, justifyContent: 'center' }}>
               <Text style={styles.premiumStripTitle}>Try again</Text>
             </Pressable>}
@@ -787,7 +793,7 @@ export default function OutfitsScreen() {
         ) : (
           <Pressable
             accessibilityRole="button"
-            onPress={() => { setWardrobeLoadError(false); setLoadRetry(count => count + 1); }}
+            onPress={() => { setLoadRetry(count => count + 1); }}
             style={styles.wardrobeLoadError}
           >
             <Text style={styles.wardrobeLoadErrorText}>

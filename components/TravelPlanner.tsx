@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { useFocusEffect, router } from 'expo-router';
 import { useApp } from '@/contexts/AppContext';
@@ -19,12 +19,16 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
   // An outage changes AppContext's tier projection, not the underlying wardrobe.
   // Retain only the last authorized projection; it never bypasses the access gate.
   const catalogue = JSON.stringify([travelWardrobeRevision(app.activeWardrobeItems), app.outfitSets]);
-  const authorizedCatalogue = useRef({ owner, catalogue });
-  if (authorizedCatalogue.current.owner !== owner || (app.isPremium && !app.entitlementUnavailable)) {
-    authorizedCatalogue.current = { owner, catalogue };
-  }
+  const [authorizedCatalogue, setAuthorizedCatalogue] = useState({ owner, catalogue });
+  useEffect(() => {
+    if (authorizedCatalogue.owner !== owner || (app.isPremium && !app.entitlementUnavailable)) {
+      // Keep the last confirmed premium projection through an entitlement outage.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- This preserves an authorized snapshot while AppContext temporarily projects the free tier.
+      setAuthorizedCatalogue({ owner, catalogue });
+    }
+  }, [authorizedCatalogue.owner, owner, catalogue, app.isPremium, app.entitlementUnavailable]);
   const revision = JSON.stringify([owner, travelWardrobeRevision(app.wardrobeItems),
-    authorizedCatalogue.current.catalogue, app.profile, app.weather]);
+    authorizedCatalogue.catalogue, app.profile, app.weather]);
   const [days, setDays] = useState(1);
   const [slots, setSlots] = useState<TravelSlot[]>([{ id: 'slot-1', day: 1, activity: 'casual' }]);
   const [selected, setSelected] = useState<string | null>('slot-1');
@@ -34,21 +38,20 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
   const [choices, setChoices] = useState<TravelLook[]>([]);
   const [packed, setPacked] = useState<string[]>([]);
   const [essentials, setEssentials] = useState<string[]>([]);
+  const [verifiedRevision, setVerifiedRevision] = useState<string | null>(null);
   const sequence = useRef(1);
   const request = useRef(0);
   const groupRevision = useRef<string | null>(null);
-  const verifiedRevision = useRef<string | null>(null);
   const mounted = useRef(true);
   const busy = useRef(false);
   const latest = useRef({ app, owner, revision, complete, failed, slots, selected });
-  latest.current = { app, owner, revision, complete, failed, slots, selected };
-  const identity = useRef(revision);
-  if (identity.current !== revision) {
-    identity.current = revision;
+  useLayoutEffect(() => {
+    latest.current = { app, owner, revision, complete, failed, slots, selected };
+  }, [app, owner, revision, complete, failed, slots, selected]);
+  useLayoutEffect(() => {
     request.current++;
-    verifiedRevision.current = null;
     busy.current = false;
-  }
+  }, [revision]);
 
   const clearProtected = useCallback(() => {
     setSlots(current => current.map(({ look, ...slot }) => slot));
@@ -56,7 +59,6 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
     setEssentials([]);
     setChoices([]);
     setNotice(null);
-    verifiedRevision.current = null;
   }, []);
   const resetDraft = useCallback(() => {
     clearProtected();
@@ -73,19 +75,23 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
   useFocusEffect(useCallback(() => () => { close(); }, [close]));
   useEffect(() => () => { mounted.current = false; request.current++; }, []);
   useEffect(() => {
+    // Clear the protected draft when its source data or owner changes; the
+    // authorization check below hides it in the render that sees the change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- This clears sensitive derived draft state after source identity changes.
     clearProtected();
     groupRevision.current = null;
     setAccess(owner ? 'checking' : 'sign-in');
   }, [revision, owner, clearProtected]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- A draft must not survive switching account owners.
     resetDraft();
   }, [owner, resetDraft]);
 
-  // The ref guard hides protected output immediately, before effect cleanup.
+  // The revision and access gates hide protected output before effects run.
   const allowed = !!owner && complete && !failed && app.isPremium && !app.entitlementUnavailable &&
-    verifiedRevision.current === revision;
+    access === 'ready' && verifiedRevision === revision;
 
-  async function verify(pick?: { key: string; reuse: boolean; slotId: string }) {
+  const verify = useCallback(async (pick?: { key: string; reuse: boolean; slotId: string }) => {
     if (busy.current) return;
     const start = latest.current;
     const version = ++request.current;
@@ -156,7 +162,7 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
       if ([...revalidated.values()].some(look => !look)) setPacked([]);
       setChoices(available);
       setNotice(traditionalNotice);
-      verifiedRevision.current = start.revision;
+      setVerifiedRevision(start.revision);
       setAccess('ready');
       if (pick && !changed) {
         const chosen = available.find(look => look.key === pick.key);
@@ -174,38 +180,41 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
     } finally {
       if (request.current === version) busy.current = false;
     }
-  }
-  const verifyRef = useRef(verify);
-  verifyRef.current = verify;
+  }, [clearProtected, resetDraft]);
   const activity = slots.find(s => s.id === selected)?.activity;
+  const hadPremium = useRef(app.isPremium);
   useEffect(() => {
     request.current++;
     busy.current = false;
-    setChoices([]);
-    setNotice(null);
     if (app.entitlementUnavailable) {
-      verifiedRevision.current = null;
-      setAccess('unavailable');
-      setMessage('Verification or styling is unavailable. Your draft is paused; please retry.');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Invalidate the last verified entitlement so restored access always triggers a new check.
+      setVerifiedRevision(null);
       return;
     }
     // Let the confirmed-loss effect reset the draft; do not immediately
     // supersede that revocation with an automatic recovery request.
     if (!app.isPremium && hadPremium.current) return;
-    void verifyRef.current();
-  }, [revision, complete, failed, selected, activity, app.isPremium, app.entitlementUnavailable]);
-  const hadPremium = useRef(app.isPremium);
+    void verify();
+  }, [revision, complete, failed, selected, activity, app.isPremium, app.entitlementUnavailable, verify]);
   useEffect(() => {
-    if (!owner) { clearProtected(); setAccess('sign-in'); return; }
+    if (!owner) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Remove prior-owner data immediately after the account identity changes.
+      clearProtected();
+      return;
+    }
     if (!app.isPremium && !app.entitlementUnavailable && hadPremium.current) {
       request.current++;
       busy.current = false;
       resetDraft();
       setAccess('not-entitled');
     }
-    // An outage must not erase the fact that a protected draft was granted.
-    if (!app.entitlementUnavailable) hadPremium.current = app.isPremium;
   }, [owner, app.isPremium, app.entitlementUnavailable, clearProtected, resetDraft]);
+  useEffect(() => {
+    // An outage must not erase the fact that a protected draft was granted.
+    if (!app.entitlementUnavailable) {
+      hadPremium.current = app.isPremium;
+    }
+  }, [app.isPremium, app.entitlementUnavailable]);
   useEffect(() => {
     // Bounded read-only freshness path for edits in another screen/session.
     const timer = setInterval(() => {
@@ -225,7 +234,6 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
       }).catch(() => {
         if (!mounted.current || version !== request.current || latest.current.revision !== start.revision) return;
         request.current++;
-        verifiedRevision.current = null;
         setAccess('failure');
         setMessage('Could not verify garment-group membership. Please retry.');
       });
@@ -234,12 +242,11 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
       if (state === 'active') {
         request.current++;
         busy.current = false;
-        verifiedRevision.current = null;
-        void verifyRef.current();
+      void verify();
       }
     });
     return () => { clearInterval(timer); subscription.remove(); };
-  }, [clearProtected]);
+  }, [clearProtected, verify]);
 
   function edit(action: () => void) {
     if (!allowed || access !== 'ready') return;
@@ -247,10 +254,14 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
     busy.current = false;
     action();
   }
-  const visibleAccess: TravelAccess = !owner ? 'sign-in' : failed || access === 'failure' ? 'failure' : !complete ? 'loading'
+  const visibleAccess: TravelAccess = !owner ? 'sign-in' : app.entitlementUnavailable ? 'unavailable' :
+    failed || access === 'failure' ? 'failure' : !complete ? 'loading'
     : access === 'ready' && !allowed ? 'checking' : access;
+  const visibleMessage = app.entitlementUnavailable
+    ? 'Verification or styling is unavailable. Your draft is paused; please retry.'
+    : message;
   return <TravelPlannerView
-    access={visibleAccess} message={message} notice={allowed ? notice : null}
+    access={visibleAccess} message={visibleMessage} notice={allowed ? notice : null}
     days={days} slots={allowed && access === 'ready' ? slots : []} selectedSlotId={selected}
     choices={allowed && access === 'ready' ? choices : []}
     checklist={allowed && access === 'ready' ? travelChecklist(slots, app.activeWardrobeItems) : []}
@@ -295,17 +306,16 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
       const current = () => mounted.current && request.current === version &&
         latest.current.owner === start.owner && latest.current.revision === start.revision;
       busy.current = false;
-      verifiedRevision.current = null;
       if (failed) app.retryInitialization();
       if (!complete) {
         setAccess('loading');
         void app.loadAllWardrobeItems().then(() => {
-          if (current()) void verifyRef.current();
+          if (current()) void verify();
         }).catch(() => {
           if (current()) { setAccess('failure'); setMessage('Could not load the full wardrobe. Please retry.'); }
         });
       } else {
-        void verifyRef.current();
+        void verify();
       }
     }}
     onClose={close}

@@ -115,14 +115,14 @@ const SAVE_STAGES = [
 type SaveStage = typeof SAVE_STAGES[number]['key'] | null;
 
 function AnimatedSegment({ isActive }: { isActive: boolean }) {
-  const segWidth = useRef(0);
+  const [segWidth, setSegWidth] = useState(0);
   const fillWidth = useSharedValue(0);
 
   useEffect(() => {
-    if (isActive && segWidth.current > 0) {
-      fillWidth.value = withTiming(segWidth.current, { duration: 260 });
+    if (isActive && segWidth > 0) {
+      fillWidth.value = withTiming(segWidth, { duration: 260 });
     }
-  }, [isActive]);
+  }, [isActive, segWidth]);
 
   const fillStyle = useAnimatedStyle(() => ({ width: fillWidth.value }));
 
@@ -130,8 +130,7 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
     <View
       style={{ flex: 1, height: 3, borderRadius: 2, backgroundColor: Colors.border, overflow: 'hidden' }}
       onLayout={e => {
-        segWidth.current = e.nativeEvent.layout.width;
-        if (isActive) fillWidth.value = withTiming(segWidth.current, { duration: 260 });
+        setSegWidth(e.nativeEvent.layout.width);
       }}
     >
       <Animated.View
@@ -281,7 +280,7 @@ export default function AddItemScreen() {
   const [showAiConsent, setShowAiConsent] = useState(false);
   const [savingAiPreference, setSavingAiPreference] = useState(false);
   const [aiPreferenceError, setAiPreferenceError] = useState<string | null>(null);
-  const pendingAiAsset = useRef<ImagePicker.ImagePickerAsset | null>(null);
+  const [pendingAiAsset, setPendingAiAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const saveConfirmOpenRef = useRef(false);
   const saveMountedRef = useRef(true);
   useEffect(() => {
@@ -303,6 +302,7 @@ export default function AddItemScreen() {
 
   useEffect(() => {
     const next = SAVE_STAGES.find(s => s.key === saveStage)?.label ?? 'Saving…';
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue drives the label transition outside React state.
     stageLabelOpacity.value = withTiming(0, { duration: 110 }, (finished) => {
       if (finished) {
         runOnJS(setDisplayedLabel)(next);
@@ -361,9 +361,13 @@ export default function AddItemScreen() {
    */
   const finishClassifying = (success: boolean) => {
     cancelAnimation(shimmerOffset);
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue resets the animation before playing its completion state.
     shimmerOffset.value = 0;
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue sets the completion animation color.
     completionIsError.value = success ? 0 : 1;
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue resets the completion animation.
     completionFillWidth.value = 0;
+    // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue resets the completion animation.
     cardFadeOpacity.value = 1;
     setClassifying(false);
     setClassifyFlash(success ? 'success' : 'error');
@@ -608,19 +612,21 @@ export default function AddItemScreen() {
         setStep(1);
 
         setClassifyFlash('none');
+        // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValues reset the previous completion animation before a new photo is shown.
         cardFadeOpacity.value = 1;
+        // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValues reset the previous completion animation before a new photo is shown.
         completionFillWidth.value = 0;
         if (!preferenceChecked) {
           try {
             const preference = await getAiProcessingPreference();
             setAiPreference(preference);
             if (preference !== 'allowed') {
-              pendingAiAsset.current = asset;
+              setPendingAiAsset(asset);
               if (preference === 'not_asked') setShowAiConsent(true);
               return;
             }
           } catch {
-            pendingAiAsset.current = asset;
+            setPendingAiAsset(asset);
             setAiPreferenceError('Your AI preference could not be checked. This photo has not been sent.');
             return;
           }
@@ -780,7 +786,7 @@ export default function AddItemScreen() {
   };
 
   const allowAiForCurrentPhoto = async () => {
-    const asset = pendingAiAsset.current;
+    const asset = pendingAiAsset;
     if (!asset || savingAiPreference) return;
     setSavingAiPreference(true);
     setAiPreferenceError(null);
@@ -810,7 +816,7 @@ export default function AddItemScreen() {
   };
 
   const retryAiForCurrentPhoto = async () => {
-    const asset = pendingAiAsset.current;
+    const asset = pendingAiAsset;
     if (!asset || savingAiPreference) return;
     setAiPreferenceError(null);
     try {
@@ -1108,9 +1114,9 @@ export default function AddItemScreen() {
                 {aiPreferenceError && <Text style={styles.aiPausedError}>{aiPreferenceError}</Text>}
                 <Pressable
                   accessibilityRole="button"
-                  disabled={savingAiPreference || !pendingAiAsset.current}
+                  disabled={savingAiPreference || !pendingAiAsset}
                   onPress={retryAiForCurrentPhoto}
-                  style={({ pressed }) => [styles.aiPausedAction, (savingAiPreference || !pendingAiAsset.current) && { opacity: 0.5 }, pressed && { opacity: 0.75 }]}
+                  style={({ pressed }) => [styles.aiPausedAction, (savingAiPreference || !pendingAiAsset) && { opacity: 0.5 }, pressed && { opacity: 0.75 }]}
                 >
                   <Text style={styles.aiPausedActionText}>Use AI for this photo</Text>
                 </Pressable>

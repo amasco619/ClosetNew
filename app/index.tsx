@@ -72,6 +72,7 @@ export default function IndexScreen() {
     };
 
     const fadeOutThenNavigate = (path: string) => {
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated SharedValue writes are imperative animation commands, not React state mutations.
       containerOpacity.value = withTiming(
         0,
         { duration: 180, easing: Easing.in(Easing.ease) },

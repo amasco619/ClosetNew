@@ -17,6 +17,7 @@ export function AiProcessingConsent({
 }) {
   const [learnMore, setLearnMore] = useState(false);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset modal-only disclosure state whenever the consent modal closes.
     if (!visible) setLearnMore(false);
   }, [visible]);
 

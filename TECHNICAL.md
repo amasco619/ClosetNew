@@ -431,6 +431,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 | `npm test` | Run all 90 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
+| `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
 | `npm run hooks:install` | Re-install or update the git pre-commit hook |
 | `npm run server:dev` | Start the Express server with hot-reload via tsx |
 
@@ -2121,6 +2122,7 @@ Google Play (and App Store) require a web URL where users can request account/da
 | **Stable sorts** | All sort operations use an original-index tie-breaker to guarantee deterministic output across JS runtimes |
 | **Responsive font sizes** | All `fontSize` values use `rs(n)` from `lib/responsive.ts` (moderate scale, factor 0.35, baseline 390pt). Never use a raw numeric literal for `fontSize` in StyleSheet. |
 | **Mood/scenario chip rows** | Horizontal `ScrollView` filter rows must have `minHeight` on the scroll container **and** `alignItems: 'flex-start'` on `contentContainerStyle` — never `alignItems: 'center'`, which collapses the view height on some devices. |
+| **SDK 57 lint exceptions** | Do not disable React hook/compiler rules globally. Fix lifecycle and render-time ref issues; any unavoidable exception must be line-specific and explain the platform or security reason beside the suppression. |
 | **Update TECHNICAL.md** | Every code change that affects architecture, endpoints, file structure, packages, tests, or conventions must update TECHNICAL.md in the same commit |
 
 ---

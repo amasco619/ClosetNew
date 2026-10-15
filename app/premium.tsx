@@ -56,12 +56,14 @@ export default function PremiumScreen() {
     generation: 0,
   });
   const currentUserId = isAuthenticated ? authenticatedUserId : null;
-  if (currentIdentityRef.current.userId !== currentUserId) {
-    currentIdentityRef.current = {
-      userId: currentUserId,
-      generation: currentIdentityRef.current.generation + 1,
-    };
-  }
+  React.useLayoutEffect(() => {
+    if (currentIdentityRef.current.userId !== currentUserId) {
+      currentIdentityRef.current = {
+        userId: currentUserId,
+        generation: currentIdentityRef.current.generation + 1,
+      };
+    }
+  }, [currentUserId]);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const availability = getBillingAvailability();
 

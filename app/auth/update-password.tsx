@@ -26,7 +26,12 @@ export default function UpdatePasswordScreen() {
   const [newPasswordError, setNewPasswordError] = useState<string | null>(null)
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
-  const [recoveryStatus, setRecoveryStatus] = useState<'preparing' | 'ready' | 'invalid'>('preparing')
+  const [recoveryResult, setRecoveryResult] = useState<{
+    callbackKey: string;
+    status: 'ready' | 'invalid';
+  } | null>(null)
+  const callbackKey = JSON.stringify([callback.code, callback.type, callback.error])
+  const recoveryStatus = recoveryResult?.callbackKey === callbackKey ? recoveryResult.status : 'preparing'
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [showNew, setShowNew] = useState(false)
@@ -36,21 +41,20 @@ export default function UpdatePasswordScreen() {
 
   useEffect(() => {
     let active = true
-    setRecoveryStatus('preparing')
     async function prepare() {
       await prepareRecoverySession(
         { code: callback.code, type: callback.type, error: callback.error },
         createPasswordRecoverySessionFromUrl,
         () => supabase.auth.getClaims(),
       )
-      if (active) setRecoveryStatus('ready')
+      if (active) setRecoveryResult({ callbackKey, status: 'ready' })
     }
 
     prepare().catch(() => {
-      if (active) setRecoveryStatus('invalid')
+      if (active) setRecoveryResult({ callbackKey, status: 'invalid' })
     })
     return () => { active = false }
-  }, [callback.code, callback.error, callback.type])
+  }, [callback.code, callback.error, callback.type, callbackKey])
 
   const validateNewPassword = () => {
     const err = validatePassword(newPassword)

@@ -13,12 +13,20 @@ export default function ChooseThirtyScreen() {
     wardrobeItems, wardrobeTotalCount, wardrobeHasMore, freeSelectedItemIds,
     loadAllWardrobeItems, setFreeWardrobeSelection,
   } = useApp();
-  const [selectedIds, setSelectedIds] = useState<string[]>(freeSelectedItemIds);
-  const [loading, setLoading] = useState(true);
+  const selectionKey = JSON.stringify(freeSelectedItemIds);
+  const [selectionDraft, setSelectionDraft] = useState({
+    source: selectionKey,
+    ids: freeSelectedItemIds,
+  });
+  const selectedIds = selectionDraft.source === selectionKey ? selectionDraft.ids : freeSelectedItemIds;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadRetry, setLoadRetry] = useState(0);
   const dataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
+  const loadKey = JSON.stringify([wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
+  const [loadedWardrobeKey, setLoadedWardrobeKey] = useState<string | null>(null);
+  const [wardrobeLoadFailureKey, setWardrobeLoadFailureKey] = useState<string | null>(null);
+  const loading = !dataComplete && loadedWardrobeKey !== loadKey;
   const items = useMemo(
     () => [...wardrobeItems].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [wardrobeItems],
@@ -28,46 +36,42 @@ export default function ChooseThirtyScreen() {
     () => selectedIds.filter(id => availableIds.has(id)),
     [availableIds, selectedIds],
   );
+  const visibleError = wardrobeLoadFailureKey === loadKey ? error : null;
 
   useEffect(() => {
     let active = true;
     if (dataComplete) {
-      setLoading(false);
-      setError(null);
       return () => { active = false; };
     }
-    setLoading(true);
-    setError(null);
     loadAllWardrobeItems()
       .catch(() => {
-        if (active) setError('Your wardrobe could not be loaded. Check your connection and try again.');
+        if (active) {
+          setWardrobeLoadFailureKey(loadKey);
+          setError('Your wardrobe could not be loaded. Check your connection and try again.');
+        }
       })
       .finally(() => {
         if (active) {
-          if (!dataComplete) setError(current => current ?? 'Your full wardrobe is not available yet. Tap to retry.');
-          setLoading(false);
+          if (!dataComplete) {
+            setWardrobeLoadFailureKey(loadKey);
+            setError(current => current ?? 'Your full wardrobe is not available yet. Tap to retry.');
+          }
+          setLoadedWardrobeKey(loadKey);
         }
       });
     return () => { active = false; };
-  }, [dataComplete, loadAllWardrobeItems, wardrobeHasMore, wardrobeItems.length, loadRetry, wardrobeTotalCount]);
-
-  useEffect(() => {
-    setSelectedIds(freeSelectedItemIds);
-  }, [freeSelectedItemIds]);
-
-  useEffect(() => {
-    if (dataComplete) {
-      setSelectedIds(current => current.filter(id => availableIds.has(id)));
-    }
-  }, [availableIds, dataComplete]);
+  }, [dataComplete, loadAllWardrobeItems, wardrobeHasMore, wardrobeItems.length, loadRetry, wardrobeTotalCount, loadKey]);
 
   const toggleItem = (item: WardrobeItem) => {
     setError(null);
-    setSelectedIds(current => {
-      const valid = current.filter(id => availableIds.has(id));
-      if (valid.includes(item.id)) return valid.filter(id => id !== item.id);
-      if (valid.length >= 30) return valid;
-      return [...valid, item.id];
+    setSelectionDraft(current => {
+      const source = current.source === selectionKey ? current.ids : freeSelectedItemIds;
+      const valid = source.filter(id => availableIds.has(id));
+      if (valid.includes(item.id)) {
+        return { source: selectionKey, ids: valid.filter(id => id !== item.id) };
+      }
+      if (valid.length >= 30) return { source: selectionKey, ids: valid };
+      return { source: selectionKey, ids: [...valid, item.id] };
     });
   };
 
@@ -108,7 +112,7 @@ export default function ChooseThirtyScreen() {
           <ActivityIndicator color={Colors.secondary} />
           <Text style={styles.loadingText}>Loading your wardrobe…</Text>
         </View>
-      ) : error || !dataComplete ? (
+      ) : visibleError || !dataComplete ? (
         <Pressable
           accessibilityRole="button"
           onPress={() => { setError(null); setLoadRetry(count => count + 1); }}
@@ -116,7 +120,7 @@ export default function ChooseThirtyScreen() {
         >
           <Ionicons name="refresh-outline" size={20} color={Colors.secondary} />
           <Text accessibilityRole="alert" style={styles.error}>
-            {error ?? 'Your full wardrobe is not available yet.'} Tap to retry.
+            {visibleError ?? 'Your full wardrobe is not available yet.'} Tap to retry.
           </Text>
         </Pressable>
       ) : (
