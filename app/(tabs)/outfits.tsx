@@ -505,7 +505,7 @@ export default function OutfitsScreen() {
   const [loadRetry, setLoadRetry] = useState(0);
   const cpwToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
-  const wardrobeLoadKey = JSON.stringify([wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
+  const wardrobeLoadKey = JSON.stringify([authenticatedUserId, wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
   const wardrobeLoading = !wardrobeDataComplete && loadedWardrobeKey !== wardrobeLoadKey;
   const wardrobeLoadError = wardrobeLoadFailureKey === wardrobeLoadKey;
   useEffect(() => {

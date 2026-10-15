@@ -28,6 +28,7 @@ const model = {
   wardrobeItems: [] as unknown[],
   wardrobeTotalCount: 1,
   wardrobeHasMore: true,
+  authenticatedUserId: null as string | null,
   requests: [] as Deferred[],
   loadAllWardrobeItems: async () => {
     const request = model.requests.shift();
@@ -46,7 +47,7 @@ const model = {
     outfitSets: emptyArray,
     isPremium: false,
     isAuthenticated: false,
-    authenticatedUserId: null,
+    authenticatedUserId: model.authenticatedUserId,
     canAddItem: false,
     lastAddedSuggestions: emptyArray,
     clearLastAddedSuggestions: noop,
@@ -274,6 +275,87 @@ async function main() {
     }
     await React.act(async () => mounted.unmount());
     console.log(`${screenCase.name}: failure, retry-pending, stale-request protection and recovery passed`);
+  }
+
+  for (const screenCase of screens) {
+    model.authenticatedUserId = 'account-A';
+    model.wardrobeItems = [];
+    model.wardrobeTotalCount = 1;
+    model.wardrobeHasMore = true;
+    model.requests = [];
+    const Screen = await loadScreen(screenCase.entry);
+    let mounted!: Mounted;
+    const element = () => React.createElement(Screen);
+    const text = (fragment: string) => mounted.root.findAllByType('Text')
+      .some(node => words(node).toLowerCase().includes(fragment.toLowerCase()));
+    const button = (fragment: string) => {
+      const found = mounted.root.findAllByType('Pressable').find(node =>
+        words(node).toLowerCase().includes(fragment.toLowerCase()));
+      assert.ok(found, `${screenCase.name}: load control is visible for the active account`);
+      return found;
+    };
+    const press = async (fragment: string) => React.act(async () => {
+      (button(fragment).props.onPress as () => void)();
+    });
+    const rerender = async () => React.act(async () => { mounted.update(element()); });
+    const assertLoading = (message: string) => {
+      if (screenCase.name === 'Home' || screenCase.name === 'Wear Log') {
+        assert.ok(mounted.root.findAllByType('ActivityIndicator').length > 0, message);
+      } else {
+        assert.ok(text('loading your') || text('loading your full wardrobe'), message);
+      }
+    };
+
+    const accountARequest = deferred();
+    model.requests.push(accountARequest);
+    await React.act(async () => { mounted = renderer.create(element()); });
+    if (screenCase.name === 'Home') await press('Load styles');
+    assert.equal(model.requests.length, 0, `${screenCase.name}: account A request started`);
+
+    const accountBRequest = deferred();
+    model.authenticatedUserId = 'account-B';
+    model.requests.push(accountBRequest);
+    await rerender();
+    if (screenCase.name === 'Home') {
+      assert.ok(!text(screenCase.error), `${screenCase.name}: account B does not inherit account A's error`);
+      assert.notEqual(button('Load styles').props.disabled, true, `${screenCase.name}: account B can start its own load`);
+    } else {
+      assert.equal(model.requests.length, 0, `${screenCase.name}: same-count account switch starts a new request`);
+      assertLoading(`${screenCase.name}: account B starts in its own loading state`);
+    }
+
+    accountARequest.resolve();
+    await React.act(async () => { await accountARequest.promise; });
+    assert.ok(!text(screenCase.error), `${screenCase.name}: late account A success cannot set account B's error`);
+    if (screenCase.name === 'Home') {
+      assert.notEqual(button('Load styles').props.disabled, true, `${screenCase.name}: late account A success cannot leave account B loading`);
+      await press('Load styles');
+    } else {
+      assertLoading(`${screenCase.name}: late account A success cannot complete account B's load`);
+    }
+
+    const accountCRequest = deferred();
+    model.authenticatedUserId = 'account-C';
+    model.requests.push(accountCRequest);
+    await rerender();
+    if (screenCase.name === 'Home') await press('Load styles');
+    else assert.equal(model.requests.length, 0, `${screenCase.name}: account C starts its own request`);
+
+    accountBRequest.reject(new Error('late account B failure'));
+    await React.act(async () => { await accountBRequest.promise.catch(() => {}); });
+    assert.ok(!text(screenCase.error), `${screenCase.name}: late account B failure cannot show for account C`);
+    assertLoading(`${screenCase.name}: late account B failure cannot stop account C loading`);
+
+    model.wardrobeTotalCount = 0;
+    model.wardrobeHasMore = false;
+    await rerender();
+    accountCRequest.resolve();
+    await React.act(async () => { await accountCRequest.promise; });
+    await rerender();
+    assert.ok(!text(screenCase.error), `${screenCase.name}: account C completes without an old-account error`);
+    assert.equal(mounted.root.findAllByType('ActivityIndicator').length, 0, `${screenCase.name}: account C completion clears loading`);
+    await React.act(async () => mounted.unmount());
+    console.log(`${screenCase.name}: same-count account switches ignore late success and failure`);
   }
 }
 

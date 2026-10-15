@@ -105,13 +105,13 @@ function DividendCard({ dividend }: { dividend: DividendItem }) {
 
 export default function WearLogScreen() {
   const insets = useSafeAreaInsets();
-  const { wearHistory, undoWear, wardrobeItems, wardrobeTotalCount, wardrobeHasMore, loadAllWardrobeItems, isPremium, getItemWearCount } = useApp();
+  const { authenticatedUserId, wearHistory, undoWear, wardrobeItems, wardrobeTotalCount, wardrobeHasMore, loadAllWardrobeItems, isPremium, getItemWearCount } = useApp();
   const [wardrobeLoadFailureKey, setWardrobeLoadFailureKey] = useState<string | null>(null);
   const [loadedWardrobeKey, setLoadedWardrobeKey] = useState<string | null>(null);
   const [loadRetry, setLoadRetry] = useState(0);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
-  const wardrobeLoadKey = JSON.stringify([wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
+  const wardrobeLoadKey = JSON.stringify([authenticatedUserId, wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
   const wardrobeLoading = !wardrobeDataComplete && loadedWardrobeKey !== wardrobeLoadKey;
   const wardrobeLoadError = wardrobeLoadFailureKey === wardrobeLoadKey;
   useEffect(() => {

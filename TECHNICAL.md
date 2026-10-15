@@ -1336,7 +1336,7 @@ These features are **not yet implemented**. They are the next development priori
 | `freeWardrobeSelectionDb.test.ts` | Disposable PostgreSQL verification of capacity, expiry, role privileges, ownership, selection, concurrency, rollback and cascading deletion |
 | `freeWardrobeSelectionSql.test.ts` | Static contract checks for authenticated insert RPCs, selection, and ordering index |
 | `wardrobeDatabaseContract.test.ts` | Acknowledged item persistence, deterministic pagination, account isolation and selected-row loading contracts |
-| `wardrobeRetryScreens.test.ts` | Mounted Home, Outfits, Wear Log and Choose 30: load failure, retry-pending state, stale completion protection and successful recovery |
+| `wardrobeRetryScreens.test.ts` | Mounted Home, Outfits, Wear Log and Choose 30: load failure, retry-pending state, same-count account switches, stale success/failure protection and successful recovery |
 | `bulkCarousel.test.ts` | Bulk-review carousel scroll contract: index clamping, null FlatList ref guard, empty-list safety |
 | `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard in bulk-review: async state setters are not called after the component unmounts |
 | `bulkSaveLock.test.ts` | Save-lock ref in bulk-review: concurrent save attempts are blocked by the `saveLockRef` guard |

@@ -3,7 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useLayoutEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '@/contexts/AppContext';
 import { countRecommendedOutfits } from '@/constants/wardrobeBlueprint';
@@ -46,27 +46,35 @@ const LIFESTYLE_ICON: Record<string, React.ComponentProps<typeof Ionicons>['name
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const {
-    profile, wardrobeItems, activeWardrobeItems, wardrobeTotalCount, wardrobeHasMore, loadAllWardrobeItems, outfitSets, isPremium, canAddItem,
+    profile, authenticatedUserId, wardrobeItems, activeWardrobeItems, wardrobeTotalCount, wardrobeHasMore, loadAllWardrobeItems, outfitSets, isPremium, canAddItem,
     starterRecommendations, lifestyleSlotGroups, recommendationSlots, todaysWear, wearHistory,
     reactToOutfit, getOutfitReaction, logWear, undoWear, isWornToday,
     weather, weatherLoading, isGuest,
     orphanedItems, resolveOrphan,
     affinitySignalCount, affinityActive,
   } = useApp();
-  const [wardrobeLoadError, setWardrobeLoadError] = useState(false);
-  const [loadingStyles, setLoadingStyles] = useState(false);
+  const accountKey = JSON.stringify([authenticatedUserId, isGuest]);
+  const [wardrobeLoadErrorKey, setWardrobeLoadErrorKey] = useState<string | null>(null);
+  const [loadingStylesKey, setLoadingStylesKey] = useState<string | null>(null);
+  const activeAccountKeyRef = useRef(accountKey);
+  useLayoutEffect(() => {
+    activeAccountKeyRef.current = accountKey;
+  }, [accountKey]);
+  const wardrobeLoadError = wardrobeLoadErrorKey === accountKey;
+  const loadingStyles = loadingStylesKey === accountKey;
   const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
   const showWardrobeLoadError = wardrobeLoadError && !wardrobeDataComplete;
   const handleLoadStyles = async () => {
     if (loadingStyles) return;
-    setLoadingStyles(true);
-    setWardrobeLoadError(false);
+    const requestAccountKey = accountKey;
+    setLoadingStylesKey(requestAccountKey);
+    setWardrobeLoadErrorKey(null);
     try {
       await loadAllWardrobeItems();
     } catch {
-      setWardrobeLoadError(true);
+      if (activeAccountKeyRef.current === requestAccountKey) setWardrobeLoadErrorKey(requestAccountKey);
     } finally {
-      setLoadingStyles(false);
+      if (activeAccountKeyRef.current === requestAccountKey) setLoadingStylesKey(null);
     }
   };
   // Resolve the temperature unit: user override, or auto-detect from locale.

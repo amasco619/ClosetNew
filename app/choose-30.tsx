@@ -10,7 +10,7 @@ import Colors from '@/constants/colors';
 export default function ChooseThirtyScreen() {
   const insets = useSafeAreaInsets();
   const {
-    wardrobeItems, wardrobeTotalCount, wardrobeHasMore, freeSelectedItemIds,
+    authenticatedUserId, wardrobeItems, wardrobeTotalCount, wardrobeHasMore, freeSelectedItemIds,
     loadAllWardrobeItems, setFreeWardrobeSelection,
   } = useApp();
   const selectionKey = JSON.stringify(freeSelectedItemIds);
@@ -23,7 +23,7 @@ export default function ChooseThirtyScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loadRetry, setLoadRetry] = useState(0);
   const dataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
-  const loadKey = JSON.stringify([wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
+  const loadKey = JSON.stringify([authenticatedUserId, wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
   const [loadedWardrobeKey, setLoadedWardrobeKey] = useState<string | null>(null);
   const [wardrobeLoadFailureKey, setWardrobeLoadFailureKey] = useState<string | null>(null);
   const loading = !dataComplete && loadedWardrobeKey !== loadKey;
