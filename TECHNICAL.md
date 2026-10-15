@@ -2725,8 +2725,18 @@ retryable failures, never silently `[]`. Traditional requests reconcile group
 snapshots before/after the service. Assignments revalidate against current inputs;
 account/wardrobe/catalogue/profile/weather changes invalidate choices. Account
 changes and confirmed entitlement loss reset the entire draft, including days,
-activities, assignments, checklist ticks, essentials and candidate/notice state. Verification failure
-pauses protected review. Request revisions reject superseded/late responses.
+activities, assignments, checklist ticks, essentials and candidate/notice state.
+Verification failure pauses protected review without treating AppContext's
+temporary Free-tier projection as a wardrobe edit. The planner retains the last
+authorized catalogue revision alongside the underlying full wardrobe revision;
+actual wardrobe/catalogue changes still invalidate choices. Recovery waits for
+React's restored Premium projection, then revalidates every assignment's owned
+IDs, current public candidates and relationships before reopening review.
+Assigned Traditional looks are revalidated through the same dedicated service,
+even when the selected slot is generic. Invalid selections are discarded.
+Wardrobe retry success and failure callbacks check mounted state, owner, request
+version and revision; superseded completions cannot alter current access.
+Request revisions also reject superseded/late styling responses.
 
 A read-only 30-second group poll detects external membership edits; foreground
 rechecks authority/groups. Membership changes clear assignments; failed reads

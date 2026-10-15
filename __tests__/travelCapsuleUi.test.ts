@@ -23,6 +23,7 @@ let owner: string | null = 'owner', premium = true, unavailable = false, ready =
 let wardrobe = items, groups = [group], groupFailure = false, traditionalFailure = false;
 let authority: 'yes' | 'no' | 'error' = 'yes';
 let hold: Promise<void> | undefined, groupHold: Promise<void> | undefined;
+let wardrobeHold: Promise<void> | undefined;
 let checks = 0, reads = 0, traditionalCalls = 0, closed = 0, loads = 0;
 let focusCleanup: (() => void) | undefined, foreground: ((state: string) => void) | undefined;
 let poll: (() => void) | undefined;
@@ -31,12 +32,13 @@ const generic = [outfit('casual'), outfit('work')];
 const state = () => ({
   profile: { isGuest: false }, isAuthenticated: !!owner, authenticatedUserId: owner, isPremium: premium,
   entitlementUnavailable: unavailable, appReady: ready, isLoading: !ready, wardrobeHasMore: !ready,
-  wardrobeItems: wardrobe, activeWardrobeItems: wardrobe, wardrobeTotalCount: items.length,
-  startupError: failed, dataUnavailable: failed, weather: null, outfitSets: generic,
+  wardrobeItems: wardrobe, activeWardrobeItems: premium ? wardrobe : wardrobe.filter(item => item.id === 'shoes'),
+  wardrobeTotalCount: wardrobe.length,
+  startupError: failed, dataUnavailable: failed, weather: null, outfitSets: premium ? generic : [],
   refreshPremiumEntitlement: async (strict: boolean) => {
     assert.equal(strict, true); checks++;
     if (hold) await hold;
-    if (authority === 'error') { unavailable = true; throw new Error('unavailable'); }
+    if (authority === 'error') { premium = false; unavailable = true; throw new Error('unavailable'); }
     unavailable = false; premium = authority === 'yes'; return premium;
   },
   getStylingRecommendations: async (context: string) => {
@@ -45,7 +47,7 @@ const state = () => ({
     if (traditionalFailure) throw new Error('failed Traditional service');
     return { outfits: [outfit('traditional-event', ['top', 'partner', 'shoes'])], notice: 'Existing Traditional service notice' };
   },
-  loadAllWardrobeItems: async () => { loads++; },
+  loadAllWardrobeItems: async () => { loads++; if (wardrobeHold) await wardrobeHold; },
   retryInitialization: () => { loads++; },
   logWear: () => mutations.push('wear'), setTodayMood: () => mutations.push('mood'),
   reactToOutfit: () => mutations.push('reaction'), saveLook: () => mutations.push('saved'),
@@ -156,6 +158,18 @@ async function main() {
   assert.equal(protectedSnapshot(), baseline);
   assert.deepEqual(mutations, []);
 
+  // Recovery also revalidates assigned Traditional looks while a generic slot
+  // is selected, preserving the dedicated service's notice and source.
+  authority = 'error';
+  await click('travel-choice-0');
+  assert.equal(ids('travel-packed-top').length, 0);
+  const beforeRecovery = traditionalCalls;
+  authority = 'yes';
+  await click('travel-retry');
+  assert.ok(text('3 of 5 activities'));
+  assert.ok(traditionalCalls > beforeRecovery, 'revalidate Traditional assignments through their own service');
+  assert.ok(text('Existing Traditional service notice'));
+
   // A failed read is not an empty set list and cannot accept a selected look.
   groupFailure = true;
   await click('travel-choice-0');
@@ -174,8 +188,53 @@ async function main() {
   await click('travel-choice-0');
   assert.ok(text('1 of 5 activities'));
 
-  // Same owned ID with changed canonical truth still invalidates.
+  // Real AppContext failures also drop Premium's derived active wardrobe/catalogue.
+  // The canonical wardrobe did not change: retain the draft, hide it, then
+  // revalidate every assignment against the restored authorized source.
+  await click('travel-packed-top');
+  await click('travel-essential-0');
+  authority = 'error';
+  await click('travel-choice-0');
+  assert.equal(premium, false);
+  assert.equal(state().activeWardrobeItems.length, 1);
+  assert.equal(state().outfitSets.length, 0);
+  assert.ok(text('Verification or styling is unavailable'));
+  assert.equal(ids('travel-choice-0').length, 0);
+  assert.equal(ids('travel-packed-top').length, 0);
+  assert.equal(ids('travel-essential-0').length, 0);
+  authority = 'yes';
+  await click('travel-retry');
+  assert.ok(text('1 of 5 activities'), 'temporary tier projection must not erase assignments');
+  assert.equal(ids('travel-packed-top')[0].props['aria-checked'], true);
+  assert.equal(ids('travel-essential-0')[0].props['aria-checked'], true);
+
+  // Recovery cannot restore a look missing from the currently selected public catalogue.
+  authority = 'error';
+  await click('travel-choice-0');
+  const previousCasual = generic[0];
+  generic[0] = { ...previousCasual, components: [previousCasual.components[0]] };
+  authority = 'yes';
+  await click('travel-retry');
+  assert.ok(text('0 of 5 activities'), 'obsolete candidates cannot be restored after recovery');
+  assert.equal(ids('travel-packed-top').length, 0);
+  generic[0] = previousCasual;
+  await render();
+
+  // Underlying deletion is a genuine change, even during an outage.
+  await click('travel-choice-0');
+  authority = 'error';
+  await click('travel-choice-0');
+  wardrobe = wardrobe.filter(item => item.id !== 'top');
+  await render();
+  authority = 'yes';
+  await click('travel-retry');
+  assert.equal(ids('travel-packed-top').length, 0);
+  assert.equal(ids('travel-choice-0').length, 0, 'deleted active ID cannot be restored');
   wardrobe = items.map(item => ({ ...item, fabric: 'cotton' }));
+  await render();
+
+  // Same owned ID with changed canonical truth still invalidates.
+  wardrobe = items.map(item => ({ ...item, fabric: 'linen' }));
   await render();
   assert.ok(text('0 of 5 activities'));
   ready = false;
@@ -193,6 +252,31 @@ async function main() {
   failed = false;
   await render();
 
+  // Both completion paths of old wardrobe retries must be owner/request scoped.
+  for (const rejectOld of [true, false]) {
+    let finish!: () => void;
+    wardrobeHold = new Promise<void>((resolve, reject) => {
+      finish = rejectOld ? () => reject(new Error('old account wardrobe read failed')) : resolve;
+    });
+    owner = 'account-a';
+    ready = false;
+    await render();
+    await click('travel-retry');
+    owner = 'account-b';
+    ready = true;
+    wardrobeHold = undefined;
+    await render();
+    assert.ok(text('0 of 1 activities'));
+    await click('travel-choice-0');
+    assert.ok(text('1 of 1 activities'));
+    const verifiedChecks: number = checks;
+    await React.act(async () => { finish(); });
+    assert.ok(text('1 of 1 activities'), 'old account completion cannot replace B with failure or retry it');
+    assert.equal(checks, verifiedChecks, 'old success must not launch verification for the new account');
+  }
+  owner = 'owner';
+  await render();
+
   // Unavailable verification is distinct from a successful denial.
   authority = 'error';
   await click('travel-choice-0');
@@ -201,7 +285,7 @@ async function main() {
   authority = 'yes';
   await click('travel-retry');
   await click('travel-choice-0');
-  assert.ok(text('1 of 5 activities'));
+  assert.ok(text('1 of 1 activities'));
   authority = 'no';
   await click('travel-choice-0');
   assert.ok(text('A little more access'));

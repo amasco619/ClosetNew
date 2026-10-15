@@ -18,3 +18,18 @@ omissions as intentional boundaries unless a new brief approves an extension.
 Never backfill empty travel slots with hidden engine candidates or call them
 wardrobe gaps. Planning/checklist actions must not record wear or change
 preferences, mood, reactions, saved looks or daily rotation.
+
+## Entitlement-outage regression fixtures
+
+Model the real fail-closed tier projection in outage tests, not only the
+Premium/unavailable flags.
+
+**Why:** The original planner fixture kept the active wardrobe and public
+catalogue unchanged during an outage, so it missed loss of an otherwise valid
+draft when AppContext temporarily selected the Free-tier wardrobe.
+
+**How to apply:** In planner lifecycle regressions, let a verification failure
+change derived active items and selected results while keeping canonical owned
+rows unchanged. Also cover the authority promise resolving before React commits
+the recovered context; a boolean success alone does not prove that consumers
+can already validate against the restored catalogue.

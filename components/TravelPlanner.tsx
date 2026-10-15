@@ -16,8 +16,15 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
   const complete = app.appReady && !app.isLoading && !app.wardrobeHasMore &&
     app.wardrobeItems.length >= app.wardrobeTotalCount;
   const failed = app.startupError || app.dataUnavailable;
-  const revision = JSON.stringify([owner, travelWardrobeRevision(app.activeWardrobeItems),
-    app.outfitSets, app.profile, app.weather]);
+  // An outage changes AppContext's tier projection, not the underlying wardrobe.
+  // Retain only the last authorized projection; it never bypasses the access gate.
+  const catalogue = JSON.stringify([travelWardrobeRevision(app.activeWardrobeItems), app.outfitSets]);
+  const authorizedCatalogue = useRef({ owner, catalogue });
+  if (authorizedCatalogue.current.owner !== owner || (app.isPremium && !app.entitlementUnavailable)) {
+    authorizedCatalogue.current = { owner, catalogue };
+  }
+  const revision = JSON.stringify([owner, travelWardrobeRevision(app.wardrobeItems),
+    authorizedCatalogue.current.catalogue, app.profile, app.weather]);
   const [days, setDays] = useState(1);
   const [slots, setSlots] = useState<TravelSlot[]>([{ id: 'slot-1', day: 1, activity: 'casual' }]);
   const [selected, setSelected] = useState<string | null>('slot-1');
@@ -99,6 +106,9 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
         setAccess('not-entitled');
         return;
       }
+      // The authority promise can resolve before React commits the restored
+      // Premium projection. Its context update will restart this verification.
+      if (!latest.current.app.isPremium || latest.current.app.entitlementUnavailable) return;
       let groups;
       try {
         groups = await getGarmentGroups(start.owner);
@@ -117,7 +127,7 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
       const slot = start.slots.find(s => s.id === (pick?.slotId ?? start.selected));
       let traditional: OutfitSet[] = [];
       let traditionalNotice: string | null = null;
-      if (slot?.activity === 'traditional-event') {
+      if (slot?.activity === 'traditional-event' || start.slots.some(s => s.look?.source === 'traditional')) {
         const result = await start.app.getStylingRecommendations('traditional');
         if (!current()) return;
         // Service reads its own groups; reconcile both read snapshots before exposing results.
@@ -134,9 +144,16 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
         traditionalNotice = result.notice ?? null;
       }
       if (!current()) return;
-      const available = slot ? travelChoices(slot.activity, latest.current.app.outfitSets,
-        traditional, latest.current.app.activeWardrobeItems, groups, start.owner).map(look =>
-        look.source === 'traditional' ? { ...look, notice: traditionalNotice ?? undefined } : look) : [];
+      const choicesFor = (activity: TravelActivity) => travelChoices(activity, latest.current.app.outfitSets,
+        traditional, latest.current.app.activeWardrobeItems, groups, start.owner!).map(look =>
+        look.source === 'traditional' ? { ...look, notice: traditionalNotice ?? undefined } : look);
+      const available = slot ? choicesFor(slot.activity) : [];
+      // Before reopening protected review, reconcile EVERY assignment with fresh
+      // owned IDs, selected public candidates and authoritative relationships.
+      const revalidated = new Map(start.slots.filter(s => s.look).map(s =>
+        [s.id, choicesFor(s.activity).find(look => look.key === s.look!.key)]));
+      setSlots(existing => existing.map(({ look, ...s }) => look ? { ...s, look: revalidated.get(s.id) } : s));
+      if ([...revalidated.values()].some(look => !look)) setPacked([]);
       setChoices(available);
       setNotice(traditionalNotice);
       verifiedRevision.current = start.revision;
@@ -166,8 +183,17 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
     busy.current = false;
     setChoices([]);
     setNotice(null);
+    if (app.entitlementUnavailable) {
+      verifiedRevision.current = null;
+      setAccess('unavailable');
+      setMessage('Verification or styling is unavailable. Your draft is paused; please retry.');
+      return;
+    }
+    // Let the confirmed-loss effect reset the draft; do not immediately
+    // supersede that revocation with an automatic recovery request.
+    if (!app.isPremium && hadPremium.current) return;
     void verifyRef.current();
-  }, [revision, complete, failed, selected, activity]);
+  }, [revision, complete, failed, selected, activity, app.isPremium, app.entitlementUnavailable]);
   const hadPremium = useRef(app.isPremium);
   useEffect(() => {
     if (!owner) { clearProtected(); setAccess('sign-in'); return; }
@@ -264,11 +290,23 @@ export default function TravelPlanner({ onClose }: { onClose: () => void }) {
     onToggleEssential={value => edit(() => setEssentials(values =>
       values.includes(value) ? values.filter(v => v !== value) : [...values, value]))}
     onRetry={() => {
+      const start = latest.current;
+      const version = ++request.current;
+      const current = () => mounted.current && request.current === version &&
+        latest.current.owner === start.owner && latest.current.revision === start.revision;
+      busy.current = false;
+      verifiedRevision.current = null;
       if (failed) app.retryInitialization();
-      if (!complete) void app.loadAllWardrobeItems().catch(() => {
-        if (mounted.current) { setAccess('failure'); setMessage('Could not load the full wardrobe. Please retry.'); }
-      });
-      void verifyRef.current();
+      if (!complete) {
+        setAccess('loading');
+        void app.loadAllWardrobeItems().then(() => {
+          if (current()) void verifyRef.current();
+        }).catch(() => {
+          if (current()) { setAccess('failure'); setMessage('Could not load the full wardrobe. Please retry.'); }
+        });
+      } else {
+        void verifyRef.current();
+      }
     }}
     onClose={close}
     onSignIn={() => { close(); router.push('/sign-in'); }}

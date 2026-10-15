@@ -230,6 +230,11 @@ uses the dedicated existing service. Authoritative owner-scoped groups supply
 confirmed-set/partial-use disclosures, not inferred visual relationships.
 Fresh Premium verification, full wardrobe readiness and stale-request guards
 protect choices. Group reads failing pause the planner with retry.
+The lifecycle correction preserves drafts through temporary entitlement outages,
+keeps protected review hidden, and revalidates all assignments on recovery.
+Old-account/request wardrobe retry success and failure are ignored. Both
+regressions are covered by the mounted travel suite; focused travel and relevant
+entitlement/wardrobe checks, TypeScript and changed-file lint passed.
 
 Drafts are local component state only and discarded on dismissal/tab exit or
 account changes. No destination/date collection, destination forecasts,
