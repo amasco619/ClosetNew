@@ -32,6 +32,7 @@ export const _testOverrides: {
   platform?: 'web' | 'native'
   webOrigin?: string
   apiUrl?: string
+  signInWithEmail?: (email: string, password: string) => Promise<void>
 } = {}
 
 /**
@@ -45,10 +46,12 @@ export const _testOverrides: {
  *   a non-2xx status (e.g. 400 invalid_email, 429 rate_limit), an error is
  *   thrown and the flow stops.
  *
- * The caller should display conditional inbox guidance, not claim delivery.
+ * After the generic acknowledgement, attempts the normal rate-limited sign-in
+ * flow. If email confirmation is disabled, this establishes the new session;
+ * otherwise the caller keeps the existing inbox guidance.
  *
  * Trims and lower-cases the email before forwarding it to the server.
- * Throws with a `[signUpWithEmail] …` prefix on any non-2xx response.
+ * Throws with a `[signUpWithEmail] …` prefix for request and sign-in failures.
  */
 export async function signUpWithEmail(
   email: string,
@@ -108,5 +111,17 @@ export async function signUpWithEmail(
   if (json?.acknowledged !== true || json.needsConfirmation !== true) {
     throw new Error('[signUpWithEmail] The sign-up response was invalid. Please try again later.')
   }
-  return { needsConfirmation: true }
+
+  const signIn = _testOverrides.signInWithEmail ??
+    (await import('./emailSignIn')).signInWithEmail
+  try {
+    await signIn(email.trim().toLowerCase(), password)
+    return { needsConfirmation: false }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    if (message === '[signInWithEmail] invalid_credentials') {
+      return { needsConfirmation: true }
+    }
+    throw new Error(`[signUpWithEmail] ${message.replace(/^\[signInWithEmail\]\s*/, '')}`)
+  }
 }

@@ -53,6 +53,7 @@ async function main() {
   supabaseAuth = auth.supabaseAuth;
   ({ __resetForTesting, checkAccountLockout, recordFailedAttempt } = limiter);
   const originalSignUp = supabaseAuth.auth.signUp;
+  const originalSignIn = supabaseAuth.auth.signInWithPassword;
   const originalReset = supabaseAuth.auth.resetPasswordForEmail;
   const originalError = console.error;
   const logs: unknown[][] = [];
@@ -194,6 +195,21 @@ async function main() {
     assert.deepEqual(lockedInvalidRedirect.body, unlockedInvalidRedirect.body,
       "redirect validation must not reveal whether an address is locked");
 
+    const unconfirmedEmail = "unconfirmed-signup@example.com";
+    Reflect.set(supabaseAuth.auth, "signInWithPassword", async () => ({
+      data: { user: null, session: null },
+      error: { code: "email_not_confirmed", message: "Email not confirmed" },
+    }));
+    for (let i = 0; i < 5; i++) {
+      const unconfirmed = await post(app, "/api/auth/sign-in", {
+        email: unconfirmedEmail, password: PASSWORD,
+      });
+      assert.equal(unconfirmed.status, 401);
+      assert.equal(unconfirmed.body.error, "invalid_credentials");
+    }
+    assert.equal(checkAccountLockout(unconfirmedEmail).locked, false,
+      "unconfirmed sign-in attempts do not count as failed password guesses");
+
     // Actual auth + reset limiters remain mounted (six requests from one IP).
     const limiterIp = `203.${ipRun}.113.77`;
     for (let i = 0; i < 5; i++) {
@@ -229,6 +245,7 @@ async function main() {
     assert.equal(sharedBlocked.status, 429, "actual sign-in traffic consumes reset's shared auth budget");
   } finally {
     Reflect.set(supabaseAuth.auth, "signUp", originalSignUp);
+    Reflect.set(supabaseAuth.auth, "signInWithPassword", originalSignIn);
     Reflect.set(supabaseAuth.auth, "resetPasswordForEmail", originalReset);
     console.error = originalError;
     delete process.env.ALLOWED_RESET_ORIGINS;

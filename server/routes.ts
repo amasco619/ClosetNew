@@ -372,7 +372,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: String(password),
       });
       if (error) {
-        recordFailedAttempt(normalizedEmail);
+        // An unconfirmed account has not reached password verification. Do not
+        // let the post-sign-up auto-login count as a failed password attempt.
+        if (error.code !== "email_not_confirmed") recordFailedAttempt(normalizedEmail);
         // Generic message — never reveals whether the email exists or whether
         // the password was the problem.
         return res.status(401).json({ error: "invalid_credentials" });

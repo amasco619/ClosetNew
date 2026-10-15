@@ -229,8 +229,6 @@ export default function SignInScreen() {
         const { needsConfirmation } = await signUpWithEmail(email, password)
         if (needsConfirmation) {
           setConfirmed(true)
-        } else {
-          router.replace('/onboarding')
         }
       }
     } catch (err: any) {

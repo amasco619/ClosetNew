@@ -25,8 +25,14 @@ function response(ok: boolean, body: unknown, statusText = ok ? 'OK' : 'Bad Requ
 function install(
   result: Response | Error,
   platform: 'web' | 'native' = 'web',
-): { calls: Array<{ url: string; init?: RequestInit }>; restore: () => void } {
-  const calls: Array<{ url: string; init?: RequestInit }> = []
+  signInError?: Error,
+): {
+  calls: { url: string; init?: RequestInit }[]
+  signInCalls: { email: string; password: string }[]
+  restore: () => void
+} {
+  const calls: { url: string; init?: RequestInit }[] = []
+  const signInCalls: { email: string; password: string }[] = []
   _testOverrides.platform = platform
   _testOverrides.webOrigin = 'https://app.example.test'
   _testOverrides.apiUrl = 'https://api.example.test'
@@ -35,13 +41,19 @@ function install(
     if (result instanceof Error) throw result
     return result
   }
+  _testOverrides.signInWithEmail = async (email, password) => {
+    signInCalls.push({ email, password })
+    if (signInError) throw signInError
+  }
   return {
     calls,
+    signInCalls,
     restore: () => {
       delete _testOverrides.fetch
       delete _testOverrides.platform
       delete _testOverrides.webOrigin
       delete _testOverrides.apiUrl
+      delete _testOverrides.signInWithEmail
     },
   }
 }
@@ -61,12 +73,38 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
     const mock = install(response(true, { acknowledged: true, needsConfirmation: true }))
     const result = await signUpWithEmail('  User@EXAMPLE.COM  ', 'Password1')
     const body = JSON.parse(mock.calls[0]?.init?.body as string)
-    assert(result.needsConfirmation === true, 'returns needsConfirmation:true')
+    assert(result.needsConfirmation === false, 'returns needsConfirmation:false after sign-in succeeds')
     assert(mock.calls[0]?.url === 'https://api.example.test/api/auth/sign-up', 'uses the sign-up API')
     assert(mock.calls[0]?.init?.method === 'POST', 'uses POST')
     assert(body.email === 'user@example.com', 'trims and lower-cases email')
     assert(body.password === 'Password1', 'forwards password')
     assert(body.emailRedirectTo === 'https://app.example.test/auth/callback', 'uses web redirect')
+    assert(mock.signInCalls[0]?.email === 'user@example.com', 'signs in with the normalized email')
+    assert(mock.signInCalls[0]?.password === 'Password1', 'signs in with the submitted password')
+    mock.restore()
+  }
+
+  section('Email confirmation remains supported')
+  {
+    const mock = install(
+      response(true, { acknowledged: true, needsConfirmation: true }),
+      'web',
+      new Error('[signInWithEmail] invalid_credentials'),
+    )
+    const result = await signUpWithEmail('user@example.com', 'Password1')
+    assert(result.needsConfirmation === true, 'keeps inbox flow when sign-in is rejected')
+    mock.restore()
+  }
+
+  section('Sign-in service failures are surfaced')
+  {
+    const mock = install(
+      response(true, { acknowledged: true, needsConfirmation: true }),
+      'web',
+      new Error('[signInWithEmail] rate_limited'),
+    )
+    const message = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
+    assert(message.includes('[signUpWithEmail] rate_limited'), 'does not misreport a service failure as email confirmation')
     mock.restore()
   }
 
