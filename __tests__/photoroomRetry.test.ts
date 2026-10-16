@@ -263,6 +263,26 @@ async function main(): Promise<void> {
     );
   }
 
+  // ── 9. Auth session failure is a typed optional-enhancement failure ───────
+
+  console.log('\nremoveBackground — session lookup failure returns failed without throwing:');
+
+  {
+    delete _testOverrides.sessionToken;
+    _testOverrides.getSession = async () => {
+      throw new Error('mock: secure session unavailable');
+    };
+    const mock = setupMockFetch([]);
+
+    const result = await removeBackground('input-jpeg');
+    mock.restore();
+
+    assertEq(result.status, 'failed', 'session lookup failure degrades to failed status');
+    assertEq(mock.callCount(), 0, 'no background-removal request is sent without a session token');
+    delete _testOverrides.getSession;
+    _testOverrides.sessionToken = 'test-token';
+  }
+
   // ── 9. Cross-layer contract: source-text assertions ────────────────────────
   //
   // Ensures that both the server handler and client lib import the error

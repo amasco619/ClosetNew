@@ -34,6 +34,7 @@ import {
   runHandleRemove,
   type ClassifyResult,
   type ClassifyDeps,
+  type ClassifyFailureStage,
 } from '@/lib/bulkClassifyCore';
 import { rs } from '../lib/responsive';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
@@ -78,6 +79,7 @@ interface BulkItem {
   cutoutUri?: string;
   status: ItemStatus;
   classification: ClassifyResult | null;
+  failureStage?: ClassifyFailureStage;
 }
 
 // ─── Type guards (mirrors add-item.tsx) ──────────────────────────────────────
@@ -152,14 +154,8 @@ function BulkCard({
   const photoErrored = photoErrorUri === sourceUri;
   const previewUri = photoErrored ? item.uri : sourceUri;
 
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.card,
-        isSettled && onPress && pressed && styles.cardPressed,
-      ]}
-      onPress={isSettled ? onPress : undefined}
-    >
+  const cardBody = (
+    <>
       {/* Photo — always visible; overlay sits on top */}
       <View style={styles.photoWrap}>
         <GarmentTile
@@ -175,16 +171,6 @@ function BulkCard({
         />
 
         <GoldOverlay isActive={isActive} statusPhase={statusPhase} />
-
-        {isError && (
-          <Pressable
-            onPress={() => onRetry(item.uri)}
-            style={[StyleSheet.absoluteFill, styles.errorOverlay]}
-          >
-            <Ionicons name="refresh-outline" size={20} color={Colors.white} />
-            <Text style={styles.errorLabel}>Tap to retry</Text>
-          </Pressable>
-        )}
 
         {isSaved && (
           <Animated.View
@@ -212,16 +198,6 @@ function BulkCard({
           <View style={[StyleSheet.absoluteFill, styles.savingOverlay]} pointerEvents="none">
             <ActivityIndicator size="small" color={Colors.white} />
           </View>
-        )}
-
-        {!isSaved && (
-          <Pressable
-            onPress={() => onRemove(item.uri)}
-            style={styles.removeBtn}
-            hitSlop={8}
-          >
-            <Ionicons name="close-circle" size={22} color={Colors.white} />
-          </Pressable>
         )}
       </View>
 
@@ -259,7 +235,50 @@ function BulkCard({
           </View>
         )}
       </View>
-    </Pressable>
+    </>
+  );
+
+  return (
+    <View style={styles.card}>
+      {isSettled && onPress ? (
+        <Pressable
+          style={({ pressed }) => [styles.cardBody, pressed && styles.cardPressed]}
+          onPress={onPress}
+          accessibilityRole="button"
+        >
+          {cardBody}
+        </Pressable>
+      ) : (
+        <View style={styles.cardBody}>{cardBody}</View>
+      )}
+
+      {isError && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry garment analysis"
+          onPress={() => onRetry(item.uri)}
+          style={[styles.errorOverlay, styles.retryOverlay]}
+        >
+          <Ionicons name="refresh-outline" size={20} color={Colors.white} />
+          <Text style={styles.errorLabel}>
+            {item.failureStage === 'photo-preparation' ? 'Could not prepare photo' : 'Analysis failed'}
+          </Text>
+          <Text style={styles.errorLabel}>Tap to retry</Text>
+        </Pressable>
+      )}
+
+      {!isSaved && (
+        <Pressable
+          onPress={() => onRemove(item.uri)}
+          style={styles.removeBtn}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Remove photo from batch"
+        >
+          <Ionicons name="close-circle" size={22} color={Colors.white} />
+        </Pressable>
+      )}
+    </View>
   );
 }
 
@@ -557,9 +576,14 @@ export default function BulkReviewScreen() {
     });
   }, [removeWardrobeItem]);
 
-  const handleRetry = useCallback((uri: string) => {
-    classifyUri(uri);
-  }, [classifyUri]);
+  const handleRetry = (uri: string) => {
+    if (savingRef.current) return;
+    if (aiPreference !== 'allowed') {
+      void enableAiForSelectedPhotos();
+      return;
+    }
+    void classifyUri(uri);
+  };
 
   // Patch a classification field on a single item (called from BulkItemEditPanel)
   const handlePatchItem = useCallback((uri: string, updates: Partial<import('@/lib/bulkClassifyCore').ClassifyResult>) => {
@@ -714,10 +738,11 @@ export default function BulkReviewScreen() {
   const settledCount    = items.filter(it => it.status === 'settled' || it.status === 'local-only').length;
   const localOnlyCount  = items.filter(it => it.status === 'local-only').length;
   const classifiedCount = items.filter(it =>
-    ['settled','saving','saved','local-only','error'].includes(it.status)
+    ['settled','saving','saved','local-only'].includes(it.status)
   ).length;
+  const failedCount = items.filter(it => it.status === 'error').length;
   const totalCount      = visibleItems.length;
-  const progressRatio   = totalCount > 0 ? classifiedCount / totalCount : 0;
+  const progressRatio   = totalCount > 0 ? (classifiedCount + failedCount) / totalCount : 0;
   // Lock the CTA while any item is still pending/classifying.
   const hasClassifying  = aiPreference === 'allowed' && items.some(it => it.status === 'pending' || it.status === 'classifying');
   const canSaveAll      = settledCount > 0 && !saving && !hasClassifying;
@@ -730,7 +755,7 @@ export default function BulkReviewScreen() {
         ? `Retry save for ${settledCount} Item${settledCount !== 1 ? 's' : ''}`
         : settledCount > 0
         ? `Save ${settledCount} Item${settledCount !== 1 ? 's' : ''} to Wardrobe`
-        : 'Saving items...';
+        : 'No items ready to save';
 
   return (
     <View style={[
@@ -755,7 +780,9 @@ export default function BulkReviewScreen() {
         </Pressable>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Batch Review</Text>
-          <Text style={styles.headerSub}>{classifiedCount} of {totalCount} analysed</Text>
+          <Text style={styles.headerSub}>
+            {classifiedCount} of {totalCount} analysed{failedCount > 0 ? ` · ${failedCount} failed` : ''}
+          </Text>
         </View>
         <Pressable
           onPress={handleCancel}
@@ -971,6 +998,7 @@ const styles = StyleSheet.create({
     shadowColor: Colors.primary, shadowOpacity: 0.05,
     shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1,
   },
+  cardBody: { width: '100%' },
   cardPressed: {
     opacity: 0.85,
     transform: [{ scale: 0.97 }],
@@ -992,8 +1020,12 @@ const styles = StyleSheet.create({
   },
 
   errorOverlay: {
-    backgroundColor: 'rgba(212, 96, 90, 0.80)',
+    backgroundColor: 'rgba(212, 96, 90, 0.58)',
     alignItems: 'center', justifyContent: 'center', gap: 4,
+  },
+  retryOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0,
+    height: PHOTO_HEIGHT, zIndex: 1,
   },
   errorLabel: {
     fontFamily: 'Inter_500Medium', fontSize: rs(10), color: Colors.white, letterSpacing: 0.3,
@@ -1020,7 +1052,7 @@ const styles = StyleSheet.create({
   removeBtn: {
     position: 'absolute', top: 6, right: 6,
     width: 28, height: 28, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(16, 24, 38, 0.45)', borderRadius: 14,
+    backgroundColor: 'rgba(16, 24, 38, 0.45)', borderRadius: 14, zIndex: 2,
   },
 
   cardInfo: { paddingHorizontal: 10, paddingVertical: 10, minHeight: 56 },

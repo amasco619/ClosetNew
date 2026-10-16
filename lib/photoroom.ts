@@ -30,7 +30,10 @@ export interface BgRemovalResult {
  * Both strategies keep react-native out of the static dependency graph so
  * this module loads cleanly under tsx in Node.js test environments.
  */
-export const _testOverrides: { sessionToken?: string } = {};
+export const _testOverrides: {
+  sessionToken?: string;
+  getSession?: () => Promise<string | null>;
+} = {};
 
 /** Inlined from lib/query-client.ts to avoid importing expo/fetch. */
 function getApiUrl(): string {
@@ -81,40 +84,45 @@ async function attemptRemoveBackground(
  * Never throws — all failures are communicated via the status field.
  */
 export async function removeBackground(imageBase64: string): Promise<BgRemovalResult> {
-  let token: string;
+  try {
+    let token = _testOverrides.sessionToken;
 
-  if (_testOverrides.sessionToken) {
-    // Test path: bypass the dynamic supabase import entirely.
-    token = _testOverrides.sessionToken;
-  } else {
-    // Production path: dynamically import supabase so its react-native
-    // dependency is not pulled into the module graph at load time.
-    const { supabase } = await import("./supabase");
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
+    if (!token) {
+      if (_testOverrides.getSession) {
+        token = (await _testOverrides.getSession()) ?? undefined;
+      } else {
+        // Production path: dynamically import supabase so its react-native
+        // dependency is not pulled into the module graph at load time.
+        const { supabase } = await import("./supabase");
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token;
+      }
+    }
+    if (!token) return { status: "not-authenticated" };
+
+    const data = await attemptRemoveBackground(imageBase64, token);
+    if (!data) return { status: "failed" };
+
+    if (data.error === PHOTOROOM_TIMEOUT_ERROR) {
+      const retry = await attemptRemoveBackground(imageBase64, token);
+      if (!retry?.imageBase64) return { status: "failed" };
+      return { status: "success", base64: retry.imageBase64, remaining: retry.remaining };
+    }
+
+    if (data.error === BG_REMOVAL_AUTH_REQUIRED) {
       return { status: "not-authenticated" };
     }
-    token = session.access_token;
+
+    if (data.error === BG_REMOVAL_LIMIT_REACHED) {
+      return { status: "limit-reached", remaining: 0 };
+    }
+
+    if (!data.imageBase64) return { status: "unavailable" };
+
+    return { status: "success", base64: data.imageBase64, remaining: data.remaining };
+  } catch {
+    // This enhancement is optional; even auth/session failures must leave the
+    // original resized photo available to the classifier.
+    return { status: "failed" };
   }
-
-  const data = await attemptRemoveBackground(imageBase64, token);
-  if (!data) return { status: "failed" };
-
-  if (data.error === PHOTOROOM_TIMEOUT_ERROR) {
-    const retry = await attemptRemoveBackground(imageBase64, token);
-    if (!retry?.imageBase64) return { status: "failed" };
-    return { status: "success", base64: retry.imageBase64, remaining: retry.remaining };
-  }
-
-  if (data.error === BG_REMOVAL_AUTH_REQUIRED) {
-    return { status: "not-authenticated" };
-  }
-
-  if (data.error === BG_REMOVAL_LIMIT_REACHED) {
-    return { status: "limit-reached", remaining: 0 };
-  }
-
-  if (!data.imageBase64) return { status: "unavailable" };
-
-  return { status: "success", base64: data.imageBase64, remaining: data.remaining };
 }

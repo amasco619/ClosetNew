@@ -410,7 +410,26 @@ The Supabase `TOKEN_REFRESHED` listener also previously awaited that
 authenticated request inside the auth callback, even though the request reads
 the session again. It now defers the entitlement refresh until after the auth
 callback returns, retaining stale-account/startup guards. The corresponding
-cache-policy and listener contracts pass; the full suite is 97/97. Current logs
-show at least one successful classification request, but the two failed
-physical-device items were not reproduced after the fix, so that end-to-end
-bulk upload remains to be reconfirmed on-device.
+cache-policy and listener contracts pass; the full suite was 97/97. Logs
+available at that point showed at least one successful classification request,
+but the two failed physical-device items had not been reproduced after that fix.
+
+## 21. BULK REVIEW RETRY AND OPTIONAL PHOTO PROCESSING
+
+The user reproduced the failure on Android. Backend logs for that reproduction
+showed the authenticated preference/readiness GETs succeeding but no
+`POST /api/remove-background` or `POST /api/classify-garment`. The client helper
+previously swallowed preparation/classification errors into an undifferentiated
+red card, so the exact device-side failure stage was not available.
+
+The retry action is now a standalone accessible button rather than a nested
+Pressable inside the whole-card edit target. Optional background removal and
+cutout-cache failures now fall back to the resized original JPEG and continue
+classification; session lookup errors in `removeBackground()` return its
+documented `failed` result instead of throwing. The review distinguishes failed
+items from successful analysis, records a coarse failure stage, and no longer
+labels an empty save action “Saving items...”.
+
+Focused tests cover failed-item retry state, background/session/cache fallback,
+and the existing save and unmount guards. Physical Android re-testing of the
+revised review and retry flow remains outstanding.

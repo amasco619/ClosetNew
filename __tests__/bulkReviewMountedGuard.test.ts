@@ -265,6 +265,35 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
     assert(d.hapticFired.value,                     'haptic fires on success');
   }
 
+  section('runClassifyUri — optional background removal failure still classifies the original');
+  {
+    const mountedRef = { current: true };
+    let items: BulkItemCore[] = [makeItem()];
+    let classifiedBase64 = '';
+    let classifiedMimeType = '';
+    const deps: ClassifyDeps = {
+      resize: async () => ({ base64: 'original-resized-jpeg' }),
+      removeBg: async () => { throw new Error('session unavailable'); },
+      writePngToCache: async () => { throw new Error('should not be called'); },
+      classify: async (base64, mimeType) => {
+        classifiedBase64 = base64;
+        classifiedMimeType = mimeType;
+        return CLASSIFY_RESPONSE;
+      },
+      setItems: updater => { items = updater(items); },
+      onHaptic: () => {},
+    };
+
+    await runClassifyUri(TEST_URI, mountedRef, deps);
+
+    assert(classifiedBase64 === 'original-resized-jpeg',
+      'classifier receives the original resized JPEG after background removal rejects');
+    assert(classifiedMimeType === 'image/jpeg',
+      'fallback keeps the original JPEG MIME type');
+    assert(items[0]?.status === 'settled',
+      'optional background removal failure does not leave the card in error');
+  }
+
   section('runClassifyUri — 6. resize failure triggers error status');
   {
     const mountedRef = { current: true };
@@ -284,6 +313,29 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'error status set when resize returns null');
     assert(!d.setItemsCalls.includes('settled'),
       'settled not called on resize failure');
+  }
+
+  section('runClassifyUri — retrying a failed item clears its error and settles');
+  {
+    const mountedRef = { current: true };
+    let items: BulkItemCore[] = [
+      makeItem({ status: 'error', failureStage: 'photo-preparation' }),
+    ];
+    const deps: ClassifyDeps = {
+      resize: async () => ({ base64: 'retry-jpeg' }),
+      removeBg: async () => null,
+      writePngToCache: async () => 'unused',
+      classify: async () => CLASSIFY_RESPONSE,
+      setItems: updater => { items = updater(items); },
+      onHaptic: () => {},
+    };
+
+    await runClassifyUri(TEST_URI, mountedRef, deps);
+
+    assert(items[0]?.status === 'settled',
+      'retry changes the failed item to settled when classification succeeds');
+    assert(items[0]?.failureStage === undefined,
+      'retry removes the previous failure stage');
   }
 
   section('runClassifyUri — 7. resize failure + unmount = error update suppressed');
@@ -306,7 +358,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'error update suppressed when unmounted before resize result is processed');
   }
 
-  section('runClassifyUri — 8. cache write failure keeps large base64 out of item state');
+  section('runClassifyUri — cache write failure falls back to original JPEG');
   {
     // A failed cache write must fail explicitly rather than retain the clean
     // PNG base64 inside the React item state.
@@ -316,11 +368,17 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
     const itemSnapshots: BulkItemCore[] = [];
 
     const resizeD   = deferred<{ base64?: string } | null>();
+    let classifiedBase64 = '';
+    let classifiedMimeType = '';
     const deps: ClassifyDeps = {
       resize:          (_uri)    => resizeD.promise,
       removeBg:        (_b64)    => Promise.resolve('clean-png'),
       writePngToCache: (_pngB64) => Promise.reject(new Error('cache_write_failed')),
-      classify:  (_b64)    => Promise.resolve(CLASSIFY_RESPONSE),
+      classify:  (base64, mimeType) => {
+        classifiedBase64 = base64;
+        classifiedMimeType = mimeType;
+        return Promise.resolve(CLASSIFY_RESPONSE);
+      },
       setItems: (updater) => {
         const after = updater([makeItem()]);
         if (after[0]) itemSnapshots.push({ ...after[0] });
@@ -346,8 +404,12 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
     assert(itemSnapshots.every(s => !('cleanBase64' in s)),
       'large clean PNG base64 is never retained in item state');
     assert(
-      itemSnapshots.some(s => s.status === 'error'),
-      'classification fails explicitly when the transparent preview cannot be cached',
+      classifiedBase64 === 'resized' && classifiedMimeType === 'image/jpeg',
+      'classifier receives the original JPEG when the transparent preview cannot be cached',
+    );
+    assert(
+      itemSnapshots.some(s => s.status === 'settled'),
+      'classification can still settle when the optional preview cache write fails',
     );
   }
 

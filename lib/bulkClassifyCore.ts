@@ -42,7 +42,10 @@ export interface BulkItemCore {
   status: string;
   classification: ClassifyResult | null;
   autoSavedId?: string;
+  failureStage?: ClassifyFailureStage;
 }
+
+export type ClassifyFailureStage = 'photo-preparation' | 'classification';
 
 // ─── Dependency interfaces ────────────────────────────────────────────────────
 
@@ -84,9 +87,12 @@ export async function runClassifyUri(
 ): Promise<void> {
   if (!mountedRef.current) return;
   deps.setItems(prev =>
-    prev.map(it => it.uri === uri ? { ...it, status: 'classifying' } : it),
+    prev.map(it => it.uri === uri
+      ? { ...it, status: 'classifying', failureStage: undefined }
+      : it),
   );
 
+  let failureStage: ClassifyFailureStage = 'photo-preparation';
   try {
     const resized = await deps.resize(uri);
     if (!mountedRef.current) return;
@@ -94,19 +100,26 @@ export async function runClassifyUri(
 
     let classifyBase64 = resized.base64;
     let classifyMimeType: 'image/jpeg' | 'image/png' = 'image/jpeg';
-    const cleanPngBase64 = await deps.removeBg(classifyBase64);
+    try {
+      const cleanPngBase64 = await deps.removeBg(classifyBase64);
+      if (!mountedRef.current) return;
+
+      if (cleanPngBase64) {
+        const cutoutUri = await deps.writePngToCache(cleanPngBase64);
+        if (!mountedRef.current) return;
+        deps.setItems(prev =>
+          prev.map(it => it.uri === uri ? { ...it, cutoutUri } : it),
+        );
+        classifyBase64 = cleanPngBase64;
+        classifyMimeType = 'image/png';
+      }
+    } catch {
+      // Background removal and its preview cache are optional; keep classifying
+      // the resized original instead of failing the entire bulk-review item.
+    }
     if (!mountedRef.current) return;
 
-    if (cleanPngBase64) {
-      const cutoutUri = await deps.writePngToCache(cleanPngBase64);
-      if (!mountedRef.current) return;
-      deps.setItems(prev =>
-        prev.map(it => it.uri === uri ? { ...it, cutoutUri } : it),
-      );
-      classifyBase64 = cleanPngBase64;
-      classifyMimeType = 'image/png';
-    }
-
+    failureStage = 'classification';
     const data = await deps.classify(classifyBase64, classifyMimeType);
     if (!mountedRef.current) return;
 
@@ -135,13 +148,15 @@ export async function runClassifyUri(
     };
 
     deps.setItems(prev =>
-      prev.map(it => it.uri === uri ? { ...it, status: 'settled', classification } : it),
+      prev.map(it => it.uri === uri
+        ? { ...it, status: 'settled', classification, failureStage: undefined }
+        : it),
     );
     deps.onHaptic();
   } catch {
     if (!mountedRef.current) return;
     deps.setItems(prev =>
-      prev.map(it => it.uri === uri ? { ...it, status: 'error' } : it),
+      prev.map(it => it.uri === uri ? { ...it, status: 'error', failureStage } : it),
     );
   }
 }
