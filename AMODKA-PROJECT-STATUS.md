@@ -392,6 +392,25 @@ on gesture capture, every drag move and release; scrolling from any positive
 offset stays with the content. At the top, drags over 120 px animate the sheet
 off-screen with a fade; shorter drags spring back. Each route retains a working,
 accessible close control. Premium’s existing feature-card list is the long-scroll
-test case. The focused gesture-policy tests, full suite (96/96), typecheck and
-lint pass. Physical iOS/Android and VoiceOver/TalkBack interaction remain
+test case. The focused gesture-policy tests, full suite (97/97), typecheck and
+lint pass. The user subsequently confirmed the scrolled-versus-top gesture
+cases on a physical phone; OS-specific and VoiceOver/TalkBack testing remain
 unverified.
+
+## 20. BULK CLASSIFICATION / AUTHENTICATED API RETRIES
+
+Current backend logs showed authenticated `GET /api/user/entitlements`,
+`/api/user/ai-processing`, and billing-readiness calls returning 304, while
+`authenticatedApiRequest()` rejects every non-2xx response. This directly
+explains the screenshot's retryable `entitlement_refresh` error. API responses
+now use `Cache-Control: no-store`, and incoming conditional validators are
+removed before Express can produce bodyless 304 responses.
+
+The Supabase `TOKEN_REFRESHED` listener also previously awaited that
+authenticated request inside the auth callback, even though the request reads
+the session again. It now defers the entitlement refresh until after the auth
+callback returns, retaining stale-account/startup guards. The corresponding
+cache-policy and listener contracts pass; the full suite is 97/97. Current logs
+show at least one successful classification request, but the two failed
+physical-device items were not reproduced after the fix, so that end-to-end
+bulk upload remains to be reconfirmed on-device.

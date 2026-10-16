@@ -207,7 +207,7 @@ Whenever you make a change that affects any section of this document — new API
 5. For email auth: `signInWithEmail()` first uses the rate-limited server check, then calls `supabase.auth.signInWithPassword()` on the client to establish the session. Server and client Supabase URLs must match; startup rejects non-root URLs, mismatches, or a URL that does not target the selected Amodka Production project.
 6. Email sign-up sends only the email and password through the rate-limited server proxy using the publishable Auth key, then attempts the same email sign-in flow to establish the session. No confirmation redirect is needed while Supabase Confirm Email is disabled. Sign-up discloses `account_exists` only for provider-confirmed duplicate codes (`email_exists` or `user_already_exists`); the route remains behind `authLimiter`. A live duplicate probe against the selected Supabase project returned `user_already_exists` (422). If Supabase is configured to return an obfuscated success for duplicates, this signal is unavailable and must not be inferred. Sign-in remains non-enumerating: wrong passwords and unknown emails both map to `invalid_credentials`. Client auth failures use `AuthError` codes and catalogue-only copy; malformed/non-JSON proxy responses map to `network`. Provider outages, invalid keys, missing Auth endpoints, and unstructured provider errors without status/code return a generic retryable error and do not count as failed passwords. Internal auth diagnostics may record a sanitized provider code/status, never provider messages, emails, or passwords.
 7. Password-reset redirect selection uses Expo's compile-time `EXPO_OS` value; avoid dynamically importing the React Native namespace, which can access unsupported native modules in Expo Go on iOS.
-8. `AppContext` listens to `supabase.auth.onAuthStateChange()` for **subsequent** events only — `INITIAL_SESSION` is intentionally excluded (see Startup Initialization below)
+8. `AppContext` listens to `supabase.auth.onAuthStateChange()` for **subsequent** events only — `INITIAL_SESSION` is intentionally excluded (see Startup Initialization below). The `TOKEN_REFRESHED` entitlement read is deferred until after the callback returns so `authenticatedApiRequest()` can safely call `getSession()`.
 
 Email confirmation is controlled by the hosted Supabase Auth setting **Authentication → Providers → Email → Confirm Email**, not by an app-side mail-sending toggle. The user confirmed Email sign-ups are enabled and Confirm Email is off; physical Production signup on iOS and Android established sessions and opened the app on 2026-10-16. The user also verified `amodka://auth/confirm` is present in the Production project's Auth URL Configuration allowlist. Sign-up does not currently send that redirect because confirmation is disabled; if confirmation is enabled later, restore an in-app guidance flow and pass an allowlisted redirect. Do not auto-confirm users through a service-role admin path.
 ### Startup Initialization (deterministic, race-free)
@@ -220,7 +220,7 @@ On cold start, `AppContext.loadData()` is the single owner of the initialization
 4. `setAppReady(true)` in the `finally` block — guaranteed to fire after all data is settled
 5. `app/index.tsx` gates all routing on `appReady: true` from AppContext
 
-`INITIAL_SESSION` is **not** handled in `onAuthStateChange` because `loadData()` already covers it via `getSession()`. Handling it in the listener as well would recreate the race (`appReady` could fire before the DB load triggered by the listener finished). The listener only handles `SIGNED_IN` (subsequent logins after OAuth, email confirmation, or a sign-up when email confirmation is disabled) and `SIGNED_OUT`.
+`INITIAL_SESSION` is **not** handled in `onAuthStateChange` because `loadData()` already covers it via `getSession()`. Handling it in the listener as well would recreate the race (`appReady` could fire before the DB load triggered by the listener finished). The listener handles `SIGNED_IN`, `SIGNED_OUT`, and `TOKEN_REFRESHED`; entitlement work for `TOKEN_REFRESHED` is scheduled after the callback returns to avoid re-entering Supabase Auth while its event lock is held.
 
 Two context flags exposed to consumers:
 - `appReady: boolean` — safe to route; only `true` after full initialization
@@ -319,7 +319,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               96 test suites (see §11)
+__tests__/               97 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -431,7 +431,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 96 test suites once |
+| `npm test` | Run all 97 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -1303,7 +1303,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (96 total)
+### Test Suites (97 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1331,7 +1331,8 @@ These features are **not yet implemented**. They are the next development priori
 | `bulkSaveAtomic.test.ts` | Bulk Save All uploads before a single acknowledged commit; failed uploads and rejected commits do not navigate or report success |
 | `freeWardrobeSelectionDb.test.ts` | Disposable PostgreSQL verification of capacity, expiry, role privileges, ownership, selection, concurrency, rollback and cascading deletion |
 | `freeWardrobeSelectionSql.test.ts` | Static contract checks for authenticated insert RPCs, selection, and ordering index |
-| `wardrobeDatabaseContract.test.ts` | Acknowledged item persistence, deterministic pagination, account isolation and selected-row loading contracts |
+| `wardrobeDatabaseContract.test.ts` | Acknowledged item persistence, deterministic pagination, account isolation, selected-row loading, and deferred token-refresh entitlement reads |
+| `apiNoCache.test.ts` | Express conditional GET still returns JSON 200 with `Cache-Control: no-store`; prevents API ETags becoming unusable 304s in native fetch |
 | `wardrobeRetryScreens.test.ts` | Mounted Home, Outfits, Wear Log and Choose 30: load failure, successful-but-partial state, retry-pending state, same-count account switches, stale success/failure protection and successful recovery |
 | `bulkCarousel.test.ts` | Bulk-review carousel scroll contract: index clamping, null FlatList ref guard, empty-list safety |
 | `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard in bulk-review: async state setters are not called after the component unmounts |
@@ -2831,6 +2832,20 @@ Horizontal and upward gestures remain with the content/native navigation.
 
 Each route has an accessible close button with a 44-point target or larger.
 Premium’s existing eight feature cards provide a long-scroll demonstration.
-The behavior is covered by `__tests__/swipeDismiss.test.ts`. Automated tests,
-typecheck and lint pass; no physical iOS/Android gesture or assistive-technology
-validation was performed in this session.
+The behavior is covered by `__tests__/swipeDismiss.test.ts`. The user later
+confirmed the scrolled-versus-top gesture cases on a physical phone; the OS was
+not specified. VoiceOver/TalkBack validation remains unverified.
+
+## 40. AUTHENTICATED API CACHE POLICY
+
+`server/noApiCache.ts` applies to `/api` before route handling. It sends
+`Cache-Control: no-store` and removes incoming conditional validators so
+Express cannot turn an authenticated JSON response into a bodyless `304`.
+`authenticatedApiRequest()` treats non-2xx responses as errors, so clients
+must receive the authoritative response body. `apiNoCache.test.ts` verifies
+that an `If-None-Match: *` request still receives status 200 and JSON.
+
+Entitlement refresh on `TOKEN_REFRESHED` is deferred with a zero-delay timer
+after the Supabase auth callback returns. This avoids re-entering Auth through
+`getSession()` while Supabase is dispatching the event. The deferred operation
+retains account/startup generation checks and is cancelled on unmount.

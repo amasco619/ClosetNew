@@ -346,6 +346,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let active = true;
+    const pendingEntitlementTimers = new Set<ReturnType<typeof setTimeout>>();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
@@ -448,47 +450,63 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (currentUserIdRef.current !== userId) return;
           const accountGeneration = accountGenerationRef.current;
           const startupGeneration = startupGenerationRef.current;
-          try {
-            const entitlement = await fetchAuthoritativeEntitlement();
-            if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
-            setEntitlementUnavailable(false);
-            if (isPremiumRef.current !== entitlement.isPremium) {
-              const [page, selection] = await Promise.all([
-                getWardrobeItems(userId),
-                getFreeWardrobeSelection(userId),
-              ]);
-              if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
-              const rows = [...page.items];
-              if (!entitlement.isPremium) {
-                const pageIds = new Set(rows.map(row => row.id));
-                const missingSelectionIds = selection.filter(id => !pageIds.has(id));
-                const selectedRows = await getSelectedWardrobeItems(userId, missingSelectionIds);
-                if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
-                rows.push(...selectedRows);
+          // Do not call authenticatedApiRequest/getSession while Supabase is
+          // dispatching an auth event; defer until its internal auth lock is released.
+          const timer = setTimeout(() => {
+            pendingEntitlementTimers.delete(timer);
+            if (!active) return;
+            void (async () => {
+              const isCurrent = () =>
+                active && isCurrentAccountRequest(userId, accountGeneration, startupGeneration);
+              try {
+                if (!isCurrent()) return;
+                const entitlement = await fetchAuthoritativeEntitlement();
+                if (!isCurrent()) return;
+                setEntitlementUnavailable(false);
+                if (isPremiumRef.current !== entitlement.isPremium) {
+                  const [page, selection] = await Promise.all([
+                    getWardrobeItems(userId),
+                    getFreeWardrobeSelection(userId),
+                  ]);
+                  if (!isCurrent()) return;
+                  const rows = [...page.items];
+                  if (!entitlement.isPremium) {
+                    const pageIds = new Set(rows.map(row => row.id));
+                    const missingSelectionIds = selection.filter(id => !pageIds.has(id));
+                    const selectedRows = await getSelectedWardrobeItems(userId, missingSelectionIds);
+                    if (!isCurrent()) return;
+                    rows.push(...selectedRows);
+                  }
+                  const mapped = rows.map(mapDbRowToWardrobeItem);
+                  await Promise.all(mapped.filter(it => it.storagePath).map(async it => {
+                    try { it.photoUri = await resolveWardrobeImageUrl(it.storagePath!); } catch {}
+                  }));
+                  if (!isCurrent()) return;
+                  setWardrobeItems(mapped);
+                  updateWardrobePagination(page.totalCount, page.items.length);
+                  setFreeSelectedItemIds(selection);
+                  isPremiumRef.current = entitlement.isPremium;
+                }
+                setIsPremium(entitlement.isPremium);
+                isPremiumRef.current = entitlement.isPremium;
+              } catch (error) {
+                if (!isCurrent()) return;
+                setEntitlementUnavailable(true);
+                setIsPremium(false);
+                isPremiumRef.current = false;
+                reportError(error, 'entitlement_refresh', { dependency: 'supabase' });
               }
-              const mapped = rows.map(mapDbRowToWardrobeItem);
-              await Promise.all(mapped.filter(it => it.storagePath).map(async it => {
-                try { it.photoUri = await resolveWardrobeImageUrl(it.storagePath!); } catch {}
-              }));
-              if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
-              setWardrobeItems(mapped);
-              updateWardrobePagination(page.totalCount, page.items.length);
-              setFreeSelectedItemIds(selection);
-              isPremiumRef.current = entitlement.isPremium;
-            }
-            setIsPremium(entitlement.isPremium);
-            isPremiumRef.current = entitlement.isPremium;
-          } catch (error) {
-            if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
-            setEntitlementUnavailable(true);
-            setIsPremium(false);
-            isPremiumRef.current = false;
-            reportError(error, 'entitlement_refresh', { dependency: 'supabase' });
-          }
+            })();
+          }, 0);
+          pendingEntitlementTimers.add(timer);
         }
       }
     );
-    return () => subscription.unsubscribe();
+    return () => {
+      active = false;
+      pendingEntitlementTimers.forEach(clearTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Merge stored profile with defaults so fields added in later versions exist

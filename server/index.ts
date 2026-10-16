@@ -8,6 +8,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { randomUUID } from "crypto";
 import { reportError } from "../shared/observability";
+import { noApiCache } from "./noApiCache";
 
 const app = express();
 const log = console.log;
@@ -45,6 +46,7 @@ function setupSecurityHeaders(app: express.Application) {
   });
 
   // JSON-only endpoints: forbid all resource loads, iframes, and inline scripts.
+  app.use("/api", noApiCache);
   app.use("/api", (_req: Request, res: Response, next: NextFunction) => {
     res.setHeader("Content-Security-Policy", "default-src 'none'");
     next();

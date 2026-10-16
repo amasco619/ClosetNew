@@ -97,6 +97,10 @@ assert.match(userDataHydration, /updateWardrobePagination\(wardrobePage\.totalCo
 const tokenRefreshStart = context.indexOf("if (event === 'TOKEN_REFRESHED'");
 const tokenRefreshEnd = context.indexOf('// Merge stored profile', tokenRefreshStart);
 const tokenRefresh = context.slice(tokenRefreshStart, tokenRefreshEnd);
+const deferredEntitlementRead = tokenRefresh.indexOf('setTimeout(() => {');
+assert.ok(deferredEntitlementRead >= 0, 'token-refresh entitlement work is deferred outside the Supabase auth callback');
+assert.ok(tokenRefresh.indexOf('fetchAuthoritativeEntitlement()', deferredEntitlementRead) > deferredEntitlementRead);
+assert.doesNotMatch(tokenRefresh.slice(0, deferredEntitlementRead), /fetchAuthoritativeEntitlement\(\)/);
 assert.match(tokenRefresh, /if \(!entitlement\.isPremium\)[\s\S]*missingSelectionIds = selection\.filter[\s\S]*getSelectedWardrobeItems\(userId, missingSelectionIds\)/);
 assert.match(tokenRefresh, /updateWardrobePagination\(page\.totalCount, page\.items\.length\)/);
 assert.doesNotMatch(tokenRefresh, /for \(let offset/);
