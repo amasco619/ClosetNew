@@ -964,9 +964,9 @@ All Express API endpoints are protected by `express-rate-limit` using the centra
 ---
 
 ### Session Storage
-Supabase session tokens (JWT access + refresh) are stored in `expo-secure-store` on native platforms (iOS Keychain / Android Keystore). The Supabase client is initialised with a `SecureStoreAdapter` (`getItemAsync` / `setItemAsync` / `deleteItemAsync`) inside the `Platform.OS !== 'web'` branch. The web platform uses the Supabase default (localStorage). Tokens are never written to `AsyncStorage`.
+Supabase session tokens (JWT access + refresh) are stored in `expo-secure-store` on native platforms (iOS Keychain / Android Keystore). The Supabase client is initialised with a `SecureStoreAdapter` (`getItemAsync` / `setItemAsync` / `deleteItemAsync`) inside the `Platform.OS !== 'web'` branch, with `persistSession: true`. On startup, `AppContext.loadData()` awaits `supabase.auth.getSession()` and finishes account hydration before the app routes, so a restored session remains signed in after a process restart. The native persistence regression test exercises save and fresh-client restore on both iOS and Android platform branches; physical signed-device relaunch testing remains necessary to verify the native OS stores themselves. The web platform uses the Supabase default (localStorage). Tokens are never written to `AsyncStorage`.
 
-**Code:** `lib/supabase.ts`
+**Code:** `lib/supabase.ts`, `contexts/AppContext.tsx`, `__tests__/nativeSessionPersistence.test.ts`
 
 ---
 
