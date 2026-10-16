@@ -205,7 +205,7 @@ Whenever you make a change that affects any section of this document — new API
 3. On native redirect, `createSessionFromUrl()` accepts only the exact expected callback base, parses a PKCE `code`, and calls `supabase.auth.exchangeCodeForSession()` with the SecureStore-bound verifier. Native implicit token callbacks are deliberately rejected.
 4. Session tokens are stored in `expo-secure-store` on native (iOS Keychain / Android Keystore) via `SecureStoreAdapter`. They are **not** in `AsyncStorage`.
 5. For email auth: `signInWithEmail()` first uses the rate-limited server check, then calls `supabase.auth.signInWithPassword()` on the client to establish the session. Server and client Supabase URLs must match; startup rejects non-root URLs, mismatches, or a URL that does not target the selected Amodka Production project.
-6. Email sign-up sends only the email and password through the rate-limited server proxy using the publishable Auth key, then attempts the same email sign-in flow to establish the session. No confirmation redirect is needed while Supabase Confirm Email is disabled. Expected credential failures stay generic; provider outages, invalid keys, and missing Auth endpoints return a generic retryable error and do not count as failed passwords. Internal auth diagnostics may record a sanitized provider code/status, never provider messages, emails, or passwords.
+6. Email sign-up sends only the email and password through the rate-limited server proxy using the publishable Auth key, then attempts the same email sign-in flow to establish the session. No confirmation redirect is needed while Supabase Confirm Email is disabled. Expected credential failures stay generic; provider outages, invalid keys, missing Auth endpoints, and unstructured provider errors without status/code return a generic retryable error and do not count as failed passwords. Only known duplicate-email errors receive the privacy-equivalent sign-up acknowledgement. Internal auth diagnostics may record a sanitized provider code/status, never provider messages, emails, or passwords.
 7. Password-reset redirect selection uses Expo's compile-time `EXPO_OS` value; avoid dynamically importing the React Native namespace, which can access unsupported native modules in Expo Go on iOS.
 8. `AppContext` listens to `supabase.auth.onAuthStateChange()` for **subsequent** events only — `INITIAL_SESSION` is intentionally excluded (see Startup Initialization below)
 
@@ -1360,7 +1360,7 @@ These features are **not yet implemented**. They are the next development priori
 | `removeBackground.test.ts` | `resolveClassifyBase64`/`selectClassifyPayload`/`resolvePhotoUri` pipeline helpers; server handler error codes (503 missing key, 400 missing body, 502 non-OK/empty-body/network-error/AbortError/mid-stream AbortError); `resolveWardrobeUploadArg`/`stripDataUriPrefix` |
 | `signInWithEmail.test.ts` | Email sign-in flow: credential validation, Supabase auth call, error propagation |
 | `signUpWithEmail.test.ts` | Sign-up client acknowledgement contract, redirect-free request, network/non-JSON/malformed response failures |
-| `auth2Routes.test.ts` | Real sign-up/reset routes: returned and thrown provider failures, privacy-equivalent replies, reset redirect policy, locked reset and mounted rate limits |
+| `auth2Routes.test.ts` | Real sign-up/reset routes: unclassified provider failures, known duplicate-email privacy response, reset redirect policy, locked reset and mounted rate limits |
 | `auth2MountedUi.test.ts` | Mounted confirmation and recovery screens with isolated native/auth/navigation mocks: preparation, callback errors, submit gating, update outcomes and navigation |
 | `emailRecovery.test.ts` | Recovery code/claims preparation gating and sanitized password-update provider failures |
 | `supabaseUrlStability.test.ts` | Supabase Storage public URL is deterministic from (userId, itemId, ext) alone — no session token embedded, no query parameters, stable across app reinstalls |
@@ -2225,14 +2225,18 @@ failure at every stage for both routes and verifies partial-cleanup retries.
 
 ## 27. AUTH-2 — Sign-up and password-recovery correctness
 
-The sign-up and reset routes now return a privacy-equivalent acknowledgement
-instead of claiming that an account was created or an email was delivered.
-Resolved Supabase errors and exceptions are checked and reported as fixed,
-allowlisted observability metadata; raw provider messages and account details
-are not logged. Existing, unknown, locked, and provider-failed requests cannot
-be distinguished from these public responses. Invalid supplied redirect URLs
-fail rather than silently switching a web request to a native callback.
-The UI uses conditional inbox instructions and rejects malformed 2xx contracts.
+The sign-up route returns a privacy-equivalent acknowledgement instead of
+claiming that an account was created or an email was delivered. Known duplicate
+email responses remain indistinguishable from successful sign-up, while
+unstructured provider errors without status/code fail closed as a retryable
+service error; this prevents a failed creation from being followed by a
+misleading credential failure. Other provider-side input rejections return a
+generic 400. Sign-in likewise treats unstructured provider errors as retryable
+and does not count them as failed passwords. Resolved Supabase errors are
+reported as fixed, allowlisted observability metadata; raw provider messages
+and account details are not logged. Invalid supplied redirect URLs fail rather
+than silently switching a web request to a native callback. The UI uses
+conditional inbox instructions and rejects malformed 2xx contracts.
 
 The web recovery route exchanges its own PKCE code (automatic URL exchange is
 disabled on that route only), like native recovery. The password form remains

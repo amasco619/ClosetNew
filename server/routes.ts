@@ -406,8 +406,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Sign-up ───────────────────────────────────────────────────────────────
   // Rate-limited (same authLimiter: 5 req / 15 min per IP).
   //
-  // Acknowledgement does not assert creation or email delivery. Provider
-  // failures and unknown/existing accounts must remain indistinguishable.
+  // Acknowledgement does not assert creation or email delivery. Known duplicate
+  // email errors stay indistinguishable; unclassified provider failures must not
+  // be acknowledged as success.
   app.post("/api/auth/sign-up", authLimiter, async (req, res) => {
     const { email, password } = req.body;
 
@@ -428,6 +429,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error) {
         reportAuthRequestFailure("auth_signup_returned_error", "/api/auth/sign-up", error);
         if (isAuthProviderUnavailable(error)) return authUnavailableResponse(res);
+        if (!isDuplicateSignupError(error)) {
+          return res.status(400).json({
+            error: "Sign-up was rejected. Check your details and try again.",
+          });
+        }
       }
     } catch (error) {
       reportAuthRequestFailure("auth_signup_exception", "/api/auth/sign-up", error);
@@ -684,12 +690,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 function isAuthProviderUnavailable(error: unknown): boolean {
   const details = authProviderDetails(error);
   const errorName = error && typeof error === "object" ? (error as { name?: unknown }).name : undefined;
+  const hasProviderResponse = details.status !== undefined || details.providerCode !== undefined;
   return details.status === 0 || details.status === 401 || details.status === 403 || details.status === 404 ||
     details.status === 429 || (details.status !== undefined && details.status >= 500) ||
     errorName === "AuthRetryableFetchError" ||
     details.providerCode === "invalid_api_key" ||
     details.providerCode === "provider_disabled" ||
-    details.providerCode === "signup_disabled";
+    details.providerCode === "signup_disabled" ||
+    (error !== null && typeof error === "object" && !hasProviderResponse);
+}
+
+function isDuplicateSignupError(error: unknown): boolean {
+  const providerCode = authProviderDetails(error).providerCode;
+  return providerCode === "email_exists" || providerCode === "user_already_exists";
 }
 
 function authUnavailableResponse(res: Response): Response {

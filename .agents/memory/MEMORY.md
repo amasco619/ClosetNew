@@ -36,4 +36,4 @@
 - [SDK 57 Reanimated lint exception](sdk57-reanimated-lint.md) — stable SharedValues mutated inside callbacks may need a narrowly documented exhaustive-deps exception.
 - [Mounted screen test fixtures](mounted-screen-fixture-stability.md) — keep mocked context arrays and callbacks stable across renders to avoid effect loops unrelated to the screen.
 - [Wardrobe load state ownership](wardrobe-load-state-ownership.md) — include active account identity in screen load keys; equal wardrobe counts do not mean the request belongs to the same account.
-- [Supabase email confirmation](supabase-email-confirmation.md) — development Auth confirmation is off; restore confirmation guidance before enabling it for launch.
+- [Supabase email confirmation](supabase-email-confirmation.md) — confirmation is off; acknowledge only known duplicate-email errors and fail closed on unclassified provider errors.

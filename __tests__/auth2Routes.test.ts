@@ -110,14 +110,17 @@ async function main() {
   try {
     const app = await makeApp();
 
-    // AUTH-2: the public contract is identical for provider success, a
-    // provider-returned error, and a provider exception.
-    for (const outcome of ["success", "returned-error", "throws"] as const) {
+    // Signup success and known duplicate-email responses stay
+    // indistinguishable; provider failures must not be acknowledged as success.
+    for (const outcome of ["success", "email-duplicate", "user-duplicate", "throws"] as const) {
       Reflect.set(supabaseAuth.auth, "signUp", async () => {
         if (outcome === "throws") throw new Error(PROVIDER_ERROR);
-        if (outcome === "returned-error") return {
+        if (outcome === "email-duplicate" || outcome === "user-duplicate") return {
           data: { user: null, session: null },
-          error: { message: PROVIDER_ERROR },
+          error: Object.assign(new Error(PROVIDER_ERROR), {
+            code: outcome === "email-duplicate" ? "email_exists" : "user_already_exists",
+            status: 422,
+          }),
         };
         return { data: { user: null, session: null }, error: null };
       });
@@ -134,6 +137,34 @@ async function main() {
       }
       assert.doesNotMatch(res.text, new RegExp(PROVIDER_ERROR));
     }
+
+    Reflect.set(supabaseAuth.auth, "signUp", async () => ({
+      data: { user: null, session: null },
+      error: Object.assign(new Error(PROVIDER_ERROR), {
+        code: "weak_password",
+        status: 422,
+      }),
+    }));
+    const rejectedSignup = await post(app, "/api/auth/sign-up", {
+      email: "rejected-signup@example.com",
+      password: PASSWORD,
+    }, ALLOWED_ORIGIN);
+    assert.equal(rejectedSignup.status, 400,
+      "known provider validation rejections do not masquerade as successful signup");
+    assert.doesNotMatch(rejectedSignup.text, new RegExp(PROVIDER_ERROR));
+
+    Reflect.set(supabaseAuth.auth, "signUp", async () => ({
+      data: { user: null, session: null },
+      error: new Error(PROVIDER_ERROR),
+    }));
+    const unclassifiedSignupError = await post(app, "/api/auth/sign-up", {
+      email: "unclassified-signup@example.com",
+      password: PASSWORD,
+    }, ALLOWED_ORIGIN);
+    assert.equal(unclassifiedSignupError.status, 503,
+      "an unclassified provider error is never acknowledged as successful signup");
+    assert.match(unclassifiedSignupError.body.error, /temporarily unavailable/);
+    assert.doesNotMatch(unclassifiedSignupError.text, new RegExp(PROVIDER_ERROR));
 
     Reflect.set(supabaseAuth.auth, "signUp", async () => ({
       data: { user: null, session: null },
@@ -303,6 +334,19 @@ async function main() {
     assert.equal(unavailable.status, 503, "provider outages are not returned as invalid credentials");
     assert.equal(checkAccountLockout(unavailableEmail).locked, false,
       "provider outages do not consume account lockout attempts");
+
+    Reflect.set(supabaseAuth.auth, "signInWithPassword", async () => ({
+      data: { user: null, session: null },
+      error: new Error(PROVIDER_ERROR),
+    }));
+    const unclassifiedEmail = "auth-unclassified-error@example.com";
+    const unclassified = await post(app, "/api/auth/sign-in", {
+      email: unclassifiedEmail, password: PASSWORD,
+    });
+    assert.equal(unclassified.status, 503,
+      "unclassified provider errors are not reported as invalid credentials");
+    assert.equal(checkAccountLockout(unclassifiedEmail).locked, false,
+      "unclassified provider errors do not consume account lockout attempts");
 
     Reflect.set(supabaseAuth.auth, "signInWithPassword", async () => ({
       data: { user: null, session: null },

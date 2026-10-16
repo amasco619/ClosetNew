@@ -66,7 +66,13 @@ Google OAuth is already implemented, including:
 - cold-start recovery
 - provider error handling
 
-Remaining work is configuration/native-build/real-device/store validation, not a new authentication system.
+Email/password signup/sign-in use the rate-limited server proxy and publishable
+Auth key. Unstructured provider errors now fail as retryable service errors
+instead of being acknowledged as successful signup and later shown as invalid
+credentials. A development canary completed signup and sign-in on 2026-10-16;
+the installed production build and physical-device flow still need verification.
+Remaining work is configuration/native-build/real-device/store validation, not
+a new authentication system.
 
 ### Entitlements
 Existing server boundary:
