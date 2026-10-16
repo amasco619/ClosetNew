@@ -205,7 +205,7 @@ Whenever you make a change that affects any section of this document — new API
 3. On native redirect, `createSessionFromUrl()` accepts only the exact expected callback base, parses a PKCE `code`, and calls `supabase.auth.exchangeCodeForSession()` with the SecureStore-bound verifier. Native implicit token callbacks are deliberately rejected.
 4. Session tokens are stored in `expo-secure-store` on native (iOS Keychain / Android Keystore) via `SecureStoreAdapter`. They are **not** in `AsyncStorage`.
 5. For email auth: `signInWithEmail()` first uses the rate-limited server check, then calls `supabase.auth.signInWithPassword()` on the client to establish the session. Server and client Supabase URLs must match; startup rejects non-root URLs, mismatches, or a URL that does not target the selected Amodka Production project.
-6. Email sign-up sends only the email and password through the rate-limited server proxy using the publishable Auth key, then attempts the same email sign-in flow to establish the session. No confirmation redirect is needed while Supabase Confirm Email is disabled. Expected credential failures stay generic; provider outages, invalid keys, missing Auth endpoints, and unstructured provider errors without status/code return a generic retryable error and do not count as failed passwords. Only known duplicate-email errors receive the privacy-equivalent sign-up acknowledgement. Internal auth diagnostics may record a sanitized provider code/status, never provider messages, emails, or passwords.
+6. Email sign-up sends only the email and password through the rate-limited server proxy using the publishable Auth key, then attempts the same email sign-in flow to establish the session. No confirmation redirect is needed while Supabase Confirm Email is disabled. Sign-up discloses `account_exists` only for provider-confirmed duplicate codes (`email_exists` or `user_already_exists`); the route remains behind `authLimiter`. A live duplicate probe against the selected Supabase project returned `user_already_exists` (422). If Supabase is configured to return an obfuscated success for duplicates, this signal is unavailable and must not be inferred. Sign-in remains non-enumerating: wrong passwords and unknown emails both map to `invalid_credentials`. Client auth failures use `AuthError` codes and catalogue-only copy; malformed/non-JSON proxy responses map to `network`. Provider outages, invalid keys, missing Auth endpoints, and unstructured provider errors without status/code return a generic retryable error and do not count as failed passwords. Internal auth diagnostics may record a sanitized provider code/status, never provider messages, emails, or passwords.
 7. Password-reset redirect selection uses Expo's compile-time `EXPO_OS` value; avoid dynamically importing the React Native namespace, which can access unsupported native modules in Expo Go on iOS.
 8. `AppContext` listens to `supabase.auth.onAuthStateChange()` for **subsequent** events only — `INITIAL_SESSION` is intentionally excluded (see Startup Initialization below)
 
@@ -2225,18 +2225,27 @@ failure at every stage for both routes and verifies partial-cleanup retries.
 
 ## 27. AUTH-2 — Sign-up and password-recovery correctness
 
-The sign-up route returns a privacy-equivalent acknowledgement instead of
-claiming that an account was created or an email was delivered. Known duplicate
-email responses remain indistinguishable from successful sign-up, while
-unstructured provider errors without status/code fail closed as a retryable
-service error; this prevents a failed creation from being followed by a
-misleading credential failure. Other provider-side input rejections return a
-generic 400. Sign-in likewise treats unstructured provider errors as retryable
-and does not count them as failed passwords. Resolved Supabase errors are
-reported as fixed, allowlisted observability metadata; raw provider messages
-and account details are not logged. Invalid supplied redirect URLs fail rather
-than silently switching a web request to a native callback. The UI uses
-conditional inbox instructions and rejects malformed 2xx contracts.
+The sign-up route returns a privacy-equivalent acknowledgement rather than
+claiming that an account was created or email was delivered, except for the
+explicitly approved, rate-limited duplicate-account disclosure: provider codes
+`email_exists` and `user_already_exists` return HTTP 409
+`{ success: false, reason: "account_exists" }`. The selected Supabase project
+was probed with a disposable confirmed synthetic account and returned
+`user_already_exists` (422); the probe account was deleted. If confirmation
+settings or provider behavior change to obfuscate duplicates, the app cannot
+reliably disclose this state without another provider signal. Unstructured
+provider errors without status/code still fail closed as retryable service
+errors. Sign-in remains non-enumerating: wrong passwords and unknown emails
+both return `invalid_credentials`; provider outages and unstructured errors
+remain retryable and do not count as failed passwords. Client sign-in/sign-up
+and Google/Apple failures use a typed `AuthError` code-to-copy catalogue; raw
+server/Supabase text is never rendered. Non-JSON proxy responses map to
+`network`. The shared glass notice is accessible, scrolls into view, clears
+when fields or mode change, suppresses OAuth cancellation, and offers only
+catalogue-defined actions. Resolved Supabase errors are reported as fixed,
+allowlisted observability metadata; raw provider messages and account details
+are not logged. Invalid supplied redirect URLs fail rather than silently
+switching a web request to a native callback.
 
 The web recovery route exchanges its own PKCE code (automatic URL exchange is
 disabled on that route only), like native recovery. The password form remains
@@ -2259,6 +2268,16 @@ the current stored value before both Gemini routes and the PhotoRoom route.
 Metadata reads/writes that fail deny processing; no client-only preference can
 authorize an AI request. The shared five-per-hour account limiter protects
 preference writes, not the photo-by-photo read endpoint.
+
+For a signed-in account with a confirmed `not_asked` response, Profile displays
+the preference switch ON by default. This is a display default, not consent:
+the stored state remains `not_asked`, and all three provider routes remain
+blocked until the user accepts the existing first-use disclosure. An explicit
+`declined` choice displays OFF and persists in Auth app metadata across devices
+and sessions. A malformed preference API response or unavailable read displays
+OFF; invalid stored metadata is still denied by the server. Changing the switch
+alone does not send or reprocess any photo. The existing disclosure is shown
+before a photo is sent and records the user's explicit choice.
 
 Add Item retains the selected camera or single-library photo for manual entry
 or explicit AI retry; multiple selected library photos go to Bulk Review.

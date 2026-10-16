@@ -20,6 +20,7 @@
  */
 
 import { signInWithEmail, _testOverrides } from '../lib/emailSignIn'
+import { AuthError } from '../lib/authErrors'
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ function makeResponse(
 ): Response {
   return {
     ok,
+    status: Number(statusText) || (ok ? 200 : 400),
     statusText,
     json: async () => body,
   } as unknown as Response
@@ -80,7 +82,7 @@ function installFetchMock(response: Response): {
  * and counts invocations.
  */
 function installSupabaseMock(
-  result: { error: { message: string } | null }
+  result: { error: { message: string; code?: string; status?: number; name?: string } | null }
 ): { callCount: () => number; restore: () => void } {
   let count = 0
   _testOverrides.signInWithPassword = async (_creds) => {
@@ -158,23 +160,16 @@ section('Step 1 returns 401 (lockout): Supabase must not be called')
   const { callCount, restore: restoreSupabase } = installSupabaseMock({ error: null })
 
   let threw = false
-  let errorMsg = ''
+  let errorCode = ''
   try {
     await signInWithEmail('test@example.com', 'Password1')
   } catch (e: unknown) {
     threw = true
-    errorMsg = (e as Error).message
+    errorCode = e instanceof AuthError ? e.code : ''
   }
 
   assert(threw, '401: an error is thrown')
-  assert(
-    errorMsg.includes('[signInWithEmail]'),
-    '401: error message has [signInWithEmail] prefix'
-  )
-  assert(
-    errorMsg.includes('Account locked'),
-    '401: server error text is propagated'
-  )
+  assert(errorCode === 'invalid_credentials', '401 maps to the generic invalid-credentials code')
   assert(callCount() === 0, '401: supabase.auth.signInWithPassword is NOT called')
 
   restoreFetch()
@@ -191,19 +186,16 @@ section('Step 1 returns 429 (rate-limited): Supabase must not be called')
   const { callCount, restore: restoreSupabase } = installSupabaseMock({ error: null })
 
   let threw = false
-  let errorMsg = ''
+  let errorCode = ''
   try {
     await signInWithEmail('test@example.com', 'Password1')
   } catch (e: unknown) {
     threw = true
-    errorMsg = (e as Error).message
+    errorCode = e instanceof AuthError ? e.code : ''
   }
 
   assert(threw, '429: an error is thrown')
-  assert(
-    errorMsg.includes('Too many attempts'),
-    '429: server error text is propagated'
-  )
+  assert(errorCode === 'rate_limited', '429 maps to rate_limited')
   assert(callCount() === 0, '429: supabase.auth.signInWithPassword is NOT called')
 
   restoreFetch()
@@ -223,14 +215,14 @@ section('Step 1 returns 503 (auth provider unavailable): Supabase must not be ca
   const { restore: restoreFetch } = installFetchMock(server503)
   const { callCount, restore: restoreSupabase } = installSupabaseMock({ error: null })
 
-  let errorMsg = ''
+  let errorCode = ''
   try {
     await signInWithEmail('test@example.com', 'Password1')
   } catch (e: unknown) {
-    errorMsg = (e as Error).message
+    errorCode = e instanceof AuthError ? e.code : ''
   }
 
-  assert(errorMsg.includes('temporarily unavailable'), '503: user receives a retryable service message')
+  assert(errorCode === 'network', '503 maps to network')
   assert(callCount() === 0, '503: supabase.auth.signInWithPassword is NOT called')
 
   restoreFetch()
@@ -291,30 +283,52 @@ section('Step 2 Supabase error: error must propagate')
   const serverOk = makeResponse(true, {})
   const { restore: restoreFetch } = installFetchMock(serverOk)
   const { restore: restoreSupabase } = installSupabaseMock({
-    error: { message: 'Invalid login credentials' },
+    error: { message: 'Invalid login credentials', code: 'invalid_credentials' },
   })
 
   let threw = false
-  let errorMsg = ''
+  let errorCode = ''
   try {
     await signInWithEmail('test@example.com', 'WrongPass1')
   } catch (e: unknown) {
     threw = true
-    errorMsg = (e as Error).message
+    errorCode = e instanceof AuthError ? e.code : ''
   }
 
-  assert(threw, 'supabase error: an error is thrown')
-  assert(
-    errorMsg.includes('[signInWithEmail]'),
-    'supabase error: message has [signInWithEmail] prefix'
-  )
-  assert(
-    errorMsg.includes('Invalid login credentials'),
-    'supabase error: Supabase message is propagated'
-  )
+  assert(threw, 'Supabase error: a typed error is thrown')
+  assert(errorCode === 'invalid_credentials', 'Supabase credentials map to invalid_credentials')
 
   restoreFetch()
   restoreSupabase()
+}
+
+section('Malformed JSON and fetch failures map to network')
+
+{
+  const invalidJson = {
+    ok: false,
+    status: 502,
+    statusText: 'Bad Gateway',
+    json: async () => { throw new SyntaxError('HTML response') },
+  } as unknown as Response
+  const { restore: restoreFetch } = installFetchMock(invalidJson)
+  const { callCount, restore: restoreSupabase } = installSupabaseMock({ error: null })
+  let jsonCode = ''
+  try { await signInWithEmail('test@example.com', 'Password1') }
+  catch (error) { jsonCode = error instanceof AuthError ? error.code : '' }
+  assert(jsonCode === 'network', 'non-JSON proxy response maps to network')
+  assert(callCount() === 0, 'malformed proxy response does not call Supabase')
+  restoreFetch()
+  restoreSupabase()
+
+  _testOverrides.fetch = async () => { throw new TypeError('offline') }
+  _testOverrides.signInWithPassword = async () => ({ error: null })
+  let fetchCode = ''
+  try { await signInWithEmail('test@example.com', 'Password1') }
+  catch (error) { fetchCode = error instanceof AuthError ? error.code : '' }
+  assert(fetchCode === 'network', 'fetch rejection maps to network')
+  delete _testOverrides.fetch
+  delete _testOverrides.signInWithPassword
 }
 
 // ── Happy path: no error ──────────────────────────────────────────────────────

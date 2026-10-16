@@ -31,9 +31,12 @@ import {
 import { NATIVE_OAUTH_CALLBACK_URL, isOAuthCallbackUrl } from '../lib/oauth-callback'
 import { useApp } from '@/contexts/AppContext'
 import Colors from '@/constants/colors'
+import { AuthNotice } from '@/components/AuthNotice'
+import { normalizeAuthError, type AuthError, type AuthErrorAction } from '@/lib/authErrors'
 
 type Mode = 'sign-in' | 'sign-up'
 type LoadingAction = null | 'google' | 'apple' | 'email'
+type AuthSource = 'email' | 'google' | 'apple'
 
 function SocialButton({
   label,
@@ -108,10 +111,12 @@ export default function SignInScreen() {
   const [showPassword, setShowPassword] = useState(false)
   const [emailError, setEmailError] = useState<string | null>(null)
   const [passwordError, setPasswordError] = useState<string | null>(null)
-  const [authError, setAuthError] = useState<string | null>(null)
+  const [authError, setAuthError] = useState<AuthError | null>(null)
+  const [authErrorSource, setAuthErrorSource] = useState<AuthSource>('email')
   const [loading, setLoading] = useState<LoadingAction>(null)
   const [emailFocused, setEmailFocused] = useState(false)
   const [passwordFocused, setPasswordFocused] = useState(false)
+  const scrollRef = useRef<ScrollView>(null)
 
   // Guards the isAuthenticated effect so it only triggers navigation when the
   // user has actively pressed a sign-in button in this session. Without this,
@@ -201,6 +206,7 @@ export default function SignInScreen() {
     if (!validEmail || !validPassword) return
 
     setAuthError(null)
+    setAuthErrorSource('email')
     setLoading('email')
     intentionalSignIn.current = true
     try {
@@ -213,11 +219,8 @@ export default function SignInScreen() {
       } else {
         await signUpWithEmail(email, password)
       }
-    } catch (err: any) {
-      const msg = (err.message ?? '')
-        .replace('[signInWithEmail] ', '')
-        .replace('[signUpWithEmail] ', '')
-      setAuthError(msg || 'Something went wrong.')
+    } catch (err: unknown) {
+      setAuthError(normalizeAuthError(err))
     } finally {
       setLoading(null)
     }
@@ -225,13 +228,15 @@ export default function SignInScreen() {
 
   const handleGoogle = async () => {
     setAuthError(null)
+    setAuthErrorSource('google')
     setLoading('google')
     intentionalSignIn.current = true
     oauthInProgress.current = true
     try {
       await signInWithGoogle()
-    } catch (err: any) {
-      setAuthError(err.message?.replace('[signInWithGoogle] ', '') ?? 'Google sign-in failed.')
+    } catch (err: unknown) {
+      const authError = normalizeAuthError(err)
+      if (authError.code !== 'oauth_cancelled') setAuthError(authError)
     } finally {
       oauthInProgress.current = false
       setLoading(null)
@@ -240,16 +245,32 @@ export default function SignInScreen() {
 
   const handleApple = async () => {
     setAuthError(null)
+    setAuthErrorSource('apple')
     setLoading('apple')
     intentionalSignIn.current = true
     oauthInProgress.current = true
     try {
       await signInWithApple()
-    } catch (err: any) {
-      setAuthError(err.message?.replace('[signInWithApple] ', '') ?? 'Apple sign-in failed.')
+    } catch (err: unknown) {
+      const authError = normalizeAuthError(err)
+      if (authError.code !== 'oauth_cancelled') setAuthError(authError)
     } finally {
       oauthInProgress.current = false
       setLoading(null)
+    }
+  }
+
+  const handleAuthNoticeAction = (action: AuthErrorAction) => {
+    if (action === 'reset-password') {
+      router.push('/forgot-password')
+    } else if (action === 'switch-to-sign-in') {
+      switchMode('sign-in')
+    } else if (authErrorSource === 'google') {
+      void handleGoogle()
+    } else if (authErrorSource === 'apple') {
+      void handleApple()
+    } else {
+      void handleEmailSubmit()
     }
   }
 
@@ -284,6 +305,7 @@ export default function SignInScreen() {
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom + 28, 52) }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -338,7 +360,7 @@ export default function SignInScreen() {
                   autoCorrect={false}
                   returnKeyType="next"
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={value => { setAuthError(null); setEmail(value) }}
                   onFocus={() => setEmailFocused(true)}
                   onBlur={() => { setEmailFocused(false); validateEmailField() }}
                 />
@@ -360,7 +382,7 @@ export default function SignInScreen() {
                   returnKeyType="done"
                   onSubmitEditing={handleEmailSubmit}
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={value => { setAuthError(null); setPassword(value) }}
                   onFocus={() => setPasswordFocused(true)}
                   onBlur={() => { setPasswordFocused(false); validatePasswordField() }}
                 />
@@ -392,6 +414,16 @@ export default function SignInScreen() {
 
           </Animated.View>
 
+          {authError && (
+            <AuthNotice
+              error={authError}
+              onAction={handleAuthNoticeAction}
+              onLayout={event => {
+                scrollRef.current?.scrollTo({ y: event.nativeEvent.layout.y, animated: true })
+              }}
+            />
+          )}
+
           {/* Submit */}
           <Animated.View entering={FadeInUp.delay(300).duration(280)} style={styles.submitContainer}>
             <TouchableOpacity
@@ -418,13 +450,6 @@ export default function SignInScreen() {
             >
               <Text style={styles.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
-          )}
-
-          {/* Auth-level error */}
-          {authError && (
-            <View style={[styles.errorBox, styles.authErrorBox]}>
-              <Text style={styles.errorText}>{authError}</Text>
-            </View>
           )}
 
         </ScrollView>
@@ -629,9 +654,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginTop: 4,
-  },
-  authErrorBox: {
-    marginTop: 12,
   },
   errorText: {
     fontFamily: 'Inter_400Regular',

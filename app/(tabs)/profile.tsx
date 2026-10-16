@@ -20,6 +20,7 @@ import { AmodkaErrorState } from '@/components/AmodkaErrorState';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
 import {
   getAiProcessingPreference,
+  isAiProcessingSwitchOn,
   setAiProcessingPreference,
   type AiProcessingPreference,
 } from '@/lib/aiProcessingPreference';
@@ -293,6 +294,12 @@ export default function ProfileScreen() {
     profile.styleGoalPrimary ? { label: styleGoalLabels[profile.styleGoalPrimary], color: Colors.primary + '12', text: Colors.primary } : null,
     profile.styleGoalSecondary ? { label: styleGoalLabels[profile.styleGoalSecondary], color: Colors.primary + '08', text: Colors.textSecondary } : null,
   ].filter(Boolean) as { label: string; color: string; text: string }[];
+
+  const aiProcessingSwitchOn = isAiProcessingSwitchOn(aiProcessingPreference, {
+    loading: aiPreferenceLoading,
+    unavailable: aiPreferenceUnavailable,
+    guest: isGuest,
+  });
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
@@ -816,17 +823,17 @@ export default function ProfileScreen() {
               <View style={styles.aiPreferenceCopy}>
                 <Text style={styles.aiPreferenceTitle}>AI Processing</Text>
                 <Text style={styles.aiPreferenceDescription}>
-                  Allow AI services to prepare and identify garment photos. Turning this off prevents future processing; it does not remove existing wardrobe items or images.
+                  On by default when no choice is saved. Before any photo is sent to PhotoRoom or Google Gemini, we&apos;ll show the existing disclosure and ask. You can turn this off at any time; manual item entry remains available.
                 </Text>
               </View>
               <Switch
-                value={aiProcessingPreference === 'allowed'}
+                value={aiProcessingSwitchOn}
                 onValueChange={changeAiProcessingPreference}
                 disabled={isGuest || aiPreferenceLoading || aiPreferenceSaving || aiPreferenceUnavailable}
                 accessibilityRole="switch"
                 accessibilityLabel="AI Processing"
                 trackColor={{ false: Colors.border, true: Colors.sage }}
-                thumbColor={aiProcessingPreference === 'allowed' ? Colors.primary : Colors.white}
+                thumbColor={aiProcessingSwitchOn ? Colors.primary : Colors.white}
               />
             </View>
             {aiPreferenceLoading && <ActivityIndicator size="small" color={Colors.secondary} />}

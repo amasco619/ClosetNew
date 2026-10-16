@@ -18,6 +18,7 @@ import {
 } from './oauth-callback'
 import { completeOAuthCallback } from './oauth-session'
 import { updatePasswordWith } from './emailRecovery'
+import { authErrorFromSupabase } from './authErrors'
 export { signInWithEmail } from './emailSignIn'
 export { signUpWithEmail } from './emailSignUp'
 export { requestPasswordReset } from './emailPasswordReset'
@@ -226,44 +227,52 @@ async function openOAuthSessionWithFallback(oauthUrl: string): Promise<void> {
 }
 
 export async function signInWithGoogle(): Promise<void> {
-  if (Platform.OS === 'web') {
-    // On web, custom URL schemes (amodka://) cannot be received by the
-    // browser. Use a full-page redirect instead; detectSessionInUrl:true (set
-    // in lib/supabase.ts for web) auto-processes the PKCE code on return.
-    const origin = typeof window !== 'undefined' ? window.location.origin : nativeRedirectTo
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: origin },
-    })
-    if (error) throw new Error(`[signInWithGoogle] ${error.message}`)
-    return
-  }
+  try {
+    if (Platform.OS === 'web') {
+      // On web, custom URL schemes (amodka://) cannot be received by the
+      // browser. Use a full-page redirect instead; detectSessionInUrl:true (set
+      // in lib/supabase.ts for web) auto-processes the PKCE code on return.
+      const origin = typeof window !== 'undefined' ? window.location.origin : nativeRedirectTo
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: origin },
+      })
+      if (error) throw authErrorFromSupabase(error)
+      return
+    }
 
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: buildNativeOAuthRedirectTo(), skipBrowserRedirect: true },
-  })
-  if (error) throw new Error(`[signInWithGoogle] ${error.message}`)
-  await openOAuthSessionWithFallback(data?.url ?? '')
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: buildNativeOAuthRedirectTo(), skipBrowserRedirect: true },
+    })
+    if (error) throw authErrorFromSupabase(error)
+    await openOAuthSessionWithFallback(data?.url ?? '')
+  } catch (error) {
+    throw authErrorFromSupabase(error)
+  }
 }
 
 export async function signInWithApple(): Promise<void> {
-  if (Platform.OS === 'web') {
-    const origin = typeof window !== 'undefined' ? window.location.origin : nativeRedirectTo
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: { redirectTo: origin },
-    })
-    if (error) throw new Error(`[signInWithApple] ${error.message}`)
-    return
-  }
+  try {
+    if (Platform.OS === 'web') {
+      const origin = typeof window !== 'undefined' ? window.location.origin : nativeRedirectTo
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: { redirectTo: origin },
+      })
+      if (error) throw authErrorFromSupabase(error)
+      return
+    }
 
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'apple',
-    options: { redirectTo: buildNativeOAuthRedirectTo(), skipBrowserRedirect: true },
-  })
-  if (error) throw new Error(`[signInWithApple] ${error.message}`)
-  await openOAuthSessionWithFallback(data?.url ?? '')
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: { redirectTo: buildNativeOAuthRedirectTo(), skipBrowserRedirect: true },
+    })
+    if (error) throw authErrorFromSupabase(error)
+    await openOAuthSessionWithFallback(data?.url ?? '')
+  } catch (error) {
+    throw authErrorFromSupabase(error)
+  }
 }
 
 export async function signOut(): Promise<{ remoteTerminated: boolean; localTerminated: boolean }> {

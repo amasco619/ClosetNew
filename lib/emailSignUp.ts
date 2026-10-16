@@ -25,6 +25,8 @@
  * property on the stable object reference is the only safe override path.
  * See .agents/memory/test-overrides-pattern.md.
  */
+import { authErrorFromServer, authErrorFromSupabase, AuthError } from './authErrors'
+
 export const _testOverrides: {
   fetch?: (url: string, init?: RequestInit) => Promise<Response>
   apiUrl?: string
@@ -36,8 +38,8 @@ export const _testOverrides: {
  *
  * POST /api/auth/sign-up (Express proxy):
  *   Enforces server-side rate-limiting and input validation. The server
- *   acknowledges receipt without promising account
- *   creation or email delivery, preventing email-enumeration attacks.
+ *   acknowledges receipt without promising account creation or email delivery.
+ *   A known duplicate account receives the approved, rate-limited disclosure.
  *   If the server returns
  *   a non-2xx status (e.g. 400 invalid_email, 429 rate_limit), an error is
  *   thrown and the flow stops.
@@ -47,7 +49,7 @@ export const _testOverrides: {
  * surfaced as a generic sign-up error; this flow does not show email guidance.
  *
  * Trims and lower-cases the email before forwarding it to the server.
- * Throws with a `[signUpWithEmail] …` prefix for request and sign-in failures.
+ * Throws typed AuthErrors; provider text is never exposed to the UI.
  */
 export async function signUpWithEmail(
   email: string,
@@ -68,32 +70,44 @@ export async function signUpWithEmail(
     apiUrl = `https://${host}`
   }
 
-  const res = await _fetch(
-    new URL('/api/auth/sign-up', apiUrl).toString(),
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: email.trim().toLowerCase(),
-        password,
-      }),
-      credentials: 'include',
-    }
-  )
+  let res: Response
+  try {
+    res = await _fetch(
+      new URL('/api/auth/sign-up', apiUrl).toString(),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password,
+        }),
+        credentials: 'include',
+      }
+    )
+  } catch {
+    throw authErrorFromSupabase(new TypeError('Network request failed'))
+  }
 
-  let json: { acknowledged?: boolean; error?: string }
+  let json: unknown
   try {
     json = await res.json()
   } catch {
-    throw new Error('[signUpWithEmail] The sign-up response could not be read. Please try again later.')
+    throw authErrorFromSupabase(new TypeError('Invalid response'))
   }
 
+  const body = json !== null && typeof json === 'object'
+    ? json as { acknowledged?: boolean; reason?: string }
+    : {}
+
+  if (body.reason === 'account_exists') {
+    throw authErrorFromServer(res.status, body, 'sign-up')
+  }
   if (!res.ok) {
-    throw new Error(`[signUpWithEmail] ${json.error ?? res.statusText}`)
+    throw authErrorFromServer(res.status, json, 'sign-up')
   }
 
-  if (json?.acknowledged !== true) {
-    throw new Error('[signUpWithEmail] The sign-up response was invalid. Please try again later.')
+  if (body.acknowledged !== true) {
+    throw new AuthError('network')
   }
 
   const signIn = _testOverrides.signInWithEmail ??
@@ -101,10 +115,6 @@ export async function signUpWithEmail(
   try {
     await signIn(email.trim().toLowerCase(), password)
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    if (message === '[signInWithEmail] invalid_credentials') {
-      throw new Error('[signUpWithEmail] Sign-up could not be completed. Try again or sign in if you already have an account.')
-    }
-    throw new Error(`[signUpWithEmail] ${message.replace(/^\[signInWithEmail\]\s*/, '')}`)
+    throw authErrorFromSupabase(error)
   }
 }

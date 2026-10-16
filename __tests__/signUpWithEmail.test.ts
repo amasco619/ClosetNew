@@ -5,6 +5,7 @@
  */
 
 import { signUpWithEmail, _testOverrides } from '../lib/emailSignUp'
+import { AuthError } from '../lib/authErrors'
 
 let failed = 0
 function assert(condition: boolean, message: string): void {
@@ -18,8 +19,13 @@ function section(message: string): void {
   console.log(`\n${message}:`)
 }
 
-function response(ok: boolean, body: unknown, statusText = ok ? 'OK' : 'Bad Request'): Response {
-  return { ok, statusText, json: async () => body } as unknown as Response
+function response(
+  ok: boolean,
+  body: unknown,
+  statusText = ok ? 'OK' : 'Bad Request',
+  status = ok ? 200 : 400,
+): Response {
+  return { ok, status, statusText, json: async () => body } as unknown as Response
 }
 
 function install(
@@ -53,12 +59,12 @@ function install(
   }
 }
 
-async function thrown(action: () => Promise<unknown>): Promise<string> {
+async function thrownCode(action: () => Promise<unknown>): Promise<string> {
   try {
     await action()
     return ''
   } catch (error) {
-    return error instanceof Error ? error.message : String(error)
+    return error instanceof AuthError ? error.code : ''
   }
 }
 
@@ -82,11 +88,10 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
   {
     const mock = install(
       response(true, { acknowledged: true }),
-      new Error('[signInWithEmail] invalid_credentials'),
+      new AuthError('invalid_credentials'),
     )
-    const message = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
-    assert(message.includes('Sign-up could not be completed'), 'shows a generic signup error')
-    assert(!message.toLowerCase().includes('confirm'), 'does not imply that a confirmation email was sent')
+    const code = await thrownCode(() => signUpWithEmail('user@example.com', 'Password1'))
+    assert(code === 'invalid_credentials', 'post-signup sign-in failure is typed and generic')
     mock.restore()
   }
 
@@ -94,10 +99,10 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
   {
     const mock = install(
       response(true, { acknowledged: true }),
-      new Error('[signInWithEmail] rate_limited'),
+      new AuthError('rate_limited'),
     )
-    const message = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
-    assert(message.includes('[signUpWithEmail] rate_limited'), 'does not misreport a service failure as email confirmation')
+    const code = await thrownCode(() => signUpWithEmail('user@example.com', 'Password1'))
+    assert(code === 'rate_limited', 'does not misreport a service failure as email confirmation')
     mock.restore()
   }
 
@@ -147,10 +152,19 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
 
   section('Non-2xx responses')
   {
-    const mock = install(response(false, { error: 'rate_limit' }, 'Too Many Requests'))
-    const message = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
-    assert(message.includes('[signUpWithEmail]'), 'prefixes non-2xx errors')
-    assert(message.includes('rate_limit'), 'propagates server error')
+    const mock = install(response(false, { error: 'rate_limit' }, 'Too Many Requests', 429))
+    const code = await thrownCode(() => signUpWithEmail('user@example.com', 'Password1'))
+    assert(code === 'rate_limited', 'maps server rate limiting without exposing its message')
+    mock.restore()
+  }
+
+  section('Approved duplicate-account response')
+  {
+    const mock = install(response(false,
+      { success: false, reason: 'account_exists' }, 'Conflict', 409))
+    const code = await thrownCode(() => signUpWithEmail('user@example.com', 'Password1'))
+    assert(code === 'account_exists', 'maps the explicit duplicate reason')
+    assert(mock.signInCalls.length === 0, 'does not attempt sign-in after a duplicate response')
     mock.restore()
   }
 
@@ -162,16 +176,16 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
     missingAcknowledgement.restore()
 
     const malformed = install(response(true, {}))
-    const message = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
-    assert(message.includes('response was invalid'), 'rejects 2xx without acknowledged:true')
+    const code = await thrownCode(() => signUpWithEmail('user@example.com', 'Password1'))
+    assert(code === 'network', 'treats a malformed 2xx contract as a retryable network error')
     malformed.restore()
   }
 
   section('Fetch and JSON failures')
   {
     const network = install(new TypeError('Failed to fetch'))
-    const networkMessage = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
-    assert(networkMessage.includes('Failed to fetch'), 'propagates fetch rejection')
+    const networkCode = await thrownCode(() => signUpWithEmail('user@example.com', 'Password1'))
+    assert(networkCode === 'network', 'maps fetch rejection without exposing transport text')
     network.restore()
 
     const invalidJson = install({
@@ -179,8 +193,8 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
       statusText: 'OK',
       json: async () => { throw new SyntaxError('Unexpected token <') },
     } as unknown as Response)
-    const jsonMessage = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
-    assert(jsonMessage.includes('response could not be read'), 'reports invalid JSON')
+    const jsonCode = await thrownCode(() => signUpWithEmail('user@example.com', 'Password1'))
+    assert(jsonCode === 'network', 'maps invalid JSON to network')
     invalidJson.restore()
   }
 

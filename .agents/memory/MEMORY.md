@@ -21,7 +21,7 @@
 - [Track C v3.7 baseline interpretation](track-c-baseline-interpretation.md) — keep fixed-candidate scoring and full-generator support separate; baseline recommends material remediation before launch
 - [Persistent rate-limiter tests](persistent-rate-limiter-tests.md) — use distinct client IPs across test runs when exercising real persistent limiters to avoid false 429s
 - [Test-only npm installs](test-only-npm-installs.md) — package install callback saves npm packages as runtime deps; move test-only packages into devDependencies in both manifests.
-- [AI image consent storage](ai-consent-storage.md) — store preference in server-managed Auth app metadata; check fresh state before every provider-bound request, not client caches.
+- [AI consent storage](ai-consent-storage.md) — no-choice displays ON but is not consent; server metadata remains authoritative and explicit OFF is never overridden.
 - [Local PostgreSQL child-process startup](local-postgres-child-process.md) — redirect daemon output when starting disposable PostgreSQL from a test with captured child-process streams.
 - [Free wardrobe retained-row policy](free-wardrobe-retention-policy.md) — active-item admission is not a retained-row storage cap; changing that rule needs a separate product decision.
 - [Upload cleanup after ambiguous saves](upload-cleanup-ambiguity.md) — only a confirmed DB rejection makes it safe to delete a just-uploaded image; a lost response may follow a commit.
@@ -36,4 +36,4 @@
 - [SDK 57 Reanimated lint exception](sdk57-reanimated-lint.md) — stable SharedValues mutated inside callbacks may need a narrowly documented exhaustive-deps exception.
 - [Mounted screen test fixtures](mounted-screen-fixture-stability.md) — keep mocked context arrays and callbacks stable across renders to avoid effect loops unrelated to the screen.
 - [Wardrobe load state ownership](wardrobe-load-state-ownership.md) — include active account identity in screen load keys; equal wardrobe counts do not mean the request belongs to the same account.
-- [Supabase email confirmation](supabase-email-confirmation.md) — confirmation is off; acknowledge only known duplicate-email errors and fail closed on unclassified provider errors.
+- [Supabase email auth policy](supabase-email-confirmation.md) — confirmation is off; only explicit duplicate codes disclose account_exists, while signup outages fail closed and sign-in stays non-enumerating.

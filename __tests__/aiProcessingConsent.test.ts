@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import express from "express";
 import request from "supertest";
+import {
+  isAiProcessingSwitchOn,
+  requireAiProcessingPreference,
+} from "../lib/aiProcessingPreferenceState";
 
 async function main() {
   // Import mounted routes with database-backed rate-limit state disabled.
@@ -26,7 +30,13 @@ async function main() {
       request(app)[method](path).set("X-Forwarded-For", `198.18.0.${ip++}`);
 
     const pref = "/api/user/ai-processing";
-    assert.deepEqual((await call("get", pref)).body, { state: "not_asked" });
+    // A no-choice account may display the default-on switch, but that display
+    // is not consent and must not cause any pending photo to reach a provider.
+    const noChoice = await call("get", pref);
+    assert.deepEqual(noChoice.body, { state: "not_asked" });
+    assert.equal(isAiProcessingSwitchOn(requireAiProcessingPreference(noChoice.body.state), {
+      loading: false, unavailable: false, guest: false,
+    }), true, "a confirmed no-choice response displays ON by default");
     for (const route of ["/api/classify-garment", "/api/classify-garments", "/api/remove-background"]) {
       const blocked = await call("post", route).send({ imageBase64: "never-sent-to-provider" });
       assert.equal(blocked.status, 403, `${route} must reject before the handler`);
@@ -50,8 +60,13 @@ async function main() {
     routes._testOverrides.authenticatedUser = { id: "first-account" };
 
     assert.deepEqual((await call("put", pref).send({ state: "declined" })).body, { state: "declined" });
+    assert.deepEqual((await call("get", pref)).body, { state: "declined" },
+      "explicit OFF is read back from account metadata after a fresh request");
     assert.equal((await call("post", "/api/remove-background").send({})).status, 403);
     assert.equal((await call("post", "/api/classify-garment").send({})).status, 403);
+    assert.deepEqual((await call("put", pref).send({ state: "allowed" })).body, { state: "allowed" },
+      "turning AI back on requires an explicit saved allowed choice");
+    assert.deepEqual((await call("get", pref)).body, { state: "allowed" });
     consent._testOverrides.load = async () => { throw new Error("unavailable"); };
     assert.equal((await call("post", "/api/classify-garment").send({})).status, 503,
       "store failure must fail closed");

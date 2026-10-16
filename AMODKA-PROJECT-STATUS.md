@@ -71,8 +71,13 @@ Auth key. Unstructured provider errors now fail as retryable service errors
 instead of being acknowledged as successful signup and later shown as invalid
 credentials. A development canary completed signup and sign-in on 2026-10-16;
 the installed production build and physical-device flow still need verification.
-Remaining work is configuration/native-build/real-device/store validation, not
-a new authentication system.
+Typed auth errors now use a shared catalogue-backed notice on the sign-in/sign-up
+screen. Sign-in stays non-enumerating; only explicit Supabase duplicate codes
+return the approved `account_exists` response, behind the existing auth limiter.
+The Production provider returned `user_already_exists` (422) for a disposable
+confirmed test account, which was deleted after the probe. The installed build
+and physical-device/error-state flow still need verification. Remaining work is
+configuration/native-build/real-device/store validation, not a new auth system.
 
 ### Entitlements
 Existing server boundary:
@@ -172,7 +177,7 @@ UK (`GB`) is currently treated as Fahrenheit in one weather utility. UK should u
 This is a small targeted fix.
 
 ### E. AI processing disclosure
-Garment images are processed by third-party AI services including Gemini and PhotoRoom. Add clear first-use disclosure/consent UX before upload processing, with Privacy Policy access.
+The existing account-scoped consent flow remains authoritative: absent choice is `not_asked`, and PhotoRoom/Gemini are blocked until the user accepts the first-use disclosure. Profile now displays ON by default only after a confirmed no-choice response; explicit OFF remains saved in Auth app metadata. Preference display/toggle changes do not trigger or replay photo processing. Privacy-policy/provider legal review items remain open in `docs/compliance/privacy-policy-source.md`.
 
 ### F. Account deletion hardening
 Deletion exists, including external web deletion support. Review:

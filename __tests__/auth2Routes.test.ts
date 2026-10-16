@@ -110,8 +110,8 @@ async function main() {
   try {
     const app = await makeApp();
 
-    // Signup success and known duplicate-email responses stay
-    // indistinguishable; provider failures must not be acknowledged as success.
+    // Only known provider duplicate-email responses disclose account_exists;
+    // all other provider failures must not be acknowledged as success.
     for (const outcome of ["success", "email-duplicate", "user-duplicate", "throws"] as const) {
       Reflect.set(supabaseAuth.auth, "signUp", async () => {
         if (outcome === "throws") throw new Error(PROVIDER_ERROR);
@@ -131,6 +131,10 @@ async function main() {
       if (outcome === "throws") {
         assert.equal(res.status, 503, "provider exceptions are reported as a temporary service failure");
         assert.match(res.body.error, /temporarily unavailable/);
+      } else if (outcome === "email-duplicate" || outcome === "user-duplicate") {
+        assert.equal(res.status, 409, `sign-up ${outcome} status`);
+        assert.deepEqual(res.body, { success: false, reason: "account_exists" },
+          `sign-up ${outcome} discloses only the approved duplicate reason`);
       } else {
         assert.equal(res.status, 200, `sign-up ${outcome} status`);
         assert.deepEqual(res.body, { acknowledged: true }, `sign-up ${outcome} contract`);
@@ -152,6 +156,21 @@ async function main() {
     assert.equal(rejectedSignup.status, 400,
       "known provider validation rejections do not masquerade as successful signup");
     assert.doesNotMatch(rejectedSignup.text, new RegExp(PROVIDER_ERROR));
+
+    Reflect.set(supabaseAuth.auth, "signUp", async () => ({
+      data: { user: null, session: null },
+      error: Object.assign(new Error(PROVIDER_ERROR), {
+        code: "weak_password",
+        status: 422,
+      }),
+    }));
+    const weakPasswordSignup = await post(app, "/api/auth/sign-up", {
+      email: "weak-password-signup@example.com",
+      password: PASSWORD,
+    }, ALLOWED_ORIGIN);
+    assert.equal(weakPasswordSignup.status, 400);
+    assert.deepEqual(weakPasswordSignup.body, { error: "weak_password" },
+      "known provider password rejection maps to a stable code");
 
     Reflect.set(supabaseAuth.auth, "signUp", async () => ({
       data: { user: null, session: null },
@@ -393,6 +412,12 @@ async function main() {
       assert.equal(invalidCredentials.status, 401);
       assert.equal(invalidCredentials.body.error, "invalid_credentials");
     }
+    const unknownEmailSignIn = await post(app, "/api/auth/sign-in", {
+      email: "unknown-account@example.com", password: PASSWORD,
+    });
+    assert.equal(unknownEmailSignIn.status, 401);
+    assert.deepEqual(unknownEmailSignIn.body, { error: "invalid_credentials" },
+      "unknown email and wrong password remain indistinguishable");
     assert.equal(checkAccountLockout(invalidCredentialsEmail).locked, true,
       "invalid credentials still trigger the per-account lockout");
 

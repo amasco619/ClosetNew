@@ -406,9 +406,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Sign-up ───────────────────────────────────────────────────────────────
   // Rate-limited (same authLimiter: 5 req / 15 min per IP).
   //
-  // Acknowledgement does not assert creation or email delivery. Known duplicate
-  // email errors stay indistinguishable; unclassified provider failures must not
-  // be acknowledged as success.
+  // Acknowledgement does not assert creation or email delivery. Only the two
+  // provider-confirmed duplicate codes disclose an existing account. The
+  // shared authLimiter bounds that disclosure.
   app.post("/api/auth/sign-up", authLimiter, async (req, res) => {
     const { email, password } = req.body;
 
@@ -416,9 +416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "invalid_email" });
     }
     if (!isValidPassword(password)) {
-      return res.status(400).json({
-        error: `Password must be ${MIN_PASSWORD_LEN}–${MAX_PASSWORD_LEN} characters.`,
-      });
+      return res.status(400).json({ error: "weak_password" });
     }
 
     try {
@@ -429,11 +427,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error) {
         reportAuthRequestFailure("auth_signup_returned_error", "/api/auth/sign-up", error);
         if (isAuthProviderUnavailable(error)) return authUnavailableResponse(res);
-        if (!isDuplicateSignupError(error)) {
-          return res.status(400).json({
-            error: "Sign-up was rejected. Check your details and try again.",
-          });
+        if (isDuplicateSignupError(error)) {
+          return res.status(409).json({ success: false, reason: "account_exists" });
         }
+        if (isWeakPasswordError(error)) return res.status(400).json({ error: "weak_password" });
+        return res.status(400).json({ error: "unknown" });
       }
     } catch (error) {
       reportAuthRequestFailure("auth_signup_exception", "/api/auth/sign-up", error);
@@ -703,6 +701,13 @@ function isAuthProviderUnavailable(error: unknown): boolean {
 function isDuplicateSignupError(error: unknown): boolean {
   const providerCode = authProviderDetails(error).providerCode;
   return providerCode === "email_exists" || providerCode === "user_already_exists";
+}
+
+function isWeakPasswordError(error: unknown): boolean {
+  const providerCode = authProviderDetails(error).providerCode;
+  return providerCode === "weak_password" ||
+    providerCode === "password_too_short" ||
+    providerCode === "password_too_long";
 }
 
 function authUnavailableResponse(res: Response): Response {

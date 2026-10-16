@@ -22,12 +22,14 @@
  * property on the stable object reference is the only safe override path.
  * See .agents/memory/test-overrides-pattern.md.
  */
+import { authErrorFromServer, authErrorFromSupabase } from './authErrors'
+
 export const _testOverrides: {
   fetch?: (url: string, init?: RequestInit) => Promise<Response>
   signInWithPassword?: (credentials: {
     email: string
     password: string
-  }) => Promise<{ error: { message: string } | null }>
+  }) => Promise<{ error: { message: string; code?: string; status?: number; name?: string } | null }>
 } = {}
 
 /** Inlined from lib/query-client.ts to avoid the expo/fetch static import. */
@@ -61,15 +63,26 @@ export async function signInWithEmail(
 
   // Step 1: server-side rate-limit + lockout check (Express proxy)
   const url = new URL('/api/auth/sign-in', getApiUrl())
-  const res = await _fetch(url.toString(), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
-    credentials: 'include',
-  })
-  const json = await res.json()
+  let res: Response
+  try {
+    res = await _fetch(url.toString(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+      credentials: 'include',
+    })
+  } catch {
+    throw authErrorFromSupabase(new TypeError('Network request failed'))
+  }
+
+  let json: unknown
+  try {
+    json = await res.json()
+  } catch {
+    throw authErrorFromSupabase(new TypeError('Invalid response'))
+  }
   if (!res.ok) {
-    throw new Error(`[signInWithEmail] ${json.error ?? res.statusText}`)
+    throw authErrorFromServer(res.status, json, 'sign-in')
   }
 
   // Step 2: establish the client session directly with Supabase.
@@ -90,11 +103,16 @@ export async function signInWithEmail(
     signInWithPassword = (creds) => supabase.auth.signInWithPassword(creds)
   }
 
-  const { error } = await signInWithPassword({
-    email: email.trim().toLowerCase(),
-    password,
-  })
+  let error: { message: string; code?: string; status?: number; name?: string } | null
+  try {
+    ({ error } = await signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    }))
+  } catch (caught) {
+    throw authErrorFromSupabase(caught)
+  }
   if (error) {
-    throw new Error(`[signInWithEmail] ${error.message}`)
+    throw authErrorFromSupabase(error)
   }
 }
