@@ -1,0 +1,111 @@
+AMODKA — PREMIUM AUTH ERROR EXPERIENCE
+
+CONTEXT
+Sign-up and sign-in now work (the root cause was a wrong Supabase URL in 
+Replit Secrets, since corrected). Do not touch Supabase config or secrets.
+
+The remaining problem is that auth errors are shown as a plain, generic 
+box that doesn't match the app's premium quiet-luxury positioning. 
+Redesign how auth errors are communicated, end to end.
+
+IMPORTANT: Work from the live code in this Repl. Locate the current 
+error-rendering code yourself (start with the sign-in/sign-up screen and 
+lib/auth.ts, lib/emailSignIn.ts, lib/emailSignUp.ts, and the 
+/api/auth/* routes in server/routes.ts) and confirm what actually exists 
+before editing. Do not assume file names, line numbers, or copy from 
+any earlier description.
+
+1. REPLACE STRING-PARSING WITH TYPED ERRORS
+Today errors are thrown as strings like "[signUpWithEmail] <msg>" and 
+the screen strips prefixes and displays whatever is left. Replace this:
+- Create a small AuthError class (code + optional retryAfter) with codes:
+  invalid_credentials | account_exists | email_not_confirmed | 
+  weak_password | invalid_email | rate_limited | network | 
+  oauth_cancelled | unknown
+- Map server responses and Supabase errors to these codes inside 
+  lib/emailSignIn.ts, lib/emailSignUp.ts and lib/auth.ts. Wrap every 
+  `await res.json()` in try/catch so a non-JSON body (HTML error page, 
+  proxy failure, timeout) becomes `network`, not an unhandled parse error.
+- The UI must NEVER display a raw server/Supabase message or a 
+  "[functionName]" prefix. Display only copy from the catalogue in step 3.
+- User-cancelled Google/Apple sign-in (oauth_cancelled) shows NO error.
+- Keep the existing test override pattern (_testOverrides) working and 
+  keep all existing auth tests passing. Add tests for each code mapping.
+
+2. "ACCOUNT ALREADY EXISTS" — NARROW, RATE-LIMITED DISCLOSURE
+(If this conflicts with an existing deliberate decision in the live code, 
+STOP and report instead of overriding it.)
+- POST /api/auth/sign-up currently returns { success: true, 
+  needsConfirmation: true } for every outcome, to prevent email 
+  enumeration. Keep that for all outcomes EXCEPT Supabase's 
+  already-registered case. Confirm what Supabase actually returns for an 
+  existing email (test it; do not guess the error string — note that with 
+  email confirmation enabled Supabase may return an obfuscated success for 
+  existing users, in which case report that this case cannot be detected 
+  without changing Supabase settings and do not work around it).
+- For that single case return { success: false, reason: "account_exists" }.
+- Do not loosen authLimiter. Confirm it still wraps this route.
+- Sign-in must stay non-enumerating: wrong password and unknown email 
+  must produce the SAME invalid_credentials error and same copy.
+
+3. COPY CATALOGUE (calm, warm, no exclamation marks, no blame, no jargon)
+Each entry = short title + one supporting line + optional action.
+- invalid_credentials — "Those details don't match" / "Check your email 
+  and password, or reset your password." Action: "Reset password"
+- account_exists — "You already have an account" / "This email is 
+  already part of Amodka." Action: "Sign in instead" (switches to 
+  sign-in mode and pre-fills the email)
+- email_not_confirmed — "Please confirm your email" / "We've sent a link 
+  to your inbox." Action: "Resend link" (only if a resend path already 
+  exists; otherwise omit the action)
+- weak_password — "Let's strengthen that password" / state the 
+  requirement that failed
+- invalid_email — "That email doesn't look right" / "Please check for 
+  typos."
+- rate_limited — "Let's take a short pause" / "Too many attempts. Please 
+  try again in a few minutes."
+- network — "We couldn't reach Amodka" / "Check your connection and try 
+  again." Action: "Try again"
+- unknown — "Something went wrong" / "Please try again in a moment."
+Polish the wording if you see a better fit, but keep the tone.
+
+4. THE COMPONENT
+Create one reusable component (e.g. components/AuthNotice.tsx) used by 
+BOTH sign-in and sign-up so they share one visual language.
+Visual direction — "quiet luxury", not "alert box":
+- Glass panel: BlurView plus the existing glass tokens in 
+  constants/colors.ts (glassSurface, glassBorder, glassSurfaceGold). 
+  Verify the token names in the live file and reuse them; do not invent 
+  a new palette.
+- 1px hairline border, generous padding, rounded corners matching the 
+  screen's inputs and buttons.
+- Small circular icon badge on the left (Ionicons, thin/outline style).
+  Tone by severity: champagne gold (Colors.secondary) for informational 
+  states (account_exists, email_not_confirmed, rate_limited, network); a 
+  muted rose/terracotta derived from Colors.error, desaturated and used 
+  only for the icon and a faint tint, for invalid_credentials, 
+  weak_password, invalid_email, unknown. No solid red fills.
+- Title in the screen's heading/display typeface at a small size, 
+  supporting line in the existing muted body colour, action as a 
+  low-key gold text button with underline or chevron, not a filled button.
+- Entrance: FadeInDown (already used on this screen), short and 
+  eased. Respect reduce-motion (AccessibilityInfo is already imported).
+- A single gentle haptic on appear (Haptics notification type Warning 
+  for errors, none for informational).
+- Placement: directly beneath the form fields and ABOVE the primary 
+  button, not at the bottom of the ScrollView where it can sit off-screen. 
+  Scroll it into view if needed.
+- Dismiss automatically when the user edits the email or password field 
+  or switches between Sign in / Create account.
+- Contrast: verify text meets WCAG AA against the dark closet-photo + 
+  navy-scrim background.
+- Accessibility: accessibilityRole="alert", live-region announcement of 
+  title + supporting line, action button properly labelled.
+
+5. DELIVERABLE
+Short report: files changed, the error-code mapping table, the 
+Supabase finding from step 2 (including whether account_exists is 
+actually detectable), tests added, and a checklist of states for me to 
+verify in Expo Go: wrong password, unknown email, existing email at 
+sign-up, weak password, offline, rate-limited. Do not mark anything 
+done that you haven't exercised.
