@@ -7,6 +7,7 @@ export type ErrorReport = {
   dependency?: string;
   route?: string;
   status?: number;
+  providerCode?: string;
   retryable?: boolean;
   requestId?: string;
   durationMs?: number;
@@ -21,6 +22,9 @@ function safeReport(report: ErrorReport): ErrorReport {
     ...(report.dependency ? { dependency: report.dependency.slice(0, 40) } : {}),
     ...(report.route ? { route: report.route.slice(0, 120) } : {}),
     ...(typeof report.status === "number" ? { status: report.status } : {}),
+    ...(report.providerCode && /^[a-z0-9_-]{1,64}$/i.test(report.providerCode)
+      ? { providerCode: report.providerCode }
+      : {}),
     ...(typeof report.retryable === "boolean" ? { retryable: report.retryable } : {}),
     ...(report.requestId ? { requestId: report.requestId.slice(0, 100) } : {}),
     ...(typeof report.durationMs === "number" ? { durationMs: Math.max(0, Math.round(report.durationMs)) } : {}),
@@ -37,6 +41,7 @@ export function reportError(error: unknown, operation: string, context: Partial<
     dependency: context.dependency ?? classified.dependency,
     route: context.route,
     status: context.status,
+    providerCode: context.providerCode,
     retryable: context.retryable ?? classified.retryable,
     requestId: context.requestId,
     durationMs: context.durationMs,

@@ -9,11 +9,11 @@
  *
  * No static imports from react-native, expo/*, lib/supabase, or
  * lib/query-client so this file loads cleanly under tsx in Node.js test
- * environments.
+ * environments. With Supabase Confirm Email disabled, signup needs no
+ * platform-specific confirmation redirect.
  *
  * See .agents/memory/node-test-rn-isolation.md for the rationale.
  */
-
 /**
  * Mutable overrides injected by the test suite.
  *

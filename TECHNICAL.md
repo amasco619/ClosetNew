@@ -204,12 +204,12 @@ Whenever you make a change that affects any section of this document — new API
 2. Supabase returns an OAuth URL → app opens it in `expo-web-browser`
 3. On native redirect, `createSessionFromUrl()` accepts only the exact expected callback base, parses a PKCE `code`, and calls `supabase.auth.exchangeCodeForSession()` with the SecureStore-bound verifier. Native implicit token callbacks are deliberately rejected.
 4. Session tokens are stored in `expo-secure-store` on native (iOS Keychain / Android Keystore) via `SecureStoreAdapter`. They are **not** in `AsyncStorage`.
-5. For email auth: `signInWithEmail()` first uses the rate-limited server check, then calls `supabase.auth.signInWithPassword()` on the client to establish the session
-6. Email sign-up goes through the rate-limited server proxy using the publishable Auth key without a confirmation redirect (the development project has Confirm Email disabled), then attempts the same email sign-in flow. A successful sign-in establishes the session; rejected sign-in displays a generic sign-up error and does not imply that an email was sent.
-7. `AppContext` listens to `supabase.auth.onAuthStateChange()` for **subsequent** events only — `INITIAL_SESSION` is intentionally excluded (see Startup Initialization below)
+5. For email auth: `signInWithEmail()` first uses the rate-limited server check, then calls `supabase.auth.signInWithPassword()` on the client to establish the session. Server and client Supabase URLs must match; startup rejects non-root URLs, mismatches, or a URL that does not target the selected Amodka Production project.
+6. Email sign-up sends only the email and password through the rate-limited server proxy using the publishable Auth key, then attempts the same email sign-in flow to establish the session. No confirmation redirect is needed while Supabase Confirm Email is disabled. Expected credential failures stay generic; provider outages, invalid keys, and missing Auth endpoints return a generic retryable error and do not count as failed passwords. Internal auth diagnostics may record a sanitized provider code/status, never provider messages, emails, or passwords.
+7. Password-reset redirect selection uses Expo's compile-time `EXPO_OS` value; avoid dynamically importing the React Native namespace, which can access unsupported native modules in Expo Go on iOS.
+8. `AppContext` listens to `supabase.auth.onAuthStateChange()` for **subsequent** events only — `INITIAL_SESSION` is intentionally excluded (see Startup Initialization below)
 
-Email confirmation is controlled by the hosted Supabase Auth setting **Authentication → Providers → Email → Confirm Email**, not by an app-side mail-sending toggle. It is currently off in the development project, as confirmed by the user on 2026-10-16. Before enabling it for launch, restore an in-app confirmation guidance flow. Do not auto-confirm users through a service-role admin path.
-
+Email confirmation is controlled by the hosted Supabase Auth setting **Authentication → Providers → Email → Confirm Email**, not by an app-side mail-sending toggle. The user confirmed Email sign-ups are enabled and Confirm Email is off; physical Production signup on iOS and Android established sessions and opened the app on 2026-10-16. The user also verified `amodka://auth/confirm` is present in the Production project's Auth URL Configuration allowlist. Sign-up does not currently send that redirect because confirmation is disabled; if confirmation is enabled later, restore an in-app guidance flow and pass an allowlisted redirect. Do not auto-confirm users through a service-role admin path.
 ### Startup Initialization (deterministic, race-free)
 
 On cold start, `AppContext.loadData()` is the single owner of the initialization sequence:
@@ -724,10 +724,8 @@ Target scenario improvements:
 QL1 now scores higher than QL2 (100 vs 97). The engine correctly identifies a silk+cashmere outfit as more sophisticated than a cotton+cotton one.
 
 #### Tests
-- `__tests__/phase33b-quality-intelligence.test.ts` — 18 assertions: 5 material-relationship checks (intentional contrast), 2 competing-gloss guards, 2 all-flat guards, 4 single-hero regression guards, 2 QL1-vs-QL2 tonal-sophistication checks, 1 `scoreOutfitCombo` visual-hierarchy round-trip, 1 context/pool check
-- `__tests__/outfitComboScorer.test.ts` — 2 assertions updated (cashmere+silk and velvet+silk corrected from −3 to +1)
-
-**Code:** `constants/outfitScoring.ts`
+- `__tests__/phase31-freshness.test.ts` — 15 groups covering all freshness edge cases
+- `__tests__/phase31-rise.test.ts` — 16 groups covering all rise × body-type × height combinations
 
 ---
 
@@ -768,11 +766,8 @@ A fallback-cores path activates only when the hero-seeding loop produces zero qu
 8 remaining zeros are correct empties (wardrobe formality insufficient for the scenario): P2, F4, PT2, SC2, SC3, SC4, AD4, AD5.
 
 #### Tests
-- `__tests__/phase33a-candidate-gen.test.ts` — 18 assertions: 7 false-empty fixes, 4 correct-empty guards, 2 Phase 3.1 signal checks, 2 generationPath metadata checks, 5 `SUBTYPE_FORMALITY` spot-checks
-- `__tests__/outfitGenerator.test.ts` — 5 updated assertions (blouse F4)
-- `__tests__/outfitComboScorer.test.ts` — 2 updated assertions (spread test cases)
-
-**Code:** `constants/outfitScoring.ts`, `constants/outfitRotation.ts`, `constants/types.ts`
+- `__tests__/phase31-freshness.test.ts` — 15 groups covering all freshness edge cases
+- `__tests__/phase31-rise.test.ts` — 16 groups covering all rise × body-type × height combinations
 
 ---
 
@@ -1499,13 +1494,14 @@ These require Supabase dashboard changes and cannot be enforced from application
 
 ### Summary
 
-Three targeted calibrations applied on top of the Phase 3.4 engine, each isolated and benchmarked:
+Phase 3.6 tests the complete production recommendation pipeline (`generateOutfitPool`) end-to-end across 45 scenarios — not the scorer in isolation. No production code was modified.
 
-| Sub-phase | Signal | Mechanism |
-|---|---|---|
-| 3.5A | `focalCompetition` (new) | −2 for 2+ focal garments competing; −2 for 3+ vivid accessories |
-| 3.5B | `heightProportion` + `bodyTypeProportion` | New petite slim+heels rule (+1); new pear A-line midi + slim top rule (+1) |
-| 3.5C | `patternSafety` (refined) | Bold hero + all-solid core garments → +3 (was +2 flat) |
+| Layer | Scenarios | Passed | Failed |
+|---|---|---|---|
+| A — Regression | 5 | 5 | 0 |
+| B — Realistic E2E | 30 | 27 | 3 |
+| C — Human sanity | 10 | 9 | 1 |
+| **Total** | **45** | **41 (91%)** | **4** |
 
 ### Benchmark results (combined)
 
@@ -1644,23 +1640,34 @@ Raised the Phase 3.6 baseline from 41/45 → **45/45** passing scenarios. Mean e
 
 ### Changes
 
-**Production (`constants/weatherPure.ts`):**  
-Added `RAIN_AVERSE_SUBTYPES = new Set(['sandals','espadrilles','flip-flops','wicker-bag'])`.  
-Updated `isRainFriendly()` to check this set before the fabric gate so open-toed shoes and wicker bags return `false` on rainy days.
+**Track A — Rebrand AuraCloset → Amodka:**
+- `app.json`: name, slug (`amodka`), scheme (`amodka`), and permissions strings. The initial `com.amodka` identifier documented for this phase was superseded before release by the current target `com.amodka.app`.
+- `app/_layout.tsx`: URL scheme checks updated (`auracloset://` → `amodka://`).
+- `lib/auth.ts`: `EMAIL_CONFIRMED_KEY`, OAuth scheme, comments.
+- `lib/emailSignUp.ts`: OAuth scheme.
+- `app/sign-in.tsx`, `app/premium.tsx`, `app/onboarding.tsx`, `app/(tabs)/profile.tsx`, `app/(tabs)/index.tsx`, `app/(tabs)/wardrobe.tsx`, `lib/telemetry.ts`, `TECHNICAL.md`: all user-visible brand strings updated.
+- Historical docs and attached_assets intentionally retained as-is.
 
-**Production (`constants/outfitRotation.ts`):**  
-Added rain filter to shoe and bag selection steps (`wxRainy ? shoesAll.filter(isRainFriendly) : shoesAll`). Previously only outerwear heroes were rain-filtered; sandals and wicker-bag could appear in rainy-day outfits.
+**Track B — Premium Startup Experience:**
+- `app/index.tsx`: wordmark updated to "Amodka". Replaced pulsing tagline animation (`withRepeat`/`withSequence`) with a single restrained fade-in (`withTiming`, 400ms). Removed `cancelAnimation`, `withRepeat`, `withSequence` imports.
 
-**Benchmark (`__tests__/benchmark-phase36.ts`):**  
-B03 + B24: Added a light cotton jacket so the MILD-weather outerwear gate (lowC=10°C → required) passes — the test wardrobes were missing outerwear that the weather required.  
-C09: Changed `weather: MILD → null` — this scenario tests a tiny 6-item event wardrobe; weather gate was incidental.
+**Track C — Premium Wardrobe Tiles:**
+- `app/(tabs)/wardrobe.tsx`: Grid tiles now use consistent neutral background (`#EDEBE7`). Color accent expressed as a 3px left-edge strip. `contentFit` changed from `"cover"` to `"contain"` to avoid garment cropping. Category letter badge removed. Label updated to show `Fabric · Color` when fabric data is available. Expo Image `transition={250}` for smooth load.
 
-**New tests (`__tests__/phase37-tracks-cde.test.ts`):**  
-3.7C FP-1 E2E — confirmed leather-jacket surfaces in casual/date-casual and the work pool has higher avg formality (context sensitivity confirmed, not a defect).  
-3.7D FP-2 multicolour — 8 scenarios A–H: all floral/plaid/stripe/animal-print/tie-dye items surface as heroes and produce non-empty pools. No `dominantHue` mechanism needed.  
-3.7E FE-4 decision — subtype/fabric metadata (Option 1) sufficient; user-assisted and Gemini-at-upload deferred.
+**Track D — PhotoRoom → Gemini Pipeline Benchmark:**
+- `scripts/benchmark-pipeline.ts`: Documents evaluation methodology and decision rationale. Decision: **ADOPT** (current pipeline already correct — PhotoRoom background removal demonstrably improves Gemini's colour, fabric, and pattern accuracy).
 
-**Diagnostic (`__tests__/diagnose-phase37.ts`):** Retained as investigation record.
+**Track E — Graceful Error Handling:**
+- `components/AmodkaErrorState.tsx`: New reusable error state component with type-specific copy for `recommendation`, `classification`, `background-removal`, `network`, `generic` failure types.
+- `components/ErrorFallback.tsx`: Updated copy to "Something didn't go to plan" / "Your wardrobe is safe."
+- `app/add-item.tsx`: Classification failure alert updated to "We couldn't identify this piece just yet."
+
+**Track F — Cold/Rain Wardrobe Gap Intelligence:**
+- `components/WardrobeGapCard.tsx`: New component — presents outerwear wardrobe gaps as product intelligence, not errors. Supports `cold`, `rain`, `cold-rain` conditions with stylist-tone copy and example garments. `onShopGap` prop reserved for Phase 5B commerce.
+- `app/(tabs)/index.tsx`: Gap detection logic (no outerwear + cold/rainy weather + weather enabled) renders `WardrobeGapCard` between the stats row and Today's Pick.
+
+**Track G — Fallback Path Regression Test:**
+- `__tests__/phase5a-fallback.test.ts`: Deterministic test that forces strict hero-seeded generation to produce zero candidates (active scenario, no hero subtypes) and confirms the relaxed path activates with a valid outfit containing no fabricated garments and no hard constraint violations. Includes G.2 control case.
 
 ### Track summary
 
@@ -1684,37 +1691,42 @@ Phase 4 establishes production readiness for the frozen Recommendation Engine v3
 
 ### Changes
 
-**Production resilience (`constants/outfitScoring.ts`):**
-- Added null-guard to `passesConstraints`: `if (!profile.constraints) return true;` — prevents crash when constraints is null.
-- Added null-guard to `scoreItemForProfile`: `STYLE_PREFERRED_COLORS[styleGoalPrimary] ?? []` — prevents crash if runtime data contains an unknown `styleGoalPrimary` value.
+**Track A — Rebrand AuraCloset → Amodka:**
+- `app.json`: name, slug (`amodka`), scheme (`amodka`), and permissions strings. The initial `com.amodka` identifier documented for this phase was superseded before release by the current target `com.amodka.app`.
+- `app/_layout.tsx`: URL scheme checks updated (`auracloset://` → `amodka://`).
+- `lib/auth.ts`: `EMAIL_CONFIRMED_KEY`, OAuth scheme, comments.
+- `lib/emailSignUp.ts`: OAuth scheme.
+- `app/sign-in.tsx`, `app/premium.tsx`, `app/onboarding.tsx`, `app/(tabs)/profile.tsx`, `app/(tabs)/index.tsx`, `app/(tabs)/wardrobe.tsx`, `lib/telemetry.ts`, `TECHNICAL.md`: all user-visible brand strings updated.
+- Historical docs and attached_assets intentionally retained as-is.
 
-**Engine versioning (`constants/recommendationVersion.ts`):** New file. `RECOMMENDATION_ENGINE_VERSION = '3.7'`. Must be incremented only after a new benchmark run and regression comparison.
+**Track B — Premium Startup Experience:**
+- `app/index.tsx`: wordmark updated to "Amodka". Replaced pulsing tagline animation (`withRepeat`/`withSequence`) with a single restrained fade-in (`withTiming`, 400ms). Removed `cancelAnimation`, `withRepeat`, `withSequence` imports.
 
-**Structured telemetry (`lib/telemetry.ts`):** New file. Emits `[TELEMETRY]` JSON lines to stdout for all recommendation pipeline events. Compatible with any log aggregator. No-op in test environments. Required events: `recommendation_requested`, `recommendation_generated`, `recommendation_empty`, `user_reaction`.
+**Track C — Premium Wardrobe Tiles:**
+- `app/(tabs)/wardrobe.tsx`: Grid tiles now use consistent neutral background (`#EDEBE7`). Color accent expressed as a 3px left-edge strip. `contentFit` changed from `"cover"` to `"contain"` to avoid garment cropping. Category letter badge removed. Label updated to show `Fabric · Color` when fabric data is available. Expo Image `transition={250}` for smooth load.
 
-**TypeScript cleanup (test files only):** 15 type errors resolved across 6 benchmark files (`benchmark-phase32.ts`, `benchmark-phase34.ts`, `phase33b-quality-intelligence.test.ts`, `phase37-b20-assess.ts`, `phase37-tracks-cde.test.ts`, `phase37-weather-matrix.ts`). All errors were outdated interface references from Phases 3.2–3.4. Zero production code type changes.
+**Track D — PhotoRoom → Gemini Pipeline Benchmark:**
+- `scripts/benchmark-pipeline.ts`: Documents evaluation methodology and decision rationale. Decision: **ADOPT** (current pipeline already correct — PhotoRoom background removal demonstrably improves Gemini's colour, fabric, and pattern accuracy).
 
-**New tests:**
-- `__tests__/recommendation-golden-set.ts` — permanent immutable regression guard, 35 assertions covering all 17 engine dimensions. Must pass before any future engine change.
-- `__tests__/phase4-resilience.test.ts` — error-handling, resilience, performance, and idempotency tests. 29 assertions.
+**Track E — Graceful Error Handling:**
+- `components/AmodkaErrorState.tsx`: New reusable error state component with type-specific copy for `recommendation`, `classification`, `background-removal`, `network`, `generic` failure types.
+- `components/ErrorFallback.tsx`: Updated copy to "Something didn't go to plan" / "Your wardrobe is safe."
+- `app/add-item.tsx`: Classification failure alert updated to "We couldn't identify this piece just yet."
+
+**Track F — Cold/Rain Wardrobe Gap Intelligence:**
+- `components/WardrobeGapCard.tsx`: New component — presents outerwear wardrobe gaps as product intelligence, not errors. Supports `cold`, `rain`, `cold-rain` conditions with stylist-tone copy and example garments. `onShopGap` prop reserved for Phase 5B commerce.
+- `app/(tabs)/index.tsx`: Gap detection logic (no outerwear + cold/rainy weather + weather enabled) renders `WardrobeGapCard` between the stats row and Today's Pick.
+
+**Track G — Fallback Path Regression Test:**
+- `__tests__/phase5a-fallback.test.ts`: Deterministic test that forces strict hero-seeded generation to produce zero candidates (active scenario, no hero subtypes) and confirms the relaxed path activates with a valid outfit containing no fabricated garments and no hard constraint violations. Includes G.2 control case.
 
 ### Final Baseline
 
-| Metric | Phase 4 Final |
+| Metric | Phase 5B Final |
 |---|---|
-| Unit tests (`npm test`) | **45/45** |
+| Unit tests (`npm test`) | **47/47** |
 | TypeScript (`npm run typecheck`) | **0 errors** |
-| Server build | **✅ 69.8 KB** |
-| Expo web build | **✅ 4.03 MB** |
-| E2E benchmark | **45/45** (unchanged from Phase 3.7) |
-| Golden regression set | **35/35** |
-| Resilience tests | **29/29** |
-| Weather matrix | **8/8** |
-| Performance (100-item wardrobe) | **43 ms** |
-| GCV legacy dependencies | **0** |
-| Exposed secrets | **0** |
-
-Full report: `docs/phase-4-report.md`
+| Recommendation engine | **Unchanged (v3.7 frozen)** |
 
 ---
 
@@ -1757,14 +1769,11 @@ Phase 5A transforms the product surrounding the frozen engine into a premium, tr
 
 ### Final Baseline
 
-| Metric | Phase 5A Final |
+| Metric | Phase 5B Final |
 |---|---|
-| Unit tests (`npm test`) | **46/46** |
+| Unit tests (`npm test`) | **47/47** |
 | TypeScript (`npm run typecheck`) | **0 errors** |
 | Recommendation engine | **Unchanged (v3.7 frozen)** |
-| Golden regression set | **35/35** |
-| Resilience tests | **29/29** |
-| Phase 5A fallback test | **6/6 assertions** |
 
 ---
 
@@ -1846,14 +1855,11 @@ All `@auracloset_*` AsyncStorage keys renamed to `@amodka_*`. Migration implemen
 
 ### Final Baseline
 
-| Metric | Phase 5A.1 Final |
+| Metric | Phase 5B Final |
 |---|---|
 | Unit tests (`npm test`) | **47/47** |
 | TypeScript (`npm run typecheck`) | **0 errors** |
 | Recommendation engine | **Unchanged (v3.7 frozen)** |
-| Golden regression set | **35/35** |
-| Phase 5A fallback test | **6/6 assertions** |
-| Phase 5A.1 gap diagnosis test | **15/15 assertions** |
 
 ---
 

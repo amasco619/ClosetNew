@@ -16,6 +16,13 @@ Any `lib/` module that is tested directly in Node.js via tsx MUST NOT have stati
 - `lib/classifyPath.ts` — explicitly kept RN-free; documented in its own JSDoc
 - `shared/*` — pure constants, no framework deps
 
+## Expo Go platform detection
+For Expo auth helpers, use the compile-time `process.env.EXPO_OS` value when platform selection is needed; do not dynamically import the full `react-native` namespace just to read `Platform.OS`. When email confirmation is disabled, signup needs no confirmation redirect or platform detection.
+
+**Why:** Metro's native dynamic-import path can enumerate React Native exports and touch `PushNotificationIOS`, which is unavailable in Expo Go on iOS. This caused signup to fail before reaching Supabase; removing the unused signup redirect eliminated the import, while password-reset redirect selection uses `EXPO_OS`.
+
+**How to apply:** Keep Node-tested `lib/` modules free of static React Native imports. Use `EXPO_OS` only for auth flows that actually need a platform-specific redirect.
+
 ## How to fix a new lib/ module
 1. Replace static `import { getApiUrl } from "./query-client"` with inlined logic (it only reads `process.env.EXPO_PUBLIC_DOMAIN`).
 2. Replace static `import { supabase } from "./supabase"` with `await import('./supabase')` INSIDE the function body, guarded by a `_testOverrides` check (see `test-overrides-pattern.md`).

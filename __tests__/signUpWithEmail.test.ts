@@ -110,6 +110,41 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
     mock.restore()
   }
 
+  section('Expo iOS signup avoids dynamically importing React Native')
+  {
+    const originalFetch = globalThis.fetch
+    const originalExpoOs = process.env.EXPO_OS
+    const originalDomain = process.env.EXPO_PUBLIC_DOMAIN
+    const calls: { url: string; init?: RequestInit }[] = []
+
+    delete _testOverrides.fetch
+    delete _testOverrides.apiUrl
+    _testOverrides.signInWithEmail = async () => {}
+    process.env.EXPO_OS = 'ios'
+    process.env.EXPO_PUBLIC_DOMAIN = 'api.example.test:5000'
+    globalThis.fetch = (async (url: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init })
+      return response(true, { acknowledged: true })
+    }) as typeof fetch
+
+    try {
+      await signUpWithEmail('native@example.test', 'Password1')
+      const body = JSON.parse(calls[0]?.init?.body as string)
+      assert(
+        calls[0]?.url === 'https://api.example.test:5000/api/auth/sign-up',
+        'uses the configured server API URL',
+      )
+      assert(!('emailRedirectTo' in body), 'does not send an unused confirmation redirect')
+    } finally {
+      globalThis.fetch = originalFetch
+      if (originalExpoOs === undefined) delete process.env.EXPO_OS
+      else process.env.EXPO_OS = originalExpoOs
+      if (originalDomain === undefined) delete process.env.EXPO_PUBLIC_DOMAIN
+      else process.env.EXPO_PUBLIC_DOMAIN = originalDomain
+      delete _testOverrides.signInWithEmail
+    }
+  }
+
   section('Non-2xx responses')
   {
     const mock = install(response(false, { error: 'rate_limit' }, 'Too Many Requests'))

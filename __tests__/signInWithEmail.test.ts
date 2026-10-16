@@ -210,6 +210,33 @@ section('Step 1 returns 429 (rate-limited): Supabase must not be called')
   restoreSupabase()
 }
 
+// ── 503 from server: Supabase must NOT be called ──────────────────────────────
+
+section('Step 1 returns 503 (auth provider unavailable): Supabase must not be called')
+
+{
+  const server503 = makeResponse(
+    false,
+    { error: 'Authentication is temporarily unavailable. Please try again shortly.' },
+    '503',
+  )
+  const { restore: restoreFetch } = installFetchMock(server503)
+  const { callCount, restore: restoreSupabase } = installSupabaseMock({ error: null })
+
+  let errorMsg = ''
+  try {
+    await signInWithEmail('test@example.com', 'Password1')
+  } catch (e: unknown) {
+    errorMsg = (e as Error).message
+  }
+
+  assert(errorMsg.includes('temporarily unavailable'), '503: user receives a retryable service message')
+  assert(callCount() === 0, '503: supabase.auth.signInWithPassword is NOT called')
+
+  restoreFetch()
+  restoreSupabase()
+}
+
 // ── Server returns 200: supabase MUST be called ───────────────────────────────
 
 section('Step 1 returns 200: supabase.auth.signInWithPassword must be called')

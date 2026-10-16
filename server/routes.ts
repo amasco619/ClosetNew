@@ -206,13 +206,25 @@ function sanitizeRedirectUrl(
   return null;
 }
 
-function reportAuthRequestFailure(operation: string, route: string): void {
+function authProviderDetails(error: unknown): { status?: number; providerCode?: string } {
+  if (!error || typeof error !== "object") return {};
+  const value = error as { status?: unknown; code?: unknown };
+  return {
+    ...(typeof value.status === "number" && Number.isInteger(value.status) &&
+      value.status >= 0 && value.status <= 599 ? { status: value.status } : {}),
+    ...(typeof value.code === "string" && /^[a-z0-9_-]{1,64}$/i.test(value.code)
+      ? { providerCode: value.code }
+      : {}),
+  };
+}
+function reportAuthRequestFailure(operation: string, route: string, providerError?: unknown): void {
   // Provider error messages can contain account status or user input.
   reportError(new Error("Auth provider request failed"), operation, {
     dependency: "supabase_auth",
     route,
     category: "external_dependency",
     code: "EXTERNAL_DEPENDENCY_ERROR",
+    ...authProviderDetails(providerError),
   });
 }
 
@@ -369,9 +381,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: String(password),
       });
       if (error) {
+        if (isAuthProviderUnavailable(error)) {
+          reportAuthRequestFailure("auth_signin_provider_unavailable", "/api/auth/sign-in", error);
+          return authUnavailableResponse(res);
+        }
+        if (error.code !== "invalid_credentials" && error.code !== "email_not_confirmed") {
+          reportAuthRequestFailure("auth_signin_returned_error", "/api/auth/sign-in", error);
+        }
         // An unconfirmed account has not reached password verification. Do not
         // let the post-sign-up auto-login count as a failed password attempt.
-        if (error.code !== "email_not_confirmed") recordFailedAttempt(normalizedEmail);
+        if (error.code === "invalid_credentials") recordFailedAttempt(normalizedEmail);
         // Generic message — never reveals whether the email exists or whether
         // the password was the problem.
         return res.status(401).json({ error: "invalid_credentials" });
@@ -379,9 +398,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       clearLockout(normalizedEmail);
       return res.json({ session: data.session });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[auth/sign-in]", msg);
-      return res.status(500).json({ error: "sign_in_failed" });
+      reportAuthRequestFailure("auth_signin_exception", "/api/auth/sign-in", err);
+      return authUnavailableResponse(res);
     }
   });
 
@@ -407,9 +425,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: (email as string).trim().toLowerCase(),
         password: String(password),
       });
-      if (error) reportAuthRequestFailure("auth_signup_returned_error", "/api/auth/sign-up");
-    } catch {
-      reportAuthRequestFailure("auth_signup_exception", "/api/auth/sign-up");
+      if (error) {
+        reportAuthRequestFailure("auth_signup_returned_error", "/api/auth/sign-up", error);
+        if (isAuthProviderUnavailable(error)) return authUnavailableResponse(res);
+      }
+    } catch (error) {
+      reportAuthRequestFailure("auth_signup_exception", "/api/auth/sign-up", error);
+      return authUnavailableResponse(res);
     }
     return res.json({ acknowledged: true });
   });
@@ -657,4 +679,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   return httpServer;
+}
+
+function isAuthProviderUnavailable(error: unknown): boolean {
+  const details = authProviderDetails(error);
+  const errorName = error && typeof error === "object" ? (error as { name?: unknown }).name : undefined;
+  return details.status === 0 || details.status === 401 || details.status === 403 || details.status === 404 ||
+    details.status === 429 || (details.status !== undefined && details.status >= 500) ||
+    errorName === "AuthRetryableFetchError" ||
+    details.providerCode === "invalid_api_key" ||
+    details.providerCode === "provider_disabled" ||
+    details.providerCode === "signup_disabled";
+}
+
+function authUnavailableResponse(res: Response): Response {
+  return res.status(503).json({
+    error: "Authentication is temporarily unavailable. Please try again shortly.",
+  });
 }

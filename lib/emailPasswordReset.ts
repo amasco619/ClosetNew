@@ -18,10 +18,9 @@ export async function requestPasswordReset(email: string): Promise<void> {
     apiUrl = _testOverrides.apiUrl ?? 'https://test.invalid'
     request = _testOverrides.fetch
   } else {
-    const { Platform } = await import('react-native')
     const { getApiUrl } = await import('./query-client')
     const { fetch: expoFetch } = await import('expo/fetch')
-    redirectTo = Platform.OS === 'web' && typeof window !== 'undefined'
+    redirectTo = process.env.EXPO_OS === 'web' && typeof window !== 'undefined'
       ? `${window.location.origin}/auth/update-password`
       : NATIVE_PASSWORD_RECOVERY_URL
     apiUrl = getApiUrl()

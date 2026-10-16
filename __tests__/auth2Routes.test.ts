@@ -11,6 +11,8 @@ const ALLOWED_ORIGIN = "https://app.example.test";
 const PROVIDER_ERROR = "provider-secret-error-must-not-escape";
 let registerRoutes: typeof import("../server/routes").registerRoutes;
 let supabaseAuth: typeof import("../server/supabase").supabaseAuth;
+
+let areSupabaseProjectUrlsAligned: typeof import("../server/supabase").areSupabaseProjectUrlsAligned;
 let __resetForTesting: typeof import("../server/middleware/rateLimiter").__resetForTesting;
 let checkAccountLockout: typeof import("../server/middleware/rateLimiter").checkAccountLockout;
 let recordFailedAttempt: typeof import("../server/middleware/rateLimiter").recordFailedAttempt;
@@ -50,12 +52,52 @@ async function main() {
   ]);
   registerRoutes = routes.registerRoutes;
   supabaseAuth = auth.supabaseAuth;
+  ({ areSupabaseProjectUrlsAligned, isSelectedSupabaseProjectUrl } = auth);
   ({ __resetForTesting, checkAccountLockout, recordFailedAttempt } = limiter);
   assert.equal(
     (supabaseAuth as unknown as { supabaseKey?: string }).supabaseKey ===
       process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     true,
     "server user-auth proxy uses the publishable key",
+  );
+  assert.equal(
+    areSupabaseProjectUrlsAligned(
+      "https://garppyocfgdamdgfyfbr.supabase.co/",
+      "https://garppyocfgdamdgfyfbr.supabase.co",
+    ),
+    true,
+    "server and client URLs for the same project align",
+  );
+  assert.equal(
+    areSupabaseProjectUrlsAligned(
+      "https://server-project.supabase.co",
+      "https://client-project.supabase.co",
+    ),
+    false,
+    "server/client URL mismatch is detectable",
+  );
+  assert.equal(
+    areSupabaseProjectUrlsAligned(
+      "https://garppyocfgdamdgfyfbr.supabase.co/auth/v1",
+      "https://garppyocfgdamdgfyfbr.supabase.co/auth/v1",
+    ),
+    false,
+    "service paths are not valid Supabase project base URLs",
+  );
+  assert.equal(
+    isSelectedSupabaseProjectUrl("https://garppyocfgdamdgfyfbr.supabase.co"),
+    true,
+    "selected Production project is recognized",
+  );
+  assert.equal(
+    isSelectedSupabaseProjectUrl("https://other-project.supabase.co"),
+    false,
+    "other Supabase projects are not mistaken for the selected target",
+  );
+  assert.equal(
+    isSelectedSupabaseProjectUrl("https://garppyocfgdamdgfyfbr.supabase.co/rest/v1"),
+    false,
+    "the selected project URL must not include an API path",
   );
   const originalSignUp = supabaseAuth.auth.signUp;
   const originalSignIn = supabaseAuth.auth.signInWithPassword;
@@ -83,10 +125,57 @@ async function main() {
         email: `signup-${outcome}@example.com`,
         password: PASSWORD,
       }, ALLOWED_ORIGIN);
-      assert.equal(res.status, 200, `sign-up ${outcome} status`);
-      assert.deepEqual(res.body, { acknowledged: true }, `sign-up ${outcome} contract`);
+      if (outcome === "throws") {
+        assert.equal(res.status, 503, "provider exceptions are reported as a temporary service failure");
+        assert.match(res.body.error, /temporarily unavailable/);
+      } else {
+        assert.equal(res.status, 200, `sign-up ${outcome} status`);
+        assert.deepEqual(res.body, { acknowledged: true }, `sign-up ${outcome} contract`);
+      }
       assert.doesNotMatch(res.text, new RegExp(PROVIDER_ERROR));
     }
+
+    Reflect.set(supabaseAuth.auth, "signUp", async () => ({
+      data: { user: null, session: null },
+      error: Object.assign(new Error(PROVIDER_ERROR), {
+        code: "over_request_rate_limit",
+        status: 429,
+      }),
+    }));
+    const rateLimitedSignup = await post(app, "/api/auth/sign-up", {
+      email: "rate-limited-signup@example.com",
+      password: PASSWORD,
+    }, ALLOWED_ORIGIN);
+    assert.equal(rateLimitedSignup.status, 503, "provider rate limits do not masquerade as successful sign-up");
+    assert.doesNotMatch(rateLimitedSignup.text, new RegExp(PROVIDER_ERROR));
+
+    Reflect.set(supabaseAuth.auth, "signUp", async () => ({
+      data: { user: null, session: null },
+      error: Object.assign(new Error(PROVIDER_ERROR), {
+        code: "invalid_api_key",
+        status: 401,
+      }),
+    }));
+    const invalidKeySignup = await post(app, "/api/auth/sign-up", {
+      email: "invalid-key-signup@example.com",
+      password: PASSWORD,
+    }, ALLOWED_ORIGIN);
+    assert.equal(invalidKeySignup.status, 503, "invalid project keys are not acknowledged as successful sign-ups");
+    assert.doesNotMatch(invalidKeySignup.text, new RegExp(PROVIDER_ERROR));
+
+    Reflect.set(supabaseAuth.auth, "signUp", async () => ({
+      data: { user: null, session: null },
+      error: Object.assign(new Error(PROVIDER_ERROR), {
+        code: "not_found",
+        status: 404,
+      }),
+    }));
+    const missingEndpointSignup = await post(app, "/api/auth/sign-up", {
+      email: "missing-endpoint-signup@example.com",
+      password: PASSWORD,
+    }, ALLOWED_ORIGIN);
+    assert.equal(missingEndpointSignup.status, 503, "provider 404s are not acknowledged as successful sign-ups");
+    assert.doesNotMatch(missingEndpointSignup.text, new RegExp(PROVIDER_ERROR));
 
     for (const outcome of ["success", "returned-error", "throws"] as const) {
       Reflect.set(supabaseAuth.auth, "resetPasswordForEmail", async () => {
@@ -105,9 +194,14 @@ async function main() {
     // Provider diagnostics may identify the route/outcome, but never contain
     // provider text (including text from a thrown Error).
     assert.equal(logs.some(args => args.some(value => String(value).includes(PROVIDER_ERROR))), false);
-    assert.ok(logs.length >= 2, "provider failures remain observable");
+    assert.ok(logs.length >= 5, "provider failures remain observable");
     assert.ok(logs.every(args => args.some(value => /auth\/(sign-up|reset-password)/.test(String(value)))),
       "auth diagnostics include safe route metadata");
+    const serializedAuthLogs = JSON.stringify(logs);
+    assert.match(serializedAuthLogs, /over_request_rate_limit/, "safe provider error codes are recorded");
+    assert.match(serializedAuthLogs, /invalid_api_key/, "key errors are recorded without key material");
+    assert.match(serializedAuthLogs, /not_found/, "provider endpoint codes are recorded safely");
+    assert.doesNotMatch(serializedAuthLogs, new RegExp(PROVIDER_ERROR), "provider messages are never recorded");
 
     // Validation runs before either provider is touched.
     let providerCalls = 0;
@@ -195,6 +289,69 @@ async function main() {
     assert.equal(checkAccountLockout(unconfirmedEmail).locked, false,
       "unconfirmed sign-in attempts do not count as failed password guesses");
 
+    Reflect.set(supabaseAuth.auth, "signInWithPassword", async () => ({
+      data: { user: null, session: null },
+      error: Object.assign(new Error(PROVIDER_ERROR), {
+        code: "unexpected_failure",
+        status: 503,
+      }),
+    }));
+    const unavailableEmail = "auth-provider-down@example.com";
+    const unavailable = await post(app, "/api/auth/sign-in", {
+      email: unavailableEmail, password: PASSWORD,
+    });
+    assert.equal(unavailable.status, 503, "provider outages are not returned as invalid credentials");
+    assert.equal(checkAccountLockout(unavailableEmail).locked, false,
+      "provider outages do not consume account lockout attempts");
+
+    Reflect.set(supabaseAuth.auth, "signInWithPassword", async () => ({
+      data: { user: null, session: null },
+      error: Object.assign(new Error(PROVIDER_ERROR), {
+        code: "invalid_api_key",
+        status: 401,
+      }),
+    }));
+    const invalidKeyEmail = "auth-invalid-key@example.com";
+    const invalidKeySignIn = await post(app, "/api/auth/sign-in", {
+      email: invalidKeyEmail, password: PASSWORD,
+    });
+    assert.equal(invalidKeySignIn.status, 503, "invalid project key is not reported as a bad password");
+    assert.equal(checkAccountLockout(invalidKeyEmail).locked, false,
+      "invalid project keys do not consume account lockout attempts");
+
+    Reflect.set(supabaseAuth.auth, "signInWithPassword", async () => ({
+      data: { user: null, session: null },
+      error: Object.assign(new Error(PROVIDER_ERROR), {
+        code: "not_found",
+        status: 404,
+      }),
+    }));
+    const missingEndpointEmail = "auth-endpoint-missing@example.com";
+    const missingEndpointSignIn = await post(app, "/api/auth/sign-in", {
+      email: missingEndpointEmail, password: PASSWORD,
+    });
+    assert.equal(missingEndpointSignIn.status, 503, "provider 404s are not reported as invalid credentials");
+    assert.equal(checkAccountLockout(missingEndpointEmail).locked, false,
+      "provider 404s do not consume account lockout attempts");
+
+    const invalidCredentialsEmail = "wrong-password@example.com";
+    Reflect.set(supabaseAuth.auth, "signInWithPassword", async () => ({
+      data: { user: null, session: null },
+      error: Object.assign(new Error("Invalid login credentials"), {
+        code: "invalid_credentials",
+        status: 400,
+      }),
+    }));
+    for (let i = 0; i < 5; i++) {
+      const invalidCredentials = await post(app, "/api/auth/sign-in", {
+        email: invalidCredentialsEmail, password: PASSWORD,
+      });
+      assert.equal(invalidCredentials.status, 401);
+      assert.equal(invalidCredentials.body.error, "invalid_credentials");
+    }
+    assert.equal(checkAccountLockout(invalidCredentialsEmail).locked, true,
+      "invalid credentials still trigger the per-account lockout");
+
     // Actual auth + reset limiters remain mounted (six requests from one IP).
     const limiterIp = `203.${ipRun}.113.77`;
     for (let i = 0; i < 5; i++) {
@@ -241,3 +398,5 @@ async function main() {
 }
 
 void main();
+
+let isSelectedSupabaseProjectUrl: typeof import("../server/supabase").isSelectedSupabaseProjectUrl;
