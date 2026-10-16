@@ -32,10 +32,7 @@ import {
   recordFailedAttempt,
   clearLockout,
 } from "./middleware/rateLimiter";
-import {
-  NATIVE_EMAIL_CONFIRMATION_URL,
-  NATIVE_PASSWORD_RECOVERY_URL,
-} from "../lib/oauth-callback";
+import { NATIVE_PASSWORD_RECOVERY_URL } from "../lib/oauth-callback";
 // P-E: cap simultaneous AI calls so a burst cannot exhaust Gemini quota
 // or connections. Extras are queued, not rejected (the rate limiters
 // above handle outright rejection). Max 5 concurrent AI invocations.
@@ -394,7 +391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Acknowledgement does not assert creation or email delivery. Provider
   // failures and unknown/existing accounts must remain indistinguishable.
   app.post("/api/auth/sign-up", authLimiter, async (req, res) => {
-    const { email, password, emailRedirectTo: clientRedirectTo } = req.body;
+    const { email, password } = req.body;
 
     if (!isValidEmail(email)) {
       return res.status(400).json({ error: "invalid_email" });
@@ -405,23 +402,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
 
-    const normalizedEmail = (email as string).trim().toLowerCase();
-    const requestOrigin =
-      typeof req.headers.origin === "string" ? req.headers.origin : null;
-
-    const redirectTo = sanitizeRedirectUrl(
-      clientRedirectTo,
-      requestOrigin,
-      ["/auth/callback"],
-      NATIVE_EMAIL_CONFIRMATION_URL,
-    );
-    if (!redirectTo) return res.status(400).json({ error: "invalid_redirect" });
-
     try {
       const { error } = await supabaseAuth.auth.signUp({
-        email: normalizedEmail,
+        email: (email as string).trim().toLowerCase(),
         password: String(password),
-        options: { emailRedirectTo: redirectTo },
       });
       if (error) reportAuthRequestFailure("auth_signup_returned_error", "/api/auth/sign-up");
     } catch {

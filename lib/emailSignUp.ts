@@ -1,5 +1,3 @@
-import { NATIVE_EMAIL_CONFIRMATION_URL } from './oauth-callback'
-
 /**
  * Email sign-up flow extracted to its own Node-testable module.
  *
@@ -11,7 +9,7 @@ import { NATIVE_EMAIL_CONFIRMATION_URL } from './oauth-callback'
  *
  * No static imports from react-native, expo/*, lib/supabase, or
  * lib/query-client so this file loads cleanly under tsx in Node.js test
- * environments. Platform is dynamically imported only in the production path.
+ * environments.
  *
  * See .agents/memory/node-test-rn-isolation.md for the rationale.
  */
@@ -29,8 +27,6 @@ import { NATIVE_EMAIL_CONFIRMATION_URL } from './oauth-callback'
  */
 export const _testOverrides: {
   fetch?: (url: string, init?: RequestInit) => Promise<Response>
-  platform?: 'web' | 'native'
-  webOrigin?: string
   apiUrl?: string
   signInWithEmail?: (email: string, password: string) => Promise<void>
 } = {}
@@ -39,8 +35,8 @@ export const _testOverrides: {
  * Signs up a new user with email and password via the server proxy.
  *
  * POST /api/auth/sign-up (Express proxy):
- *   Enforces server-side rate-limiting, input validation, and redirect URL
- *   allowlisting. The server acknowledges receipt without promising account
+ *   Enforces server-side rate-limiting and input validation. The server
+ *   acknowledges receipt without promising account
  *   creation or email delivery, preventing email-enumeration attacks.
  *   If the server returns
  *   a non-2xx status (e.g. 400 invalid_email, 429 rate_limit), an error is
@@ -62,22 +58,11 @@ export async function signUpWithEmail(
     init?: RequestInit
   ) => Promise<Response>
 
-  let emailRedirectTo: string
   let apiUrl: string
 
   if (_testOverrides.fetch) {
-    // Test path — skip dynamic RN imports while exercising both redirect choices.
-    emailRedirectTo = _testOverrides.platform === 'native'
-      ? NATIVE_EMAIL_CONFIRMATION_URL
-      : `${_testOverrides.webOrigin ?? 'https://test.invalid'}/auth/callback`
     apiUrl = _testOverrides.apiUrl ?? 'https://test.invalid'
   } else {
-    const { Platform } = await import('react-native')
-    emailRedirectTo =
-      Platform.OS === 'web'
-        ? `${(globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin}/auth/callback`
-        : NATIVE_EMAIL_CONFIRMATION_URL
-
     const host = process.env.EXPO_PUBLIC_DOMAIN
     if (!host) throw new Error('EXPO_PUBLIC_DOMAIN is not set')
     apiUrl = `https://${host}`
@@ -91,7 +76,6 @@ export async function signUpWithEmail(
       body: JSON.stringify({
         email: email.trim().toLowerCase(),
         password,
-        emailRedirectTo,
       }),
       credentials: 'include',
     }

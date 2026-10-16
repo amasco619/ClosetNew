@@ -205,7 +205,7 @@ Whenever you make a change that affects any section of this document — new API
 3. On native redirect, `createSessionFromUrl()` accepts only the exact expected callback base, parses a PKCE `code`, and calls `supabase.auth.exchangeCodeForSession()` with the SecureStore-bound verifier. Native implicit token callbacks are deliberately rejected.
 4. Session tokens are stored in `expo-secure-store` on native (iOS Keychain / Android Keystore) via `SecureStoreAdapter`. They are **not** in `AsyncStorage`.
 5. For email auth: `signInWithEmail()` first uses the rate-limited server check, then calls `supabase.auth.signInWithPassword()` on the client to establish the session
-6. Email sign-up goes through the rate-limited server proxy using the publishable Auth key, then attempts the same email sign-in flow. A successful sign-in establishes the session; rejected sign-in displays a generic sign-up error and does not imply that an email was sent.
+6. Email sign-up goes through the rate-limited server proxy using the publishable Auth key without a confirmation redirect (the development project has Confirm Email disabled), then attempts the same email sign-in flow. A successful sign-in establishes the session; rejected sign-in displays a generic sign-up error and does not imply that an email was sent.
 7. `AppContext` listens to `supabase.auth.onAuthStateChange()` for **subsequent** events only — `INITIAL_SESSION` is intentionally excluded (see Startup Initialization below)
 
 Email confirmation is controlled by the hosted Supabase Auth setting **Authentication → Providers → Email → Confirm Email**, not by an app-side mail-sending toggle. It is currently off in the development project, as confirmed by the user on 2026-10-16. Before enabling it for launch, restore an in-app confirmation guidance flow. Do not auto-confirm users through a service-role admin path.
@@ -1364,8 +1364,8 @@ These features are **not yet implemented**. They are the next development priori
 | `rebaseGuestPhotoUri.test.ts` | `rebaseGuestPhotoUri()`: prefix unchanged, old prefix rebased, non-guest URIs untouched, malformed filenames untouched, edge cases (empty currentDocDir, same prefix) |
 | `removeBackground.test.ts` | `resolveClassifyBase64`/`selectClassifyPayload`/`resolvePhotoUri` pipeline helpers; server handler error codes (503 missing key, 400 missing body, 502 non-OK/empty-body/network-error/AbortError/mid-stream AbortError); `resolveWardrobeUploadArg`/`stripDataUriPrefix` |
 | `signInWithEmail.test.ts` | Email sign-in flow: credential validation, Supabase auth call, error propagation |
-| `signUpWithEmail.test.ts` | Sign-up client acknowledgement contract, web/native redirects, network/non-JSON/malformed response failures |
-| `auth2Routes.test.ts` | Real sign-up/reset routes: returned and thrown provider failures, privacy-equivalent replies, redirect policy, locked reset and mounted rate limits |
+| `signUpWithEmail.test.ts` | Sign-up client acknowledgement contract, redirect-free request, network/non-JSON/malformed response failures |
+| `auth2Routes.test.ts` | Real sign-up/reset routes: returned and thrown provider failures, privacy-equivalent replies, reset redirect policy, locked reset and mounted rate limits |
 | `auth2MountedUi.test.ts` | Mounted confirmation and recovery screens with isolated native/auth/navigation mocks: preparation, callback errors, submit gating, update outcomes and navigation |
 | `emailRecovery.test.ts` | Recovery code/claims preparation gating and sanitized password-update provider failures |
 | `supabaseUrlStability.test.ts` | Supabase Storage public URL is deterministic from (userId, itemId, ext) alone — no session token embedded, no query parameters, stable across app reinstalls |

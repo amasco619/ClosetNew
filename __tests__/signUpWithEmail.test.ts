@@ -24,7 +24,6 @@ function response(ok: boolean, body: unknown, statusText = ok ? 'OK' : 'Bad Requ
 
 function install(
   result: Response | Error,
-  platform: 'web' | 'native' = 'web',
   signInError?: Error,
 ): {
   calls: { url: string; init?: RequestInit }[]
@@ -33,8 +32,6 @@ function install(
 } {
   const calls: { url: string; init?: RequestInit }[] = []
   const signInCalls: { email: string; password: string }[] = []
-  _testOverrides.platform = platform
-  _testOverrides.webOrigin = 'https://app.example.test'
   _testOverrides.apiUrl = 'https://api.example.test'
   _testOverrides.fetch = async (url, init) => {
     calls.push({ url, init })
@@ -50,8 +47,6 @@ function install(
     signInCalls,
     restore: () => {
       delete _testOverrides.fetch
-      delete _testOverrides.platform
-      delete _testOverrides.webOrigin
       delete _testOverrides.apiUrl
       delete _testOverrides.signInWithEmail
     },
@@ -77,7 +72,7 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
     assert(mock.calls[0]?.init?.method === 'POST', 'uses POST')
     assert(body.email === 'user@example.com', 'trims and lower-cases email')
     assert(body.password === 'Password1', 'forwards password')
-    assert(body.emailRedirectTo === 'https://app.example.test/auth/callback', 'uses web redirect')
+    assert(!('emailRedirectTo' in body), 'does not send an unused confirmation redirect')
     assert(mock.signInCalls[0]?.email === 'user@example.com', 'signs in with the normalized email')
     assert(mock.signInCalls[0]?.password === 'Password1', 'signs in with the submitted password')
     mock.restore()
@@ -87,7 +82,6 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
   {
     const mock = install(
       response(true, { acknowledged: true }),
-      'web',
       new Error('[signInWithEmail] invalid_credentials'),
     )
     const message = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
@@ -100,7 +94,6 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
   {
     const mock = install(
       response(true, { acknowledged: true }),
-      'web',
       new Error('[signInWithEmail] rate_limited'),
     )
     const message = await thrown(() => signUpWithEmail('user@example.com', 'Password1'))
@@ -108,12 +101,12 @@ async function thrown(action: () => Promise<unknown>): Promise<string> {
     mock.restore()
   }
 
-  section('Native redirect override')
+  section('Native signup uses the same redirect-free request')
   {
-    const mock = install(response(true, { acknowledged: true }), 'native')
+    const mock = install(response(true, { acknowledged: true }))
     await signUpWithEmail('user@example.com', 'Password1')
     const body = JSON.parse(mock.calls[0]?.init?.body as string)
-    assert(body.emailRedirectTo === 'amodka://auth/confirm', 'uses native confirmation redirect')
+    assert(!('emailRedirectTo' in body), 'does not send the native confirmation redirect')
     mock.restore()
   }
 

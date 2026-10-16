@@ -3,7 +3,6 @@ import { randomInt } from "node:crypto";
 import express from "express";
 import request from "supertest";
 import {
-  NATIVE_EMAIL_CONFIRMATION_URL,
   NATIVE_PASSWORD_RECOVERY_URL,
 } from "../lib/oauth-callback";
 
@@ -124,44 +123,27 @@ async function main() {
     assert.equal(shortPassword.status, 400);
     assert.equal(providerCalls, 0);
 
-    // Redirect policy: allowlisted web links work; native links are accepted
-    // without an Origin; web links without Origin and untrusted Origins fail
-    // closed rather than silently falling back to a native redirect.
+    // Signup needs no redirect while email confirmation is disabled.
     Reflect.set(supabaseAuth.auth, "signUp", async () => ({ data: null, error: null }));
     let signupOptions: any;
     Reflect.set(supabaseAuth.auth, "signUp", async (args: any) => {
       signupOptions = args;
       return { data: null, error: null };
     });
+    const redirectFreeSignup = await post(app, "/api/auth/sign-up", {
+      email: "signup@example.com", password: PASSWORD,
+    }, ALLOWED_ORIGIN);
+    assert.equal(redirectFreeSignup.status, 200);
+    assert.deepEqual(signupOptions, {
+      email: "signup@example.com",
+      password: PASSWORD,
+    }, "does not pass emailRedirectTo to Supabase");
+
     let resetOptions: any;
     Reflect.set(supabaseAuth.auth, "resetPasswordForEmail", async (_email: string, options: any) => {
       resetOptions = options;
       return { data: null, error: null };
     });
-    const allowed = await post(app, "/api/auth/sign-up", {
-      email: "redirect@example.com", password: PASSWORD,
-      emailRedirectTo: `${ALLOWED_ORIGIN}/auth/callback`,
-    }, ALLOWED_ORIGIN);
-    assert.equal(allowed.status, 200);
-    assert.equal(signupOptions.options.emailRedirectTo, `${ALLOWED_ORIGIN}/auth/callback`);
-    const nativeSignup = await post(app, "/api/auth/sign-up", {
-      email: "native@example.com", password: PASSWORD,
-      emailRedirectTo: NATIVE_EMAIL_CONFIRMATION_URL,
-    });
-    assert.equal(nativeSignup.status, 200);
-    assert.equal(signupOptions.options.emailRedirectTo, NATIVE_EMAIL_CONFIRMATION_URL);
-    const missingOrigin = await post(app, "/api/auth/sign-up", {
-      email: "missing-origin@example.com", password: PASSWORD,
-      emailRedirectTo: `${ALLOWED_ORIGIN}/auth/callback`,
-    });
-    assert.equal(missingOrigin.status, 200, "configured allowlist works without Origin");
-    delete process.env.ALLOWED_RESET_ORIGINS;
-    const missingUnlistedOrigin = await post(app, "/api/auth/sign-up", {
-      email: "missing-unlisted-origin@example.com", password: PASSWORD,
-      emailRedirectTo: `${ALLOWED_ORIGIN}/auth/callback`,
-    });
-    assert.equal(missingUnlistedOrigin.status, 400);
-    assert.equal(missingUnlistedOrigin.body.error, "invalid_redirect");
     process.env.ALLOWED_RESET_ORIGINS = ALLOWED_ORIGIN;
     const untrusted = await post(app, "/api/auth/reset-password", {
       email: "untrusted@example.com",
