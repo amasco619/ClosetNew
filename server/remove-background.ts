@@ -9,6 +9,7 @@ import {
   PHOTOROOM_INVALID_RESPONSE,
   PHOTOROOM_TIMEOUT_ERROR,
 } from "../shared/photoroom-error-codes";
+import { trimTransparentGarmentPng } from "./garmentPng";
 import {
   checkCacheByHash,
   computeImageHash,
@@ -187,7 +188,20 @@ export async function removeBackground(req: Request, res: Response) {
   const cached = hash ? await cacheCheck(hash) : null;
   if (cached) {
     // Cache hits do NOT count against the user's quota
-    return res.json({ imageBase64: cached, mimeType: "image/png", fromCache: true });
+    try {
+      const trimmed = trimTransparentGarmentPng(Buffer.from(cached, "base64"));
+      return res.json({
+        imageBase64: trimmed.toString("base64"),
+        mimeType: "image/png",
+        fromCache: true,
+      });
+    } catch (error) {
+      reportError(error, "background_removal", {
+        dependency: "photoroom_cache",
+        requestId: res.locals?.requestId,
+      });
+      return res.status(502).json({ error: PHOTOROOM_INVALID_RESPONSE });
+    }
   }
 
   // Reserve usage before calling the paid dependency. A quota-store failure
@@ -264,7 +278,17 @@ export async function removeBackground(req: Request, res: Response) {
       return res.status(502).json({ error: PHOTOROOM_INVALID_RESPONSE });
     }
 
-    const resultBase64 = resultBuf.toString("base64");
+    let trimmedResult: Buffer;
+    try {
+      trimmedResult = trimTransparentGarmentPng(resultBuf);
+    } catch (error) {
+      reportError(error, "background_removal", {
+        dependency: "photoroom",
+        requestId: res.locals?.requestId,
+      });
+      return res.status(502).json({ error: PHOTOROOM_INVALID_RESPONSE });
+    }
+    const resultBase64 = trimmedResult.toString("base64");
 
     // ── 7. Cache result + increment usage (fire-and-forget, non-blocking) ──
     if (hash) void storeCacheResult(hash, resultBase64);

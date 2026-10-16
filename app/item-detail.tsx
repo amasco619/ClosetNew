@@ -4,8 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import SwipeToDismiss from '@/components/SwipeToDismiss';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
+import { GarmentTile } from '@/components/GarmentTile';
 import { useApp, subTypes, colorFamilies } from '@/contexts/AppContext';
 import type { Neckline } from '@/constants/types';
 import Colors from '@/constants/colors';
@@ -175,7 +175,14 @@ export default function ItemDetailScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        <Image source={{ uri: item.photoUri }} style={styles.image} contentFit="cover" />
+        <GarmentTile
+          uri={item.photoUri}
+          storagePath={item.storagePath}
+          colorFamily={item.colorFamily}
+          variant="preview"
+          style={styles.image}
+          accessibilityLabel={`${item.colorFamily} ${item.subType} garment`}
+        />
 
         <View style={styles.details}>
           {savingCorrection && (

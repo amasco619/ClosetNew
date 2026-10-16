@@ -1,6 +1,6 @@
 import {
   StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator,
-  Platform, Image, Alert,
+  Platform, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +18,7 @@ import OOTDStoryCard from '@/components/OOTDStoryCard';
 import { computeItemCpw, formatCpw } from '@/constants/cpw';
 import { rs } from '../../lib/responsive';
 import OccasionPlanner, { type ConciergeAccess } from '../../components/OccasionPlanner';
+import { GarmentTile } from '@/components/GarmentTile';
 import TravelPlanner from '../../components/TravelPlanner';
 import { CONCIERGE_OCCASIONS, conciergeReadiness, parseConciergeIntent, type ConciergeIntent } from '../../lib/concierge';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
@@ -141,14 +142,15 @@ function OutfitItemPhoto({ component, size = 80, isHero = false }: {
 
   if (component.photoUri) {
     return (
-      <Image
-        source={{ uri: component.photoUri }}
+      <GarmentTile
+        uri={component.photoUri}
+        variant="card"
+        accessibilityLabel={`${component.category} garment in outfit`}
         style={[
           styles.itemPhoto,
           { width: size, height: size * 1.25, borderRadius: 14 },
           heroBorder,
         ]}
-        resizeMode="cover"
       />
     );
   }

@@ -14,6 +14,7 @@ import Animated, { FadeInDown, FadeInUp, FadeOutUp } from 'react-native-reanimat
 import { rs } from '../../lib/responsive';
 import { WardrobeGapCard } from '@/components/WardrobeGapCard';
 import { diagnoseWeatherGap } from '@/lib/wardrobeGapDiagnosis';
+import { GarmentTile } from '@/components/GarmentTile';
 
 const styleGoalLabels: Record<string, string> = {
   youthful: 'Youthful', elevated: 'Elevated', minimal: 'Minimal',
@@ -402,7 +403,14 @@ export default function HomeScreen() {
                 return (
                   <View key={`pick-${i}`} style={styles.pickPhotoWrap}>
                     {item?.photoUri ? (
-                      <Image source={{ uri: item.photoUri }} style={styles.pickPhoto} resizeMode="cover" />
+                      <GarmentTile
+                        uri={item.photoUri}
+                        storagePath={item.storagePath}
+                        colorFamily={item.colorFamily}
+                        variant="card"
+                        style={styles.pickPhoto}
+                        accessibilityLabel={`${item.colorFamily} ${item.subType} garment in today's look`}
+                      />
                     ) : (
                       <View style={[styles.pickPhoto, styles.pickPhotoFallback]}>
                         <Ionicons name="shirt-outline" size={20} color={Colors.textLight} />

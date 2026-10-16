@@ -111,6 +111,7 @@ const hostMocks: Record<string, string> = {
     NotificationFeedbackType={Warning:'warning',Success:'success'},ImpactFeedbackStyle={Light:'light'};`,
   'expo-status-bar': `export const StatusBar=()=>null;`,
   'expo-image': `import React from 'react';export const Image=props=>React.createElement('Image',props);`,
+  '@/components/GarmentTile': `import React from 'react';export const GarmentTile=({uri,...props})=>React.createElement('Image',{...props,source:{uri}});`,
   '@react-native-async-storage/async-storage': `export default {getItem:async()=>null,removeItem:async()=>{}};`,
   'react-native-reanimated': `
     import React from 'react';

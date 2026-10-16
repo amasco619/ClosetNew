@@ -371,3 +371,15 @@ Never reduce safety/security/payment correctness merely to save agent cost.
 
 The goal is:
 **minimum engineering-agent cost consistent with a genuinely premium, secure, compliant launch.**
+
+## 18. GARMENT IMAGE PRESENTATION
+
+Shared `GarmentTile` now presents user-owned garment photos on a neutral studio
+surface across add, bulk review, wardrobe list/grid and other owned-image
+surfaces. PhotoRoom cutouts remain transparent PNGs for display and storage;
+the classifier server composites them onto the neutral matte before Gemini.
+No schema, quota, auth, taxonomy or recommendation-engine changes were made.
+The matte is covered by synthetic-pixel tests, but real Gemini label quality
+and the requested physical-device visual matrix remain unverified. Details and
+the full not-verified matrix are in
+`reports/garment-image-presentation.md`.

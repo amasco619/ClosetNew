@@ -2791,3 +2791,29 @@ saved-look/wear/mood/reaction/profile persistence change.
 Verification and known limits are recorded in `reports/p14-travel-capsule.html`.
 Mounted tests run real planner/view code against isolated context/group/native
 fixtures; they are not live-account, native-device or screen-reader verification.
+
+## 38. LUXURY GARMENT IMAGE PRESENTATION
+
+`components/GarmentTile.tsx` is the shared renderer for user-owned garment photos
+across add, bulk review, wardrobe, detail, outfit, wear-log, OOTD, travel and
+multi-item surfaces. It uses a warm neutral gradient, deeper stone for light
+garment families, `contain` for cutouts, `cover` for original photos, a floor
+ellipse, a hairline frame, recycling keys and reduced-motion-aware transitions.
+Bundled example art is outside this shared user-photo path.
+
+The transparent PhotoRoom PNG is the display and storage source of truth. The
+single and bulk flows trim transparent padding with a small even margin, write
+the PNG to the Expo cache, and retain only its file URI in component state.
+Signed-in storage uploads the PNG unchanged to `.png` paths; guest copies use a
+local `.png` filename. Original/no-cutout photos remain JPEGs. Gemini requests
+carry the real MIME type; `server/classify-garment.ts` composites PNG alpha onto
+the neutral `#E9E4DC` matte before forwarding. The image-size, JSON body, quota,
+and Photoroom cache-key policies are unchanged.
+
+No persisted cutout flag exists in the current model, so display detection uses
+the storage-path extension when available and otherwise the image URI extension.
+No schema migration, taxonomy/prompt change, recommendation-engine change or
+auth/quota change was made. `reports/garment-image-presentation.md` records the
+Step 0 pipeline, implementation, visual matrix and verification limits. The
+matte is retained; synthetic pixel tests do not establish real Gemini label
+quality or physical-device appearance.

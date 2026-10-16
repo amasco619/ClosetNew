@@ -15,6 +15,13 @@ import {
 } from "../scripts/privateRealPhotoEvaluation";
 import { CLASSIFIER_MODELS, GEMINI_PROMPT } from "../server/classify-garment";
 
+type TestPng = { width: number; height: number; data: Buffer };
+type TestPngCodec = {
+  new(options: { width: number; height: number }): TestPng;
+  sync: { write(image: TestPng): Buffer };
+};
+const { PNG } = require("pngjs") as { PNG: TestPngCodec };
+
 function sha256(bytes: Buffer | string): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
@@ -264,7 +271,9 @@ async function main() {
     assert.equal(Object.hasOwn(handlerResult.body, "wearPosition"), false);
 
     responseText = JSON.stringify({ refused: true, reason: "Not a wearable item." });
-    const refusalResult = await handlerProvider(bytes, "image/png");
+    const refusalPng = new PNG({ width: 1, height: 1 });
+    refusalPng.data.set([0, 0, 0, 0]);
+    const refusalResult = await handlerProvider(PNG.sync.write(refusalPng), "image/png");
     assert.equal(refusalResult.statusCode, 422);
     assert.equal(refusalResult.body.error, "content_guardrail");
     assert.equal(refusalResult.mimeType, "image/png");

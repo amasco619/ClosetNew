@@ -55,10 +55,10 @@ async function testCommitFailureDoesNotNavigate(): Promise<void> {
   const capacityError = Object.assign(new Error('capacity'), { code: 'WARDROBE_CAPACITY_REACHED' });
   const deps: SaveAllDeps = {
     generateId: () => 'item-1',
-    getSession: async () => null,
+    getSession: async () => 'user-1',
     resize: async () => null,
     upload: async () => 'unused',
-    resolveUploadArg: () => null,
+    resolveUploadArg: () => ({ base64: 'clean-image', mimeType: 'image/png' }),
     addItems: async () => { throw capacityError; },
     setItems: updater => {
       const result = updater([{ uri: items[0].uri, status: 'saving', classification: items[0].classification }]);

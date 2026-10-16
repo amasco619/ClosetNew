@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -21,6 +20,7 @@ import {
   type TravelSlot,
 } from '@/lib/travelCapsule';
 import type { WardrobeItem } from '@/constants/types';
+import { GarmentTile } from '@/components/GarmentTile';
 
 const ESSENTIALS = ['Passport/travel documents', 'Chargers', 'Toiletries'] as const;
 
@@ -391,7 +391,12 @@ export default function TravelPlannerView({
                                   {assignedItems.map((component, componentIndex) => (
                                     <View key={`${component.matchedItemId ?? componentIndex}`} style={styles.garment}>
                                       {component.photoUri ? (
-                                        <Image source={{ uri: component.photoUri }} style={styles.garmentPhoto} resizeMode="cover" />
+                                        <GarmentTile
+                                          uri={component.photoUri}
+                                          variant="card"
+                                          style={styles.garmentPhoto}
+                                          accessibilityLabel="Garment in selected travel look"
+                                        />
                                       ) : (
                                         <View style={styles.photoPlaceholder}>
                                           <Ionicons name="shirt-outline" size={16} color={Colors.textLight} />
@@ -474,7 +479,12 @@ export default function TravelPlannerView({
                             {look.outfit.components.map((component, componentIndex) => (
                               <View key={`${component.matchedItemId ?? componentIndex}`} style={styles.garment}>
                                 {component.photoUri ? (
-                                  <Image source={{ uri: component.photoUri }} style={styles.garmentPhoto} resizeMode="cover" />
+                                  <GarmentTile
+                                    uri={component.photoUri}
+                                    variant="card"
+                                    style={styles.garmentPhoto}
+                                    accessibilityLabel="Garment in selected travel look"
+                                  />
                                 ) : (
                                   <View style={styles.photoPlaceholder}>
                                     <Ionicons name="shirt-outline" size={16} color={Colors.textLight} />
@@ -517,7 +527,14 @@ export default function TravelPlannerView({
                       {checklist.map((item) => (
                         <View key={item.id} style={styles.checklistItem}>
                           {item.photoUri ? (
-                            <Image source={{ uri: item.photoUri }} style={styles.checklistPhoto} resizeMode="cover" />
+                            <GarmentTile
+                              uri={item.photoUri}
+                              storagePath={item.storagePath}
+                              colorFamily={item.colorFamily}
+                              variant="list"
+                              style={styles.checklistPhoto}
+                              accessibilityLabel={`${item.colorFamily} ${item.subType} packed garment`}
+                            />
                           ) : (
                             <View style={[styles.checklistPhoto, styles.photoPlaceholder]}>
                               <Ionicons name="shirt-outline" size={17} color={Colors.textLight} />

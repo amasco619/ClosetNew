@@ -21,7 +21,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
@@ -36,6 +35,7 @@ import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FAB
 import type { BulkItemCore, ClassifyResult } from '@/lib/bulkClassifyCore';
 import { stepCarousel, canGoPrev, canGoNext } from '@/lib/carouselUtils';
 import { rs } from '../lib/responsive';
+import { GarmentTile } from '@/components/GarmentTile';
 
 // ─── Re-export pure carousel utility for testing ──────────────────────────────
 export { stepCarousel } from '@/lib/carouselUtils';
@@ -298,10 +298,12 @@ export default function BulkItemEditPanel({
 
         {/* Photo */}
         <View style={styles.photoWrap}>
-          <Image
-            source={{ uri: currentItem.displayUri ?? currentItem.uri }}
+          <GarmentTile
+            uri={currentItem.cutoutUri ?? currentItem.uri}
+            isCutout={Boolean(currentItem.cutoutUri)}
+            variant="preview"
             style={styles.photo}
-            contentFit="contain"
+            accessibilityLabel={`${currentItem.classification?.colorFamily ?? ''} ${currentItem.classification?.subType ?? 'garment'} photo`}
             recyclingKey={currentItem.uri}
           />
           {isReadOnly && (

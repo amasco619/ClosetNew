@@ -1,5 +1,5 @@
 import {
-  StyleSheet, Text, View, ScrollView, Pressable, Platform, Image, ActivityIndicator,
+  StyleSheet, Text, View, ScrollView, Pressable, Platform, ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { OccasionTag } from '@/constants/types';
 import { computeItemCpw, formatCpw, computeWardrobeDividends, DividendItem } from '@/constants/cpw';
 import { rs } from '../lib/responsive';
 import { useEffect, useState } from 'react';
+import { GarmentTile } from '@/components/GarmentTile';
 
 const FREE_LOG_DAYS = 7;
 
@@ -64,10 +65,13 @@ function ItemThumb({ item, isHero = false }: { item: WardrobeItem | undefined; i
     : {};
   if (item.photoUri) {
     return (
-      <Image
-        source={{ uri: item.photoUri }}
+      <GarmentTile
+        uri={item.photoUri}
+        storagePath={item.storagePath}
+        colorFamily={item.colorFamily}
+        variant="card"
         style={[styles.itemThumb, heroBorderStyle]}
-        resizeMode="cover"
+        accessibilityLabel={`${item.colorFamily} ${item.subType} garment`}
       />
     );
   }
@@ -83,10 +87,13 @@ function DividendCard({ dividend }: { dividend: DividendItem }) {
   return (
     <View style={styles.dividendCard}>
       {item.photoUri ? (
-        <Image
-          source={{ uri: item.photoUri }}
+        <GarmentTile
+          uri={item.photoUri}
+          storagePath={item.storagePath}
+          colorFamily={item.colorFamily}
+          variant="card"
           style={styles.dividendPhoto}
-          resizeMode="cover"
+          accessibilityLabel={`${item.colorFamily} ${item.subType} garment`}
         />
       ) : (
         <View style={[styles.dividendPhoto, styles.dividendPhotoFallback]}>

@@ -99,9 +99,11 @@ function makeDeferredDeps(): DeferredDeps {
   const deps: ClassifyDeps = {
     resize:         (_uri)    => resizeD.promise,
     removeBg:       (_b64)    => removeBgD.promise,
-    reencodeAsJpeg: (_pngB64) => reencodeD.promise,
-    resolvePhotoUri: (orig, reenc) =>
-      reenc && reenc.length > 0 && !reenc.startsWith('data:') ? reenc : orig,
+    writePngToCache: async () => {
+      const result = await reencodeD.promise;
+      if (!result) throw new Error('cache_write_failed');
+      return result.uri;
+    },
     classify: (_b64) => classifyD.promise,
     setItems: (updater) => {
       const after = updater([makeItem()]);
@@ -304,26 +306,21 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'error update suppressed when unmounted before resize result is processed');
   }
 
-  section('runClassifyUri — 8. reencodeAsJpeg throws (mounted): fallback displayUri = original URI, cleanBase64 captured');
+  section('runClassifyUri — 8. cache write failure keeps large base64 out of item state');
   {
-    // reencodeAsJpeg rejects while the component is still mounted.
-    // The catch block must: set displayUri = resolvePhotoUri(uri, null) = original file:// URI
-    //                  and: capture cleanBase64 so the clean PNG is still uploaded on save.
+    // A failed cache write must fail explicitly rather than retain the clean
+    // PNG base64 inside the React item state.
     const mountedRef = { current: true };
 
-    // Capture full item snapshots (not just status) to inspect displayUri and cleanBase64.
+    // Capture full item snapshots to inspect the saved preview URI.
     const itemSnapshots: BulkItemCore[] = [];
 
     const resizeD   = deferred<{ base64?: string } | null>();
-    const classifyD = deferred<Record<string, unknown>>();
-
     const deps: ClassifyDeps = {
       resize:          (_uri)    => resizeD.promise,
       removeBg:        (_b64)    => Promise.resolve('clean-png'),
-      reencodeAsJpeg:  (_pngB64) => Promise.reject(new Error('reencode_failed')),
-      resolvePhotoUri: (orig, reenc) =>
-        reenc && reenc.length > 0 && !reenc.startsWith('data:') ? reenc : orig,
-      classify:  (_b64)    => classifyD.promise,
+      writePngToCache: (_pngB64) => Promise.reject(new Error('cache_write_failed')),
+      classify:  (_b64)    => Promise.resolve(CLASSIFY_RESPONSE),
       setItems: (updater) => {
         const after = updater([makeItem()]);
         if (after[0]) itemSnapshots.push({ ...after[0] });
@@ -342,23 +339,15 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
     await tick();
     await tick();
 
-    classifyD.resolve(CLASSIFY_RESPONSE);
     await classifyPromise;
 
-    // The catch block fires a setItems with displayUri set via resolvePhotoUri(uri, null).
-    const fallbackSnapshot = itemSnapshots.find(s => s.displayUri !== undefined);
-
+    assert(itemSnapshots.every(s => s.cutoutUri === undefined),
+      'failed cache URI is never retained');
+    assert(itemSnapshots.every(s => !('cleanBase64' in s)),
+      'large clean PNG base64 is never retained in item state');
     assert(
-      fallbackSnapshot?.displayUri === TEST_URI,
-      'fallback displayUri is the original file:// URI, not blank or a data: string',
-    );
-    assert(
-      fallbackSnapshot?.cleanBase64 === 'clean-png',
-      'cleanBase64 is still captured even when reencodeAsJpeg throws',
-    );
-    assert(
-      itemSnapshots.some(s => s.status === 'settled'),
-      'pipeline continues to settled after reencodeAsJpeg failure',
+      itemSnapshots.some(s => s.status === 'error'),
+      'classification fails explicitly when the transparent preview cannot be cached',
     );
   }
 
@@ -720,39 +709,39 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
   //     ImageManipulator output) never renders blank.
   //  C) expo-image silent failure is recovered by the onError handler.
 
-  section('BulkCard preview URI — 18. displayUri is never the preview source');
+  section('BulkCard preview URI — 18. cached transparent PNG is preferred, original is fallback');
   {
-    function bulkCardPreviewUri(item: Pick<BulkItemCore, 'uri' | 'displayUri'>): string {
-      return item.uri;
+    function bulkCardPreviewUri(item: Pick<BulkItemCore, 'uri' | 'cutoutUri'>): string {
+      return item.cutoutUri ?? item.uri;
     }
 
-    const withDisplay: Pick<BulkItemCore, 'uri' | 'displayUri'> = {
+    const withCutout: Pick<BulkItemCore, 'uri' | 'cutoutUri'> = {
       uri: 'file:///Library/Caches/shirt.jpg',
-      displayUri: 'file:///tmp/ImageManipulator/clean.jpg',
+      cutoutUri: 'file:///Library/Caches/clean.png',
     };
-    const withoutDisplay: Pick<BulkItemCore, 'uri' | 'displayUri'> = {
+    const withoutCutout: Pick<BulkItemCore, 'uri' | 'cutoutUri'> = {
       uri: 'file:///Library/Caches/hoodie.jpg',
     };
-    const withWhiteJpeg: Pick<BulkItemCore, 'uri' | 'displayUri'> = {
+    const withWhitePng: Pick<BulkItemCore, 'uri' | 'cutoutUri'> = {
       uri: 'file:///Library/Caches/sneakers.jpg',
-      displayUri: 'file:///tmp/ImageManipulator/white-on-white.jpg',
+      cutoutUri: 'file:///Library/Caches/white-on-white.png',
     };
 
     assert(
-      bulkCardPreviewUri(withDisplay) === withDisplay.uri,
-      'preview is item.uri even when displayUri is set',
+      bulkCardPreviewUri(withCutout) === withCutout.cutoutUri,
+      'preview is the cached transparent PNG when available',
     );
     assert(
-      bulkCardPreviewUri(withDisplay) !== withDisplay.displayUri,
-      'preview is NOT displayUri (temp path)',
+      bulkCardPreviewUri(withCutout) !== withCutout.uri,
+      'preview is not the flattened JPEG source when a cutout exists',
     );
     assert(
-      bulkCardPreviewUri(withoutDisplay) === withoutDisplay.uri,
-      'preview is item.uri when displayUri is absent',
+      bulkCardPreviewUri(withoutCutout) === withoutCutout.uri,
+      'preview falls back to original when no cutout exists',
     );
     assert(
-      bulkCardPreviewUri(withWhiteJpeg) !== withWhiteJpeg.displayUri,
-      'white-garment transparent re-encode never surfaced as preview',
+      bulkCardPreviewUri(withWhitePng) === withWhitePng.cutoutUri,
+      'white garment uses the same transparent preview path',
     );
   }
 
@@ -1022,15 +1011,13 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
     let classifyCalledWith = '';
 
     const resizeD   = deferred<{ base64?: string } | null>();
-    const reencodeD = deferred<{ base64?: string; uri: string } | null>();
+    const cacheWriteD = deferred<string>();
     const classifyD = deferred<Record<string, unknown>>();
 
     const deps: ClassifyDeps = {
       resize:          (_uri)    => resizeD.promise,
       removeBg:        (_b64)    => Promise.resolve('clean-png-b64'),
-      reencodeAsJpeg:  (_pngB64) => reencodeD.promise,
-      resolvePhotoUri: (orig, reenc) =>
-        reenc && reenc.length > 0 && !reenc.startsWith('data:') ? reenc : orig,
+      writePngToCache: (_pngB64) => cacheWriteD.promise,
       classify: (b64) => { classifyCalledWith = b64; return classifyD.promise; },
       setItems: (updater) => {
         const after = updater([makeItem()]);
@@ -1044,34 +1031,34 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
 
     resizeD.resolve({ base64: 'resized-b64' });
     await tick(); // resize result delivered; removeBg (Promise.resolve) queued
-    await tick(); // removeBg value delivered; pipeline enters await reencodeAsJpeg (pending)
+    await tick(); // removeBg value delivered; pipeline enters the cache write (pending)
     await tick(); // extra tick to absorb any additional scheduling
 
-    // At this point removeBg has resolved but reencodeAsJpeg is still pending.
-    // No setItems call should have included displayUri yet.
+    // At this point removeBg has resolved but the cache write is still pending.
+    // No setItems call should have included the cutout URI yet.
     const snapshotsBeforeReencode = [...itemSnapshots];
 
     assert(
-      snapshotsBeforeReencode.every(s => s.displayUri === undefined),
-      'displayUri not set on any item while reencodeAsJpeg is still in-flight',
+      snapshotsBeforeReencode.every(s => s.cutoutUri === undefined),
+      'cutout URI not set on any item while cache write is in-flight',
     );
 
     // Resolve the rest of the pipeline.
-    reencodeD.resolve({ base64: 'reenc-b64', uri: 'file:///reenc.jpg' });
+    cacheWriteD.resolve('file:///cache/cutout.png');
     await tick();
     classifyD.resolve(CLASSIFY_RESPONSE);
     await classifyPromise;
 
     assert(
-      classifyCalledWith === 'reenc-b64',
-      'classify receives re-encoded JPEG (not raw PNG or original JPEG)',
+      classifyCalledWith === 'clean-png-b64',
+      'classify receives transparent PNG; server applies the neutral matte',
     );
   }
 
-  section('Photo preview timing — 26. displayUri is set before settled fires on happy path');
+  section('Photo preview timing — 26. cutout URI is set before settled fires on happy path');
   {
-    // On the successful path the pipeline must write displayUri (and
-    // cleanBase64) in a setItems call that precedes the final
+    // On the successful path the pipeline must write the cutout URI in a
+    // setItems call that precedes the final
     // setItems({ status: \'settled\' }) call.  Verify by comparing
     // the snapshot indices captured during the run.
     const mountedRef = { current: true };
@@ -1080,9 +1067,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
     const deps: ClassifyDeps = {
       resize:          (_uri)    => Promise.resolve({ base64: 'resized-b64' }),
       removeBg:        (_b64)    => Promise.resolve('clean-png-b64'),
-      reencodeAsJpeg:  (_pngB64) => Promise.resolve({ base64: 'reenc-b64', uri: 'file:///reenc.jpg' }),
-      resolvePhotoUri: (orig, reenc) =>
-        reenc && reenc.length > 0 && !reenc.startsWith('data:') ? reenc : orig,
+      writePngToCache:  (_pngB64) => Promise.resolve('file:///cache/cutout.png'),
       classify: (_b64) => Promise.resolve(CLASSIFY_RESPONSE),
       setItems: (updater) => {
         const after = updater([makeItem()]);
@@ -1093,14 +1078,14 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
 
     await runClassifyUri(TEST_URI, mountedRef, deps);
 
-    const displayUriIdx = itemSnapshots.findIndex(s => s.displayUri !== undefined);
+    const displayUriIdx = itemSnapshots.findIndex(s => s.cutoutUri !== undefined);
     const settledIdx    = itemSnapshots.findIndex(s => s.status === 'settled');
 
-    assert(displayUriIdx !== -1, 'displayUri is set at some point on the happy path');
+    assert(displayUriIdx !== -1, 'cutout URI is set at some point on the happy path');
     assert(settledIdx    !== -1, 'settled status is reached on the happy path');
     assert(
       displayUriIdx < settledIdx,
-      'displayUri is set before settled fires (preview appears before Gemini result)',
+      'cutout URI is set before settled fires (PNG preview appears before Gemini result)',
     );
   }
 

@@ -35,6 +35,13 @@ import {
   PHOTOROOM_TIMEOUT_ERROR,
 } from '../shared/photoroom-error-codes';
 
+type TestRaster = { width: number; height: number; data: Buffer };
+type TestPngCodec = {
+  new(options: { width: number; height: number }): TestRaster;
+  sync: { write(image: TestRaster): Buffer };
+};
+const { PNG } = require('pngjs') as { PNG: TestPngCodec };
+
 // ── Assertion harness ──────────────────────────────────────────────────────────
 
 let failed = 0;
@@ -872,10 +879,21 @@ async function main() {
 
   // PNG magic bytes: \x89 P N G
   function makePngArrayBuffer(size: number): ArrayBuffer {
-    const ab = new ArrayBuffer(size);
-    const view = new Uint8Array(ab);
-    view[0] = 0x89; view[1] = 0x50; view[2] = 0x4e; view[3] = 0x47;
-    return ab;
+    if (size < 1024) {
+      const short = new Uint8Array(size);
+      short.set([0x89, 0x50, 0x4e, 0x47]);
+      return short.buffer;
+    }
+    const image = new PNG({ width: 64, height: 64 });
+    for (let i = 0; i < image.data.length; i += 4) {
+      const pixel = i / 4;
+      image.data[i] = (pixel * 73) & 255;
+      image.data[i + 1] = (pixel * 151 + 17) & 255;
+      image.data[i + 2] = (pixel * 199 + 31) & 255;
+      image.data[i + 3] = 255;
+    }
+    const encoded = PNG.sync.write(image);
+    return encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength) as ArrayBuffer;
   }
 
   function makeNonPngArrayBuffer(size: number): ArrayBuffer {
@@ -1193,7 +1211,7 @@ async function main() {
       mockQuota?: { allowed: boolean; count: number; remaining: number };
     };
 
-    const CACHED_BASE64 = 'ZmFrZUNhY2hlZFJlc3VsdA==';
+    const CACHED_BASE64 = Buffer.from(makePngArrayBuffer(2048)).toString('base64');
 
     overrides.skipAuth       = true;
     overrides.testUserId     = 'user-cache-test';
@@ -1259,8 +1277,7 @@ async function main() {
 
     // Fake PNG body: 1024 bytes with correct PNG magic bytes so the PNG
     // validation check inside the handler passes.
-    const pngBuf = new Uint8Array(1024);
-    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+    const pngBuf = new Uint8Array(makePngArrayBuffer(2048));
     const fakePngArrayBuffer = pngBuf.buffer;
 
     const originalFetch = (globalThis as any).fetch;
@@ -1399,8 +1416,7 @@ async function main() {
     // bypassCache left at default (true) → hash = null → cache block skipped
 
     // Fake valid PNG body (1024 bytes with correct magic bytes).
-    const pngBuf = new Uint8Array(1024);
-    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+    const pngBuf = new Uint8Array(makePngArrayBuffer(2048));
     const fakePngArrayBuffer = pngBuf.buffer;
 
     let fetchCallCount = 0;
@@ -1482,8 +1498,7 @@ async function main() {
     overrides.mockIncrementCount = async () => { incrementCallCount++; };
 
     // Fake valid PNG body (1024 bytes with correct magic bytes).
-    const pngBuf = new Uint8Array(1024);
-    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+    const pngBuf = new Uint8Array(makePngArrayBuffer(2048));
     const fakePngArrayBuffer = pngBuf.buffer;
 
     const originalFetch = (globalThis as any).fetch;
@@ -1569,8 +1584,7 @@ async function main() {
       remaining: FREE_TIER_LIMIT - countBeforeReset, // 2
     };
 
-    const pngBuf = new Uint8Array(1024);
-    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+    const pngBuf = new Uint8Array(makePngArrayBuffer(2048));
 
     const originalFetch = (globalThis as any).fetch;
     (globalThis as any).fetch = async () => ({
@@ -1624,8 +1638,7 @@ async function main() {
       remaining: FREE_TIER_LIMIT, // 20 — full quota after reset
     };
 
-    const pngBuf = new Uint8Array(1024);
-    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+    const pngBuf = new Uint8Array(makePngArrayBuffer(2048));
 
     const originalFetch = (globalThis as any).fetch;
     (globalThis as any).fetch = async () => ({
@@ -1767,8 +1780,7 @@ async function main() {
       remaining: FREE_TIER_LIMIT - currentCount,
     };
 
-    const pngBuf = new Uint8Array(1024);
-    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+    const pngBuf = new Uint8Array(makePngArrayBuffer(2048));
 
     const savedFetch = (globalThis as any).fetch;
     (globalThis as any).fetch = async () => ({
@@ -1819,8 +1831,7 @@ async function main() {
     overrides.mockPremiumExpiresAt = new Date(Date.now() + 60_000).toISOString();
     overrides.mockQuota   = { allowed: false, count: 20, remaining: 0 };
 
-    const pngBuf = new Uint8Array(1024);
-    pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+    const pngBuf = new Uint8Array(makePngArrayBuffer(2048));
 
     let fetchCalled = false;
     const savedFetch = (globalThis as any).fetch;
@@ -1926,11 +1937,11 @@ async function main() {
       overrides.skipAuth         = false; // exercise real auth path
       overrides.testUserId       = userId;
       overrides.bypassCache      = true;
+      overrides.mockCheckCache   = async () => null;
       overrides.mockSupabaseAdmin = makeMockSupabase(userId, true, dbSelectTracker);
       overrides.mockIncrementCount = async () => {};  // suppress real DB increment
 
-      const pngBuf = new Uint8Array(1024);
-      pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+      const pngBuf = new Uint8Array(makePngArrayBuffer(2048));
 
       const savedFetch = (globalThis as any).fetch;
       (globalThis as any).fetch = async () => ({
@@ -1958,6 +1969,7 @@ async function main() {
 
       delete overrides.mockSupabaseAdmin;
       delete overrides.mockIncrementCount;
+      delete overrides.mockCheckCache;
       delete overrides.bypassCache;
       overrides.skipAuth   = true;
       overrides.testUserId = 'test-user-id';
@@ -1979,8 +1991,7 @@ async function main() {
       overrides.mockSupabaseAdmin  = makeMockSupabase(userId, false, dbSelectTracker);
       overrides.mockIncrementCount = async () => {};
 
-      const pngBuf = new Uint8Array(1024);
-      pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+      const pngBuf = new Uint8Array(makePngArrayBuffer(2048));
 
       const savedFetch = (globalThis as any).fetch;
       (globalThis as any).fetch = async () => ({
@@ -2074,8 +2085,7 @@ async function main() {
       overrides.mockSupabaseAdmin   = makeMockSupabaseWithClaim(userId, true, true, dbSelectTracker);
       overrides.mockIncrementCount  = async () => {};
 
-      const pngBuf = new Uint8Array(1024);
-      pngBuf[0] = 0x89; pngBuf[1] = 0x50; pngBuf[2] = 0x4e; pngBuf[3] = 0x47;
+      const pngBuf = new Uint8Array(makePngArrayBuffer(2048));
 
       const savedFetch = (globalThis as any).fetch;
       (globalThis as any).fetch = async () => ({

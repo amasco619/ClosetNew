@@ -1,8 +1,8 @@
 import { StyleSheet, Text, View, FlatList, Pressable, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { GarmentTile } from '@/components/GarmentTile';
 import { useApp, WardrobeItem } from '@/contexts/AppContext';
 import { LOW_CONFIDENCE_THRESHOLD } from '@/constants/types';
 import Colors from '@/constants/colors';
@@ -101,10 +101,13 @@ export default function WardrobeScreen() {
         style={({ pressed }) => [styles.listCard, pressed && { opacity: 0.72 }]}
         onPress={() => router.push(`/item-detail?id=${item.id}`)}
       >
-        <Image
-          source={{ uri: item.photoUri }}
-          style={[styles.listThumb, { backgroundColor: colorDots[item.colorFamily] || Colors.border }]}
-          contentFit="cover"
+        <GarmentTile
+          uri={item.photoUri}
+          storagePath={item.storagePath}
+          colorFamily={item.colorFamily}
+          variant="list"
+          style={styles.listThumb}
+          accessibilityLabel={`${item.colorFamily} ${item.subType} garment`}
         />
         <View style={styles.listMeta}>
           <Text style={styles.listItemType} numberOfLines={1}>
@@ -146,11 +149,13 @@ export default function WardrobeScreen() {
           onPress={() => router.push(`/item-detail?id=${item.id}`)}
         >
           <View style={[styles.colorStrip, { backgroundColor: colorDots[item.colorFamily] || Colors.border }]} />
-          <Image
-            source={{ uri: item.photoUri }}
+          <GarmentTile
+            uri={item.photoUri}
+            storagePath={item.storagePath}
+            colorFamily={item.colorFamily}
+            variant="grid"
             style={styles.gridImage}
-            contentFit="contain"
-            transition={250}
+            accessibilityLabel={`${item.colorFamily} ${item.subType} garment`}
           />
           {item.modelConfidence !== undefined && item.modelConfidence < LOW_CONFIDENCE_THRESHOLD && (
             <View style={styles.reviewBadge}>

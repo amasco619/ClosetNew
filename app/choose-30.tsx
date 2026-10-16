@@ -3,9 +3,9 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from '
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { useApp, type WardrobeItem } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
+import { GarmentTile } from '@/components/GarmentTile';
 
 export default function ChooseThirtyScreen() {
   const insets = useSafeAreaInsets();
@@ -139,7 +139,14 @@ export default function ChooseThirtyScreen() {
                 onPress={() => toggleItem(item)}
                 disabled={disabled}
               >
-                <Image source={{ uri: item.photoUri }} style={styles.photo} contentFit="cover" />
+                <GarmentTile
+                  uri={item.photoUri}
+                  storagePath={item.storagePath}
+                  colorFamily={item.colorFamily}
+                  variant="list"
+                  style={styles.photo}
+                  accessibilityLabel={`${item.colorFamily} ${item.subType} garment`}
+                />
                 <View style={styles.itemCopy}>
                   <Text style={styles.itemName} numberOfLines={1}>{item.subType.replace(/-/g, ' ')}</Text>
                   <Text style={styles.itemColor}>{item.colorFamily}</Text>

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Image } from 'expo-image';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Crypto from 'expo-crypto';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -15,6 +14,7 @@ import { runSaveAll, type BulkItemCore, type ClassifyResult } from '@/lib/bulkCl
 import { resolveWardrobeUploadArg } from '@/lib/uploadArg';
 import { uploadWardrobeImage, deleteWardrobeImage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
+import { GarmentTile } from '@/components/GarmentTile';
 
 type Piece = BulkItemCore & { detectionId: string; classification: ClassifyResult; fields: B3WardrobeFields };
 const RELATIONSHIPS: { type: B3RelationshipType; label: string }[] = [
@@ -161,7 +161,13 @@ export default function MultiItemReview() {
                 onPress={() => setSelected(ids => ids.includes(piece.detectionId)
                   ? ids.filter(id => id !== piece.detectionId) : [...ids, piece.detectionId])}
                 style={styles.piece}>
-                <Image source={{ uri: piece.uri }} style={styles.photo} contentFit="cover" />
+                <GarmentTile
+                  uri={piece.uri}
+                  isCutout={false}
+                  variant="card"
+                  style={styles.photo}
+                  accessibilityLabel={`${piece.classification.subType} garment photo`}
+                />
                 <View style={styles.details}>
                   <Text style={styles.name}>{piece.classification.description}</Text>
                   <Text style={styles.help}>{wardrobeCategoryLabel(piece.classification.category, piece.classification.subType)} · {piece.classification.subType === 'stole' ? 'Stole' : piece.classification.subType}</Text>

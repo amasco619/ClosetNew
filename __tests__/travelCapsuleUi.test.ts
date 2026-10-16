@@ -68,6 +68,7 @@ const fixture = {
 };
 Object.assign(globalThis, { __travelUi: fixture, IS_REACT_ACT_ENVIRONMENT: true });
 const mocks: Record<string, string> = {
+  '@/components/GarmentTile': `import React from 'react';export const GarmentTile=({uri,...props})=>React.createElement('Image',{...props,source:{uri}});`,
   'react-native': `import React from 'react';const host=n=>({children,...p})=>React.createElement(n,p,children);
     export const View=host('View'),Text=host('Text'),Pressable=host('Pressable'),Image=host('Image'),
     ScrollView=host('ScrollView'),Modal=host('Modal');export const StyleSheet={create:s=>s};

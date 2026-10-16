@@ -7,8 +7,8 @@ import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
 import Animated, {
@@ -16,12 +16,14 @@ import Animated, {
   withRepeat, withTiming, cancelAnimation,
 } from 'react-native-reanimated';
 import { useApp } from '@/contexts/AppContext';
+import { GarmentTile } from '@/components/GarmentTile';
 import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
 import BulkItemEditPanel from '@/components/BulkItemEditPanel';
 import Colors from '@/constants/colors';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { removeBackground } from '@/lib/photoroom';
-import { resolvePhotoUri } from '@/lib/classifyPath';
+import { classificationImagePayload } from '@/lib/classifyPath';
+import { buildGuestPhotoDestPath } from '@/constants/guestPhotoCleanup';
 import { deleteWardrobeImage, uploadWardrobeImage } from '@/lib/storage';
 import { resolveWardrobeUploadArg } from '@/lib/uploadArg';
 import { supabase } from '@/lib/supabase';
@@ -73,8 +75,7 @@ type ItemStatus =
 
 interface BulkItem {
   uri: string;
-  displayUri?: string;
-  cleanBase64?: string;
+  cutoutUri?: string;
   status: ItemStatus;
   classification: ClassifyResult | null;
 }
@@ -144,14 +145,12 @@ function BulkCard({
   const isSaving     = item.status === 'saving';
   const isError      = item.status === 'error';
 
-  // Show the background-removed displayUri when available, otherwise the
-  // original picker URI. displayUri is a JPEG re-encode of the clean PNG
-  // written to NSTemporaryDirectory (iOS) / Android tmp cache — it can be
-  // evicted under memory pressure. The onError handler below falls back to
-  // the original picker URI (item.uri) if that happens.
-  const [photoErrored, setPhotoErrored] = useState(false);
-  const previewUri = item.displayUri ?? item.uri;
-  const fallbackUri = item.uri;
+  // Keep the clean PNG as a cache file and fall back to the source photo if the
+  // cache entry is evicted. No image base64 is retained in item state.
+  const [photoErrorUri, setPhotoErrorUri] = useState<string | null>(null);
+  const sourceUri = item.cutoutUri ?? item.uri;
+  const photoErrored = photoErrorUri === sourceUri;
+  const previewUri = photoErrored ? item.uri : sourceUri;
 
   return (
     <Pressable
@@ -163,14 +162,15 @@ function BulkCard({
     >
       {/* Photo — always visible; overlay sits on top */}
       <View style={styles.photoWrap}>
-        <Image
-          source={{ uri: photoErrored ? fallbackUri : previewUri }}
+        <GarmentTile
+          uri={previewUri}
+          isCutout={!photoErrored && Boolean(item.cutoutUri)}
+          variant="card"
           style={styles.photo}
-          contentFit="contain"
-          transition={200}
+          accessibilityLabel={`${item.classification?.colorFamily ?? ''} ${item.classification?.subType ?? 'garment'} photo`}
           recyclingKey={item.uri}
           onError={() => {
-            if (!photoErrored) setPhotoErrored(true);
+            if (!photoErrored) setPhotoErrorUri(previewUri);
           }}
         />
 
@@ -519,14 +519,18 @@ export default function BulkReviewScreen() {
         if (r.status === 'success' && r.remaining !== undefined) setBgRemaining(r.remaining);
         return r.status === 'success' ? (r.base64 ?? null) : null;
       }),
-      reencodeAsJpeg: (pngB64) => ImageManipulator.manipulateAsync(
-        `data:image/png;base64,${pngB64}`,
-        [],
-        { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-      ),
-      resolvePhotoUri,
-      classify: async (imageBase64) => {
-        const res = await authenticatedApiRequest('POST', '/api/classify-garment', { imageBase64 });
+      writePngToCache: async (pngBase64) => {
+        if (!FileSystem.cacheDirectory) throw new Error('cache_directory_unavailable');
+        const uri = `${FileSystem.cacheDirectory}amodka-bulk-cutout-${Crypto.randomUUID()}.png`;
+        await FileSystem.writeAsStringAsync(uri, pngBase64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        return uri;
+      },
+      classify: async (imageBase64, imageMimeType) => {
+        const image = classificationImagePayload(imageBase64);
+        if (image.imageMimeType !== imageMimeType) throw new Error('image_mime_mismatch');
+        const res = await authenticatedApiRequest('POST', '/api/classify-garment', image);
         return res.json();
       },
       setItems: setItems as unknown as ClassifyDeps['setItems'],
@@ -581,7 +585,7 @@ export default function BulkReviewScreen() {
         (it.status === 'settled' || it.status === 'local-only') &&
         it.classification != null
       )
-      .map(it => ({ uri: it.uri, cleanBase64: it.cleanBase64, classification: it.classification! }));
+      .map(it => ({ uri: it.uri, cutoutUri: it.cutoutUri, classification: it.classification! }));
 
     if (toSave.length === 0) { savingRef.current = false; return; }
     try {
@@ -599,6 +603,18 @@ export default function BulkReviewScreen() {
             [{ resize: { width: 1600 } }],
             { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
           ),
+          readPngBase64: (uri) => FileSystem.readAsStringAsync(uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          }),
+          saveGuestImage: async (base64, itemId, mimeType) => {
+            if (!FileSystem.documentDirectory) throw new Error('document_directory_unavailable');
+            const ext = mimeType === 'image/png' ? 'png' : 'jpg';
+            const dest = buildGuestPhotoDestPath(FileSystem.documentDirectory, itemId, ext);
+            await FileSystem.writeAsStringAsync(dest, base64, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            return dest;
+          },
           upload: async (userId, base64, itemId, mimeType) => {
             const { signedUrl } = await uploadWardrobeImage(userId, base64, itemId, mimeType as 'image/jpeg' | 'image/png');
             return signedUrl;

@@ -67,9 +67,11 @@ function makeDeps(overrides: Partial<SaveAllDeps> = {}): SaveAllDeps & {
   return {
     generateId: () => 'test-id',
     getSession: async () => null,
-    resize: async () => null,
+    resize: async () => ({ base64: 'test-image-base64' }),
     upload: async () => 'https://example.com/photo.jpg',
     resolveUploadArg: () => null,
+    saveGuestImage: async (_base64, itemId, mimeType) =>
+      `file:///documents/${itemId}.${mimeType === 'image/png' ? 'png' : 'jpg'}`,
     addItems: async (items) => { addItemCount += items.length; },
     setItems: () => {},
     setSaving: (v) => { savingValues.push(v); },

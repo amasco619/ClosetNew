@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import SwipeToDismiss from '@/components/SwipeToDismiss';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -17,8 +16,8 @@ import { wardrobeCategoryLabel } from '@/constants/wardrobeLabels';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
 import { authenticatedApiRequest } from '@/lib/query-client';
-import { removeBackground, resolveClassifyBase64 } from '@/lib/photoroom';
-import { classificationImagePayload, resolvePhotoUri } from '@/lib/classifyPath';
+import { removeBackground } from '@/lib/photoroom';
+import { classificationImagePayload } from '@/lib/classifyPath';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
 import { buildGuestPhotoDestPath } from '../constants/guestPhotoCleanup';
@@ -27,6 +26,7 @@ import { supabase } from '../lib/supabase';
 import { rs } from '../lib/responsive';
 import { selectedSingleAsset } from '../lib/imagePickerSelection';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
+import { GarmentTile } from '@/components/GarmentTile';
 import {
   getAiProcessingPreference,
   setAiProcessingPreference,
@@ -272,7 +272,6 @@ export default function AddItemScreen() {
     hasPreClassified && pcRise && !['iro', 'wrapper'].includes(initSubType()) ? pcRise : undefined
   );
   const [warmthBand,      setWarmthBand]      = useState<string | undefined>(hasPreClassified && pcWarmthBand ? pcWarmthBand : undefined);
-  const [photoBase64,     setPhotoBase64]     = useState<string | null>(null);
   const [photoBgRemoved,  setPhotoBgRemoved]  = useState<boolean>(false);
   const [bgStatus,        setBgStatus]        = useState<'idle'|'success'|'limit-reached'|'not-authenticated'>('idle');
   const [bgRemaining,     setBgRemaining]     = useState<number | undefined>(undefined);
@@ -535,7 +534,6 @@ export default function AddItemScreen() {
     setMetalTone(undefined);
     setDominantHsl(undefined);
     setDominantLab(undefined);
-    setPhotoBase64(null);
   };
 
   const pickImage = async (
@@ -636,8 +634,8 @@ export default function AddItemScreen() {
         // support multi-select without eagerly decoding multiple full-res images).
         // Downscale to ≤1024 px on the longest edge for Gemini — reduces payload from
         // 4–12 MB to ~100–300 KB with no impact on classification accuracy.
-        // The result is also stored in photoBase64 as the fallback for the storage
-        // upload step (which re-encodes at ≤1600 px from the URI anyway).
+        // Keep only the preview URI in React state. Large image payloads remain
+        // local to this async pipeline; any later upload reads the cache file.
         let classifyBase64: string | undefined;
         try {
           const MAX_CLASSIFY_PX = 1024;
@@ -652,19 +650,14 @@ export default function AddItemScreen() {
               : [],
             { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
           );
+          if (requestId !== photoRequestRef.current) return;
           if (resized.base64) {
             classifyBase64 = resized.base64;
-            setPhotoBase64(resized.base64);
 
-            // Remove background via Photoroom — silent fallback if unavailable.
-            // Photoroom returns a PNG; re-encode to JPEG so the classify endpoint
-            // normally receives JPEG; the request MIME is checked against the
-            // actual submitted bytes, including any PNG result.
-            // We store the clean PNG base64 separately for the storage upload
-            // (higher quality, transparent background) and update the preview URI.
-            // IMPORTANT: use the file URI returned by ImageManipulator (never the
-            // raw data URI) so the large base64 string never enters wardrobe state.
+            // PhotoRoom returns the transparent PNG used for preview, Gemini,
+            // storage and guest copies. Never flatten it in the client.
             const bgResult = await removeBackground(resized.base64);
+            if (requestId !== photoRequestRef.current) return;
             setBgStatus(
               bgResult.status === 'success' ? 'success'
               : bgResult.status === 'limit-reached' ? 'limit-reached'
@@ -676,22 +669,20 @@ export default function AddItemScreen() {
             }
             if (bgResult.status === 'success' && bgResult.base64) {
               const cleanPngBase64 = bgResult.base64;
-              setPhotoBase64(cleanPngBase64);
               try {
-                const reencoded = await ImageManipulator.manipulateAsync(
-                  `data:image/png;base64,${cleanPngBase64}`,
-                  [],
-                  { compress: 0.9, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-                );
-                // resolvePhotoUri guards against data: URIs — only accepts
-                // file:// or https:// paths; falls back to original asset URI.
-                const resolvedUri = resolvePhotoUri(asset.uri, reencoded.uri);
-                setPhotoUri(resolvedUri);
+                if (!FileSystem.cacheDirectory) throw new Error('cache_directory_unavailable');
+                const previewUri = `${FileSystem.cacheDirectory}amodka-cutout-${Crypto.randomUUID()}.png`;
+                await FileSystem.writeAsStringAsync(previewUri, cleanPngBase64, {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+                if (requestId !== photoRequestRef.current) return;
+                setPhotoUri(previewUri);
                 setPhotoBgRemoved(true);
-                classifyBase64 = resolveClassifyBase64(classifyBase64, reencoded.base64);
+                classifyBase64 = cleanPngBase64;
               } catch {
-                // Re-encode failed — keep original JPEG for classify;
-                // leave photoUri as the original asset URI (no data URI stored)
+                // A failed cache write leaves the original photo visible; the
+                // original JPEG remains the preview and classifier fallback.
+                setBgStatus('idle');
               }
             }
           }
@@ -855,18 +846,23 @@ export default function AddItemScreen() {
       let finalStoragePath: string | undefined;
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user || !isGuest) {
-        if (!session?.user || !photoBase64) {
+        if (!session?.user || !photoUri) {
           throw new Error('Cloud photo upload is required to save an authenticated wardrobe item.');
         }
           // Resize to ≤1600 px on the longest edge before uploading to Storage.
           // Cuts a typical 12 MP upload from 6–12 MB to ~300–600 KB with no
           // visible quality loss in wardrobe thumbnails.
-          // When background removal succeeded, photoBase64 is already the clean
-          // PNG — skip ImageManipulator resize and upload directly as PNG.
+          // A successfully removed background is already stored as a PNG cache
+          // file — read and upload it unchanged rather than flattening it.
           const MAX_STORAGE_PX = 1600;
-          let uploadBase64 = photoBase64;
+          let uploadBase64 = '';
           let uploadMime: 'image/jpeg' | 'image/png' = photoBgRemoved ? 'image/png' : 'image/jpeg';
-          if (!photoBgRemoved) {
+          if (photoBgRemoved) {
+            uploadBase64 = await FileSystem.readAsStringAsync(photoUri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            if (!uploadBase64) throw new Error('Cached transparent photo could not be read.');
+          } else {
             try {
               const w = photoWidth;
               const h = photoHeight;
@@ -878,7 +874,8 @@ export default function AddItemScreen() {
                   [{ resize: { width: Math.round(w * scale), height: Math.round(h * scale) } }],
                   { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
                 );
-                if (shrunk.base64) uploadBase64 = shrunk.base64;
+                if (!shrunk.base64) throw new Error('Photo resize returned no image data.');
+                uploadBase64 = shrunk.base64;
               } else {
                 // Already within the limit — still re-encode as JPEG for consistent format
                 const reencoded = await ImageManipulator.manipulateAsync(
@@ -886,10 +883,11 @@ export default function AddItemScreen() {
                   [],
                   { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
                 );
-                if (reencoded.base64) uploadBase64 = reencoded.base64;
+                if (!reencoded.base64) throw new Error('Photo resize returned no image data.');
+                uploadBase64 = reencoded.base64;
               }
-            } catch {
-              // Resize failed — fall back silently to original base64
+            } catch (error) {
+              throw new Error('The photo could not be prepared for upload.', { cause: error });
             }
           }
           setSaveStage('uploading');
@@ -1093,7 +1091,14 @@ export default function AddItemScreen() {
             {/* Photo preview */}
             {photoUri && (
               <View style={styles.photoPreview}>
-                <Image source={{ uri: photoUri }} style={styles.previewImage} contentFit="cover" />
+                <GarmentTile
+                  uri={photoUri}
+                  variant="preview"
+                  isCutout={photoBgRemoved}
+                  colorFamily={colorFamily}
+                  style={styles.previewImage}
+                  accessibilityLabel="Selected garment photo"
+                />
                 <Pressable style={styles.changePhoto} onPress={() => setStep(0)}>
                   <Ionicons name="camera-reverse" size={18} color={Colors.white} />
                 </Pressable>

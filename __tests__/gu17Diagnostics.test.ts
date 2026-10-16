@@ -5,6 +5,17 @@ import request from 'supertest';
 import axios from 'axios';
 import { classifyGarment, GEMINI_PROMPT } from '../server/classify-garment';
 import { classificationImagePayload } from '../lib/classifyPath';
+import { flattenGarmentPngOnStudio } from '../server/garmentPng';
+
+type Raster = { width: number; height: number; data: Buffer };
+type PngCodec = {
+  new(options: { width: number; height: number }): Raster;
+  sync: {
+    read(buffer: Buffer): Raster;
+    write(image: Raster): Buffer;
+  };
+};
+const { PNG } = require('pngjs') as { PNG: PngCodec };
 
 const app = express();
 app.use(express.json());
@@ -22,8 +33,12 @@ console.log = (...parts: unknown[]) => { lines.push(parts.join(' ')); };
 console.error = (...parts: unknown[]) => { lines.push(parts.join(' ')); };
 console.warn = (...parts: unknown[]) => { lines.push(parts.join(' ')); };
 
-const imageBase64 = Buffer.from('synthetic gu17 test bytes').toString('base64');
-const sha256 = createHash('sha256').update(Buffer.from(imageBase64, 'base64')).digest('hex');
+const syntheticPng = new PNG({ width: 2, height: 1 });
+syntheticPng.data.set([0, 0, 0, 0, 0, 0, 0, 255]);
+const imageBytes = PNG.sync.write(syntheticPng);
+const imageBase64 = imageBytes.toString('base64');
+const providerImageBytes = flattenGarmentPngOnStudio(imageBytes);
+const sha256 = createHash('sha256').update(providerImageBytes).digest('hex');
 const output = (classification: unknown) => ({
   status: 200,
   data: { modelVersion: 'gemini-2.5-flash-lite', candidates: [
@@ -61,16 +76,17 @@ try {
   assert.deepEqual([result.response.body.category, result.response.body.subType,
     result.response.body.pattern, result.response.body.fabric], ['bottom', 'wrapper', 'geometric', undefined]);
   assert.equal(result.traces.at(-1).imageSha256, sha256);
-  assert.equal(result.traces.at(-1).imageBytes, Buffer.from(imageBase64, 'base64').length);
+  assert.equal(result.traces.at(-1).imageBytes, providerImageBytes.length);
   assert.equal(result.traces.at(-1).mimeType, 'image/png');
   assert.equal(result.traces.at(-1).promptSha256, createHash('sha256').update(GEMINI_PROMPT).digest('hex'));
   assert.equal(result.traces.at(-1).modelVersion, 'gemini-2.5-flash-lite');
   assert.equal(result.traces.at(-1).code, 'OK');
 
   // The same byte-based payload builder used by Add Item reaches provider and traces.
+  const pngFixture = PNG.sync.write(syntheticPng);
   for (const [bytes, mimeType] of [
     [Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 1]), 'image/jpeg'],
-    [Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]), 'image/png'],
+    [pngFixture, 'image/png'],
   ] as const) {
     const payload = classificationImagePayload(bytes.toString('base64'));
     result = await run(async () => output(wrapper), payload);
@@ -78,9 +94,14 @@ try {
     assert.equal(payload.imageMimeType, mimeType);
     assert.equal(result.providerMimeType, mimeType);
     assert.equal(result.traces.at(-1).mimeType, mimeType);
-    assert.equal(result.traces.at(-1).imageSha256, createHash('sha256').update(bytes).digest('hex'));
+    const expectedProviderBytes = mimeType === 'image/png' ? flattenGarmentPngOnStudio(bytes) : bytes;
+    assert.equal(result.traces.at(-1).imageSha256, createHash('sha256').update(expectedProviderBytes).digest('hex'));
+    assert.equal(result.traces.at(-1).imageBytes, expectedProviderBytes.length);
   }
-  assert.throws(() => classificationImagePayload(imageBase64), /Unsupported classification image format/);
+  assert.throws(
+    () => classificationImagePayload(Buffer.from('unsupported format').toString('base64')),
+    /Unsupported classification image format/,
+  );
 
   result = await run(async () => output({ ...wrapper, dominantRgb: [255, 0, 0] }));
   assert.equal(result.response.status, 200, 'colour correction behavior is retained');

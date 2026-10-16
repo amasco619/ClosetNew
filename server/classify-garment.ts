@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import axios from "axios";
 import { reportError } from "../shared/observability";
+import { flattenGarmentPngOnStudio } from "./garmentPng";
 
 type ItemCategory = "top" | "bottom" | "dress" | "outerwear" | "shoes" | "bag" | "jewelry";
 type OccasionTag = "work" | "casual" | "date-casual" | "date-dressy" | "event" | "interview" | "wedding" | "traditional-event" | "travel" | "brunch" | "active" | "resort" | "night-out";
@@ -822,6 +823,8 @@ export async function classifyGarment(req: Request, res: Response) {
   let imageSha256: string | null = null;
   let imageBytes: number | null = null;
   let mimeType: string | null = null;
+  let providerImageBase64: string | undefined;
+  let providerImageMimeType = "image/jpeg";
   res.setHeader("x-classification-id", classificationId);
   const trace = (code: string, httpStatus: number) => {
     console.info(JSON.stringify({
@@ -845,11 +848,23 @@ export async function classifyGarment(req: Request, res: Response) {
 
     stage = "preprocess";
     if (imageBase64) {
-      const bytes = Buffer.from(imageBase64, "base64");
-      imageBytes = bytes.length;
-      imageSha256 = createHash("sha256").update(bytes).digest("hex");
+      providerImageMimeType = imageMimeType ?? "image/jpeg";
+      const inputBytes = Buffer.from(imageBase64, "base64");
+      let providerBytes = Buffer.from(inputBytes);
+      if (providerImageMimeType === "image/png") {
+        try {
+          providerBytes = Buffer.from(flattenGarmentPngOnStudio(inputBytes));
+        } catch {
+          trace("INVALID_PNG", 400);
+          return res.status(400).json({ error: "invalid_png_image" });
+        }
+      }
+      providerImageBase64 = providerBytes.toString("base64");
+      imageBytes = providerBytes.length;
+      imageSha256 = createHash("sha256").update(providerBytes).digest("hex");
+      mimeType = providerImageMimeType;
     }
-    mimeType = imageBase64 ? imageMimeType ?? "image/jpeg" : "image/jpeg";
+    if (!imageBase64) mimeType = "image/jpeg";
 
     stage = "configuration";
     const apiKey = process.env.GEMINI_API_KEY;
@@ -865,8 +880,8 @@ export async function classifyGarment(req: Request, res: Response) {
     if (imageBase64) {
       imagePart = {
         inlineData: {
-          mimeType: imageMimeType ?? "image/jpeg",
-          data: imageBase64,
+          mimeType: providerImageMimeType,
+          data: providerImageBase64,
         },
       };
     } else {

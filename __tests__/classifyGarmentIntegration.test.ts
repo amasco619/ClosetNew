@@ -24,6 +24,16 @@ import axios from "axios";
 import { classifyGarment } from "../server/classify-garment";
 import { LIMITER_CONFIGS, makeLimiterHandler } from "../server/middleware/rateLimiter";
 
+type TestPng = { width: number; height: number; data: Buffer };
+type TestPngCodec = {
+  new(options: { width: number; height: number }): TestPng;
+  sync: {
+    read(buffer: Buffer): TestPng;
+    write(image: TestPng): Buffer;
+  };
+};
+const { PNG } = require("pngjs") as { PNG: TestPngCodec };
+
 // ── Assertion harness ─────────────────────────────────────────────────────────
 
 let failed = 0;
@@ -375,8 +385,12 @@ function buildLimitedApp(): express.Application {
         "guardrail returns only a sanitized refusal reason string");
 
       let forwardedMimeType: unknown;
+      let forwardedPixels: number[] = [];
       axios.post = (async (_url: string, data: any) => {
-        forwardedMimeType = data.contents[0].parts[1].inlineData.mimeType;
+        const inlineData = data.contents[0].parts[1].inlineData;
+        forwardedMimeType = inlineData.mimeType;
+        const flattened = PNG.sync.read(Buffer.from(inlineData.data, "base64"));
+        forwardedPixels = Array.from(flattened.data);
         return {
           data: {
             candidates: [{
@@ -391,11 +405,21 @@ function buildLimitedApp(): express.Application {
           },
         };
       }) as typeof axios.post;
+      const transparentPng = new PNG({ width: 2, height: 1 });
+      transparentPng.data.set([220, 20, 40, 0, 0, 0, 0, 128]);
+      const transparentPngBase64 = PNG.sync.write(transparentPng).toString("base64");
       const pngInput = await request(buildApp())
         .post("/api/classify-garment")
-        .send({ imageBase64: "dGVzdA==", imageMimeType: "image/png" });
+        .send({ imageBase64: transparentPngBase64, imageMimeType: "image/png" });
       assert(pngInput.status === 200 && forwardedMimeType === "image/png",
-        "classifier forwards explicitly supported PNG MIME type for frozen synthetic fixtures");
+        "classifier preserves PNG MIME type after the neutral-matte transform");
+      assert(forwardedPixels.length === 8
+        && forwardedPixels[0] === 233 && forwardedPixels[1] === 228
+        && forwardedPixels[2] === 220 && forwardedPixels[3] === 255,
+        "transparent pixels are flattened onto the neutral studio color");
+      assert(forwardedPixels[4] === 116 && forwardedPixels[5] === 114
+        && forwardedPixels[6] === 110 && forwardedPixels[7] === 255,
+        "semi-transparent garment pixels are composited accurately and made opaque");
     } finally {
       console.error = savedError;
       axios.post = savedPost;

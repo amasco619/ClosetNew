@@ -15,9 +15,11 @@ const addSource = readFileSync('app/add-item.tsx', 'utf8');
 const setters = ['Category', 'SubType', 'ColorFamily', 'Description', 'Occasions', 'Seasons',
   'Pattern', 'PatternScale', 'Fabric', 'Weight', 'AccentColor', 'DominantHsl',
   'DominantLab', 'ModelConfidence', 'Fit', 'Neckline', 'SleeveLength', 'Rise', 'WarmthBand'];
+const classifyCall = addSource.indexOf('const classified = await classifyWithServer');
+const responseStart = addSource.indexOf('if (requestId !== photoRequestRef.current) return;', classifyCall);
 const responseBlock = addSource.slice(
-  addSource.indexOf('if (requestId !== photoRequestRef.current) return;'),
-  addSource.indexOf('finishClassifying(true);', addSource.indexOf('const classified = await classifyWithServer')),
+  responseStart,
+  addSource.indexOf('finishClassifying(true);', classifyCall),
 );
 function suggestions(confirmed: string[], stale = false) {
   const changes: Record<string, unknown> = {};
@@ -103,6 +105,7 @@ const modules: Record<string, string> = {
   'expo-router': `export const router={back:()=>{},push:()=>{}},useLocalSearchParams=()=>({id:'owned-item'});`,
   'expo-status-bar': `export const StatusBar=()=>null;`,
   'expo-image': `export const Image=()=>null;`,
+  '@/components/GarmentTile': `import React from 'react';export const GarmentTile=({uri,...props})=>React.createElement('Image',{...props,source:{uri}});`,
   '@expo/vector-icons': `export const Ionicons=()=>null;`,
   'react-native-safe-area-context': `export const useSafeAreaInsets=()=>({top:0,bottom:0});`,
   'expo-haptics': `export const notificationAsync=async()=>{},selectionAsync=async()=>{},NotificationFeedbackType={Success:'success'};`,

@@ -38,8 +38,7 @@ export interface ClassifyResult {
 
 export interface BulkItemCore {
   uri: string;
-  displayUri?: string;
-  cleanBase64?: string;
+  cutoutUri?: string;
   status: string;
   classification: ClassifyResult | null;
   autoSavedId?: string;
@@ -52,12 +51,10 @@ export interface ClassifyDeps {
   resize(uri: string): Promise<{ base64?: string } | null>;
   /** Remove background from a JPEG base64. Returns PNG base64 or null. */
   removeBg(base64: string): Promise<string | null>;
-  /** Re-encode a clean PNG base64 back to JPEG for display (file:// URI). Returns null on failure. */
-  reencodeAsJpeg(pngBase64: string): Promise<{ base64?: string; uri: string } | null>;
-  /** Pick the safe display URI (never a data: string). */
-  resolvePhotoUri(original: string, reencoded: string | null | undefined): string;
-  /** POST to /api/classify-garment and return the parsed response body. */
-  classify(imageBase64: string): Promise<Record<string, unknown>>;
+  /** Write a clean PNG to a cache file; only its URI is retained in UI state. */
+  writePngToCache(pngBase64: string): Promise<string>;
+  /** POST image bytes with their actual MIME type to /api/classify-garment. */
+  classify(imageBase64: string, imageMimeType: 'image/jpeg' | 'image/png'): Promise<Record<string, unknown>>;
   /** Updater for the items state array. */
   setItems(updater: (prev: BulkItemCore[]) => BulkItemCore[]): void;
   /** Trigger a haptic impulse after a successful classification. */
@@ -96,44 +93,21 @@ export async function runClassifyUri(
     if (!resized?.base64) throw new Error('resize_failed');
 
     let classifyBase64 = resized.base64;
+    let classifyMimeType: 'image/jpeg' | 'image/png' = 'image/jpeg';
     const cleanPngBase64 = await deps.removeBg(classifyBase64);
     if (!mountedRef.current) return;
 
     if (cleanPngBase64) {
-      // Re-encode the background-removed PNG back to JPEG so the classify
-      // endpoint always receives data that matches its hardcoded "image/jpeg"
-      // MIME type. The re-encoded JPEG is used for classification; the original
-      // JPEG (resized.base64) is the fallback if re-encoding fails.
-      let cleanJpegBase64: string | undefined;
-      try {
-        const reencoded = await deps.reencodeAsJpeg(cleanPngBase64);
-        if (!mountedRef.current) return;
-        cleanJpegBase64 = reencoded?.base64;
-        const safeDisplayUri = deps.resolvePhotoUri(uri, reencoded?.uri ?? null);
-        deps.setItems(prev =>
-          prev.map(it =>
-            it.uri === uri
-              ? { ...it, displayUri: safeDisplayUri, cleanBase64: cleanPngBase64 }
-              : it,
-          ),
-        );
-      } catch {
-        if (mountedRef.current) {
-          deps.setItems(prev =>
-            prev.map(it =>
-              it.uri === uri
-                ? { ...it, displayUri: deps.resolvePhotoUri(uri, null), cleanBase64: cleanPngBase64 }
-                : it,
-            ),
-          );
-        }
-      }
-      // Use the clean JPEG for Gemini; if re-encode failed, keep the original
-      // JPEG rather than sending raw PNG (MIME type mismatch).
-      if (cleanJpegBase64) classifyBase64 = cleanJpegBase64;
+      const cutoutUri = await deps.writePngToCache(cleanPngBase64);
+      if (!mountedRef.current) return;
+      deps.setItems(prev =>
+        prev.map(it => it.uri === uri ? { ...it, cutoutUri } : it),
+      );
+      classifyBase64 = cleanPngBase64;
+      classifyMimeType = 'image/png';
     }
 
-    const data = await deps.classify(classifyBase64);
+    const data = await deps.classify(classifyBase64, classifyMimeType);
     if (!mountedRef.current) return;
 
     const classification: ClassifyResult = {
@@ -177,6 +151,8 @@ export async function runClassifyUri(
 /** A settled BulkItem ready to be persisted (classification is guaranteed). */
 export interface SaveAllItem {
   uri: string;
+  cutoutUri?: string;
+  /** Ephemeral compatibility for existing callers; screen state stores only cutoutUri. */
   cleanBase64?: string;
   classification: ClassifyResult;
 }
@@ -199,6 +175,10 @@ export interface SaveAllDeps {
   getSession(): Promise<string | null>;
   /** Resize `uri` for upload (≤1600 px JPEG). Returns base64 result or null. */
   resize(uri: string): Promise<{ base64?: string } | null>;
+  /** Read a cached transparent PNG only when a save is requested. */
+  readPngBase64?(uri: string): Promise<string>;
+  /** Write a JPEG/PNG base64 into durable guest document storage. */
+  saveGuestImage?(base64: string, itemId: string, mimeType: 'image/jpeg' | 'image/png'): Promise<string>;
   /**
    * Upload to cloud storage.
    * Signature mirrors uploadWardrobeImage(userId, base64, itemId, mimeType).
@@ -305,7 +285,11 @@ export async function runSaveAll(
       if (userId) {
         try {
           let shrunkBase64: string | undefined;
-          if (!item.cleanBase64) {
+          let cleanBase64: string | undefined = item.cleanBase64;
+          if (item.cutoutUri) {
+            if (!deps.readPngBase64) throw new Error('png_reader_unavailable');
+            cleanBase64 = await deps.readPngBase64(item.cutoutUri);
+          } else if (!cleanBase64) {
             const shrunk = await deps.resize(item.uri);
             if (!mountedRef.current) {
               await cleanupUploads();
@@ -313,7 +297,7 @@ export async function runSaveAll(
             }
             shrunkBase64 = shrunk?.base64;
           }
-          const uploadArg = deps.resolveUploadArg(item.cleanBase64, shrunkBase64);
+          const uploadArg = deps.resolveUploadArg(cleanBase64, shrunkBase64);
           if (uploadArg) {
             // Compute the durable storage path before upload (formula is deterministic)
             const ext = uploadArg.mimeType === 'image/png' ? 'png' : 'jpg';
@@ -342,6 +326,19 @@ export async function runSaveAll(
           uploadFailed = true;
           deps.onUploadFallback?.(item.uri);
         }
+      } else {
+        const imageBase64 = item.cutoutUri
+          ? deps.readPngBase64
+            ? await deps.readPngBase64(item.cutoutUri)
+            : undefined
+          : item.cleanBase64 ?? (await deps.resize(item.uri))?.base64;
+        if (!imageBase64) throw new Error('guest_image_unavailable');
+        if (!deps.saveGuestImage) throw new Error('guest_writer_unavailable');
+        finalUri = await deps.saveGuestImage(
+          imageBase64,
+          itemId,
+          item.cutoutUri ? 'image/png' : 'image/jpeg',
+        );
       }
 
       if (!mountedRef.current) break;
@@ -476,10 +473,12 @@ export function runRedirectSingle(
 
 // ─── Auto-persist pipeline ────────────────────────────────────────────────────
 
-/** Input for runAutoPersistItem — cleanBase64 is required (callers filter for it). */
+/** Input for runAutoPersistItem — the clean PNG is read from cache when saving. */
 export interface AutoPersistItemInput {
   uri: string;
-  cleanBase64: string;
+  cutoutUri?: string;
+  /** Ephemeral compatibility for direct tests; UI items retain only cutoutUri. */
+  cleanBase64?: string;
   classification: ClassifyResult;
 }
 
@@ -493,6 +492,7 @@ export interface AutoPersistDeps {
    * Returns null when the source is unusable and upload should be skipped.
    */
   resolveUploadArg(cleanBase64: string): { base64: string; mimeType: string } | null;
+  readPngBase64?(uri: string): Promise<string>;
   /** Upload to cloud storage. Returns the final public/signed URI. */
   upload(userId: string, base64: string, itemId: string, mimeType: string): Promise<string>;
   /** Persist one item to the wardrobe store. */
@@ -539,7 +539,14 @@ export async function runAutoPersistItem(
     if (!afterAuth || afterAuth.status === 'removed') return null;
 
     const itemId = deps.generateId();
-    const uploadArg = deps.resolveUploadArg(item.cleanBase64);
+    let cleanBase64 = item.cleanBase64;
+    if (item.cutoutUri) {
+      if (!deps.readPngBase64) throw new Error('png_reader_unavailable');
+      cleanBase64 = await deps.readPngBase64(item.cutoutUri);
+    }
+    if (!cleanBase64) throw new Error('png_source_unavailable');
+    if (!mountedRef.current) return null;
+    const uploadArg = deps.resolveUploadArg(cleanBase64);
     // An authenticated auto-save is only successful when the image has been
     // uploaded.  In particular, do not turn a missing upload source into a
     // durable wardrobe record pointing at the device-local URI: that record
@@ -587,14 +594,14 @@ export async function runAutoPersistItem(
 /**
  * Select items eligible for auto-persist from the current items array.
  * An item qualifies when it is 'settled', has a clean background-removed
- * PNG (`cleanBase64`), and has not already had auto-persist attempted.
+ * PNG (`cutoutUri`), and has not already had auto-persist attempted.
  */
 export function selectAutoPersistCandidates(
-  items: BulkItemCore[],
+  items: (BulkItemCore & { cleanBase64?: string })[],
   attempted: Set<string>,
 ): BulkItemCore[] {
   return items.filter(
-    it => it.status === 'settled' && it.cleanBase64 && !attempted.has(it.uri),
+    it => it.status === 'settled' && (it.cutoutUri || it.cleanBase64) && !attempted.has(it.uri),
   );
 }
 

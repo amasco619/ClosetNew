@@ -236,9 +236,9 @@ function makeDeferredDeps(overrides: {
   {
     const attempted = new Set<string>();
     const items: BulkItemCore[] = [
-      { uri: 'file:///a.jpg', status: 'settled', cleanBase64: undefined,      classification: null },
-      { uri: 'file:///b.jpg', status: 'settled', cleanBase64: 'pngb64',       classification: null },
-      { uri: 'file:///c.jpg', status: 'classifying', cleanBase64: 'pngb64',  classification: null },
+      { uri: 'file:///a.jpg', status: 'settled', classification: null },
+      { uri: 'file:///b.jpg', status: 'settled', cutoutUri: 'file:///b.png', classification: null },
+      { uri: 'file:///c.jpg', status: 'classifying', cutoutUri: 'file:///c.png', classification: null },
     ];
 
     const candidates = selectAutoPersistCandidates(items, attempted);
@@ -253,7 +253,7 @@ function makeDeferredDeps(overrides: {
   {
     const attempted = new Set<string>();
     const items: BulkItemCore[] = [
-      { uri: TEST_URI, status: 'settled', cleanBase64: undefined, classification: null },
+      { uri: TEST_URI, status: 'settled', classification: null },
     ];
 
     const candidates = selectAutoPersistCandidates(items, attempted);
@@ -425,8 +425,8 @@ function makeDeferredDeps(overrides: {
   {
     const attempted = new Set<string>(['file:///already.jpg']);
     const items: BulkItemCore[] = [
-      { uri: 'file:///already.jpg', status: 'settled', cleanBase64: 'pngb64', classification: null },
-      { uri: 'file:///new.jpg',     status: 'settled', cleanBase64: 'pngb64', classification: null },
+      { uri: 'file:///already.jpg', status: 'settled', cutoutUri: 'file:///already.png', classification: null },
+      { uri: 'file:///new.jpg',     status: 'settled', cutoutUri: 'file:///new.png', classification: null },
     ];
 
     const candidates = selectAutoPersistCandidates(items, attempted);

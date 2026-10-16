@@ -31,7 +31,7 @@ assert.match(choose, /await setFreeWardrobeSelection\(validSelectedIds\)/);
 // Signed-in users cannot fall back to a device URI, including when the
 // photo bytes or session are missing.
 const authenticatedUpload = between(addItem, 'if (session?.user || !isGuest)', '} else {\n        // Guest user');
-assert.match(authenticatedUpload, /if \(!session\?\.user \|\| !photoBase64\)[\s\S]*throw new Error/);
+assert.match(authenticatedUpload, /if \(!session\?\.user \|\| !photoUri\)[\s\S]*throw new Error/);
 assert.match(authenticatedUpload, /await uploadWardrobeImage/);
 assert.doesNotMatch(authenticatedUpload, /FileSystem\.copyAsync/);
 assert.match(context, /Authenticated wardrobe images must be uploaded before saving/g);

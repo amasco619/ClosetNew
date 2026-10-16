@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Colors from '@/constants/colors';
 import { OutfitSet } from '@/constants/types';
 import { rs } from '../lib/responsive';
+import { GarmentTile } from '@/components/GarmentTile';
 
 const STORY_WIDTH = 360;
 const STORY_HEIGHT = 640;
@@ -72,10 +73,11 @@ export default function OOTDStoryCard({ outfit, date }: Props) {
         <View style={styles.photosRow}>
           {mainItems.map((comp, idx) => (
             <View key={idx} style={styles.photoWrap}>
-              <Image
-                source={{ uri: comp.photoUri! }}
+              <GarmentTile
+                uri={comp.photoUri!}
+                variant="card"
                 style={[styles.photo, { width: coreSize, height: coreSize }]}
-                resizeMode="cover"
+                accessibilityLabel={`${comp.subType} garment in outfit story`}
               />
               <Text style={styles.photoLabel} numberOfLines={1}>
                 {comp.subType.replace(/-/g, ' ')}
@@ -90,10 +92,11 @@ export default function OOTDStoryCard({ outfit, date }: Props) {
           {accs.map((comp, idx) => (
             <View key={idx} style={styles.accWrap}>
               <View style={[styles.accImageWrap, { width: accSize, height: accSize }]}>
-                <Image
-                  source={{ uri: comp.photoUri! }}
+                <GarmentTile
+                  uri={comp.photoUri!}
+                  variant="card"
                   style={styles.accImage}
-                  resizeMode="cover"
+                  accessibilityLabel={`${comp.subType} accessory in outfit story`}
                 />
               </View>
               <Text style={styles.accLabel} numberOfLines={1}>
