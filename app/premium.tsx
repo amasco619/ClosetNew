@@ -38,6 +38,7 @@ const FEATURES = [
 
 export default function PremiumScreen() {
   const insets = useSafeAreaInsets();
+  const sheetScrollTopRef = React.useRef(0);
   const {
     isPremium, isAuthenticated, authenticatedUserId, entitlementUnavailable, refreshPremiumEntitlement,
   } = useApp();
@@ -321,16 +322,29 @@ export default function PremiumScreen() {
   };
 
   return (
-    <SwipeToDismiss>
+    <SwipeToDismiss scrollTopRef={sheetScrollTopRef}>
     <StatusBar style="dark" />
     <View style={[styles.container, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + webTopInset }]}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.closeBtn}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.closeBtn}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Close Premium"
+        >
           <Ionicons name="close" size={24} color={Colors.primary} />
         </Pressable>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        scrollEventThrottle={16}
+        onScroll={event => {
+          sheetScrollTopRef.current = Math.max(0, event.nativeEvent.contentOffset.y);
+        }}
+      >
         <Animated.View entering={FadeInDown.delay(100).duration(500)} style={styles.header}>
           <LinearGradient
             colors={[Colors.secondary + '20', Colors.blush + '30', Colors.background]}
@@ -484,7 +498,7 @@ export default function PremiumScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   topBar: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8 },
-  closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  closeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   scrollContent: { paddingHorizontal: 20 },
   header: { marginBottom: 20, borderRadius: 20, overflow: 'hidden' },
   headerGradient: { paddingVertical: 36, paddingHorizontal: 24, alignItems: 'center' },

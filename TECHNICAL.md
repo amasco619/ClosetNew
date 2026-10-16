@@ -319,7 +319,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               92 test suites (see §11)
+__tests__/               96 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -431,7 +431,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 92 test suites once |
+| `npm test` | Run all 96 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -1303,7 +1303,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (92 total)
+### Test Suites (96 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1317,6 +1317,7 @@ These features are **not yet implemented**. They are the next development priori
 | `traditionalStyling.test.ts` | Explicit context changes real core eligibility/candidates and daily outputs; confirmed-set atomicity, unknown/corrected canonical truth, layered relationships, owned Western complements, gap/fallback handling, existing rain filtering, provider-free dependency graph and unchanged generic generation |
 | `traditionalStylingUi.test.ts` | Mounted actual Outfits screen with real context adapter/generator/rotation: no implicit selection, generated owned coordinated-set photos, loading, retry, ignored late responses, honest gaps and unchanged premium chip gate |
 | `stylingRelationships.test.ts` | Additive Phase A membership projection, owner/parent checks, all three types, pre-evaluation coordinated construction under shortlist crowding, relationship removal and renamed-garment controls, Western complements, normal alternatives, immutable canonical/shared facts, transient provenance and provider-free graph |
+| `swipeDismiss.test.ts` | Exact-top gesture capture, scroll gating during movement/release, 120 px threshold, and scroll-ref/accessible-close wiring on all three sheet routes |
 | `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, and retries after partial cleanup |
 | `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival, prune-interval state, DB integration (skipped when `DATABASE_URL` absent) |
 | `aiProcessingConsent.test.ts` | Mounted account preference API and server AI-route enforcement: unasked/malformed/declined denied, account isolation, metadata persistence, store errors fail closed |
@@ -2817,3 +2818,19 @@ auth/quota change was made. `reports/garment-image-presentation.md` records the
 Step 0 pipeline, implementation, visual matrix and verification limits. The
 matte is retained; synthetic pixel tests do not establish real Gemini label
 quality or physical-device appearance.
+
+## 39. SCROLL-AWARE SHEET DISMISSAL
+
+`components/SwipeToDismiss.tsx` now captures a downward drag only when the
+active vertical `ScrollView` is exactly at offset zero. The Add Item, Premium,
+and Item Detail routes update a shared scroll-position ref from `onScroll`;
+the responder checks that current ref on gesture capture, every move, and
+release, and cancels/reset a drag if scrolling takes control. A downward drag
+over 120 px animates the sheet down and fades it out; shorter drags spring back.
+Horizontal and upward gestures remain with the content/native navigation.
+
+Each route has an accessible close button with a 44-point target or larger.
+Premium’s existing eight feature cards provide a long-scroll demonstration.
+The behavior is covered by `__tests__/swipeDismiss.test.ts`. Automated tests,
+typecheck and lint pass; no physical iOS/Android gesture or assistive-technology
+validation was performed in this session.

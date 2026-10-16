@@ -383,3 +383,15 @@ The matte is covered by synthetic-pixel tests, but real Gemini label quality
 and the requested physical-device visual matrix remain unverified. Details and
 the full not-verified matrix are in
 `reports/garment-image-presentation.md`.
+
+## 19. SCROLL-AWARE SHEET DISMISSAL
+
+Add Item, Premium and Item Detail now allow a downward dismiss drag only when
+their vertical content is at `scrollTop === 0`. The scroll position is checked
+on gesture capture, every drag move and release; scrolling from any positive
+offset stays with the content. At the top, drags over 120 px animate the sheet
+off-screen with a fade; shorter drags spring back. Each route retains a working,
+accessible close control. Premium’s existing feature-card list is the long-scroll
+test case. The focused gesture-policy tests, full suite (96/96), typecheck and
+lint pass. Physical iOS/Android and VoiceOver/TalkBack interaction remain
+unverified.

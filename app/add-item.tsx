@@ -144,6 +144,7 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
 
 export default function AddItemScreen() {
   const insets = useSafeAreaInsets();
+  const sheetScrollTopRef = useRef(0);
   const { addWardrobeItem, replaceWardrobeItem, isPremium, isGuest } = useApp();
   const {
     initialUri,
@@ -1012,12 +1013,18 @@ export default function AddItemScreen() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <SwipeToDismiss>
+    <SwipeToDismiss scrollTopRef={sheetScrollTopRef}>
     <StatusBar style="dark" />
     <View style={[styles.container, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + webTopInset }]}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.closeBtn} hitSlop={8}>
-          <Text style={styles.cancelText}>Cancel</Text>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.closeBtn}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Close add item"
+        >
+          <Ionicons name="close" size={24} color={Colors.textSecondary} />
         </Pressable>
         <Text style={styles.topTitle}>Add Item</Text>
         <View style={{ width: 56 }} />
@@ -1027,6 +1034,10 @@ export default function AddItemScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        onScroll={event => {
+          sheetScrollTopRef.current = Math.max(0, event.nativeEvent.contentOffset.y);
+        }}
       >
         {/* ── Step 0: pick photo + category ─────────────────────────────── */}
         {step === 0 ? (
@@ -1759,7 +1770,6 @@ const styles = StyleSheet.create({
   container:         { flex: 1, backgroundColor: Colors.background },
   topBar:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8 },
   closeBtn:          { minWidth: 56, height: 44, alignItems: 'flex-start', justifyContent: 'center' },
-  cancelText:        { fontFamily: 'Inter_400Regular', fontSize: rs(16), color: Colors.textSecondary, letterSpacing: -0.1 },
   topTitle:          { fontFamily: 'Inter_600SemiBold', fontSize: rs(17), color: Colors.primary },
   scrollContent:     { paddingHorizontal: 20, paddingBottom: 24 },
   reviewIntro:       { marginTop: 4, marginBottom: 14 },

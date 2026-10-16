@@ -33,6 +33,7 @@ function formatCPW(price: number, wears: number): string {
 
 export default function ItemDetailScreen() {
   const insets = useSafeAreaInsets();
+  const sheetScrollTopRef = useRef(0);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { wardrobeItems, loadAllWardrobeItems, removeWardrobeItem, getItemWearCount, updateWardrobeItem } = useApp();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
@@ -162,19 +163,37 @@ export default function ItemDetailScreen() {
   };
 
   return (
-    <SwipeToDismiss>
+    <SwipeToDismiss scrollTopRef={sheetScrollTopRef}>
     <StatusBar style="dark" />
     <View style={[styles.container, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + webTopInset }]}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.closeBtn}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.closeBtn}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Close item details"
+        >
           <Ionicons name="close" size={24} color={Colors.primary} />
         </Pressable>
-        <Pressable onPress={handleDelete} style={styles.closeBtn}>
+        <Pressable
+          onPress={handleDelete}
+          style={styles.closeBtn}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Remove item"
+        >
           <Ionicons name="trash-outline" size={22} color={Colors.error} />
         </Pressable>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={event => {
+          sheetScrollTopRef.current = Math.max(0, event.nativeEvent.contentOffset.y);
+        }}
+      >
         <GarmentTile
           uri={item.photoUri}
           storagePath={item.storagePath}
@@ -391,7 +410,7 @@ export default function ItemDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8 },
-  closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  closeBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   image: { width: '100%', aspectRatio: 0.75, backgroundColor: Colors.border },
   details: { padding: 24, paddingBottom: 48 },
   itemTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
