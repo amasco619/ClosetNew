@@ -1086,7 +1086,7 @@ Two-screen flow for digitising an entire wardrobe section in one session: up to 
 - Item statuses: `pending → classifying → settled → saving → saved` (or `error`, `removed`). Errors retain a coarse failure stage (`photo-preparation` or `classification`) for truthful retry copy.
 
 **Parallel classification (staggered, 150 ms apart):**
-1. `expo-image-manipulator` resizes each URI to ≤1024 px (JPEG, 0.8 compress) → base64
+1. A serial queue runs `expo-image-manipulator` transforms one at a time to limit simultaneous full-resolution bitmap decoding on mobile; each output is resized to ≤1024 px (JPEG, 0.8 compress) → base64
 2. Background removal and cutout caching are best-effort; if either fails, the resized original JPEG continues to classification.
 3. `POST /api/classify-garment` — same endpoint as single-item add flow
 4. On settle: card info fades in with `FadeInDown.duration(280)` (key-prop remount trick)
@@ -1335,7 +1335,7 @@ These features are **not yet implemented**. They are the next development priori
 | `apiNoCache.test.ts` | Express conditional GET still returns JSON 200 with `Cache-Control: no-store`; prevents API ETags becoming unusable 304s in native fetch |
 | `wardrobeRetryScreens.test.ts` | Mounted Home, Outfits, Wear Log and Choose 30: load failure, successful-but-partial state, retry-pending state, same-count account switches, stale success/failure protection and successful recovery |
 | `bulkCarousel.test.ts` | Bulk-review carousel scroll contract: index clamping, null FlatList ref guard, empty-list safety |
-| `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard, retriable error state, and original-JPEG fallback when optional background removal or preview caching fails |
+| `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard, serialized image-transform queue, retriable error state, and original-JPEG fallback when optional background removal or preview caching fails |
 | `bulkSaveLock.test.ts` | Save-lock ref in bulk-review: concurrent save attempts are blocked by the `saveLockRef` guard |
 | `bulkSaveNoShrunk.test.ts` | Missing/null/data-URI `shrunk.base64` never silently drops a bulk-upload item; `addItem` always fires with the local URI as fallback when `resolveUploadArg` returns null |
 | `cancelDialogMessages.test.ts` | `selectCancelDialogBody()` branch selection across all batch states: all-settled → null, in-progress + no auto-saved → running message, in-progress + auto-saved → auto-saved-wins message |

@@ -32,6 +32,7 @@ import {
   runRedirectSingle,
   runSaveAll,
   runHandleRemove,
+  createSerialQueue,
   type ClassifyResult,
   type ClassifyDeps,
   type ClassifyFailureStage,
@@ -396,6 +397,9 @@ export default function BulkReviewScreen() {
 
   const singleRedirectedRef = useRef(false);
   const mountedRef = useRef(true);
+  // Android bulk picks can contain several full-resolution files. Keep native
+  // bitmap decoding one-at-a-time; classification/network work remains parallel.
+  const imageResizeQueue = useRef(createSerialQueue()).current;
   const savingRef = useRef(false);
   // Stable items snapshot for callbacks that can't take items as a dep.
   const itemsRef = useRef<BulkItem[]>([]);
@@ -527,11 +531,14 @@ export default function BulkReviewScreen() {
   const classifyUri = useCallback(async (uri: string) => {
     if (aiPreference !== 'allowed') return;
     await runClassifyUri(uri, mountedRef, {
-      resize: (u) => ImageManipulator.manipulateAsync(
-        u,
-        [{ resize: { width: 1024 } }],
-        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-      ),
+      resize: (u) => imageResizeQueue(() => {
+        if (!mountedRef.current) return Promise.resolve(null);
+        return ImageManipulator.manipulateAsync(
+          u,
+          [{ resize: { width: 1024 } }],
+          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+        );
+      }),
       removeBg: (b64) => removeBackground(b64).then(r => {
         if (r.status === 'not-authenticated') setBgNotAuthenticated(true);
         if (r.status === 'limit-reached') setBgLimitReached(true);
@@ -555,7 +562,7 @@ export default function BulkReviewScreen() {
       setItems: setItems as unknown as ClassifyDeps['setItems'],
       onHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
     });
-  }, [aiPreference]);
+  }, [aiPreference, imageResizeQueue]);
 
   // Kick off staggered classify tasks on mount
   useEffect(() => {

@@ -20,7 +20,7 @@
  * Exits non-zero on any failed assertion.
  */
 
-import { runClassifyUri, runRedirectSingle, runSaveAll } from '../lib/bulkClassifyCore';
+import { createSerialQueue, runClassifyUri, runRedirectSingle, runSaveAll } from '../lib/bulkClassifyCore';
 import type { BulkItemCore, ClassifyResult, ClassifyDeps, SaveAllItem, SaveAllDeps } from '../lib/bulkClassifyCore';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
@@ -135,6 +135,44 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 (async () => {
+
+  section('createSerialQueue — native transforms run one at a time and recover after rejection');
+  {
+    const enqueue = createSerialQueue();
+    const firstGate = deferred<string>();
+    const started: string[] = [];
+    let active = 0;
+    let maxActive = 0;
+
+    const first = enqueue(async () => {
+      started.push('first');
+      active++;
+      maxActive = Math.max(maxActive, active);
+      const result = await firstGate.promise;
+      active--;
+      return result;
+    });
+    const second = enqueue(async () => {
+      started.push('second');
+      active++;
+      maxActive = Math.max(maxActive, active);
+      active--;
+      return 'second';
+    });
+
+    await tick();
+    assert(started.join(',') === 'first',
+      'second transform waits while the first transform is active');
+    firstGate.resolve('first');
+    const results = await Promise.all([first, second]);
+    assert(results.join(',') === 'first,second' && maxActive === 1,
+      'queued transforms preserve order with no overlap');
+
+    await enqueue(async () => { throw new Error('expected transform failure'); }).catch(() => {});
+    const afterFailure = await enqueue(async () => 'recovered');
+    assert(afterFailure === 'recovered',
+      'a rejected transform does not poison the queue');
+  }
 
   // ── runClassifyUri ────────────────────────────────────────────────────────
 

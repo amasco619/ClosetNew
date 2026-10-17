@@ -433,3 +433,24 @@ labels an empty save action “Saving items...”.
 Focused tests cover failed-item retry state, background/session/cache fallback,
 and the existing save and unmount guards. Physical Android re-testing of the
 revised review and retry flow remains outstanding.
+
+## 22. BULK PHOTO-PREPARATION FAILURE ON ANDROID
+
+The next Android screenshot showed “Could not prepare photo” for both selected
+items, confirming that the failure occurs before background removal and
+classification. Current backend logs likewise show the authenticated preference
+and entitlement requests succeeding, with no background-removal or classifier
+POST for this attempt.
+
+Code inspection ruled out a raw Android `content://` URI as the expected picker
+output: SDK 57's Android multi-image picker copies selected images into its app
+cache and returns local file URIs. The bulk screen was starting native
+ImageManipulator resizes only 150 ms apart, allowing full-resolution bitmap
+decodes to overlap. Those local transforms are now serialized while
+classification/network work remains concurrent. This reduces native memory
+pressure but does not prove the device-side root cause; physical Android
+verification remains required.
+
+The focused queue test confirms transforms do not overlap and that a failed
+transform does not block later items. The full 97-suite test run, TypeScript
+check, and lint pass.
