@@ -25,6 +25,7 @@ interface Props {
 export default function LuxuryToast({ toast, bottom, reduceMotion, busy, onAction }: Props) {
   const [opacity] = useState(() => new Animated.Value(0));
   const [translateY] = useState(() => new Animated.Value(22));
+  const hasAction = Boolean(toast?.actionLabel && toast.onAction);
   useEffect(() => {
     if (!toast) return;
     opacity.setValue(reduceMotion ? 1 : 0);
@@ -46,7 +47,7 @@ export default function LuxuryToast({ toast, bottom, reduceMotion, busy, onActio
       style={[styles.position, { bottom, opacity, transform: [{ translateY }] }]}
       pointerEvents="box-none"
     >
-      <BlurView intensity={70} tint="light" style={styles.pill}>
+      <BlurView intensity={70} tint="light" style={[styles.pill, hasAction && styles.undoPill]}>
         {toast.thumbnailUri ? (
           <Image source={{ uri: toast.thumbnailUri }} style={styles.thumbnail} accessibilityLabel="Saved garment" />
         ) : (
@@ -61,9 +62,11 @@ export default function LuxuryToast({ toast, bottom, reduceMotion, busy, onActio
             disabled={busy}
             hitSlop={6}
             onPress={onAction}
-            style={styles.action}
+            style={[styles.action, hasAction && styles.undoAction]}
           >
-            <Text style={styles.actionText}>{busy ? 'Undoing' : toast.actionLabel}</Text>
+            <Text style={[styles.actionText, hasAction && styles.undoActionText]}>
+              {busy ? 'Undoing' : toast.actionLabel}
+            </Text>
           </Pressable>
         )}
       </BlurView>
@@ -79,8 +82,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 12,
     overflow: 'hidden',
   },
+  undoPill: {
+    backgroundColor: Colors.cardBackground,
+    borderColor: Colors.border,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
   thumbnail: { width: 40, height: 40, borderRadius: 11, backgroundColor: Colors.background },
   message: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 14, lineHeight: 19, color: Colors.textPrimary },
   action: { minHeight: 48, minWidth: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
   actionText: { fontFamily: 'Inter_600SemiBold', color: Colors.secondary, fontSize: 14 },
+  undoAction: { borderRadius: 12, backgroundColor: Colors.primary, paddingHorizontal: 14 },
+  undoActionText: { color: Colors.white },
 });

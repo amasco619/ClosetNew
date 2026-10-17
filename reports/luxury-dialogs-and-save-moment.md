@@ -31,7 +31,8 @@ permission requests still use the operating system's permission UI.
   destructive alerts, cancel on Android Back, announce content to screen
   readers, and respect Reduce Motion. Toasts announce politely, show an optional
   garment thumbnail, queue instead of overlapping, and show Undo for five
-  seconds.
+  seconds. Action-bearing Undo toasts use an opaque light surface with a
+  high-contrast navy button; informational toasts retain the glass treatment.
 - Single-item Add Item now saves directly after existing required type/colour
   validation. A synchronous in-flight ref prevents rapid duplicate saves.
 - Bulk and multi-piece saves remain protected by their existing synchronous

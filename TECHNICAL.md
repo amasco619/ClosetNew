@@ -1314,6 +1314,8 @@ the operating system's camera/photo permission prompts remain native. The
 dialog queue supports destructive styling, Android Back cancellation,
 accessible labels/announcements, and reduced-motion-aware animation. Toasts
 queue, respect safe-area/tab-bar insets, and provide a five-second Undo action.
+Action-bearing Undo toasts use an opaque light surface with a high-contrast navy
+button; informational toasts retain the glass treatment.
 
 Single-item Add Item saves now commit directly after existing subtype/colour
 validation. Bulk and multi-piece saves retain synchronous in-flight guards and
@@ -1328,9 +1330,10 @@ commit. Item removal copy discloses the preserved history/look records.
 No dependency, schema, recommendation-engine, or classifier changes were made.
 Required subtype/colour validation remains a branded dialog rather than new
 inline field state. Automated adapter and bulk-save/Undo checks are in
-`alertDialogAdapter.test.ts` and `bulkReviewMountedGuard.test.ts`. Real-device
-and VoiceOver/TalkBack verification was not performed; the manual matrix is in
-`reports/luxury-dialogs-and-save-moment.md`.
+`alertDialogAdapter.test.ts` and `bulkReviewMountedGuard.test.ts`. The report at
+`reports/luxury-dialogs-and-save-moment.md` records the user-reported physical
+iOS/Android and VoiceOver/TalkBack checks; the agent did not independently
+observe those device sessions.
 
 ---
 
