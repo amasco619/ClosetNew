@@ -68,6 +68,8 @@ args = "npm run server:dev"
 waitForPort = 5000
 
 [[workflows.workflow]]
+# Headless is permanent: avoids local DevTools/GLib crashes in this container.
+# Metro and Expo Go device connections remain enabled.
 name = "Start Frontend"
 author = "agent"
 mode = "sequential"

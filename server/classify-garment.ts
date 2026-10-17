@@ -757,7 +757,7 @@ Return ONLY valid JSON. No markdown, no code fences, no commentary.`;
 
 // Keep the working primary alias: a pinned Flash-Lite ID returned 404 here.
 // Evaluation records the provider-resolved version and rejects an unknown version.
-export const CLASSIFIER_MODELS = ["gemini-flash-lite-latest", "gemini-2.5-flash"] as const;
+export const CLASSIFIER_MODELS = [process.env.GEMINI_PRIMARY_MODEL?.trim() || "gemini-flash-lite-latest", "gemini-2.5-flash"] as const;
 
 interface GeminiResult {
   refused?: boolean;
