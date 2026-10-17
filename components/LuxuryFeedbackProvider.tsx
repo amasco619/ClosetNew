@@ -21,7 +21,12 @@ interface QueuedToast extends LuxuryToastRequest {
 export { useDialog, useToast } from '@/contexts/LuxuryFeedbackContext';
 
 export function LuxuryFeedbackProvider({ children }: { children: ReactNode }) {
-  const { authenticatedUserId, profile } = useApp();
+  const {
+    authenticatedUserId,
+    profile,
+    hasPendingPhotoCleanup,
+    retryPendingPhotoCleanup,
+  } = useApp();
   const insets = useSafeAreaInsets();
   const ownerKey = authenticatedUserId ?? (profile.isGuest ? 'guest' : null);
   const ownerKeyRef = useRef(ownerKey);
@@ -146,11 +151,24 @@ export function LuxuryFeedbackProvider({ children }: { children: ReactNode }) {
     } catch {
       succeeded = false;
     }
-    if (!succeeded && ownerKeyRef.current === current.ownerKey) {
-      showToast({ message: 'Undo could not be confirmed. Check your wardrobe before trying again.' });
+    if (ownerKeyRef.current === current.ownerKey) {
+      if (succeeded && current.actionLabel === 'Retry cleanup') {
+        showToast({ message: 'Photo cleanup complete.' });
+      } else if (!succeeded) {
+        const hasPendingCleanup = await hasPendingPhotoCleanup().catch(() => false);
+        if (hasPendingCleanup) {
+          showToast({
+            message: 'The photo could not be cleaned up yet.',
+            actionLabel: 'Retry cleanup',
+            onAction: retryPendingPhotoCleanup,
+          });
+        } else {
+          showToast({ message: 'Undo could not be confirmed. Check your wardrobe before trying again.' });
+        }
+      }
     }
     dismissToast(current.id);
-  }, [dismissToast, showToast]);
+  }, [dismissToast, showToast, hasPendingPhotoCleanup, retryPendingPhotoCleanup]);
 
   useEffect(() => {
     if (!activeToast) return;

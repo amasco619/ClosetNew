@@ -11,7 +11,13 @@ import {
 } from '@/constants/types';
 import { generateOutfitsForItem } from '@/constants/outfitGenerator';
 import { loadWeather, getCachedWeather, clearCachedWeather } from '@/constants/weather';
-import { runGuestRemoval } from '@/constants/guestPhotoCleanup';
+import {
+  getGuestPhotoRelativePath,
+  parsePendingPhotoCleanups,
+  retryPhotoCleanups,
+  runGuestRemoval,
+  type PendingPhotoCleanup,
+} from '@/constants/guestPhotoCleanup';
 import {
   detectNoPhotoOrphans,
   isGuestPhotoUri,
@@ -88,6 +94,8 @@ interface AppContextValue {
   ) => Promise<void>;
   replaceWardrobeItem: (existingId: string, replacement: WardrobeItemReplacement) => Promise<void>;
   removeWardrobeItem: (id: string, photoUriHint?: string, expectedUserId?: string | null) => Promise<boolean>;
+  hasPendingPhotoCleanup: () => Promise<boolean>;
+  retryPendingPhotoCleanup: () => Promise<boolean>;
   updateWardrobeItem: (id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => Promise<void>;
   isPremium: boolean;
   outfitSets: OutfitSet[];
@@ -195,6 +203,7 @@ const STORAGE_KEYS = {
   reactions: '@amodka_reactions',
   mood: '@amodka_mood',
   savedLooks: '@amodka_saved_looks',
+  pendingPhotoCleanups: '@amodka_pending_photo_cleanups',
 };
 
 // Sub-type chips are derived from the curated blueprints (single source
@@ -298,6 +307,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const currentUserGenerationRef = useRef<number | null>(null);
   const startupGenerationRef = useRef(0);
   const wardrobeLoadPromiseRef = useRef<Promise<void> | null>(null);
+  const pendingPhotoCleanupsRef = useRef<PendingPhotoCleanup[] | null>(null);
+  const pendingPhotoCleanupQueueRef = useRef<Promise<void>>(Promise.resolve());
   const wardrobeLoadedCountRef = useRef(0);
   const wardrobeTotalCountRef = useRef(0);
   const updateWardrobePagination = (total: number, loaded: number) => {
@@ -311,6 +322,99 @@ export function AppProvider({ children }: { children: ReactNode }) {
     accountGenerationRef.current === accountGeneration &&
     (startupGeneration === undefined ||
       isCurrentStartupGeneration(startupGeneration, startupGenerationRef.current));
+
+  const readPendingPhotoCleanups = useCallback(async () => {
+    await pendingPhotoCleanupQueueRef.current.catch(() => undefined);
+    if (pendingPhotoCleanupsRef.current) return pendingPhotoCleanupsRef.current;
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.pendingPhotoCleanups);
+    const pending = parsePendingPhotoCleanups(raw);
+    pendingPhotoCleanupsRef.current = pending;
+    return pending;
+  }, []);
+
+  const updatePendingPhotoCleanups = useCallback(async (
+    update: (current: PendingPhotoCleanup[]) => PendingPhotoCleanup[],
+  ) => {
+    const operation = pendingPhotoCleanupQueueRef.current.catch(() => undefined).then(async () => {
+      const current = pendingPhotoCleanupsRef.current ??
+        parsePendingPhotoCleanups(await AsyncStorage.getItem(STORAGE_KEYS.pendingPhotoCleanups));
+      const next = update(current);
+      pendingPhotoCleanupsRef.current = next;
+      await AsyncStorage.setItem(STORAGE_KEYS.pendingPhotoCleanups, JSON.stringify(next));
+    });
+    pendingPhotoCleanupQueueRef.current = operation.then(() => undefined, () => undefined);
+    await operation;
+  }, []);
+
+  const rememberPhotoCleanup = useCallback(async (cleanup: PendingPhotoCleanup) => {
+    await updatePendingPhotoCleanups(current => [
+      ...current.filter(entry => entry.ownerKey !== cleanup.ownerKey || entry.itemId !== cleanup.itemId),
+      cleanup,
+    ]);
+  }, [updatePendingPhotoCleanups]);
+
+  const hasPendingPhotoCleanup = useCallback(async () => {
+    const ownerKey = currentUserIdRef.current ?? (profile.isGuest ? 'guest' : null);
+    if (!ownerKey) return false;
+    return (await readPendingPhotoCleanups()).some(cleanup => cleanup.ownerKey === ownerKey);
+  }, [profile.isGuest, readPendingPhotoCleanups]);
+
+  const retryPendingPhotoCleanup = useCallback(async () => {
+    const userId = currentUserIdRef.current;
+    const ownerKey = userId ?? (profile.isGuest ? 'guest' : null);
+    if (!ownerKey) return false;
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    const pending = await readPendingPhotoCleanups();
+    const matching = pending.filter(cleanup => cleanup.ownerKey === ownerKey);
+    if (matching.length === 0) return false;
+
+    let cleanupComplete = false;
+    const operation = pendingPhotoCleanupQueueRef.current.catch(() => undefined).then(async () => {
+      const current = pendingPhotoCleanupsRef.current ??
+        parsePendingPhotoCleanups(await AsyncStorage.getItem(STORAGE_KEYS.pendingPhotoCleanups));
+      const remaining = await retryPhotoCleanups(
+        current,
+        ownerKey,
+        FileSystem.documentDirectory,
+        async (uri, options) => {
+          if (currentUserIdRef.current !== userId ||
+              accountGenerationRef.current !== accountGeneration ||
+              startupGenerationRef.current !== startupGeneration ||
+              (ownerKey === 'guest' && !profile.isGuest)) {
+            throw new Error('Account changed before photo cleanup retry');
+          }
+          await FileSystem.deleteAsync(uri, options);
+        },
+        async (cleanupUserId, itemId) => {
+          if (cleanupUserId !== userId || !userId ||
+              !isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) {
+            throw new Error('Account changed before photo cleanup retry');
+          }
+          await deleteWardrobeImage(cleanupUserId, itemId);
+        },
+      );
+      if (currentUserIdRef.current !== userId ||
+          accountGenerationRef.current !== accountGeneration ||
+          startupGenerationRef.current !== startupGeneration ||
+          (ownerKey === 'guest' && !profile.isGuest)) {
+        throw new Error('Account changed during photo cleanup retry');
+      }
+      pendingPhotoCleanupsRef.current = remaining;
+      await AsyncStorage.setItem(STORAGE_KEYS.pendingPhotoCleanups, JSON.stringify(remaining));
+      cleanupComplete = !remaining.some(cleanup => cleanup.ownerKey === ownerKey);
+    });
+    pendingPhotoCleanupQueueRef.current = operation.then(() => undefined, () => undefined);
+    await operation;
+    return cleanupComplete;
+  }, [profile.isGuest, readPendingPhotoCleanups]);
+
+  useEffect(() => {
+    if (!appReady || isLoading || (!authenticatedUserId && !profile.isGuest)) return;
+    void retryPendingPhotoCleanup().catch(error =>
+      console.warn('[wardrobe] Deferred photo cleanup did not complete', error),
+    );
+  }, [appReady, isLoading, authenticatedUserId, profile.isGuest, retryPendingPhotoCleanup]);
 
   useEffect(() => { loadData(); }, [startupAttempt]);
 
@@ -1772,6 +1876,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           catch (error) {
             photoCleanupComplete = false;
             console.warn('[wardrobe] Removed item photo cleanup did not complete', error);
+            await rememberPhotoCleanup({ ownerKey: userId, itemId: id }).catch(queueError =>
+              console.warn('[wardrobe] Could not retain failed photo cleanup', queueError),
+            );
           }
         }
         if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return false;
@@ -1810,11 +1917,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       const removalSnapshot = item ? items : [...items, { id, photoUri }];
       const documentDirectory = FileSystem.documentDirectory;
-      if (photoUri?.startsWith('file://') &&
-          (!documentDirectory || !photoUri.startsWith(documentDirectory))) {
-        photoCleanupComplete = false;
+      const guestPath = getGuestPhotoRelativePath(photoUri, documentDirectory);
+      if (photoUri?.startsWith('file://')) {
+        if (!guestPath) {
+          photoCleanupComplete = false;
+        } else {
+          try {
+            await runGuestRemoval(id, removalSnapshot, documentDirectory, FileSystem.deleteAsync);
+          } catch (error) {
+            photoCleanupComplete = false;
+            console.warn('[wardrobe] Removed guest item photo cleanup did not complete', error);
+            await rememberPhotoCleanup({ ownerKey: 'guest', itemId: id, guestPath }).catch(queueError =>
+              console.warn('[wardrobe] Could not retain failed guest photo cleanup', queueError),
+            );
+          }
+        }
       }
-      await runGuestRemoval(id, removalSnapshot, FileSystem.documentDirectory, FileSystem.deleteAsync);
       if (currentUserIdRef.current !== null ||
           accountGenerationRef.current !== accountGeneration ||
           startupGenerationRef.current !== startupGeneration) return false;
@@ -1843,7 +1961,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error('[wardrobe] Remove item did not complete', error);
       return false;
     }
-  }, [profile, isPremium, freeSelectedItemIds, updateWardrobePagination]);
+  }, [profile, isPremium, freeSelectedItemIds, updateWardrobePagination, rememberPhotoCleanup]);
 
   const resolveOrphan = useCallback((id: string, action: 'remove' | 'dismiss') => {
     setOrphanedItems(prev => prev.filter(o => o.id !== id));
@@ -2109,7 +2227,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     profile, updateProfile, wardrobeItems, activeWardrobeItems,
     wardrobeTotalCount, wardrobeHasMore: wardrobeLoadedCount < wardrobeTotalCount, freeSelectedItemIds,
     loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection, getStylingRecommendations,
-    addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem, updateWardrobeItem,
+    addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem,
+    hasPendingPhotoCleanup, retryPendingPhotoCleanup, updateWardrobeItem,
     isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
     isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable,
     retryInitialization: () => {
@@ -2131,7 +2250,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     orphanedItems, resolveOrphan,
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, wardrobeTotalCount, wardrobeLoadedCount, freeSelectedItemIds,
        loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection, getStylingRecommendations,
-        addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem, updateWardrobeItem,
+        addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem,
+        hasPendingPhotoCleanup, retryPendingPhotoCleanup, updateWardrobeItem,
        isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,

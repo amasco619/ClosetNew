@@ -144,6 +144,10 @@ export async function deleteWardrobeImage(
   userId: string,
   itemId: string
 ): Promise<void> {
+  const safePathSegment = (value: string) => /^[A-Za-z0-9_-]+$/.test(value)
+  if (!safePathSegment(userId) || !safePathSegment(itemId)) {
+    throw new Error('[deleteWardrobeImage] invalid owner or item id')
+  }
   const { error } = await supabase.storage
     .from('wardrobe-images')
     .remove([`${userId}/${itemId}.jpg`, `${userId}/${itemId}.png`])

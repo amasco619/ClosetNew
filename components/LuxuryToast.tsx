@@ -57,7 +57,9 @@ export default function LuxuryToast({ toast, bottom, reduceMotion, busy, onActio
         {toast.actionLabel && toast.onAction && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={busy ? 'Undoing' : toast.actionLabel}
+            accessibilityLabel={busy
+              ? (toast.actionLabel === 'Retry cleanup' ? 'Retrying photo cleanup' : 'Undoing')
+              : toast.actionLabel}
             accessibilityHint="Available for five seconds"
             disabled={busy}
             hitSlop={6}
@@ -65,7 +67,9 @@ export default function LuxuryToast({ toast, bottom, reduceMotion, busy, onActio
             style={[styles.action, hasAction && styles.undoAction]}
           >
             <Text style={[styles.actionText, hasAction && styles.undoActionText]}>
-              {busy ? 'Undoing' : toast.actionLabel}
+              {busy
+                ? (toast.actionLabel === 'Retry cleanup' ? 'Retrying cleanup' : 'Undoing')
+                : toast.actionLabel}
             </Text>
           </Pressable>
         )}

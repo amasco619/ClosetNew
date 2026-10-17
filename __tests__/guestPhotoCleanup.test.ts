@@ -16,7 +16,13 @@
  * Exits non-zero on any failed assertion.
  */
 
-import { deleteGuestPhoto, runGuestRemoval, buildGuestPhotoDestPath } from '../constants/guestPhotoCleanup';
+import {
+  deleteGuestPhoto,
+  getGuestPhotoRelativePath,
+  parsePendingPhotoCleanups,
+  runGuestRemoval,
+  buildGuestPhotoDestPath,
+} from '../constants/guestPhotoCleanup';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -102,6 +108,34 @@ async function testDeleteGuestPhoto(): Promise<void> {
     await deleteGuestPhoto(LOCAL_URI, otherDir, spy.fn);
 
     assert(spy.calls.length === 0, 'deleteAsync not called when URI is outside documentDirectory');
+  }
+
+  section('A6. deleteGuestPhoto — URI sharing only a directory prefix → deleteAsync NOT called');
+  {
+    const spy = makeSpy();
+    const directoryWithoutSlash = DOCUMENT_DIR.slice(0, -1);
+    await deleteGuestPhoto(`${directoryWithoutSlash}Outside/wardrobe.jpg`, directoryWithoutSlash, spy.fn);
+    assert(spy.calls.length === 0, 'a path outside the directory boundary is not treated as a child');
+  }
+
+  section('A7. getGuestPhotoRelativePath — traversal path is rejected');
+  {
+    assert(
+      getGuestPhotoRelativePath(`${DOCUMENT_DIR}../private/photo.jpg`, DOCUMENT_DIR) === null,
+      'parent-directory traversal is not retained for retry',
+    );
+  }
+
+  section('A8. parsePendingPhotoCleanups — malformed owner/path records are discarded');
+  {
+    const parsed = parsePendingPhotoCleanups(JSON.stringify([
+      { ownerKey: 'owner-a', itemId: 'item-a', photoUri: 'file:///outside/private.jpg' },
+      { ownerKey: 'guest', itemId: 'item-b', guestPath: '../private.jpg' },
+      { ownerKey: 'guest', itemId: 'item-c', guestPath: 'wardrobe_item-c.jpg' },
+    ]));
+    assert(parsed.length === 2, 'only safe records survive parsing');
+    assert(parsed[1]?.guestPath === 'wardrobe_item-c.jpg', 'guest records retain a relative path only');
+    assert(!('photoUri' in (parsed[0] ?? {})), 'untrusted absolute URI fields are not preserved');
   }
 }
 

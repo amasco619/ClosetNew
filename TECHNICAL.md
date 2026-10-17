@@ -1392,7 +1392,7 @@ These features are **not yet implemented**. They are the next development priori
 | `bulkCarousel.test.ts` | Bulk-review carousel scroll contract: index clamping, null FlatList ref guard, empty-list safety |
 | `bulkPhotoStaging.test.ts` | App-owned multi-photo staging, partial/all copy failures, in-memory selection lookup, protected cleanup, and 24-hour sweep |
 | `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard, serialized image-transform queue, ID-only one-photo redirect, acknowledged-save cleanup ordering, retryable errors, original-JPEG fallback, one post-commit Undo snapshot and partial batch-removal reporting |
-| `undoRemovalIntegration.test.ts` | Actual AppContext Undo removal callback: owner-scoped row and Storage cleanup, guest file and cache cleanup, managed-directory rejection, partial batch failure/quota retention and account-switch protection |
+| `undoRemovalIntegration.test.ts` | Actual AppContext Undo removal callback: owner-scoped row and Storage cleanup, guest file and cache cleanup, retained/retried photo-cleanup failures, retry-toast action, managed-directory rejection, partial batch failure/quota retention and account-switch protection |
 | `photoPrepareDiagnostic.test.ts` | Redacted failure diagnostics plus pick-time/current staged-file metadata comparison |
 | `bulkSaveLock.test.ts` | Save-lock ref in bulk-review: concurrent save attempts are blocked by the `saveLockRef` guard |
 | `bulkSaveNoShrunk.test.ts` | Missing/null/data-URI `shrunk.base64` never silently drops a bulk-upload item; `addItem` always fires with the local URI as fallback when `resolveUploadArg` returns null |
@@ -1405,7 +1405,7 @@ These features are **not yet implemented**. They are the next development priori
 | `forgotPasswordSilent.test.ts` | Actual `requestPasswordReset()` contract: acknowledged response, redirects, network/non-JSON/malformed response failures, email normalisation |
 | `getProfileBlueprint.test.ts` | Algorithm tests calling `buildProfileBlueprintSlots()` directly (no mocking) |
 | `ghostItemRecovery.test.ts` | `detectNoPhotoOrphans`, `isGuestPhotoUri`, `detectFileOrphans` (file-exists/missing/throws/cloud-recovery/rebase-path), and `applyOrphanResolution` action routing; also exercises `applyRePhotographSave` |
-| `guestPhotoCleanup.test.ts` | `deleteGuestPhoto`, `runGuestRemoval`, `buildGuestPhotoDestPath` — cleanup guard (URI must start with documentDirectory), idempotent delete, rejection propagation, per-deletion isolation |
+| `guestPhotoCleanup.test.ts` | `deleteGuestPhoto`, `runGuestRemoval`, `buildGuestPhotoDestPath` — safe document-directory boundary, retry-record validation, idempotent delete, rejection propagation, per-deletion isolation |
 | `imagePickerSelection.test.ts` | Preserves the single-photo path; multi-photo picker stages before routing, passes only the selection ID, and stays on Add Item if every copy fails |
 | `lifestyle-blueprint.test.ts` | Lifestyle weight ordering and category priority adjustments |
 | `lifestyleSlotGroups.test.ts` | Slot group activation thresholds for active and brunch lifestyles |
@@ -2910,3 +2910,16 @@ Entitlement refresh on `TOKEN_REFRESHED` is deferred with a zero-delay timer
 after the Supabase auth callback returns. This avoids re-entering Auth through
 `getSession()` while Supabase is dispatching the event. The deferred operation
 retains account/startup generation checks and is cancelled on unmount.
+
+
+## 41. RETRYABLE WARDROBE PHOTO CLEANUP
+
+When Undo removes a wardrobe row but its photo deletion fails, the app persists
+the cleanup target in AsyncStorage. Authenticated records contain only the
+active owner's ID and wardrobe item ID; guest records contain a validated
+relative path beneath the current document directory. Retries run only for the
+active owner, preserve records belonging to other accounts, and clear successful
+records. A failed Undo shows a "Retry cleanup" toast action, and retained work
+is also retried after app startup. Guest path checks enforce directory-segment
+boundaries and reject traversal; authenticated Storage deletion rejects unsafe
+path segments.

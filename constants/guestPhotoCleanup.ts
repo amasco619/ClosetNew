@@ -19,6 +19,99 @@ export type DeleteAsyncFn = (
   options: { idempotent: boolean }
 ) => Promise<void>;
 
+export interface PendingPhotoCleanup {
+  ownerKey: string;
+  itemId: string;
+  guestPath?: string;
+}
+
+function isSafePathSegment(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]+$/.test(value);
+}
+
+function isSafeGuestRelativePath(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 &&
+    value.split('/').every(segment =>
+      segment !== '.' && segment !== '..' && /^[A-Za-z0-9._-]+$/.test(segment)
+    );
+}
+
+export function parsePendingPhotoCleanups(raw: string | null): PendingPhotoCleanup[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const valid: PendingPhotoCleanup[] = [];
+    for (const entry of parsed) {
+      if (!entry || typeof entry !== 'object') continue;
+      const candidate = entry as Partial<PendingPhotoCleanup>;
+      if (!isSafePathSegment(candidate.ownerKey) || !isSafePathSegment(candidate.itemId)) continue;
+      if (candidate.ownerKey === 'guest') {
+        if (isSafeGuestRelativePath(candidate.guestPath)) {
+          valid.push({
+            ownerKey: candidate.ownerKey,
+            itemId: candidate.itemId,
+            guestPath: candidate.guestPath,
+          });
+        }
+      } else if (candidate.guestPath === undefined) {
+        valid.push({ ownerKey: candidate.ownerKey, itemId: candidate.itemId });
+      }
+    }
+    return valid;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Converts a document-directory URI into a safe relative path for persistence.
+ * Each segment is constrained so a stored value cannot escape the directory.
+ */
+export function getGuestPhotoRelativePath(
+  photoUri: string | undefined,
+  documentDirectory: string | null | undefined,
+): string | null {
+  if (!photoUri || !documentDirectory) return null;
+  const prefix = documentDirectory.endsWith('/') ? documentDirectory : `${documentDirectory}/`;
+  if (!photoUri.startsWith(prefix)) return null;
+  const relativePath = photoUri.slice(prefix.length);
+  return isSafeGuestRelativePath(relativePath) ? relativePath : null;
+}
+
+export async function retryPhotoCleanups(
+  cleanups: ReadonlyArray<PendingPhotoCleanup>,
+  ownerKey: string,
+  documentDirectory: string | null | undefined,
+  deleteAsync: DeleteAsyncFn,
+  deleteStorage: (userId: string, itemId: string) => Promise<void>,
+): Promise<PendingPhotoCleanup[]> {
+  const remaining: PendingPhotoCleanup[] = [];
+  for (const cleanup of cleanups) {
+    if (cleanup.ownerKey !== ownerKey) {
+      remaining.push(cleanup);
+      continue;
+    }
+    try {
+      if (ownerKey === 'guest') {
+        if (!cleanup.guestPath || !isSafeGuestRelativePath(cleanup.guestPath) || !documentDirectory) {
+          throw new Error('Guest photo cleanup path is unavailable');
+        }
+        const prefix = documentDirectory.endsWith('/') ? documentDirectory : `${documentDirectory}/`;
+        await deleteGuestPhoto(`${prefix}${cleanup.guestPath}`, documentDirectory, deleteAsync);
+      } else {
+        if (!isSafePathSegment(ownerKey) || !isSafePathSegment(cleanup.itemId)) {
+          throw new Error('Storage photo cleanup path is invalid');
+        }
+        await deleteStorage(ownerKey, cleanup.itemId);
+      }
+    } catch {
+      remaining.push(cleanup);
+    }
+  }
+  return remaining;
+}
+
 /**
  * Builds the destination path for a guest photo being copied into
  * documentDirectory during the add-item save flow.
@@ -55,7 +148,7 @@ export async function deleteGuestPhoto(
   documentDirectory: string | null | undefined,
   deleteAsync: DeleteAsyncFn
 ): Promise<void> {
-  if (photoUri && documentDirectory && photoUri.startsWith(documentDirectory)) {
+  if (photoUri && getGuestPhotoRelativePath(photoUri, documentDirectory) !== null) {
     await deleteAsync(photoUri, { idempotent: true });
   }
 }
