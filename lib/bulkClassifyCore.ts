@@ -12,6 +12,7 @@
 
 import type { ItemCategory, OccasionTag, SeasonTag } from '@/constants/types';
 import { shortUriHash, type StagedBulkPhoto } from '@/lib/bulkPhotoStaging';
+import { isContentGuardrailError, isTransientClassificationError } from '@/lib/classificationRefusal';
 
 // ─── Types (previously local to bulk-review.tsx) ──────────────────────────────
 
@@ -45,9 +46,22 @@ export interface BulkItemCore {
   autoSavedId?: string;
   failureStage?: ClassifyFailureStage;
   diagnostic?: PhotoPrepareDiagnostic;
+  retryable?: boolean;
 }
 
 export type ClassifyFailureStage = 'photo-preparation' | 'classification';
+
+export function selectBulkProgress(items: BulkItemCore[]) {
+  const visible = items.filter(item => item.status !== 'removed');
+  const classifiedCount = visible.filter(item => ['settled', 'saving', 'saved', 'local-only'].includes(item.status)).length;
+  const failedCount = visible.filter(item => item.status === 'error').length;
+  const refusedCount = visible.filter(item => item.status === 'refused').length;
+  const totalCount = visible.length;
+  return {
+    classifiedCount, failedCount, refusedCount, totalCount,
+    progressRatio: totalCount ? (classifiedCount + failedCount + refusedCount) / totalCount : 0,
+  };
+}
 
 export interface PhotoPrepareDiagnostic {
   stage: 'image-resize' | 'background-removal' | 'classification';
@@ -180,6 +194,8 @@ export interface RedirectSingleDeps {
   replace(params: any): void;
   /** Opaque in-memory lookup key for a photo staged before the bulk route. */
   bulkSelectionId: string;
+  /** A borrowed batch photo opened for manual entry; keep the review underneath. */
+  manualPhotoIndex?: number;
 }
 
 // ─── Core functions ───────────────────────────────────────────────────────────
@@ -199,7 +215,7 @@ export async function runClassifyUri(
   if (!mountedRef.current) return;
   deps.setItems(prev =>
     prev.map(it => it.uri === uri
-      ? { ...it, status: 'classifying', failureStage: undefined, diagnostic: undefined }
+      ? { ...it, status: 'classifying', failureStage: undefined, diagnostic: undefined, retryable: undefined }
       : it),
   );
 
@@ -270,6 +286,12 @@ export async function runClassifyUri(
     deps.onHaptic();
   } catch (error) {
     if (!mountedRef.current) return;
+    if (diagnosticStage === 'classification' && isContentGuardrailError(error)) {
+      deps.setItems(prev => prev.map(it => it.uri === uri
+        ? { ...it, status: 'refused', retryable: false, failureStage: undefined, diagnostic: undefined }
+        : it));
+      return;
+    }
     let diagnostic = deps.diagnostics?.enabled
       ? createPhotoPrepareDiagnostic(uri, error, {
         stage: diagnosticStage,
@@ -311,7 +333,8 @@ export async function runClassifyUri(
     if (diagnostic) deps.onDiagnostic?.(diagnostic);
     deps.setItems(prev =>
       prev.map(it => it.uri === uri
-        ? { ...it, status: 'error', failureStage, diagnostic }
+        ? { ...it, status: 'error', failureStage, diagnostic,
+          retryable: diagnosticStage !== 'image-resize' && isTransientClassificationError(error) }
         : it),
     );
   }
@@ -616,6 +639,19 @@ export function runRedirectSingle(
   if (singleRedirectedRef.current) return;
   if (!mountedRef.current) return;
   singleRedirectedRef.current = true;
+
+  if (deps.manualPhotoIndex !== undefined) {
+    deps.replace({
+      pathname: '/add-item',
+      params: {
+        bulkSelectionId: deps.bulkSelectionId,
+        bulkPhotoIndex: String(deps.manualPhotoIndex),
+        manualEntry: 'true',
+        returnToBulk: 'true',
+      },
+    });
+    return;
+  }
 
   if (settled && item.classification) {
     const c = item.classification;

@@ -461,3 +461,28 @@ Final verification: `npm test` — 100 passed, 0 failed; `npm run typecheck` and
 queue, resize arguments, and provider behavior were not changed. The native
 Android journey is still outstanding; use the four-step script in
 `BULK_PREPARE_DIAGNOSTIC_REPORT.md` with the current build stamp.
+
+## 23. MATCHING PAIRS AND CALM CLASSIFIER REFUSALS
+
+The user confirmed bulk photo preparation is fixed. The subsequent sneaker-pair
+failure is a real classifier HTTP 422: four identical PNG payloads were refused
+by resolved `gemini-3.5-flash-lite`, not the fallback model. A prompt rule added
+2026-09-29 conflated multiple garments with valid pairs/coordinated sets.
+
+Only classifier guardrail wording changed: matching pairs and coordinated sets
+worn as one unit are valid single items; unrelated piles/full outfit flat-lays
+without a dominant item may be refused. Other guardrails, schema, fields,
+temperature, models and post-processing are unchanged.
+
+Bulk and single entry now show fixed calm refusal copy, never raw provider
+reasons. Bulk refusals have Add manually/Remove, no retry, and “needs attention”
+counts. Manual entry preserves the surrounding batch and skips classification.
+Transient network/timeout/429/5xx failures retain Retry. Staging/copy/resize,
+provider image preparation, frozen engine, Phase A and P1.3 were not changed.
+
+Checks: full suite 101 passed; Engine v3.7 golden set 35 passed; typecheck and
+lint pass. A production Android JS export succeeded; the stamp and diagnostic
+render calls are removed in release mode (formatter utility strings remain,
+without UI callers). Physical device/model-accuracy validation is not claimed.
+See `reports/classifier-pairs-refusal.md` for the pre-change evidence, caveats,
+release verification and four-step device script.

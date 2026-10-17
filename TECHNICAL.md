@@ -319,7 +319,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               100 test suites (see §11)
+__tests__/               101 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -431,7 +431,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 100 test suites once |
+| `npm test` | Run all 101 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -532,6 +532,8 @@ The original full-resolution asset is never sent over the network. Both resize c
 
 ### Gemini Garment Classification
 A resized base64 image (≤1024 px, ~100–300 KB) is sent to `POST /api/classify-garment`. Gemini classifies the item into category, subType, colourFamily, fabric, pattern, fit, neckline, sleeveLength, rise, warmthBand, and returns a dominant RGB for perceptual colour scoring. The server applies deterministic occasion and season rules on top of Gemini's output for consistency. Two-model fallback: `gemini-flash-lite-latest` → `gemini-2.5-flash` on 429. The primary remains a rolling alias because a pinned Flash-Lite probe returned HTTP 404 here; real-photo scoring must have a provider-resolved model version or fail closed. Content guardrails reject selfies, blurry images, non-clothing subjects. Safe structured classification logs include a generated ID, SHA-256/size/MIME, model/attempt/status, prompt SHA-256, stage and error code, but never raw image or provider content.
+
+Matching pairs and coordinated sets worn as a unit count as one item. Multiple-garment refusal applies only to unrelated garments without a dominant item; uncertain multiplicity favors classifying the dominant item. HTTP 422 `content_guardrail` is a non-retryable result with fixed calm client copy and manual entry, not a transient failed analysis. The original five content guardrails and stole/textile safeguards remain in force. See `reports/classifier-pairs-refusal.md`.
 
 **RGB/colourFamily consistency validation:** `processGeminiResult` validates that `dominantRgb`-derived HSL is consistent with the stated `colorFamily` before storing perceptual colour values. Truly achromatic families (`black`, `white`, `grey`) are checked for saturation contamination (threshold: 0.25). All other families are checked for hue distance against a centroid lookup (threshold: 40°). When the RGB is inconsistent — e.g. because background contamination skewed the sampled pixel — both `dominantHsl` and `dominantLab` are corrected to the family centroid rather than discarding the classification. Image-derived colour/hue/saturation values are not logged; the existing safe structured classification diagnostics remain. The `colorFamily` label itself is never changed. Constants: `DOMINANT_RGB_HUE_THRESHOLD_DEG = 40`, `DOMINANT_RGB_ACHROMATIC_SAT_THRESHOLD = 0.25`, `SERVER_FAMILY_CENTROID_HSL` (18-family lookup).
 
@@ -1083,7 +1085,7 @@ Two-screen flow for digitising an entire wardrobe section in one session: up to 
 - Stack presentation (`FADE_OPTIONS`)
 - `StatusBar style="dark"`, no `SwipeToDismiss` (back arrow in header handles dismissal)
 - Resolves the selection ID from `useLocalSearchParams` and initializes `BulkItem[]` from the in-memory store. A missing/expired ID displays a calm recovery message instead of starting preparation.
-- Item statuses: `pending → classifying → settled → saving → saved` (or `error`, `removed`). Errors retain a coarse failure stage (`photo-preparation` or `classification`) for truthful retry copy.
+- Item statuses: `pending → classifying → settled → saving → saved` (or `refused`, `error`, `removed`). HTTP 422 `content_guardrail` is a non-retryable refusal, not a failed analysis. Other errors retain their coarse failure stage and retryability.
 - In development, the picker records hashed URI identity, filename length, MIME type, dimensions, and source/staged file existence and size. A resize failure adds current-file metadata, URI equality, and elapsed time to the card and `[bulk:prepare]` console diagnostic; full paths, bytes, and credentials are not logged.
 
 **Parallel classification (staggered, 150 ms apart):**
@@ -1104,6 +1106,7 @@ Two-screen flow for digitising an entire wardrobe section in one session: up to 
 
 **Progress header:**
 - Successful analysis count is shown separately from failed items (for example, "0 of 2 analysed · 2 failed"); the 2 pt progress track fills as each item settles or fails
+- Refusals instead show “needs attention” with fixed Amodka copy, Add manually and Remove, never provider reasons. Retry is reserved for transient classification errors. Manual entry pushes the existing single Add Item route with an opaque selection ID and photo index; it skips classification and borrows, rather than cleans, the live batch source. Cancel returns to the unchanged batch. Only an acknowledged manual save returns a success index and removes that card from the review without deleting its wardrobe row.
 
 **Batch save (`Save N Items to Wardrobe` footer CTA):**
 1. Iterates over all `settled` items sequentially
@@ -1308,7 +1311,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (100 total)
+### Test Suites (101 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1347,6 +1350,7 @@ These features are **not yet implemented**. They are the next development priori
 | `bulkSaveNoShrunk.test.ts` | Missing/null/data-URI `shrunk.base64` never silently drops a bulk-upload item; `addItem` always fires with the local URI as fallback when `resolveUploadArg` returns null |
 | `cancelDialogMessages.test.ts` | `selectCancelDialogBody()` branch selection across all batch states: all-settled → null, in-progress + no auto-saved → running message, in-progress + auto-saved → auto-saved-wins message |
 | `classifyGarment.test.ts` | `processGeminiResult` parsing, field validation (subType, colorFamily, modelConfidence), colour conversion helpers, edge cases (empty `{}`, null subType, mismatched category, boundary `modelConfidence`) |
+| `classifierRefusal.test.ts` | Non-retryable 422 refusals versus transient/permanent errors, calm mounted notice/dialog actions, ID-only manual batch handoff, truthful progress counters and release-mode diagnostic/stamp render elimination |
 | `classifyGarmentIntegration.test.ts` | HTTP-layer tests for `POST /api/classify-garment`: 400 for missing/ambiguous image input, 500 for absent `GEMINI_API_KEY`, 429 after aiLimiter cap, JSON response shape |
 | `forgotPasswordSilent.test.ts` | Actual `requestPasswordReset()` contract: acknowledged response, redirects, network/non-JSON/malformed response failures, email normalisation |
 | `getProfileBlueprint.test.ts` | Algorithm tests calling `buildProfileBlueprintSlots()` directly (no mocking) |

@@ -218,10 +218,20 @@ assert(
   'GU-39 supports a worn stole but refuses loose Kente textile',
 );
 assert(
-  GEMINI_PROMPT.includes('multiple independent garments as a set')
-    && GEMINI_PROMPT.includes('return a refusal asking for separate garment photos'),
-  'multi-garment sets are not forced into an unsupported subtype',
+  GEMINI_PROMPT.includes('matching pair (shoes, sandals, boots, earrings, gloves, socks)')
+    && GEMINI_PROMPT.includes('coordinated set worn as a unit')
+    && GEMINI_PROMPT.includes('count as ONE item and must be classified')
+    && GEMINI_PROMPT.includes('classify the dominant item instead of refusing'),
+  'matching pairs and coordinated sets are one item, with dominant-item fallback',
 );
+for (const rule of [
+  '- Blurry, too dark, or unreadable',
+  '- No clothing item visible (blank wall, furniture, food, scenery, etc.)',
+  "- A selfie or portrait where the person's face is the main subject",
+  '- Explicit, inappropriate, or sexually suggestive content',
+  '- Animals, pets, or non-fashion subjects',
+  'Several unrelated garments with no single item clearly dominating',
+]) assert(GEMINI_PROMPT.includes(rule), `preserves guardrail: ${rule}`);
 
 {
   const r = processGeminiResult({

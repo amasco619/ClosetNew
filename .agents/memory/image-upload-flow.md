@@ -13,4 +13,6 @@ description: Storage/row identity, safe bulk picker handoff, and staged-source c
 
 **Why:** Expo SDK 57 and package history did not explain the native Android bitmap decode failure; the bulk/single difference was carrying temporary picker URIs through Expo Router. The exact native root cause remains unproven, so staging is the reliable boundary rather than a claim about decoder internals.
 
+The user subsequently confirmed that bulk preparation works with staging. Later footwear refusals occurred in the classifier after successful preparation; do not conflate semantic HTTP 422 refusals with bitmap/staging failures.
+
 **How to apply:** Any future flow that adds a wardrobe item with an image should pre-generate the itemId, upload, then pass the same id to addWardrobeItem. For multi-photo selection, stage before route changes, navigate by ID, and clean only after confirmed persistence or explicit unreferenced cancellation.

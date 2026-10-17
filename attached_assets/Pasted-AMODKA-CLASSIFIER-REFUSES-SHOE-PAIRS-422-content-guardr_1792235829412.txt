@@ -1,0 +1,83 @@
+AMODKA — CLASSIFIER REFUSES SHOE PAIRS (422 content_guardrail) + 
+CALMER REFUSAL EXPERIENCE
+
+EVIDENCE
+- Bulk: a top-down photo of a pair of white sneakers is refused 4 out of 4 
+  attempts (first position, second position, and retry) with HTTP 422 
+  {"error":"content_guardrail","reason":"..."}. The reason text varies per 
+  attempt ("multiple independent garments as a set...", "a pair of items 
+  as a set rather than one supported individual garment...", "...please 
+  photograph them separately"). ~6-7 s elapsed, so a real model call.
+- The same photo classified fine in single Add Item ("white new balance 
+  sneakers"). Pairs of loafers and ankle boots classified fine in earlier 
+  runs. Other photos in the same batches classify fine.
+- The bulk "could not prepare photo" failure is fixed. Do not touch the 
+  staging/resize work.
+
+TASK 1 — WHAT CHANGED / WHAT DIFFERS (report; no code changes yet)
+a) In the live server/classify-garment.ts, show the exact prompt text 
+   and any post-processing that can produce a "refused" result, 
+   especially any rule about multiple garments, sets or pairs. Use 
+   git log/blame to say when it was added or changed. Note that the 
+   schema includes set-type subtypes (e.g. "linen-set"), which implies 
+   sets are valid items.
+b) Models: using server logs, compare the failing bulk requests with the 
+   successful single-add request for the same photo: model id actually 
+   used (flash-lite alias vs gemini-2.5-flash fallback), MIME, byte 
+   count, image hash, elapsed, status. State whether gemini-flash-lite-
+   latest is a moving alias and when it last changed behaviour, if 
+   known.
+c) Table every request field bulk sends versus single add, and the image 
+   differences (dimensions from the width-only resize vs the 
+   longest-edge resize, staged copy, trimmed cutout size).
+d) Optional: if the repo has footwear-pair or multi-item benchmark 
+   images, run each through the classifier function 5 times and report 
+   the refusal rate. If not, say so; do not invent results.
+
+TASK 2 — FIX THE GUARDRAIL (change only the guardrail wording)
+- Edit only the guardrail section of the classifier prompt. Keep the JSON 
+  schema, field names, temperature and model list unchanged.
+- State explicitly that these count as ONE item and must be classified: 
+  a matching pair (shoes, sandals, boots, earrings, gloves, socks) and a 
+  coordinated set worn as a unit (e.g. a two-piece set).
+- Refuse for "multiple garments" only when several unrelated garments are 
+  shown and no single item clearly dominates (a pile, or a full outfit 
+  flat-lay). When in doubt, classify the dominant item instead of 
+  refusing.
+- Keep the other guardrails exactly (blurry/unreadable, no clothing, 
+  selfie/face-focused, explicit content, animals/non-fashion).
+- Add tests that the prompt text contains the pair/set rule and still 
+  contains every other guardrail. Keep all existing tests passing.
+
+TASK 3 — REFUSAL EXPERIENCE (bulk + single)
+- Treat an HTTP 422 content_guardrail refusal as different from a 
+  failure. A refusal is not retryable.
+- Bulk card for a refusal: no "Tap to retry". Show OUR OWN calm copy, never 
+  the raw reason or JSON, e.g. title "We couldn't read this photo", line 
+  "Try a clearer photo of a single piece, or add its details yourself." 
+  Two actions: "Add manually" (opens single Add Item with this photo and 
+  manual entry, reusing the existing one-photo redirect mechanism with 
+  classification skipped) and "Remove".
+- Keep "Tap to retry" only for transient failures (network, timeout, 
+  429, 5xx).
+- Header counter: don't count refusals as "failed"; use e.g. "3 of 4 
+  analysed · 1 needs attention".
+- Single add: if it currently shows a native-style "Photo not accepted" 
+  alert with the raw reason, use the app's dialog component with the same 
+  calm copy instead.
+- Dev-only diagnostic text stays dev-only.
+
+TASK 4 — PRE-LAUNCH CHECK (report only)
+Confirm the dev-only diagnostic text and the build stamp cannot render 
+when __DEV__ is false (code reading, plus a release-style bundle check if 
+possible).
+
+DELIVERABLE
+Report with Task 1 findings (including whether the prompt or the model 
+alias is the likely cause), what changed, test results, and a device 
+script: (1) bulk with sneakers + loafers + boots + a shirt, expecting all 
+four to classify; (2) the sneakers in single add three times; (3) a 
+deliberately unsuitable photo in bulk (a pile of clothes or a wall), 
+expecting the calm refusal card with Add manually/Remove; (4) airplane 
+mode in bulk, expecting a retry card. Don't claim anything verified that 
+you did not run.

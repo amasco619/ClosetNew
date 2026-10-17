@@ -491,3 +491,17 @@ mtime_ms = 1792234351518
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/e7e26401-145a-4774-8e3a-2cdfea5938de/fd36530e-f862-4c22-851d-08d568735ea1"
 storage_version_token = "1792234356033543"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "izJ811i3Toi3W0r-f-JbH"
+uri = "file://reports/classifier-pairs-refusal.md"
+type = "text"
+title = "Classifier pairs and refusal report"
+description = "Pre-change prompt/history and telemetry findings, constrained patch, exact test results, release-bundle checks and four-step phone script."
+logical_id = "113c65c6-c202-4742-93a0-23bbb07fb81f"
+content_hash = "sha256:b2b3503eb3a6473c199c61c1b981cfeac6b289e96f1a886d1569f3527ec5db5f"
+size = 14992
+mtime_ms = 1792237121145
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/113c65c6-c202-4742-93a0-23bbb07fb81f/27685cfe-4bd4-4fe8-abc1-6dee25b22989"
+storage_version_token = "1792237133431361"
+content_type = "text/markdown"

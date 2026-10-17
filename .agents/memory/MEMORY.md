@@ -5,6 +5,7 @@
 - [Gemini extended clothing fields](gemini-clothing-fields.md) — Gemini prompt returns fit/neckline/sleeveLength/rise/warmthBand; applied before subtype inference in add-item.tsx.
 - [Supabase direct client pattern](supabase-direct-client.md) — use publishable keys for user-facing data/Auth and reserve the secret key for admin-only operations.
 - [Image upload and transient bulk staging](image-upload-flow.md) — align Storage/row IDs; stage picker files before routing and retain sources until confirmed save.
+- [Classifier item boundary](classifier-item-boundary.md) — matching pairs and coordinated worn sets are one item; distinguish semantic refusals from preparation failures.
 - [TECHNICAL.md must stay current](technical-md-discipline.md) — user requires every merged task be reflected in TECHNICAL.md immediately; task agents do not do this automatically.
 - [Node.js test isolation for RN modules](node-test-rn-isolation.md) — lib/supabase.ts and lib/query-client.ts import react-native/expo; use dynamic import + _testOverrides pattern to keep them out of the static dep graph.
 - [_testOverrides mutable export pattern](test-overrides-pattern.md) — export const _testOverrides = {} and mutate its properties to bypass auth/I-O in tests; avoids ESM getter-only reassignment issues.

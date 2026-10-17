@@ -26,6 +26,8 @@ import { supabase } from '../lib/supabase';
 import { rs } from '../lib/responsive';
 import { selectedSingleAsset } from '../lib/imagePickerSelection';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
+import { PhotoRefusalDialog } from '@/components/PhotoRefusalNotice';
+import { isContentGuardrailError } from '@/lib/classificationRefusal';
 import { GarmentTile } from '@/components/GarmentTile';
 import {
   getAiProcessingPreference,
@@ -120,12 +122,6 @@ const asSleeve        = (v?: string): SleeveLength | undefined  => v && (SLEEVES
 const asRise          = (v?: string): Rise | undefined          => v && (RISES           as readonly string[]).includes(v) ? v as Rise          : undefined;
 const asWarmth        = (v?: string): WarmthBand | undefined    => v && (WARMTHS         as readonly string[]).includes(v) ? v as WarmthBand    : undefined;
 
-class ContentGuardrailError extends Error {
-  constructor(public reason: string) {
-    super('content_guardrail');
-  }
-}
-
 // ─── Save stage tracking ──────────────────────────────────────────────────────
 
 const SAVE_STAGES = [
@@ -173,6 +169,9 @@ export default function AddItemScreen() {
   const {
     initialUri,
     bulkSelectionId,
+    bulkPhotoIndex,
+    manualEntry,
+    returnToBulk,
     preClassified,
     replaceItemId,
     pcCategory,
@@ -196,6 +195,9 @@ export default function AddItemScreen() {
   } = useLocalSearchParams<{
     initialUri?: string;
     bulkSelectionId?: string;
+    bulkPhotoIndex?: string;
+    manualEntry?: string;
+    returnToBulk?: string;
     preClassified?: string;
     replaceItemId?: string;
     pcCategory?: string;
@@ -219,9 +221,11 @@ export default function AddItemScreen() {
   }>();
 
   const stagedSelection = getBulkPhotoSelection(bulkSelectionId);
-  const stagedBulkPhoto = stagedSelection?.photos.length === 1
-    ? stagedSelection.photos[0]
-    : undefined;
+  const selectedBulkIndex = bulkPhotoIndex !== undefined && /^\d+$/.test(bulkPhotoIndex)
+    ? Number(bulkPhotoIndex) : undefined;
+  const stagedBulkPhoto = selectedBulkIndex !== undefined
+    ? stagedSelection?.photos[selectedBulkIndex]
+    : stagedSelection?.photos.length === 1 ? stagedSelection.photos[0] : undefined;
   const resolvedInitialUri = initialUri ?? stagedBulkPhoto?.uri ?? null;
   const missingStagedSelection = Boolean(bulkSelectionId && !stagedBulkPhoto);
 
@@ -299,7 +303,8 @@ export default function AddItemScreen() {
   const [occasions,       setOccasions]       = useState<OccasionTag[]>(initOccasions);
   const [seasons,         setSeasons]         = useState<SeasonTag[]>(initSeasons);
   const [purchasePrice,   setPurchasePrice]   = useState('');
-  const [step,            setStep]            = useState(hasPreClassified && !replaceItemId ? 1 : 0);
+  const [step,            setStep]            = useState((hasPreClassified || (manualEntry === 'true' && resolvedInitialUri)) && !replaceItemId ? 1 : 0);
+  const [showPhotoRefusal, setShowPhotoRefusal] = useState(false);
   const [pattern,         setPattern]         = useState<string | undefined>(hasPreClassified && pcPattern ? pcPattern : undefined);
   const [patternScale,    setPatternScale]    = useState<string | undefined>(hasPreClassified && pcPatternScale ? pcPatternScale : undefined);
   const [fabric,          setFabric]          = useState<string | undefined>(hasPreClassified && pcFabric ? pcFabric : undefined);
@@ -336,7 +341,8 @@ export default function AddItemScreen() {
   }, [wardrobeItems]);
   useEffect(() => {
     const selectionId = bulkSelectionId;
-    if (!selectionId) return;
+    // A manual editor borrows a photo from the still-mounted batch review.
+    if (!selectionId || returnToBulk === 'true') return;
     return () => {
       if (stagedSaveActiveRef.current) return;
       const directoryUri = bulkStagingDirectoryUri(FileSystem.cacheDirectory);
@@ -346,7 +352,7 @@ export default function AddItemScreen() {
         protectedUris: protectedWardrobeUrisRef.current,
       });
     };
-  }, [bulkSelectionId]);
+  }, [bulkSelectionId, returnToBulk]);
   const [photoWidth,      setPhotoWidth]      = useState<number>(0);
   const [photoHeight,     setPhotoHeight]     = useState<number>(0);
   const [photoPrepareDiagnostic, setPhotoPrepareDiagnostic] = useState<PhotoPrepareDiagnostic | null>(null);
@@ -559,21 +565,7 @@ export default function AddItemScreen() {
           : undefined,
       };
     } catch (err: any) {
-      // apiRequest throws "<status>: {json body}" for non-2xx responses
-      const msg: string = err?.message ?? '';
-
-      if (msg.startsWith('422:')) {
-        try {
-          const body = JSON.parse(msg.slice(4).trim());
-          if (body?.error === 'content_guardrail') {
-            throw new ContentGuardrailError(
-              body.reason ?? 'This image could not be classified as a clothing item.'
-            );
-          }
-        } catch (parseErr) {
-          if (parseErr instanceof ContentGuardrailError) throw parseErr;
-        }
-      }
+      if (isContentGuardrailError(err)) throw err;
 
       // 429 (rate-limited / quota) or any other server error — signal caller
       throw new Error('classification_unavailable');
@@ -877,14 +869,10 @@ export default function AddItemScreen() {
 
           } catch (classifyErr: any) {
             if (requestId !== photoRequestRef.current) return;
-            if (classifyErr instanceof ContentGuardrailError) {
-              // Photo rejected — reset immediately with no flash (card disappears with the step)
+            if (isContentGuardrailError(classifyErr)) {
               setClassifying(false);
               setClassifyFlash('none');
-              setPhotoUri(null);
-              setPhotoBgRemoved(false);
-              setStep(0);
-              Alert.alert('Photo not accepted', classifyErr.reason);
+              setShowPhotoRefusal(true);
             } else {
               // API unavailable (quota, rate-limit, or server error) —
               // show error flash, then keep the photo so the user can fill in manually.
@@ -957,6 +945,7 @@ export default function AddItemScreen() {
   // ─── Save ─────────────────────────────────────────────────────────────────
 
   const cleanupStagedSelection = useCallback(async () => {
+    if (returnToBulk === 'true') return;
     const selectionId = stagedSelectionIdRef.current;
     const directoryUri = bulkStagingDirectoryUri(FileSystem.cacheDirectory);
     if (!selectionId || !directoryUri) return;
@@ -966,7 +955,7 @@ export default function AddItemScreen() {
     });
     stagedSelectionIdRef.current = null;
     stagedSourceUriRef.current = null;
-  }, []);
+  }, [returnToBulk]);
 
   const saveConfirmed = async () => {
     if (!photoUri) return;
@@ -1095,6 +1084,14 @@ export default function AddItemScreen() {
         await addWardrobeItem({ id: itemId, ...wardrobeItem });
       }
       uploadedPhoto = null;
+      if (returnToBulk === 'true' && bulkSelectionId && bulkPhotoIndex !== undefined) {
+        stagedSaveActiveRef.current = false;
+        router.dismissTo({
+          pathname: '/bulk-review',
+          params: { selectionId: bulkSelectionId, manualSavedPhotoIndex: bulkPhotoIndex },
+        });
+        return;
+      }
       try {
         await cleanupStagedSelection();
       } catch {
@@ -1939,6 +1936,16 @@ export default function AddItemScreen() {
         busy={savingAiPreference}
         onAllow={allowAiForCurrentPhoto}
         onCancel={declineAiForCurrentPhoto}
+      />
+      <PhotoRefusalDialog
+        visible={showPhotoRefusal}
+        onManual={() => { setShowPhotoRefusal(false); setStep(1); }}
+        onChoosePhoto={() => {
+          setShowPhotoRefusal(false);
+          setPhotoUri(null);
+          setPhotoBgRemoved(false);
+          setStep(0);
+        }}
       />
     </View>
     </SwipeToDismiss>

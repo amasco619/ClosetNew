@@ -684,6 +684,9 @@ If the image is ANY of the following, do NOT classify — return a refusal:
 - A selfie or portrait where the person's face is the main subject
 - Explicit, inappropriate, or sexually suggestive content
 - Animals, pets, or non-fashion subjects
+- Several unrelated garments with no single item clearly dominating (a pile of clothes or a full outfit flat-lay).
+
+A matching pair (shoes, sandals, boots, earrings, gloves, socks) and a coordinated set worn as a unit (e.g. a two-piece set) count as ONE item and must be classified, not refused for containing multiple pieces. For multiple garments, refuse only when they are unrelated and no single item clearly dominates. When in doubt about multiple garments, classify the dominant item instead of refusing. Use the existing supported schema; do not invent a new set subtype.
 
 If a guardrail is triggered, return ONLY this JSON:
 { "refused": true, "reason": "A brief plain-English reason the user will see, e.g. 'This looks like a selfie rather than a clothing item. Please photograph the garment on its own or on a hanger.'" }
@@ -712,7 +715,6 @@ African/Nigerian garment guidance:
 - Ankara/African wax print describes pattern, not silhouette: keep the garment's canonical subType and use pattern "wax-print".
 - For a clearly identifiable shoulder/neck stole (including a Kente or Kente-pattern stole), use category "jewelry" and subType "stole" with wearPosition "shoulder-neck". A garment on a hanger can qualify if its intended shoulder/neck use is clear. Do not use stole for bare Kente cloth, loose/decorative textile, a waist sash, a neck scarf, a lower-body wrapper or a gele/headwrap. Refuse loose/non-wearable textiles rather than treating them as jewelry.
 - "Kente" describes a textile tradition or visual motif, not the garment's cut or proof of authentic hand-weaving. Name a Kente or Kente-pattern stole only when visually justified; do not infer cotton or silk from its appearance, and never convert a Kente motif to pattern "wax-print". If the material or pattern cannot be identified independently, omit that field.
-- When a photo presents multiple independent garments as a set rather than one supported garment, do not invent a set subtype; return a refusal asking for separate garment photos.
 
 displayName (required): A concise human-readable name for the specific item, e.g. "Trench coat", "Floral midi dress", "Leather ankle boots". Use title case.
 

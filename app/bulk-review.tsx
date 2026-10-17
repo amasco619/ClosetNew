@@ -4,7 +4,7 @@ import {
   Dimensions, ActivityIndicator, Platform, BackHandler, AppState, Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useApp } from '@/contexts/AppContext';
 import { GarmentTile } from '@/components/GarmentTile';
+import { PhotoRefusalNotice } from '@/components/PhotoRefusalNotice';
 import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
 import BulkItemEditPanel from '@/components/BulkItemEditPanel';
 import Colors from '@/constants/colors';
@@ -30,6 +31,7 @@ import { supabase } from '@/lib/supabase';
 import {
   runClassifyUri,
   runRedirectSingle,
+  selectBulkProgress,
   runSaveAll,
   runHandleRemove,
   createSerialQueue,
@@ -81,6 +83,7 @@ type ItemStatus =
   | 'saved'
   | 'local-only'
   | 'error'
+  | 'refused'
   | 'removed';
 
 interface BulkItem {
@@ -90,6 +93,7 @@ interface BulkItem {
   classification: ClassifyResult | null;
   failureStage?: ClassifyFailureStage;
   diagnostic?: PhotoPrepareDiagnostic;
+  retryable?: boolean;
 }
 
 // ─── Type guards (mirrors add-item.tsx) ──────────────────────────────────────
@@ -142,12 +146,14 @@ function BulkCard({
   statusPhase,
   onRemove,
   onRetry,
+  onManual,
   onPress,
 }: {
   item: BulkItem;
   statusPhase: number;
   onRemove: (uri: string) => void;
   onRetry: (uri: string) => void;
+  onManual: (uri: string) => void;
   onPress?: () => void;
 }) {
   const isActive     = item.status === 'pending' || item.status === 'classifying';
@@ -156,6 +162,7 @@ function BulkCard({
   const isSaved      = item.status === 'saved';
   const isSaving     = item.status === 'saving';
   const isError      = item.status === 'error';
+  const isRefused    = item.status === 'refused';
 
   // Keep the clean PNG as a cache file and fall back to the source photo if the
   // cache entry is evicted. No image base64 is retained in item state.
@@ -235,7 +242,7 @@ function BulkCard({
                 : 'Item'}
             </Text>
           </Animated.View>
-        ) : (
+        ) : isRefused ? null : (
           <View key="shimmer-info">
             <View style={styles.shimmerTagRow}>
               <View style={styles.shimmerPill} />
@@ -262,7 +269,7 @@ function BulkCard({
         <View style={styles.cardBody}>{cardBody}</View>
       )}
 
-      {isError && (
+      {isError && item.retryable !== false && (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Retry garment analysis"
@@ -282,7 +289,15 @@ function BulkCard({
         </Pressable>
       )}
 
-      {!isSaved && (
+      {(isRefused || (isError && item.retryable === false)) && (
+        <PhotoRefusalNotice
+          title={isRefused ? undefined : 'Could not analyse this photo'}
+          onManual={() => onManual(item.uri)}
+          onRemove={() => onRemove(item.uri)}
+        />
+      )}
+
+      {!isSaved && !isRefused && (
         <Pressable
           onPress={() => onRemove(item.uri)}
           style={styles.removeBtn}
@@ -303,7 +318,10 @@ export default function BulkReviewScreen() {
   const insets = useSafeAreaInsets();
   const { addWardrobeItems, removeWardrobeItem, isPremium, wardrobeItems } = useApp();
 
-  const { selectionId } = useLocalSearchParams<{ selectionId: string }>();
+  const { selectionId, manualSavedPhotoIndex } = useLocalSearchParams<{
+    selectionId: string;
+    manualSavedPhotoIndex?: string;
+  }>();
   const [selectionSnapshot] = useState(() => ({
     selectionId,
     selection: getBulkPhotoSelection(selectionId),
@@ -317,6 +335,18 @@ export default function BulkReviewScreen() {
   const [items, setItems] = useState<BulkItem[]>(() =>
     uris.map(uri => ({ uri, status: 'pending' as ItemStatus, classification: null }))
   );
+  const manualRedirectedRef = useRef(false);
+  useFocusEffect(useCallback(() => { manualRedirectedRef.current = false; }, []));
+  useEffect(() => {
+    if (manualSavedPhotoIndex === undefined || !/^\d+$/.test(manualSavedPhotoIndex)) return;
+    const photo = getBulkPhotoSelection(selectionId)?.photos[Number(manualSavedPhotoIndex)];
+    if (photo) {
+      // Acknowledged manual saves leave the batch without deleting the saved wardrobe row.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile an explicit navigation result, not derived render state.
+      setItems(prev => prev.map(item => item.uri === photo.uri ? { ...item, status: 'removed' } : item));
+    }
+    router.setParams({ manualSavedPhotoIndex: undefined });
+  }, [manualSavedPhotoIndex, selectionId]);
   const [statusPhase, setStatusPhase] = useState(0);
   const [saving, setSaving] = useState(false);
   // URI-based identity for the open panel — stable across status transitions.
@@ -541,7 +571,6 @@ export default function BulkReviewScreen() {
     const item = items[0];
     if (!item) return;
     if (item.status === 'settled') redirectSingle(item, true);
-    else if (item.status === 'error') redirectSingle(item, false);
   }, [items, uris.length, redirectSingle, aiPreference]);
 
   // Effect 2: timeout guard — redirects without params if classification is
@@ -550,7 +579,7 @@ export default function BulkReviewScreen() {
     if (uris.length !== 1 || aiPreference !== 'allowed') return;
     const id = setTimeout(() => {
       const item = itemsRef.current[0];
-      if (item) redirectSingle(item, false);
+      if (item && (item.status === 'pending' || item.status === 'classifying')) redirectSingle(item, false);
     }, SINGLE_REDIRECT_TIMEOUT_MS);
     return () => clearTimeout(id);
   }, [uris.length, aiPreference, redirectSingle]);
@@ -648,11 +677,25 @@ export default function BulkReviewScreen() {
 
   const handleRetry = (uri: string) => {
     if (savingRef.current) return;
+    const item = itemsRef.current.find(current => current.uri === uri);
+    if (item?.status === 'refused' || item?.retryable === false) return;
     if (aiPreference !== 'allowed') {
       void enableAiForSelectedPhotos();
       return;
     }
     void classifyUri(uri);
+  };
+
+  const handleManual = (uri: string) => {
+    if (savingRef.current) return;
+    const photoIndex = getBulkPhotoSelection(selectionId)?.photos.findIndex(photo => photo.uri === uri) ?? -1;
+    const item = itemsRef.current.find(current => current.uri === uri);
+    if (!item || photoIndex < 0) return;
+    runRedirectSingle(item, false, mountedRef, manualRedirectedRef, {
+      bulkSelectionId: selectionId,
+      manualPhotoIndex: photoIndex,
+      replace: router.push,
+    });
   };
 
   // Patch a classification field on a single item (called from BulkItemEditPanel)
@@ -821,12 +864,7 @@ export default function BulkReviewScreen() {
   const displayTotal    = visibleItems.length;
   const settledCount    = items.filter(it => it.status === 'settled' || it.status === 'local-only').length;
   const localOnlyCount  = items.filter(it => it.status === 'local-only').length;
-  const classifiedCount = items.filter(it =>
-    ['settled','saving','saved','local-only'].includes(it.status)
-  ).length;
-  const failedCount = items.filter(it => it.status === 'error').length;
-  const totalCount      = visibleItems.length;
-  const progressRatio   = totalCount > 0 ? (classifiedCount + failedCount) / totalCount : 0;
+  const { classifiedCount, failedCount, refusedCount, totalCount, progressRatio } = selectBulkProgress(items);
   // Lock the CTA while any item is still pending/classifying.
   const hasClassifying  = aiPreference === 'allowed' && items.some(it => it.status === 'pending' || it.status === 'classifying');
   const canSaveAll      = settledCount > 0 && !saving && !hasClassifying;
@@ -887,7 +925,7 @@ export default function BulkReviewScreen() {
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Batch Review</Text>
           <Text style={styles.headerSub}>
-            {classifiedCount} of {totalCount} analysed{failedCount > 0 ? ` · ${failedCount} failed` : ''}
+            {classifiedCount} of {totalCount} analysed{refusedCount > 0 ? ` · ${refusedCount} needs attention` : ''}{failedCount > 0 ? ` · ${failedCount} failed` : ''}
           </Text>
         </View>
         <Pressable
@@ -1005,6 +1043,7 @@ export default function BulkReviewScreen() {
             statusPhase={statusPhase}
             onRemove={handleRemove}
             onRetry={handleRetry}
+            onManual={handleManual}
             onPress={() => {
               // Only settled/saving/saved items are editable; guard by status.
               const isEditable = item.status === 'settled'
