@@ -8,3 +8,9 @@ A matching pair (shoes, sandals, boots, earrings, gloves or socks) and a coordin
 **Why:** The user explicitly defines pairs and coordinated sets this way. A broad multiple-garment refusal rule contradicted existing set support and repeatedly rejected sneakers.
 
 **How to apply:** Preserve this item boundary in future prompt edits without inventing new taxonomy. Compare provider-resolved model versions, prompt hashes and actual submitted image hashes before blaming a rolling alias; different preprocessing can make the same original photo different provider payloads.
+
+Single and bulk uploads are equivalent entry routes: the user expects the same garment photo to receive consistent classification, including its colour, regardless of entry route.
+
+**Why:** The user reported joggers labelled lavender in bulk and grey in single entry and explicitly requested consistency.
+
+**How to apply:** Evaluate classification changes against both entry paths; do not introduce flow-specific colour rules or treat bulk as a different garment interpretation context.
