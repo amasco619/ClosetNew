@@ -519,3 +519,17 @@ mtime_ms = 1792265468119
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/aedbf668-b000-4814-90cc-57071d422a8d/97902ead-4f8e-408b-887d-99418fd6c697"
 storage_version_token = "1792265477334885"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "Ci0lYoAcQPQYrQVqhpOVd"
+uri = "file://docs/reports/upload-pipeline-cleanup.md"
+type = "text"
+title = "Upload pipeline cleanup report — A1–E6"
+description = "Changes, pixel-size comparison, test results, release-bundle checks, protected areas and remaining native-device limitations."
+logical_id = "6fb60f29-bda3-47a1-866a-6d6acb0e1fbb"
+content_hash = "sha256:5e521fba5941918eefb78b4a8a9e744acea36514ca193312c7f5d99b46d5368a"
+size = 9226
+mtime_ms = 1792268168086
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/6fb60f29-bda3-47a1-866a-6d6acb0e1fbb/2e45f1a2-ef5e-4e27-8423-aa0b7f1b40e8"
+storage_version_token = "1792268273183729"
+content_type = "text/markdown"
