@@ -15,15 +15,16 @@ import { canStartSwipeDismiss, shouldDismissSwipe } from '@/lib/swipeDismiss';
 interface SwipeToDismissProps {
   children: React.ReactNode;
   scrollTopRef: React.RefObject<number>;
+  onDismiss?: () => void;
 }
 
-export default function SwipeToDismiss({ children, scrollTopRef }: SwipeToDismissProps) {
+export default function SwipeToDismiss({ children, scrollTopRef, onDismiss }: SwipeToDismissProps) {
   const insets = useSafeAreaInsets();
   const translateY = useSharedValue(0);
   const dragOpacity = useSharedValue(1);
   const cancelledAtScrollOffsetRef = useRef(false);
 
-  const dismiss = () => router.back();
+  const dismiss = () => onDismiss ? onDismiss() : router.back();
 
   const panResponder = useMemo(() => {
     // eslint-disable-next-line react-hooks/refs -- PanResponder stores these callbacks; it reads the scroll ref only during gestures.
@@ -67,7 +68,7 @@ export default function SwipeToDismiss({ children, scrollTopRef }: SwipeToDismis
       onPanResponderTerminationRequest: () => scrollTopRef.current !== 0,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Reanimated SharedValues are stable animation targets; other mutable refs are listed.
-  }, [scrollTopRef, cancelledAtScrollOffsetRef]);
+  }, [scrollTopRef, cancelledAtScrollOffsetRef, onDismiss]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],

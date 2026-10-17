@@ -464,7 +464,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       false,
       mountedRef,
       singleRedirectedRef,
-      { replace: () => { callCount++; } },
+      { bulkSelectionId: 'test-selection', replace: () => { callCount++; } },
     );
 
     assert(callCount === 0,
@@ -493,13 +493,40 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       true,
       mountedRef,
       singleRedirectedRef,
-      { replace: (p: { pathname: string }) => { replacePathname = p.pathname; } },
+      { bulkSelectionId: 'test-selection', replace: (p: { pathname: string }) => { replacePathname = p.pathname; } },
     );
 
     assert(replacePathname === '/add-item',
       'replace called with /add-item pathname');
     assert(singleRedirectedRef.current,
       'latch engaged after first call');
+  }
+
+  section('runRedirectSingle — staged-photo handoff uses only the in-memory selection ID');
+  {
+    const mountedRef = { current: true };
+    const redirectedRef = { current: false };
+    let routeParams: Record<string, unknown> | undefined;
+    const classification: ClassifyResult = {
+      category: 'top',
+      subType: 't-shirt',
+      colorFamily: 'white',
+      description: 'test',
+      occasionTags: ['casual'],
+      seasonTags: ['all-season'],
+    };
+    runRedirectSingle(
+      makeItem({ status: 'settled', classification }),
+      true,
+      mountedRef,
+      redirectedRef,
+      {
+        bulkSelectionId: 'short-id-1234',
+        replace: (params: { params?: Record<string, unknown> }) => { routeParams = params.params; },
+      },
+    );
+    assert(routeParams?.bulkSelectionId === 'short-id-1234', 'redirect carries the opaque selection key');
+    assert(!('initialUri' in (routeParams ?? {})), 'redirect never serializes the staged file URI');
   }
 
   section('runRedirectSingle — 11. singleRedirectedRef latch prevents double navigation');
@@ -513,7 +540,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       false,
       mountedRef,
       singleRedirectedRef,
-      { replace: () => { callCount++; } },
+      { bulkSelectionId: 'test-selection', replace: () => { callCount++; } },
     );
 
     assert(callCount === 0,
@@ -527,8 +554,8 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
     let callCount = 0;
     const nav = () => { callCount++; };
 
-    runRedirectSingle(makeItem(), false, mountedRef, singleRedirectedRef, { replace: nav });
-    runRedirectSingle(makeItem(), false, mountedRef, singleRedirectedRef, { replace: nav });
+    runRedirectSingle(makeItem(), false, mountedRef, singleRedirectedRef, { bulkSelectionId: 'test-selection', replace: nav });
+    runRedirectSingle(makeItem(), false, mountedRef, singleRedirectedRef, { bulkSelectionId: 'test-selection', replace: nav });
 
     assert(callCount === 1,
       'router.replace called exactly once despite race');
@@ -582,6 +609,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       getSession: () => sessionD.promise,
       resize:     (_uri) => resizeD.promise,
       upload:     (_userId, _b64, _itemId, _mime) => uploadD.promise,
+      saveGuestImage: async (_base64, itemId) => `file:///documents/${itemId}.jpg`,
       resolveUploadArg: (clean, shrunk) => {
         const b = clean ?? shrunk;
         if (!b || b.startsWith('data:')) return null;
@@ -686,7 +714,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
     const d = makeDeferredSaveDeps();
 
     // Guest: no userId → skips upload entirely
-    const p = runSaveAll([makeSaveItem()], mountedRef, d.deps);
+    const p = runSaveAll([makeSaveItem({ cleanBase64: 'already-prepared' })], mountedRef, d.deps);
     await tick();
 
     d.resolveSession(null); // guest
@@ -704,6 +732,52 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'setSaving(true) fires at start');
     assert(d.setSavingValues[d.setSavingValues.length - 1] === false,
       'setSaving(false) fires at end');
+  }
+
+  section('runSaveAll — staged-file cleanup runs only after wardrobe commit acknowledgement');
+  {
+    const events: string[] = [];
+    let cleanupCalls = 0;
+    const deps: SaveAllDeps = {
+      generateId: () => 'stage-save-id',
+      getSession: async () => null,
+      resize: async () => { throw new Error('resize should not be needed'); },
+      saveGuestImage: async () => 'file:///documents/wardrobe-photo.jpg',
+      upload: async () => 'https://storage.example.com/photo.jpg',
+      resolveUploadArg: () => null,
+      addItems: async () => { events.push('commit'); },
+      setItems: () => undefined,
+      setSaving: () => undefined,
+      onItemHaptic: () => undefined,
+      onDoneHaptic: () => { events.push('done'); },
+      navigate: () => { events.push('navigate'); },
+      onSaved: async uris => {
+        cleanupCalls++;
+        assert(uris[0] === 'file:///photos/shirt.jpg', 'commit callback receives source staging URIs');
+        events.push('cleanup');
+      },
+    };
+    await runSaveAll(
+      [makeSaveItem({ cleanBase64: 'already-prepared' })],
+      { current: true },
+      deps,
+    );
+    assert(cleanupCalls === 1, 'confirmed batch commit triggers staging cleanup once');
+    assert(events.indexOf('commit') < events.indexOf('cleanup'), 'cleanup happens after commit acknowledgement');
+    assert(events.indexOf('cleanup') < events.indexOf('navigate'), 'cleanup completes before leaving review');
+
+    let failedCommitCleanupCalls = 0;
+    await runSaveAll(
+      [makeSaveItem({ cleanBase64: 'already-prepared' })],
+      { current: true },
+      {
+        ...deps,
+        addItems: async () => { throw new Error('commit rejected'); },
+        onSaved: () => { failedCommitCleanupCalls++; },
+        onSaveError: () => undefined,
+      },
+    );
+    assert(failedCommitCleanupCalls === 0, 'failed or ambiguous database saves retain their staged source files');
   }
 
   section('runSaveAll — 17. no unmount (happy path, authenticated): full upload + mutations fire');
@@ -780,7 +854,7 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       false,
       { current: false },
       { current: false },
-      { replace: () => {} },
+      { bulkSelectionId: 'test-selection', replace: () => {} },
     );
 
     console.error = originalError;

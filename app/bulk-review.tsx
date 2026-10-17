@@ -39,6 +39,12 @@ import {
   type ClassifyFailureStage,
   type PhotoPrepareDiagnostic,
 } from '@/lib/bulkClassifyCore';
+import {
+  bulkStagingDirectoryUri,
+  cleanupBulkPhotoSelection,
+  getBulkPhotoSelection,
+  removeBulkPhotoFromSelection,
+} from '@/lib/bulkPhotoStaging';
 import { rs } from '../lib/responsive';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
 import {
@@ -295,13 +301,18 @@ function BulkCard({
 
 export default function BulkReviewScreen() {
   const insets = useSafeAreaInsets();
-  const { addWardrobeItems, removeWardrobeItem, isPremium } = useApp();
+  const { addWardrobeItems, removeWardrobeItem, isPremium, wardrobeItems } = useApp();
 
-  const { uris: urisParam } = useLocalSearchParams<{ uris: string }>();
+  const { selectionId } = useLocalSearchParams<{ selectionId: string }>();
+  const [selectionSnapshot] = useState(() => ({
+    selectionId,
+    selection: getBulkPhotoSelection(selectionId),
+  }));
+  const selection = selectionSnapshot.selectionId === selectionId ? selectionSnapshot.selection : undefined;
+  const selectionMissing = !selectionId || !selection;
   const uris = useMemo<string[]>(() => {
-    try { return JSON.parse(urisParam || '[]'); }
-    catch { return []; }
-  }, [urisParam]);
+    return selection?.photos.map(photo => photo.uri) ?? [];
+  }, [selection]);
 
   const [items, setItems] = useState<BulkItem[]>(() =>
     uris.map(uri => ({ uri, status: 'pending' as ItemStatus, classification: null }))
@@ -369,14 +380,8 @@ export default function BulkReviewScreen() {
     }
   };
 
-  // Redirect if no URIs were passed — single-item redirect is handled below.
   useEffect(() => {
-    if (uris.length === 0) {
-      router.back();
-    }
-  }, [uris.length]);
-
-  useEffect(() => {
+    if (selectionMissing) return;
     let active = true;
     getAiProcessingPreference().then(preference => {
       if (!active) return;
@@ -388,7 +393,7 @@ export default function BulkReviewScreen() {
       setAiPreferenceError('Your AI preference could not be checked. These photos have not been sent.');
     });
     return () => { active = false; };
-  }, []);
+  }, [selectionMissing]);
 
   // ─── Single-item redirect ──────────────────────────────────────────────────
   // When exactly one URI is passed, let classification run and redirect to
@@ -419,19 +424,44 @@ export default function BulkReviewScreen() {
     return () => { mountedRef.current = false; };
   }, []);
 
+  const leaveReview = useCallback(async () => {
+    const directoryUri = bulkStagingDirectoryUri(FileSystem.cacheDirectory);
+    if (selectionId && directoryUri) {
+      const protectedUris = new Set(wardrobeItems.map(item => item.photoUri));
+      itemsRef.current.forEach(item => {
+        if (item.status === 'local-only' || (item.status as string) === 'pending-upload') {
+          protectedUris.add(item.uri);
+        }
+      });
+      const summary = await cleanupBulkPhotoSelection(selectionId, directoryUri, {
+        delete: uri => FileSystem.deleteAsync(uri, { idempotent: true }),
+        protectedUris,
+      });
+      if (__DEV__) {
+        const remaining = await FileSystem.readDirectoryAsync(directoryUri).catch(() => null);
+        console.info('[bulk:staging] cancel-cleanup', {
+          deletedCount: summary.deletedCount,
+          retainedCount: summary.retainedCount,
+          remainingFileCount: remaining?.length ?? null,
+        });
+      }
+    }
+    router.back();
+  }, [selectionId, wardrobeItems]);
+
   // Cancel with confirmation when classification is still in progress.
   // If all items have already settled (or errored), exit immediately — there
   // is nothing destructive about leaving at that point.
   const handleCancel = useCallback(() => {
     if (aiPreference !== 'allowed') {
-      router.back();
+      void leaveReview();
       return;
     }
     const hasInProgress = items.some(
       it => it.status === 'pending' || it.status === 'classifying'
     );
     if (!hasInProgress) {
-      router.back();
+      void leaveReview();
       return;
     }
     Alert.alert(
@@ -442,29 +472,25 @@ export default function BulkReviewScreen() {
         {
           text: 'Cancel',
           style: 'destructive',
-          onPress: () => router.back(),
+          onPress: () => { void leaveReview(); },
         },
       ]
     );
-  }, [items, aiPreference]);
+  }, [items, aiPreference, leaveReview]);
 
   // Block the Android hardware back button while saving is in progress so the
   // user cannot navigate away mid-save and leave orphaned wardrobe entries.
   // While classification is still running, show the same confirmation dialog
   // that the Cancel button triggers so no path silently discards pending results.
   useEffect(() => {
-    const hasInProgress = items.some(
-      it => it.status === 'pending' || it.status === 'classifying'
-    );
-    if (!saving && !hasInProgress) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (saving) return true; // fully blocked while save is running
-      // Classification in progress — show confirmation then block the default back
+      // Route every hardware-back exit through staged-file cleanup.
       handleCancel();
       return true;
     });
     return () => sub.remove();
-  }, [saving, items, handleCancel]);
+  }, [saving, handleCancel]);
 
   // When the app returns to the foreground mid-save, re-sync the React saving
   // state from the ref.  AppState changes trigger a re-render; without this,
@@ -503,8 +529,11 @@ export default function BulkReviewScreen() {
   const SINGLE_REDIRECT_TIMEOUT_MS = 12_000;
 
   const redirectSingle = useCallback((item: BulkItem, settled: boolean) => {
-    runRedirectSingle(item, settled, mountedRef, singleRedirectedRef, { replace: router.replace });
-  }, []);
+    runRedirectSingle(item, settled, mountedRef, singleRedirectedRef, {
+      replace: router.replace,
+      bulkSelectionId: selectionId,
+    });
+  }, [selectionId]);
 
   // Effect 1: watch items; redirect as soon as the sole item settles or errors.
   useEffect(() => {
@@ -538,6 +567,7 @@ export default function BulkReviewScreen() {
   // Core guard logic lives in lib/bulkClassifyCore.runClassifyUri (tested directly in Node).
   const classifyUri = useCallback(async (uri: string) => {
     if (aiPreference !== 'allowed') return;
+    const stagedPhoto = selection?.photos.find(photo => photo.uri === uri);
     await runClassifyUri(uri, mountedRef, {
       resize: (u) => imageResizeQueue(() => {
         if (!mountedRef.current) return Promise.resolve(null);
@@ -547,7 +577,15 @@ export default function BulkReviewScreen() {
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
         );
       }),
-      diagnostics: { enabled: __DEV__, usedSerialResizeQueue: true },
+      diagnostics: {
+        enabled: __DEV__,
+        usedSerialResizeQueue: true,
+        stagedPhoto,
+        inspectUri: async currentUri => {
+          const info = await FileSystem.getInfoAsync(currentUri);
+          return info.exists ? { exists: true, size: info.size } : { exists: false };
+        },
+      },
       onDiagnostic: diagnostic => {
         if (diagnostic.stage === 'image-resize') console.warn('[bulk:prepare]', diagnostic);
       },
@@ -574,7 +612,7 @@ export default function BulkReviewScreen() {
       setItems: setItems as unknown as ClassifyDeps['setItems'],
       onHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
     });
-  }, [aiPreference, imageResizeQueue]);
+  }, [aiPreference, imageResizeQueue, selection]);
 
   // Kick off staggered classify tasks on mount
   useEffect(() => {
@@ -593,7 +631,20 @@ export default function BulkReviewScreen() {
       removeItem: removeWardrobeItem,
       setItems: (updater) => setItems(prev => updater(prev) as BulkItem[]),
     });
-  }, [removeWardrobeItem]);
+    const directoryUri = bulkStagingDirectoryUri(FileSystem.cacheDirectory);
+    if (selectionId && directoryUri) {
+      const protectedUris = new Set(wardrobeItems.map(wardrobeItem => wardrobeItem.photoUri));
+      itemsRef.current.forEach(current => {
+        if (current.uri !== uri && (current.status === 'local-only' || (current.status as string) === 'pending-upload')) {
+          protectedUris.add(current.uri);
+        }
+      });
+      void removeBulkPhotoFromSelection(selectionId, uri, directoryUri, {
+        delete: stagedUri => FileSystem.deleteAsync(stagedUri, { idempotent: true }),
+        protectedUris,
+      });
+    }
+  }, [removeWardrobeItem, selectionId, wardrobeItems]);
 
   const handleRetry = (uri: string) => {
     if (savingRef.current) return;
@@ -702,6 +753,20 @@ export default function BulkReviewScreen() {
               [{ text: 'Keep reviewing', style: 'cancel' }],
             );
           },
+          onSaved: async () => {
+            const directoryUri = bulkStagingDirectoryUri(FileSystem.cacheDirectory);
+            if (!selectionId || !directoryUri) return;
+            const protectedUris = new Set(wardrobeItems.map(item => item.photoUri));
+            itemsRef.current.forEach(item => {
+              if (item.status === 'local-only' || (item.status as string) === 'pending-upload') {
+                protectedUris.add(item.uri);
+              }
+            });
+            await cleanupBulkPhotoSelection(selectionId, directoryUri, {
+              delete: uri => FileSystem.deleteAsync(uri, { idempotent: true }),
+              protectedUris,
+            });
+          },
           onSaveError: (error) => {
             if (!mountedRef.current) return;
             const code = (error as { code?: string })?.code;
@@ -776,6 +841,28 @@ export default function BulkReviewScreen() {
         ? `Save ${settledCount} Item${settledCount !== 1 ? 's' : ''} to Wardrobe`
         : 'No items ready to save';
 
+  if (selectionMissing) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <StatusBar style="dark" />
+        <View style={styles.missingSelection}>
+          <Ionicons name="images-outline" size={30} color={Colors.textSecondary} />
+          <Text style={styles.missingSelectionTitle}>Photo selection expired</Text>
+          <Text style={styles.missingSelectionCopy}>
+            This temporary selection is no longer available. Please return and choose the photos again.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.back()}
+            style={styles.missingSelectionButton}
+          >
+            <Text style={styles.missingSelectionButtonText}>Back to Add Item</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[
       styles.container,
@@ -829,8 +916,15 @@ export default function BulkReviewScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          aiPreference !== 'allowed' || (bgNotAuthenticated && !bgUpsellDismissed) || (bgLimitReached && !bgLimitDismissed) || (bgRemaining !== undefined && !isPremium) ? (
+          (selection?.failedCount ?? 0) > 0 || aiPreference !== 'allowed' || (bgNotAuthenticated && !bgUpsellDismissed) || (bgLimitReached && !bgLimitDismissed) || (bgRemaining !== undefined && !isPremium) ? (
             <View style={styles.bgUpsellWrap}>
+              {(selection?.failedCount ?? 0) > 0 && (
+                <View style={styles.stagingNotice}>
+                  <Text accessibilityLiveRegion="polite" style={styles.stagingNoticeText}>
+                    {selection?.failedCount} photo{selection?.failedCount === 1 ? ' was' : 's were'} not ready and left out. The remaining photos are available to review.
+                  </Text>
+                </View>
+              )}
               {aiPreference !== 'allowed' && (
                 <View style={styles.aiConsentBanner}>
                   <Text style={styles.aiConsentTitle}>AI processing has not started</Text>
@@ -1118,6 +1212,13 @@ const styles = StyleSheet.create({
     height: 14, width: '70%', borderRadius: 4, backgroundColor: Colors.border,
   },
 
+  missingSelection: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, gap: 12 },
+  missingSelectionTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(18), color: Colors.primary, textAlign: 'center' },
+  missingSelectionCopy: { fontFamily: 'Inter_400Regular', fontSize: rs(13), lineHeight: 20, color: Colors.textSecondary, textAlign: 'center' },
+  missingSelectionButton: { marginTop: 8, minHeight: 46, paddingHorizontal: 20, borderRadius: 12, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  missingSelectionButtonText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.white },
+  stagingNotice: { backgroundColor: '#F8E9DF', borderRadius: 12, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 11, marginBottom: 12 },
+  stagingNoticeText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), lineHeight: 18, color: Colors.primary },
   bgUpsellWrap: { paddingHorizontal: SCREEN_PAD, paddingBottom: 12 },
   bgUpsellBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,

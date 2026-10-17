@@ -5,6 +5,7 @@ import {
   type BulkItemCore,
   type ClassifyDeps,
 } from '../lib/bulkClassifyCore';
+import { shortUriHash } from '../lib/bulkPhotoStaging';
 
 const diagnostic = createPhotoPrepareDiagnostic(
   'file:///private/var/mobile/Photos/garment.HEIC',
@@ -65,4 +66,57 @@ void (async () => {
     throw new Error('Bulk resize failure must retain a sanitized per-item diagnostic in memory.');
   }
   console.log('Bulk resize failures attach diagnostics to the matching in-memory item.');
+
+  const stagedUri = 'file:///private/cache/amodka/bulk-staging/abc.jpg';
+  const stagedPhoto = {
+    uri: stagedUri,
+    diagnostic: {
+      pickedAtMs: Date.now() - 1000,
+      pickerUriHash: 'picker123',
+      stagedUriHash: shortUriHash(stagedUri),
+      fileNameLength: 9,
+      mimeType: 'image/jpeg',
+      width: 1200,
+      height: 1600,
+      sourceExistsAtPick: true,
+      sourceSizeAtPick: 4000,
+      stagedExistsAtPick: true,
+      stagedSizeAtPick: 4000,
+    },
+  };
+  let currentInfoChecked = false;
+  let stagedItems: BulkItemCore[] = [{ uri: stagedUri, status: 'pending', classification: null }];
+  await runClassifyUri(stagedUri, { current: true }, {
+    resize: async () => { throw new Error('native decode failed'); },
+    removeBg: async () => null,
+    writePngToCache: async () => 'file:///cache/cutout.png',
+    classify: async () => ({}),
+    setItems: updater => { stagedItems = updater(stagedItems); },
+    onHaptic: () => undefined,
+    diagnostics: {
+      enabled: true,
+      usedSerialResizeQueue: true,
+      stagedPhoto,
+      inspectUri: async uri => {
+        currentInfoChecked = uri === stagedUri;
+        return { exists: false, size: undefined };
+      },
+    },
+  });
+  const stagedDiagnostic = stagedItems[0]?.diagnostic;
+  const stagedFormatted = stagedDiagnostic ? formatPhotoPrepareDiagnostic(stagedDiagnostic) : '';
+  if (
+    !currentInfoChecked ||
+    stagedDiagnostic?.pickerUriHash !== 'picker123' ||
+    stagedDiagnostic?.uriHashNow !== stagedDiagnostic?.stagedUriHashAtPick ||
+    stagedDiagnostic?.currentExists !== false ||
+    stagedDiagnostic?.uriMatchesPickTime !== true ||
+    stagedDiagnostic?.msSincePick === undefined ||
+    stagedDiagnostic?.fileNameLength !== 9 ||
+    !stagedFormatted.includes('currentExists=false') ||
+    stagedFormatted.includes('/private/cache/amodka/bulk-staging/abc.jpg')
+  ) {
+    throw new Error('Bulk staging diagnostics must include pick/current file evidence without exposing the local path.');
+  }
+  console.log('Bulk staging diagnostics compare pick-time and failure-time file metadata without logging paths.');
 })();

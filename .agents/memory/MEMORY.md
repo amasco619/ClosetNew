@@ -4,7 +4,7 @@
 - [Guest mode pattern](guest-mode.md) — isGuest on UserProfile; GUEST_ITEM_CAP=8, FREE_ITEM_CAP=15; quota tiers: Guest 1 / Free 2 / Premium 4 outfits/scenario/day; SIGNED_IN clears isGuest.
 - [Gemini extended clothing fields](gemini-clothing-fields.md) — Gemini prompt returns fit/neckline/sleeveLength/rise/warmthBand; applied before subtype inference in add-item.tsx.
 - [Supabase direct client pattern](supabase-direct-client.md) — use publishable keys for user-facing data/Auth and reserve the secret key for admin-only operations.
-- [Image upload + item ID sync](image-upload-flow.md) — addWardrobeItem accepts optional id so add-item pre-generates UUID, uploads to Storage under that id, then passes it to context keeping Storage path and DB row aligned.
+- [Image upload and transient bulk staging](image-upload-flow.md) — align Storage/row IDs; stage picker files before routing and retain sources until confirmed save.
 - [TECHNICAL.md must stay current](technical-md-discipline.md) — user requires every merged task be reflected in TECHNICAL.md immediately; task agents do not do this automatically.
 - [Node.js test isolation for RN modules](node-test-rn-isolation.md) — lib/supabase.ts and lib/query-client.ts import react-native/expo; use dynamic import + _testOverrides pattern to keep them out of the static dep graph.
 - [_testOverrides mutable export pattern](test-overrides-pattern.md) — export const _testOverrides = {} and mutate its properties to bypass auth/I-O in tests; avoids ESM getter-only reassignment issues.

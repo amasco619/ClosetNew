@@ -319,7 +319,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               97 test suites (see §11)
+__tests__/               100 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -431,7 +431,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 97 test suites once |
+| `npm test` | Run all 100 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -1077,13 +1077,14 @@ All have a light (`#F5F3F0`) background, making `style="dark"` (dark icons) corr
 
 Two-screen flow for digitising an entire wardrobe section in one session: up to 10 garments selected from the photo library, AI-classified in parallel, and batch-saved with a single tap.
 
-**Entry point:** selecting 2–10 photos in `app/add-item.tsx` (gallery picker with `allowsMultipleSelection: true, selectionLimit: 10`) routes directly to `/bulk-review` with URIs encoded as `JSON.stringify(uris)` in route params. There is no longer a separate Bulk Studio splash screen.
+**Entry point:** selecting 2–10 photos in `app/add-item.tsx` (gallery picker with `allowsMultipleSelection: true, selectionLimit: 10`) first copies each photo into the app-owned `FileSystem.cacheDirectory/amodka/bulk-staging/` folder. The temporary staged URI list and dev-only pick diagnostics live in an in-memory selection store keyed by a short opaque ID; Expo Router receives only that ID, never file URIs. A partial copy failure is omitted and disclosed inline; if all copies fail, the user stays on Add Item. There is no separate Bulk Studio splash screen.
 
 **Review screen (`app/bulk-review.tsx`):**
 - Stack presentation (`FADE_OPTIONS`)
 - `StatusBar style="dark"`, no `SwipeToDismiss` (back arrow in header handles dismissal)
-- Parses `uris` param via `useLocalSearchParams`; initialises `BulkItem[]` state (`uri`, `status`, `classification`)
+- Resolves the selection ID from `useLocalSearchParams` and initializes `BulkItem[]` from the in-memory store. A missing/expired ID displays a calm recovery message instead of starting preparation.
 - Item statuses: `pending → classifying → settled → saving → saved` (or `error`, `removed`). Errors retain a coarse failure stage (`photo-preparation` or `classification`) for truthful retry copy.
+- In development, the picker records hashed URI identity, filename length, MIME type, dimensions, and source/staged file existence and size. A resize failure adds current-file metadata, URI equality, and elapsed time to the card and `[bulk:prepare]` console diagnostic; full paths, bytes, and credentials are not logged.
 
 **Parallel classification (staggered, 150 ms apart):**
 1. A serial queue runs `expo-image-manipulator` transforms one at a time to limit simultaneous full-resolution bitmap decoding on mobile; each output is resized to ≤1024 px (JPEG, 0.8 compress) → base64
@@ -1109,8 +1110,12 @@ Two-screen flow for digitising an entire wardrobe section in one session: up to 
 2. Per item: `expo-image-manipulator` resizes URI to ≤1600 px (JPEG, 0.85 compress) → base64 → `uploadWardrobeImage()` → Supabase Storage
 3. Calls `addWardrobeItem()` with full classification payload (type guards: `asPattern`, `asFabric`, `asWeight`, `asFit`, `asNeckline`, `asSleeve`, `asRise`, `asWarmth` — re-defined locally, same logic as `add-item.tsx`)
 4. `formalityLevel` derived from `SUBTYPE_FORMALITY[subType] ?? 5` (from `constants/outfitScoring`)
-5. Falls back to local URI if Supabase upload fails (non-blocking)
-6. On completion: `Haptics.notificationAsync(Success)` + `router.navigate('/(tabs)/wardrobe')`
+5. An authenticated upload or batch-commit failure keeps the affected items in review for retry; it does not report a successful save.
+6. Only after `addWardrobeItems()` acknowledges the full batch does cleanup remove unreferenced staged source files, followed by `Haptics.notificationAsync(Success)` + `router.navigate('/(tabs)/wardrobe')`.
+
+**Temporary staging lifecycle:**
+- Removing a card deletes its staged source if no live reference protects it. Cancel/back-out removes the selection’s unreferenced staged files. The one-photo redirect passes the same opaque selection ID to Add Item, where a confirmed wardrobe save removes that staged source; failed or ambiguous saves retain it for retry.
+- Files referenced by current wardrobe items or live `local-only`/pending-upload review entries are retained. App startup best-effort deletes only unreferenced files older than 24 hours. Staging is transient; it is not persisted to AsyncStorage, the profile, or the database.
 
 **Navigation registration in `app/_layout.tsx`:**
 ```
@@ -1303,7 +1308,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (97 total)
+### Test Suites (100 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1335,7 +1340,9 @@ These features are **not yet implemented**. They are the next development priori
 | `apiNoCache.test.ts` | Express conditional GET still returns JSON 200 with `Cache-Control: no-store`; prevents API ETags becoming unusable 304s in native fetch |
 | `wardrobeRetryScreens.test.ts` | Mounted Home, Outfits, Wear Log and Choose 30: load failure, successful-but-partial state, retry-pending state, same-count account switches, stale success/failure protection and successful recovery |
 | `bulkCarousel.test.ts` | Bulk-review carousel scroll contract: index clamping, null FlatList ref guard, empty-list safety |
-| `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard, serialized image-transform queue, retriable error state, and original-JPEG fallback when optional background removal or preview caching fails |
+| `bulkPhotoStaging.test.ts` | App-owned multi-photo staging, partial/all copy failures, in-memory selection lookup, protected cleanup, and 24-hour sweep |
+| `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard, serialized image-transform queue, ID-only one-photo redirect, acknowledged-save cleanup ordering, retriable error state, and original-JPEG fallback |
+| `photoPrepareDiagnostic.test.ts` | Redacted failure diagnostics plus pick-time/current staged-file metadata comparison |
 | `bulkSaveLock.test.ts` | Save-lock ref in bulk-review: concurrent save attempts are blocked by the `saveLockRef` guard |
 | `bulkSaveNoShrunk.test.ts` | Missing/null/data-URI `shrunk.base64` never silently drops a bulk-upload item; `addItem` always fires with the local URI as fallback when `resolveUploadArg` returns null |
 | `cancelDialogMessages.test.ts` | `selectCancelDialogBody()` branch selection across all batch states: all-settled → null, in-progress + no auto-saved → running message, in-progress + auto-saved → auto-saved-wins message |
@@ -1345,7 +1352,7 @@ These features are **not yet implemented**. They are the next development priori
 | `getProfileBlueprint.test.ts` | Algorithm tests calling `buildProfileBlueprintSlots()` directly (no mocking) |
 | `ghostItemRecovery.test.ts` | `detectNoPhotoOrphans`, `isGuestPhotoUri`, `detectFileOrphans` (file-exists/missing/throws/cloud-recovery/rebase-path), and `applyOrphanResolution` action routing; also exercises `applyRePhotographSave` |
 | `guestPhotoCleanup.test.ts` | `deleteGuestPhoto`, `runGuestRemoval`, `buildGuestPhotoDestPath` — cleanup guard (URI must start with documentDirectory), idempotent delete, rejection propagation, per-deletion isolation |
-| `imagePickerSelection.test.ts` | A single library image reaches the Add Item consent path; bulk selection and picker cancellation do not |
+| `imagePickerSelection.test.ts` | Preserves the single-photo path; multi-photo picker stages before routing, passes only the selection ID, and stays on Add Item if every copy fails |
 | `lifestyle-blueprint.test.ts` | Lifestyle weight ordering and category priority adjustments |
 | `lifestyleSlotGroups.test.ts` | Slot group activation thresholds for active and brunch lifestyles |
 | `oauthDismissGuard.test.ts` | OAuth dismiss guard: browser session cleanup on back-navigation and modal dismiss |

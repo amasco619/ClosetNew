@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, Text, View, Pressable, ScrollView, Platform, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import SwipeToDismiss from '@/components/SwipeToDismiss';
@@ -37,6 +37,23 @@ import {
   formatPhotoPrepareDiagnostic,
   type PhotoPrepareDiagnostic,
 } from '@/lib/bulkClassifyCore';
+import {
+  bulkStagingDirectoryUri,
+  cleanupBulkPhotoSelection,
+  deleteUnreferencedStagedPhotos,
+  getBulkPhotoSelection,
+  stagePickedPhotos,
+  storeBulkPhotoSelection,
+} from '@/lib/bulkPhotoStaging';
+
+function stagedPhotoExtension(asset: { fileName?: string | null; uri: string; mimeType?: string | null }): string {
+  const name = asset.fileName ?? asset.uri.split(/[?#]/, 1)[0];
+  const fromName = name.match(/\.([a-z\d]{1,8})$/i)?.[1]?.toLowerCase();
+  if (fromName) return fromName;
+  const fromMime = asset.mimeType?.split('/')[1]?.replace(/^jpeg$/i, 'jpg')
+    .replace(/[^a-z\d]/gi, '').toLowerCase();
+  return fromMime || 'jpg';
+}
 
 // ─── Option lists ─────────────────────────────────────────────────────────────
 
@@ -152,9 +169,10 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
 export default function AddItemScreen() {
   const insets = useSafeAreaInsets();
   const sheetScrollTopRef = useRef(0);
-  const { addWardrobeItem, replaceWardrobeItem, isPremium, isGuest } = useApp();
+  const { addWardrobeItem, replaceWardrobeItem, isPremium, isGuest, wardrobeItems } = useApp();
   const {
     initialUri,
+    bulkSelectionId,
     preClassified,
     replaceItemId,
     pcCategory,
@@ -177,6 +195,7 @@ export default function AddItemScreen() {
     pcWarmthBand,
   } = useLocalSearchParams<{
     initialUri?: string;
+    bulkSelectionId?: string;
     preClassified?: string;
     replaceItemId?: string;
     pcCategory?: string;
@@ -199,10 +218,17 @@ export default function AddItemScreen() {
     pcWarmthBand?: string;
   }>();
 
+  const stagedSelection = getBulkPhotoSelection(bulkSelectionId);
+  const stagedBulkPhoto = stagedSelection?.photos.length === 1
+    ? stagedSelection.photos[0]
+    : undefined;
+  const resolvedInitialUri = initialUri ?? stagedBulkPhoto?.uri ?? null;
+  const missingStagedSelection = Boolean(bulkSelectionId && !stagedBulkPhoto);
+
   // Parse pre-classified payload once at mount — route params are strings so
   // arrays and objects need JSON.parse. Gracefully falls back to defaults if
   // the param is missing or malformed.
-  const hasPreClassified = preClassified === 'true';
+  const hasPreClassified = preClassified === 'true' && Boolean(resolvedInitialUri);
 
   const initCategory = (): ItemCategory => {
     if (hasPreClassified && pcCategory) return pcCategory as ItemCategory;
@@ -245,9 +271,20 @@ export default function AddItemScreen() {
     return undefined;
   };
 
-  const [photoUri,        setPhotoUri]        = useState<string | null>(initialUri ?? null);
+  const [photoUri,        setPhotoUri]        = useState<string | null>(resolvedInitialUri);
+  const stagedSaveActiveRef = useRef(false);
+  const stagedSelectionIdRef = useRef<string | null>(bulkSelectionId ?? null);
+  const stagedSourceUriRef = useRef<string | null>(stagedBulkPhoto?.uri ?? null);
+  const protectedWardrobeUrisRef = useRef(new Set(wardrobeItems.map(item => item.photoUri)));
+  const [bulkStageNotice, setBulkStageNotice] = useState<string | null>(() => {
+    if (missingStagedSelection) return 'This photo selection is no longer available. Please choose the photos again.';
+    if (stagedSelection?.failedCount) {
+      return `${stagedSelection.failedCount} photo${stagedSelection.failedCount === 1 ? ' was' : 's were'} not ready and left out.`;
+    }
+    return null;
+  });
   const photoRequestRef = useRef(0);
-  const currentPhotoUriRef = useRef<string | null>(initialUri ?? null);
+  const currentPhotoUriRef = useRef<string | null>(resolvedInitialUri);
   const correctedFieldsRef = useRef<Set<string>>(new Set());
   const categoryRef = useRef<ItemCategory>(initCategory());
   const subTypeRef = useRef<string>(initSubType());
@@ -294,6 +331,22 @@ export default function AddItemScreen() {
     saveMountedRef.current = true;
     return () => { saveMountedRef.current = false; };
   }, []);
+  useEffect(() => {
+    protectedWardrobeUrisRef.current = new Set(wardrobeItems.map(item => item.photoUri));
+  }, [wardrobeItems]);
+  useEffect(() => {
+    const selectionId = bulkSelectionId;
+    if (!selectionId) return;
+    return () => {
+      if (stagedSaveActiveRef.current) return;
+      const directoryUri = bulkStagingDirectoryUri(FileSystem.cacheDirectory);
+      if (!directoryUri) return;
+      void cleanupBulkPhotoSelection(selectionId, directoryUri, {
+        delete: uri => FileSystem.deleteAsync(uri, { idempotent: true }),
+        protectedUris: protectedWardrobeUrisRef.current,
+      });
+    };
+  }, [bulkSelectionId]);
   const [photoWidth,      setPhotoWidth]      = useState<number>(0);
   const [photoHeight,     setPhotoHeight]     = useState<number>(0);
   const [photoPrepareDiagnostic, setPhotoPrepareDiagnostic] = useState<PhotoPrepareDiagnostic | null>(null);
@@ -550,6 +603,7 @@ export default function AddItemScreen() {
     existingAsset?: ImagePicker.ImagePickerAsset,
     preferenceChecked = false,
   ) => {
+    setBulkStageNotice(null);
     let requestId = photoRequestRef.current + 1;
     try {
       let asset = existingAsset;
@@ -573,9 +627,64 @@ export default function AddItemScreen() {
           selectionLimit: multiplePieces ? 1 : 10,
         });
         if (!result.canceled && result.assets.length > 1) {
+          const stagingDirectory = bulkStagingDirectoryUri(FileSystem.cacheDirectory);
+          if (!stagingDirectory) {
+            setBulkStageNotice('Photos could not be prepared on this device. Please try again.');
+            return;
+          }
+          const staged = await stagePickedPhotos(result.assets, {
+            ensureDirectory: async () => {
+              const info = await FileSystem.getInfoAsync(stagingDirectory);
+              if (info.exists) {
+                if (!info.isDirectory) throw new Error('staging_path_not_directory');
+                return;
+              }
+              try {
+                await FileSystem.makeDirectoryAsync(stagingDirectory, { intermediates: true });
+              } catch (error) {
+                const retry = await FileSystem.getInfoAsync(stagingDirectory).catch(() => null);
+                if (!retry?.exists || !retry.isDirectory) throw error;
+              }
+            },
+            getInfo: async uri => {
+              const info = await FileSystem.getInfoAsync(uri);
+              if (!info.exists) return { exists: false };
+              return {
+                exists: true,
+                size: info.size,
+                modificationTime: info.modificationTime,
+              };
+            },
+            copy: (from, to) => FileSystem.copyAsync({ from, to }),
+            delete: uri => FileSystem.deleteAsync(uri, { idempotent: true }),
+            makeUri: pickedAsset =>
+              `${stagingDirectory}${Crypto.randomUUID()}.${stagedPhotoExtension(pickedAsset)}`,
+            diagnosticsEnabled: __DEV__,
+          });
+          if (staged.photos.length === 0) {
+            setBulkStageNotice('Could not prepare the selected photos. Please choose them again.');
+            return;
+          }
+          let selectionId: string | null = null;
+          for (let attempt = 0; attempt < 3 && !selectionId; attempt++) {
+            const candidate = Crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+            if (storeBulkPhotoSelection(candidate, staged)) selectionId = candidate;
+          }
+          if (!selectionId) {
+            await deleteUnreferencedStagedPhotos(
+              staged.photos.map(photo => photo.uri),
+              stagingDirectory,
+              {
+                delete: uri => FileSystem.deleteAsync(uri, { idempotent: true }),
+                protectedUris: new Set(wardrobeItems.map(item => item.photoUri)),
+              },
+            );
+            setBulkStageNotice('Photos could not be prepared. Please try again.');
+            return;
+          }
           router.push({
             pathname: '/bulk-review',
-            params: { uris: JSON.stringify(result.assets.map(a => a.uri)) },
+            params: { selectionId },
           });
           return;
         }
@@ -847,6 +956,18 @@ export default function AddItemScreen() {
 
   // ─── Save ─────────────────────────────────────────────────────────────────
 
+  const cleanupStagedSelection = useCallback(async () => {
+    const selectionId = stagedSelectionIdRef.current;
+    const directoryUri = bulkStagingDirectoryUri(FileSystem.cacheDirectory);
+    if (!selectionId || !directoryUri) return;
+    await cleanupBulkPhotoSelection(selectionId, directoryUri, {
+      delete: uri => FileSystem.deleteAsync(uri, { idempotent: true }),
+      protectedUris: protectedWardrobeUrisRef.current,
+    });
+    stagedSelectionIdRef.current = null;
+    stagedSourceUriRef.current = null;
+  }, []);
+
   const saveConfirmed = async () => {
     if (!photoUri) return;
 
@@ -862,6 +983,7 @@ export default function AddItemScreen() {
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSaving(true);
+    stagedSaveActiveRef.current = Boolean(stagedSourceUriRef.current);
     setSaveStage('resizing');
     let uploadedPhoto: { userId: string; itemId: string } | null = null;
     let dbStarted = false;
@@ -973,8 +1095,15 @@ export default function AddItemScreen() {
         await addWardrobeItem({ id: itemId, ...wardrobeItem });
       }
       uploadedPhoto = null;
+      try {
+        await cleanupStagedSelection();
+      } catch {
+        // A cleanup failure must not turn an acknowledged wardrobe save into a reported save failure.
+      }
+      stagedSaveActiveRef.current = false;
       router.back();
     } catch (e) {
+      stagedSaveActiveRef.current = false;
       // A lost RPC response does not prove the DB rolled back; do not delete
       // a photo that could belong to a committed row.
       const dbCode = (e as { code?: string })?.code;
@@ -1021,6 +1150,19 @@ export default function AddItemScreen() {
     );
   };
 
+  const handleDismiss = useCallback(async () => {
+    if (saving) {
+      router.back();
+      return;
+    }
+    try {
+      await cleanupStagedSelection();
+    } catch {
+      // Leaving the form remains available if best-effort cleanup fails.
+    }
+    router.back();
+  }, [saving, cleanupStagedSelection]);
+
   const toggleOccasion = (tag: OccasionTag) => {
     markCorrected('occasionTags');
     setOccasions(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
@@ -1039,12 +1181,12 @@ export default function AddItemScreen() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <SwipeToDismiss scrollTopRef={sheetScrollTopRef}>
+    <SwipeToDismiss scrollTopRef={sheetScrollTopRef} onDismiss={handleDismiss}>
     <StatusBar style="dark" />
     <View style={[styles.container, { paddingTop: (Platform.OS === 'android' ? 0 : insets.top) + webTopInset }]}>
       <View style={styles.topBar}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => { void handleDismiss(); }}
           style={styles.closeBtn}
           hitSlop={8}
           accessibilityRole="button"
@@ -1065,6 +1207,13 @@ export default function AddItemScreen() {
           sheetScrollTopRef.current = Math.max(0, event.nativeEvent.contentOffset.y);
         }}
       >
+        {bulkStageNotice && (
+          <View style={styles.bulkStageNotice}>
+            <Text accessibilityLiveRegion="polite" style={styles.bulkStageNoticeText}>
+              {bulkStageNotice}
+            </Text>
+          </View>
+        )}
         {/* ── Step 0: pick photo + category ─────────────────────────────── */}
         {step === 0 ? (
           <Animated.View entering={FadeInDown.duration(400)}>
@@ -1824,6 +1973,8 @@ const styles = StyleSheet.create({
   formalityInput:   { width: 98, minHeight: 46, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 13, backgroundColor: Colors.background, fontFamily: 'Inter_500Medium', fontSize: rs(15), color: Colors.primary },
   formalityScale:   { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, flex: 1 },
   sectionTitle:      { fontFamily: 'Inter_600SemiBold', fontSize: rs(15), color: Colors.primary, marginBottom: 12, letterSpacing: -0.3, marginTop: 4 },
+  bulkStageNotice:   { backgroundColor: '#F8E9DF', borderRadius: 12, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 11, marginBottom: 14 },
+  bulkStageNoticeText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), lineHeight: 18, color: Colors.primary },
   photoActions:      { flexDirection: 'row', gap: 14 },
   photoBtn:          { flex: 1, backgroundColor: Colors.white, borderRadius: 16, padding: 24, alignItems: 'center' },
   photoBtnIcon:      { width: 56, height: 56, borderRadius: 16, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },

@@ -23,7 +23,7 @@ assert.match(source, /onPanResponderRelease:[\s\S]*shouldDismissSwipe\(scrollTop
 
 for (const route of ['app/add-item.tsx', 'app/premium.tsx', 'app/item-detail.tsx']) {
   const screen = readFileSync(route, 'utf8');
-  assert.match(screen, /<SwipeToDismiss scrollTopRef=\{sheetScrollTopRef\}>/, `${route} passes the live scroll ref`);
+  assert.match(screen, /<SwipeToDismiss scrollTopRef=\{sheetScrollTopRef\}(?: onDismiss=\{handleDismiss\})?>/, `${route} passes the live scroll ref`);
   assert.match(screen, /sheetScrollTopRef\.current = Math\.max\(0, event\.nativeEvent\.contentOffset\.y\)/, `${route} tracks its vertical scroll position`);
   assert.match(screen, /accessibilityLabel="Close/, `${route} has an accessible close control`);
 }

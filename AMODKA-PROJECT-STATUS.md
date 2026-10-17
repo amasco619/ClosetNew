@@ -436,21 +436,28 @@ revised review and retry flow remains outstanding.
 
 ## 22. BULK PHOTO-PREPARATION FAILURE ON ANDROID
 
-The next Android screenshot showed “Could not prepare photo” for both selected
-items, confirming that the failure occurs before background removal and
-classification. Current backend logs likewise show the authenticated preference
-and entitlement requests succeeding, with no background-removal or classifier
-POST for this attempt.
+The signed-in Android diagnostic showed every bulk card failing before
+background removal/classification with native `Context.renderAsync` “Loading
+bitmap failed” for local JPEG files; the same photos worked in single Add Item.
+The serial resize queue is retained. The SDK 57 upgrade (`281de9b`, 2026-10-15
+21:49 UTC) predates the last reported good bulk run (~2026-10-16 20:30 UTC), and
+locked Expo/image-picker/manipulator/file-system versions were unchanged across
+the good and failing builds. A pre-fix whole-app search found no cache deletion
+or cleanup between the picker callback and resize. The bulk path did, however,
+carry picker file URIs through Expo Router route params. The exact native decode
+root cause is not proven.
 
-Code inspection ruled out a raw Android `content://` URI as the expected picker
-output: SDK 57's Android multi-image picker copies selected images into its app
-cache and returns local file URIs. The bulk screen was starting native
-ImageManipulator resizes only 150 ms apart, allowing full-resolution bitmap
-decodes to overlap. Those local transforms are now serialized while
-classification/network work remains concurrent. This reduces native memory
-pressure but does not prove the device-side root cause; physical Android
-verification remains required.
+The multi-select path now copies each chosen image into the app-owned cache
+staging directory before routing, stores staged URIs and dev-only metadata in a
+transient in-memory selection keyed by an opaque ID, and passes only that ID
+through `/bulk-review` and its one-photo redirect. Partial copy failures are
+shown inline; total failure leaves the user on Add Item. Confirmed saves and
+explicit exits clean unreferenced files, local-only/pending references are
+preserved, and app startup best-effort sweeps unreferenced files older than 24
+hours. Picker/resize diagnostics are development-only and omit full paths.
 
-The focused queue test confirms transforms do not overlap and that a failed
-transform does not block later items. The full 97-suite test run, TypeScript
-check, and lint pass.
+Final verification: `npm test` — 100 passed, 0 failed; `npm run typecheck` and
+`npm run lint` pass. Recommendation Engine v3.7, Phase A, P1.3, classifier,
+queue, resize arguments, and provider behavior were not changed. The native
+Android journey is still outstanding; use the four-step script in
+`BULK_PREPARE_DIAGNOSTIC_REPORT.md` with the current build stamp.

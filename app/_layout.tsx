@@ -1,14 +1,15 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Linking from "expo-linking";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
-import { AppProvider } from "@/contexts/AppContext";
+import { AppProvider, useApp } from "@/contexts/AppContext";
 import { createSessionFromUrl } from "@/lib/auth";
 import {
   NATIVE_OAUTH_CALLBACK_URL,
@@ -20,6 +21,7 @@ import { StatusBar } from "expo-status-bar";
 import { migrateStorage } from "@/lib/database";
 import { migrateWeatherStorage } from "@/constants/weather";
 import { reportError } from "@/shared/observability";
+import { bulkStagingDirectoryUri, sweepOldStagedPhotos } from "@/lib/bulkPhotoStaging";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -57,6 +59,36 @@ function RootLayoutNav() {
       <Stack.Screen name="auth/update-password" options={{ headerShown: false, ...FADE_OPTIONS }} />
     </Stack>
   );
+}
+
+function BulkPhotoStagingJanitor() {
+  const { appReady, isLoading, startupError, dataUnavailable, wardrobeItems } = useApp();
+  const sweptRef = useRef(false);
+
+  useEffect(() => {
+    if (sweptRef.current || !appReady || isLoading || startupError || dataUnavailable) return;
+    const directoryUri = bulkStagingDirectoryUri(FileSystem.cacheDirectory);
+    if (!directoryUri) return;
+    sweptRef.current = true;
+    void sweepOldStagedPhotos(directoryUri, {
+      readDirectory: uri => FileSystem.readDirectoryAsync(uri),
+      getInfo: async uri => {
+        const info = await FileSystem.getInfoAsync(uri);
+        if (!info.exists) return { exists: false };
+        return {
+          exists: true,
+          size: info.size,
+          modificationTime: info.modificationTime,
+        };
+      },
+      delete: uri => FileSystem.deleteAsync(uri, { idempotent: true }),
+      protectedUris: new Set(wardrobeItems.map(item => item.photoUri)),
+    }).catch(() => {
+      sweptRef.current = false;
+    });
+  }, [appReady, isLoading, startupError, dataUnavailable, wardrobeItems]);
+
+  return null;
 }
 
 export default function RootLayout() {
@@ -153,6 +185,7 @@ export default function RootLayout() {
           <KeyboardProvider>
             <AppProvider>
               <StatusBar style="dark" />
+              <BulkPhotoStagingJanitor />
               <RootLayoutNav />
             </AppProvider>
           </KeyboardProvider>

@@ -11,6 +11,7 @@
  */
 
 import type { ItemCategory, OccasionTag, SeasonTag } from '@/constants/types';
+import { shortUriHash, type StagedBulkPhoto } from '@/lib/bulkPhotoStaging';
 
 // ─── Types (previously local to bulk-review.tsx) ──────────────────────────────
 
@@ -59,6 +60,19 @@ export interface PhotoPrepareDiagnostic {
   height?: number;
   usedSerialResizeQueue: boolean;
   elapsedMs: number;
+  pickerUriHash?: string;
+  stagedUriHashAtPick?: string;
+  uriHashNow?: string;
+  fileNameLength?: number;
+  mimeType?: string;
+  sourceExistsAtPick?: boolean;
+  sourceSizeAtPick?: number;
+  stagedExistsAtPick?: boolean;
+  stagedSizeAtPick?: number;
+  currentExists?: boolean;
+  currentSize?: number;
+  uriMatchesPickTime?: boolean;
+  msSincePick?: number;
 }
 
 function sanitizeDiagnosticText(value: string): string {
@@ -107,11 +121,18 @@ export function formatPhotoPrepareDiagnostic(diagnostic: PhotoPrepareDiagnostic)
   const dimensions = diagnostic.width !== undefined && diagnostic.height !== undefined
     ? `${diagnostic.width}x${diagnostic.height}`
     : 'unknown';
-  return [
+  const lines = [
     `${diagnostic.stage}: ${diagnostic.errorName}: ${diagnostic.message}`,
     `uri=${diagnostic.uriScheme}; ext=${diagnostic.fileExtension}; size=${dimensions}; queue=${diagnostic.usedSerialResizeQueue}; elapsed=${diagnostic.elapsedMs}ms`,
-    ...diagnostic.stack,
-  ].join('\n');
+  ];
+  if (diagnostic.uriHashNow) {
+    lines.push(
+      `uriHash=${diagnostic.uriHashNow}; pickHash=${diagnostic.stagedUriHashAtPick ?? 'unknown'}; sameAsPick=${diagnostic.uriMatchesPickTime ?? 'unknown'}; currentExists=${diagnostic.currentExists ?? 'unknown'}; currentSize=${diagnostic.currentSize ?? 'unknown'}; sincePick=${diagnostic.msSincePick ?? 'unknown'}ms`,
+      `pickerHash=${diagnostic.pickerUriHash ?? 'unknown'}; nameLength=${diagnostic.fileNameLength ?? 'unknown'}; mime=${diagnostic.mimeType ?? 'unknown'}; sourceAtPick=${diagnostic.sourceExistsAtPick ?? 'unknown'}/${diagnostic.sourceSizeAtPick ?? 'unknown'}; stagedAtPick=${diagnostic.stagedExistsAtPick ?? 'unknown'}/${diagnostic.stagedSizeAtPick ?? 'unknown'}`,
+    );
+  }
+  lines.push(...diagnostic.stack);
+  return lines.join('\n');
 }
 
 /** Serialize memory-heavy native transforms without serializing network work. */
@@ -146,6 +167,8 @@ export interface ClassifyDeps {
     usedSerialResizeQueue: boolean;
     width?: number;
     height?: number;
+    stagedPhoto?: StagedBulkPhoto;
+    inspectUri?(uri: string): Promise<{ exists: boolean; size?: number }>;
   };
   onDiagnostic?(diagnostic: PhotoPrepareDiagnostic): void;
 }
@@ -155,6 +178,8 @@ export interface RedirectSingleDeps {
   // stubs can satisfy the interface without casting at the call site.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   replace(params: any): void;
+  /** Opaque in-memory lookup key for a photo staged before the bulk route. */
+  bulkSelectionId: string;
 }
 
 // ─── Core functions ───────────────────────────────────────────────────────────
@@ -245,7 +270,7 @@ export async function runClassifyUri(
     deps.onHaptic();
   } catch (error) {
     if (!mountedRef.current) return;
-    const diagnostic = deps.diagnostics?.enabled
+    let diagnostic = deps.diagnostics?.enabled
       ? createPhotoPrepareDiagnostic(uri, error, {
         stage: diagnosticStage,
         usedSerialResizeQueue: deps.diagnostics.usedSerialResizeQueue,
@@ -254,6 +279,35 @@ export async function runClassifyUri(
         elapsedMs: Date.now() - startedAt,
       })
       : undefined;
+    const stagedPhoto = diagnosticStage === 'image-resize'
+      ? deps.diagnostics?.stagedPhoto
+      : undefined;
+    if (diagnostic && stagedPhoto?.diagnostic) {
+      let currentInfo: { exists: boolean; size?: number } | undefined;
+      try {
+        currentInfo = await deps.diagnostics?.inspectUri?.(uri);
+      } catch {
+        // Missing current file metadata must not hide the original resize failure.
+      }
+      if (!mountedRef.current) return;
+      const picked = stagedPhoto.diagnostic;
+      diagnostic = {
+        ...diagnostic,
+        pickerUriHash: picked.pickerUriHash,
+        stagedUriHashAtPick: picked.stagedUriHash,
+        uriHashNow: shortUriHash(uri),
+        fileNameLength: picked.fileNameLength,
+        mimeType: picked.mimeType,
+        sourceExistsAtPick: picked.sourceExistsAtPick,
+        sourceSizeAtPick: picked.sourceSizeAtPick,
+        stagedExistsAtPick: picked.stagedExistsAtPick,
+        stagedSizeAtPick: picked.stagedSizeAtPick,
+        currentExists: currentInfo?.exists,
+        currentSize: currentInfo?.size,
+        uriMatchesPickTime: uri === stagedPhoto.uri,
+        msSincePick: Math.max(0, Date.now() - picked.pickedAtMs),
+      };
+    }
     if (diagnostic) deps.onDiagnostic?.(diagnostic);
     deps.setItems(prev =>
       prev.map(it => it.uri === uri
@@ -330,6 +384,8 @@ export interface SaveAllDeps {
   onLocalOnlyComplete?(uris: string[]): void;
   /** Surface a failed atomic wardrobe commit; caller must keep review visible. */
   onSaveError?(error: unknown): void;
+  /** Called only after addItems acknowledges the complete batch commit. */
+  onSaved?(uris: string[]): Promise<void> | void;
   /** Success haptic after all items are saved. */
   onDoneHaptic(): void;
   /** Navigate away once the save loop finishes. */
@@ -521,6 +577,11 @@ export async function runSaveAll(
       }
       return;
     }
+    try {
+      await deps.onSaved?.(payloadUris);
+    } catch {
+      // Staging cleanup is best-effort and cannot turn a committed batch into a failure.
+    }
     if (!mountedRef.current) return;
     deps.setItems(prev => prev.map(it => !payloadUris.includes(it.uri)
       ? it
@@ -558,33 +619,37 @@ export function runRedirectSingle(
 
   if (settled && item.classification) {
     const c = item.classification;
+    const params: Record<string, string> = {
+      preClassified:  'true',
+      pcCategory:     c.category,
+      pcSubType:      c.subType,
+      pcColorFamily:  c.colorFamily,
+      pcAccentColor:  c.accentColor  ?? '',
+      pcDescription:  c.description,
+      pcOccasionTags: JSON.stringify(c.occasionTags),
+      pcSeasonTags:   JSON.stringify(c.seasonTags),
+      pcPattern:      c.pattern      ?? '',
+      pcPatternScale: c.patternScale ?? '',
+      pcFabric:       c.fabric       ?? '',
+      pcWeight:       c.weight       ?? '',
+      pcDominantHsl:  c.dominantHsl  ? JSON.stringify(c.dominantHsl) : '',
+      pcDominantLab:  c.dominantLab  ? JSON.stringify(c.dominantLab) : '',
+      pcFit:          c.fit          ?? '',
+      pcNeckline:     c.neckline     ?? '',
+      pcSleeveLength: c.sleeveLength ?? '',
+      pcRise:         c.rise         ?? '',
+      pcWarmthBand:   c.warmthBand   ?? '',
+    };
+    params.bulkSelectionId = deps.bulkSelectionId;
     deps.replace({
       pathname: '/add-item',
-      params: {
-        initialUri:     item.uri,
-        preClassified:  'true',
-        pcCategory:     c.category,
-        pcSubType:      c.subType,
-        pcColorFamily:  c.colorFamily,
-        pcAccentColor:  c.accentColor  ?? '',
-        pcDescription:  c.description,
-        pcOccasionTags: JSON.stringify(c.occasionTags),
-        pcSeasonTags:   JSON.stringify(c.seasonTags),
-        pcPattern:      c.pattern      ?? '',
-        pcPatternScale: c.patternScale ?? '',
-        pcFabric:       c.fabric       ?? '',
-        pcWeight:       c.weight       ?? '',
-        pcDominantHsl:  c.dominantHsl  ? JSON.stringify(c.dominantHsl) : '',
-        pcDominantLab:  c.dominantLab  ? JSON.stringify(c.dominantLab) : '',
-        pcFit:          c.fit          ?? '',
-        pcNeckline:     c.neckline     ?? '',
-        pcSleeveLength: c.sleeveLength ?? '',
-        pcRise:         c.rise         ?? '',
-        pcWarmthBand:   c.warmthBand   ?? '',
-      },
+      params,
     });
   } else {
-    deps.replace({ pathname: '/add-item', params: { initialUri: item.uri } });
+    deps.replace({
+      pathname: '/add-item',
+      params: { bulkSelectionId: deps.bulkSelectionId },
+    });
   }
 }
 

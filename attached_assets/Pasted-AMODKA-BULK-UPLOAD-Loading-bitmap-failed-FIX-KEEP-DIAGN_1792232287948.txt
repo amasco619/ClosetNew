@@ -1,0 +1,70 @@
+AMODKA — BULK UPLOAD: "Loading bitmap failed" (FIX + KEEP DIAGNOSTICS)
+
+EVIDENCE
+Device diagnostic (signed-in, Android, current bundle verified by 
+build stamp): every bulk card fails at stage image-resize with:
+ "Call to function 'Context.renderAsync' has been rejected. -> Caused by: 
+  Could not load the image -> java.lang.Exception: Loading bitmap failed"
+ uriScheme=file, ext=jpeg, queue=true, elapsed 12-17 ms.
+- 12-17 ms is too fast to be a decode; the file likely could not be 
+  opened at all.
+- The same two photos work in single Add Item (same manipulateAsync call).
+- The serial queue passed its tests; the error is native.
+The difference between single and bulk: bulk passes file URIs through 
+expo-router route params to /bulk-review, and they are used later.
+
+PHASE 0 — FORENSICS (report)
+a) When did the project move to Expo SDK 57? Show git history for the 
+   expo, expo-image-picker, expo-image-manipulator and expo-file-system 
+   versions (before/after), and say whether the upgrade happened AFTER 
+   the last known-good bulk run (the commit just before f900c18, 
+   2026-10-16 ~20:30 UTC). Summarise any changelog/breaking notes in the 
+   upgrade for: Android picker result URIs/cache copies, manipulator's 
+   Context/renderAsync API, and expo-file-system's API (use whichever 
+   file-system import the app already uses; don't mix APIs).
+b) Search the whole app for anything that could delete or invalidate 
+   picked cache files between the picker callback and bulk resize 
+   (deleteAsync, cache sweeps, unmount cleanups, guest photo cleanup, 
+   router.replace side effects).
+
+PHASE 1 — EXTEND DEV-ONLY DIAGNOSTICS (keep what exists)
+- In the picker callback in add-item, BEFORE navigating, for each asset 
+  record in an in-memory dev store (never in route params): short hash 
+  of the URI, file name length, FileSystem info (exists, size), mimeType, 
+  width/height.
+- On a bulk resize failure, add to the existing diagnostic: URI hash now, 
+  info (exists, size) now, whether the URI string is identical to the 
+  one recorded at pick time, and ms since pick. Show this in the 
+  dev-only card text and console.warn("[bulk:prepare]").
+- Never log full paths, image bytes or credentials.
+
+PHASE 2 — THE FIX (do it now; it addresses both likely causes)
+1. Stage immediately: in the multi-select picker callback, BEFORE 
+   navigating, copy each picked file into an app-owned staging folder 
+   (e.g. <app cache or document dir>/bulk-staging/<uuid>.<original ext>), 
+   awaiting all copies. If a copy fails, drop that photo and tell the user 
+   with the app's dialog/toast (not a native alert); if none succeed, 
+   stay on the screen.
+2. Stop sending file URIs through route params. Store the staged URI list 
+   in a small in-memory selection store keyed by a short id and navigate 
+   to /bulk-review with only that id. If the id is missing (e.g. after an 
+   app reload), return gracefully with a calm message instead of failing.
+3. Cleanup: delete a photo's staged file after it is saved successfully, 
+   remove all staged files on Cancel/back-out, and sweep staging files 
+   older than 24h at app start. NEVER delete a staged file still 
+   referenced by an item in 'local-only' / pending-upload state.
+4. Leave the resize arguments, queue, PhotoRoom, classification, and 
+   single add unchanged. Keep the existing redirect-to-single behaviour 
+   for a one-photo selection working.
+5. Keep all existing tests passing; update the ones tied to the route 
+   param shape; add tests for: staging success/partial failure/all 
+   failure, selection store lookup (valid, missing id), and cleanup 
+   rules (including the local-only exception).
+
+DELIVERABLE
+Short report: Phase 0 answers, what changed (mark diagnostics as 
+temporary), test results, and a device script: (1) bulk with the same 
+two photos, (2) bulk with 5-6 photos, (3) bulk then Cancel, check no 
+staged files remain, (4) bulk then Save All and check the wardrobe items. 
+Say exactly what a pass looks like and what to screenshot if a card 
+still fails (the dev diagnostic text plus the build stamp).
