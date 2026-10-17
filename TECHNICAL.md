@@ -324,7 +324,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               104 test suites (see §11)
+__tests__/               105 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -436,7 +436,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 104 test suites once |
+| `npm test` | Run all 105 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -1354,7 +1354,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (104 total)
+### Test Suites (105 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1389,6 +1389,7 @@ These features are **not yet implemented**. They are the next development priori
 | `bulkCarousel.test.ts` | Bulk-review carousel scroll contract: index clamping, null FlatList ref guard, empty-list safety |
 | `bulkPhotoStaging.test.ts` | App-owned multi-photo staging, partial/all copy failures, in-memory selection lookup, protected cleanup, and 24-hour sweep |
 | `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard, serialized image-transform queue, ID-only one-photo redirect, acknowledged-save cleanup ordering, retryable errors, original-JPEG fallback, one post-commit Undo snapshot and partial batch-removal reporting |
+| `undoRemovalIntegration.test.ts` | Actual AppContext Undo removal callback: owner-scoped row and Storage cleanup, guest file and cache cleanup, managed-directory rejection, partial batch failure/quota retention and account-switch protection |
 | `photoPrepareDiagnostic.test.ts` | Redacted failure diagnostics plus pick-time/current staged-file metadata comparison |
 | `bulkSaveLock.test.ts` | Save-lock ref in bulk-review: concurrent save attempts are blocked by the `saveLockRef` guard |
 | `bulkSaveNoShrunk.test.ts` | Missing/null/data-URI `shrunk.base64` never silently drops a bulk-upload item; `addItem` always fires with the local URI as fallback when `resolveUploadArg` returns null |
