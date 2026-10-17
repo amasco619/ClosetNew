@@ -15,6 +15,14 @@ description: Durable design rules derived from three reference repos — animati
 
 **Shadows**: Standard card: `shadowColor: Colors.primary, shadowOpacity: 0.04–0.06, shadowRadius: 8–12, shadowOffset: {0, 2–4}, elevation: 1–2`. CTA button: `shadowOpacity: 0.25–0.30`. All cards also have `borderWidth: 1, borderColor: Colors.border`.
 
+## Undo toast visibility
+
+Action-bearing Undo toasts use an opaque light card and a high-contrast navy action button. The user confirmed this stands out clearly on Android for both single-item and bulk Undo.
+
+**Why:** The prior glass toast blended into busy screens and was easy to miss.
+
+**How to apply:** Preserve the solid surface and contrasting action button when changing Undo toast styling; do not revert these action toasts to the translucent glass treatment.
+
 **Empty states**: icon container (80×80, borderRadius 24, `Colors.secondary + '12'` bg) + title + subtitle + primary CTA button with shadow.
 
 **Accent details**: tip cards have `borderLeftWidth: 3, borderLeftColor: Colors.secondary + '60'`. Worn badge has filled `Colors.success + '12'` background.
