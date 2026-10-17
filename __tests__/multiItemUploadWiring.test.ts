@@ -12,7 +12,7 @@ assert.match(review, /getAiProcessingPreference\(\)/);
 assert.match(review, /authenticatedApiRequest\('POST', '\/api\/classify-garments'/);
 assert.match(review, /constructMultiItemDraft\(/);
 assert.match(review, /selected\.length < 2/);
-assert.match(review, /Alert\.alert\('Confirm detected pieces'/);
+assert.match(review, /dialog\.confirm\(\{\s*title: 'Confirm the selected pieces',[\s\S]*?selectedPieces\.length[\s\S]*?label[\s\S]*?confirmLabel: 'Confirm and save'/);
 assert.match(review, /addWardrobeGroupItems\(/);
 assert.match(review, /runSaveAll\(/);
 assert.match(client, /CLASSIFICATION_REQUEST_TIMEOUT_MS = 45_000/);

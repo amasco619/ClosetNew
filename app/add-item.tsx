@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, Text, View, Pressable, ScrollView, Platform, Alert, ActivityIndicator, TextInput } from 'react-native';
+import { StyleSheet, Text, View, Pressable, ScrollView, Platform, ActivityIndicator, TextInput } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import SwipeToDismiss from '@/components/SwipeToDismiss';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +27,7 @@ import { supabase } from '../lib/supabase';
 import { rs } from '../lib/responsive';
 import { selectedSingleAsset } from '../lib/imagePickerSelection';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
+import { useDialog, useToast } from '@/contexts/LuxuryFeedbackContext';
 import { PhotoRefusalDialog } from '@/components/PhotoRefusalNotice';
 import { isContentGuardrailError, classificationFailurePresentation } from '@/lib/classificationRefusal';
 import { UPLOAD_DIAGNOSTICS_ENABLED, reportUploadError } from '@/lib/uploadErrors';
@@ -168,7 +169,9 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
 export default function AddItemScreen() {
   const insets = useSafeAreaInsets();
   const sheetScrollTopRef = useRef(0);
-  const { addWardrobeItem, replaceWardrobeItem, isPremium, isGuest, wardrobeItems } = useApp();
+  const { addWardrobeItem, replaceWardrobeItem, removeWardrobeItem, isPremium, isGuest, wardrobeItems, authenticatedUserId } = useApp();
+  const dialog = useDialog();
+  const toast = useToast();
   const {
     initialUri,
     bulkSelectionId,
@@ -333,7 +336,7 @@ export default function AddItemScreen() {
   const [savingAiPreference, setSavingAiPreference] = useState(false);
   const [aiPreferenceError, setAiPreferenceError] = useState<string | null>(null);
   const [pendingAiAsset, setPendingAiAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
-  const saveConfirmOpenRef = useRef(false);
+  const saveInFlightRef = useRef(false);
   const saveMountedRef = useRef(true);
   useEffect(() => {
     saveMountedRef.current = true;
@@ -488,16 +491,15 @@ export default function AddItemScreen() {
     }
   };
 
-  const handleCategoryChange = (nextCategory: ItemCategory) => {
+  const handleCategoryChange = async (nextCategory: ItemCategory) => {
     if (nextCategory === categoryRef.current) return;
-    Alert.alert(
-      'Change garment category?',
-      'The type and details tied to the current category will be cleared so they can be reviewed for this piece.',
-      [
-        { text: 'Keep current', style: 'cancel' },
-        {
-          text: 'Change category',
-          onPress: () => {
+    const confirmed = await dialog.confirm({
+      title: 'Change garment category?',
+      message: 'The type and details tied to the current category will be cleared so they can be reviewed for this piece.',
+      confirmLabel: 'Change category',
+      cancelLabel: 'Keep current',
+    });
+    if (confirmed) {
             markCorrected('category');
             correctedFieldsRef.current.add('subType');
             categoryRef.current = nextCategory;
@@ -517,10 +519,7 @@ export default function AddItemScreen() {
             for (const field of ['pattern', 'patternScale', 'fabric', 'weight', 'fit', 'neckline', 'sleeveLength', 'rise', 'warmthBand', 'metalTone']) {
               correctedFieldsRef.current.delete(field);
             }
-          },
-        },
-      ],
-    );
+    }
   };
 
   // ─── Classifier ───────────────────────────────────────────────────────────
@@ -608,7 +607,7 @@ export default function AddItemScreen() {
       if (!asset && useCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permission needed', 'Camera access is required to photograph items');
+          dialog.notify({ title: 'Camera access needed', message: 'Allow camera access to photograph a wardrobe item.' });
           return;
         }
         const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'] });
@@ -616,7 +615,7 @@ export default function AddItemScreen() {
       } else if (!asset) {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permission needed', 'Photo library access is required');
+          dialog.notify({ title: 'Photo access needed', message: 'Allow photo access to choose an image for your wardrobe.' });
           return;
         }
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -952,19 +951,19 @@ export default function AddItemScreen() {
   }, [returnToBulk]);
 
   const saveConfirmed = async () => {
-    if (!photoUri) return;
+    if (!photoUri || saveInFlightRef.current) return;
 
     if (!subType) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('Type required', 'Choose the specific type for this item before saving.');
+      dialog.notify({ title: 'Choose an item type', message: 'Select the specific type before saving this piece.' });
       return;
     }
     if (!colorFamily) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('Color required', 'Choose the dominant color family before saving.');
+      dialog.notify({ title: 'Choose a colour', message: 'Select the dominant colour family before saving this piece.' });
       return;
     }
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    saveInFlightRef.current = true;
     setSaving(true);
     stagedSaveActiveRef.current = Boolean(stagedSourceUriRef.current);
     setSaveStage('resizing');
@@ -1091,7 +1090,22 @@ export default function AddItemScreen() {
         await addWardrobeItem({ id: itemId, ...wardrobeItem });
       }
       uploadedPhoto = null;
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       if (returnToBulk === 'true' && bulkSelectionId && bulkPhotoIndex !== undefined) {
+        const expectedUserId = authenticatedUserId ?? (isGuest ? null : undefined);
+        toast.show({
+          message: 'Added to your wardrobe',
+          thumbnailUri: finalUri,
+          actionLabel: 'Undo',
+          onAction: async () => {
+            if (expectedUserId === undefined) return false;
+            const complete = await removeWardrobeItem(itemId, finalUri, expectedUserId);
+            if (complete) {
+              router.setParams({ undoManualSavedPhotoIndex: String(bulkPhotoIndex) });
+            }
+            return complete;
+          },
+        });
         stagedSaveActiveRef.current = false;
         router.dismissTo({
           pathname: '/bulk-review',
@@ -1105,6 +1119,19 @@ export default function AddItemScreen() {
         // A cleanup failure must not turn an acknowledged wardrobe save into a reported save failure.
       }
       stagedSaveActiveRef.current = false;
+      if (replaceItemId) {
+        toast.show({ message: 'Changes saved' });
+      } else {
+        const expectedUserId = authenticatedUserId ?? (isGuest ? null : undefined);
+        toast.show({
+          message: 'Added to your wardrobe',
+          thumbnailUri: finalUri,
+          actionLabel: 'Undo',
+          onAction: () => expectedUserId === undefined
+            ? Promise.resolve(false)
+            : removeWardrobeItem(itemId, finalUri, expectedUserId),
+        });
+      }
       router.back();
     } catch (e) {
       stagedSaveActiveRef.current = false;
@@ -1116,11 +1143,12 @@ export default function AddItemScreen() {
           .catch(() => reportUploadError({ stage: 'save', code: 'FAILED' }));
       }
       reportUploadError({ stage: 'save', code: 'FAILED' });
+      saveInFlightRef.current = false;
       setSaving(false);
       setSaveStage(null);
       const errorCode = (e as { code?: string })?.code;
       if (errorCode === 'WARDROBE_CAPACITY_REACHED') {
-        Alert.alert(
+        dialog.alert(
           'Wardrobe is full',
           'Choose which 30 items to keep in your free wardrobe, then try again.',
           [
@@ -1129,29 +1157,14 @@ export default function AddItemScreen() {
           ],
         );
       } else {
-        Alert.alert('Could not save this item', 'Your photo is safe. Please try again.');
+        dialog.notify({ title: 'This piece could not be saved', message: 'Your photo is safe. Please check your connection and try again.' });
       }
     }
   };
 
   const handleSave = () => {
-    if (saving || saveConfirmOpenRef.current) return;
-    saveConfirmOpenRef.current = true;
-    Alert.alert(
-      'Add this item?',
-      'Save this piece to your wardrobe now?',
-      [
-        { text: 'Keep editing', style: 'cancel', onPress: () => { saveConfirmOpenRef.current = false; } },
-        {
-          text: 'Save item',
-          onPress: () => {
-            saveConfirmOpenRef.current = false;
-            void saveConfirmed();
-          },
-        },
-      ],
-      { onDismiss: () => { saveConfirmOpenRef.current = false; } },
-    );
+    if (saving || saveInFlightRef.current) return;
+    void saveConfirmed();
   };
 
   const handleDismiss = useCallback(async () => {

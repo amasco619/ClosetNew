@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Pressable, Platform, Alert, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, Pressable, Platform, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import SwipeToDismiss from '@/components/SwipeToDismiss';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { GarmentTile } from '@/components/GarmentTile';
 import { useApp, subTypes, colorFamilies } from '@/contexts/AppContext';
+import { useDialog } from '@/contexts/LuxuryFeedbackContext';
 import type { Neckline } from '@/constants/types';
 import Colors from '@/constants/colors';
 import { wardrobeCategoryLabel } from '@/constants/wardrobeLabels';
@@ -32,6 +33,7 @@ function formatCPW(price: number, wears: number): string {
 }
 
 export default function ItemDetailScreen() {
+  const dialog = useDialog();
   const insets = useSafeAreaInsets();
   const sheetScrollTopRef = useRef(0);
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -130,22 +132,25 @@ export default function ItemDetailScreen() {
     return `At £${cpw} per wear, this piece has room to earn its keep.`;
   })();
 
-  const handleDelete = () => {
-    if (Platform.OS === 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      removeWardrobeItem(item.id);
-      router.back();
-    } else {
-      Alert.alert('Remove Item', `Remove this ${item.subType}?`, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove', style: 'destructive', onPress: () => {
-            removeWardrobeItem(item.id);
-            router.back();
-          }
-        },
-      ]);
+  const handleDelete = async () => {
+    const confirmed = await dialog.confirm({
+      title: 'Remove this piece?',
+      message: 'It will be removed from your wardrobe and its photo. Saved-look records and past wear history will not be deleted.',
+      confirmLabel: 'Remove piece',
+      cancelLabel: 'Keep it',
+      tone: 'destructive',
+    });
+    if (!confirmed) return;
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    const complete = await removeWardrobeItem(item.id, item.photoUri);
+    if (!complete) {
+      dialog.notify({
+        title: 'Removal could not be confirmed',
+        message: 'Check your wardrobe before trying again. The wardrobe entry or photo cleanup may still need attention.',
+      });
+      return;
     }
+    router.back();
   };
 
   const handleSavePrice = async () => {

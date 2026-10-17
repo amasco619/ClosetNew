@@ -78,7 +78,7 @@ async function main() {
   assert.match(add, /manualEntry === 'true' && resolvedInitialUri/);
   assert.match(add, /if \(!selectionId \|\| returnToBulk === 'true'\) return/,
     'dismissal of a borrowed manual photo cannot clean the underlying batch');
-  assert.match(add, /uploadedPhoto = null;\s*if \(returnToBulk === 'true'[\s\S]*router\.dismissTo/);
+  assert.match(add, /uploadedPhoto = null;\s*void Haptics\.notificationAsync\([\s\S]*?if \(returnToBulk === 'true'[\s\S]*?toast\.show\([\s\S]*?router\.dismissTo/);
   assert.match(bulk, /isError && item\.retryable !== false/);
   assert.match(bulk, /item\?\.status === 'refused' \|\| item\?\.retryable === false/);
   assert.match(bulk, /status === 'pending' \|\| item\.status === 'classifying'/,

@@ -1,6 +1,6 @@
 import {
   StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator,
-  Platform, Alert,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +19,7 @@ import { computeItemCpw, formatCpw } from '@/constants/cpw';
 import { rs } from '../../lib/responsive';
 import OccasionPlanner, { type ConciergeAccess } from '../../components/OccasionPlanner';
 import { GarmentTile } from '@/components/GarmentTile';
+import { useToast } from '@/contexts/LuxuryFeedbackContext';
 import TravelPlanner from '../../components/TravelPlanner';
 import { CONCIERGE_OCCASIONS, conciergeReadiness, parseConciergeIntent, type ConciergeIntent } from '../../lib/concierge';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
@@ -194,6 +195,7 @@ function OutfitCard({
   onReact: (outfit: OutfitSet, type: ReactionType) => void;
   isPremium: boolean;
 }) {
+  const toast = useToast();
   const scenario = scenarioLabels[outfit.scenario];
   const accent = SCENARIO_ACCENT[outfit.scenario] ?? Colors.secondary;
   const coreItems = outfit.components.filter(c =>
@@ -235,7 +237,7 @@ function OutfitCard({
       });
     } catch (err) {
       console.error('[OOTD] Export failed:', err);
-      Alert.alert('Could not export this look', 'Please try again in a moment.');
+      toast.show({ message: 'Could not export this look. Please try again in a moment.' });
     } finally {
       setExporting(false);
     }

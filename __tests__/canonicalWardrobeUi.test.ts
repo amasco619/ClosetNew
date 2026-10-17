@@ -122,6 +122,7 @@ const modules: Record<string, string> = {
       return {wardrobeItems:m.items(),getItemWearCount:()=>0,loadAllWardrobeItems:async()=>{},removeWardrobeItem:()=>{},updateWardrobeItem:m.update,isGuest:false};
     }
   `,
+  '@/contexts/LuxuryFeedbackContext': `export const useDialog=()=>({confirm:async()=>false,notify:()=>{},alert:()=>{}});export const useToast=()=>({show:()=>{}});`,
 };
 const plugin: Plugin = { name: 'canonical-ui-boundaries', setup(bundle) {
   bundle.onResolve({ filter: /.*/ }, args => Object.hasOwn(modules, args.path)

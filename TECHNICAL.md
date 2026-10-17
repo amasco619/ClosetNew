@@ -266,11 +266,15 @@ app/
 
 components/              Shared React Native components
   ErrorBoundary.tsx      Top-level error boundary
+  LuxuryDialog.tsx       Accessible branded confirmation and information modal
+  LuxuryFeedbackProvider.tsx Root dialog/toast queues and hooks
+  LuxuryToast.tsx         Safe-area success/error toast with optional Undo
   SwipeToDismiss.tsx     Android swipe-to-dismiss gesture wrapper with drag handle (no-op on iOS/web)
 
 contexts/
   AppContext.tsx          Entire app state: profile, wardrobe, premium, blueprint slots,
                          outfit reactions, wear log, affinity, rotation cursors
+  LuxuryFeedbackContext.tsx Dialog and toast hooks consumed by app screens
 
 constants/
   colors.ts              Theme colour tokens
@@ -300,6 +304,7 @@ lib/
   uploadArg.ts           resolveWardrobeUploadArg(), stripDataUriPrefix() — upload argument normalisation
   rebaseGuestPhotoUri.ts rebaseGuestPhotoUri() — Android post-update documentDirectory path fix for guest photos
   bulkClassifyCore.ts    Parallel classification helpers shared between add-item and bulk-review
+  alertDialogAdapter.ts  Alert.alert-compatible adapter for the branded dialog queue
   carouselUtils.ts       Carousel layout utilities for bulk-review grid
 
 server/
@@ -319,7 +324,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               103 test suites (see §11)
+__tests__/               104 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -431,7 +436,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 103 test suites once |
+| `npm test` | Run all 104 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -1300,6 +1305,35 @@ Called from `AppContext` on wardrobe load, before orphan detection runs.
 
 ---
 
+### Luxury Dialogs, Toasts & Save Undo
+
+`LuxuryFeedbackProvider` wraps the app beneath `AppProvider` and exposes
+`useDialog()` (`confirm`, `notify`, and `alert`) plus `useToast()`. App-owned
+`Alert.alert` calls were migrated to the shared native `Modal` dialog or toast;
+the operating system's camera/photo permission prompts remain native. The
+dialog queue supports destructive styling, Android Back cancellation,
+accessible labels/announcements, and reduced-motion-aware animation. Toasts
+queue, respect safe-area/tab-bar insets, and provide a five-second Undo action.
+
+Single-item Add Item saves now commit directly after existing subtype/colour
+validation. Bulk and multi-piece saves retain synchronous in-flight guards and
+show one success toast only after the wardrobe commit is acknowledged. Undo
+calls the normal owner-scoped wardrobe removal path for each committed item,
+including its image and guest-local cleanup; it does not refund quota or change
+saved-look/wear-history records. Batch Undo attempts every row and reports
+partial cleanup rather than claiming success. Undoing a manual item returned
+to Bulk Review restores its transient review card while removing the wardrobe
+commit. Item removal copy discloses the preserved history/look records.
+
+No dependency, schema, recommendation-engine, or classifier changes were made.
+Required subtype/colour validation remains a branded dialog rather than new
+inline field state. Automated adapter and bulk-save/Undo checks are in
+`alertDialogAdapter.test.ts` and `bulkReviewMountedGuard.test.ts`. Real-device
+and VoiceOver/TalkBack verification was not performed; the manual matrix is in
+`reports/luxury-dialogs-and-save-moment.md`.
+
+---
+
 ## 10. Pending Features
 
 These features are **not yet implemented**. They are the next development priorities.
@@ -1320,10 +1354,11 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (103 total)
+### Test Suites (104 total)
 
 | Suite | What it tests |
 |-------|--------------|
+| `alertDialogAdapter.test.ts` | Branded dialog adapter preserves cancel/destructive roles, outside-cancel policy, button callbacks and default Done behavior |
 | `travelCapsule.test.ts` | Exact activity/scenario matching and source separation, owned/current IDs, stable look identity, authoritative coordinated membership/partial use, checklist deduplication, partial coverage and no write/generation imports |
 | `travelCapsuleUi.test.ts` | Mounted actual session planner/view: fresh checks, explicit reuse, unsupported/empty slots, separate essentials, group failures/retry, wardrobe/account/entitlement invalidation, superseded responses, blur/remount cleanup and unchanged domain state |
 | `concierge.test.ts` | Five validated today-only occasions with actual candidate construction; readiness precedence; actual AppContext strict entitlement-refresh contract and unchanged default behavior |
@@ -1353,7 +1388,7 @@ These features are **not yet implemented**. They are the next development priori
 | `wardrobeRetryScreens.test.ts` | Mounted Home, Outfits, Wear Log and Choose 30: load failure, successful-but-partial state, retry-pending state, same-count account switches, stale success/failure protection and successful recovery |
 | `bulkCarousel.test.ts` | Bulk-review carousel scroll contract: index clamping, null FlatList ref guard, empty-list safety |
 | `bulkPhotoStaging.test.ts` | App-owned multi-photo staging, partial/all copy failures, in-memory selection lookup, protected cleanup, and 24-hour sweep |
-| `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard, serialized image-transform queue, ID-only one-photo redirect, acknowledged-save cleanup ordering, retriable error state, and original-JPEG fallback |
+| `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard, serialized image-transform queue, ID-only one-photo redirect, acknowledged-save cleanup ordering, retryable errors, original-JPEG fallback, one post-commit Undo snapshot and partial batch-removal reporting |
 | `photoPrepareDiagnostic.test.ts` | Redacted failure diagnostics plus pick-time/current staged-file metadata comparison |
 | `bulkSaveLock.test.ts` | Save-lock ref in bulk-review: concurrent save attempts are blocked by the `saveLockRef` guard |
 | `bulkSaveNoShrunk.test.ts` | Missing/null/data-URI `shrunk.base64` never silently drops a bulk-upload item; `addItem` always fires with the local URI as fallback when `resolveUploadArg` returns null |

@@ -40,8 +40,8 @@ assert.match(context, /Authenticated wardrobe images must be uploaded before sav
 // screen; only successful persistence clears the cleanup marker.
 assert.match(addItem, /uploadedPhoto = \{ userId: session\.user\.id, itemId \}/);
 assert.match(addItem, /uploadedPhoto && !saveMountedRef\.current[\s\S]*throw new Error/);
-assert.match(addItem, /await addWardrobeItem\(\{ id: itemId, \.\.\.wardrobeItem \}\);\s*}\s*uploadedPhoto = null;\s*if \(returnToBulk === 'true'[\s\S]*router\.dismissTo/);
-assert.match(addItem, /try \{\s*await cleanupStagedSelection\(\);\s*} catch \{[\s\S]*?}\s*stagedSaveActiveRef\.current = false;\s*router\.back\(\);\s*} catch \(e\) \{[\s\S]*if \(uploadedPhoto && \(!dbStarted \|\| \(dbCode && dbCode !== 'INVALID_RPC_RESULT'\)\)\)[\s\S]*deleteWardrobeImage/);
+assert.match(addItem, /await addWardrobeItem\(\{ id: itemId, \.\.\.wardrobeItem \}\);\s*}\s*uploadedPhoto = null;\s*void Haptics\.notificationAsync\([\s\S]*?if \(returnToBulk === 'true'[\s\S]*?toast\.show\([\s\S]*?router\.dismissTo/);
+assert.match(addItem, /try \{\s*await cleanupStagedSelection\(\);\s*} catch \{[\s\S]*?}\s*stagedSaveActiveRef\.current = false;[\s\S]*?router\.back\(\);\s*} catch \(e\) \{[\s\S]*if \(uploadedPhoto && \(!dbStarted \|\| \(dbCode && dbCode !== 'INVALID_RPC_RESULT'\)\)\)[\s\S]*deleteWardrobeImage/);
 assert.match(storage, /catch \(signedUrlError\)[\s\S]*await deleteWardrobeImage\(userId, itemId\)/);
 
 // Fixture setup uses RPC; direct inserts remain only as denied attack cases.

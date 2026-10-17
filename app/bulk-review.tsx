@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, Pressable, FlatList,
-  Dimensions, ActivityIndicator, Platform, BackHandler, AppState, Alert,
+  Dimensions, ActivityIndicator, Platform, BackHandler, AppState,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -17,6 +17,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useApp } from '@/contexts/AppContext';
 import { GarmentTile } from '@/components/GarmentTile';
+import { useDialog, useToast } from '@/contexts/LuxuryFeedbackContext';
 import { PhotoRefusalNotice } from '@/components/PhotoRefusalNotice';
 import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
 import BulkItemEditPanel from '@/components/BulkItemEditPanel';
@@ -37,6 +38,7 @@ import {
   runRedirectSingle,
   selectBulkProgress,
   runSaveAll,
+  undoSavedItems,
   runHandleRemove,
   createSerialQueue,
   formatPhotoPrepareDiagnostic,
@@ -327,11 +329,14 @@ function BulkCard({
 
 export default function BulkReviewScreen() {
   const insets = useSafeAreaInsets();
-  const { addWardrobeItems, removeWardrobeItem, isPremium, wardrobeItems } = useApp();
+  const { addWardrobeItems, removeWardrobeItem, isPremium, wardrobeItems, authenticatedUserId, isGuest } = useApp();
+  const dialog = useDialog();
+  const toast = useToast();
 
-  const { selectionId, manualSavedPhotoIndex } = useLocalSearchParams<{
+  const { selectionId, manualSavedPhotoIndex, undoManualSavedPhotoIndex } = useLocalSearchParams<{
     selectionId: string;
     manualSavedPhotoIndex?: string;
+    undoManualSavedPhotoIndex?: string;
   }>();
   const [selectionSnapshot] = useState(() => ({
     selectionId,
@@ -358,6 +363,18 @@ export default function BulkReviewScreen() {
     }
     router.setParams({ manualSavedPhotoIndex: undefined });
   }, [manualSavedPhotoIndex, selectionId]);
+  useEffect(() => {
+    if (undoManualSavedPhotoIndex === undefined || !/^\d+$/.test(undoManualSavedPhotoIndex)) return;
+    const photo = getBulkPhotoSelection(selectionId)?.photos[Number(undoManualSavedPhotoIndex)];
+    if (photo) {
+      // Restore the transient review row after Undo removes its wardrobe commit.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile an explicit Undo result from the save toast.
+      setItems(prev => prev.map(item => item.uri === photo.uri && item.status === 'removed'
+        ? { ...item, status: item.classification ? 'settled' : 'error' }
+        : item));
+    }
+    router.setParams({ undoManualSavedPhotoIndex: undefined });
+  }, [undoManualSavedPhotoIndex, selectionId]);
   const [statusPhase, setStatusPhase] = useState(0);
   const [saving, setSaving] = useState(false);
   const [retryingAll, setRetryingAll] = useState(false);
@@ -496,7 +513,7 @@ export default function BulkReviewScreen() {
   // Cancel with confirmation when classification is still in progress.
   // If all items have already settled (or errored), exit immediately — there
   // is nothing destructive about leaving at that point.
-  const handleCancel = useCallback(() => {
+  const handleCancel = useCallback(async () => {
     if (aiPreference !== 'allowed') {
       void leaveReview();
       return;
@@ -508,19 +525,15 @@ export default function BulkReviewScreen() {
       void leaveReview();
       return;
     }
-    Alert.alert(
-      'Cancel batch review?',
-      'AI analysis is still running. Leaving now will discard all pending results and you will need to re-upload the photos.',
-      [
-        { text: 'Keep waiting', style: 'cancel' },
-        {
-          text: 'Cancel',
-          style: 'destructive',
-          onPress: () => { void leaveReview(); },
-        },
-      ]
-    );
-  }, [items, aiPreference, leaveReview]);
+    const confirmed = await dialog.confirm({
+      title: 'Leave this batch review?',
+      message: 'AI analysis is still running. Leaving now will discard pending results, and you will need to re-upload those photos.',
+      confirmLabel: 'Leave review',
+      cancelLabel: 'Keep waiting',
+      tone: 'destructive',
+    });
+    if (confirmed) void leaveReview();
+  }, [items, aiPreference, leaveReview, dialog]);
 
   // Block the Android hardware back button while saving is in progress so the
   // user cannot navigate away mid-save and leave orphaned wardrobe entries.
@@ -841,11 +854,11 @@ export default function BulkReviewScreen() {
           onItemHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
           onLocalOnlyComplete: (uris) => {
             if (!mountedRef.current) return;
-            Alert.alert(
-              'Upload pending',
-              `${uris.length === 1 ? 'This item remains' : 'These items remain'} in review because cloud upload did not complete. Nothing from this batch was saved; check your connection and retry.`,
-              [{ text: 'Keep reviewing', style: 'cancel' }],
-            );
+            dialog.notify({
+              title: 'Upload still pending',
+              message: `${uris.length === 1 ? 'This item remains' : 'These items remain'} in review because cloud upload did not complete. Nothing from this batch was saved; check your connection and retry.`,
+              buttonLabel: 'Keep reviewing',
+            });
           },
           onSaved: async () => {
             const directoryUri = bulkStagingDirectoryUri(FileSystem.cacheDirectory);
@@ -861,11 +874,23 @@ export default function BulkReviewScreen() {
               protectedUris,
             });
           },
+          onAdded: savedItems => {
+            const expectedUserId = authenticatedUserId ?? (isGuest ? null : undefined);
+            toast.show({
+              message: `${savedItems.length} ${savedItems.length === 1 ? 'piece' : 'pieces'} added to your wardrobe`,
+              thumbnailUri: savedItems[0]?.photoUri,
+              actionLabel: 'Undo',
+              onAction: () => expectedUserId === undefined
+                ? Promise.resolve(false)
+                : undoSavedItems(savedItems, (id, photoUri) =>
+                  removeWardrobeItem(id, photoUri, expectedUserId)),
+            });
+          },
           onSaveError: (error) => {
             if (!mountedRef.current) return;
             const code = (error as { code?: string })?.code;
             if (code === 'WARDROBE_CAPACITY_REACHED') {
-              Alert.alert(
+              dialog.alert(
                 'Wardrobe is full',
                 'Choose which 30 items to keep in your free wardrobe, then try saving again.',
                 [
@@ -874,7 +899,10 @@ export default function BulkReviewScreen() {
                 ],
               );
             } else {
-              Alert.alert('Could not save these items', 'Nothing from this batch was added. Check your connection and try again.');
+              dialog.notify({
+                title: 'These items could not be saved',
+                message: 'Nothing from this batch was added. Check your connection and try again.',
+              });
             }
           },
           onDoneHaptic: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
@@ -886,14 +914,7 @@ export default function BulkReviewScreen() {
   };
   const handleSaveAll = () => {
     if (savingRef.current || saving) return;
-    Alert.alert(
-      'Save all reviewed items?',
-      'All reviewed items will be added to your wardrobe together.',
-      [
-        { text: 'Keep reviewing', style: 'cancel' },
-        { text: 'Save all', onPress: () => { void saveAllConfirmed(); } },
-      ],
-    );
+    void saveAllConfirmed();
   };
 
   // Derived values

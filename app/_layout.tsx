@@ -8,6 +8,7 @@ import * as Linking from "expo-linking";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { LuxuryFeedbackProvider } from "@/components/LuxuryFeedbackProvider";
 import { queryClient } from "@/lib/query-client";
 import { AppProvider, useApp } from "@/contexts/AppContext";
 import { createSessionFromUrl } from "@/lib/auth";
@@ -184,9 +185,11 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <KeyboardProvider>
             <AppProvider>
-              <StatusBar style="dark" />
-              <BulkPhotoStagingJanitor />
-              <RootLayoutNav />
+              <LuxuryFeedbackProvider>
+                <StatusBar style="dark" />
+                <BulkPhotoStagingJanitor />
+                <RootLayoutNav />
+              </LuxuryFeedbackProvider>
             </AppProvider>
           </KeyboardProvider>
         </GestureHandlerRootView>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Crypto from 'expo-crypto';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -10,11 +10,12 @@ import { AiProcessingConsent } from '@/components/AiProcessingConsent';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { getAiProcessingPreference, setAiProcessingPreference } from '@/lib/aiProcessingPreference';
 import { constructMultiItemDraft, type B3RelationshipType, type B3WardrobeFields, type MultiItemClassificationResult } from '@/lib/multiItemConstruction';
-import { runSaveAll, type BulkItemCore, type ClassifyResult } from '@/lib/bulkClassifyCore';
+import { runSaveAll, undoSavedItems, type BulkItemCore, type ClassifyResult } from '@/lib/bulkClassifyCore';
 import { resolveWardrobeUploadArg } from '@/lib/uploadArg';
 import { uploadWardrobeImage, deleteWardrobeImage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { GarmentTile } from '@/components/GarmentTile';
+import { useDialog, useToast } from '@/contexts/LuxuryFeedbackContext';
 
 type Piece = BulkItemCore & { detectionId: string; classification: ClassifyResult; fields: B3WardrobeFields };
 const RELATIONSHIPS: { type: B3RelationshipType; label: string }[] = [
@@ -25,7 +26,9 @@ const RELATIONSHIPS: { type: B3RelationshipType; label: string }[] = [
 
 export default function MultiItemReview() {
   const { uri } = useLocalSearchParams<{ uri: string }>();
-  const { addWardrobeGroupItems } = useApp();
+  const { addWardrobeGroupItems, removeWardrobeItem, authenticatedUserId, isGuest } = useApp();
+  const dialog = useDialog();
+  const toast = useToast();
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [relationship, setRelationship] = useState<B3RelationshipType>('multi_item');
@@ -88,12 +91,17 @@ export default function MultiItemReview() {
     })();
   }, [phase, uri]);
 
-  const confirmSave = () => {
+  const confirmSave = async () => {
     if (savingRef.current || selected.length < 2) return;
     const selectedPieces = pieces.filter(item => selected.includes(item.detectionId));
     const label = RELATIONSHIPS.find(option => option.type === relationship)?.label ?? relationship;
-    Alert.alert('Confirm detected pieces', `Save these ${selectedPieces.length} independently wearable garments as: ${label}?`,
-      [{ text: 'Keep reviewing', style: 'cancel' }, { text: 'Confirm and save', onPress: () => { void save(selectedPieces); } }]);
+    const confirmed = await dialog.confirm({
+      title: 'Confirm the selected pieces',
+      message: `Save these ${selectedPieces.length} independently wearable garments as ${label}?`,
+      confirmLabel: 'Confirm and save',
+      cancelLabel: 'Keep reviewing',
+    });
+    if (confirmed) void save(selectedPieces);
   };
 
   const save = async (selectedPieces: Piece[]) => {
@@ -124,8 +132,20 @@ export default function MultiItemReview() {
         setItems: update => setPieces(prev => update(prev) as Piece[]),
         setSaving,
         onItemHaptic: () => {},
-        onSaveError: () => Alert.alert('Save failed', 'Nothing was added. Review the pieces and try again.'),
-        onLocalOnlyComplete: () => Alert.alert('Upload pending', 'No pieces were saved. Sign in and retry when upload is available.'),
+        onSaveError: () => dialog.notify({ title: 'These pieces could not be saved', message: 'Nothing was added. Review the pieces and try again.' }),
+        onLocalOnlyComplete: () => dialog.notify({ title: 'Upload still pending', message: 'No pieces were saved. Sign in and retry when upload is available.', buttonLabel: 'Keep reviewing' }),
+        onAdded: savedItems => {
+          const expectedUserId = authenticatedUserId ?? (isGuest ? null : undefined);
+          toast.show({
+            message: `${savedItems.length} pieces added to your wardrobe`,
+            thumbnailUri: savedItems[0]?.photoUri,
+            actionLabel: 'Undo',
+            onAction: () => expectedUserId === undefined
+              ? Promise.resolve(false)
+              : undoSavedItems(savedItems, (id, photoUri) =>
+                removeWardrobeItem(id, photoUri, expectedUserId)),
+          });
+        },
         onDoneHaptic: () => {},
         navigate: () => router.replace('/(tabs)/wardrobe'),
       });

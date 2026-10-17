@@ -425,10 +425,28 @@ export interface SaveAllDeps {
   onSaveError?(error: unknown): void;
   /** Called only after addItems acknowledges the complete batch commit. */
   onSaved?(uris: string[]): Promise<void> | void;
+  /** Runs once after the batch commit is acknowledged; used for one batch Undo affordance. */
+  onAdded?(items: BulkSavePayload[]): void;
   /** Success haptic after all items are saved. */
   onDoneHaptic(): void;
   /** Navigate away once the save loop finishes. */
   navigate(): void;
+}
+
+/** Remove a committed batch through the caller's normal wardrobe-delete path. */
+export async function undoSavedItems(
+  items: ReadonlyArray<Pick<BulkSavePayload, 'id' | 'photoUri'>>,
+  removeItem: (id: string, photoUri: string) => Promise<boolean>,
+): Promise<boolean> {
+  let complete = true;
+  for (const item of items) {
+    try {
+      if (!await removeItem(item.id, item.photoUri)) complete = false;
+    } catch {
+      complete = false;
+    }
+  }
+  return complete;
 }
 
 /**
@@ -622,6 +640,7 @@ export async function runSaveAll(
       // Staging cleanup is best-effort and cannot turn a committed batch into a failure.
     }
     if (!mountedRef.current) return;
+    if (payloads.length > 0) deps.onAdded?.(payloads);
     deps.setItems(prev => prev.map(it => !payloadUris.includes(it.uri)
       ? it
       : { ...it, status: localOnlyUris.includes(it.uri) ? 'local-only' : 'saved' },

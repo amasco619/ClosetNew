@@ -20,7 +20,7 @@
  * Exits non-zero on any failed assertion.
  */
 
-import { createSerialQueue, runClassifyUri, runRedirectSingle, runSaveAll } from '../lib/bulkClassifyCore';
+import { createSerialQueue, runClassifyUri, runRedirectSingle, runSaveAll, undoSavedItems } from '../lib/bulkClassifyCore';
 import type { BulkItemCore, ClassifyResult, ClassifyDeps, SaveAllItem, SaveAllDeps } from '../lib/bulkClassifyCore';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
@@ -712,6 +712,8 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
   {
     const mountedRef = { current: true };
     const d = makeDeferredSaveDeps();
+    const addedItems: Array<{ id: string; photoUri: string }> = [];
+    d.deps.onAdded = items => addedItems.push(...items);
 
     // Guest: no userId → skips upload entirely
     const p = runSaveAll([makeSaveItem({ cleanBase64: 'already-prepared' })], mountedRef, d.deps);
@@ -722,6 +724,10 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
 
     assert(d.addItemCalls === 1,
       'addItem called once on guest happy path');
+    assert(addedItems.length === 1 &&
+      addedItems[0]?.id === 'test-uuid' &&
+      addedItems[0]?.photoUri === 'file:///documents/test-uuid.jpg',
+    'one Undo snapshot is exposed only after the committed item has an id and durable photo');
     assert(d.setItemsStatuses.includes('saving'),
       'setItems(saving) fires');
     assert(d.setItemsStatuses.includes('saved'),
@@ -732,6 +738,23 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
       'setSaving(true) fires at start');
     assert(d.setSavingValues[d.setSavingValues.length - 1] === false,
       'setSaving(false) fires at end');
+  }
+
+  section('undoSavedItems — serially removes each saved item and reports partial failure');
+  {
+    const calls: string[] = [];
+    const complete = await undoSavedItems([
+      { id: 'item-1', photoUri: 'https://storage.example/1.jpg' },
+      { id: 'item-2', photoUri: 'file:///documents/2.jpg' },
+    ], async (id, photoUri) => {
+      calls.push(`${id}:${photoUri}`);
+      return id !== 'item-1';
+    });
+    assert(calls.length === 2, 'Undo attempts every saved item even when one removal fails');
+    assert(calls[0] === 'item-1:https://storage.example/1.jpg' &&
+      calls[1] === 'item-2:file:///documents/2.jpg',
+    'Undo passes each committed row id and photo to the normal removal path in order');
+    assert(!complete, 'Undo reports an incomplete batch instead of claiming success');
   }
 
   section('runSaveAll — staged-file cleanup runs only after wardrobe commit acknowledgement');

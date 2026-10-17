@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Platform, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Platform, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,6 +17,7 @@ import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/con
 import * as Haptics from 'expo-haptics';
 import { rs } from '../../lib/responsive';
 import { AmodkaErrorState } from '@/components/AmodkaErrorState';
+import { useDialog } from '@/contexts/LuxuryFeedbackContext';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
 import {
   getAiProcessingPreference,
@@ -112,6 +113,7 @@ function SectionHeader({ label, title }: { label: string; title: string }) {
 }
 
 export default function ProfileScreen() {
+  const dialog = useDialog();
   const insets = useSafeAreaInsets();
   const {
     profile, updateProfile, wardrobeItems, wardrobeTotalCount, loadAllWardrobeItems, isPremium, isGuest, wearHistory,
@@ -794,7 +796,7 @@ export default function ProfileScreen() {
                   style={({ pressed }) => [styles.upgradeBtn, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                   onPress={() => {
                     if (isGuest) {
-                      Alert.alert(
+                      dialog.alert(
                         'Sign in to access Premium',
                         'Create a free account or sign in to unlock Premium features and save your wardrobe.',
                         [
@@ -864,7 +866,7 @@ export default function ProfileScreen() {
               onPress={async () => {
                 try { await signOut(); router.replace('/sign-in'); }
                 catch {
-                  Alert.alert('Could not sign out', 'Your session could not be closed safely. Please check your connection and try again.');
+                  dialog.notify({ title: 'Could not sign out', message: 'Your session could not be closed safely. Please check your connection and try again.' });
                 }
               }}
               accessibilityLabel="Sign out of Amodka"
@@ -884,7 +886,7 @@ export default function ProfileScreen() {
                 <Pressable
                   style={({ pressed }) => [styles.accountRow, pressed && { opacity: 0.7 }]}
                   onPress={() => {
-                    Alert.alert(
+                    dialog.alert(
                       'Delete account',
                       'This will permanently delete your account and all wardrobe data. This cannot be undone. Deleting your Amodka account does not cancel your App Store or Google Play subscription. Cancel it separately through your app store.',
                       [
@@ -902,10 +904,10 @@ export default function ProfileScreen() {
                               const result = await response.json();
                               if (result.success !== true) throw new Error('Deletion not confirmed');
                             } catch {
-                              Alert.alert(
-                                'Deletion not confirmed',
-                                'Your account was not confirmed deleted. Some data may already have been removed. Please try again or contact support.',
-                              );
+                              dialog.notify({
+                                title: 'Deletion not confirmed',
+                                message: 'Your account was not confirmed deleted. Some data may already have been removed. Please try again or contact support.',
+                              });
                               return;
                             }
                             // The server has deleted the account. Local cleanup
@@ -963,10 +965,10 @@ export default function ProfileScreen() {
                             }
                             if (signedOut) router.replace('/sign-in');
                             if (!cacheCleared || !signedOut) {
-                              Alert.alert(
-                                'Account deleted — device cleanup incomplete',
-                                'Your account was deleted, but this device could not fully clear its local data or session. Clear this app’s data before anyone else uses this device.',
-                              );
+                              dialog.notify({
+                                title: 'Account deleted — device cleanup incomplete',
+                                message: 'Your account was deleted, but this device could not fully clear its local data or session. Clear this app’s data before anyone else uses this device.',
+                              });
                             }
                           },
                         },

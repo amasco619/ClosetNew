@@ -87,7 +87,7 @@ interface AppContextValue {
     },
   ) => Promise<void>;
   replaceWardrobeItem: (existingId: string, replacement: WardrobeItemReplacement) => Promise<void>;
-  removeWardrobeItem: (id: string) => void;
+  removeWardrobeItem: (id: string, photoUriHint?: string, expectedUserId?: string | null) => Promise<boolean>;
   updateWardrobeItem: (id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => Promise<void>;
   isPremium: boolean;
   outfitSets: OutfitSet[];
@@ -1747,66 +1747,103 @@ export function AppProvider({ children }: { children: ReactNode }) {
       : prev);
   }, []);
 
-  const removeWardrobeItem = useCallback((id: string) => {
+  const removeWardrobeItem = useCallback(async (
+    id: string,
+    photoUriHint?: string,
+    expectedUserId?: string | null,
+  ): Promise<boolean> => {
     const userId = currentUserIdRef.current;
+    if (expectedUserId !== undefined && userId !== expectedUserId) return false;
+    if (expectedUserId === null && !profile.isGuest) return false;
     const accountGeneration = accountGenerationRef.current;
     const startupGeneration = startupGenerationRef.current;
-    const item = wardrobeItems.find(i => i.id === id);
-    const applyRemoval = (remaining: WardrobeItem[]) => {
-      if (currentUserIdRef.current !== userId ||
-          accountGenerationRef.current !== accountGeneration ||
-          startupGenerationRef.current !== startupGeneration) return;
-      setWardrobeItems(remaining);
-      const total = Math.max(0, wardrobeTotalCountRef.current - 1);
-      const loaded = Math.max(0, wardrobeLoadedCountRef.current - 1);
-      updateWardrobePagination(total, loaded);
-      setFreeSelectedItemIds(ids => ids.filter(itemId => itemId !== id));
-      if (userId === null) AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(remaining));
-      const refreshedSlots = initializeSlots(
-        selectActiveWardrobeItems(remaining, isPremium, profile.isGuest === true, freeSelectedItemIds),
-        getProfileBlueprint(profile),
-      );
-      setRecommendationSlots(refreshedSlots);
-      if (userId === null) {
-        AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
-          refreshedSlots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
-        ));
-      }
-    };
-    if (userId) {
-      void (async () => {
+    const items = wardrobeItemsRef.current;
+    const item = items.find(i => i.id === id);
+    const photoUri = item?.photoUri ?? photoUriHint;
+    let photoCleanupComplete = true;
+    let selectionCleanupComplete = true;
+
+    try {
+      if (userId) {
         await deleteWardrobeItem(userId, id);
-        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
-        if (item?.photoUri) await deleteWardrobeImage(userId, id).catch(console.warn);
-        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
-        const page = await getWardrobeItems(userId);
-        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
-        const currentItemWasLoaded = wardrobeItemsRef.current.some(loaded => loaded.id === id);
-        setWardrobeItems(prev =>
-          isCurrentAccountRequest(userId, accountGeneration, startupGeneration)
-            ? prev.filter(loaded => loaded.id !== id)
-            : prev,
-        );
+        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return false;
+        if (photoUri) {
+          try { await deleteWardrobeImage(userId, id); }
+          catch (error) {
+            photoCleanupComplete = false;
+            console.warn('[wardrobe] Removed item photo cleanup did not complete', error);
+          }
+        }
+        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return false;
+        let page: Awaited<ReturnType<typeof getWardrobeItems>> | null = null;
+        try { page = await getWardrobeItems(userId); }
+        catch { /* The row is already deleted; keep local state in sync and report incomplete verification. */ }
+        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return false;
+        const currentItems = wardrobeItemsRef.current;
+        const currentItemWasLoaded = currentItems.some(loaded => loaded.id === id);
+        const remaining = currentItems.filter(loaded => loaded.id !== id);
+        wardrobeItemsRef.current = remaining;
+        setWardrobeItems(remaining);
         const nextLoadedCount = Math.max(
           0,
           wardrobeLoadedCountRef.current - (currentItemWasLoaded ? 1 : 0),
         );
-        updateWardrobePagination(page.totalCount, Math.min(page.totalCount, nextLoadedCount));
-        const storedSelection = await getFreeWardrobeSelection(userId);
-        if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
-        const selected = storedSelection.filter(itemId => itemId !== id);
-        if (selected.length !== storedSelection.length) {
-          await persistFreeWardrobeSelection(selected);
-          if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
+        updateWardrobePagination(
+          page?.totalCount ?? Math.max(0, wardrobeTotalCountRef.current - 1),
+          Math.min(page?.totalCount ?? nextLoadedCount, nextLoadedCount),
+        );
+        try {
+          const storedSelection = await getFreeWardrobeSelection(userId);
+          if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return false;
+          const selected = storedSelection.filter(itemId => itemId !== id);
+          if (selected.length !== storedSelection.length) {
+            await persistFreeWardrobeSelection(selected);
+            if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return false;
+          }
+          setFreeSelectedItemIds(selected);
+        } catch {
+          selectionCleanupComplete = false;
+          setFreeSelectedItemIds(ids => ids.filter(itemId => itemId !== id));
         }
-        setFreeSelectedItemIds(selected);
-      })().catch(console.error);
-    } else {
-      void runGuestRemoval(id, wardrobeItems, FileSystem.documentDirectory, FileSystem.deleteAsync)
-        .then(() => applyRemoval(wardrobeItems.filter(item => item.id !== id)))
-        .catch(console.warn);
+        return photoCleanupComplete && selectionCleanupComplete && page !== null;
+      }
+
+      const removalSnapshot = item ? items : [...items, { id, photoUri }];
+      const documentDirectory = FileSystem.documentDirectory;
+      if (photoUri?.startsWith('file://') &&
+          (!documentDirectory || !photoUri.startsWith(documentDirectory))) {
+        photoCleanupComplete = false;
+      }
+      await runGuestRemoval(id, removalSnapshot, FileSystem.documentDirectory, FileSystem.deleteAsync);
+      if (currentUserIdRef.current !== null ||
+          accountGenerationRef.current !== accountGeneration ||
+          startupGenerationRef.current !== startupGeneration) return false;
+      const remaining = wardrobeItemsRef.current.filter(loaded => loaded.id !== id);
+      await AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(remaining));
+      const refreshedSlots = initializeSlots(
+        selectActiveWardrobeItems(remaining, isPremium, profile.isGuest === true, freeSelectedItemIds),
+        getProfileBlueprint(profile),
+      );
+      await AsyncStorage.setItem(STORAGE_KEYS.slots, JSON.stringify(
+        refreshedSlots.map(s => ({ id: s.id, status: s.status, matchedItemId: s.matchedItemId }))
+      ));
+      if (currentUserIdRef.current !== null ||
+          accountGenerationRef.current !== accountGeneration ||
+          startupGenerationRef.current !== startupGeneration) return false;
+      wardrobeItemsRef.current = remaining;
+      setWardrobeItems(remaining);
+      updateWardrobePagination(
+        Math.max(0, wardrobeTotalCountRef.current - 1),
+        Math.max(0, wardrobeLoadedCountRef.current - 1),
+      );
+      setFreeSelectedItemIds(ids => ids.filter(itemId => itemId !== id));
+      setRecommendationSlots(refreshedSlots);
+      return photoCleanupComplete;
+    } catch (error) {
+      console.error('[wardrobe] Remove item did not complete', error);
+      return false;
     }
-  }, [profile, isPremium, wardrobeItems, freeSelectedItemIds]);
+  }, [profile, isPremium, freeSelectedItemIds, updateWardrobePagination]);
 
   const resolveOrphan = useCallback((id: string, action: 'remove' | 'dismiss') => {
     setOrphanedItems(prev => prev.filter(o => o.id !== id));

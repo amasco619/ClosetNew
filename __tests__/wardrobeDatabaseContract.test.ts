@@ -108,9 +108,9 @@ assert.doesNotMatch(tokenRefresh, /for \(let offset/);
 const removeStart = context.indexOf('const removeWardrobeItem =');
 const removeEnd = context.indexOf('const resolveOrphan =', removeStart);
 const removeBlock = context.slice(removeStart, removeEnd);
-assert.match(removeBlock, /currentItemWasLoaded = wardrobeItemsRef\.current\.some/);
+assert.match(removeBlock, /const currentItems = wardrobeItemsRef\.current;\s*const currentItemWasLoaded = currentItems\.some/);
 assert.match(removeBlock, /wardrobeLoadedCountRef\.current - \(currentItemWasLoaded \? 1 : 0\)/);
-assert.match(removeBlock, /prev\.filter\(loaded => loaded\.id !== id\)/);
+assert.match(removeBlock, /const remaining = currentItems\.filter\(loaded => loaded\.id !== id\)/);
 assert.doesNotMatch(removeBlock, /setWardrobeItems\(mapped\)/);
 
 const replaceStart = context.indexOf('const replaceWardrobeItem =');
