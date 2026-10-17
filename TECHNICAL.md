@@ -235,7 +235,7 @@ Two context flags exposed to consumers:
 5. Gemini returns: category, subType, colorFamily, fabric, pattern, fit, neckline, sleeveLength, rise, warmthBand, dominantRgb, modelConfidence
 6. Server derives: occasionTags (deterministic business rules), seasonTags, HSL/Lab colour values
 7. Response is returned to the app; the item form is pre-filled
-8. User reviews and confirms; **`expo-image-manipulator` resizes the original to ≤1600 px** (JPEG, 0.85 compress) before uploading to Supabase Storage — reduces storage payload from 6–12 MB to ~300–600 KB with no visible quality loss in thumbnails
+8. User reviews and confirms; a readable transparent cutout uploads unchanged as PNG. Otherwise the selected original is prepared as JPEG (≤1600 px longest edge, 0.85 compress) before uploading to Supabase Storage. A missing cutout cache is not a cloud-upload failure.
 
 ---
 
@@ -319,7 +319,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               102 test suites (see §11)
+__tests__/               103 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -342,8 +342,8 @@ User takes/picks photo
   → Item form pre-filled with classification results
   → User confirms
   → Crypto.randomUUID() generates item ID
-  → expo-image-manipulator resizes original to ≤1600 px → storageBase64 (~300–600 KB)
-  → uploadWardrobeImage() uploads storageBase64 to Supabase Storage: {userId}/{itemId}.jpg
+  → read cached transparent PNG, or prepare original JPEG if unavailable
+  → uploadWardrobeImage() uploads to Supabase Storage: {userId}/{itemId}.png or .jpg
   → addWardrobeItem() saves item to AppContext state + AsyncStorage
   → Blueprint slots updated (first matching needed slot becomes owned)
   → generateOutfitsForItem() builds "just added" outfit suggestions
@@ -431,7 +431,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 102 test suites once |
+| `npm test` | Run all 103 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -533,7 +533,13 @@ The original full-resolution asset is never sent over the network. Both resize c
 ### Gemini Garment Classification
 A resized base64 image (≤1024 px, ~100–300 KB) is sent to `POST /api/classify-garment`. Gemini classifies the item into category, subType, colourFamily, fabric, pattern, fit, neckline, sleeveLength, rise, warmthBand, and returns a dominant RGB for perceptual colour scoring. The server applies deterministic occasion and season rules on top of Gemini's output for consistency. Two-model fallback: `gemini-flash-lite-latest` → `gemini-2.5-flash` on 429. The primary remains a rolling alias because a pinned Flash-Lite probe returned HTTP 404 here; real-photo scoring must have a provider-resolved model version or fail closed. Content guardrails reject selfies, blurry images, non-clothing subjects. Safe structured classification logs include a generated ID, SHA-256/size/MIME, model/attempt/status, prompt SHA-256, stage and error code, but never raw image or provider content.
 
-Matching pairs and coordinated sets worn as a unit count as one item. Multiple-garment refusal applies only to unrelated garments without a dominant item; uncertain multiplicity favors classifying the dominant item. HTTP 422 `content_guardrail` is a non-retryable result with fixed calm client copy and manual entry, not a transient failed analysis. The original five content guardrails and stole/textile safeguards remain in force. See `reports/classifier-pairs-refusal.md`.
+Matching pairs and coordinated sets worn as a unit count as one item. Multiple-garment refusal applies only to unrelated garments without a dominant item; uncertain multiplicity favors classifying the dominant item. HTTP 422 `content_guardrail` is a non-retryable result with fixed calm client copy and manual entry, not a transient failed analysis. The original five content guardrails and stole/textile safeguards remain in force. See `docs/reports/classifier-pairs-refusal.md`.
+
+**Runtime configuration:** `GEMINI_PRIMARY_MODEL` optionally overrides only the primary classifier model; unset/blank defaults to `gemini-flash-lite-latest`. The `gemini-2.5-flash` fallback still runs only after 429, and resolved models remain logged. No environment values were changed by this cleanup.
+
+**Upload diagnostics:** off by default. For a development investigation only, set `EXPO_PUBLIC_UPLOAD_DIAGNOSTICS=1` and restart Metro. Both `__DEV__` and this flag are required for preparation/staging logs, on-card diagnostic text and the batch build stamp. Logs use `console.log`, not LogBox-triggering warnings. `reportUploadError({stage,code})` accepts only allowlisted stage/code values, never errors/paths/user data; it logs under the flag in dev and is a release no-op. The diagnostic formatter returns immediately in release, so its formatting body/strings are eliminated even if the flag is set to 1. `.replit` permanently retains documented `EXPO_UNSTABLE_HEADLESS=1` to avoid container DevTools/GLib failures; Metro and Expo Go remain enabled.
+
+**Background-removal allowance copy:** Free accounts receive 20 lifetime removals, not a daily allowance. Remaining/limit banners now say lifetime; counters and provider/quota enforcement are unchanged.
 
 **Single/bulk preparation parity:** both routes call `lib/prepareClassificationImage.ts`. It uses the existing Expo manipulator's contextual API to read decoded dimensions, caps the longest edge at 1024 px without upscaling, specifies only one resize axis to preserve proportions, and saves once as JPEG at quality 0.8. Native image/context references are released on success and failure. It does not rely on picker or dev-only staged diagnostics for dimensions. Bulk retains its serial transform queue. The existing successful cutout PNG versus original-JPEG fallback rules and byte-derived MIME stay unchanged. This removes the former width-only bulk resize difference; it does not guarantee deterministic Gemini colour labels or prove a higher real-photo accuracy rate. See `reports/classification-preparation-parity.md`.
 
@@ -1107,12 +1113,13 @@ Two-screen flow for digitising an entire wardrobe section in one session: up to 
 - Per-card Remove (×) button (top-right); Error state shows a standalone accessible retry button outside the card's edit press target; Saved state shows green checkmark overlay (`FadeInDown.duration(220)`)
 
 **Progress header:**
-- Successful analysis count is shown separately from failed items (for example, "0 of 2 analysed · 2 failed"); the 2 pt progress track fills as each item settles or fails
-- Refusals instead show “needs attention” with fixed Amodka copy, Add manually and Remove, never provider reasons. Retry is reserved for transient classification errors. Manual entry pushes the existing single Add Item route with an opaque selection ID and photo index; it skips classification and borrows, rather than cleans, the live batch source. Cancel returns to the unchanged batch. Only an acknowledged manual save returns a success index and removes that card from the review without deleting its wardrobe row.
+- Successful analysis count is separate from failures. Transient failures say “need another try” and show “Connection paused / Tap to try again.” Unexpected failures show “Something went wrong / Tap to try again.” Both keep photos visible with neutral surfaces (only a subtle accent on unexpected errors).
+- Refusals show “needs attention” with unchanged calm copy, Add manually and Remove, never provider reasons or Retry. Manual entry pushes the existing single Add Item route with an opaque selection ID and photo index; it skips classification and borrows, rather than cleans, the live batch source. Cancel returns to the unchanged batch. Only an acknowledged manual save removes that card from review without deleting its wardrobe row.
+- “Try all again” appears with two or more transient failures. It makes one explicit attempt per card serially, retains the native resize queue, waits when this screen's classification-start window reaches 10/min, and reuses successful cutouts without another PhotoRoom request (falls back to the original if that cache is gone). It never auto-retries and cannot override server/account-wide limits.
 
 **Batch save (`Save N Items to Wardrobe` footer CTA):**
 1. Iterates over all `settled` items sequentially
-2. Per item: `expo-image-manipulator` resizes URI to ≤1600 px (JPEG, 0.85 compress) → base64 → `uploadWardrobeImage()` → Supabase Storage
+2. Per item: upload readable cutout PNG unchanged; if absent/unreadable, prepare the original JPEG via the existing storage resize and upload that instead. Upload/network failure stays distinct: no batch commit, affected items remain pending/local-only for retry.
 3. Calls `addWardrobeItem()` with full classification payload (type guards: `asPattern`, `asFabric`, `asWeight`, `asFit`, `asNeckline`, `asSleeve`, `asRise`, `asWarmth` — re-defined locally, same logic as `add-item.tsx`)
 4. `formalityLevel` derived from `SUBTYPE_FORMALITY[subType] ?? 5` (from `constants/outfitScoring`)
 5. An authenticated upload or batch-commit failure keeps the affected items in review for retry; it does not report a successful save.
@@ -1161,12 +1168,12 @@ export interface BgRemovalResult {
 `app/add-item.tsx` stores the result status in `bgStatus` state and captures `remaining` to display the "X of 20 background removals left" pill. `app/bulk-review.tsx` captures `remaining` from the result and adapts with `.then(r => r.status === 'success' ? r.base64 ?? null : null)` to remain compatible with the `ClassifyDeps.removeBg` interface in `lib/bulkClassifyCore.ts`.
 
 **Pipeline (single-item add flow):**
-1. Photo selected → original JPEG base64 captured
+1. Photo selected → shared longest-edge preparation produces classification JPEG
 2. `removeBackground(base64)` in `lib/photoroom.ts` calls `POST /api/remove-background` with a `Bearer <JWT>` `Authorization` header
 3. Server: checks in-memory LRU → DB cache → auth (JWT verify) → premium check → quota check → Photoroom API (15 s `AbortController` timeout)
 4. Returns PNG base64 (or appropriate status code on failure)
-5. Client re-encodes the PNG to JPEG using `expo-image-manipulator`
-6. `resolveClassifyBase64()` / `resolvePhotoUri()` select the final payload: re-encoded JPEG if successful, original JPEG as fallback — Gemini classification and Supabase upload always proceed
+5. Client writes the transparent PNG to cache; no JPEG flattening of a successful cutout
+6. Classification uses that PNG if cached successfully, otherwise the prepared original JPEG. MIME is derived from submitted bytes. Save reads the PNG again; an evicted cache rebuilds from the selected original without another PhotoRoom request.
 7. `resolveWardrobeUploadArg()` strips any `data:` prefix before the upload
 
 **Retry logic (`lib/photoroom.ts`):**
@@ -1191,7 +1198,7 @@ All error-code string constants are imported from this shared module by both `se
 
 **Rate limiter:** `bgRemovalLimiter` reduced from 30 → 8 req/min (per-IP) now that per-user quota is enforced at the application layer.
 
-**Fallback guarantee:** If any step in the pipeline fails (API down, key missing, network error, re-encode throws), the app falls back to the original photo. Users are never blocked from adding an item.
+**Fallback boundary:** Optional background-removal/cache failures use the original photo. Cloud upload and wardrobe-write failures are not successes: the draft remains for manual recovery/retry. Original-photo unavailability remains a genuine preparation failure.
 
 **Code:** `server/remove-background.ts`, `server/bgRemovalStore.ts`, `lib/photoroom.ts`, `lib/classifyPath.ts`, `lib/uploadArg.ts`, `shared/photoroom-error-codes.ts`, `app/add-item.tsx`, `app/bulk-review.tsx`
 
@@ -1254,10 +1261,10 @@ The review grid carousel scrolls to the first unsettled card when classification
 **AppState foreground debounce:**
 An `AppState` listener re-syncs the `saving` React state from `savingRef.current` whenever the app returns to the foreground. The handler is wrapped in a 16 ms debounce (one animation frame) so that rapid background → inactive → active transitions on Android OEMs with sluggish reconciliation coalesce into a single `setSaving(true)` call, preventing the save button from briefly flickering unlocked mid-save.
 
-**Background-removed photo preview (`displayUri`):**
-Each `BulkItem` carries an optional `displayUri` field — a JPEG re-encode of the Photoroom-cleaned PNG. The card thumbnail displays `item.displayUri ?? item.uri` so users see the background-removed version (when available) while the item is still being saved. The original `item.uri` is never mutated.
+**Background-removed photo preview (`cutoutUri`):**
+Each `BulkItem` can carry a cached transparent PNG `cutoutUri`. Its thumbnail falls back to the immutable selected original `item.uri` when the cache cannot render. No image base64 is retained in screen state.
 
-**Bulk classify JPEG pipeline:** `runClassifyUri` (in `lib/bulkClassifyCore.ts`) re-encodes the background-removed PNG to JPEG before forwarding to Gemini. The re-encoded JPEG base64 (`cleanJpegBase64`) is captured inside the re-encode try-block and assigned to `classifyBase64` only when the re-encode succeeds. If re-encoding fails, `classifyBase64` remains as the original resized JPEG — never the raw PNG — ensuring the payload always matches the hardcoded `"image/jpeg"` MIME type on the classify endpoint. This mirrors the logic in `app/add-item.tsx` which already used `resolveClassifyBase64` for the same purpose.
+**Bulk classification payload:** `runClassifyUri` forwards the successful cached PNG unchanged, otherwise the prepared original JPEG. Both entry paths use byte-derived MIME. A retry records prior background-removal success and never requests that enhancement again, even if its cache was evicted.
 
 **Code:** `app/bulk-review.tsx`
 
@@ -1313,7 +1320,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (102 total)
+### Test Suites (103 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1352,6 +1359,7 @@ These features are **not yet implemented**. They are the next development priori
 | `bulkSaveNoShrunk.test.ts` | Missing/null/data-URI `shrunk.base64` never silently drops a bulk-upload item; `addItem` always fires with the local URI as fallback when `resolveUploadArg` returns null |
 | `cancelDialogMessages.test.ts` | `selectCancelDialogBody()` branch selection across all batch states: all-settled → null, in-progress + no auto-saved → running message, in-progress + auto-saved → auto-saved-wins message |
 | `classifyGarment.test.ts` | `processGeminiResult` parsing, field validation (subType, colorFamily, modelConfidence), colour conversion helpers, edge cases (empty `{}`, null subType, mismatched category, boundary `modelConfidence`) |
+| `uploadCleanup.test.ts` | Cached PNG versus original fallback for cloud/guest saves; upload-failure isolation; calm states; cutout reuse; serial retry/pacing; opt-in sanitized reporting and release formatter/UI checks; model configuration |
 | `classificationPreparation.test.ts` | Shared single/bulk native preparation policy with decoded dimensions, portrait/landscape/square/small cases, no upscaling, one encoding, payload/MIME and cutout/fallback parity, failures and native-reference cleanup (mock native boundary) |
 | `classifierRefusal.test.ts` | Non-retryable 422 refusals versus transient/permanent errors, calm mounted notice/dialog actions, ID-only manual batch handoff, truthful progress counters and release-mode diagnostic/stamp render elimination |
 | `classifyGarmentIntegration.test.ts` | HTTP-layer tests for `POST /api/classify-garment`: 400 for missing/ambiguous image input, 500 for absent `GEMINI_API_KEY`, 429 after aiLimiter cap, JSON response shape |

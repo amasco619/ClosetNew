@@ -9,6 +9,12 @@ description: Storage/row identity, safe bulk picker handoff, and staged-source c
 
 **Save boundary:** Authenticated saves require a successful Storage upload and never persist a device-local picker URI. Guest saves copy the image into `documentDirectory`; the temporary cache source can then be removed after the wardrobe write is acknowledged.
 
+**Product allowance:** The free PhotoRoom allowance is 20 lifetime removals per account, not 20 per day.
+
+**Why:** The user explicitly required lifetime wording while preserving quota semantics.
+
+**How to apply:** Upload-related remaining/limit messages must not imply a daily reset.
+
 **Bulk picker rule:** Copy multi-selected picker files into app-owned cache staging before routing, keep staged URIs in a transient in-memory selection keyed by an opaque ID, and pass only that ID through navigation. Do not delete staged sources until persistence is acknowledged; preserve any source still referenced by a retryable local-only/pending item.
 
 **Why:** Expo SDK 57 and package history did not explain the native Android bitmap decode failure; the bulk/single difference was carrying temporary picker URIs through Expo Router. The exact native root cause remains unproven, so staging is the reliable boundary rather than a claim about decoder internals.

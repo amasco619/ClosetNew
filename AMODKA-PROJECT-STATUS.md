@@ -460,7 +460,7 @@ Final verification: `npm test` — 100 passed, 0 failed; `npm run typecheck` and
 `npm run lint` pass. Recommendation Engine v3.7, Phase A, P1.3, classifier,
 queue, resize arguments, and provider behavior were not changed. The native
 Android journey is still outstanding; use the four-step script in
-`BULK_PREPARE_DIAGNOSTIC_REPORT.md` with the current build stamp.
+`docs/reports/BULK_PREPARE_DIAGNOSTIC_REPORT.md` with opt-in development diagnostics.
 
 ## 23. MATCHING PAIRS AND CALM CLASSIFIER REFUSALS
 
@@ -484,7 +484,7 @@ Checks: full suite 101 passed; Engine v3.7 golden set 35 passed; typecheck and
 lint pass. A production Android JS export succeeded; the stamp and diagnostic
 render calls are removed in release mode (formatter utility strings remain,
 without UI callers). Physical device/model-accuracy validation is not claimed.
-See `reports/classifier-pairs-refusal.md` for the pre-change evidence, caveats,
+See `docs/reports/classifier-pairs-refusal.md` for the pre-change evidence, caveats,
 release verification and four-step device script.
 
 ## 24. SINGLE/BULK CLASSIFICATION PREPARATION PARITY
@@ -507,3 +507,31 @@ model, colour-family rules, engine, schema, quota, billing or dependencies chang
 No live-provider accuracy experiment or physical-device test was performed.
 The old Metro port owner was stopped and the existing frontend workflow restarted.
 See `reports/classification-preparation-parity.md` for exact evidence/limitations.
+
+## 25. Upload cleanup and explicit recovery
+
+The bounded A1–E6 cleanup is implemented. Single/cloud and bulk/guest saves recover
+an unavailable cutout cache from the retained original; real upload failures stay
+failed/pending rather than claiming a database save. Shared preparation from §24
+is unchanged. Free background-removal copy now explicitly means 20 lifetime uses.
+
+Transient classification errors use “Connection paused / Tap to try again,”
+unexpected errors use “Something went wrong / Tap to try again,” and confirmed
+content refusals retain their existing manual-only handling. Photos remain
+visible. Two or more transient batch errors expose an explicit serial “Try all
+again,” with local 10/min start-window pacing and no repeated successful PhotoRoom
+work. No automatic retry loop or NetInfo dependency was added.
+
+Preparation/staging logs, card diagnostics and the batch stamp now require both
+development mode and `EXPO_PUBLIC_UPLOAD_DIAGNOSTICS=1` (default OFF). Release
+formatter strings are absent; sanitized stage/code reporting is a release no-op.
+The primary model is configurable with `GEMINI_PRIMARY_MODEL`, retaining the
+current default and existing 429-only fallback. Headless Expo stays documented.
+
+Validation: focused 4 suites passed; full 103 suites passed; engine golden set
+35 passed; typecheck and final lint passed without warnings; Android release-JS
+export passed even with the diagnostics flag ON. Protected source paths were
+unchanged. Native cache-eviction/offline interaction still needs device testing.
+Audit, diagnostic and refusal reports are now under `docs/reports/`.
+See `docs/reports/upload-pipeline-cleanup.md` for the pixel table, exact commands,
+release-string counts, changed files and limitations. Not published or deployed.
