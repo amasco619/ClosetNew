@@ -32,6 +32,11 @@ import {
   setAiProcessingPreference,
   type AiProcessingPreference,
 } from '@/lib/aiProcessingPreference';
+import {
+  createPhotoPrepareDiagnostic,
+  formatPhotoPrepareDiagnostic,
+  type PhotoPrepareDiagnostic,
+} from '@/lib/bulkClassifyCore';
 
 // ─── Option lists ─────────────────────────────────────────────────────────────
 
@@ -111,6 +116,8 @@ const SAVE_STAGES = [
   { key: 'uploading', label: 'Uploading photo…'     },
   { key: 'saving',    label: 'Saving to wardrobe…' },
 ] as const;
+
+const diagnosticNow = () => Date.now();
 
 type SaveStage = typeof SAVE_STAGES[number]['key'] | null;
 
@@ -289,6 +296,7 @@ export default function AddItemScreen() {
   }, []);
   const [photoWidth,      setPhotoWidth]      = useState<number>(0);
   const [photoHeight,     setPhotoHeight]     = useState<number>(0);
+  const [photoPrepareDiagnostic, setPhotoPrepareDiagnostic] = useState<PhotoPrepareDiagnostic | null>(null);
   const [saving,          setSaving]          = useState(false);
   const [saveStage,       setSaveStage]       = useState<SaveStage>(null);
   const [displayedLabel,  setDisplayedLabel]  = useState<string>('Saving…');
@@ -578,7 +586,10 @@ export default function AddItemScreen() {
       requestId = photoRequestRef.current + 1;
       photoRequestRef.current = requestId;
       const isNewPhoto = asset.uri !== currentPhotoUriRef.current;
-      if (isNewPhoto) resetAllFields();
+      if (isNewPhoto) {
+        resetAllFields();
+        setPhotoPrepareDiagnostic(null);
+      }
       currentPhotoUriRef.current = asset.uri;
       if (multiplePieces) {
         router.push({ pathname: '/multi-item-review', params: { uri: asset.uri } });
@@ -631,6 +642,9 @@ export default function AddItemScreen() {
           }
         }
         setClassifying(true);
+        setPhotoPrepareDiagnostic(null);
+        const prepareStartedAt = diagnosticNow();
+        let prepareStage: PhotoPrepareDiagnostic['stage'] = 'image-resize';
         // Obtain base64 from ImageManipulator (picker no longer requests base64 to
         // support multi-select without eagerly decoding multiple full-res images).
         // Downscale to ≤1024 px on the longest edge for Gemini — reduces payload from
@@ -652,6 +666,7 @@ export default function AddItemScreen() {
             { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
           );
           if (requestId !== photoRequestRef.current) return;
+          prepareStage = 'background-removal';
           if (resized.base64) {
             classifyBase64 = resized.base64;
 
@@ -687,8 +702,19 @@ export default function AddItemScreen() {
               }
             }
           }
-        } catch {
-          // Resize failed — classifyBase64 stays undefined
+        } catch (error) {
+          // Keep development-only diagnostics in memory; never include the full URI.
+          if (requestId === photoRequestRef.current && __DEV__) {
+            const diagnostic = createPhotoPrepareDiagnostic(asset.uri, error, {
+              stage: prepareStage,
+              width: asset.width,
+              height: asset.height,
+              usedSerialResizeQueue: false,
+              elapsedMs: diagnosticNow() - prepareStartedAt,
+            });
+            setPhotoPrepareDiagnostic(diagnostic);
+            console.warn('[single:prepare]', diagnostic);
+          }
         }
 
         if (classifyBase64) {
@@ -1114,6 +1140,12 @@ export default function AddItemScreen() {
                   <Ionicons name="camera-reverse" size={18} color={Colors.white} />
                 </Pressable>
               </View>
+            )}
+
+            {__DEV__ && photoPrepareDiagnostic && (
+              <Text style={styles.prepareDiagnostic}>
+                {formatPhotoPrepareDiagnostic(photoPrepareDiagnostic)}
+              </Text>
             )}
 
             {photoUri && aiPreference !== 'allowed' && !classifying && (
@@ -1804,6 +1836,11 @@ const styles = StyleSheet.create({
   photoPreview:      { width: '100%', aspectRatio: 0.75, borderRadius: 16, overflow: 'hidden', marginBottom: 16, position: 'relative' },
   previewImage:      { width: '100%', height: '100%' },
   changePhoto:       { position: 'absolute', bottom: 12, right: 12, width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.overlay, alignItems: 'center', justifyContent: 'center' },
+  prepareDiagnostic: {
+    marginBottom: 12, padding: 8, borderRadius: 8, backgroundColor: Colors.primary,
+    color: Colors.white, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: rs(8), lineHeight: rs(11),
+  },
   aiPausedCard:      { backgroundColor: Colors.white, borderRadius: 14, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: Colors.border, gap: 8 },
   aiPausedTitle:     { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary },
   aiPausedCopy:      { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary, lineHeight: 20 },

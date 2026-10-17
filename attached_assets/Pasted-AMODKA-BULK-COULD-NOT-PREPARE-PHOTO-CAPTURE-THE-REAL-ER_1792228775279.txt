@@ -1,0 +1,65 @@
+AMODKA — BULK "COULD NOT PREPARE PHOTO": CAPTURE THE REAL ERROR
+(DIAGNOSTIC PHASE ONLY. Do not attempt any other fix.)
+
+CONTEXT
+The audit proved the bulk failure happens in the "photo-preparation" 
+stage (the native resize) of runClassifyUri, and that the original 
+exception is discarded in its catch. Facts from device evidence:
+- Single add works end to end (cutout + classification + save dialog) on 
+  the current pipeline, and it calls the same ImageManipulator.manipulateAsync.
+- Bulk worked on device BEFORE commit f900c18 (a 4-item batch analysed).
+- Since then, bulk-related commits: f900c18, 23c7f45, ae68efb (the serial 
+  native-resize queue).
+Goal: make the real cause visible. Allowed changes are ONLY those listed 
+below; list every change you make and mark which are temporary.
+
+TASK 1 — RESTORE A CLEAN FRONTEND RUN
+Start Frontend is failing (React Native DevTools cannot load 
+libglib-2.0.so.0; port 8081 in use). Without changing app code: kill 
+whatever holds 8081, and prevent the DevTools install/launch failure by 
+a supported setting (disable DevTools auto-launch or equivalent). Confirm 
+exactly one Metro instance is serving, and show the log lines proving it. 
+Add a DEV-ONLY build stamp (short git hash + build time) at the bottom 
+of the Batch Review screen so we can confirm the phone is running the 
+current bundle.
+
+TASK 2 — STOP DISCARDING THE ERROR
+In runClassifyUri's catch (and single add's resize catch), keep a 
+sanitized diagnostic per item: stage, error name, error message, first 
+5 stack lines, input URI scheme and file extension (NOT the full path), 
+asset width/height if known, whether the item went through the serial 
+resize queue, elapsed ms. Keep it in in-memory item state only. In 
+__DEV__ only, render it as small monospace text inside the failed card, 
+and console.warn("[bulk:prepare]", ...). Production behavior and copy 
+stay unchanged. Never log image bytes, tokens, or full file paths.
+
+TASK 3 — TEST THE SERIAL QUEUE IN ISOLATION
+Write tests for createSerialQueue covering: strict one-at-a-time order; 
+after one task REJECTS, later queued tasks still run normally and are 
+not poisoned by the earlier rejection; a synchronous throw inside a task; 
+a task that never settles (does it block the queue forever?). Report 
+results. If a test proves the queue is defective, fix ONLY the queue in 
+an isolated change and tell me exactly what you changed. Do not touch 
+anything else.
+
+TASK 4 — TIMELINE DIFF OF THE RESIZE PATH
+Compare, at three points (just before f900c18, at f900c18, current HEAD), 
+everything between the picker and the manipulator call in bulk: how the 
+URIs reach classifyUri (route params), the exact arguments passed to 
+manipulateAsync, any queue/wrapper around it, and how a failure 
+propagates to the card. List every difference. Say which change is the 
+first one that could make resize fail for EVERY photo.
+
+TASK 5 — DEVICE SCRIPT FOR ME
+Give me numbered, exact steps to run on my phone once Metro is clean:
+ (a) sign in; in single add, pick the same two photos I will use for bulk; 
+     note whether each succeeds;
+ (b) in bulk, pick those same two photos;
+ (c) screenshot any failed card showing the dev-only diagnostic text and 
+     the build stamp.
+Say where server logs appear and what a healthy run should look like.
+
+DELIVERABLE
+A report of one page or less: changes made (marked temporary/permanent), 
+queue test results, the timeline diff, the build stamp value, and the 
+Task 5 script. No other fixes.

@@ -477,3 +477,17 @@ mtime_ms = 1792095957006
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/fcb1f323-a43e-44dd-a277-0d8083402d2b/71f4e0bb-01ee-4d1d-8a5a-22c40f8a3cf2"
 storage_version_token = "1792095966091272"
 content_type = "text/html"
+
+[[outputs]]
+id = "t0HBBoifAxGJutls4XycL"
+uri = "file://BULK_PREPARE_DIAGNOSTIC_REPORT.md"
+type = "text"
+title = "Bulk upload diagnostic report"
+description = "One-page report with queue results, resize timeline, Metro status, and exact Android test steps."
+logical_id = "e7e26401-145a-4774-8e3a-2cdfea5938de"
+content_hash = "sha256:bc46df4b85bff85ed48c1a5bca59b2184a1be68d2e2c6c7103d993846e384658"
+size = 3398
+mtime_ms = 1792229563776
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/e7e26401-145a-4774-8e3a-2cdfea5938de/4d7d62db-7891-49b4-a77a-8b30e0ef91df"
+storage_version_token = "1792229643535668"
+content_type = "text/markdown"

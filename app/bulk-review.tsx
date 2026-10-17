@@ -33,9 +33,11 @@ import {
   runSaveAll,
   runHandleRemove,
   createSerialQueue,
+  formatPhotoPrepareDiagnostic,
   type ClassifyResult,
   type ClassifyDeps,
   type ClassifyFailureStage,
+  type PhotoPrepareDiagnostic,
 } from '@/lib/bulkClassifyCore';
 import { rs } from '../lib/responsive';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
@@ -81,6 +83,7 @@ interface BulkItem {
   status: ItemStatus;
   classification: ClassifyResult | null;
   failureStage?: ClassifyFailureStage;
+  diagnostic?: PhotoPrepareDiagnostic;
 }
 
 // ─── Type guards (mirrors add-item.tsx) ──────────────────────────────────────
@@ -265,6 +268,11 @@ function BulkCard({
             {item.failureStage === 'photo-preparation' ? 'Could not prepare photo' : 'Analysis failed'}
           </Text>
           <Text style={styles.errorLabel}>Tap to retry</Text>
+          {__DEV__ && item.diagnostic && (
+            <Text style={styles.prepareDiagnostic} numberOfLines={9}>
+              {formatPhotoPrepareDiagnostic(item.diagnostic)}
+            </Text>
+          )}
         </Pressable>
       )}
 
@@ -539,6 +547,10 @@ export default function BulkReviewScreen() {
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
         );
       }),
+      diagnostics: { enabled: __DEV__, usedSerialResizeQueue: true },
+      onDiagnostic: diagnostic => {
+        if (diagnostic.stage === 'image-resize') console.warn('[bulk:prepare]', diagnostic);
+      },
       removeBg: (b64) => removeBackground(b64).then(r => {
         if (r.status === 'not-authenticated') setBgNotAuthenticated(true);
         if (r.status === 'limit-reached') setBgLimitReached(true);
@@ -934,6 +946,11 @@ export default function BulkReviewScreen() {
             {saveBtnLabel}
           </Text>
         </Pressable>
+        {__DEV__ && (
+          <Text style={styles.devBuildStamp}>
+            {process.env.EXPO_PUBLIC_AMODKA_BUILD_STAMP ?? 'DEV build stamp unavailable'}
+          </Text>
+        )}
       </View>
 
       {/* Carousel edit panel — absolute-fill overlay, zIndex 10.
@@ -1036,6 +1053,11 @@ const styles = StyleSheet.create({
   },
   errorLabel: {
     fontFamily: 'Inter_500Medium', fontSize: rs(10), color: Colors.white, letterSpacing: 0.3,
+  },
+  prepareDiagnostic: {
+    width: '96%', maxHeight: PHOTO_HEIGHT * 0.62, marginTop: 4,
+    color: Colors.white, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: rs(7), lineHeight: rs(9), textAlign: 'left',
   },
 
   savedOverlay: {
@@ -1163,4 +1185,8 @@ const styles = StyleSheet.create({
   saveBtnDisabled: { backgroundColor: Colors.border },
   saveBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(16), color: Colors.white },
   saveBtnTextDisabled: { color: Colors.textLight },
+  devBuildStamp: {
+    marginTop: 5, textAlign: 'center', color: Colors.textLight,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', fontSize: rs(8),
+  },
 });

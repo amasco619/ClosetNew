@@ -43,9 +43,76 @@ export interface BulkItemCore {
   classification: ClassifyResult | null;
   autoSavedId?: string;
   failureStage?: ClassifyFailureStage;
+  diagnostic?: PhotoPrepareDiagnostic;
 }
 
 export type ClassifyFailureStage = 'photo-preparation' | 'classification';
+
+export interface PhotoPrepareDiagnostic {
+  stage: 'image-resize' | 'background-removal' | 'classification';
+  errorName: string;
+  message: string;
+  stack: string[];
+  uriScheme: string;
+  fileExtension: string;
+  width?: number;
+  height?: number;
+  usedSerialResizeQueue: boolean;
+  elapsedMs: number;
+}
+
+function sanitizeDiagnosticText(value: string): string {
+  return value
+    .replace(/\b[a-z][a-z\d+.-]*:\/\/[^\s)"']+/gi, '<uri>')
+    .replace(/\/(?:[^/\s)]+\/)+[^/\s)]+/g, '<path>')
+    .replace(/\bBearer\s+\S+/gi, 'Bearer <redacted>')
+    .replace(/[A-Za-z0-9+/=_-]{80,}/g, '<redacted-data>')
+    .slice(0, 240);
+}
+
+export function createPhotoPrepareDiagnostic(
+  uri: string,
+  error: unknown,
+  context: Pick<PhotoPrepareDiagnostic, 'stage' | 'usedSerialResizeQueue' | 'elapsedMs'> &
+    Partial<Pick<PhotoPrepareDiagnostic, 'width' | 'height'>>,
+): PhotoPrepareDiagnostic {
+  const candidate = error && typeof error === 'object'
+    ? error as { name?: unknown; message?: unknown; stack?: unknown }
+    : undefined;
+  const rawStack = typeof candidate?.stack === 'string' ? candidate.stack : '';
+  const rawMessage = typeof candidate?.message === 'string'
+    ? candidate.message
+    : typeof error === 'string' ? error : 'Unknown error';
+  const uriScheme = uri.match(/^([a-z][a-z\d+.-]*):/i)?.[1]?.toLowerCase() ?? 'unknown';
+  const path = uri.split(/[?#]/, 1)[0];
+  const filename = path.slice(path.lastIndexOf('/') + 1);
+
+  return {
+    stage: context.stage,
+    errorName: sanitizeDiagnosticText(
+      typeof candidate?.name === 'string' ? candidate.name : 'Error',
+    ),
+    message: sanitizeDiagnosticText(rawMessage),
+    stack: rawStack.split('\n').slice(0, 5).map(sanitizeDiagnosticText),
+    uriScheme,
+    fileExtension: filename.match(/\.([a-z\d]{1,10})$/i)?.[1]?.toLowerCase() ?? 'unknown',
+    width: context.width,
+    height: context.height,
+    usedSerialResizeQueue: context.usedSerialResizeQueue,
+    elapsedMs: Math.max(0, Math.round(context.elapsedMs)),
+  };
+}
+
+export function formatPhotoPrepareDiagnostic(diagnostic: PhotoPrepareDiagnostic): string {
+  const dimensions = diagnostic.width !== undefined && diagnostic.height !== undefined
+    ? `${diagnostic.width}x${diagnostic.height}`
+    : 'unknown';
+  return [
+    `${diagnostic.stage}: ${diagnostic.errorName}: ${diagnostic.message}`,
+    `uri=${diagnostic.uriScheme}; ext=${diagnostic.fileExtension}; size=${dimensions}; queue=${diagnostic.usedSerialResizeQueue}; elapsed=${diagnostic.elapsedMs}ms`,
+    ...diagnostic.stack,
+  ].join('\n');
+}
 
 /** Serialize memory-heavy native transforms without serializing network work. */
 export function createSerialQueue() {
@@ -73,6 +140,14 @@ export interface ClassifyDeps {
   setItems(updater: (prev: BulkItemCore[]) => BulkItemCore[]): void;
   /** Trigger a haptic impulse after a successful classification. */
   onHaptic(): void;
+  /** Opt-in diagnostics are kept in memory and emitted only by development callers. */
+  diagnostics?: {
+    enabled: boolean;
+    usedSerialResizeQueue: boolean;
+    width?: number;
+    height?: number;
+  };
+  onDiagnostic?(diagnostic: PhotoPrepareDiagnostic): void;
 }
 
 export interface RedirectSingleDeps {
@@ -99,11 +174,13 @@ export async function runClassifyUri(
   if (!mountedRef.current) return;
   deps.setItems(prev =>
     prev.map(it => it.uri === uri
-      ? { ...it, status: 'classifying', failureStage: undefined }
+      ? { ...it, status: 'classifying', failureStage: undefined, diagnostic: undefined }
       : it),
   );
 
+  const startedAt = Date.now();
   let failureStage: ClassifyFailureStage = 'photo-preparation';
+  let diagnosticStage: PhotoPrepareDiagnostic['stage'] = 'image-resize';
   try {
     const resized = await deps.resize(uri);
     if (!mountedRef.current) return;
@@ -111,6 +188,7 @@ export async function runClassifyUri(
 
     let classifyBase64 = resized.base64;
     let classifyMimeType: 'image/jpeg' | 'image/png' = 'image/jpeg';
+    diagnosticStage = 'background-removal';
     try {
       const cleanPngBase64 = await deps.removeBg(classifyBase64);
       if (!mountedRef.current) return;
@@ -131,6 +209,7 @@ export async function runClassifyUri(
     if (!mountedRef.current) return;
 
     failureStage = 'classification';
+    diagnosticStage = 'classification';
     const data = await deps.classify(classifyBase64, classifyMimeType);
     if (!mountedRef.current) return;
 
@@ -160,14 +239,26 @@ export async function runClassifyUri(
 
     deps.setItems(prev =>
       prev.map(it => it.uri === uri
-        ? { ...it, status: 'settled', classification, failureStage: undefined }
+        ? { ...it, status: 'settled', classification, failureStage: undefined, diagnostic: undefined }
         : it),
     );
     deps.onHaptic();
-  } catch {
+  } catch (error) {
     if (!mountedRef.current) return;
+    const diagnostic = deps.diagnostics?.enabled
+      ? createPhotoPrepareDiagnostic(uri, error, {
+        stage: diagnosticStage,
+        usedSerialResizeQueue: deps.diagnostics.usedSerialResizeQueue,
+        width: deps.diagnostics.width,
+        height: deps.diagnostics.height,
+        elapsedMs: Date.now() - startedAt,
+      })
+      : undefined;
+    if (diagnostic) deps.onDiagnostic?.(diagnostic);
     deps.setItems(prev =>
-      prev.map(it => it.uri === uri ? { ...it, status: 'error', failureStage } : it),
+      prev.map(it => it.uri === uri
+        ? { ...it, status: 'error', failureStage, diagnostic }
+        : it),
     );
   }
 }
