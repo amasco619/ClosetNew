@@ -90,8 +90,8 @@ export const STYLE_PREFERRED_COLORS = {
 } satisfies Record<StyleGoal, string[]>;
 
 // ─── Style-goal preferred sub-types ──────────────────────────────────────────
-// Read by: scoreItemForProfile() — awards +1 when the item's subType is in the
-//   active style goal's Set.
+// Read by: scoreItemForProfile() — awards +3 for a primary-goal subtype match.
+// Secondary subtype matches avoid the off-brief penalty but add no direct bonus.
 // Invariant: every StyleGoal key must be present — enforced by `satisfies` below.
 // To update: if StyleGoal gains a value, add a Set here; if sub-types are renamed
 //   or removed, update both this table and SCENARIO_AFFINITY consistently.
@@ -948,13 +948,13 @@ export function scoreItemForProfile(
   const undertoneColors = UNDERTONE_FLATTERING[profile.undertone ?? 'neutral'];
   if (undertoneColors?.has(item.colorFamily)) score += 4;
 
-  // 6. Skin depth contrast (max +1)
+  // 6. Skin depth contrast (max +1 for supported skin tones/colours)
   if (
     HIGH_CONTRAST_SKIN_TONES.has(profile.skinTone ?? '') &&
     HIGH_CONTRAST_COLORS.has(item.colorFamily)
   ) score += 1;
 
-  // 7. Eye complementary (max +1)
+  // 7. Eye complementary (max +1 for a supported eye/colour match)
   const eyeColors = EYE_COMPLEMENTARY[profile.eyeColor ?? ''];
   if (eyeColors?.has(item.colorFamily)) score += 1;
 

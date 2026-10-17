@@ -158,35 +158,10 @@ interface AppContextValue {
   resolveOrphan: (id: string, action: 'remove' | 'dismiss') => void;
 }
 
-const defaultProfile: UserProfile = {
-  name: '',
-  bodyType: null,
-  eyeColor: null,
-  skinTone: null,
-  undertone: null,
-  styleGoalPrimary: null,
-  styleGoalSecondary: null,
-  lifestyleWork: 40,
-  lifestyleCasual: 40,
-  lifestyleEvents: 20,
-  lifestyleActive: 0,
-  lifestyleBrunch: 0,
-  constraints: {
-    noSleeveless: false,
-    noShortSkirts: false,
-    maxHeelHeight: 'any',
-    colorAversions: [],
-  },
-  onboardingComplete: false,
-  hairColor: null,
-  heightBand: null,
-  contrastLevel: null,
-  metalPreference: null,
-  lifePhase: 'none',
-  defaultMood: null,
-  industry: 'unspecified',
-  dismissedProfileNudge: undefined,
-};
+import {
+  defaultProfile, mergeProfile, hydrateAccountProfile,
+  hasMigratableGuestProfile, profileConstraints,
+} from '../shared/profile-personalization';
 
 const FREE_ITEM_CAP = 30;
 const GUEST_ITEM_CAP = 8;
@@ -461,6 +436,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           // here as well would create a race where setAppReady(true) could fire before
           // the DB load started by this listener has completed.
           const userId = session.user.id;
+          const mayMigrateGuest = currentUserIdRef.current === null;
           void setRevenueCatIdentity(userId).catch(error =>
             reportError(error, 'revenuecat_identity', { dependency: 'revenuecat' }),
           );
@@ -500,7 +476,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             '';
           // Snapshot local (potentially guest) profile before any DB operations
           const localRaw = await AsyncStorage.getItem(STORAGE_KEYS.profile).catch(() => null);
-          const localSnap: UserProfile | null = localRaw ? mergeProfile(JSON.parse(localRaw)) : null;
+          const localSnap: UserProfile | null = mayMigrateGuest && localRaw
+            ? mergeProfile(JSON.parse(localRaw)) : null;
           await loadUserDataFromDB(userId, authName, localSnap, generation);
           // The hydration may have completed after a retry advanced the
           // startup generation. Never publish auth state from that stale
@@ -612,17 +589,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, []);
-
-  // Merge stored profile with defaults so fields added in later versions exist
-  const mergeProfile = (stored: Partial<UserProfile>): UserProfile => ({
-    ...defaultProfile,
-    ...stored,
-    constraints: {
-      ...defaultProfile.constraints,
-      ...(stored.constraints ?? {}),
-      colorAversions: stored.constraints?.colorAversions ?? [],
-    },
-  });
 
   const profileBlueprintKey = `${profile.styleGoalPrimary || ''}-${profile.styleGoalSecondary || ''}-${profile.bodyType || ''}-${profile.lifestyleWork}-${profile.lifestyleCasual}-${profile.lifestyleEvents}-${profile.lifestyleActive ?? 0}-${profile.lifestyleBrunch ?? 0}-${profile.constraints.noSleeveless}-${profile.constraints.noShortSkirts}-${profile.constraints.maxHeelHeight}`;
 
@@ -992,15 +958,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     };
     assertCurrent();
-    // Clear guest mode on any sign-in so local data is preserved
-    // but the user transitions to an authenticated account.
-    setProfile(prev => {
-      if (prev.isGuest) {
-        const updated = { ...prev, isGuest: false };
-        return updated;
-      }
-      return prev;
-    });
+    // Hide cached/previous-account preferences while the authoritative read runs.
+    // The explicit guest snapshot remains available only to the migration below.
+    setProfile({ ...defaultProfile, isGuest: false });
 
     await upsertUserProfile({
       id: userId,
@@ -1044,10 +1004,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         !dbProfile.onboarding_complete
       );
       // The local snapshot has onboarding data if the guest completed the quiz
-      const guestHasData = !!(
-        localSnap?.bodyType && localSnap?.eyeColor && localSnap?.styleGoalPrimary
-      );
+      const guestHasData = hasMigratableGuestProfile(localSnap);
 
+      let hydratedProfile: UserProfile;
       if (isNewBlankAccount && guestHasData && localSnap) {
         // Guest created a new account — carry their onboarding preferences forward
         await upsertUserProfile({
@@ -1066,50 +1025,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
             active: localSnap.lifestyleActive ?? 0,
             brunch: localSnap.lifestyleBrunch ?? 0,
           },
-          constraints: localSnap.constraints,
+          constraints: profileConstraints(localSnap),
           onboarding_complete: localSnap.onboardingComplete ?? false,
-        }).catch(console.error);
+        });
         assertCurrent();
-        setProfile(mergeProfile({ ...localSnap, isGuest: false, name: localSnap.name || authName || '' }));
-      } else if (dbProfile) {
-        const ext = (dbProfile.constraints?._profile as any) ?? {};
-        setProfile(prev => mergeProfile({
-          ...prev,
-          name: dbProfile.name || authName || prev.name,
-          bodyType: dbProfile.body_type ?? prev.bodyType,
-          eyeColor: dbProfile.eye_color ?? prev.eyeColor,
-          skinTone: dbProfile.skin_tone ?? prev.skinTone,
-          undertone: dbProfile.undertone ?? prev.undertone,
-          styleGoalPrimary: dbProfile.style_goals?.[0] ?? prev.styleGoalPrimary,
-          styleGoalSecondary: dbProfile.secondary_goal ?? prev.styleGoalSecondary,
-          lifestyleWork: dbProfile.lifestyle?.work ?? prev.lifestyleWork,
-          lifestyleCasual: dbProfile.lifestyle?.casual ?? prev.lifestyleCasual,
-          lifestyleEvents: dbProfile.lifestyle?.events ?? prev.lifestyleEvents,
-          lifestyleActive: dbProfile.lifestyle?.active ?? prev.lifestyleActive ?? 0,
-          lifestyleBrunch: dbProfile.lifestyle?.brunch ?? prev.lifestyleBrunch ?? 0,
-          constraints: {
-            noSleeveless: dbProfile.constraints?.noSleeveless ?? prev.constraints?.noSleeveless ?? false,
-            noShortSkirts: dbProfile.constraints?.noShortSkirts ?? prev.constraints?.noShortSkirts ?? false,
-            maxHeelHeight: dbProfile.constraints?.maxHeelHeight ?? prev.constraints?.maxHeelHeight ?? 'any',
-            colorAversions: dbProfile.constraints?.colorAversions ?? prev.constraints?.colorAversions ?? [],
-          },
-          hairColor: ext.hairColor !== undefined ? ext.hairColor : (prev.hairColor ?? null),
-          heightBand: ext.heightBand !== undefined ? ext.heightBand : (prev.heightBand ?? null),
-          faceShape: ext.faceShape !== undefined ? ext.faceShape : (prev.faceShape ?? null),
-          contrastLevel: ext.contrastLevel !== undefined ? ext.contrastLevel : (prev.contrastLevel ?? null),
-          metalPreference: ext.metalPreference !== undefined ? ext.metalPreference : (prev.metalPreference ?? null),
-          defaultMood: ext.defaultMood !== undefined ? ext.defaultMood : (prev.defaultMood ?? null),
-          industry: ext.industry ?? prev.industry ?? 'unspecified',
-          lifePhase: ext.lifePhase !== undefined ? ext.lifePhase : (prev.lifePhase ?? null),
-          tempUnit: ext.tempUnit ?? prev.tempUnit ?? null,
-          weatherEnabled: (ext.weatherEnabled !== undefined && ext.weatherEnabled !== null)
-            ? ext.weatherEnabled
-            : prev.weatherEnabled,
-          onboardingComplete: dbProfile.onboarding_complete ?? prev.onboardingComplete,
-        }));
-      } else if (authName) {
-        setProfile(prev => ({ ...prev, name: prev.name || authName, isGuest: false }));
+        hydratedProfile = mergeProfile({ ...localSnap, isGuest: false, name: localSnap.name || authName || '' });
+      } else {
+        hydratedProfile = hydrateAccountProfile(dbProfile, authName);
       }
+      // Consume the guest marker only after a successful migration/read, so a
+      // later account cannot import an already-migrated guest's preferences.
+      await AsyncStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(hydratedProfile));
+      assertCurrent();
+      setProfile(hydratedProfile);
 
       {
         const mapped: WardrobeItem[] = wardrobeRows.map(mapDbRowToWardrobeItem);
@@ -1304,24 +1232,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           style_goals: [updated.styleGoalPrimary, updated.styleGoalSecondary].filter(Boolean) as string[],
           secondary_goal: updated.styleGoalSecondary ?? undefined,
           lifestyle: { work: updated.lifestyleWork, casual: updated.lifestyleCasual, events: updated.lifestyleEvents, active: updated.lifestyleActive ?? 0, brunch: updated.lifestyleBrunch ?? 0 },
-          constraints: {
-            noSleeveless: updated.constraints?.noSleeveless ?? false,
-            noShortSkirts: updated.constraints?.noShortSkirts ?? false,
-            maxHeelHeight: updated.constraints?.maxHeelHeight ?? 'any',
-            colorAversions: updated.constraints?.colorAversions ?? [],
-            _profile: {
-              hairColor: updated.hairColor ?? null,
-              heightBand: updated.heightBand ?? null,
-              faceShape: updated.faceShape ?? null,
-              contrastLevel: updated.contrastLevel ?? null,
-              metalPreference: updated.metalPreference ?? null,
-              defaultMood: updated.defaultMood ?? null,
-              industry: updated.industry ?? null,
-              lifePhase: updated.lifePhase ?? null,
-              tempUnit: updated.tempUnit ?? null,
-              weatherEnabled: updated.weatherEnabled ?? null,
-            },
-          },
+          constraints: profileConstraints(updated),
           onboarding_complete: updated.onboardingComplete,
         }).catch(console.error);
       }

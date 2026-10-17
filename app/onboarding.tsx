@@ -12,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInRight, FadeInUp } from 'react-native-reanimated';
 import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/constants/lifestyle';
 import { rs } from '../lib/responsive';
+import { onboardingStyleGoal } from '../shared/profile-personalization';
 
 const { width } = Dimensions.get('window');
 
@@ -248,7 +249,7 @@ export default function OnboardingScreen() {
         eyeColor,
         skinTone,
         undertone,
-        styleGoalPrimary,
+        styleGoalPrimary: onboardingStyleGoal(styleGoalPrimary),
         styleGoalSecondary,
         lifestyleWork:   lifestyleAlloc.work,
         lifestyleCasual: lifestyleAlloc.casual,

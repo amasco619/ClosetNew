@@ -180,6 +180,7 @@ export function computePoolHash(
     profile.styleGoalPrimary ?? '',
     profile.styleGoalSecondary ?? '',
     profile.bodyType ?? '',
+    profile.faceShape ?? '',
     profile.skinTone ?? '',
     profile.undertone ?? '',
     profile.eyeColor ?? '',

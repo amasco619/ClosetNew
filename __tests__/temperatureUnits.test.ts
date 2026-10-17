@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { build } from 'esbuild';
 import { formatTemp, formatTempValue } from '../constants/weatherPure';
 import type { TempUnit } from '../constants/weatherPure';
+import { hydrateAccountProfile, mergeProfile, profileConstraints } from '../shared/profile-personalization';
 
 async function main() {
   const store = new Map<string, string>();
@@ -68,8 +69,12 @@ async function main() {
     assert.match(source, /formatTempValue\(weather\.highC, effectiveTempUnit\)/);
   }
   const context = readFileSync('contexts/AppContext.tsx', 'utf8');
-  assert.match(context, /tempUnit: ext\.tempUnit \?\? prev\.tempUnit \?\? null/);
-  assert.match(context, /tempUnit: updated\.tempUnit \?\? null/);
+  assert.match(context, /hydratedProfile = hydrateAccountProfile\(dbProfile, authName\)/);
+  assert.match(context, /constraints: profileConstraints\(updated\)/);
+  assert.equal(effectiveUnit(hydrateAccountProfile({}, '')), 'C');
+  const fahrenheit = profileConstraints(mergeProfile({ tempUnit: 'F' }));
+  assert.equal(effectiveUnit(hydrateAccountProfile({ constraints: fahrenheit }, '')), 'F');
+  assert.equal(effectiveUnit(hydrateAccountProfile({}, '')), 'C', 'another account never inherits F');
 
   for (const useGps of [true, false]) {
     gps = useGps;

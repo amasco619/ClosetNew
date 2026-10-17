@@ -10,7 +10,6 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useApp } from '@/contexts/AppContext';
-import type { UserProfile } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import * as Linking from 'expo-linking';
 import { createSessionFromUrl } from '../lib/auth';
@@ -18,16 +17,7 @@ import { NATIVE_OAUTH_CALLBACK_URL, isOAuthCallbackUrl } from '../lib/oauth-call
 import { AmodkaErrorState } from '@/components/AmodkaErrorState';
 import { reportError } from '@/shared/observability';
 
-function hasRequiredOnboardingFields(p: UserProfile): boolean {
-  return !!(
-    p.name?.trim() &&
-    p.bodyType &&
-    p.eyeColor &&
-    p.skinTone &&
-    p.undertone &&
-    p.styleGoalPrimary
-  );
-}
+import { hasRequiredOnboardingFields } from '../shared/profile-personalization';
 
 export default function IndexScreen() {
   const { profile, appReady, startupError, retryInitialization, isAuthenticated } = useApp();
