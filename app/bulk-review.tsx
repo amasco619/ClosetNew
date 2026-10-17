@@ -24,6 +24,7 @@ import Colors from '@/constants/colors';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { removeBackground } from '@/lib/photoroom';
 import { classificationImagePayload } from '@/lib/classifyPath';
+import { prepareClassificationImage } from '@/lib/prepareClassificationImage';
 import { buildGuestPhotoDestPath } from '@/constants/guestPhotoCleanup';
 import { deleteWardrobeImage, uploadWardrobeImage } from '@/lib/storage';
 import { resolveWardrobeUploadArg } from '@/lib/uploadArg';
@@ -600,11 +601,7 @@ export default function BulkReviewScreen() {
     await runClassifyUri(uri, mountedRef, {
       resize: (u) => imageResizeQueue(() => {
         if (!mountedRef.current) return Promise.resolve(null);
-        return ImageManipulator.manipulateAsync(
-          u,
-          [{ resize: { width: 1024 } }],
-          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-        );
+        return prepareClassificationImage(u);
       }),
       diagnostics: {
         enabled: __DEV__,

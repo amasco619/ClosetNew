@@ -18,6 +18,7 @@ import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, wit
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { removeBackground } from '@/lib/photoroom';
 import { classificationImagePayload } from '@/lib/classifyPath';
+import { prepareClassificationImage } from '@/lib/prepareClassificationImage';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
 import { buildGuestPhotoDestPath } from '../constants/guestPhotoCleanup';
@@ -746,26 +747,12 @@ export default function AddItemScreen() {
         setPhotoPrepareDiagnostic(null);
         const prepareStartedAt = diagnosticNow();
         let prepareStage: PhotoPrepareDiagnostic['stage'] = 'image-resize';
-        // Obtain base64 from ImageManipulator (picker no longer requests base64 to
-        // support multi-select without eagerly decoding multiple full-res images).
-        // Downscale to ≤1024 px on the longest edge for Gemini — reduces payload from
-        // 4–12 MB to ~100–300 KB with no impact on classification accuracy.
+        // Single and bulk share decoding/resizing/encoding before either provider.
         // Keep only the preview URI in React state. Large image payloads remain
         // local to this async pipeline; any later upload reads the cache file.
         let classifyBase64: string | undefined;
         try {
-          const MAX_CLASSIFY_PX = 1024;
-          const w = asset.width ?? 0;
-          const h = asset.height ?? 0;
-          const longestEdge = Math.max(w, h);
-          const scale = longestEdge > MAX_CLASSIFY_PX ? MAX_CLASSIFY_PX / longestEdge : 1;
-          const resized = await ImageManipulator.manipulateAsync(
-            asset.uri,
-            longestEdge > MAX_CLASSIFY_PX
-              ? [{ resize: { width: Math.round(w * scale), height: Math.round(h * scale) } }]
-              : [],
-            { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-          );
+          const resized = await prepareClassificationImage(asset.uri);
           if (requestId !== photoRequestRef.current) return;
           prepareStage = 'background-removal';
           if (resized.base64) {

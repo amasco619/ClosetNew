@@ -505,3 +505,17 @@ mtime_ms = 1792237121145
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/113c65c6-c202-4742-93a0-23bbb07fb81f/27685cfe-4bd4-4fe8-abc1-6dee25b22989"
 storage_version_token = "1792237133431361"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "sDsCcof-vNgJROjCHcZPP"
+uri = "file://reports/classification-preparation-parity.md"
+type = "text"
+title = "Single/bulk classification consistency report"
+description = "Shared preparation change, accuracy rationale, exact test results and remaining physical-device/model-accuracy limitations."
+logical_id = "aedbf668-b000-4814-90cc-57071d422a8d"
+content_hash = "sha256:9c8764fe13c46c3c650a39b77ee30c1b2581ec19f09ea474079dc140e028dcdd"
+size = 5152
+mtime_ms = 1792265468119
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/aedbf668-b000-4814-90cc-57071d422a8d/97902ead-4f8e-408b-887d-99418fd6c697"
+storage_version_token = "1792265477334885"
+content_type = "text/markdown"

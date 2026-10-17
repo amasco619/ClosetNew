@@ -486,3 +486,24 @@ render calls are removed in release mode (formatter utility strings remain,
 without UI callers). Physical device/model-accuracy validation is not claimed.
 See `reports/classifier-pairs-refusal.md` for the pre-change evidence, caveats,
 release verification and four-step device script.
+
+## 24. SINGLE/BULK CLASSIFICATION PREPARATION PARITY
+
+The same joggers photo was reported as lavender in bulk versus grey in single
+entry. Both used the same classifier endpoint, but bulk resized by width while
+single entry capped the longest edge. That is a verified input-policy difference,
+not proof of the cause of those exact model responses.
+
+Both now use one shared preparation helper: native decoded dimensions,
+aspect-preserving longest-edge cap of 1024 px, no upscaling, one JPEG encoding
+at quality 0.8 before the existing background-removal step. This retains the
+successful single-entry size/quality baseline without increasing model payload
+or changing colour values. It uses the existing Expo package and releases native
+resources on every path. Bulk's serial queue and staging/copy behaviour remain.
+
+Checks: focused suites 5 passed; full suite 102 passed; golden engine set
+35 passed; typecheck/lint and Android production-JS export passed. No prompt,
+model, colour-family rules, engine, schema, quota, billing or dependencies changed.
+No live-provider accuracy experiment or physical-device test was performed.
+The old Metro port owner was stopped and the existing frontend workflow restarted.
+See `reports/classification-preparation-parity.md` for exact evidence/limitations.

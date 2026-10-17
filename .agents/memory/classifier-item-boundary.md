@@ -14,3 +14,7 @@ Single and bulk uploads are equivalent entry routes: the user expects the same g
 **Why:** The user reported joggers labelled lavender in bulk and grey in single entry and explicitly requested consistency.
 
 **How to apply:** Evaluate classification changes against both entry paths; do not introduce flow-specific colour rules or treat bulk as a different garment interpretation context.
+
+Use native decoded dimensions rather than picker/diagnostic metadata when making both preparation paths equivalent. Keep the established single-entry resolution/quality baseline until a controlled image benchmark justifies changing it; matching preprocessing is not a claim of deterministic model output.
+
+**Why:** Picker/EXIF metadata and dev-only staging diagnostics are not reliable runtime geometry authorities. The user requested the accuracy-oriented option, but no controlled evidence established that extra pixels or forced grey labels would improve colour accuracy. This milestone deliberately removes an input mismatch without changing the model, prompt or colour policy.
