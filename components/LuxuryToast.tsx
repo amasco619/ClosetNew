@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AccessibilityInfo, Animated, Image, Platform, Pressable, StyleSheet, Text } from 'react-native';
+import { AccessibilityInfo, Animated, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/colors';
@@ -40,6 +40,36 @@ export default function LuxuryToast({ toast, bottom, reduceMotion, busy, onActio
   }, [toast, reduceMotion, opacity, translateY]);
 
   if (!toast) return null;
+  const contents = (
+    <>
+      {toast.thumbnailUri ? (
+        <Image source={{ uri: toast.thumbnailUri }} style={styles.thumbnail} accessibilityLabel="Saved garment" />
+      ) : (
+        <Ionicons name="checkmark-circle-outline" size={21} color={Colors.sage} />
+      )}
+      <Text accessibilityRole="text" style={styles.message} numberOfLines={2}>{toast.message}</Text>
+      {toast.actionLabel && toast.onAction && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={busy
+            ? (toast.actionLabel === 'Retry cleanup' ? 'Retrying photo cleanup' : 'Undoing')
+            : toast.actionLabel}
+          accessibilityHint="Available for five seconds"
+          disabled={busy}
+          hitSlop={6}
+          onPress={onAction}
+          style={[styles.action, hasAction && styles.undoAction]}
+        >
+          <Text style={[styles.actionText, hasAction && styles.undoActionText]}>
+            {busy
+              ? (toast.actionLabel === 'Retry cleanup' ? 'Retrying cleanup' : 'Undoing')
+              : toast.actionLabel}
+          </Text>
+        </Pressable>
+      )}
+    </>
+  );
+
   return (
     <Animated.View
       accessibilityLiveRegion="polite"
@@ -47,33 +77,11 @@ export default function LuxuryToast({ toast, bottom, reduceMotion, busy, onActio
       style={[styles.position, { bottom, opacity, transform: [{ translateY }] }]}
       pointerEvents="box-none"
     >
-      <BlurView intensity={70} tint="light" style={[styles.pill, hasAction && styles.undoPill]}>
-        {toast.thumbnailUri ? (
-          <Image source={{ uri: toast.thumbnailUri }} style={styles.thumbnail} accessibilityLabel="Saved garment" />
-        ) : (
-          <Ionicons name="checkmark-circle-outline" size={21} color={Colors.sage} />
-        )}
-        <Text accessibilityRole="text" style={styles.message} numberOfLines={2}>{toast.message}</Text>
-        {toast.actionLabel && toast.onAction && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={busy
-              ? (toast.actionLabel === 'Retry cleanup' ? 'Retrying photo cleanup' : 'Undoing')
-              : toast.actionLabel}
-            accessibilityHint="Available for five seconds"
-            disabled={busy}
-            hitSlop={6}
-            onPress={onAction}
-            style={[styles.action, hasAction && styles.undoAction]}
-          >
-            <Text style={[styles.actionText, hasAction && styles.undoActionText]}>
-              {busy
-                ? (toast.actionLabel === 'Retry cleanup' ? 'Retrying cleanup' : 'Undoing')
-                : toast.actionLabel}
-            </Text>
-          </Pressable>
-        )}
-      </BlurView>
+      {hasAction ? (
+        <View style={[styles.pill, styles.undoPill]}>{contents}</View>
+      ) : (
+        <BlurView intensity={70} tint="light" style={styles.pill}>{contents}</BlurView>
+      )}
     </Animated.View>
   );
 }
