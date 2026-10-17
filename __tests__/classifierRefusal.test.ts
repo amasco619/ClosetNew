@@ -51,15 +51,16 @@ async function main() {
   for (const status of [400, 401, 403, 422]) {
     const { item } = await analyse(Object.assign(new Error(`${status}: {"error":"other"}`), { status }));
     assert.equal(item.status, 'error');
-    assert.equal(item.retryable, false);
+    assert.equal(item.retryable, true, 'unexpected errors now have an explicit manual retry action');
+    assert.equal(item.failureKind, 'unexpected');
   }
-  assert.equal((await analyse(new Error('Loading bitmap failed'), true)).item.retryable, false);
+  assert.equal((await analyse(new Error('Loading bitmap failed'), true)).item.failureKind, 'unexpected');
   const progress = selectBulkProgress([
     ...Array.from({ length: 3 }, (_, i) => ({ uri: String(i), status: 'settled', classification: null })),
     { uri: 'pair', status: 'refused', classification: null },
     { uri: 'removed', status: 'removed', classification: null },
   ]);
-  assert.deepEqual(progress, { classifiedCount: 3, failedCount: 0, refusedCount: 1, totalCount: 4, progressRatio: 1 });
+  assert.deepEqual(progress, { classifiedCount: 3, failedCount: 0, refusedCount: 1, transientCount: 0, totalCount: 4, progressRatio: 1 });
   assert.equal(selectBulkProgress([]).progressRatio, 0);
   let route: any;
   runRedirectSingle(refused.item, false, { current: true }, { current: false }, {

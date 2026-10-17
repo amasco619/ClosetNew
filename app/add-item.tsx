@@ -28,7 +28,9 @@ import { rs } from '../lib/responsive';
 import { selectedSingleAsset } from '../lib/imagePickerSelection';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
 import { PhotoRefusalDialog } from '@/components/PhotoRefusalNotice';
-import { isContentGuardrailError } from '@/lib/classificationRefusal';
+import { isContentGuardrailError, classificationFailurePresentation } from '@/lib/classificationRefusal';
+import { UPLOAD_DIAGNOSTICS_ENABLED, reportUploadError } from '@/lib/uploadErrors';
+import { readCachedCutout } from '@/lib/uploadPhotoSource';
 import { GarmentTile } from '@/components/GarmentTile';
 import {
   getAiProcessingPreference,
@@ -357,6 +359,8 @@ export default function AddItemScreen() {
   const [photoWidth,      setPhotoWidth]      = useState<number>(0);
   const [photoHeight,     setPhotoHeight]     = useState<number>(0);
   const [photoPrepareDiagnostic, setPhotoPrepareDiagnostic] = useState<PhotoPrepareDiagnostic | null>(null);
+  const [analysisFailure, setAnalysisFailure] = useState<ReturnType<typeof classificationFailurePresentation> | null>(null);
+  const retryPhotoRef = useRef<ImagePicker.ImagePickerAsset | null>(null);
   const [saving,          setSaving]          = useState(false);
   const [saveStage,       setSaveStage]       = useState<SaveStage>(null);
   const [displayedLabel,  setDisplayedLabel]  = useState<string>('Saving…');
@@ -566,10 +570,11 @@ export default function AddItemScreen() {
           : undefined,
       };
     } catch (err: any) {
+      reportUploadError({ stage: 'classify', code: isContentGuardrailError(err) ? 'REFUSED' : 'FAILED' });
       if (isContentGuardrailError(err)) throw err;
 
       // 429 (rate-limited / quota) or any other server error — signal caller
-      throw new Error('classification_unavailable');
+      throw err;
     }
   };
 
@@ -652,7 +657,7 @@ export default function AddItemScreen() {
             delete: uri => FileSystem.deleteAsync(uri, { idempotent: true }),
             makeUri: pickedAsset =>
               `${stagingDirectory}${Crypto.randomUUID()}.${stagedPhotoExtension(pickedAsset)}`,
-            diagnosticsEnabled: __DEV__,
+            diagnosticsEnabled: UPLOAD_DIAGNOSTICS_ENABLED,
           });
           if (staged.photos.length === 0) {
             setBulkStageNotice('Could not prepare the selected photos. Please choose them again.');
@@ -685,6 +690,8 @@ export default function AddItemScreen() {
       }
 
       if (!asset) return;
+      retryPhotoRef.current = asset;
+      setAnalysisFailure(null);
       requestId = photoRequestRef.current + 1;
       photoRequestRef.current = requestId;
       const isNewPhoto = asset.uri !== currentPhotoUriRef.current;
@@ -784,6 +791,7 @@ export default function AddItemScreen() {
                 setPhotoBgRemoved(true);
                 classifyBase64 = cleanPngBase64;
               } catch {
+                reportUploadError({ stage: 'cutout-write', code: 'FAILED' });
                 // A failed cache write leaves the original photo visible; the
                 // original JPEG remains the preview and classifier fallback.
                 setBgStatus('idle');
@@ -791,8 +799,10 @@ export default function AddItemScreen() {
             }
           }
         } catch (error) {
+          reportUploadError({ stage: prepareStage === 'image-resize' ? 'resize' : 'background-removal', code: 'FAILED' });
+          if (prepareStage === 'image-resize') setAnalysisFailure(classificationFailurePresentation(error));
           // Keep development-only diagnostics in memory; never include the full URI.
-          if (requestId === photoRequestRef.current && __DEV__) {
+          if (requestId === photoRequestRef.current && __DEV__ && UPLOAD_DIAGNOSTICS_ENABLED) {
             const diagnostic = createPhotoPrepareDiagnostic(asset.uri, error, {
               stage: prepareStage,
               width: asset.width,
@@ -801,7 +811,7 @@ export default function AddItemScreen() {
               elapsedMs: diagnosticNow() - prepareStartedAt,
             });
             setPhotoPrepareDiagnostic(diagnostic);
-            console.warn('[single:prepare]', diagnostic);
+            console.log('[single:prepare]', diagnostic);
           }
         }
 
@@ -864,11 +874,8 @@ export default function AddItemScreen() {
               // API unavailable (quota, rate-limit, or server error) —
               // show error flash, then keep the photo so the user can fill in manually.
               finishClassifying(false);
-              Alert.alert(
-                'Auto-fill unavailable',
-                'The classification service could not complete this request. Your photo is safe; please try again or enter the details manually.',
-                [{ text: 'Got it' }],
-              );
+              reportUploadError({ stage: 'classify', code: 'FAILED' });
+              setAnalysisFailure(classificationFailurePresentation(classifyErr));
             }
           }
         } else {
@@ -876,8 +883,8 @@ export default function AddItemScreen() {
           setClassifying(false);
         }
       }
-    } catch (e) {
-      console.error('Image pick error:', e);
+    } catch {
+      reportUploadError({ stage: 'resize', code: 'FAILED' });
       if (requestId === photoRequestRef.current) setClassifying(false);
     }
   };
@@ -981,13 +988,17 @@ export default function AddItemScreen() {
           // file — read and upload it unchanged rather than flattening it.
           const MAX_STORAGE_PX = 1600;
           let uploadBase64 = '';
-          let uploadMime: 'image/jpeg' | 'image/png' = photoBgRemoved ? 'image/png' : 'image/jpeg';
-          if (photoBgRemoved) {
-            uploadBase64 = await FileSystem.readAsStringAsync(photoUri, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
-            if (!uploadBase64) throw new Error('Cached transparent photo could not be read.');
+          let uploadMime: 'image/jpeg' | 'image/png' = 'image/jpeg';
+          const cachedCutout = await readCachedCutout(photoBgRemoved ? photoUri : undefined,
+            uri => FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 }));
+          const uploadSourceUri = photoBgRemoved
+            ? currentPhotoUriRef.current ?? stagedSourceUriRef.current
+            : photoUri;
+          if (cachedCutout) {
+            uploadBase64 = cachedCutout;
+            uploadMime = 'image/png';
           } else {
+            if (!uploadSourceUri) throw new Error('Original photo is unavailable.');
             try {
               const w = photoWidth;
               const h = photoHeight;
@@ -995,7 +1006,7 @@ export default function AddItemScreen() {
               if (longestEdge > MAX_STORAGE_PX) {
                 const scale = MAX_STORAGE_PX / longestEdge;
                 const shrunk = await ImageManipulator.manipulateAsync(
-                  photoUri,
+                  uploadSourceUri,
                   [{ resize: { width: Math.round(w * scale), height: Math.round(h * scale) } }],
                   { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
                 );
@@ -1004,7 +1015,7 @@ export default function AddItemScreen() {
               } else {
                 // Already within the limit — still re-encode as JPEG for consistent format
                 const reencoded = await ImageManipulator.manipulateAsync(
-                  photoUri,
+                  uploadSourceUri,
                   [],
                   { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
                 );
@@ -1012,11 +1023,13 @@ export default function AddItemScreen() {
                 uploadBase64 = reencoded.base64;
               }
             } catch (error) {
+              reportUploadError({ stage: 'resize', code: 'FAILED' });
               throw new Error('The photo could not be prepared for upload.', { cause: error });
             }
           }
           setSaveStage('uploading');
-          const { signedUrl: _signedUrl, storagePath: _sp } = await uploadWardrobeImage(session.user.id, uploadBase64, itemId, uploadMime);
+          const { signedUrl: _signedUrl, storagePath: _sp } = await uploadWardrobeImage(session.user.id, uploadBase64, itemId, uploadMime)
+            .catch(error => { reportUploadError({ stage: 'upload', code: 'FAILED' }); throw error; });
           finalUri = _signedUrl;
           finalStoragePath = _sp;
           uploadedPhoto = { userId: session.user.id, itemId };
@@ -1030,9 +1043,16 @@ export default function AddItemScreen() {
         try {
           await FileSystem.copyAsync({ from: photoUri, to: dest });
           finalUri = dest;
-        } catch (copyErr) {
-          console.error('[add-item] Guest photo copy failed:', copyErr);
-          throw new Error('Could not save photo to device storage — please try again.');
+        } catch {
+          const original = currentPhotoUriRef.current ?? stagedSourceUriRef.current;
+          if (!photoBgRemoved || !original || original === photoUri) {
+            reportUploadError({ stage: 'save', code: 'FAILED' });
+            throw new Error('Could not save photo to device storage — please try again.');
+          }
+          reportUploadError({ stage: 'cutout-write', code: 'CACHE_UNAVAILABLE' });
+          const fallbackDest = buildGuestPhotoDestPath(FileSystem.documentDirectory!, itemId, 'jpg');
+          await FileSystem.copyAsync({ from: original, to: fallbackDest });
+          finalUri = fallbackDest;
         }
       }
       if (uploadedPhoto && !saveMountedRef.current) throw new Error('Save cancelled before wardrobe persistence.');
@@ -1093,9 +1113,9 @@ export default function AddItemScreen() {
       const dbCode = (e as { code?: string })?.code;
       if (uploadedPhoto && (!dbStarted || (dbCode && dbCode !== 'INVALID_RPC_RESULT'))) {
         await deleteWardrobeImage(uploadedPhoto.userId, uploadedPhoto.itemId)
-          .catch(cleanupError => console.warn('[add-item] Could not clean up unsaved photo:', cleanupError));
+          .catch(() => reportUploadError({ stage: 'save', code: 'FAILED' }));
       }
-      console.error('[add-item] Save failed:', e);
+      reportUploadError({ stage: 'save', code: 'FAILED' });
       setSaving(false);
       setSaveStage(null);
       const errorCode = (e as { code?: string })?.code;
@@ -1275,10 +1295,24 @@ export default function AddItemScreen() {
               </View>
             )}
 
-            {__DEV__ && photoPrepareDiagnostic && (
+            {__DEV__ && UPLOAD_DIAGNOSTICS_ENABLED && photoPrepareDiagnostic && (
               <Text style={styles.prepareDiagnostic}>
                 {formatPhotoPrepareDiagnostic(photoPrepareDiagnostic)}
               </Text>
+            )}
+
+            {analysisFailure && (
+              <View style={styles.aiPausedCard}>
+                <Text style={styles.aiPausedTitle}>{analysisFailure.title}</Text>
+                <Pressable accessibilityRole="button" onPress={() => {
+                  if (retryPhotoRef.current) void pickImage(false, retryPhotoRef.current);
+                }} style={styles.aiPausedAction}>
+                  <Text>{analysisFailure.action}</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" onPress={() => setAnalysisFailure(null)} style={styles.aiPausedAction}>
+                  <Text>Add details manually</Text>
+                </Pressable>
+              </View>
             )}
 
             {photoUri && aiPreference !== 'allowed' && !classifying && (
@@ -1305,7 +1339,7 @@ export default function AddItemScreen() {
                 <View style={styles.bgRemainingPill}>
                   <Ionicons name="images-outline" size={14} color={Colors.sage} />
                   <Text style={styles.bgRemainingText}>
-                    {bgRemaining} of 20 background removals left
+                    {bgRemaining} of 20 lifetime background removals left
                   </Text>
                   {bgRemaining <= 3 && (
                     <Pressable
@@ -1338,7 +1372,7 @@ export default function AddItemScreen() {
               isPremium ? (
                 <Animated.View entering={FadeInDown.duration(260)} style={styles.bgLimitPill}>
                   <Ionicons name="hourglass-outline" size={14} color={Colors.textSecondary} />
-                  <Text style={styles.bgLimitText}>Background removal limit reached — your photo was saved as-is</Text>
+                  <Text style={styles.bgLimitText}>Your 20 lifetime background removals are used — you can still add this photo as it is</Text>
                 </Animated.View>
               ) : (
                 <Animated.View entering={FadeInDown.duration(260)}>
@@ -1347,7 +1381,7 @@ export default function AddItemScreen() {
                     onPress={() => router.push('/premium')}
                   >
                     <Ionicons name="hourglass-outline" size={14} color={Colors.textSecondary} />
-                    <Text style={styles.bgLimitText}>Background removal limit reached — your photo was saved as-is</Text>
+                    <Text style={styles.bgLimitText}>Your 20 lifetime background removals are used — you can still add this photo as it is</Text>
                     <View style={styles.bgLimitCta}>
                       <Text style={styles.bgLimitCtaText}>Upgrade</Text>
                       <Ionicons name="chevron-forward" size={12} color={Colors.secondary} />

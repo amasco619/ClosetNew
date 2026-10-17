@@ -5,6 +5,7 @@ import {
 } from "../shared/photoroom-error-codes";
 
 export { resolveClassifyBase64 } from "./classifyPath";
+import { reportUploadError } from "./uploadErrors";
 
 export type BgRemovalStatus =
   | "success"
@@ -123,6 +124,7 @@ export async function removeBackground(imageBase64: string): Promise<BgRemovalRe
   } catch {
     // This enhancement is optional; even auth/session failures must leave the
     // original resized photo available to the classifier.
+    reportUploadError({ stage: 'background-removal', code: 'FAILED' });
     return { status: "failed" };
   }
 }

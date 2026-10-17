@@ -12,7 +12,9 @@
 
 import type { ItemCategory, OccasionTag, SeasonTag } from '@/constants/types';
 import { shortUriHash, type StagedBulkPhoto } from '@/lib/bulkPhotoStaging';
-import { isContentGuardrailError, isTransientClassificationError } from '@/lib/classificationRefusal';
+import { isContentGuardrailError, classificationFailurePresentation } from '@/lib/classificationRefusal';
+import { readCachedCutout } from './uploadPhotoSource';
+import { reportUploadError } from './uploadErrors';
 
 // ─── Types (previously local to bulk-review.tsx) ──────────────────────────────
 
@@ -47,6 +49,8 @@ export interface BulkItemCore {
   failureStage?: ClassifyFailureStage;
   diagnostic?: PhotoPrepareDiagnostic;
   retryable?: boolean;
+  failureKind?: 'transient' | 'unexpected';
+  backgroundRemovalSucceeded?: boolean;
 }
 
 export type ClassifyFailureStage = 'photo-preparation' | 'classification';
@@ -56,9 +60,10 @@ export function selectBulkProgress(items: BulkItemCore[]) {
   const classifiedCount = visible.filter(item => ['settled', 'saving', 'saved', 'local-only'].includes(item.status)).length;
   const failedCount = visible.filter(item => item.status === 'error').length;
   const refusedCount = visible.filter(item => item.status === 'refused').length;
+  const transientCount = visible.filter(item => item.status === 'error' && item.failureKind === 'transient').length;
   const totalCount = visible.length;
   return {
-    classifiedCount, failedCount, refusedCount, totalCount,
+    classifiedCount, failedCount, refusedCount, transientCount, totalCount,
     progressRatio: totalCount ? (classifiedCount + failedCount + refusedCount) / totalCount : 0,
   };
 }
@@ -132,6 +137,8 @@ export function createPhotoPrepareDiagnostic(
 }
 
 export function formatPhotoPrepareDiagnostic(diagnostic: PhotoPrepareDiagnostic): string {
+  // Metro substitutes false in release; the minifier removes all formatter text.
+  if (typeof __DEV__ !== 'undefined' && !__DEV__) return '';
   const dimensions = diagnostic.width !== undefined && diagnostic.height !== undefined
     ? `${diagnostic.width}x${diagnostic.height}`
     : 'unknown';
@@ -163,6 +170,8 @@ export function createSerialQueue() {
 // ─── Dependency interfaces ────────────────────────────────────────────────────
 
 export interface ClassifyDeps {
+  previousCutout?: { uri?: string; succeeded: boolean };
+  readPngBase64?(uri: string): Promise<string>;
   /** Resize `uri` to ≤1024 px and return its JPEG base64 (or null on failure). */
   resize(uri: string): Promise<{ base64?: string } | null>;
   /** Remove background from a JPEG base64. Returns PNG base64 or null. */
@@ -223,19 +232,24 @@ export async function runClassifyUri(
   let failureStage: ClassifyFailureStage = 'photo-preparation';
   let diagnosticStage: PhotoPrepareDiagnostic['stage'] = 'image-resize';
   try {
-    const resized = await deps.resize(uri);
+    const cached = await readCachedCutout(deps.previousCutout?.uri, deps.readPngBase64);
+    const resized = cached ? { base64: cached } : await deps.resize(uri);
     if (!mountedRef.current) return;
     if (!resized?.base64) throw new Error('resize_failed');
 
     let classifyBase64 = resized.base64;
-    let classifyMimeType: 'image/jpeg' | 'image/png' = 'image/jpeg';
+    let classifyMimeType: 'image/jpeg' | 'image/png' = cached ? 'image/png' : 'image/jpeg';
     diagnosticStage = 'background-removal';
     try {
-      const cleanPngBase64 = await deps.removeBg(classifyBase64);
+      const cleanPngBase64 = deps.previousCutout?.succeeded ? null : await deps.removeBg(classifyBase64);
       if (!mountedRef.current) return;
 
       if (cleanPngBase64) {
-        const cutoutUri = await deps.writePngToCache(cleanPngBase64);
+        deps.setItems(prev => prev.map(it => it.uri === uri ? { ...it, backgroundRemovalSucceeded: true } : it));
+        const cutoutUri = await deps.writePngToCache(cleanPngBase64).catch(error => {
+          reportUploadError({ stage: 'cutout-write', code: 'FAILED' });
+          throw error;
+        });
         if (!mountedRef.current) return;
         deps.setItems(prev =>
           prev.map(it => it.uri === uri ? { ...it, cutoutUri } : it),
@@ -244,6 +258,7 @@ export async function runClassifyUri(
         classifyMimeType = 'image/png';
       }
     } catch {
+      reportUploadError({ stage: 'background-removal', code: 'FAILED' });
       // Background removal and its preview cache are optional; keep classifying
       // the resized original instead of failing the entire bulk-review item.
     }
@@ -285,6 +300,7 @@ export async function runClassifyUri(
     );
     deps.onHaptic();
   } catch (error) {
+    reportUploadError({ stage: diagnosticStage === 'image-resize' ? 'resize' : 'classify', code: 'FAILED' });
     if (!mountedRef.current) return;
     if (diagnosticStage === 'classification' && isContentGuardrailError(error)) {
       deps.setItems(prev => prev.map(it => it.uri === uri
@@ -333,8 +349,8 @@ export async function runClassifyUri(
     if (diagnostic) deps.onDiagnostic?.(diagnostic);
     deps.setItems(prev =>
       prev.map(it => it.uri === uri
-        ? { ...it, status: 'error', failureStage, diagnostic,
-          retryable: diagnosticStage !== 'image-resize' && isTransientClassificationError(error) }
+        ? { ...it, status: 'error', failureStage, diagnostic, retryable: true,
+          failureKind: classificationFailurePresentation(error).kind }
         : it),
     );
   }
@@ -483,9 +499,9 @@ export async function runSaveAll(
           let shrunkBase64: string | undefined;
           let cleanBase64: string | undefined = item.cleanBase64;
           if (item.cutoutUri) {
-            if (!deps.readPngBase64) throw new Error('png_reader_unavailable');
-            cleanBase64 = await deps.readPngBase64(item.cutoutUri);
-          } else if (!cleanBase64) {
+            cleanBase64 = await readCachedCutout(item.cutoutUri, deps.readPngBase64);
+          }
+          if (!cleanBase64) {
             const shrunk = await deps.resize(item.uri);
             if (!mountedRef.current) {
               await cleanupUploads();
@@ -517,23 +533,21 @@ export async function runSaveAll(
             deps.onUploadFallback?.(item.uri);
           }
         } catch {
+          reportUploadError({ stage: 'upload', code: 'FAILED' });
           // Upload failed — fall back to local URI; storagePath stays undefined
           itemStoragePath = undefined;
           uploadFailed = true;
           deps.onUploadFallback?.(item.uri);
         }
       } else {
-        const imageBase64 = item.cutoutUri
-          ? deps.readPngBase64
-            ? await deps.readPngBase64(item.cutoutUri)
-            : undefined
-          : item.cleanBase64 ?? (await deps.resize(item.uri))?.base64;
+        const cleanBase64 = await readCachedCutout(item.cutoutUri, deps.readPngBase64) ?? item.cleanBase64;
+        const imageBase64 = cleanBase64 ?? (await deps.resize(item.uri))?.base64;
         if (!imageBase64) throw new Error('guest_image_unavailable');
         if (!deps.saveGuestImage) throw new Error('guest_writer_unavailable');
         finalUri = await deps.saveGuestImage(
           imageBase64,
           itemId,
-          item.cutoutUri ? 'image/png' : 'image/jpeg',
+          cleanBase64 ? 'image/png' : 'image/jpeg',
         );
       }
 
@@ -547,6 +561,7 @@ export async function runSaveAll(
       payloadUris.push(item.uri);
       if (uploadFailed) localOnlyUris.push(item.uri);
     } catch {
+      reportUploadError({ stage: 'save', code: 'FAILED' });
       preparationFailed = true;
       if (mountedRef.current) {
         deps.setItems(prev =>
@@ -585,6 +600,7 @@ export async function runSaveAll(
     try {
       await deps.addItems(payloads);
     } catch (error) {
+      reportUploadError({ stage: 'save', code: 'FAILED' });
       // Only a database error code establishes that the transaction rejected
       // the batch. A lost response could follow a successful commit.
       const code = (error as { code?: string })?.code;
@@ -798,6 +814,7 @@ export async function runAutoPersistItem(
     return itemId;
   } catch {
     // Upload failed — revert to 'settled' so the CTA unlocks and manual save works.
+    reportUploadError({ stage: 'save', code: 'FAILED' });
     if (mountedRef.current) {
       deps.setItems(prev => prev.map(it =>
         it.uri === item.uri && it.status === 'auto-saving'

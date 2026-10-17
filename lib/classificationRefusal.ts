@@ -20,3 +20,9 @@ export function isTransientClassificationError(error: unknown): boolean {
   if (kind) return ['network', 'timeout', 'abort'].includes(kind);
   return error instanceof Error && /network|failed to fetch|timed out|timeout|offline/i.test(error.message);
 }
+
+export function classificationFailurePresentation(error: unknown) {
+  return isTransientClassificationError(error)
+    ? { kind: 'transient' as const, title: 'Connection paused', action: 'Tap to try again' }
+    : { kind: 'unexpected' as const, title: 'Something went wrong', action: 'Tap to try again' };
+}

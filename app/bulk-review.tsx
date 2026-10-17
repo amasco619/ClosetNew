@@ -24,6 +24,9 @@ import Colors from '@/constants/colors';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { removeBackground } from '@/lib/photoroom';
 import { classificationImagePayload } from '@/lib/classifyPath';
+import { UPLOAD_DIAGNOSTICS_ENABLED, reportUploadError } from '@/lib/uploadErrors';
+import { readCachedCutout } from '@/lib/uploadPhotoSource';
+import { classificationWaitMs, runSerialUploadRetries } from '@/lib/uploadRetry';
 import { prepareClassificationImage } from '@/lib/prepareClassificationImage';
 import { buildGuestPhotoDestPath } from '@/constants/guestPhotoCleanup';
 import { deleteWardrobeImage, uploadWardrobeImage } from '@/lib/storage';
@@ -38,7 +41,6 @@ import {
   createSerialQueue,
   formatPhotoPrepareDiagnostic,
   type ClassifyResult,
-  type ClassifyDeps,
   type ClassifyFailureStage,
   type PhotoPrepareDiagnostic,
 } from '@/lib/bulkClassifyCore';
@@ -95,6 +97,8 @@ interface BulkItem {
   failureStage?: ClassifyFailureStage;
   diagnostic?: PhotoPrepareDiagnostic;
   retryable?: boolean;
+  failureKind?: 'transient' | 'unexpected';
+  backgroundRemovalSucceeded?: boolean;
 }
 
 // ─── Type guards (mirrors add-item.tsx) ──────────────────────────────────────
@@ -243,7 +247,7 @@ function BulkCard({
                 : 'Item'}
             </Text>
           </Animated.View>
-        ) : isRefused ? null : (
+        ) : isRefused || isError ? null : (
           <View key="shimmer-info">
             <View style={styles.shimmerTagRow}>
               <View style={styles.shimmerPill} />
@@ -275,18 +279,24 @@ function BulkCard({
           accessibilityRole="button"
           accessibilityLabel="Retry garment analysis"
           onPress={() => onRetry(item.uri)}
-          style={[styles.errorOverlay, styles.retryOverlay]}
+          style={[styles.errorOverlay, styles.retryOverlay, item.failureKind !== 'transient' && styles.unexpectedFailure]}
         >
-          <Ionicons name="refresh-outline" size={20} color={Colors.white} />
+          <Ionicons name="refresh-outline" size={18} color={Colors.textSecondary} />
           <Text style={styles.errorLabel}>
-            {item.failureStage === 'photo-preparation' ? 'Could not prepare photo' : 'Analysis failed'}
+            {item.failureKind === 'transient' ? 'Connection paused' : 'Something went wrong'}
           </Text>
-          <Text style={styles.errorLabel}>Tap to retry</Text>
-          {__DEV__ && item.diagnostic && (
+          <Text style={styles.errorLabel}>Tap to try again</Text>
+          {__DEV__ && UPLOAD_DIAGNOSTICS_ENABLED && item.diagnostic && (
             <Text style={styles.prepareDiagnostic} numberOfLines={9}>
               {formatPhotoPrepareDiagnostic(item.diagnostic)}
             </Text>
           )}
+        </Pressable>
+      )}
+
+      {isError && (
+        <Pressable accessibilityRole="button" onPress={() => onManual(item.uri)} style={{ padding: 12, minHeight: 44 }}>
+          <Text style={styles.errorLabel}>Add manually</Text>
         </Pressable>
       )}
 
@@ -350,6 +360,9 @@ export default function BulkReviewScreen() {
   }, [manualSavedPhotoIndex, selectionId]);
   const [statusPhase, setStatusPhase] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [retryingAll, setRetryingAll] = useState(false);
+  const retryingAllRef = useRef(false);
+  const classificationStartsRef = useRef<number[]>([]);
   // URI-based identity for the open panel — stable across status transitions.
   // An integer index into a dynamically-filtered list would drift as items settle.
   const [editingUri, setEditingUri] = useState<string | null>(null);
@@ -470,7 +483,7 @@ export default function BulkReviewScreen() {
       });
       if (__DEV__) {
         const remaining = await FileSystem.readDirectoryAsync(directoryUri).catch(() => null);
-        console.info('[bulk:staging] cancel-cleanup', {
+        if (UPLOAD_DIAGNOSTICS_ENABLED) console.log('[bulk:staging] cancel-cleanup', {
           deletedCount: summary.deletedCount,
           retainedCount: summary.retainedCount,
           remainingFileCount: remaining?.length ?? null,
@@ -598,13 +611,21 @@ export default function BulkReviewScreen() {
   const classifyUri = useCallback(async (uri: string) => {
     if (aiPreference !== 'allowed') return;
     const stagedPhoto = selection?.photos.find(photo => photo.uri === uri);
+    const previous = itemsRef.current.find(item => item.uri === uri);
     await runClassifyUri(uri, mountedRef, {
+      previousCutout: {
+        uri: previous?.cutoutUri,
+        succeeded: Boolean(previous?.backgroundRemovalSucceeded || previous?.cutoutUri),
+      },
+      readPngBase64: uri => readCachedCutout(uri,
+        current => FileSystem.readAsStringAsync(current, { encoding: FileSystem.EncodingType.Base64 }))
+        .then(value => value ?? ''),
       resize: (u) => imageResizeQueue(() => {
         if (!mountedRef.current) return Promise.resolve(null);
         return prepareClassificationImage(u);
       }),
       diagnostics: {
-        enabled: __DEV__,
+        enabled: UPLOAD_DIAGNOSTICS_ENABLED,
         usedSerialResizeQueue: true,
         stagedPhoto,
         inspectUri: async currentUri => {
@@ -613,12 +634,13 @@ export default function BulkReviewScreen() {
         },
       },
       onDiagnostic: diagnostic => {
-        if (diagnostic.stage === 'image-resize') console.warn('[bulk:prepare]', diagnostic);
+        if (__DEV__ && UPLOAD_DIAGNOSTICS_ENABLED) console.log('[bulk:prepare]', diagnostic);
       },
       removeBg: (b64) => removeBackground(b64).then(r => {
         if (r.status === 'not-authenticated') setBgNotAuthenticated(true);
         if (r.status === 'limit-reached') setBgLimitReached(true);
         if (r.status === 'success' && r.remaining !== undefined) setBgRemaining(r.remaining);
+        if (r.status === 'failed' || r.status === 'unavailable') reportUploadError({ stage: 'background-removal', code: 'FAILED' });
         return r.status === 'success' ? (r.base64 ?? null) : null;
       }),
       writePngToCache: async (pngBase64) => {
@@ -630,12 +652,28 @@ export default function BulkReviewScreen() {
         return uri;
       },
       classify: async (imageBase64, imageMimeType) => {
+        if (retryingAllRef.current) {
+          let delay = classificationWaitMs(classificationStartsRef.current, Date.now());
+          while (delay > 0) {
+            await new Promise(resolve => setTimeout(resolve, delay));
+            if (!mountedRef.current) throw new Error('cancelled');
+            delay = classificationWaitMs(classificationStartsRef.current, Date.now());
+          }
+        }
+        if (!mountedRef.current || itemsRef.current.find(item => item.uri === uri)?.status === 'removed') {
+          throw new Error('cancelled');
+        }
+        const now = Date.now();
+        classificationStartsRef.current = [...classificationStartsRef.current.filter(time => time > now - 60_000), now];
         const image = classificationImagePayload(imageBase64);
         if (image.imageMimeType !== imageMimeType) throw new Error('image_mime_mismatch');
         const res = await authenticatedApiRequest('POST', '/api/classify-garment', image);
         return res.json();
       },
-      setItems: setItems as unknown as ClassifyDeps['setItems'],
+      setItems: updater => setItems(prev => updater(prev).map(item => {
+        const previous = prev.find(current => current.uri === item.uri);
+        return previous?.status === 'removed' ? previous : item;
+      }) as BulkItem[]),
       onHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
     });
   }, [aiPreference, imageResizeQueue, selection]);
@@ -673,7 +711,7 @@ export default function BulkReviewScreen() {
   }, [removeWardrobeItem, selectionId, wardrobeItems]);
 
   const handleRetry = (uri: string) => {
-    if (savingRef.current) return;
+    if (savingRef.current || retryingAllRef.current) return;
     const item = itemsRef.current.find(current => current.uri === uri);
     if (item?.status === 'refused' || item?.retryable === false) return;
     if (aiPreference !== 'allowed') {
@@ -681,6 +719,22 @@ export default function BulkReviewScreen() {
       return;
     }
     void classifyUri(uri);
+  };
+
+  const handleRetryAll = async () => {
+    if (savingRef.current || retryingAllRef.current || aiPreference !== 'allowed') return;
+    retryingAllRef.current = true;
+    setRetryingAll(true);
+    try {
+      const uris = itemsRef.current.filter(item => item.status === 'error' && item.failureKind === 'transient').map(item => item.uri);
+      await runSerialUploadRetries(uris, {
+        active: uri => mountedRef.current && itemsRef.current.some(item => item.uri === uri && item.status === 'error' && item.failureKind === 'transient'),
+        run: classifyUri,
+      });
+    } finally {
+      retryingAllRef.current = false;
+      if (mountedRef.current) setRetryingAll(false);
+    }
   };
 
   const handleManual = (uri: string) => {
@@ -861,10 +915,10 @@ export default function BulkReviewScreen() {
   const displayTotal    = visibleItems.length;
   const settledCount    = items.filter(it => it.status === 'settled' || it.status === 'local-only').length;
   const localOnlyCount  = items.filter(it => it.status === 'local-only').length;
-  const { classifiedCount, failedCount, refusedCount, totalCount, progressRatio } = selectBulkProgress(items);
+  const { classifiedCount, failedCount, refusedCount, transientCount, totalCount, progressRatio } = selectBulkProgress(items);
   // Lock the CTA while any item is still pending/classifying.
   const hasClassifying  = aiPreference === 'allowed' && items.some(it => it.status === 'pending' || it.status === 'classifying');
-  const canSaveAll      = settledCount > 0 && !saving && !hasClassifying;
+  const canSaveAll      = settledCount > 0 && !saving && !hasClassifying && !retryingAll;
 
   const saveBtnLabel = saving
     ? 'Saving...'
@@ -922,8 +976,15 @@ export default function BulkReviewScreen() {
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Batch Review</Text>
           <Text style={styles.headerSub}>
-            {classifiedCount} of {totalCount} analysed{refusedCount > 0 ? ` · ${refusedCount} needs attention` : ''}{failedCount > 0 ? ` · ${failedCount} failed` : ''}
+            {classifiedCount} of {totalCount} analysed{refusedCount > 0 ? ` · ${refusedCount} needs attention` : ''}{transientCount > 0 ? ` · ${transientCount} need another try` : ''}{failedCount > transientCount ? ` · ${failedCount - transientCount} failed` : ''}
           </Text>
+          {(transientCount >= 2 || retryingAll) && (
+            <Pressable accessibilityRole="button"
+              disabled={retryingAll || saving || items.some(item => item.status === 'pending' || item.status === 'classifying')}
+              onPress={() => void handleRetryAll()}>
+              <Text style={styles.headerSub}>{retryingAll ? 'Trying again…' : 'Try all again'}</Text>
+            </Pressable>
+          )}
         </View>
         <Pressable
           onPress={handleCancel}
@@ -1004,7 +1065,7 @@ export default function BulkReviewScreen() {
                   <View style={styles.bgRemainingPill}>
                     <Ionicons name="images-outline" size={14} color={Colors.sage} />
                     <Text style={styles.bgRemainingText}>
-                      {bgRemaining} of 20 background removals left
+                      {bgRemaining} of 20 lifetime background removals left
                     </Text>
                     {bgRemaining <= 3 && (
                       <Pressable
@@ -1021,7 +1082,7 @@ export default function BulkReviewScreen() {
                 <Animated.View entering={FadeInDown.duration(260)} style={styles.bgLimitPill}>
                   <Ionicons name="hourglass-outline" size={14} color={Colors.textSecondary} />
                   <Text style={[styles.bgLimitText, { flex: 1 }]}>
-                    Background removal limit reached for today — some photos were saved as-is
+                    Your 20 lifetime background removals are used — you can still add photos as they are
                   </Text>
                   <Pressable
                     hitSlop={8}
@@ -1076,7 +1137,7 @@ export default function BulkReviewScreen() {
             {saveBtnLabel}
           </Text>
         </Pressable>
-        {__DEV__ && (
+        {__DEV__ && UPLOAD_DIAGNOSTICS_ENABLED && (
           <Text style={styles.devBuildStamp}>
             {process.env.EXPO_PUBLIC_AMODKA_BUILD_STAMP ?? 'DEV build stamp unavailable'}
           </Text>
@@ -1174,15 +1235,15 @@ const styles = StyleSheet.create({
   },
 
   errorOverlay: {
-    backgroundColor: 'rgba(212, 96, 90, 0.58)',
+    backgroundColor: Colors.background,
     alignItems: 'center', justifyContent: 'center', gap: 4,
   },
   retryOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0,
-    height: PHOTO_HEIGHT, zIndex: 1,
+    padding: 12,
   },
+  unexpectedFailure: { borderLeftWidth: 2, borderLeftColor: 'rgba(212, 96, 90, 0.45)' },
   errorLabel: {
-    fontFamily: 'Inter_500Medium', fontSize: rs(10), color: Colors.white, letterSpacing: 0.3,
+    fontFamily: 'Inter_500Medium', fontSize: rs(10), color: Colors.textSecondary, letterSpacing: 0.3,
   },
   prepareDiagnostic: {
     width: '96%', maxHeight: PHOTO_HEIGHT * 0.62, marginTop: 4,
