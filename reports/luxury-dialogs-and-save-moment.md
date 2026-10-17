@@ -116,22 +116,33 @@ captured log only confirms Expo CLI login; it did not show a Metro-ready line.
 No browser-rendered signed-in UI or live Supabase/Storage Undo operation was
 verified.
 
-## Manual device checks — not performed
+## Manual device checks — user-reported results
 
-No physical iOS/Android device or screen reader was used for this change.
-Complete these checks before treating native interaction/accessibility as
-verified:
+The user reports testing on a physical iPhone 13 running iOS 27.0.1 and a
+Samsung SM-S918B running Android 16. The workspace has no connected-device
+access, so the agent did not independently operate or observe either device.
+Results below are user-reported and are not inferred from simulator, mounted
+tests, or source-level checks.
+
+| Platform | Physical device model | OS version | Screen reader | Reported result |
+| --- | --- | --- | --- | --- |
+| iOS | iPhone 13 | iOS 27.0.1 | VoiceOver — reported working | Save, Undo, delete, batch Undo, permission allow/deny, Reduce Motion, and VoiceOver reported working |
+| Android | Samsung SM-S918B | Android 16 | TalkBack — reported working | Save, Undo, delete, batch Undo, permission allow/deny, Reduce Motion, system Back, and TalkBack reported working |
+
+Account type, toast/photo cleanup, delete confirmation/history behavior, and
+the individual screen-reader focus, label, announcement, Undo, and dismissal
+checks were not described separately.
 
 | Check | iOS | Android |
 | --- | --- | --- |
-| For guest and authenticated accounts separately, save one item, confirm the thumbnail toast, and Undo within five seconds; verify row/photo removal | Not run | Not run |
-| Save a reviewed batch; confirm one toast; Undo and verify every row/photo is removed | Not run | Not run |
-| Remove an existing wardrobe item; verify destructive confirmation and retained-history/look explanation | Not run | Not run |
-| Allow and deny camera/photo access; verify OS permission sheet and branded follow-up message | Not run | Not run |
-| Submit a rejected photo; verify the calm refusal/retry handling is preserved | Not run | Not run |
-| Press system Back while a dialog is open; confirm it cancels without running a destructive action | N/A | Not run |
-| Enable Reduce Motion; confirm dialog/toast transitions use the reduced-motion path | Not run | Not run |
-| VoiceOver/TalkBack: verify modal focus, button labels, announcement, Undo action, and dismissal | Not run | Not run |
+| For guest and authenticated accounts separately, save one item, confirm the thumbnail toast, and Undo within five seconds; verify row/photo removal | Save and Undo reported working; details not specified | Save and Undo reported working; details not specified |
+| Save a reviewed batch; confirm one toast; Undo and verify every row/photo is removed | Batch Undo reported working; details not specified | Batch Undo reported working; details not specified |
+| Remove an existing wardrobe item; verify destructive confirmation and retained-history/look explanation | Delete reported working; confirmation/history details not specified | Delete reported working; confirmation/history details not specified |
+| Allow and deny camera/photo access; verify OS permission sheet and branded follow-up message | Permission allow/deny reported working; details not specified | Permission allow/deny reported working; details not specified |
+| Submit a rejected photo; verify the calm refusal/retry handling is preserved | Pass (user-reported) | Pass (user-reported) |
+| Press system Back while a dialog is open; confirm it cancels without running a destructive action | N/A | System Back reported working; details not specified |
+| Enable Reduce Motion; confirm dialog/toast transitions use the reduced-motion path | Reduce Motion reported working; details not specified | Reduce Motion reported working; details not specified |
+| VoiceOver/TalkBack: verify modal focus, button labels, announcement, Undo action, and dismissal | VoiceOver reported working; individual checks not specified | TalkBack reported working; individual checks not specified |
 
 Recommendation Engine v3.7, Phase A schema/security, P1.3 Concierge behavior,
 classifier behavior, and database schema were not changed. The Outfits change
