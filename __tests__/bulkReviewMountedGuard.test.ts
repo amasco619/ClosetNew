@@ -22,6 +22,11 @@
 
 import { createSerialQueue, runClassifyUri, runRedirectSingle, runSaveAll, undoSavedItems } from '../lib/bulkClassifyCore';
 import type { BulkItemCore, ClassifyResult, ClassifyDeps, SaveAllItem, SaveAllDeps } from '../lib/bulkClassifyCore';
+import nodeAssert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import React from 'react';
+import { build, type Plugin } from 'esbuild';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
 
@@ -132,9 +137,186 @@ const CLASSIFY_RESPONSE: Record<string, unknown> = {
   seasonTags:   ['all-season'],
 };
 
+const mountedBulkReview = {
+  account: {
+    isGuest: true,
+    authenticatedUserId: null as string | null,
+    wardrobeItems: [] as unknown[],
+    isPremium: false,
+    addWardrobeItems: async () => {},
+    removeWardrobeItem: async () => {},
+  },
+  params: { selectionId: 'guest-review-selection' },
+  selection: {
+    photos: [
+      { uri: 'file:///staged-guest-photo-1.jpg' },
+      { uri: 'file:///staged-guest-photo-2.jpg' },
+    ],
+    failedCount: 0,
+  },
+  calls: { preference: 0, photoRoom: 0, classifier: 0 },
+};
+Object.assign(globalThis, {
+  __bulkReviewMounted: mountedBulkReview,
+  IS_REACT_ACT_ENVIRONMENT: true,
+});
+
+const mountedScreenMocks: Record<string, string> = {
+  'react-native': `
+    import React from 'react';
+    const host=name=>({children,...props})=>React.createElement(name,props,children);
+    export const View=host('View'),Text=host('Text'),Pressable=host('Pressable'),
+      ActivityIndicator=host('ActivityIndicator');
+    export const FlatList=({data,renderItem,ListHeaderComponent,...props})=>{
+      const header=typeof ListHeaderComponent==='function'
+        ?React.createElement(ListHeaderComponent,{key:'header'})
+        :ListHeaderComponent&&React.cloneElement(ListHeaderComponent,{key:'header'});
+      const cards=data.map((item,index)=>React.cloneElement(renderItem({item,index}),{key:String(index)}));
+      return React.createElement('FlatList',props,[header,...cards]);
+    };
+    export const Dimensions={get:()=>({width:400,height:800})};
+    export const StyleSheet={create:styles=>styles,absoluteFill:{}};
+    export const Platform={OS:'web'};
+    export const BackHandler={addEventListener:()=>({remove(){}})};
+    export const AppState={addEventListener:()=>({remove(){}})};
+  `,
+  'expo-status-bar': `export const StatusBar=()=>null;`,
+  'expo-router': `
+    import React from 'react';
+    const m=globalThis.__bulkReviewMounted;
+    export const router={push:()=>{},replace:()=>{},navigate:()=>{},back:()=>{},setParams:()=>{}};
+    export const useLocalSearchParams=()=>m.params;
+    export const useFocusEffect=callback=>React.useEffect(callback,[callback]);
+  `,
+  'react-native-safe-area-context': `export const useSafeAreaInsets=()=>({top:0,bottom:0});`,
+  '@expo/vector-icons': `export const Ionicons=()=>null;`,
+  'expo-image-manipulator': `export const manipulateAsync=async()=>({uri:'file:///resized.jpg',base64:'resized'}),SaveFormat={JPEG:'jpeg'};`,
+  'expo-file-system/legacy': `
+    export const cacheDirectory='file:///cache/',documentDirectory='file:///documents/';
+    export const EncodingType={Base64:'base64'};
+    export const getInfoAsync=async()=>({exists:true,size:1});
+    export const readAsStringAsync=async()=>'base64';
+    export const readDirectoryAsync=async()=>[];
+    export const writeAsStringAsync=async()=>{};
+    export const deleteAsync=async()=>{};
+  `,
+  'expo-haptics': `export const impactAsync=async()=>{},selectionAsync=async()=>{},notificationAsync=async()=>{},ImpactFeedbackStyle={Light:'light'},NotificationFeedbackType={Success:'success',Warning:'warning'};`,
+  'expo-crypto': `export const randomUUID=()=>'test-id';`,
+  'react-native-reanimated': `
+    import React from 'react';
+    const animation={duration:()=>animation};
+    export const FadeInDown=animation;
+    export const useSharedValue=value=>({value});
+    export const useAnimatedStyle=callback=>callback();
+    export const withRepeat=value=>value,withTiming=value=>value,cancelAnimation=()=>{};
+    export default {View:({children,...props})=>React.createElement('AnimatedView',props,children)};
+  `,
+  '@/contexts/AppContext': `export const useApp=()=>globalThis.__bulkReviewMounted.account;`,
+  '@/components/GarmentTile': `import React from 'react';export const GarmentTile=props=>React.createElement('Image',props);`,
+  '@/contexts/LuxuryFeedbackContext': `export const useDialog=()=>({alert:async()=>{},confirm:async()=>false,notify:()=>{}}),useToast=()=>({show:()=>{}});`,
+  '@/components/PhotoRefusalNotice': `export const PhotoRefusalNotice=()=>null;`,
+  '@/constants/types': `
+    export const ALL_PATTERNS=[],ALL_PATTERN_SCALES=[],ALL_FABRICS=[],ALL_FABRIC_WEIGHTS=[],
+      ALL_FITS=[],ALL_NECKLINES=[],ALL_SLEEVES=[],ALL_RISES=[],ALL_WARMTHS=[];
+  `,
+  '@/components/BulkItemEditPanel': `import React from 'react';export default ()=>null;`,
+  '@/constants/colors': `export default new Proxy({}, {get:()=>'#555'});`,
+  '@/lib/query-client': `
+    export const authenticatedApiRequest=async()=>{globalThis.__bulkReviewMounted.calls.classifier++;return {json:async()=>({})};};
+  `,
+  '@/lib/photoroom': `
+    export const removeBackground=async()=>{globalThis.__bulkReviewMounted.calls.photoRoom++;return {status:'unavailable'};};
+  `,
+  '@/lib/classifyPath': `export const classificationImagePayload=base64=>({imageBase64:base64,imageMimeType:'image/jpeg'});`,
+  '@/lib/uploadErrors': `export const UPLOAD_DIAGNOSTICS_ENABLED=false,reportUploadError=()=>{};`,
+  '@/lib/uploadPhotoSource': `export const readCachedCutout=async()=>null;`,
+  '@/lib/uploadRetry': `export const classificationWaitMs=()=>0,runSerialUploadRetries=async()=>{};`,
+  '@/lib/prepareClassificationImage': `export const prepareClassificationImage=async()=>({base64:'resized'});`,
+  '@/constants/guestPhotoCleanup': `export const buildGuestPhotoDestPath=()=>'';`,
+  '@/lib/storage': `export const deleteWardrobeImage=async()=>{},uploadWardrobeImage=async()=>'';`,
+  '@/lib/uploadArg': `export const resolveWardrobeUploadArg=()=>null;`,
+  '@/lib/supabase': `export const supabase={auth:{}};`,
+  '@/lib/bulkPhotoStaging': `
+    const m=globalThis.__bulkReviewMounted;
+    export const bulkStagingDirectoryUri=()=> 'file:///staging/';
+    export const getBulkPhotoSelection=id=>id===m.params.selectionId?m.selection:undefined;
+    export const cleanupBulkPhotoSelection=async()=>{};
+    export const removeBulkPhotoFromSelection=async()=>{};
+    export const shortUriHash=()=> 'test-hash';
+  `,
+  '../lib/responsive': `export const rs=value=>value;`,
+  '@/components/AiProcessingConsent': `export const AiProcessingConsent=()=>null;`,
+  '@/lib/aiProcessingPreference': `
+    export const getAiProcessingPreference=async()=>{globalThis.__bulkReviewMounted.calls.preference++;return 'allowed';};
+    export const setAiProcessingPreference=async()=>{};
+  `,
+};
+
+const mountedScreenPlugin: Plugin = {
+  name: 'bulk-review-mounted-guest-fixtures',
+  setup(bundle) {
+    bundle.onResolve({ filter: /.*/ }, args => Object.hasOwn(mountedScreenMocks, args.path)
+      ? { path: args.path, namespace: 'bulk-review-fixture' }
+      : undefined);
+    bundle.onLoad({ filter: /.*/, namespace: 'bulk-review-fixture' }, args => ({
+      contents: mountedScreenMocks[args.path],
+      loader: 'js',
+      resolveDir: process.cwd(),
+    }));
+  },
+};
+
+async function testMountedGuestSelectionStaysManualAfterSignIn(): Promise<void> {
+  mountedBulkReview.account.isGuest = true;
+  mountedBulkReview.account.authenticatedUserId = null;
+  mountedBulkReview.calls = { preference: 0, photoRoom: 0, classifier: 0 };
+  const requireProject = createRequire(path.join(process.cwd(), 'package.json'));
+  const renderer = requireProject('react-test-renderer');
+  const built = await build({
+    entryPoints: ['app/bulk-review.tsx'],
+    bundle: true,
+    write: false,
+    platform: 'node',
+    format: 'cjs',
+    jsx: 'automatic',
+    external: ['react', 'react/jsx-runtime'],
+    define: { __DEV__: 'false' },
+    plugins: [mountedScreenPlugin],
+  });
+  const mod = { exports: {} as { default?: React.ComponentType }};
+  new Function('require', 'module', 'exports', built.outputFiles[0].text)(
+    requireProject, mod, mod.exports,
+  );
+  if (!mod.exports.default) throw new Error('bulk review screen is bundled');
+  let tree!: { root: any; update(element: React.ReactNode): void; unmount(): void };
+  const element = () => React.createElement(mod.exports.default!);
+  await React.act(async () => { tree = renderer.create(element()); });
+
+  const addDetailsCount = () => tree.root.findAllByType('Text')
+    .filter((node: any) => node.children.join('') === 'Add details').length;
+  nodeAssert.equal(addDetailsCount(), 2, 'guest selection initially renders both photos as manual cards');
+  nodeAssert.equal(mountedBulkReview.calls.preference, 0, 'guest mount does not fetch AI preference');
+
+  await React.act(async () => {
+    mountedBulkReview.account.isGuest = false;
+    mountedBulkReview.account.authenticatedUserId = 'signed-in-user';
+    tree.update(element());
+    await new Promise(resolve => setTimeout(resolve, 250));
+  });
+
+  nodeAssert.equal(addDetailsCount(), 2, 'the same staged photos remain manual after sign-in');
+  nodeAssert.deepEqual(mountedBulkReview.calls, { preference: 0, photoRoom: 0, classifier: 0 },
+    'sign-in during review starts no AI preference fetch, PhotoRoom call, or classifier request');
+  await React.act(async () => { tree.unmount(); });
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 (async () => {
+
+  section('Mounted Bulk Review — guest selection stays manual after sign-in');
+  await testMountedGuestSelectionStaysManualAfterSignIn();
+  assert(true, 'same staged selection remains manual and makes no AI network calls');
 
   section('createSerialQueue — native transforms run one at a time and recover after rejection');
   {
