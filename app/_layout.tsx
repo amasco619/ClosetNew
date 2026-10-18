@@ -46,6 +46,8 @@ function RootLayoutNav() {
       <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
       <Stack.Screen name="welcome" options={{ headerShown: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false, ...FADE_OPTIONS }} />
+      <Stack.Screen name="refinements" options={{ headerShown: false, ...FADE_OPTIONS }} />
+      <Stack.Screen name="personal-intelligence" options={{ headerShown: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false, ...FADE_OPTIONS }} />
       <Stack.Screen name="add-item" options={{ headerShown: false, gestureEnabled: false, ...MODAL_OPTIONS }} />
       <Stack.Screen name="bulk-review" options={{ headerShown: false, gestureEnabled: false, ...FADE_OPTIONS }} />

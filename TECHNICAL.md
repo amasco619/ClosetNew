@@ -2962,3 +2962,40 @@ evidence is offline, using production helpers and extracted actual callback
 branches with mocked I/O, not live accounts or device sign-off. See
 `reports/personalization-consistency-fix.html` for implementation-time details.
 No migration, provider call, dependency change or deployment.
+
+## 43. PROFILE SCREEN — QUIET-LUXURY RESTRUCTURE
+
+The Profile tab is a concise hub for identity, wardrobe totals, Style DNA,
+preferences, activity, privacy, and account actions. Free users see the
+existing Premium upgrade CTA near the top; Premium users instead see the
+membership-management and existing Diagnostics/Blueprint routes in Account.
+The account's name is edited from one avatar affordance; the duplicate name
+pencil/tap action is removed.
+
+Refinements and Personal Intelligence are pushed screens. Refinements keeps the
+existing profile fields, counters, default lifestyle allocations, haptics, and
+immediate `updateProfile` persistence path. One accordion is open at a time;
+the first incomplete group opens on entry and closed group content is not
+mounted. Personal Intelligence reads the same affinity state and retains the
+existing non-Premium combination-learning lock row and Premium pair display.
+Neither screen introduces storage, providers, schema, or recommendation changes.
+
+The Profile keeps the existing AI-processing preference and consent sheet,
+server-side account metadata, and upload-route enforcement. `not_asked` remains
+distinct from `declined`; both render off, and the Profile shows the approved
+first-photo prompt only for `not_asked`. The full existing AI-processing
+description remains visible. Weather, temperature, Wear Log, auth, account
+deletion, Premium, and Style Quiz handlers remain unchanged.
+
+The hub and two detail screens use existing Inter fonts and color tokens. The
+existing `textSecondary` shade measures 4.37:1 against the warm screen
+background, so a local darker muted text shade is used for small text on that
+surface; destructive text likewise uses a local shade that meets 4.5:1. Text
+scales with system font settings; cards and rows wrap rather than impose a
+fixed-line clamp. Reduce Motion suppresses entering/accordion animations.
+
+Focused presentation tests cover all refinement totals (0, partial, complete),
+the hub summary, plan labels, empty-wardrobe invitation, Personal Intelligence
+subtitle, and the `not_asked`/`allowed`/`declined` AI-row mapping. No changes are
+made to AI consent policy, deletion behavior, billing, auth, the frozen
+Recommendation Engine v3.7, or Phase A data/security.

@@ -547,3 +547,31 @@ mtime_ms = 1792282079822
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/b6f91a72-e421-4836-9a9d-081f3dffdc8a/65f727aa-5adf-4807-932d-ab7b86fea5d9"
 storage_version_token = "1792282099982509"
 content_type = "text/html"
+
+[[outputs]]
+id = "QE56QsSYQGrD9R3fPXKrD"
+uri = "file://reports/profile-screen-redesign.md"
+type = "text"
+title = "Profile Redesign Implementation Report"
+description = "Implementation, behavior parity, contrast measurements, verification results, and remaining device checks."
+logical_id = "2f073c32-f6d1-44fc-a52b-ad119f7b51f7"
+content_hash = "sha256:62df4002b7d5f9ac27d48ff91c3acc43c5043b6bf3717f175fddc9851fa3a6bf"
+size = 8035
+mtime_ms = 1792349306703
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/2f073c32-f6d1-44fc-a52b-ad119f7b51f7/4abe532a-0a36-4189-9f4d-1140166e8dcc"
+storage_version_token = "1792349361208405"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "xSIxetvsxuAkg-nUKoVh0"
+uri = "file://reports/profile-screen-redesign-audit.md"
+type = "text"
+title = "Profile Redesign Read-Only Audit"
+description = "Pre-implementation review of Profile behavior, persistence, AI consent, and account deletion."
+logical_id = "d013e2c0-fa0a-49a8-87d6-bc0814d00d0c"
+content_hash = "sha256:b0451684feea812695c0d6d7e27947c405d999105d7bcc0e6ee9516963846f5c"
+size = 7721
+mtime_ms = 1792347978215
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/d013e2c0-fa0a-49a8-87d6-bc0814d00d0c/9c9382ca-f8d2-40fc-aa03-6d18eec72aa8"
+storage_version_token = "1792349361933734"
+content_type = "text/markdown"

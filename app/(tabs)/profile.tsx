@@ -1,126 +1,142 @@
-import { StyleSheet, Text, View, ScrollView, Pressable, Switch, Platform, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import {
+  ActivityIndicator,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { signOut } from '../../lib/auth';
-import { authenticatedApiRequest } from '@/lib/query-client';
-import { supabase } from '../../lib/supabase';
-import { useApp } from '@/contexts/AppContext';
-import Colors from '@/constants/colors';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import type { HairColor, HeightBand, ContrastLevel, MetalPreference, MoodGoal, LifePhase, Industry, FaceShape } from '@/constants/types';
+import { router, useFocusEffect } from 'expo-router';
+import Constants from 'expo-constants';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
-import CollapsibleSection from '@/components/CollapsibleSection';
-import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/constants/lifestyle';
 import * as Haptics from 'expo-haptics';
-import { rs } from '../../lib/responsive';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
+import Colors from '@/constants/colors';
+import { useApp } from '@/contexts/AppContext';
+import { signOut } from '@/lib/auth';
+import { authenticatedApiRequest } from '@/lib/query-client';
+import { supabase } from '@/lib/supabase';
+import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 import { AmodkaErrorState } from '@/components/AmodkaErrorState';
 import { useDialog } from '@/contexts/LuxuryFeedbackContext';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
 import {
   getAiProcessingPreference,
-  isAiProcessingSwitchOn,
   setAiProcessingPreference,
   type AiProcessingPreference,
 } from '@/lib/aiProcessingPreference';
+import {
+  getAiProcessingDisplay,
+  getPersonalIntelligenceSubtitle,
+  getPlanPillLabel,
+  getRefinementCounts,
+  getRefinementSummary,
+  shouldShowBeginWardrobe,
+} from '@/lib/profilePresentation';
+import {
+  bodyTypeLabels,
+  eyeColorLabels,
+  skinToneLabels,
+  styleGoalLabels,
+  undertoneLabels,
+} from '@/lib/profileStyleLabels';
 
-const HAIR_OPTS: { id: HairColor; label: string }[] = [
-  { id: 'black', label: 'Black' }, { id: 'dark-brown', label: 'Dark Brown' },
-  { id: 'medium-brown', label: 'Med Brown' }, { id: 'light-brown', label: 'Light Brown' },
-  { id: 'blonde', label: 'Blonde' }, { id: 'red', label: 'Red' },
-  { id: 'grey', label: 'Grey' }, { id: 'silver', label: 'Silver' },
-];
-const HEIGHT_OPTS: { id: HeightBand; label: string }[] = [
-  { id: 'petite', label: 'Petite' }, { id: 'average', label: 'Average' }, { id: 'tall', label: 'Tall' },
-];
-const CONTRAST_OPTS: { id: ContrastLevel; label: string }[] = [
-  { id: 'low', label: 'Low' }, { id: 'medium', label: 'Medium' }, { id: 'high', label: 'High' },
-];
-const METAL_OPTS: { id: MetalPreference; label: string }[] = [
-  { id: 'gold', label: 'Gold' }, { id: 'silver', label: 'Silver' },
-  { id: 'rose-gold', label: 'Rose Gold' }, { id: 'mixed', label: 'Mixed' },
-];
-const MOOD_OPTS: { id: MoodGoal; label: string }[] = [
-  { id: 'confident', label: 'Confident' }, { id: 'soft', label: 'Soft' },
-  { id: 'joyful', label: 'Joyful' }, { id: 'grounded', label: 'Grounded' },
-  { id: 'romantic', label: 'Romantic' }, { id: 'powerful', label: 'Powerful' },
-];
-const INDUSTRY_OPTS: { id: Industry; label: string }[] = [
-  { id: 'creative', label: 'Creative' }, { id: 'tech', label: 'Tech' },
-  { id: 'corporate', label: 'Corporate' }, { id: 'unspecified', label: 'Other' },
-];
-const LIFE_PHASE_OPTS: { id: LifePhase; label: string }[] = [
-  { id: 'none', label: 'None' }, { id: 'pregnancy', label: 'Pregnancy' },
-  { id: 'postpartum', label: 'Postpartum' }, { id: 'weight-flux', label: 'Weight flux' },
-  { id: 'feeling-off', label: 'Feeling off' },
-];
-const AVERSION_OPTS: string[] = ['yellow', 'orange', 'neon', 'pink', 'red', 'green', 'brown', 'purple'];
-const FACE_SHAPE_OPTS: { id: FaceShape; label: string }[] = [
-  { id: 'oval', label: 'Oval' }, { id: 'round', label: 'Round' },
-  { id: 'square', label: 'Square' }, { id: 'heart', label: 'Heart' }, { id: 'oblong', label: 'Oblong' },
-];
+const DESTRUCTIVE_TEXT = '#B3433D';
+const MUTED_TEXT = '#626A73';
 
-const bodyTypeLabels: Record<string, string> = {
-  hourglass: 'Hourglass', pear: 'Pear', apple: 'Apple',
-  rectangle: 'Rectangle', 'inverted-triangle': 'Inv. Triangle', athletic: 'Athletic',
-};
-const eyeColorLabels: Record<string, string> = {
-  'dark-brown': 'Dark Brown', 'light-brown': 'Light Brown', hazel: 'Hazel',
-  green: 'Green', blue: 'Blue', grey: 'Grey',
-};
-const skinToneLabels: Record<string, string> = {
-  'very-light': 'Very Light', light: 'Light', 'medium-light': 'Med Light',
-  medium: 'Medium', 'medium-dark': 'Med Dark', dark: 'Dark', 'very-dark': 'Very Dark',
-};
-const undertoneLabels: Record<string, string> = { cool: 'Cool', neutral: 'Neutral', warm: 'Warm' };
-const styleGoalLabels: Record<string, string> = {
-  youthful: 'Youthful', elevated: 'Elevated', minimal: 'Minimal',
-  romantic: 'Romantic', bold: 'Bold', classic: 'Classic',
-};
+function SectionLabel({ children }: { children: string }) {
+  return <Text accessibilityRole="header" style={styles.sectionLabel}>{children}</Text>;
+}
 
-function Chip({ label, active, onPress, accent }: {
-  label: string; active: boolean; onPress: () => void; accent?: 'sage' | 'blush';
+function ProfileRow({
+  title,
+  subtitle,
+  icon,
+  onPress,
+  trailing,
+  accessibilityLabel,
+}: {
+  title: string;
+  subtitle?: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  onPress: () => void;
+  trailing?: React.ReactNode;
+  accessibilityLabel?: string;
 }) {
-  const bg = active
-    ? (accent === 'sage' ? Colors.sage : accent === 'blush' ? Colors.blush : Colors.primary)
-    : Colors.background;
-  const border = active
-    ? (accent === 'sage' ? Colors.sage : accent === 'blush' ? Colors.blush : Colors.primary)
-    : Colors.border;
-  const color = active ? Colors.white : Colors.textSecondary;
   return (
     <Pressable
-      onPress={() => { Haptics.selectionAsync(); onPress(); }}
-      style={({ pressed }) => [
-        styles.chip, { backgroundColor: bg, borderColor: border },
-        pressed && { opacity: 0.75, transform: [{ scale: 0.97 }] },
-      ]}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={({ pressed }) => [styles.navRow, pressed && styles.pressed]}
     >
-      <Text style={[styles.chipText, { color }]}>{label}</Text>
+      <Ionicons name={icon} size={20} color={Colors.primary + 'B3'} />
+      <View style={styles.navCopy}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.rowSubtitle}>{subtitle}</Text> : null}
+      </View>
+      {trailing === undefined
+        ? <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
+        : trailing}
     </Pressable>
   );
 }
 
-function SectionHeader({ label, title }: { label: string; title: string }) {
+function UnitChoice({
+  label,
+  selected,
+  onPress,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
   return (
-    <View style={styles.sectionHeaderBlock}>
-      <Text style={styles.sectionLabel}>{label}</Text>
-      <Text style={styles.sectionTitle}>{title}</Text>
-    </View>
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
+      onPress={() => { void Haptics.selectionAsync(); onPress(); }}
+      style={({ pressed }) => [
+        styles.unitChoice,
+        selected && styles.unitChoiceSelected,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Text style={[styles.unitChoiceText, selected && styles.unitChoiceTextSelected]}>{label}</Text>
+    </Pressable>
   );
 }
 
 export default function ProfileScreen() {
   const dialog = useDialog();
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
   const {
-    profile, updateProfile, wardrobeItems, wardrobeTotalCount, loadAllWardrobeItems, isPremium, isGuest, wearHistory,
-    affinityActive, affinitySignalCount, topAffinityItems, topAffinityPairs,
-    weather, setWeatherEnabled, dataUnavailable, entitlementUnavailable, retryInitialization,
+    profile,
+    updateProfile,
+    wardrobeItems,
+    wardrobeTotalCount,
+    loadAllWardrobeItems,
+    isPremium,
+    isGuest,
+    isLoading,
+    wearHistory,
+    affinityActive,
+    affinitySignalCount,
+    weather,
+    setWeatherEnabled,
+    dataUnavailable,
+    entitlementUnavailable,
+    retryInitialization,
   } = useApp();
-  const [showAffinityDebug, setShowAffinityDebug] = useState(false);
+
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(profile.name || '');
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -132,28 +148,35 @@ export default function ProfileScreen() {
   const [aiPreferenceRetry, setAiPreferenceRetry] = useState(0);
   const [showAiConsent, setShowAiConsent] = useState(false);
   const [wardrobeLoadError, setWardrobeLoadError] = useState(false);
+  const [wardrobeHistoryReady, setWardrobeHistoryReady] = useState(false);
   const wardrobeLoadStarted = useRef(false);
 
-  const loadWardrobeHistory = useCallback(() => {
-    if (wardrobeLoadStarted.current) return Promise.resolve();
-    wardrobeLoadStarted.current = true;
-    return loadAllWardrobeItems().catch(error => {
-      wardrobeLoadStarted.current = false;
-      throw error;
-    });
-  }, [loadAllWardrobeItems]);
+  const handleWardrobeHistoryLoaded = useCallback(() => {
+    setWardrobeHistoryReady(true);
+    setWardrobeLoadError(false);
+  }, []);
+
+  const handleWardrobeHistoryFailed = useCallback(() => {
+    wardrobeLoadStarted.current = false;
+    setWardrobeLoadError(true);
+  }, []);
 
   useEffect(() => {
     let active = true;
-    void loadWardrobeHistory().catch(() => { if (active) setWardrobeLoadError(true); });
+    wardrobeLoadStarted.current = true;
+    void loadAllWardrobeItems()
+      .then(() => { if (active) handleWardrobeHistoryLoaded(); })
+      .catch(() => { if (active) handleWardrobeHistoryFailed(); });
     return () => { active = false; };
-  }, [loadWardrobeHistory]);
+  }, [loadAllWardrobeItems, handleWardrobeHistoryFailed, handleWardrobeHistoryLoaded]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    let active = true;
+    void supabase.auth.getUser().then(({ data }) => {
       const email = data?.user?.email || data?.user?.user_metadata?.email || null;
-      if (email) setUserEmail(email);
+      if (active && email) setUserEmail(email);
     }).catch(() => {});
+    return () => { active = false; };
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -161,6 +184,7 @@ export default function ProfileScreen() {
       setAiProcessingPreferenceState('not_asked');
       setAiPreferenceError(null);
       setAiPreferenceLoading(false);
+      setAiPreferenceUnavailable(false);
       return;
     }
     if (aiPreferenceRetry > 0) {
@@ -169,18 +193,16 @@ export default function ProfileScreen() {
     }
     let active = true;
     setAiPreferenceLoading(true);
-    getAiProcessingPreference().then(preference => {
-      if (active) {
-        setAiProcessingPreferenceState(preference);
-        setAiPreferenceError(null);
-        setAiPreferenceUnavailable(false);
-      }
+    void getAiProcessingPreference().then(preference => {
+      if (!active) return;
+      setAiProcessingPreferenceState(preference);
+      setAiPreferenceError(null);
+      setAiPreferenceUnavailable(false);
     }).catch(() => {
-      if (active) {
-        setAiProcessingPreferenceState('not_asked');
-        setAiPreferenceError('Your preference could not be loaded.');
-        setAiPreferenceUnavailable(true);
-      }
+      if (!active) return;
+      setAiProcessingPreferenceState('not_asked');
+      setAiPreferenceError('Your preference could not be loaded.');
+      setAiPreferenceUnavailable(true);
     }).finally(() => {
       if (active) setAiPreferenceLoading(false);
     });
@@ -240,87 +262,161 @@ export default function ProfileScreen() {
     setEditingName(false);
   };
 
-  const itemById = (id: string) => wardrobeItems.find(w => w.id === id);
-  const itemLabel = (id: string) => {
-    const it = itemById(id);
-    if (!it) return 'Removed item';
-    return `${it.colorFamily} ${it.subType.replace(/-/g, ' ')}`;
-  };
-  const webTopInset = Platform.OS === 'web' ? 67 : 0;
-  const { focus } = useLocalSearchParams<{ focus?: string }>();
-  const scrollRef = useRef<ScrollView>(null);
-  const [refinementsY, setRefinementsY] = useState<number | null>(null);
-  const effectiveTempUnit = profile.tempUnit ?? defaultTempUnit();
-  const colorAversions = profile.constraints.colorAversions ?? [];
-
-  const physicalSet = [profile.hairColor, profile.heightBand, profile.faceShape].filter(Boolean).length;
-  const styleSetCount = [
-    profile.contrastLevel, profile.metalPreference,
-    colorAversions.length > 0 ? 'yes' : null,
-    profile.constraints.noSleeveless ? 'yes' : null,
-    profile.constraints.noShortSkirts ? 'yes' : null,
-    profile.constraints.maxHeelHeight !== 'any' ? 'yes' : null,
-  ].filter(Boolean).length;
-  const lifestyleAllocSet = LIFESTYLE_SCENARIOS.filter(s => {
-    const val = profile[`lifestyle${s.key.charAt(0).toUpperCase() + s.key.slice(1)}` as keyof typeof profile] as number | undefined;
-    const defaults: Record<LifestyleKey, number> = { work: 40, casual: 40, events: 20, active: 0, brunch: 0 };
-    return (val ?? defaults[s.key]) !== defaults[s.key];
-  }).length;
-  const allLifestyleZero = LIFESTYLE_SCENARIOS.every(s => {
-    const val = profile[`lifestyle${s.key.charAt(0).toUpperCase() + s.key.slice(1)}` as keyof typeof profile] as number | undefined;
-    return (val ?? 0) === 0;
-  });
-  const lifestyleSetCount = [
-    profile.defaultMood,
-    (profile.industry && profile.industry !== 'unspecified') ? profile.industry : null,
-    (profile.lifePhase && profile.lifePhase !== 'none') ? profile.lifePhase : null,
-  ].filter(Boolean).length + (lifestyleAllocSet > 0 ? 1 : 0);
-
-  useEffect(() => {
-    if (focus === 'refinements' && refinementsY != null) {
-      const t = setTimeout(() => {
-        scrollRef.current?.scrollTo({ y: Math.max(0, refinementsY - 12), animated: true });
-      }, 250);
-      return () => clearTimeout(t);
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.replace('/sign-in');
+    } catch {
+      dialog.notify({
+        title: 'Could not sign out',
+        message: 'Your session could not be closed safely. Please check your connection and try again.',
+      });
     }
-  }, [focus, refinementsY]);
+  };
+
+  const handleDeleteAccount = () => {
+    dialog.alert(
+      'Delete account',
+      'This will permanently delete your account and all wardrobe data. This cannot be undone. Deleting your Amodka account does not cancel your App Store or Google Play subscription. Cancel it separately through your app store.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user?.id) throw new Error('Not signed in');
+              const response = await authenticatedApiRequest(
+                'DELETE',
+                '/api/user/delete-account',
+                { userId: user.id },
+              );
+              const result = await response.json();
+              if (result.success !== true) throw new Error('Deletion not confirmed');
+            } catch {
+              dialog.notify({
+                title: 'Deletion not confirmed',
+                message: 'Your account was not confirmed deleted. Some data may already have been removed. Please try again or contact support.',
+              });
+              return;
+            }
+
+            let cacheCleared = true;
+            try {
+              await AsyncStorage.multiRemove([
+                '@amodka_profile',
+                '@amodka_wardrobe',
+                '@amodka_premium',
+                '@amodka_slots',
+                '@amodka_rotation',
+                '@amodka_wear_history',
+                '@amodka_reactions',
+                '@amodka_mood',
+                '@amodka_saved_looks',
+                '@amodka_item_ids',
+                '@amodka_wear_log',
+                '@amodka_weather_v1',
+                '@amodka_weather_perm_asked_v1',
+                '@amodka_wardrobe_view',
+                '@amodka_email_confirmed',
+                '@auracloset_profile',
+                '@auracloset_wardrobe',
+                '@auracloset_premium',
+                '@auracloset_slots',
+                '@auracloset_rotation',
+                '@auracloset_wear_history',
+                '@auracloset_reactions',
+                '@auracloset_mood',
+                '@auracloset_saved_looks',
+                '@auracloset_item_ids',
+                '@auracloset_wear_log',
+                '@auracloset_weather_v1',
+                '@auracloset_weather_perm_asked_v1',
+              ]);
+            } catch {
+              cacheCleared = false;
+              console.warn('[profile] Deleted account local cache cleanup failed');
+            }
+            let signedOut = true;
+            try {
+              await signOut();
+            } catch {
+              signedOut = false;
+              console.warn('[profile] Deleted account local sign-out failed');
+            }
+            if (signedOut) router.replace('/sign-in');
+            if (!cacheCleared || !signedOut) {
+              dialog.notify({
+                title: 'Account deleted — device cleanup incomplete',
+                message: 'Your account was deleted, but this device could not fully clear its local data or session. Clear this app’s data before anyone else uses this device.',
+              });
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const initials = profile.name?.trim()
-    ? profile.name.trim().split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
+    ? profile.name.trim().split(' ').map(word => word[0]).slice(0, 2).join('').toUpperCase()
     : null;
-
-  const dnaItems = [
-    profile.bodyType ? { label: bodyTypeLabels[profile.bodyType], color: Colors.secondary + '30', text: Colors.secondary } : null,
-    profile.eyeColor ? { label: eyeColorLabels[profile.eyeColor], color: Colors.sage + '25', text: Colors.sage } : null,
-    profile.skinTone ? { label: `${skinToneLabels[profile.skinTone]} · ${undertoneLabels[profile.undertone || ''] || ''}`, color: Colors.blush + '50', text: '#b07a80' } : null,
-    profile.styleGoalPrimary ? { label: styleGoalLabels[profile.styleGoalPrimary], color: Colors.primary + '12', text: Colors.primary } : null,
-    profile.styleGoalSecondary ? { label: styleGoalLabels[profile.styleGoalSecondary], color: Colors.primary + '08', text: Colors.textSecondary } : null,
-  ].filter(Boolean) as { label: string; color: string; text: string }[];
-
-  const aiProcessingSwitchOn = isAiProcessingSwitchOn(aiProcessingPreference, {
+  const effectiveTempUnit = profile.tempUnit ?? defaultTempUnit();
+  const aiDisplay = getAiProcessingDisplay(aiProcessingPreference, {
     loading: aiPreferenceLoading,
     unavailable: aiPreferenceUnavailable,
     guest: isGuest,
   });
+  const refinementCounts = getRefinementCounts(profile);
+  const entering = (delay: number) => reduceMotion
+    ? undefined
+    : FadeInDown.delay(delay).duration(200);
+  const categoryCount = new Set(wardrobeItems.map(item => item.category)).size;
+  const dnaItems = [
+    profile.bodyType ? bodyTypeLabels[profile.bodyType] : null,
+    profile.eyeColor ? eyeColorLabels[profile.eyeColor] : null,
+    profile.skinTone
+      ? `${skinToneLabels[profile.skinTone]} · ${undertoneLabels[profile.undertone || ''] || ''}`.trim()
+      : null,
+    profile.styleGoalPrimary ? styleGoalLabels[profile.styleGoalPrimary] : null,
+    profile.styleGoalSecondary ? styleGoalLabels[profile.styleGoalSecondary] : null,
+  ].filter((item): item is string => Boolean(item));
+  const showEmptyWardrobe = shouldShowBeginWardrobe(wardrobeTotalCount) &&
+    wardrobeHistoryReady && !wardrobeLoadError && !isLoading;
+  const webTopInset = Platform.OS === 'web' ? 67 : 0;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
-      {(dataUnavailable || entitlementUnavailable) && <AmodkaErrorState type="network" onRetry={retryInitialization} />}
-      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+    <View style={[styles.screen, { paddingTop: insets.top + webTopInset }]}>
+      {(dataUnavailable || entitlementUnavailable) && (
+        <AmodkaErrorState type="network" onRetry={retryInitialization} />
+      )}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {wardrobeLoadError && (
-          <Pressable onPress={() => {
-            setWardrobeLoadError(false);
-            void loadWardrobeHistory().catch(() => setWardrobeLoadError(true));
-          }} accessibilityRole="button">
-            <Text style={styles.aiPreferenceError}>Wardrobe item details could not be loaded. Tap to retry.</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              if (wardrobeLoadStarted.current) return;
+              wardrobeLoadStarted.current = true;
+              setWardrobeLoadError(false);
+              setWardrobeHistoryReady(false);
+              void loadAllWardrobeItems()
+                .then(handleWardrobeHistoryLoaded)
+                .catch(handleWardrobeHistoryFailed);
+            }}
+            style={styles.loadError}
+          >
+            <Text style={styles.errorText}>Wardrobe item details could not be loaded. Tap to retry.</Text>
           </Pressable>
         )}
 
-        {/* ── Hero Header ─────────────────────────────────────────────────── */}
-        <Animated.View entering={FadeInDown.delay(40).duration(280)} style={styles.hero}>
+        <Animated.View entering={entering(0)} style={styles.identity}>
           {editingName ? (
             <View style={styles.nameEditRow}>
               <TextInput
+                accessibilityLabel="Your name"
                 style={styles.nameInput}
                 value={nameInput}
                 onChangeText={setNameInput}
@@ -329,666 +425,312 @@ export default function ProfileScreen() {
                 returnKeyType="done"
                 onSubmitEditing={saveName}
                 placeholder="Your name"
-                placeholderTextColor={Colors.textLight}
+                placeholderTextColor={MUTED_TEXT}
               />
-              <TouchableOpacity onPress={saveName} hitSlop={8}>
-                <Ionicons name="checkmark-circle" size={26} color={Colors.secondary} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setEditingName(false)} hitSlop={8}>
-                <Ionicons name="close-circle-outline" size={26} color={Colors.textLight} />
-              </TouchableOpacity>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Save name"
+                onPress={saveName}
+                hitSlop={8}
+                style={styles.editAction}
+              >
+                <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cancel name edit"
+                onPress={() => setEditingName(false)}
+                hitSlop={8}
+                style={styles.editAction}
+              >
+                <Ionicons name="close-circle-outline" size={24} color={Colors.textSecondary} />
+              </Pressable>
             </View>
           ) : (
             <>
-              <TouchableOpacity
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Edit name"
                 onPress={() => { setNameInput(profile.name || ''); setEditingName(true); }}
-                activeOpacity={0.8}
+                hitSlop={6}
                 style={styles.avatarWrap}
               >
                 <View style={styles.avatarCircle}>
                   {initials
                     ? <Text style={styles.avatarInitials}>{initials}</Text>
-                    : <MaterialCommunityIcons name="hanger" size={30} color={Colors.secondary} />}
+                    : <MaterialCommunityIcons name="hanger" size={28} color={Colors.primary} />}
                 </View>
                 <View style={styles.avatarEditBadge}>
-                  <Ionicons name="pencil" size={10} color={Colors.white} />
+                  <Ionicons name="pencil-outline" size={14} color={Colors.primary} />
                 </View>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => { setNameInput(profile.name || ''); setEditingName(true); }}
-                activeOpacity={0.8}
-                style={styles.nameRow}
-              >
-                <Text style={styles.heroName}>{profile.name || 'Style Explorer'}</Text>
-                <Ionicons name="pencil-outline" size={13} color={Colors.textLight} style={{ marginLeft: 5 }} />
-              </TouchableOpacity>
+              </Pressable>
+              <Text style={styles.heroName}>{profile.name || 'Style Explorer'}</Text>
             </>
           )}
           {userEmail ? <Text style={styles.heroEmail}>{userEmail}</Text> : null}
-          <View style={[styles.tierBadge, isPremium && styles.tierBadgePremium]}>
-            {isPremium && <Ionicons name="star" size={11} color={Colors.secondary} style={{ marginRight: 4 }} />}
-            <Text style={[styles.tierBadgeText, isPremium && styles.tierBadgeTextPremium]}>
-              {isPremium ? 'Premium Member' : 'Free Plan'}
+          <View style={[styles.planPill, isPremium && styles.planPillPremium]}>
+            <Text style={[styles.planPillText, isPremium && styles.planPillTextPremium]}>
+              {getPlanPillLabel(isPremium)}
             </Text>
           </View>
         </Animated.View>
 
-        {/* ── Stats ───────────────────────────────────────────────────────── */}
-        <Animated.View entering={FadeInDown.delay(100).duration(280)} style={styles.statsRow}>
-          <View style={styles.statCell}>
-            <Text style={styles.statNum}>{wardrobeTotalCount}</Text>
-            <Text style={styles.statLabel}>Items</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statCell}>
-            <Text style={styles.statNum}>{new Set(wardrobeItems.map(i => i.category)).size}</Text>
-            <Text style={styles.statLabel}>Categories</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statCell}>
-            <Text style={styles.statNum}>{wearHistory.length}</Text>
-            <Text style={styles.statLabel}>Looks worn</Text>
-          </View>
-        </Animated.View>
+        {!isPremium && (
+          <Animated.View entering={entering(40)} style={styles.membershipCard}>
+            <View style={styles.membershipHeading}>
+              <Ionicons name="star" size={18} color={Colors.secondary} />
+              <View style={styles.membershipCopy}>
+                <Text style={styles.rowTitle}>Unlock Amodka Premium</Text>
+                <Text style={styles.rowSubtitle}>Everything you need for a complete wardrobe</Text>
+              </View>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                if (isGuest) {
+                  dialog.alert(
+                    'Sign in to access Premium',
+                    'Create a free account or sign in to unlock Premium features and save your wardrobe.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Sign in', onPress: () => router.replace('/sign-in') },
+                    ],
+                  );
+                  return;
+                }
+                router.push('/premium');
+              }}
+              style={({ pressed }) => [styles.membershipButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.membershipButtonText}>Upgrade to Premium</Text>
+            </Pressable>
+          </Animated.View>
+        )}
 
-        {/* ── Style DNA ───────────────────────────────────────────────────── */}
-        <Animated.View entering={FadeInDown.delay(155).duration(280)}>
-          <SectionHeader label="YOUR PROFILE" title="Style DNA" />
+        {showEmptyWardrobe ? (
+          <Animated.View entering={entering(80)} style={styles.statsCard}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/add-item')}
+              style={({ pressed }) => [styles.beginWardrobeRow, pressed && styles.pressed]}
+            >
+              <View style={styles.beginCopy}>
+                <Text style={styles.rowTitle}>Begin your wardrobe</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
+            </Pressable>
+          </Animated.View>
+        ) : (
+          <Animated.View entering={entering(80)} style={styles.statsCard}>
+            <View style={styles.statCell}>
+              <Text style={styles.statNumber}>{wardrobeTotalCount}</Text>
+              <Text style={styles.statLabel}>Items</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statCell}>
+              <Text style={styles.statNumber}>{categoryCount}</Text>
+              <Text style={styles.statLabel}>Categories</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statCell}>
+              <Text style={styles.statNumber}>{wearHistory.length}</Text>
+              <Text style={styles.statLabel}>Looks worn</Text>
+            </View>
+          </Animated.View>
+        )}
+
+        <Animated.View entering={entering(120)} style={styles.section}>
+          <SectionLabel>Style DNA</SectionLabel>
           <View style={styles.card}>
             {dnaItems.length > 0 ? (
-              <View style={styles.dnaRow}>
-                {dnaItems.map((item, i) => (
-                  <View key={i} style={[styles.dnaPill, { backgroundColor: item.color }]}>
-                    <Text style={[styles.dnaPillText, { color: item.text }]}>{item.label}</Text>
+              <View style={styles.dnaList}>
+                {dnaItems.map(item => (
+                  <View key={item} style={styles.dnaChip}>
+                    <Text style={styles.dnaText}>{item}</Text>
                   </View>
                 ))}
               </View>
             ) : (
-              <View style={styles.dnaEmpty}>
-                <Text style={styles.dnaEmptyText}>Complete your style quiz to populate this.</Text>
-              </View>
+              <Text style={styles.cardHint}>Complete your style quiz to populate this.</Text>
             )}
-            <Pressable
-              style={({ pressed }) => [styles.dnaQuizLink, pressed && { opacity: 0.65 }]}
+            <ProfileRow
+              title="Redo Style Quiz"
+              icon="refresh-outline"
               onPress={() => router.push('/onboarding')}
-            >
-              <Ionicons name="refresh-outline" size={14} color={Colors.textSecondary} />
-              <Text style={styles.dnaQuizLinkText}>Redo Style Quiz</Text>
-            </Pressable>
+              trailing={<Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />}
+            />
           </View>
         </Animated.View>
 
-        {/* ── Refinements ─────────────────────────────────────────────────── */}
-        <Animated.View
-          entering={FadeInDown.delay(200).duration(280)}
-          onLayout={(e) => setRefinementsY(e.nativeEvent.layout.y)}
-        >
-          <SectionHeader label="PERSONALISATION" title="Refinements" />
+        <Animated.View entering={entering(160)} style={styles.section}>
+          <SectionLabel>Preferences</SectionLabel>
           <View style={styles.card}>
-            <Text style={styles.refineHelp}>Optional — sharpen every recommendation across your wardrobe.</Text>
-
-            <CollapsibleSection
-              title="Physical"
-              count={`${physicalSet} / 3`}
-              initiallyOpen={physicalSet > 0}
-            >
-              <Text style={styles.chipGroupLabel}>Hair colour</Text>
-              <View style={styles.chipRow}>
-                {HAIR_OPTS.map(h => (
-                  <Chip key={h.id} label={h.label} active={profile.hairColor === h.id}
-                    onPress={() => updateProfile({ hairColor: profile.hairColor === h.id ? null : h.id })} />
-                ))}
-              </View>
-
-              <Text style={styles.chipGroupLabel}>Height</Text>
-              <View style={styles.chipRow}>
-                {HEIGHT_OPTS.map(h => (
-                  <Chip key={h.id} label={h.label} active={profile.heightBand === h.id}
-                    onPress={() => updateProfile({ heightBand: profile.heightBand === h.id ? null : h.id })} />
-                ))}
-              </View>
-
-              <Text style={styles.chipGroupLabel}>Face shape</Text>
-              <Text style={styles.chipGroupSub}>Influences neckline recommendations.</Text>
-              <View style={styles.chipRow}>
-                {FACE_SHAPE_OPTS.map(f => (
-                  <Chip key={f.id} label={f.label} active={profile.faceShape === f.id}
-                    onPress={() => updateProfile({ faceShape: profile.faceShape === f.id ? null : f.id })} />
-                ))}
-              </View>
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              title="Style"
-              count={`${styleSetCount} / 6`}
-              initiallyOpen={styleSetCount > 0}
-              hasBorderTop
-            >
-              <Text style={styles.chipGroupLabel}>Contrast level</Text>
-              <View style={styles.chipRow}>
-                {CONTRAST_OPTS.map(c => (
-                  <Chip key={c.id} label={c.label} active={profile.contrastLevel === c.id}
-                    onPress={() => updateProfile({ contrastLevel: profile.contrastLevel === c.id ? null : c.id })} />
-                ))}
-              </View>
-
-              <Text style={styles.chipGroupLabel}>Metal preference</Text>
-              <View style={styles.chipRow}>
-                {METAL_OPTS.map(m => (
-                  <Chip key={m.id} label={m.label} active={profile.metalPreference === m.id}
-                    onPress={() => updateProfile({ metalPreference: profile.metalPreference === m.id ? null : m.id })} />
-                ))}
-              </View>
-
-              <Text style={styles.chipGroupLabel}>Colours to avoid</Text>
-              <View style={styles.chipRow}>
-                {AVERSION_OPTS.map(c => {
-                  const current = profile.constraints.colorAversions ?? [];
-                  const active = current.includes(c);
-                  return (
-                    <Chip key={c} label={c.charAt(0).toUpperCase() + c.slice(1)} active={active}
-                      onPress={() => {
-                        const next = active ? current.filter((x: string) => x !== c) : [...current, c];
-                        updateProfile({ constraints: { ...profile.constraints, colorAversions: next } });
-                      }} />
-                  );
-                })}
-              </View>
-
-              <View style={styles.toggleRow}>
-                <Text style={styles.toggleLabel}>No sleeveless</Text>
-                <Switch
-                  value={profile.constraints.noSleeveless}
-                  onValueChange={(v) => { Haptics.selectionAsync(); updateProfile({ constraints: { ...profile.constraints, noSleeveless: v } }); }}
-                  trackColor={{ true: Colors.primary, false: Colors.border }}
-                  thumbColor={Colors.white}
-                />
-              </View>
-              <View style={[styles.toggleRow, styles.toggleRowBorder]}>
-                <Text style={styles.toggleLabel}>No short skirts</Text>
-                <Switch
-                  value={profile.constraints.noShortSkirts}
-                  onValueChange={(v) => { Haptics.selectionAsync(); updateProfile({ constraints: { ...profile.constraints, noShortSkirts: v } }); }}
-                  trackColor={{ true: Colors.primary, false: Colors.border }}
-                  thumbColor={Colors.white}
-                />
-              </View>
-
-              <Text style={styles.chipGroupLabel}>Max heel height</Text>
-              <View style={styles.chipRow}>
-                {(['any', 'medium', 'low', 'flat'] as const).map(h => (
-                  <Chip key={h} label={h.charAt(0).toUpperCase() + h.slice(1)}
-                    active={profile.constraints.maxHeelHeight === h}
-                    onPress={() => updateProfile({ constraints: { ...profile.constraints, maxHeelHeight: h } })} />
-                ))}
-              </View>
-            </CollapsibleSection>
-
-            <CollapsibleSection
-              title="Lifestyle"
-              count={`${lifestyleSetCount} / 4`}
-              initiallyOpen={lifestyleSetCount > 0}
-              hasBorderTop
-            >
-              <Text style={styles.chipGroupLabel}>Lifestyle mix</Text>
-              <Text style={styles.chipGroupSub}>How often do you dress for each occasion?</Text>
-              {LIFESTYLE_SCENARIOS.map(scenario => {
-                const profileKey = `lifestyle${scenario.key.charAt(0).toUpperCase() + scenario.key.slice(1)}` as keyof typeof profile;
-                const defaults: Record<LifestyleKey, number> = { work: 40, casual: 40, events: 20, active: 0, brunch: 0 };
-                const current = (profile[profileKey] as number | undefined) ?? defaults[scenario.key];
-                return (
-                  <View key={scenario.key} style={styles.lifestyleScenarioRow}>
-                    <Text style={styles.lifestyleScenarioLabel}>{scenario.label}</Text>
-                    <View style={styles.lifestyleChipRow}>
-                      {LIFESTYLE_OPTIONS.map(opt => (
-                        <Chip
-                          key={opt.value}
-                          label={opt.label}
-                          active={current === opt.value}
-                          onPress={() => updateProfile({ [`lifestyle${scenario.key.charAt(0).toUpperCase() + scenario.key.slice(1)}`]: opt.value })}
-                        />
-                      ))}
-                    </View>
-                  </View>
-                );
-              })}
-              {allLifestyleZero && (
-                <Text style={styles.lifestyleZeroWarning}>
-                  At least one scenario needs a value to personalise your outfits.
-                </Text>
-              )}
-
-              <Text style={styles.chipGroupLabel}>Default mood</Text>
-              <View style={styles.chipRow}>
-                {MOOD_OPTS.map(m => (
-                  <Chip key={m.id} label={m.label} active={profile.defaultMood === m.id}
-                    onPress={() => updateProfile({ defaultMood: profile.defaultMood === m.id ? null : m.id })} />
-                ))}
-              </View>
-
-              <Text style={styles.chipGroupLabel}>Industry</Text>
-              <View style={styles.chipRow}>
-                {INDUSTRY_OPTS.map(i => (
-                  <Chip key={i.id} label={i.label}
-                    active={(profile.industry ?? 'unspecified') === i.id}
-                    onPress={() => updateProfile({ industry: i.id })} />
-                ))}
-              </View>
-
-              <Text style={styles.chipGroupLabel}>Life phase</Text>
-              <View style={styles.chipRow}>
-                {LIFE_PHASE_OPTS.map(l => (
-                  <Chip key={l.id} label={l.label} active={profile.lifePhase === l.id}
-                    onPress={() => updateProfile({ lifePhase: profile.lifePhase === l.id ? null : l.id })} />
-                ))}
-              </View>
-            </CollapsibleSection>
-          </View>
-        </Animated.View>
-
-        {/* ── Weather ─────────────────────────────────────────────────────── */}
-        <Animated.View entering={FadeInDown.delay(250).duration(280)}>
-          <SectionHeader label="SMART STYLING" title="Weather" />
-          <View style={styles.card}>
-            <View style={styles.toggleRow}>
-              <View style={{ flex: 1, paddingRight: 16 }}>
-                <Text style={styles.toggleLabel}>Weather-aware outfits</Text>
-                <Text style={styles.toggleSub}>
+            <View style={styles.preferenceRow}>
+              <View style={styles.navCopy}>
+                <Text style={styles.rowTitle}>Weather-aware outfits</Text>
+                <Text style={styles.rowSubtitle}>
                   {weather
                     ? `Today: ${formatTemp(weather.currentTempC, effectiveTempUnit)} · L${formatTempValue(weather.lowC, effectiveTempUnit)}/H${formatTempValue(weather.highC, effectiveTempUnit)}${effectiveTempUnit === 'F' ? '\u00b0F' : '\u00b0'}${weather.precipProbability >= 0.6 ? ' · Rain likely' : ''}`
-                    : 'Tailor outerwear to today\u2019s forecast.'}
+                    : 'Tailor outerwear to today’s forecast.'}
                 </Text>
               </View>
               <Switch
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 value={profile.weatherEnabled !== false}
-                onValueChange={(v) => { Haptics.selectionAsync(); setWeatherEnabled(v); }}
+                onValueChange={value => {
+                  void Haptics.selectionAsync();
+                  setWeatherEnabled(value);
+                }}
+                accessibilityRole="switch"
+                accessibilityLabel="Weather-aware outfits"
+                accessibilityState={{ checked: profile.weatherEnabled !== false }}
                 trackColor={{ true: Colors.primary, false: Colors.border }}
                 thumbColor={Colors.white}
               />
             </View>
-            <View style={[styles.toggleRow, styles.toggleRowBorder, { alignItems: 'center' }]}>
-              <Text style={styles.toggleLabel}>Temperature unit</Text>
-              <View style={styles.chipRow}>
-                {(['C', 'F'] as const).map(u => (
-                  <Chip key={u} label={`\u00b0${u}`}
-                    active={effectiveTempUnit === u}
-                    onPress={() => updateProfile({ tempUnit: u })} />
+            <View style={styles.insetDivider} />
+            <View style={styles.unitRow}>
+              <Text style={styles.rowTitle}>Temperature unit</Text>
+              <View style={styles.unitSegment}>
+                {(['C', 'F'] as const).map(unit => (
+                  <UnitChoice
+                    key={unit}
+                    label={`°${unit}`}
+                    selected={effectiveTempUnit === unit}
+                    onPress={() => updateProfile({ tempUnit: unit })}
+                  />
                 ))}
               </View>
             </View>
           </View>
         </Animated.View>
 
-        {/* ── Track & History ──────────────────────────────────────────────── */}
-        <Animated.View entering={FadeInDown.delay(295).duration(280)}>
-          <SectionHeader label="ACTIVITY" title="Track & History" />
+        <Animated.View entering={entering(200)} style={styles.section}>
+          <SectionLabel>Activity</SectionLabel>
           <View style={styles.card}>
-            <Pressable
-              style={({ pressed }) => [styles.featureRow, pressed && { opacity: 0.75 }]}
+            <ProfileRow
+              title="Wear Log"
+              subtitle={wearHistory.length === 0
+                ? 'Track outfits you wear each day'
+                : `${wearHistory.length} outfit${wearHistory.length === 1 ? '' : 's'} logged`}
+              icon="calendar-outline"
               onPress={() => router.push('/wear-log')}
-            >
-              <View style={[styles.featureIcon, { backgroundColor: Colors.sage + '22' }]}>
-                <Ionicons name="calendar-outline" size={18} color={Colors.sage} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.featureLabel}>Wear Log</Text>
-                <Text style={styles.featureSub}>
-                  {wearHistory.length === 0
-                    ? 'Track outfits you wear each day'
-                    : `${wearHistory.length} outfit${wearHistory.length === 1 ? '' : 's'} logged`}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={15} color={Colors.border} />
-            </Pressable>
+            />
+            <View style={styles.insetDivider} />
+            <ProfileRow
+              title="Personal Intelligence"
+              subtitle={getPersonalIntelligenceSubtitle(affinityActive, affinitySignalCount)}
+              icon="sparkles-outline"
+              onPress={() => router.push('/personal-intelligence')}
+            />
+            <View style={styles.insetDivider} />
+            <ProfileRow
+              title="Refinements"
+              subtitle={getRefinementSummary(refinementCounts)}
+              icon="options-outline"
+              onPress={() => router.push('/refinements')}
+            />
           </View>
         </Animated.View>
 
-        {/* ── Personal Intelligence ────────────────────────────────────────── */}
-        <Animated.View entering={FadeInDown.delay(335).duration(280)}>
-          <Pressable
-            onPress={() => setShowAffinityDebug(s => !s)}
-            style={styles.collapseHeader}
-          >
-            <View>
-              <Text style={styles.sectionLabel}>LEARNING</Text>
-              <Text style={styles.sectionTitle}>Personal Intelligence</Text>
-            </View>
-            <View style={styles.collapseChevron}>
-              <Ionicons name={showAffinityDebug ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textSecondary} />
-            </View>
-          </Pressable>
-          {showAffinityDebug && (
-            <Animated.View entering={FadeInUp.duration(200)} style={styles.card}>
-              <View style={styles.affinityStatusRow}>
-                <Ionicons
-                  name={affinityActive ? 'sparkles' : 'time-outline'}
-                  size={14}
-                  color={affinityActive ? Colors.secondary : Colors.textLight}
-                />
-                <Text style={styles.affinityStatus}>
-                  {affinityActive
-                    ? `Active · ${Math.round(affinitySignalCount)} signal${Math.round(affinitySignalCount) === 1 ? '' : 's'}`
-                    : `Learning… ${Math.round(affinitySignalCount)}/5 signals before tuning kicks in`}
-                </Text>
-              </View>
-              <Text style={styles.affinityHelp}>
-                {`Loves, "not today" taps, and outfits you wear quietly shape what surfaces next. Nothing is ever fully banned.`}
-              </Text>
-
-              <Text style={styles.affinityGroupTitle}>Pieces you reach for</Text>
-              {topAffinityItems.liked.length === 0
-                ? <Text style={styles.affinityEmpty}>{"None yet — log a few outfits to start."}</Text>
-                : topAffinityItems.liked.map(({ id, score }) => (
-                  <View key={`liked-${id}`} style={styles.affinityItem}>
-                    <View style={[styles.affinityDot, { backgroundColor: Colors.success }]} />
-                    <Text style={styles.affinityItemLabel} numberOfLines={1}>{itemLabel(id)}</Text>
-                    <Text style={styles.affinityItemScore}>+{score.toFixed(1)}</Text>
-                  </View>
-                ))}
-
-              <Text style={styles.affinityGroupTitle}>Pieces you skip</Text>
-              {topAffinityItems.disliked.length === 0
-                ? <Text style={styles.affinityEmpty}>{`None — keep tapping "not today" to teach me.`}</Text>
-                : topAffinityItems.disliked.map(({ id, score }) => (
-                  <View key={`disliked-${id}`} style={styles.affinityItem}>
-                    <View style={[styles.affinityDot, { backgroundColor: Colors.warning }]} />
-                    <Text style={styles.affinityItemLabel} numberOfLines={1}>{itemLabel(id)}</Text>
-                    <Text style={styles.affinityItemScore}>{score.toFixed(1)}</Text>
-                  </View>
-                ))}
-
-              {isPremium ? (
-                topAffinityPairs.liked.length > 0 && (
-                  <>
-                    <Text style={styles.affinityGroupTitle}>Combinations that work</Text>
-                    {topAffinityPairs.liked.map(({ ids, score }) => (
-                      <View key={`pair-liked-${ids[0]}-${ids[1]}`} style={styles.affinityItem}>
-                        <View style={[styles.affinityDot, { backgroundColor: Colors.success }]} />
-                        <Text style={styles.affinityItemLabel} numberOfLines={1}>{itemLabel(ids[0])} + {itemLabel(ids[1])}</Text>
-                        <Text style={styles.affinityItemScore}>+{score.toFixed(1)}</Text>
-                      </View>
-                    ))}
-                  </>
-                )
-              ) : (
-                <View style={styles.affinityUpgradeRow}>
-                  <Ionicons name="lock-closed-outline" size={12} color={Colors.textLight} />
-                  <Text style={styles.affinityUpgradeText}>Combination learning — Premium</Text>
-                </View>
-              )}
-            </Animated.View>
-          )}
-        </Animated.View>
-
-        {/* ── Subscription ─────────────────────────────────────────────────── */}
-        <Animated.View entering={FadeInDown.delay(375).duration(280)}>
-          <SectionHeader label="YOUR PLAN" title="Subscription" />
-          {isPremium ? (
-            <View style={styles.card}>
-              <View style={styles.featureRow}>
-                <View style={[styles.featureIcon, { backgroundColor: Colors.secondary + '20' }]}>
-                  <Ionicons name="star" size={18} color={Colors.secondary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.featureLabel}>Premium Active</Text>
-                  <Text style={styles.featureSub}>Full wardrobe · Blueprint · Diagnostics</Text>
-                </View>
-                <Pressable
-                  style={({ pressed }) => [styles.manageBtn, pressed && { opacity: 0.75 }]}
-                  onPress={() => router.push('/premium')}
-                >
-                  <Text style={styles.manageBtnText}>Manage</Text>
-                </Pressable>
-              </View>
-              <View style={styles.featureDivider} />
-              <Pressable style={({ pressed }) => [styles.featureRow, pressed && { opacity: 0.75 }]} onPress={() => router.push('/diagnostics')}>
-                <View style={[styles.featureIcon, { backgroundColor: Colors.secondary + '15' }]}>
-                  <Ionicons name="analytics-outline" size={18} color={Colors.secondary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.featureLabel}>Deep Diagnostics</Text>
-                  <Text style={styles.featureSub}>Wardrobe health score & gap analysis</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={15} color={Colors.border} />
-              </Pressable>
-              <View style={styles.featureDivider} />
-              <Pressable style={({ pressed }) => [styles.featureRow, pressed && { opacity: 0.75 }]} onPress={() => router.push('/blueprint')}>
-                <View style={[styles.featureIcon, { backgroundColor: Colors.sage + '20' }]}>
-                  <Ionicons name="map-outline" size={18} color={Colors.sage} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.featureLabel}>Wardrobe Blueprint</Text>
-                  <Text style={styles.featureSub}>Essential pieces for your style goal</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={15} color={Colors.border} />
-              </Pressable>
-            </View>
-          ) : (
-            <View style={styles.upgradeCard}>
-              {/* Header: icon + title/sub in a flex row — text shrinks, never overflows */}
-              <View style={styles.upgradeCardHeader}>
-                <View style={styles.upgradeCardIconWrap}>
-                  <Ionicons name="star" size={18} color={Colors.secondary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.upgradeCardTitle}>Unlock Amodka Premium</Text>
-                  <Text style={styles.upgradeCardSub}>Everything you need for a complete wardrobe</Text>
-                </View>
-              </View>
-
-              {/* Feature list */}
-              <View style={styles.upgradeFeatures}>
-                {[
-                  { icon: 'infinite-outline', text: 'Full wardrobe access' },
-                  { icon: 'analytics-outline', text: 'Deep Diagnostics & health score' },
-                  { icon: 'map-outline', text: 'Personalized wardrobe blueprint' },
-                ].map((f, i) => (
-                  <View key={i} style={styles.upgradeFeatureRow}>
-                    <Ionicons name={f.icon as any} size={15} color={Colors.secondary} />
-                    <Text style={styles.upgradeFeatureText}>{f.text}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* Full-width CTA — always fully visible, never clipped */}
-              <View style={styles.upgradeBtnWrap}>
-                <Pressable
-                  style={({ pressed }) => [styles.upgradeBtn, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-                  onPress={() => {
-                    if (isGuest) {
-                      dialog.alert(
-                        'Sign in to access Premium',
-                        'Create a free account or sign in to unlock Premium features and save your wardrobe.',
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          { text: 'Sign in', onPress: () => router.replace('/sign-in') },
-                        ],
-                      );
-                      return;
-                    }
-                    router.push('/premium');
-                  }}
-                >
-                  <Ionicons name="star" size={14} color={Colors.white} />
-                  <Text style={styles.upgradeBtnText}>Upgrade to Premium</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-        </Animated.View>
-
-        {/* ── Privacy ──────────────────────────────────────────────────── */}
-        <Animated.View entering={FadeInDown.delay(360).duration(280)}>
-          <SectionHeader label="PRIVACY" title="Privacy" />
+        <Animated.View entering={entering(240)} style={styles.section}>
+          <SectionLabel>Privacy</SectionLabel>
           <View style={styles.card}>
-            <View style={styles.aiPreferenceRow}>
-              <View style={styles.aiPreferenceCopy}>
-                <Text style={styles.aiPreferenceTitle}>AI Processing</Text>
-                <Text style={styles.aiPreferenceDescription}>
+            <View style={styles.aiRow}>
+              <View style={styles.aiCopy}>
+                <Text style={styles.rowTitle}>AI Processing</Text>
+                <Text style={styles.rowSubtitle}>
                   Allow AI services to prepare and identify garment photos. Turning this off prevents future processing; it does not remove existing wardrobe items or images.
                 </Text>
+                {aiDisplay.caption ? <Text style={styles.aiCaption}>{aiDisplay.caption}</Text> : null}
               </View>
               <Switch
-                value={aiProcessingSwitchOn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                value={aiDisplay.value}
                 onValueChange={changeAiProcessingPreference}
                 disabled={isGuest || aiPreferenceLoading || aiPreferenceSaving || aiPreferenceUnavailable}
                 accessibilityRole="switch"
                 accessibilityLabel="AI Processing"
-                trackColor={{ false: Colors.border, true: Colors.sage }}
-                thumbColor={aiProcessingSwitchOn ? Colors.primary : Colors.white}
+                accessibilityState={{
+                  checked: aiDisplay.value,
+                  disabled: isGuest || aiPreferenceLoading || aiPreferenceSaving || aiPreferenceUnavailable,
+                }}
+                trackColor={{ false: Colors.border, true: Colors.primary }}
+                thumbColor={Colors.white}
               />
             </View>
-            {aiPreferenceLoading && <ActivityIndicator size="small" color={Colors.secondary} />}
-            {aiPreferenceError && <Text style={styles.aiPreferenceError}>{aiPreferenceError}</Text>}
+            {aiPreferenceLoading && <ActivityIndicator size="small" color={Colors.primary} />}
+            {aiPreferenceError && <Text style={styles.errorText}>{aiPreferenceError}</Text>}
             {aiPreferenceUnavailable && (
-              <Pressable onPress={() => setAiPreferenceRetry(value => value + 1)} style={styles.aiSignInLink}>
-                <Text style={styles.aiSignInText}>Try loading your preference again</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setAiPreferenceRetry(value => value + 1)}
+                style={styles.noteLink}
+              >
+                <Text style={styles.linkText}>Try loading your preference again</Text>
               </Pressable>
             )}
             {isGuest && (
-              <Pressable onPress={() => router.push('/sign-in')} style={styles.aiSignInLink}>
-                <Text style={styles.aiSignInText}>Sign in to save this preference to your account</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push('/sign-in')}
+                style={styles.noteLink}
+              >
+                <Text style={styles.linkText}>Sign in to save this preference to your account</Text>
               </Pressable>
             )}
           </View>
         </Animated.View>
 
-        {/* ── Account ──────────────────────────────────────────────────── */}
-        <Animated.View entering={FadeInDown.delay(400).duration(280)}>
-          <View style={styles.sectionHeaderBlock}>
-            <Text style={styles.sectionLabel}>ACCOUNT</Text>
-            <Text style={styles.sectionTitle}>Account</Text>
-          </View>
+        <Animated.View entering={entering(280)} style={styles.section}>
+          <SectionLabel>Account</SectionLabel>
           <View style={styles.card}>
-            {/* Sign out */}
-            <Pressable
-              style={({ pressed }) => [styles.accountRow, pressed && { opacity: 0.7 }]}
-              onPress={async () => {
-                try { await signOut(); router.replace('/sign-in'); }
-                catch {
-                  dialog.notify({ title: 'Could not sign out', message: 'Your session could not be closed safely. Please check your connection and try again.' });
-                }
-              }}
+            <ProfileRow
+              title="Sign out"
+              icon="log-out-outline"
+              onPress={handleSignOut}
               accessibilityLabel="Sign out of Amodka"
-            >
-              <View style={[styles.accountRowIcon, { backgroundColor: Colors.warning + '14' }]}>
-                <Ionicons name="log-out-outline" size={18} color={Colors.warning} />
-              </View>
-              <Text style={[styles.accountRowLabel, { color: Colors.warning }]}>Sign out</Text>
-              <Ionicons name="chevron-forward" size={15} color={Colors.warning + '80'} />
-            </Pressable>
-
-            {!isGuest && (
+              trailing={null}
+            />
+            {isPremium && (
               <>
-                <View style={styles.accountRowDivider} />
-
-                {/* Delete account — hidden for guests (no database record exists) */}
-                <Pressable
-                  style={({ pressed }) => [styles.accountRow, pressed && { opacity: 0.7 }]}
-                  onPress={() => {
-                    dialog.alert(
-                      'Delete account',
-                      'This will permanently delete your account and all wardrobe data. This cannot be undone. Deleting your Amodka account does not cancel your App Store or Google Play subscription. Cancel it separately through your app store.',
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Delete',
-                          style: 'destructive',
-                          onPress: async () => {
-                            try {
-                              const { data: { user } } = await supabase.auth.getUser();
-                              if (!user?.id) throw new Error('Not signed in');
-                              // Server deletes Storage objects + all DB records + auth user.
-                              // Do not clear local state until success is confirmed by the server.
-                              const response = await authenticatedApiRequest('DELETE', '/api/user/delete-account', { userId: user.id });
-                              const result = await response.json();
-                              if (result.success !== true) throw new Error('Deletion not confirmed');
-                            } catch {
-                              dialog.notify({
-                                title: 'Deletion not confirmed',
-                                message: 'Your account was not confirmed deleted. Some data may already have been removed. Please try again or contact support.',
-                              });
-                              return;
-                            }
-                            // The server has deleted the account. Local cleanup
-                            // failures must not be described as server deletion failures.
-                            let cacheCleared = true;
-                            try {
-                              // Clear all user-owned local AsyncStorage caches.
-                              // Keys cover AppContext, weather, database, wardrobe-view and auth.
-                              await AsyncStorage.multiRemove([
-                                // AppContext
-                                '@amodka_profile',
-                                '@amodka_wardrobe',
-                                '@amodka_premium',
-                                '@amodka_slots',
-                                '@amodka_rotation',
-                                '@amodka_wear_history',
-                                '@amodka_reactions',
-                                '@amodka_mood',
-                                '@amodka_saved_looks',
-                                // database.ts
-                                '@amodka_item_ids',
-                                '@amodka_wear_log',
-                                // weather
-                                '@amodka_weather_v1',
-                                '@amodka_weather_perm_asked_v1',
-                                // wardrobe view preference
-                                '@amodka_wardrobe_view',
-                                // auth
-                                '@amodka_email_confirmed',
-                                // legacy keys (already migrated but safe to clear)
-                                '@auracloset_profile',
-                                '@auracloset_wardrobe',
-                                '@auracloset_premium',
-                                '@auracloset_slots',
-                                '@auracloset_rotation',
-                                '@auracloset_wear_history',
-                                '@auracloset_reactions',
-                                '@auracloset_mood',
-                                '@auracloset_saved_looks',
-                                '@auracloset_item_ids',
-                                '@auracloset_wear_log',
-                                '@auracloset_weather_v1',
-                                '@auracloset_weather_perm_asked_v1',
-                              ]);
-                            } catch {
-                              cacheCleared = false;
-                              console.warn('[profile] Deleted account local cache cleanup failed');
-                            }
-                            let signedOut = true;
-                            try {
-                              await signOut();
-                            } catch {
-                              signedOut = false;
-                              console.warn('[profile] Deleted account local sign-out failed');
-                            }
-                            if (signedOut) router.replace('/sign-in');
-                            if (!cacheCleared || !signedOut) {
-                              dialog.notify({
-                                title: 'Account deleted — device cleanup incomplete',
-                                message: 'Your account was deleted, but this device could not fully clear its local data or session. Clear this app’s data before anyone else uses this device.',
-                              });
-                            }
-                          },
-                        },
-                      ],
-                    );
-                  }}
-                  accessibilityLabel="Delete your Amodka account"
-                >
-                  <View style={[styles.accountRowIcon, { backgroundColor: '#FEE2E2' }]}>
-                    <Ionicons name="trash-outline" size={18} color="#DC2626" />
-                  </View>
-                  <Text style={[styles.accountRowLabel, { color: '#DC2626' }]}>Delete account</Text>
-                  <Ionicons name="chevron-forward" size={15} color="#DC262680" />
-                </Pressable>
+                <View style={styles.insetDivider} />
+                <ProfileRow
+                  title="Amodka Premium"
+                  icon="person-outline"
+                  onPress={() => router.push('/premium')}
+                  trailing={<Text style={styles.manageText}>Manage</Text>}
+                />
+                <View style={styles.insetDivider} />
+                <ProfileRow
+                  title="Deep Diagnostics"
+                  subtitle="Wardrobe health score & gap analysis"
+                  icon="analytics-outline"
+                  onPress={() => router.push('/diagnostics')}
+                />
+                <View style={styles.insetDivider} />
+                <ProfileRow
+                  title="Wardrobe Blueprint"
+                  subtitle="Essential pieces for your style goal"
+                  icon="map-outline"
+                  onPress={() => router.push('/blueprint')}
+                />
               </>
             )}
           </View>
+          {!isGuest && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete your Amodka account"
+              onPress={handleDeleteAccount}
+              style={({ pressed }) => [styles.deleteRow, pressed && styles.pressed]}
+            >
+              <Text style={styles.deleteText}>Delete account</Text>
+            </Pressable>
+          )}
         </Animated.View>
-
-        <View style={{ height: 40 }} />
+        <Text style={styles.version}>Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
+        <View style={styles.bottomSpace} />
       </ScrollView>
       <AiProcessingConsent
         visible={showAiConsent}
@@ -1001,260 +743,250 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  scrollContent: { paddingHorizontal: 20 },
-
-  // ── Hero ─────────────────────────────────────────────────────────────────
-  hero: {
-    alignItems: 'center', paddingTop: 16, paddingBottom: 24,
-  },
-  avatarWrap: { position: 'relative', marginBottom: 14 },
+  screen: { flex: 1, backgroundColor: Colors.background },
+  scrollContent: { paddingHorizontal: 24, paddingBottom: 24 },
+  identity: { alignItems: 'center', paddingTop: 8, paddingBottom: 20 },
+  avatarWrap: { width: 88, height: 88, marginBottom: 12 },
   avatarCircle: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: Colors.secondary + '20',
-    borderWidth: 1.5, borderColor: Colors.secondary + '35',
-    alignItems: 'center', justifyContent: 'center',
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.secondary,
   },
   avatarInitials: {
-    fontFamily: 'Inter_700Bold', fontSize: rs(28), color: Colors.secondary, letterSpacing: -0.5,
+    color: Colors.primary,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 30,
+    letterSpacing: -0.5,
   },
   avatarEditBadge: {
-    position: 'absolute', bottom: 1, right: 1,
-    width: 22, height: 22, borderRadius: 11,
-    backgroundColor: Colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: Colors.background,
-  },
-  nameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  heroName: { fontFamily: 'Inter_700Bold', fontSize: rs(22), color: Colors.primary, letterSpacing: -0.4 },
-  heroEmail: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight, marginBottom: 10, letterSpacing: 0.1 },
-  tierBadge: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20,
+    position: 'absolute',
+    right: -2,
+    bottom: 1,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.background,
-    borderWidth: 1, borderColor: Colors.border,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  tierBadgePremium: { borderColor: Colors.secondary + '50', backgroundColor: Colors.secondary + '10' },
-  tierBadgeText: { fontFamily: 'Inter_500Medium', fontSize: rs(11), color: Colors.textSecondary, letterSpacing: 0.3 },
-  tierBadgeTextPremium: { color: Colors.secondary },
-  nameEditRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 8 },
+  heroName: {
+    color: Colors.primary,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 28,
+    letterSpacing: -0.6,
+    textAlign: 'center',
+    maxWidth: '100%',
+  },
+  heroEmail: {
+    color: MUTED_TEXT,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingTop: 4,
+    maxWidth: '100%',
+  },
+  planPill: {
+    minHeight: 28,
+    paddingHorizontal: 12,
+    marginTop: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  planPillPremium: {
+    borderColor: Colors.secondary + '60',
+    backgroundColor: Colors.secondary + '25',
+  },
+  planPillText: { color: MUTED_TEXT, fontFamily: 'Inter_500Medium', fontSize: 12 },
+  planPillTextPremium: { color: Colors.primary },
+  nameEditRow: {
+    width: '100%',
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
   nameInput: {
-    fontFamily: 'Inter_600SemiBold', fontSize: rs(18), color: Colors.primary,
-    borderBottomWidth: 1.5, borderBottomColor: Colors.secondary,
-    paddingVertical: 4, paddingHorizontal: 8, minWidth: 130, textAlign: 'center',
+    flex: 1,
+    maxWidth: 250,
+    color: Colors.primary,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 20,
+    textAlign: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.secondary,
+    paddingVertical: 6,
   },
-
-  // ── Stats ─────────────────────────────────────────────────────────────────
-  statsRow: {
-    flexDirection: 'row', backgroundColor: Colors.white,
-    borderRadius: 18, paddingVertical: 18, paddingHorizontal: 8, marginBottom: 28,
-    shadowColor: Colors.primary, shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
-    elevation: 1, borderWidth: 1, borderColor: Colors.border,
-  },
-  statCell: { flex: 1, alignItems: 'center' },
-  statNum: {
-    fontFamily: 'Inter_700Bold', fontSize: rs(26), color: Colors.primary,
-    letterSpacing: -0.5, fontVariant: ['tabular-nums'],
-  },
-  statLabel: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textSecondary, marginTop: 3 },
-  statDivider: { width: 1, backgroundColor: Colors.border, marginVertical: 6 },
-
-  // ── Section headers ───────────────────────────────────────────────────────
-  sectionHeaderBlock: { marginBottom: 10 },
+  editAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  section: { marginTop: 32 },
   sectionLabel: {
-    fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textLight,
-    letterSpacing: 0.9, textTransform: 'uppercase', marginBottom: 3,
+    color: MUTED_TEXT,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    marginBottom: 12,
   },
-  sectionTitle: {
-    fontFamily: 'Inter_700Bold', fontSize: rs(20), color: Colors.primary, letterSpacing: -0.4,
-  },
-
-  // ── Card ─────────────────────────────────────────────────────────────────
   card: {
-    backgroundColor: Colors.white, borderRadius: 18, marginBottom: 28, overflow: 'hidden',
-    shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 10, shadowOffset: { width: 0, height: 2 },
-    elevation: 1, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
   },
-  aiPreferenceRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 16, paddingVertical: 17,
+  membershipCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 20,
+    gap: 16,
   },
-  aiPreferenceCopy: { flex: 1, gap: 5 },
-  aiPreferenceTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary },
-  aiPreferenceDescription: { fontFamily: 'Inter_400Regular', fontSize: rs(12), lineHeight: 18, color: Colors.textSecondary },
-  aiPreferenceError: { paddingHorizontal: 16, paddingBottom: 14, fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.error },
-  aiSignInLink: { paddingHorizontal: 16, paddingBottom: 16 },
-  aiSignInText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.sage },
-
-  // ── DNA Pills ─────────────────────────────────────────────────────────────
-  dnaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 16 },
-  dnaPill: {
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
+  membershipHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  membershipCopy: { flex: 1, gap: 3 },
+  membershipButton: {
+    minHeight: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    backgroundColor: Colors.primary,
   },
-  dnaPillText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), letterSpacing: -0.1 },
-  dnaEmpty: { padding: 16 },
-  dnaEmptyText: { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textLight, fontStyle: 'italic' },
-  dnaQuizLink: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderTopWidth: 1, borderTopColor: Colors.border,
+  membershipButtonText: { color: Colors.textOnDark, fontFamily: 'Inter_600SemiBold', fontSize: 15 },
+  statsCard: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginTop: 32,
+    overflow: 'hidden',
   },
-  dnaQuizLinkText: { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary },
-
-  // ── Chip system ───────────────────────────────────────────────────────────
-  chip: {
-    paddingHorizontal: 14, paddingVertical: 9,
-    borderRadius: 12, borderWidth: 1,
-    minHeight: 36,
+  statCell: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', paddingVertical: 12 },
+  statNumber: {
+    color: Colors.primary,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 22,
+    fontVariant: ['tabular-nums'],
   },
-  chipText: { fontFamily: 'Inter_500Medium', fontSize: rs(13) },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
-  chipGroupLabel: {
-    fontFamily: 'Inter_500Medium', fontSize: rs(11), color: Colors.textSecondary,
-    textTransform: 'uppercase', letterSpacing: 0.7,
-    paddingHorizontal: 16, marginTop: 16, marginBottom: 8,
+  statLabel: { color: Colors.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 12, textAlign: 'center' },
+  statDivider: { width: 1, alignSelf: 'stretch', marginVertical: 14, backgroundColor: Colors.border },
+  beginWardrobeRow: {
+    minHeight: 72,
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
   },
-  chipGroupSub: {
-    fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight,
-    paddingHorizontal: 16, marginTop: -4, marginBottom: 8,
+  beginCopy: { flex: 1 },
+  dnaList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 20 },
+  dnaChip: {
+    minHeight: 34,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: 'transparent',
   },
-
-  // ── Lifestyle mix rows ────────────────────────────────────────────────────
-  lifestyleScenarioRow: {
-    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4,
-    borderTopWidth: 1, borderTopColor: Colors.border,
+  dnaText: { color: Colors.primary, fontFamily: 'Inter_500Medium', fontSize: 13 },
+  cardHint: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 20,
+    padding: 20,
   },
-  lifestyleScenarioLabel: {
-    fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.primary,
-    letterSpacing: -0.1, marginBottom: 8,
+  navRow: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
-  lifestyleChipRow: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 4,
+  navCopy: { flex: 1, minWidth: 0, gap: 3 },
+  rowTitle: { color: Colors.primary, fontFamily: 'Inter_500Medium', fontSize: 16, flexShrink: 1 },
+  rowSubtitle: { color: Colors.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 19 },
+  manageText: { color: Colors.primary, fontFamily: 'Inter_500Medium', fontSize: 14 },
+  preferenceRow: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
-  lifestyleZeroWarning: {
-    fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary,
-    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, lineHeight: 18,
+  unitRow: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
   },
-
-  // ── Refinement help text ──────────────────────────────────────────────────
-  refineHelp: {
-    fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textLight,
-    paddingHorizontal: 16, paddingVertical: 14, lineHeight: 19,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  unitSegment: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  unitChoice: {
+    minWidth: 48,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: 'transparent',
   },
-
-  // ── Toggle rows ───────────────────────────────────────────────────────────
-  toggleRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14,
+  unitChoiceSelected: { borderColor: Colors.primary, backgroundColor: Colors.primary },
+  unitChoiceText: { color: Colors.textSecondary, fontFamily: 'Inter_500Medium', fontSize: 14 },
+  unitChoiceTextSelected: { color: Colors.white },
+  insetDivider: { height: 1, marginHorizontal: 20, backgroundColor: Colors.border },
+  aiRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
   },
-  toggleRowBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
-  toggleLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(14), color: Colors.primary },
-  toggleSub: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 2, lineHeight: 17 },
-
-  // ── Feature rows (Wear Log, Premium features) ─────────────────────────────
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 },
-  featureIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  featureLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.primary, letterSpacing: -0.1 },
-  featureSub: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 2 },
-  featureDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 16 },
-
-  // ── Collapse header (for affinity section) ────────────────────────────────
-  collapseHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginBottom: 10,
+  aiCopy: { flex: 1, minWidth: 0, gap: 6 },
+  aiCaption: { color: Colors.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 18 },
+  noteLink: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 6 },
+  linkText: { color: Colors.primary, fontFamily: 'Inter_500Medium', fontSize: 13, lineHeight: 19 },
+  errorText: {
+    color: DESTRUCTIVE_TEXT,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 19,
   },
-  collapseChevron: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+  loadError: { minHeight: 44, justifyContent: 'center', marginTop: 12, padding: 12 },
+  deleteRow: {
+    minHeight: 56,
+    justifyContent: 'center',
+    marginTop: 24,
+    paddingHorizontal: 20,
   },
-
-  // ── Affinity / Intelligence ───────────────────────────────────────────────
-  affinityStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  affinityStatus: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.textSecondary },
-  affinityHelp: {
-    fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight,
-    paddingHorizontal: 16, paddingVertical: 12, lineHeight: 18,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  deleteText: { color: DESTRUCTIVE_TEXT, fontFamily: 'Inter_500Medium', fontSize: 16 },
+  version: {
+    color: MUTED_TEXT,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 24,
   },
-  affinityGroupTitle: {
-    fontFamily: 'Inter_500Medium', fontSize: rs(11), color: Colors.textSecondary,
-    textTransform: 'uppercase', letterSpacing: 0.6,
-    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6,
-  },
-  affinityItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 16, paddingVertical: 6,
-  },
-  affinityDot: { width: 7, height: 7, borderRadius: 4 },
-  affinityItemLabel: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.primary },
-  affinityItemScore: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary, fontVariant: ['tabular-nums'] },
-  affinityEmpty: { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textLight, paddingHorizontal: 16, paddingBottom: 10, fontStyle: 'italic' },
-  affinityUpgradeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
-  affinityUpgradeText: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight },
-
-  // ── Manage button ─────────────────────────────────────────────────────────
-  manageBtn: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  manageBtnText: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.textSecondary },
-
-  // ── Upgrade card (when not premium) ──────────────────────────────────────
-  upgradeCard: {
-    backgroundColor: Colors.white, borderRadius: 18, marginBottom: 28,
-    borderWidth: 1, borderColor: Colors.secondary + '30',
-    shadowColor: Colors.secondary, shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 3 },
-    elevation: 2, overflow: 'hidden',
-  },
-  // Header row: star icon + shrinkable text block — text never pushes button off-screen
-  upgradeCardHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    padding: 16, gap: 12,
-  },
-  upgradeCardIconWrap: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: Colors.secondary + '18',
-    alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0,
-  },
-  upgradeCardTitle: { fontFamily: 'Inter_700Bold', fontSize: rs(15), color: Colors.primary, letterSpacing: -0.2 },
-  upgradeCardSub: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 3 },
-  upgradeFeatures: {
-    paddingHorizontal: 16, paddingBottom: 16, gap: 10,
-    borderTopWidth: 1, borderTopColor: Colors.secondary + '15',
-    paddingTop: 14,
-  },
-  upgradeFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  upgradeFeatureText: { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary },
-  // Full-width CTA button container — sits below features, always fully in frame
-  upgradeBtnWrap: {
-    paddingHorizontal: 16, paddingBottom: 16,
-  },
-  upgradeBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 13, borderRadius: 12,
-    backgroundColor: Colors.secondary,
-    shadowColor: Colors.secondary, shadowOpacity: 0.3, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  upgradeBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.white },
-
-  // ── Account section ────────────────────────────────────────────────────────
-  accountRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingVertical: 14, paddingHorizontal: 16,
-    minHeight: 52,
-  },
-  accountRowIcon: {
-    width: 36, height: 36, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  accountRowLabel: {
-    flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: rs(15), letterSpacing: -0.1,
-  },
-  accountRowDivider: {
-    height: 1, backgroundColor: Colors.border, marginHorizontal: 16,
-  },
+  bottomSpace: { height: 20 },
+  pressed: { opacity: 0.72 },
 });
