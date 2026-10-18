@@ -18,8 +18,10 @@ was made.
   allocation count is computed.
 - AI preference remains account-scoped as `not_asked | allowed | declined`.
   The switch remains off for `not_asked` and `declined`; the approved
-  first-photo disclosure appears only for `not_asked`. Consent copy, recording,
-  and server enforcement were not changed.
+  inline first-photo prompt appears only for `not_asked`. Turning the switch on
+  from `declined` opens the existing disclosure sheet; its Cancel action keeps
+  the state declined and the switch off. Consent copy, recording, and server
+  enforcement were not changed.
 - Account deletion confirmation and deletion execution were preserved.
   **Separate deletion gap found during the read-only audit:** `bg_removal_usage`
   is not explicitly deleted by the account-deletion handler. The global
@@ -50,7 +52,7 @@ Full audit details are in `reports/profile-screen-redesign-audit.md`.
 |---|---|---|
 | Name editing | Avatar badge and name/pencil both opened the same editor. | One visible avatar edit affordance opens the existing editor; Save and Cancel remain. |
 | Refinements | Physical, style, and lifestyle controls were inline on Profile; each field updated immediately. | The same controls, values, counts, haptics, and immediate `updateProfile` saves are on `/refinements`. Three accordion headers are available; only one group's content is mounted at a time, and the first incomplete group opens initially. |
-| Personal Intelligence | Expand/collapse section on Profile. | Profile row opens `/personal-intelligence`; existing signal data, empty states, Premium pair display, and non-interactive Premium lock row are retained. |
+| Personal Intelligence | Expand/collapse section on Profile. | Profile row opens `/personal-intelligence`; existing signal data, empty states, and Premium pair display are retained. A later polish pass made the free-user Premium lock row tappable; see `reports/profile-polish-pass.md`. |
 | Wardrobe summary | Item/category/worn counts on Profile. | Same counts remain; a zero-item user sees the existing Add Item route through “Begin your wardrobe.” |
 | Free/Premium | Free upgrade and Premium manage/Diagnostics/Blueprint actions on Profile. | Free upgrade card is near the identity header; Premium manage, Diagnostics, and Blueprint remain in Account. Guest sign-in prompt before upgrading is retained. |
 | Preferences and privacy | Weather, temperature, AI-processing switch, and disclosure. | Same handlers and account state. The AI description remains visible; the no-choice first-photo prompt is explicitly shown only for `not_asked`. |
@@ -87,6 +89,13 @@ The original `#6B7280` token measured only 4.37:1 on the warm screen background.
 A later follow-up changed the shared `textSecondary` token to `#626A73` and
 removed the local Profile/Refinements overrides, so the improved contrast now
 applies consistently across the app.
+
+## Profile polish follow-up
+
+The later scoped updates to AI switch actions, tappable Personal Intelligence
+upgrade row, labeled Style DNA grid, Refinements placement, footer clearance,
+tests, and device-verification limits are recorded in
+`reports/profile-polish-pass.md`.
 
 ## Verification
 

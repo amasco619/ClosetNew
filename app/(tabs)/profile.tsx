@@ -29,23 +29,18 @@ import { AiProcessingConsent } from '@/components/AiProcessingConsent';
 import {
   getAiProcessingPreference,
   setAiProcessingPreference,
+  getAiProcessingSwitchAction,
   type AiProcessingPreference,
 } from '@/lib/aiProcessingPreference';
 import {
   getAiProcessingDisplay,
   getPersonalIntelligenceSubtitle,
   getPlanPillLabel,
+  getProfileStyleDna,
   getRefinementCounts,
   getRefinementSummary,
   shouldShowBeginWardrobe,
 } from '@/lib/profilePresentation';
-import {
-  bodyTypeLabels,
-  eyeColorLabels,
-  skinToneLabels,
-  styleGoalLabels,
-  undertoneLabels,
-} from '@/lib/profileStyleLabels';
 
 const DESTRUCTIVE_TEXT = '#B3433D';
 
@@ -211,7 +206,9 @@ export default function ProfileScreen() {
 
   const changeAiProcessingPreference = async (enabled: boolean) => {
     if (aiPreferenceSaving || isGuest) return;
-    if (enabled) {
+    const action = getAiProcessingSwitchAction(aiProcessingPreference, enabled);
+    if (action === 'unchanged') return;
+    if (action === 'request_consent') {
       setAiPreferenceError(null);
       setShowAiConsent(true);
       return;
@@ -338,18 +335,11 @@ export default function ProfileScreen() {
     ? undefined
     : FadeInDown.delay(delay).duration(200);
   const categoryCount = new Set(wardrobeItems.map(item => item.category)).size;
-  const dnaItems = [
-    profile.bodyType ? bodyTypeLabels[profile.bodyType] : null,
-    profile.eyeColor ? eyeColorLabels[profile.eyeColor] : null,
-    profile.skinTone
-      ? `${skinToneLabels[profile.skinTone]} · ${undertoneLabels[profile.undertone || ''] || ''}`.trim()
-      : null,
-    profile.styleGoalPrimary ? styleGoalLabels[profile.styleGoalPrimary] : null,
-    profile.styleGoalSecondary ? styleGoalLabels[profile.styleGoalSecondary] : null,
-  ].filter((item): item is string => Boolean(item));
+  const dnaItems = getProfileStyleDna(profile);
   const showEmptyWardrobe = shouldShowBeginWardrobe(wardrobeTotalCount) &&
     wardrobeHistoryReady && !wardrobeLoadError && !isLoading;
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
+  const tabBarHeight = Platform.OS === 'ios' ? 49 : Platform.OS === 'web' ? 84 : 56;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + webTopInset }]}>
@@ -358,7 +348,10 @@ export default function ProfileScreen() {
       )}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: tabBarHeight + insets.bottom + 24 },
+        ]}
       >
         {wardrobeLoadError && (
           <Pressable
@@ -509,10 +502,11 @@ export default function ProfileScreen() {
           <SectionLabel>Style DNA</SectionLabel>
           <View style={styles.card}>
             {dnaItems.length > 0 ? (
-              <View style={styles.dnaList}>
+              <View style={styles.dnaGrid}>
                 {dnaItems.map(item => (
-                  <View key={item} style={styles.dnaChip}>
-                    <Text style={styles.dnaText}>{item}</Text>
+                  <View key={item.label} style={styles.dnaCell}>
+                    <Text style={styles.dnaLabel}>{item.label}</Text>
+                    <Text style={styles.dnaValue}>{item.value}</Text>
                   </View>
                 ))}
               </View>
@@ -524,6 +518,13 @@ export default function ProfileScreen() {
               icon="refresh-outline"
               onPress={() => router.push('/onboarding')}
               trailing={<Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />}
+            />
+            <View style={styles.insetDivider} />
+            <ProfileRow
+              title="Refinements"
+              subtitle={getRefinementSummary(refinementCounts)}
+              icon="options-outline"
+              onPress={() => router.push('/refinements')}
             />
           </View>
         </Animated.View>
@@ -588,13 +589,6 @@ export default function ProfileScreen() {
               subtitle={getPersonalIntelligenceSubtitle(affinityActive, affinitySignalCount)}
               icon="sparkles-outline"
               onPress={() => router.push('/personal-intelligence')}
-            />
-            <View style={styles.insetDivider} />
-            <ProfileRow
-              title="Refinements"
-              subtitle={getRefinementSummary(refinementCounts)}
-              icon="options-outline"
-              onPress={() => router.push('/refinements')}
             />
           </View>
         </Animated.View>
@@ -696,7 +690,6 @@ export default function ProfileScreen() {
           )}
         </Animated.View>
         <Text style={styles.version}>Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
-        <View style={styles.bottomSpace} />
       </ScrollView>
       <AiProcessingConsent
         visible={showAiConsent}
@@ -710,7 +703,7 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
-  scrollContent: { paddingHorizontal: 24, paddingBottom: 24 },
+  scrollContent: { paddingHorizontal: 24 },
   identity: { alignItems: 'center', paddingTop: 8, paddingBottom: 20 },
   avatarWrap: { width: 88, height: 88, marginBottom: 12 },
   avatarCircle: {
@@ -858,17 +851,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   beginCopy: { flex: 1 },
-  dnaList: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 20 },
-  dnaChip: {
-    minHeight: 34,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: 'transparent',
+  dnaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 18,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 18,
   },
-  dnaText: { color: Colors.primary, fontFamily: 'Inter_500Medium', fontSize: 13 },
+  dnaCell: { width: '48%', gap: 5 },
+  dnaLabel: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  dnaValue: {
+    color: Colors.primary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 16,
+    lineHeight: 22,
+  },
   cardHint: {
     color: Colors.textSecondary,
     fontFamily: 'Inter_400Regular',
@@ -953,6 +958,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 24,
   },
-  bottomSpace: { height: 20 },
   pressed: { opacity: 0.72 },
 });

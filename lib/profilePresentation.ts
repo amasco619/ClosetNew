@@ -3,12 +3,36 @@ import {
   isAiProcessingSwitchOn,
   type AiProcessingPreference,
 } from '@/lib/aiProcessingPreferenceState';
+import {
+  bodyTypeLabels,
+  eyeColorLabels,
+  skinToneLabels,
+  styleGoalLabels,
+  undertoneLabels,
+} from '@/lib/profileStyleLabels';
 
 export interface RefinementCounts {
   physical: number;
   style: number;
   lifestyle: number;
   total: number;
+}
+
+export interface ProfileStyleDnaItem {
+  label: string;
+  value: string;
+}
+
+export function getProfileStyleDna(profile: UserProfile): ProfileStyleDnaItem[] {
+  const items: { label: string; value: string | null | undefined }[] = [
+    { label: 'Body Shape', value: profile.bodyType ? bodyTypeLabels[profile.bodyType] : null },
+    { label: 'Eye Color', value: profile.eyeColor ? eyeColorLabels[profile.eyeColor] : null },
+    { label: 'Skin Tone', value: profile.skinTone ? skinToneLabels[profile.skinTone] : null },
+    { label: 'Undertone', value: profile.undertone ? undertoneLabels[profile.undertone] : null },
+    { label: 'Primary Style', value: profile.styleGoalPrimary ? styleGoalLabels[profile.styleGoalPrimary] : null },
+    { label: 'Secondary Style', value: profile.styleGoalSecondary ? styleGoalLabels[profile.styleGoalSecondary] : null },
+  ];
+  return items.filter((item): item is ProfileStyleDnaItem => Boolean(item.value));
 }
 
 const lifestyleDefaults = {

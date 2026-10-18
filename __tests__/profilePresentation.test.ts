@@ -5,6 +5,7 @@ import {
   getAiProcessingDisplay,
   getPersonalIntelligenceSubtitle,
   getPlanPillLabel,
+  getProfileStyleDna,
   getRefinementCounts,
   getRefinementSummary,
   shouldShowBeginWardrobe,
@@ -93,6 +94,36 @@ test('profile presentation helpers cover plan, empty wardrobe, and Personal Inte
   assert.equal(shouldShowBeginWardrobe(1), false);
   assert.equal(getPersonalIntelligenceSubtitle(false, 0), 'Learning · 0 of 5 signals');
   assert.equal(getPersonalIntelligenceSubtitle(true, 5), 'Active · 5 signals');
+});
+
+test('Style DNA labels map empty, partial, and complete quiz profiles', () => {
+  assert.deepEqual(getProfileStyleDna(makeProfile()), []);
+
+  assert.deepEqual(getProfileStyleDna(makeProfile({
+    bodyType: 'hourglass',
+    skinTone: 'medium-dark',
+    styleGoalPrimary: 'classic',
+  })), [
+    { label: 'Body Shape', value: 'Hourglass' },
+    { label: 'Skin Tone', value: 'Med Dark' },
+    { label: 'Primary Style', value: 'Classic' },
+  ]);
+
+  assert.deepEqual(getProfileStyleDna(makeProfile({
+    bodyType: 'inverted-triangle',
+    eyeColor: 'light-brown',
+    skinTone: 'medium-light',
+    undertone: 'warm',
+    styleGoalPrimary: 'elevated',
+    styleGoalSecondary: 'romantic',
+  })), [
+    { label: 'Body Shape', value: 'Inv. Triangle' },
+    { label: 'Eye Color', value: 'Light Brown' },
+    { label: 'Skin Tone', value: 'Med Light' },
+    { label: 'Undertone', value: 'Warm' },
+    { label: 'Primary Style', value: 'Elevated' },
+    { label: 'Secondary Style', value: 'Romantic' },
+  ]);
 });
 
 test('AI-processing row distinguishes no choice, allowed, declined, and unavailable states', () => {

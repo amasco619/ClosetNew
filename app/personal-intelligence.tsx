@@ -5,9 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import Colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
+import { useDialog } from '@/contexts/LuxuryFeedbackContext';
 
 export default function PersonalIntelligenceScreen() {
   const insets = useSafeAreaInsets();
+  const dialog = useDialog();
   const reduceMotion = useReducedMotion();
   const {
     affinityActive,
@@ -16,6 +18,7 @@ export default function PersonalIntelligenceScreen() {
     topAffinityPairs,
     wardrobeItems,
     isPremium,
+    isGuest,
   } = useApp();
   const signalCount = Math.round(affinitySignalCount);
   const itemLabel = (id: string) => {
@@ -24,6 +27,20 @@ export default function PersonalIntelligenceScreen() {
     return `${item.colorFamily} ${item.subType.replace(/-/g, ' ')}`;
   };
   const entering = reduceMotion ? undefined : FadeInDown.duration(200);
+  const openPremium = () => {
+    if (isGuest) {
+      dialog.alert(
+        'Sign in to access Premium',
+        'Create a free account or sign in to unlock Premium features and save your wardrobe.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign in', onPress: () => router.replace('/sign-in') },
+        ],
+      );
+      return;
+    }
+    router.push('/premium');
+  };
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -89,13 +106,18 @@ export default function PersonalIntelligenceScreen() {
               </>
             )
           ) : (
-            <View style={styles.premiumRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Combination learning, Premium feature, opens upgrade"
+              onPress={openPremium}
+              style={({ pressed }) => [styles.premiumRow, pressed && styles.pressed]}
+            >
               <View style={styles.premiumCopy}>
                 <Ionicons name="lock-closed-outline" size={14} color={Colors.primary + 'B3'} />
                 <Text style={styles.premiumText}>Combination learning — Premium</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
-            </View>
+            </Pressable>
           )}
         </Animated.View>
       </ScrollView>
@@ -195,4 +217,5 @@ const styles = StyleSheet.create({
   },
   premiumCopy: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   premiumText: { flex: 1, color: Colors.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 14 },
+  pressed: { opacity: 0.72 },
 });

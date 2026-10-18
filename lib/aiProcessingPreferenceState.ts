@@ -17,6 +17,16 @@ export function normalizeAiProcessingPreference(value: unknown): AiProcessingPre
   return isAiProcessingPreference(value) ? value : 'not_asked';
 }
 
+export type AiProcessingSwitchAction = 'request_consent' | 'save_declined' | 'unchanged';
+
+export function getAiProcessingSwitchAction(
+  preference: AiProcessingPreference,
+  enabled: boolean,
+): AiProcessingSwitchAction {
+  if (enabled) return preference === 'allowed' ? 'unchanged' : 'request_consent';
+  return preference === 'declined' ? 'unchanged' : 'save_declined';
+}
+
 export function isAiProcessingSwitchOn(
   preference: AiProcessingPreference,
   state: { loading: boolean; unavailable: boolean; guest: boolean },

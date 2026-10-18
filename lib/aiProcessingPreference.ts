@@ -4,10 +4,12 @@ import {
   isAiProcessingSwitchOn,
   normalizeAiProcessingPreference,
   requireAiProcessingPreference,
+  getAiProcessingSwitchAction,
   type AiProcessingPreference,
 } from '@/lib/aiProcessingPreferenceState';
 
 export {
+  getAiProcessingSwitchAction,
   isAiProcessingPreference,
   isAiProcessingSwitchOn,
   normalizeAiProcessingPreference,

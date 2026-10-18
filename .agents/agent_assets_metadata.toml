@@ -575,3 +575,17 @@ mtime_ms = 1792347978215
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/d013e2c0-fa0a-49a8-87d6-bc0814d00d0c/9c9382ca-f8d2-40fc-aa03-6d18eec72aa8"
 storage_version_token = "1792349361933734"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "DEd7i0BEgH1rBlkvm3O2m"
+uri = "file://reports/profile-polish-pass.md"
+type = "text"
+title = "Amodka Profile Polish Pass Report"
+description = "Per-item changes, consent-flow findings, tests, contrast, deviations, and device-verification limits."
+logical_id = "c05b60ab-03c9-4723-9b3a-b0d3007fd25c"
+content_hash = "sha256:dce87f3fdd5e8c11dfadcf65183e0f6062d1e2aaa01129b0a2ece620bb841d74"
+size = 2762
+mtime_ms = 1792353947775
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/c05b60ab-03c9-4723-9b3a-b0d3007fd25c/8ab30ea3-2c54-4a31-927b-b7e638a952c8"
+storage_version_token = "1792354051062437"
+content_type = "text/markdown"

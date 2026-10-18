@@ -3006,3 +3006,15 @@ the hub summary, plan labels, empty-wardrobe invitation, Personal Intelligence
 subtitle, and the `not_asked`/`allowed`/`declined` AI-row mapping. No changes are
 made to AI consent policy, deletion behavior, billing, auth, the frozen
 Recommendation Engine v3.7, or Phase A data/security.
+
+The Profile polish follow-up presents the existing quiz values as labeled
+two-column Style DNA pairs and places Refinements beneath Redo Style Quiz;
+Activity contains only Wear Log and Personal Intelligence. Free users can open
+the existing upgrade route from the Personal Intelligence Premium lock row,
+with the existing sign-in dialog shown first to guests. Turning AI Processing
+on from `not_asked` or `declined` opens the existing disclosure; Cancel keeps
+the preference `declined` and off, while Allow uses the existing consent write.
+The Profile scroll footer reserves the platform tab-bar base height, bottom
+safe-area inset, and 24 points. Pure tests cover all six AI switch actions and
+empty/partial/complete Style DNA mappings. Small-phone and Android gesture-
+navigation visibility still requires device verification.

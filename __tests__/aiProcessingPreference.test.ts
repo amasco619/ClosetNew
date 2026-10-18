@@ -4,6 +4,7 @@ import {
   isAiProcessingSwitchOn,
   normalizeAiProcessingPreference,
   requireAiProcessingPreference,
+  getAiProcessingSwitchAction,
 } from '../lib/aiProcessingPreferenceState';
 
 assert.equal(normalizeAiProcessingPreference('not_asked'), 'not_asked');
@@ -31,5 +32,19 @@ assert.equal(isAiProcessingSwitchOn('declined', readySignedIn), false,
 assert.equal(isAiProcessingSwitchOn('not_asked', { ...readySignedIn, loading: true }), false);
 assert.equal(isAiProcessingSwitchOn('not_asked', { ...readySignedIn, unavailable: true }), false);
 assert.equal(isAiProcessingSwitchOn('not_asked', { ...readySignedIn, guest: true }), false);
+
+assert.deepEqual(
+  (['not_asked', 'declined', 'allowed'] as const).map(preference => [
+    preference,
+    getAiProcessingSwitchAction(preference, true),
+    getAiProcessingSwitchAction(preference, false),
+  ]),
+  [
+    ['not_asked', 'request_consent', 'save_declined'],
+    ['declined', 'request_consent', 'unchanged'],
+    ['allowed', 'unchanged', 'save_declined'],
+  ],
+  'turning ON from no-choice or declined opens disclosure; turning OFF records declined',
+);
 
 console.log('AI processing preference: opt-in default, explicit ON/OFF, and unknown/loading states passed');
