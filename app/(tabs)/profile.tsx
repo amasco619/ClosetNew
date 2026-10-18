@@ -825,7 +825,7 @@ export default function ProfileScreen() {
               <View style={styles.aiPreferenceCopy}>
                 <Text style={styles.aiPreferenceTitle}>AI Processing</Text>
                 <Text style={styles.aiPreferenceDescription}>
-                  On by default when no choice is saved. Before any photo is sent to PhotoRoom or Google Gemini, we&apos;ll show the existing disclosure and ask. You can turn this off at any time; manual item entry remains available.
+                  Allow AI services to prepare and identify garment photos. Turning this off prevents future processing; it does not remove existing wardrobe items or images.
                 </Text>
               </View>
               <Switch

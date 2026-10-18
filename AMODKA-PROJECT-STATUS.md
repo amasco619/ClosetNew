@@ -195,7 +195,7 @@ UK (`GB`) is currently treated as Fahrenheit in one weather utility. UK should u
 This is a small targeted fix.
 
 ### E. AI processing disclosure
-The existing account-scoped consent flow remains authoritative: absent choice is `not_asked`, and PhotoRoom/Gemini are blocked until the user accepts the first-use disclosure. Profile now displays ON by default only after a confirmed no-choice response; explicit OFF remains saved in Auth app metadata. Preference display/toggle changes do not trigger or replay photo processing. Privacy-policy/provider legal review items remain open in `docs/compliance/privacy-policy-source.md`.
+The existing account-scoped consent flow remains authoritative: absent choice is `not_asked`, and PhotoRoom/Gemini are blocked until the user accepts the first-use disclosure. Profile displays OFF when no choice is saved; only an explicit saved `allowed` state displays ON. Explicit OFF remains saved in Auth app metadata. Preference display/toggle changes do not trigger or replay photo processing. Privacy-policy/provider legal review items remain open in `docs/compliance/privacy-policy-source.md`.
 
 ### F. Account deletion hardening
 Deletion exists, including external web deletion support. Review:

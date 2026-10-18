@@ -22,5 +22,5 @@ export function isAiProcessingSwitchOn(
   state: { loading: boolean; unavailable: boolean; guest: boolean },
 ): boolean {
   if (state.loading || state.unavailable || state.guest) return false;
-  return preference !== 'declined';
+  return preference === 'allowed';
 }

@@ -2334,14 +2334,13 @@ authorize an AI request. The shared five-per-hour account limiter protects
 preference writes, not the photo-by-photo read endpoint.
 
 For a signed-in account with a confirmed `not_asked` response, Profile displays
-the preference switch ON by default. This is a display default, not consent:
-the stored state remains `not_asked`, and all three provider routes remain
-blocked until the user accepts the existing first-use disclosure. An explicit
-`declined` choice displays OFF and persists in Auth app metadata across devices
-and sessions. A malformed preference API response or unavailable read displays
-OFF; invalid stored metadata is still denied by the server. Changing the switch
-alone does not send or reprocess any photo. The existing disclosure is shown
-before a photo is sent and records the user's explicit choice.
+the preference switch OFF. The state remains `not_asked` until the user makes
+an explicit choice. An explicit `allowed` choice displays ON and `declined`
+displays OFF; both persist in Auth app metadata across devices and sessions.
+A malformed preference API response or unavailable read displays OFF; invalid
+stored metadata is still denied by the server. All provider routes remain
+blocked until the user accepts the existing first-use disclosure. Changing the
+switch alone does not send or reprocess any photo.
 
 Add Item retains the selected camera or single-library photo for manual entry
 or explicit AI retry; multiple selected library photos go to Bulk Review.

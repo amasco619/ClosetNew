@@ -23,13 +23,13 @@ for (const malformed of [undefined, null, '', 'yes', true, {}, 1]) {
 
 const readySignedIn = { loading: false, unavailable: false, guest: false };
 assert.equal(normalizeAiProcessingPreference(undefined), 'not_asked');
-assert.equal(isAiProcessingSwitchOn('not_asked', readySignedIn), true,
-  'no saved choice displays the default-on switch without becoming consent');
+assert.equal(isAiProcessingSwitchOn('not_asked', readySignedIn), false,
+  'no saved choice keeps the switch off until the user opts in');
 assert.equal(isAiProcessingSwitchOn('allowed', readySignedIn), true);
 assert.equal(isAiProcessingSwitchOn('declined', readySignedIn), false,
-  'an explicit saved OFF choice is never overridden by the default');
+  'an explicit saved OFF choice remains off');
 assert.equal(isAiProcessingSwitchOn('not_asked', { ...readySignedIn, loading: true }), false);
 assert.equal(isAiProcessingSwitchOn('not_asked', { ...readySignedIn, unavailable: true }), false);
 assert.equal(isAiProcessingSwitchOn('not_asked', { ...readySignedIn, guest: true }), false);
 
-console.log('AI processing preference: default-on display, explicit OFF, and unknown/loading states passed');
+console.log('AI processing preference: opt-in default, explicit ON/OFF, and unknown/loading states passed');

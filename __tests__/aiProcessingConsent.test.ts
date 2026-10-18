@@ -30,13 +30,13 @@ async function main() {
       request(app)[method](path).set("X-Forwarded-For", `198.18.0.${ip++}`);
 
     const pref = "/api/user/ai-processing";
-    // A no-choice account may display the default-on switch, but that display
-    // is not consent and must not cause any pending photo to reach a provider.
+    // A no-choice account displays the switch OFF and is not consent; no
+    // pending photo may reach a provider.
     const noChoice = await call("get", pref);
     assert.deepEqual(noChoice.body, { state: "not_asked" });
     assert.equal(isAiProcessingSwitchOn(requireAiProcessingPreference(noChoice.body.state), {
       loading: false, unavailable: false, guest: false,
-    }), true, "a confirmed no-choice response displays ON by default");
+    }), false, "a confirmed no-choice response displays OFF by default");
     for (const route of ["/api/classify-garment", "/api/classify-garments", "/api/remove-background"]) {
       const blocked = await call("post", route).send({ imageBase64: "never-sent-to-provider" });
       assert.equal(blocked.status, 403, `${route} must reject before the handler`);
