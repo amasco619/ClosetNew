@@ -52,6 +52,10 @@ import {
   removeBulkPhotoFromSelection,
 } from '@/lib/bulkPhotoStaging';
 import { rs } from '../lib/responsive';
+import {
+  getInitialBulkCardStatus,
+  runBulkAiProcessing,
+} from '@/lib/guestBulkUpload';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
 import {
   getAiProcessingPreference,
@@ -82,6 +86,7 @@ const PHOTO_HEIGHT = CARD_WIDTH; // square thumbnail
 type ItemStatus =
   | 'pending'
   | 'classifying'
+  | 'manual'
   | 'settled'
   | 'saving'
   | 'saved'
@@ -165,6 +170,7 @@ function BulkCard({
   onPress?: () => void;
 }) {
   const isActive     = item.status === 'pending' || item.status === 'classifying';
+  const isManual     = item.status === 'manual';
   const isLocalOnly  = item.status === 'local-only';
   const isSettled    = item.status === 'settled' || item.status === 'saving' || item.status === 'saved' || isLocalOnly;
   const isSaved      = item.status === 'saved';
@@ -250,6 +256,8 @@ function BulkCard({
                 : 'Item'}
             </Text>
           </Animated.View>
+        ) : isManual ? (
+          <Text style={styles.errorLabel}>Add details</Text>
         ) : isRefused || isError ? null : manualReady && isActive ? (
           <Pressable
             accessibilityRole="button"
@@ -273,11 +281,12 @@ function BulkCard({
 
   return (
     <View style={styles.card}>
-      {isSettled && onPress ? (
+      {(isSettled && onPress) || isManual ? (
         <Pressable
           style={({ pressed }) => [styles.cardBody, pressed && styles.cardPressed]}
-          onPress={onPress}
+          onPress={isManual ? () => onManual(item.uri) : onPress}
           accessibilityRole="button"
+          accessibilityLabel={isManual ? 'Add details for this photo' : 'Edit garment details'}
         >
           {cardBody}
         </Pressable>
@@ -345,11 +354,20 @@ export default function BulkReviewScreen() {
   const dialog = useDialog();
   const toast = useToast();
 
-  const { selectionId, manualSavedPhotoIndex, undoManualSavedPhotoIndex } = useLocalSearchParams<{
+  const {
+    selectionId,
+    manualSavedPhotoIndex,
+    undoManualSavedPhotoIndex,
+    guestCapAcceptedCount: guestCapAcceptedCountParam,
+    guestCapOmittedCount: guestCapOmittedCountParam,
+  } = useLocalSearchParams<{
     selectionId: string;
     manualSavedPhotoIndex?: string;
     undoManualSavedPhotoIndex?: string;
+    guestCapAcceptedCount?: string;
+    guestCapOmittedCount?: string;
   }>();
+  const [selectionStartedAsGuest] = useState(isGuest);
   const [selectionSnapshot] = useState(() => ({
     selectionId,
     selection: getBulkPhotoSelection(selectionId),
@@ -361,8 +379,14 @@ export default function BulkReviewScreen() {
   }, [selection]);
 
   const [items, setItems] = useState<BulkItem[]>(() =>
-    uris.map(uri => ({ uri, status: 'pending' as ItemStatus, classification: null }))
+    uris.map(uri => ({ uri, status: getInitialBulkCardStatus(selectionStartedAsGuest), classification: null }))
   );
+  const guestCapOmittedCount = /^\d+$/.test(guestCapOmittedCountParam ?? '')
+    ? Number(guestCapOmittedCountParam)
+    : 0;
+  const guestCapAcceptedCount = /^\d+$/.test(guestCapAcceptedCountParam ?? '')
+    ? Number(guestCapAcceptedCountParam)
+    : uris.length;
   const manualRedirectedRef = useRef(false);
   useFocusEffect(useCallback(() => { manualRedirectedRef.current = false; }, []));
   useEffect(() => {
@@ -382,11 +406,11 @@ export default function BulkReviewScreen() {
       // Restore the transient review row after Undo removes its wardrobe commit.
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Reconcile an explicit Undo result from the save toast.
       setItems(prev => prev.map(item => item.uri === photo.uri && item.status === 'removed'
-        ? { ...item, status: item.classification ? 'settled' : 'error' }
+        ? { ...item, status: selectionStartedAsGuest ? 'manual' : item.classification ? 'settled' : 'error' }
         : item));
     }
     router.setParams({ undoManualSavedPhotoIndex: undefined });
-  }, [undoManualSavedPhotoIndex, selectionId]);
+  }, [undoManualSavedPhotoIndex, selectionId, selectionStartedAsGuest]);
   const [statusPhase, setStatusPhase] = useState(0);
   const [saving, setSaving] = useState(false);
   const [retryingAll, setRetryingAll] = useState(false);
@@ -466,7 +490,7 @@ export default function BulkReviewScreen() {
   };
 
   useEffect(() => {
-    if (selectionMissing) return;
+    if (selectionMissing || isGuest || selectionStartedAsGuest) return;
     let active = true;
     getAiProcessingPreference().then(preference => {
       if (!active) return;
@@ -478,7 +502,7 @@ export default function BulkReviewScreen() {
       setAiPreferenceError('Your AI preference could not be checked. These photos have not been sent.');
     });
     return () => { active = false; };
-  }, [selectionMissing]);
+  }, [selectionMissing, isGuest, selectionStartedAsGuest]);
 
   // ─── Single-item redirect ──────────────────────────────────────────────────
   // When exactly one URI is passed, let classification run and redirect to
@@ -646,84 +670,85 @@ export default function BulkReviewScreen() {
   // Classify one URI: resize → background removal → POST /api/classify-garment → settle card.
   // Core guard logic lives in lib/bulkClassifyCore.runClassifyUri (tested directly in Node).
   const classifyUri = useCallback(async (uri: string) => {
-    if (aiPreference !== 'allowed') return;
-    const stagedPhoto = selection?.photos.find(photo => photo.uri === uri);
-    const previous = itemsRef.current.find(item => item.uri === uri);
-    await runClassifyUri(uri, mountedRef, {
-      previousCutout: {
-        uri: previous?.cutoutUri,
-        succeeded: Boolean(previous?.backgroundRemovalSucceeded || previous?.cutoutUri),
-      },
-      readPngBase64: uri => readCachedCutout(uri,
-        current => FileSystem.readAsStringAsync(current, { encoding: FileSystem.EncodingType.Base64 }))
-        .then(value => value ?? ''),
-      resize: (u) => imageResizeQueue(() => {
-        if (!mountedRef.current) return Promise.resolve(null);
-        return prepareClassificationImage(u);
-      }),
-      diagnostics: {
-        enabled: UPLOAD_DIAGNOSTICS_ENABLED,
-        usedSerialResizeQueue: true,
-        stagedPhoto,
-        inspectUri: async currentUri => {
-          const info = await FileSystem.getInfoAsync(currentUri);
-          return info.exists ? { exists: true, size: info.size } : { exists: false };
+    await runBulkAiProcessing(isGuest || selectionStartedAsGuest, aiPreference, async () => {
+      const stagedPhoto = selection?.photos.find(photo => photo.uri === uri);
+      const previous = itemsRef.current.find(item => item.uri === uri);
+      await runClassifyUri(uri, mountedRef, {
+        previousCutout: {
+          uri: previous?.cutoutUri,
+          succeeded: Boolean(previous?.backgroundRemovalSucceeded || previous?.cutoutUri),
         },
-      },
-      onDiagnostic: diagnostic => {
-        if (__DEV__ && UPLOAD_DIAGNOSTICS_ENABLED) console.log('[bulk:prepare]', diagnostic);
-      },
-      removeBg: (b64) => removeBackground(b64).then(r => {
-        if (r.status === 'not-authenticated') setBgNotAuthenticated(true);
-        if (r.status === 'limit-reached') setBgLimitReached(true);
-        if (r.status === 'success' && r.remaining !== undefined) setBgRemaining(r.remaining);
-        if (r.status === 'failed' || r.status === 'unavailable') reportUploadError({ stage: 'background-removal', code: 'FAILED' });
-        return r.status === 'success' ? (r.base64 ?? null) : null;
-      }),
-      writePngToCache: async (pngBase64) => {
-        if (!FileSystem.cacheDirectory) throw new Error('cache_directory_unavailable');
-        const uri = `${FileSystem.cacheDirectory}amodka-bulk-cutout-${Crypto.randomUUID()}.png`;
-        await FileSystem.writeAsStringAsync(uri, pngBase64, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        return uri;
-      },
-      classify: async (imageBase64, imageMimeType) => {
-        if (retryingAllRef.current) {
-          let delay = classificationWaitMs(classificationStartsRef.current, Date.now());
-          while (delay > 0) {
-            await new Promise(resolve => setTimeout(resolve, delay));
-            if (!mountedRef.current) throw new Error('cancelled');
-            delay = classificationWaitMs(classificationStartsRef.current, Date.now());
+        readPngBase64: uri => readCachedCutout(uri,
+          current => FileSystem.readAsStringAsync(current, { encoding: FileSystem.EncodingType.Base64 }))
+          .then(value => value ?? ''),
+        resize: (u) => imageResizeQueue(() => {
+          if (!mountedRef.current) return Promise.resolve(null);
+          return prepareClassificationImage(u);
+        }),
+        diagnostics: {
+          enabled: UPLOAD_DIAGNOSTICS_ENABLED,
+          usedSerialResizeQueue: true,
+          stagedPhoto,
+          inspectUri: async currentUri => {
+            const info = await FileSystem.getInfoAsync(currentUri);
+            return info.exists ? { exists: true, size: info.size } : { exists: false };
+          },
+        },
+        onDiagnostic: diagnostic => {
+          if (__DEV__ && UPLOAD_DIAGNOSTICS_ENABLED) console.log('[bulk:prepare]', diagnostic);
+        },
+        removeBg: (b64) => removeBackground(b64).then(r => {
+          if (r.status === 'not-authenticated') setBgNotAuthenticated(true);
+          if (r.status === 'limit-reached') setBgLimitReached(true);
+          if (r.status === 'success' && r.remaining !== undefined) setBgRemaining(r.remaining);
+          if (r.status === 'failed' || r.status === 'unavailable') reportUploadError({ stage: 'background-removal', code: 'FAILED' });
+          return r.status === 'success' ? (r.base64 ?? null) : null;
+        }),
+        writePngToCache: async (pngBase64) => {
+          if (!FileSystem.cacheDirectory) throw new Error('cache_directory_unavailable');
+          const uri = `${FileSystem.cacheDirectory}amodka-bulk-cutout-${Crypto.randomUUID()}.png`;
+          await FileSystem.writeAsStringAsync(uri, pngBase64, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          return uri;
+        },
+        classify: async (imageBase64, imageMimeType) => {
+          if (retryingAllRef.current) {
+            let delay = classificationWaitMs(classificationStartsRef.current, Date.now());
+            while (delay > 0) {
+              await new Promise(resolve => setTimeout(resolve, delay));
+              if (!mountedRef.current) throw new Error('cancelled');
+              delay = classificationWaitMs(classificationStartsRef.current, Date.now());
+            }
           }
-        }
-        if (!mountedRef.current || itemsRef.current.find(item => item.uri === uri)?.status === 'removed') {
-          throw new Error('cancelled');
-        }
-        const now = Date.now();
-        classificationStartsRef.current = [...classificationStartsRef.current.filter(time => time > now - 60_000), now];
-        const image = classificationImagePayload(imageBase64);
-        if (image.imageMimeType !== imageMimeType) throw new Error('image_mime_mismatch');
-        const res = await authenticatedApiRequest('POST', '/api/classify-garment', image);
-        return res.json();
-      },
-      setItems: updater => setItems(prev => updater(prev).map(item => {
-        const previous = prev.find(current => current.uri === item.uri);
-        return previous?.status === 'removed' ? previous : item;
-      }) as BulkItem[]),
-      onHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+          if (!mountedRef.current || itemsRef.current.find(item => item.uri === uri)?.status === 'removed') {
+            throw new Error('cancelled');
+          }
+          const now = Date.now();
+          classificationStartsRef.current = [...classificationStartsRef.current.filter(time => time > now - 60_000), now];
+          const image = classificationImagePayload(imageBase64);
+          if (image.imageMimeType !== imageMimeType) throw new Error('image_mime_mismatch');
+          const res = await authenticatedApiRequest('POST', '/api/classify-garment', image);
+          return res.json();
+        },
+        setItems: updater => setItems(prev => updater(prev).map(item => {
+          const previous = prev.find(current => current.uri === item.uri);
+          return previous?.status === 'removed' ? previous : item;
+        }) as BulkItem[]),
+        onHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+      });
     });
-  }, [aiPreference, imageResizeQueue, selection]);
+  }, [aiPreference, imageResizeQueue, isGuest, selection, selectionStartedAsGuest]);
 
   // Kick off staggered classify tasks on mount
   useEffect(() => {
-    if (aiPreference !== 'allowed') return;
+    if (isGuest || selectionStartedAsGuest || aiPreference !== 'allowed') return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     uris.forEach((uri, i) => {
       timers.push(setTimeout(() => classifyUri(uri), i * STAGGER_MS));
     });
     return () => timers.forEach(clearTimeout);
-  }, [aiPreference, classifyUri, uris]);
+  }, [aiPreference, classifyUri, isGuest, selectionStartedAsGuest, uris]);
 
   const handleRemove = useCallback((uri: string) => {
     Haptics.selectionAsync();
@@ -782,6 +807,7 @@ export default function BulkReviewScreen() {
     runRedirectSingle(item, false, mountedRef, manualRedirectedRef, {
       bulkSelectionId: selectionId,
       manualPhotoIndex: photoIndex,
+      manualOnly: selectionStartedAsGuest,
       replace: router.push,
     });
   };
@@ -967,6 +993,8 @@ export default function BulkReviewScreen() {
 
   const saveBtnLabel = saving
     ? 'Saving...'
+    : selectionStartedAsGuest
+      ? 'Add details to save each photo'
     : hasClassifying
       ? 'Analysing items...'
       : localOnlyCount > 0
@@ -1021,7 +1049,9 @@ export default function BulkReviewScreen() {
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Batch Review</Text>
           <Text style={styles.headerSub}>
-            {classifiedCount} of {totalCount} analysed{refusedCount > 0 ? ` · ${refusedCount} needs attention` : ''}{transientCount > 0 ? ` · ${transientCount} need another try` : ''}{failedCount > transientCount ? ` · ${failedCount - transientCount} failed` : ''}
+            {selectionStartedAsGuest
+              ? `${totalCount} photo${totalCount === 1 ? '' : 's'} · Add details ${isGuest ? 'to save on this device' : 'to save'}`
+              : `${classifiedCount} of ${totalCount} analysed${refusedCount > 0 ? ` · ${refusedCount} needs attention` : ''}${transientCount > 0 ? ` · ${transientCount} need another try` : ''}${failedCount > transientCount ? ` · ${failedCount - transientCount} failed` : ''}`}
           </Text>
           {(transientCount >= 2 || retryingAll) && (
             <Pressable accessibilityRole="button"
@@ -1057,7 +1087,10 @@ export default function BulkReviewScreen() {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          (selection?.failedCount ?? 0) > 0 || aiPreference !== 'allowed' || (bgNotAuthenticated && !bgUpsellDismissed) || (bgLimitReached && !bgLimitDismissed) || (bgRemaining !== undefined && !isPremium) ? (
+          (selection?.failedCount ?? 0) > 0 || guestCapOmittedCount > 0 ||
+          isGuest || (!selectionStartedAsGuest && aiPreference !== 'allowed') ||
+          (bgNotAuthenticated && !bgUpsellDismissed) || (bgLimitReached && !bgLimitDismissed) ||
+          (bgRemaining !== undefined && !isPremium) ? (
             <View style={styles.bgUpsellWrap}>
               {(selection?.failedCount ?? 0) > 0 && (
                 <View style={styles.stagingNotice}>
@@ -1066,7 +1099,28 @@ export default function BulkReviewScreen() {
                   </Text>
                 </View>
               )}
-              {aiPreference !== 'allowed' && (
+              {guestCapOmittedCount > 0 && (
+                <View style={styles.stagingNotice}>
+                  <Text accessibilityLiveRegion="polite" style={styles.stagingNoticeText}>
+                    Only the first {guestCapAcceptedCount} photo{guestCapAcceptedCount === 1 ? '' : 's'} fit your remaining guest wardrobe space. {guestCapOmittedCount} selected photo{guestCapOmittedCount === 1 ? ' was' : 's were'} left out.
+                  </Text>
+                </View>
+              )}
+              {isGuest && (
+                <View style={styles.aiConsentBanner}>
+                  <Text style={styles.aiConsentCopy}>
+                    Sign in to let Amodka identify and prepare these photos for you.
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => router.push('/sign-in')}
+                    style={({ pressed }) => [styles.aiConsentAction, pressed && { opacity: 0.75 }]}
+                  >
+                    <Text style={styles.aiConsentActionText}>Sign in</Text>
+                  </Pressable>
+                </View>
+              )}
+              {!isGuest && !selectionStartedAsGuest && aiPreference !== 'allowed' && (
                 <View style={styles.aiConsentBanner}>
                   <Text style={styles.aiConsentTitle}>AI processing has not started</Text>
                   <Text style={styles.aiConsentCopy}>
@@ -1086,7 +1140,7 @@ export default function BulkReviewScreen() {
                   </Pressable>
                 </View>
               )}
-              {bgNotAuthenticated && !bgUpsellDismissed && (
+              {bgNotAuthenticated && !bgUpsellDismissed && !selectionStartedAsGuest && (
                 <Animated.View entering={FadeInDown.duration(260)}>
                   <Pressable
                     style={({ pressed }) => [styles.bgUpsellBanner, pressed && { opacity: 0.8 }]}
@@ -1105,7 +1159,7 @@ export default function BulkReviewScreen() {
                   </Pressable>
                 </Animated.View>
               )}
-              {bgRemaining !== undefined && !isPremium && !bgLimitReached && (
+              {bgRemaining !== undefined && !selectionStartedAsGuest && !isPremium && !bgLimitReached && (
                 <Animated.View entering={FadeInDown.duration(260)}>
                   <View style={styles.bgRemainingPill}>
                     <Ionicons name="images-outline" size={14} color={Colors.sage} />
@@ -1123,7 +1177,7 @@ export default function BulkReviewScreen() {
                   </View>
                 </Animated.View>
               )}
-              {bgLimitReached && !bgLimitDismissed && (
+              {bgLimitReached && !selectionStartedAsGuest && !bgLimitDismissed && (
                 <Animated.View entering={FadeInDown.duration(260)} style={styles.bgLimitPill}>
                   <Ionicons name="hourglass-outline" size={14} color={Colors.textSecondary} />
                   <Text style={[styles.bgLimitText, { flex: 1 }]}>

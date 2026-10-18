@@ -4,10 +4,10 @@ description: How AuraCloset handles unauthenticated guest users — caps, routin
 ---
 
 ## Rule
-- `UserProfile.isGuest?: boolean` — set to `true` when user chooses "Get Started" on the welcome screen
-- `GUEST_ITEM_CAP = 5` (contexts/AppContext.tsx), `FREE_ITEM_CAP = 10` (authenticated free)
-- `canAddItem` and `activeWardrobeItems` check guest cap first; premium overrides both
-- The `SIGNED_IN` event handler in AppContext always clears `isGuest: false` on any successful auth (email, Google, Apple, magic-link)
+- Guest manual wardrobe additions are local-only: photos are copied into app documents and wardrobe rows remain in the existing local store.
+- Guest bulk upload follows the same manual local-save path; it does not classify photos or invoke PhotoRoom/Gemini.
+- Signing in does not imply that guest wardrobe rows or photos are transferred to the account. Do not promise or implement transfer as part of a guest upload change.
+- The `SIGNED_IN` event clears `isGuest: false`; guest profile/onboarding settings may be migrated, but that is separate from wardrobe-row/photo transfer.
 
 ## Routing (app/index.tsx)
 1. Session exists → tabs (if onboarding done) or /onboarding
@@ -17,6 +17,6 @@ description: How AuraCloset handles unauthenticated guest users — caps, routin
 ## Onboarding entry
 `/onboarding?guest=true` — `handleNext` checks `params.guest === 'true'` and spreads `{ isGuest: true }` into the final `updateProfile` call.
 
-**Why:** Lets users explore the full app before committing to sign-up. On auth, all local wardrobe data is preserved (profile merges, isGuest cleared).
+**Why:** The approved guest bulk scope requires local-only parity with single manual add and no new continuity or migration behavior.
 
-**How to apply:** Whenever adding a new cap or feature gate, check `profile.isGuest` before `isPremium` — guests are a subset of free users.
+**How to apply:** Keep guest photo selection, manual save, and cleanup on-device. Treat account transfer as a separate explicit product and security decision.

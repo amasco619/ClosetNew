@@ -1,5 +1,21 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
+## Guest bulk upload parity
+
+Guest bulk photo selection now uses the existing local-only manual Add Item
+path: the first photos fitting the remaining guest cap are staged in selection
+order, shown from their originals with “Add details,” and opened through the
+existing opaque selection-ID handoff. No classifier, PhotoRoom, AI preference
+lookup, or AI-consent prompt runs for a guest-origin selection. The existing
+guest save path stores each completed item on-device. A calm sign-in banner
+links to the existing sign-in route; it does not promise to migrate a guest
+wardrobe. Signed-in bulk behavior is unchanged.
+
+Focused guest bulk tests, related bulk regressions, TypeScript, lint, full suite,
+and the frozen recommendation golden set were run for this change; exact
+results and limitations are in `docs/reports/guest-bulk-upload.md`. No device
+test, schema change, new dependency, or deployment was performed.
+
 ## Bounded personalization consistency update
 
 The five requested consistency fixes are implemented: account-neutral profile

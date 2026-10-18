@@ -15,8 +15,8 @@ const bulkPickerBranch = addItemSource.slice(
   addItemSource.indexOf('if (!result.canceled && result.assets.length > 1)'),
   addItemSource.indexOf('asset = selectedSingleAsset(result)'),
 );
-assert.match(bulkPickerBranch, /stagePickedPhotos\(result\.assets/);
-assert.match(bulkPickerBranch, /router\.push\(\{[\s\S]*pathname: '\/bulk-review',\s*params: \{ selectionId \}/);
+assert.match(bulkPickerBranch, /stagePickedPhotos\(assetsToStage/);
+assert.match(bulkPickerBranch, /router\.push\(\{[\s\S]*pathname: '\/bulk-review',\s*params: \{[\s\S]*selectionId/);
 assert.doesNotMatch(bulkPickerBranch, /params:\s*\{\s*uris\s*:/,
   'bulk photo URIs must not be serialized into Expo Router params');
 assert.match(bulkPickerBranch, /if \(staged\.photos\.length === 0\)[\s\S]*setBulkStageNotice/,

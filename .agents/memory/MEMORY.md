@@ -1,7 +1,7 @@
 - [AuraCloset UI/UX Design System](auracloset-design-system.md) — animation <300ms, scale(0.97) press, subtle shadows, HIG type scale; all rules codified in replit.md
 - [Expo EXPO_PUBLIC_ env vars](expo-public-env-vars.md) — never create a .env file with placeholder values; it overrides Replit secrets and breaks Supabase init
 - [Supabase getClaims null safety](supabase-getclaims-null.md) — getClaims() returns data:null when no session; always use data?.claims not destructuring
-- [Guest mode pattern](guest-mode.md) — isGuest on UserProfile; GUEST_ITEM_CAP=8, FREE_ITEM_CAP=15; quota tiers: Guest 1 / Free 2 / Premium 4 outfits/scenario/day; SIGNED_IN clears isGuest.
+- [Guest mode pattern](guest-mode.md) — guest wardrobe additions stay on-device; do not imply signing in transfers guest wardrobe photos or rows.
 - [Gemini extended clothing fields](gemini-clothing-fields.md) — Gemini prompt returns fit/neckline/sleeveLength/rise/warmthBand; applied before subtype inference in add-item.tsx.
 - [Supabase direct client pattern](supabase-direct-client.md) — use publishable keys for user-facing data/Auth and reserve the secret key for admin-only operations.
 - [Image upload and transient bulk staging](image-upload-flow.md) — align Storage/row IDs; stage picker files before routing and retain sources until confirmed save.

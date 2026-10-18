@@ -3041,3 +3041,34 @@ only explicit upload Decline writes `declined`; Profile “Not now” and passiv
 dismissals preserve the saved state. The release-only diagnostic formatter was
 removed from the shared helper and the Android release bundle contains none of
 the picker/staging diagnostic markers.
+
+## 45. GUEST BULK PHOTO UPLOAD — LOCAL MANUAL PARITY
+
+Guest multi-photo selection is limited to `max(0, itemCap - wardrobeTotalCount)`
+photos, preserving picker order. When no guest capacity remains, the picker
+does not stage photos and offers “Not now” or the existing sign-in route. Any
+over-cap selection is reported in Bulk Review; photos that fail staging retain
+the existing staging-failure notice.
+
+Guest-origin cards begin in a manual-only state, display the staged original,
+and open the existing Add Item manual form using `bulkSelectionId` plus
+`bulkPhotoIndex`; file URIs are not serialized into route parameters. The form
+uses the existing guest local-photo and wardrobe save path. Bulk Save All stays
+disabled for these cards until each is completed through the existing
+single-item validation/save flow. A sign-in banner uses the approved wording:
+“Sign in to let Amodka identify and prepare these photos for you.” Sign-in
+does not add a new guest-wardrobe transfer promise or continuity mechanism.
+
+For guest-origin selections, AI preference lookup and consent presentation are
+skipped, staggered classification is not started, and the exact classification
+pipeline callback (which contains background removal and `/api/classify-garment`)
+is gated by the guest-selection check. This remains true if the user signs in
+while the review is open. Authenticated selections keep their previous consent,
+classification, PhotoRoom, and Save All behavior.
+
+Audit, evidence, test results, and device limitations:
+`docs/reports/guest-bulk-upload.md`. Focused contract coverage:
+`__tests__/guestBulkUpload.test.ts`; the existing image-picker test was updated
+for the capped staging input. No Recommendation Engine v3.7, schema/RLS,
+billing, auth, classifier, consent enforcement, shared staging-helper,
+Profile-layout, quota, PhotoRoom, or authenticated-flow behavior was changed.

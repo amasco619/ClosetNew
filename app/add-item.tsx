@@ -27,6 +27,7 @@ import { supabase } from '../lib/supabase';
 import { rs } from '../lib/responsive';
 import { selectedSingleAsset } from '../lib/imagePickerSelection';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
+import { limitGuestBulkSelection } from '@/lib/guestBulkUpload';
 import { useDialog, useToast } from '@/contexts/LuxuryFeedbackContext';
 import { PhotoRefusalDialog } from '@/components/PhotoRefusalNotice';
 import { isContentGuardrailError, classificationFailurePresentation } from '@/lib/classificationRefusal';
@@ -168,7 +169,7 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
 export default function AddItemScreen() {
   const insets = useSafeAreaInsets();
   const sheetScrollTopRef = useRef(0);
-  const { addWardrobeItem, replaceWardrobeItem, removeWardrobeItem, isPremium, isGuest, wardrobeItems, authenticatedUserId } = useApp();
+  const { addWardrobeItem, replaceWardrobeItem, removeWardrobeItem, isPremium, isGuest, wardrobeItems, wardrobeTotalCount, itemCap, authenticatedUserId } = useApp();
   const dialog = useDialog();
   const toast = useToast();
   const {
@@ -177,6 +178,7 @@ export default function AddItemScreen() {
     bulkPhotoIndex,
     manualEntry,
     returnToBulk,
+    manualOnly,
     preClassified,
     replaceItemId,
     pcCategory,
@@ -203,6 +205,7 @@ export default function AddItemScreen() {
     bulkPhotoIndex?: string;
     manualEntry?: string;
     returnToBulk?: string;
+    manualOnly?: string;
     preClassified?: string;
     replaceItemId?: string;
     pcCategory?: string;
@@ -623,12 +626,29 @@ export default function AddItemScreen() {
           selectionLimit: multiplePieces ? 1 : 10,
         });
         if (!result.canceled && result.assets.length > 1) {
+          const guestLimit = isGuest
+            ? limitGuestBulkSelection(result.assets.length, wardrobeTotalCount, itemCap)
+            : { acceptedCount: result.assets.length, omittedCount: 0 };
+          if (isGuest && guestLimit.acceptedCount === 0) {
+            dialog.alert(
+              'Guest wardrobe is full',
+              `Your guest wardrobe can hold up to ${itemCap} items. Sign in to add more.`,
+              [
+                { text: 'Not now', style: 'cancel' },
+                { text: 'Sign in', onPress: () => router.push('/sign-in') },
+              ],
+            );
+            return;
+          }
           const stagingDirectory = bulkStagingDirectoryUri(FileSystem.cacheDirectory);
           if (!stagingDirectory) {
             setBulkStageNotice('Photos could not be prepared on this device. Please try again.');
             return;
           }
-          const staged = await stagePickedPhotos(result.assets, {
+          const assetsToStage = isGuest
+            ? result.assets.slice(0, guestLimit.acceptedCount)
+            : result.assets;
+          const staged = await stagePickedPhotos(assetsToStage, {
             ensureDirectory: async () => {
               const info = await FileSystem.getInfoAsync(stagingDirectory);
               if (info.exists) {
@@ -658,7 +678,9 @@ export default function AddItemScreen() {
             diagnosticsEnabled: UPLOAD_DIAGNOSTICS_ENABLED,
           });
           if (staged.photos.length === 0) {
-            setBulkStageNotice('Could not prepare the selected photos. Please choose them again.');
+            setBulkStageNotice(guestLimit.omittedCount > 0
+              ? `Only the first ${guestLimit.acceptedCount} photos fit your remaining guest wardrobe space. Those photos could not be prepared; please choose them again.`
+              : 'Could not prepare the selected photos. Please choose them again.');
             return;
           }
           let selectionId: string | null = null;
@@ -675,12 +697,22 @@ export default function AddItemScreen() {
                 protectedUris: new Set(wardrobeItems.map(item => item.photoUri)),
               },
             );
-            setBulkStageNotice('Photos could not be prepared. Please try again.');
+            setBulkStageNotice(guestLimit.omittedCount > 0
+              ? `Only the first ${guestLimit.acceptedCount} photos fit your remaining guest wardrobe space. Photos could not be prepared; please try again.`
+              : 'Photos could not be prepared. Please try again.');
             return;
           }
           router.push({
             pathname: '/bulk-review',
-            params: { selectionId },
+            params: {
+              selectionId,
+              ...(guestLimit.omittedCount > 0
+                ? {
+                    guestCapAcceptedCount: String(guestLimit.acceptedCount),
+                    guestCapOmittedCount: String(guestLimit.omittedCount),
+                  }
+                : {}),
+            },
           });
           return;
         }
@@ -1336,7 +1368,7 @@ export default function AddItemScreen() {
               </View>
             )}
 
-            {photoUri && aiPreference !== 'allowed' && !classifying && (
+            {photoUri && aiPreference !== 'allowed' && !classifying && manualOnly !== 'true' && (
               <View style={styles.aiPausedCard}>
                 <Text style={styles.aiPausedTitle}>AI processing is paused</Text>
                 <Text style={styles.aiPausedCopy}>

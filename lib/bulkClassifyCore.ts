@@ -185,6 +185,7 @@ export interface RedirectSingleDeps {
   bulkSelectionId: string;
   /** A borrowed batch photo opened for manual entry; keep the review underneath. */
   manualPhotoIndex?: number;
+  manualOnly?: boolean;
 }
 
 // ─── Core functions ───────────────────────────────────────────────────────────
@@ -663,6 +664,7 @@ export function runRedirectSingle(
         bulkPhotoIndex: String(deps.manualPhotoIndex),
         manualEntry: 'true',
         returnToBulk: 'true',
+        ...(deps.manualOnly ? { manualOnly: 'true' } : {}),
       },
     });
     return;
