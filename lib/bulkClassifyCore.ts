@@ -136,26 +136,6 @@ export function createPhotoPrepareDiagnostic(
   };
 }
 
-export function formatPhotoPrepareDiagnostic(diagnostic: PhotoPrepareDiagnostic): string {
-  // Metro substitutes false in release; the minifier removes all formatter text.
-  if (typeof __DEV__ !== 'undefined' && !__DEV__) return '';
-  const dimensions = diagnostic.width !== undefined && diagnostic.height !== undefined
-    ? `${diagnostic.width}x${diagnostic.height}`
-    : 'unknown';
-  const lines = [
-    `${diagnostic.stage}: ${diagnostic.errorName}: ${diagnostic.message}`,
-    `uri=${diagnostic.uriScheme}; ext=${diagnostic.fileExtension}; size=${dimensions}; queue=${diagnostic.usedSerialResizeQueue}; elapsed=${diagnostic.elapsedMs}ms`,
-  ];
-  if (diagnostic.uriHashNow) {
-    lines.push(
-      `uriHash=${diagnostic.uriHashNow}; pickHash=${diagnostic.stagedUriHashAtPick ?? 'unknown'}; sameAsPick=${diagnostic.uriMatchesPickTime ?? 'unknown'}; currentExists=${diagnostic.currentExists ?? 'unknown'}; currentSize=${diagnostic.currentSize ?? 'unknown'}; sincePick=${diagnostic.msSincePick ?? 'unknown'}ms`,
-      `pickerHash=${diagnostic.pickerUriHash ?? 'unknown'}; nameLength=${diagnostic.fileNameLength ?? 'unknown'}; mime=${diagnostic.mimeType ?? 'unknown'}; sourceAtPick=${diagnostic.sourceExistsAtPick ?? 'unknown'}/${diagnostic.sourceSizeAtPick ?? 'unknown'}; stagedAtPick=${diagnostic.stagedExistsAtPick ?? 'unknown'}/${diagnostic.stagedSizeAtPick ?? 'unknown'}`,
-    );
-  }
-  lines.push(...diagnostic.stack);
-  return lines.join('\n');
-}
-
 /** Serialize memory-heavy native transforms without serializing network work. */
 export function createSerialQueue() {
   let tail: Promise<void> = Promise.resolve();

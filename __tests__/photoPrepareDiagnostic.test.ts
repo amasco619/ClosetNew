@@ -1,6 +1,5 @@
 import {
   createPhotoPrepareDiagnostic,
-  formatPhotoPrepareDiagnostic,
   runClassifyUri,
   type BulkItemCore,
   type ClassifyDeps,
@@ -18,7 +17,6 @@ const diagnostic = createPhotoPrepareDiagnostic(
     elapsedMs: 14.4,
   },
 );
-const formatted = formatPhotoPrepareDiagnostic(diagnostic);
 
 if (
   diagnostic.uriScheme !== 'file' ||
@@ -27,9 +25,9 @@ if (
   diagnostic.height !== 4032 ||
   diagnostic.elapsedMs !== 14 ||
   !diagnostic.usedSerialResizeQueue ||
-  !formatted.includes('<uri>') ||
-  !formatted.includes('Bearer <redacted>') ||
-  formatted.includes('/private/var/mobile/Photos/garment.HEIC')
+  !diagnostic.message.includes('<uri>') ||
+  !diagnostic.message.includes('Bearer <redacted>') ||
+  diagnostic.message.includes('/private/var/mobile/Photos/garment.HEIC')
 ) {
   throw new Error('Photo-preparation diagnostics must keep metadata while redacting full URIs and credentials.');
 }
@@ -61,7 +59,7 @@ void (async () => {
     captured?.fileExtension !== 'png' ||
     captured?.usedSerialResizeQueue !== true ||
     !logged ||
-    formatPhotoPrepareDiagnostic(captured).includes('/private/var/mobile/Photos/bulk-item.png')
+    captured.message.includes('/private/var/mobile/Photos/bulk-item.png')
   ) {
     throw new Error('Bulk resize failure must retain a sanitized per-item diagnostic in memory.');
   }
@@ -104,7 +102,6 @@ void (async () => {
     },
   });
   const stagedDiagnostic = stagedItems[0]?.diagnostic;
-  const stagedFormatted = stagedDiagnostic ? formatPhotoPrepareDiagnostic(stagedDiagnostic) : '';
   if (
     !currentInfoChecked ||
     stagedDiagnostic?.pickerUriHash !== 'picker123' ||
@@ -113,8 +110,7 @@ void (async () => {
     stagedDiagnostic?.uriMatchesPickTime !== true ||
     stagedDiagnostic?.msSincePick === undefined ||
     stagedDiagnostic?.fileNameLength !== 9 ||
-    !stagedFormatted.includes('currentExists=false') ||
-    stagedFormatted.includes('/private/cache/amodka/bulk-staging/abc.jpg')
+    stagedDiagnostic?.message.includes('/private/cache/amodka/bulk-staging/abc.jpg')
   ) {
     throw new Error('Bulk staging diagnostics must include pick/current file evidence without exposing the local path.');
   }

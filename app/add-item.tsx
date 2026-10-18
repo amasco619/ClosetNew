@@ -40,7 +40,6 @@ import {
 } from '@/lib/aiProcessingPreference';
 import {
   createPhotoPrepareDiagnostic,
-  formatPhotoPrepareDiagnostic,
   type PhotoPrepareDiagnostic,
 } from '@/lib/bulkClassifyCore';
 import {
@@ -1310,7 +1309,10 @@ export default function AddItemScreen() {
 
             {__DEV__ && UPLOAD_DIAGNOSTICS_ENABLED && photoPrepareDiagnostic && (
               <Text style={styles.prepareDiagnostic}>
-                {formatPhotoPrepareDiagnostic(photoPrepareDiagnostic)}
+                {`${photoPrepareDiagnostic.stage}: ${photoPrepareDiagnostic.errorName}: ${photoPrepareDiagnostic.message}\n` +
+                  `uri=${photoPrepareDiagnostic.uriScheme}; ext=${photoPrepareDiagnostic.fileExtension}; ` +
+                  `size=${photoPrepareDiagnostic.width ?? 'unknown'}x${photoPrepareDiagnostic.height ?? 'unknown'}; ` +
+                  `queue=${photoPrepareDiagnostic.usedSerialResizeQueue}; elapsed=${photoPrepareDiagnostic.elapsedMs}ms`}
               </Text>
             )}
 

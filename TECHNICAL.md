@@ -1135,6 +1135,11 @@ Two-screen flow for digitising an entire wardrobe section in one session: up to 
 **Temporary staging lifecycle:**
 - Removing a card deletes its staged source if no live reference protects it. Cancel/back-out removes the selection’s unreferenced staged files. The one-photo redirect passes the same opaque selection ID to Add Item, where a confirmed wardrobe save removes that staged source; failed or ambiguous saves retain it for retry.
 - Files referenced by current wardrobe items or live `local-only`/pending-upload review entries are retained. App startup best-effort deletes only unreferenced files older than 24 hours. Staging is transient; it is not persisted to AsyncStorage, the profile, or the database.
+- Temporary upload diagnostic text and logs are disabled by default. Set
+  `EXPO_PUBLIC_UPLOAD_DIAGNOSTICS=1` for a development build to show sanitized
+  resize details on the card and emit allowlisted stage/code logs; the runtime
+  flag is also gated by `__DEV__`. Diagnostic formatting lives in the screen
+  render paths and is removed from release output.
 
 **Navigation registration in `app/_layout.tsx`:**
 ```

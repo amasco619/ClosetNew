@@ -41,7 +41,6 @@ import {
   undoSavedItems,
   runHandleRemove,
   createSerialQueue,
-  formatPhotoPrepareDiagnostic,
   type ClassifyResult,
   type ClassifyFailureStage,
   type PhotoPrepareDiagnostic,
@@ -290,7 +289,10 @@ function BulkCard({
           <Text style={styles.errorLabel}>Tap to try again</Text>
           {__DEV__ && UPLOAD_DIAGNOSTICS_ENABLED && item.diagnostic && (
             <Text style={styles.prepareDiagnostic} numberOfLines={9}>
-              {formatPhotoPrepareDiagnostic(item.diagnostic)}
+              {`${item.diagnostic.stage}: ${item.diagnostic.errorName}: ${item.diagnostic.message}\n` +
+                `uri=${item.diagnostic.uriScheme}; ext=${item.diagnostic.fileExtension}; ` +
+                `size=${item.diagnostic.width ?? 'unknown'}x${item.diagnostic.height ?? 'unknown'}; ` +
+                `queue=${item.diagnostic.usedSerialResizeQueue}; elapsed=${item.diagnostic.elapsedMs}ms`}
             </Text>
           )}
         </Pressable>
