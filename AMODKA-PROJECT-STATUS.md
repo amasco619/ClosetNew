@@ -500,8 +500,10 @@ provider image preparation, frozen engine, Phase A and P1.3 were not changed.
 
 Checks: full suite 101 passed; Engine v3.7 golden set 35 passed; typecheck and
 lint pass. A production Android JS export succeeded; the stamp and diagnostic
-render calls are removed in release mode (formatter utility strings remain,
-without UI callers). Physical device/model-accuracy validation is not claimed.
+render calls were removed in release mode. At that stage, formatter utility
+strings still remained without UI callers; the later bounded cleanup removed
+the unused formatter and verified its markers absent from a fresh release
+bundle. Physical device/model-accuracy validation is not claimed.
 See `docs/reports/classifier-pairs-refusal.md` for the pre-change evidence, caveats,
 release verification and four-step device script.
 
@@ -553,3 +555,24 @@ unchanged. Native cache-eviction/offline interaction still needs device testing.
 Audit, diagnostic and refusal reports are now under `docs/reports/`.
 See `docs/reports/upload-pipeline-cleanup.md` for the pixel table, exact commands,
 release-string counts, changed files and limitations. Not published or deployed.
+
+## 26. Bounded cleanup pass — current verification
+
+The unused upload-diagnostic formatter was removed from the shared helper; the
+diagnostic text is now inline in the development-only screen branches. An
+Android release export completed with zero `pickerHash`, `stagedAtPick`,
+`sincePick`, and formatter-name occurrences. The current bundle has three
+internal `ApiRequestError` references and no `withDeadline`; neither appears in
+the reviewed rendered error-string paths.
+
+AI consent dismissal is context-aware. Upload “Decline” persists `declined`;
+backdrop, hardware back, and swipe do not write a choice and route the current
+photo to manual entry without AI processing. Profile “Not now” and passive
+dismissals close without changing the preference or switch. Bulk Review exposes
+manual-entry actions for remaining photos. The server-side consent gate is
+unchanged.
+
+Verified in the final workspace: `npm test` 110 passed, `npm run typecheck`,
+`npm run lint`, and the Recommendation Engine v3.7 golden set 35/35 passed.
+Physical-device and screen-reader interaction were not verified. Full phase
+evidence and spelling findings: `docs/reports/amodka-cleanup-pass.md`.

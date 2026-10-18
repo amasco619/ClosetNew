@@ -40,7 +40,7 @@ Free remaining/limit banners now explicitly describe the 20 lifetime background 
 
 - Default OFF. Preparation logs, staging cleanup logs, card diagnostics and the batch build stamp require both `__DEV__` and `EXPO_PUBLIC_UPLOAD_DIAGNOSTICS=1`. Restart Metro after changing that flag.
 - Temporary diagnostic logs use `console.log`, not warnings.
-- The existing formatter is retained for opt-in development use but returns immediately in release; production minification eliminates its formatting body and strings.
+- The unused shared formatter was removed. Diagnostic formatting now exists only inline in the development-only, flag-gated screen branches. A fresh Android release export confirmed zero `formatPhotoPrepareDiagnostic`, `pickerHash`, `stagedAtPick`, and `sincePick` occurrences; see `docs/reports/amodka-cleanup-pass.md`.
 - `reportUploadError({stage,code})` accepts only allowlisted stage/code values. It cannot emit supplied paths, user data, raw errors, names or stacks. It is an opt-in dev log and a release no-op. Calls cover preparation, background removal, cutout writes/cache misses, classification, upload and save catches. PhotoRoom request/retry logic is unchanged.
 
 ## C1–C3 — Runtime and repository

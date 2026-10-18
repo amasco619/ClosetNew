@@ -229,7 +229,7 @@ Two context flags exposed to consumers:
 ### Garment Classification Flow
 
 1. User picks a photo in `app/add-item.tsx` via camera or gallery
-2. **`expo-image-manipulator` resizes the image to ≤1024 px on the longest edge** (JPEG, 0.8 compress) — reduces the classify payload from a typical 4–12 MB to ~100–300 KB. The original full-resolution base64 is kept separately for the storage upload.
+2. **`expo-image-manipulator` resizes the image to ≤1024 px on the longest edge** (JPEG, 0.8 compress) — reduces the classify payload from a typical 4–12 MB to ~100–300 KB. The selected source URI is retained for save-time fallback; full-resolution base64 is not kept in component state.
 3. Resized base64 is sent to `POST /api/classify-garment` on the Express server
 4. Express validates and rate-limits the request, then calls Gemini API with a structured prompt
 5. Gemini returns: category, subType, colorFamily, fabric, pattern, fit, neckline, sleeveLength, rise, warmthBand, dominantRgb, modelConfidence
@@ -2356,15 +2356,21 @@ switch alone does not send or reprocess any photo.
 
 Add Item retains the selected camera or single-library photo for manual entry
 or explicit AI retry; multiple selected library photos go to Bulk Review.
-Bulk Review pauses its timers until the account state is allowed and retains
-the selected URIs on screen if declined. The Profile Privacy switch reads the
-account setting when focused; turning it off affects future processing only,
-without deleting wardrobe data, and turning it on does not trigger processing
-of existing photos. The consent surface uses the counsel-approved wording
-and exposes a Learn more boundary; the View Privacy Policy link remains
-disabled until a real published destination is supplied. Existing saved
-items have no safe in-place reprocessing route, so this change does not
-silently send older stored photos to AI.
+Bulk Review pauses its timers until the account state is allowed. Explicit
+upload-context Decline saves `declined` and routes the current photo to manual
+entry; closing by backdrop, hardware back, or swipe does not save a preference
+and also routes the current photo to manual entry. Remaining bulk photos expose
+individual manual-entry actions. The Profile Privacy switch reads the account
+setting when focused; turning it off affects future processing only, without
+deleting wardrobe data, and turning it on does not trigger processing of
+existing photos. Its consent action is “Not now” and leaves the saved state
+unchanged; backdrop, hardware-back, and swipe dismissal do the same. The
+upload-context action is “Decline”. The consent surface uses the
+counsel-approved wording and exposes a Learn more boundary; the View Privacy
+Policy link remains disabled until a real published destination is supplied.
+No dismissal path sends a photo to AI. Existing saved items have no safe
+in-place reprocessing route, so this change does not silently send older stored
+photos to AI.
 
 No Supabase schema or provider setting was changed. Mounted server consent
 tests use test-only overrides; no live AI or Supabase data calls are required.
@@ -3017,9 +3023,21 @@ two-column Style DNA pairs and places Refinements beneath Redo Style Quiz;
 Activity contains only Wear Log and Personal Intelligence. Free users can open
 the existing upgrade route from the Personal Intelligence Premium lock row,
 with the existing sign-in dialog shown first to guests. Turning AI Processing
-on from `not_asked` or `declined` opens the existing disclosure; Cancel keeps
-the preference `declined` and off, while Allow uses the existing consent write.
-The Profile scroll footer reserves the platform tab-bar base height, bottom
-safe-area inset, and 24 points. Pure tests cover all six AI switch actions and
-empty/partial/complete Style DNA mappings. Small-phone and Android gesture-
-navigation visibility still requires device verification.
+on from `not_asked` or `declined` opens the existing disclosure. “Not now” and
+backdrop/back/swipe dismissal leave the saved preference and switch unchanged;
+only an explicit upload-context “Decline” persists `declined`. Upload dismissal
+routes the current photo to manual entry without an AI call; “Allow” retains
+the existing preference write and processing path. The Profile scroll footer
+reserves the platform tab-bar base height, bottom safe-area inset, and 24
+points. Small-phone and Android gesture-navigation visibility still requires
+device verification.
+
+## 44. BOUNDED CLEANUP PASS
+
+The phased cleanup implementation, evidence, spelling audit, consent-close
+matrix, bundle searches, pixel table, and remaining device limitations are in
+`docs/reports/amodka-cleanup-pass.md`. Upload consent is now context-aware:
+only explicit upload Decline writes `declined`; Profile “Not now” and passive
+dismissals preserve the saved state. The release-only diagnostic formatter was
+removed from the shared helper and the Android release bundle contains none of
+the picker/staging diagnostic markers.
