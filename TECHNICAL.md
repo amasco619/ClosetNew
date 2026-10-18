@@ -3072,3 +3072,6 @@ Audit, evidence, test results, and device limitations:
 for the capped staging input. No Recommendation Engine v3.7, schema/RLS,
 billing, auth, classifier, consent enforcement, shared staging-helper,
 Profile-layout, quota, PhotoRoom, or authenticated-flow behavior was changed.
+The report records user-reported successful physical-device checks on iOS 27
+and Android 16; device models were not provided and the workspace did not
+directly observe the runs.

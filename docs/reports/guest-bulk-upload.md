@@ -93,6 +93,20 @@ Full verification:
 - `git diff --check` — passed. No Track C data, golden-set fixture, frozen
   benchmark file, or recommendation-engine file appears in the change set.
 
+## Physical-device verification (user-reported)
+
+The user reports that all three guest bulk checks passed on both platforms:
+
+- **iOS 27** — device model not provided; over-cap selection kept the earliest
+  eligible photos and showed the omission notice; a manually completed item
+  appeared in the guest wardrobe after leaving and reopening it; a full guest
+  wardrobe offered “Not now” / “Sign in” without staging the selected photos.
+- **Android 16** — device model not provided; the same three checks passed.
+- No platform differences or failures were reported.
+
+These results were supplied by the user; the devices were not connected to or
+directly observed from this workspace.
+
 ## Scope and limitations
 
 No database/schema/RLS change, dependency addition, quota change, classifier
@@ -100,7 +114,7 @@ change, consent-system change, PhotoRoom change, Recommendation Engine v3.7
 change, Profile layout change, or authenticated-flow change was made. The
 shared bulk staging helper was not modified.
 
-No physical iOS or Android device test was performed. The UI, guest save,
-account-transition behavior, local-file survival after app restart, and screen
-reader announcements still require device validation. Automated checks exercise
-the pure rules and source contracts, not a live signed-in or guest app journey.
+The reported device run covers the three guest bulk checks above. Account
+transitions, local-photo survival after a full app restart, and screen-reader
+announcements were not reported as tested. Automated checks exercise the pure
+rules and source contracts, not a live signed-in or guest app journey.
