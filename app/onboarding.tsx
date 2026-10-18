@@ -275,6 +275,14 @@ export default function OnboardingScreen() {
     if (step > 0) setStep(step - 1);
   };
 
+  const handleBackPress = () => {
+    if (step > 0) {
+      handleBack();
+      return;
+    }
+    router.replace('/welcome');
+  };
+
   const renderStep = () => {
     switch (step) {
       case 0:
@@ -660,7 +668,7 @@ export default function OnboardingScreen() {
       <View style={styles.topBar}>
         {(step > 0 || params.guest === 'true') ? (
           <Pressable
-            onPress={step > 0 ? handleBack : () => router.back()}
+            onPress={handleBackPress}
             style={styles.backBtn}
             hitSlop={12}
           >

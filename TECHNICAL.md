@@ -461,7 +461,7 @@ All three entry screens were redesigned with a quiet-luxury visual system:
 **Welcome screen (`app/welcome.tsx`):**
 - Full-screen `assets/images/closet.jpg` background with a 14-second Ken Burns slow-breathe animation (scale 1.0 → 1.07, `withRepeat` via Reanimated)
 - Three-stop `LinearGradient` scrim (`navyScrimTop` → `navyScrimMid` → `navyScrimBottom`)
-- Three `BlurView` (intensity 28) glass buttons: gold-bordered "Get started", ghost-glass "I already have an account", sage ghost "Explore as guest"
+- Two `BlurView` (intensity 28) glass buttons: gold-bordered "Get started" and ghost-glass "I already have an account"; both remain available on return from onboarding
 - Atelier micro-label in champagne gold (letter-spacing 4.5), 34 px bold headline, translucent tagline
 - Supabase session check (`supabase.auth.getSession`) fires on mount; authenticated users are forwarded directly to tabs
 - `expo-image` used (not RN `Image`) for `closet.jpg` to support the `transition` prop
@@ -472,6 +472,7 @@ All three entry screens were redesigned with a quiet-luxury visual system:
 
 **Onboarding screen (`app/onboarding.tsx`):**
 - Step 0 redesigned: atelier `◆` monogram badge, "May we have your name?" copy, elevated surface `TextInput` with gold focus state and subtle shadow; `FadeInDown` stagger (60 / 120 / 180 ms)
+- On step 0, the back button explicitly replaces onboarding with Welcome because "Get started" replaces the Welcome route; later-step back navigation remains within onboarding
 - Progress indicator: replaced dot-segment array with a liquid capsule track (fills proportionally per step) + "STEP N OF 9 · PERSONAL CALIBRATION" micro-label in sage
 - Footer CTA: navy card with champagne gold text and arrow icon; disabled state uses translucent fill
 - All 9 steps (name, body type, face shape, eye colour, skin tone, style goals, lifestyle, extras, finish) content unchanged
