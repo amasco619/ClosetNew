@@ -148,7 +148,7 @@ export default function HomeScreen() {
   const quickTips = [
     { icon: 'bulb-outline' as const, text: 'A navy blazer works for both work and evening events.' },
     { icon: 'color-palette-outline' as const, text: 'Neutral tones create a luxury feel effortlessly.' },
-    { icon: 'diamond-outline' as const, text: 'Minimal gold jewelry elevates any casual outfit.' },
+    { icon: 'diamond-outline' as const, text: 'Minimal gold jewellery elevates any casual outfit.' },
   ];
 
   const [showAccountPrompt, setShowAccountPrompt] = useState(false);

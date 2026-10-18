@@ -1549,10 +1549,10 @@ export default function AddItemScreen() {
 
             {/* ── Color * ─────────────────────────────────────────────────── */}
             <Text style={styles.sectionTitle}>
-              Color <Text style={styles.requiredAsterisk}>*</Text>
+              Colour <Text style={styles.requiredAsterisk}>*</Text>
             </Text>
             {!colorFamily && !classifying && classifyFlash === 'none' && (
-              <Text style={styles.requiredHint}>Pick the dominant color family.</Text>
+              <Text style={styles.requiredHint}>Pick the dominant colour family.</Text>
             )}
             <View style={styles.colorGrid}>
               {colorFamilies.map(cf => (
@@ -1743,7 +1743,7 @@ export default function AddItemScreen() {
                 </Text>
                 {needsNeckline && !neckline && (
                   <Text style={styles.requiredHint}>
-                    Neckline coordinates jewelry placement and flatters your face shape.
+                    Neckline coordinates jewellery placement and flatters your face shape.
                   </Text>
                 )}
                 <View style={styles.chipRowWrap}>
@@ -1928,7 +1928,7 @@ export default function AddItemScreen() {
 
             {/* ── Accent color (optional) ──────────────────────────────────── */}
             <Text style={styles.sectionTitle}>
-              Accent color <Text style={styles.optionalLabel}>(optional)</Text>
+              Accent colour <Text style={styles.optionalLabel}>(optional)</Text>
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
               {colorFamilies.map(cf => (

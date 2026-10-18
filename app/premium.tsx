@@ -33,7 +33,7 @@ const FEATURES = [
   { icon: 'partly-sunny-outline', title: 'Season-Smart Styling', desc: 'Weather-aware outfit recommendations for your location.' },
   { icon: 'layers-outline', title: 'Advanced Scenarios', desc: 'Job interviews, weddings, travel days, and more.' },
   { icon: 'analytics-outline', title: 'Deep Diagnostics', desc: 'Wardrobe health score, colour palette analysis, scenario coverage, and priority gap recommendations.' },
-  { icon: 'diamond-outline', title: 'Jewelry Intelligence', desc: 'Smart jewelry pairing based on neckline, occasion, and metals.' },
+  { icon: 'diamond-outline', title: 'Jewellery Intelligence', desc: 'Smart jewellery pairing based on neckline, occasion, and metals.' },
 ];
 
 export default function PremiumScreen() {

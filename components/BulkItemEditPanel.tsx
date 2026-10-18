@@ -353,7 +353,7 @@ export default function BulkItemEditPanel({
         </View>
 
         {/* ── Color ─────────────────────────────────────────────────────────── */}
-        <SectionLabel>Color</SectionLabel>
+        <SectionLabel>Colour</SectionLabel>
         <View style={styles.colorGrid}>
           {colorFamilies.map(cf => (
             <Pressable

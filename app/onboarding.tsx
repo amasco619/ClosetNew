@@ -380,8 +380,8 @@ export default function OnboardingScreen() {
       case 3:
         return (
           <Animated.View entering={FadeInRight.duration(280)} style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Eye Color</Text>
-            <Text style={styles.stepSubtitle}>{"We'll suggest jewelry and colours that complement your eyes"}</Text>
+            <Text style={styles.stepTitle}>Eye Colour</Text>
+            <Text style={styles.stepSubtitle}>{"We'll suggest jewellery and colours that complement your eyes"}</Text>
             <View style={styles.eyeGrid}>
               {EYE_COLORS.map(ec => (
                 <Pressable
@@ -621,7 +621,7 @@ export default function OnboardingScreen() {
               })}
             </View>
 
-            <Text style={[styles.subLabel, { marginTop: 20 }]}>Colors to avoid</Text>
+            <Text style={[styles.subLabel, { marginTop: 20 }]}>Colours to avoid</Text>
             <View style={styles.chipRow}>
               {AVERSION_OPTS.map(c => {
                 const active = colorAversions.includes(c);
