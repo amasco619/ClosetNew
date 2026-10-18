@@ -917,6 +917,12 @@ export default function AddItemScreen() {
       .finally(() => setSavingAiPreference(false));
   };
 
+  const dismissAiConsent = () => {
+    setShowAiConsent(false);
+    setClassifying(false);
+    setAiPreferenceError(null);
+  };
+
   const retryAiForCurrentPhoto = async () => {
     const asset = pendingAiAsset;
     if (!asset || savingAiPreference) return;
@@ -1970,8 +1976,10 @@ export default function AddItemScreen() {
       <AiProcessingConsent
         visible={showAiConsent}
         busy={savingAiPreference}
+        context="upload"
         onAllow={allowAiForCurrentPhoto}
-        onCancel={declineAiForCurrentPhoto}
+        onDecline={declineAiForCurrentPhoto}
+        onDismiss={dismissAiConsent}
       />
       <PhotoRefusalDialog
         visible={showPhotoRefusal}

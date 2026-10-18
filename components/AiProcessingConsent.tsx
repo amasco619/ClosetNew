@@ -1,37 +1,90 @@
-import { useEffect, useState } from 'react';
-import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Animated, Dimensions, Linking, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Colors from '@/constants/colors';
+import { getAiConsentDisposition, type AiConsentAction, type AiConsentContext } from '@/lib/aiConsentFlow';
 
 export function AiProcessingConsent({
   visible,
   busy = false,
+  context,
   privacyPolicyUrl,
   onAllow,
-  onCancel,
+  onDecline,
+  onDismiss,
 }: {
   visible: boolean;
   busy?: boolean;
+  context: AiConsentContext;
   privacyPolicyUrl?: string | null;
   onAllow: () => void;
-  onCancel: () => void;
+  onDecline?: () => void;
+  onDismiss: () => void;
 }) {
   const [learnMore, setLearnMore] = useState(false);
+  const [translateY] = useState(() => new Animated.Value(0));
+  const dismiss = useCallback(() => {
+    if (busy) return;
+    Animated.timing(translateY, {
+      toValue: Dimensions.get('window').height,
+      duration: 190,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) onDismiss();
+    });
+  }, [busy, onDismiss, translateY]);
+  const panResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_event, gesture) =>
+      !busy && gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+    onPanResponderMove: (_event, gesture) => {
+      if (gesture.dy > 0) translateY.setValue(gesture.dy);
+    },
+    onPanResponderRelease: (_event, gesture) => {
+      if (gesture.dy >= 120 || gesture.vy >= 0.8) dismiss();
+      else Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 240 }).start();
+    },
+    onPanResponderTerminate: () =>
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 240 }).start(),
+  }), [busy, dismiss, translateY]);
+  const handleSecondaryAction = () => {
+    const action: AiConsentAction = context === 'upload' ? 'decline' : 'not_now';
+    if (getAiConsentDisposition(context, action) === 'persist_declined') onDecline?.();
+    else dismiss();
+  };
+  const opacity = translateY.interpolate({
+    inputRange: [0, 240],
+    outputRange: [1, 0.45],
+    extrapolate: 'clamp',
+  });
+
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset modal-only disclosure state whenever the consent modal closes.
-    if (!visible) setLearnMore(false);
-  }, [visible]);
+    if (!visible) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Reset modal-only disclosure state whenever the consent modal closes.
+      setLearnMore(false);
+      translateY.setValue(0);
+    }
+  }, [visible, translateY]);
 
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={() => { if (learnMore) setLearnMore(false); else onCancel(); }}
+      onRequestClose={() => { if (learnMore) setLearnMore(false); else dismiss(); }}
       statusBarTranslucent
     >
       <View style={styles.scrim}>
-        <View style={styles.sheet}>
-          <View style={styles.accent} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close AI processing disclosure"
+          disabled={busy}
+          onPress={dismiss}
+          style={StyleSheet.absoluteFill}
+        />
+        <Animated.View style={[styles.sheet, { transform: [{ translateY }], opacity }]}>
+          <View style={styles.dragArea} {...panResponder.panHandlers}
+            accessibilityRole="adjustable" accessibilityLabel="Drag down to close">
+            <View style={styles.dragHandle} />
+          </View>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
             <Text style={styles.eyebrow}>A NOTE ON YOUR PHOTOS</Text>
             <Text style={styles.title}>AI-powered wardrobe digitisation</Text>
@@ -42,7 +95,7 @@ export function AiProcessingConsent({
               By selecting <Text style={styles.bold}>Allow AI processing</Text>, you give Amodka permission to send your selected photo to these services for this purpose.
             </Text>
             <Text style={styles.body}>
-              You can decline and continue without AI processing. You can withdraw this permission later in Settings.
+              You can decline and continue without AI processing. You can withdraw this permission any time in Profile.
             </Text>
 
             <Pressable
@@ -115,13 +168,13 @@ export function AiProcessingConsent({
             <Pressable
               accessibilityRole="button"
               disabled={busy}
-              onPress={onCancel}
+              onPress={handleSecondaryAction}
               style={({ pressed }) => [styles.cancelButton, pressed && !busy && styles.pressed, busy && styles.disabled]}
             >
-              <Text style={styles.cancelText}>Cancel</Text>
+              <Text style={styles.cancelText}>{context === 'upload' ? 'Decline' : 'Not now'}</Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -134,6 +187,8 @@ const styles = StyleSheet.create({
     padding: 22,
     backgroundColor: 'rgba(16, 24, 38, 0.56)',
   },
+  dragArea: { height: 30, alignItems: 'center', justifyContent: 'center' },
+  dragHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: Colors.border },
   sheet: {
     maxHeight: '88%',
     overflow: 'hidden',
@@ -142,7 +197,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  accent: { height: 3, backgroundColor: Colors.secondary },
   content: { paddingHorizontal: 25, paddingTop: 26, paddingBottom: 8 },
   eyebrow: {
     color: Colors.sage,

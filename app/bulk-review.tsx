@@ -150,6 +150,7 @@ function GoldOverlay({
 function BulkCard({
   item,
   statusPhase,
+  manualReady,
   onRemove,
   onRetry,
   onManual,
@@ -157,6 +158,7 @@ function BulkCard({
 }: {
   item: BulkItem;
   statusPhase: number;
+  manualReady: boolean;
   onRemove: (uri: string) => void;
   onRetry: (uri: string) => void;
   onManual: (uri: string) => void;
@@ -248,7 +250,15 @@ function BulkCard({
                 : 'Item'}
             </Text>
           </Animated.View>
-        ) : isRefused || isError ? null : (
+        ) : isRefused || isError ? null : manualReady && isActive ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => onManual(item.uri)}
+            style={styles.manualEntryButton}
+          >
+            <Text style={styles.errorLabel}>Add manually</Text>
+          </Pressable>
+        ) : (
           <View key="shimmer-info">
             <View style={styles.shimmerTagRow}>
               <View style={styles.shimmerPill} />
@@ -399,6 +409,11 @@ export default function BulkReviewScreen() {
   const [savingAiPreference, setSavingAiPreference] = useState(false);
   const [aiPreferenceError, setAiPreferenceError] = useState<string | null>(null);
 
+  const routeFirstPhotoManually = () => {
+    const item = itemsRef.current.find(current => current.status !== 'removed');
+    if (item) handleManual(item.uri);
+  };
+
   const allowBulkAiProcessing = async () => {
     if (savingAiPreference) return;
     setSavingAiPreference(true);
@@ -424,6 +439,13 @@ export default function BulkReviewScreen() {
         setAiPreferenceError('Your choice could not be saved. AI processing remains unavailable until it can be checked.');
       })
       .finally(() => setSavingAiPreference(false));
+    routeFirstPhotoManually();
+  };
+
+  const dismissBulkAiConsent = () => {
+    setShowAiConsent(false);
+    setAiPreferenceError(null);
+    routeFirstPhotoManually();
   };
 
   const enableAiForSelectedPhotos = async () => {
@@ -1122,6 +1144,7 @@ export default function BulkReviewScreen() {
           <BulkCard
             item={item}
             statusPhase={statusPhase}
+            manualReady={aiPreference !== 'allowed'}
             onRemove={handleRemove}
             onRetry={handleRetry}
             onManual={handleManual}
@@ -1191,8 +1214,10 @@ export default function BulkReviewScreen() {
       <AiProcessingConsent
         visible={showAiConsent}
         busy={savingAiPreference}
+        context="upload"
         onAllow={allowBulkAiProcessing}
-        onCancel={declineBulkAiProcessing}
+        onDecline={declineBulkAiProcessing}
+        onDismiss={dismissBulkAiConsent}
       />
     </View>
   );
@@ -1268,6 +1293,7 @@ const styles = StyleSheet.create({
   errorLabel: {
     fontFamily: 'Inter_500Medium', fontSize: rs(10), color: Colors.textSecondary, letterSpacing: 0.3,
   },
+  manualEntryButton: { minHeight: 44, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: Colors.border, borderRadius: 8, marginTop: 6 },
   prepareDiagnostic: {
     width: '96%', maxHeight: PHOTO_HEIGHT * 0.62, marginTop: 4,
     color: Colors.white, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',

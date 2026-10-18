@@ -241,18 +241,6 @@ export default function ProfileScreen() {
     }
   };
 
-  const declineProfileAiProcessing = () => {
-    setAiProcessingPreferenceState('declined');
-    setShowAiConsent(false);
-    setAiPreferenceError(null);
-    setAiPreferenceSaving(true);
-    void setAiProcessingPreference('declined')
-      .catch(() => {
-        setAiPreferenceError('Your choice could not be saved. AI processing remains unavailable until it can be checked.');
-      })
-      .finally(() => setAiPreferenceSaving(false));
-  };
-
   const saveName = () => {
     const trimmed = nameInput.trim();
     if (trimmed) updateProfile({ name: trimmed });
@@ -694,8 +682,9 @@ export default function ProfileScreen() {
       <AiProcessingConsent
         visible={showAiConsent}
         busy={aiPreferenceSaving}
+        context="profile"
         onAllow={allowProfileAiProcessing}
-        onCancel={declineProfileAiProcessing}
+        onDismiss={() => setShowAiConsent(false)}
       />
     </View>
   );

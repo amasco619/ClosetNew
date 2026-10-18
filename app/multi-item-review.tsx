@@ -163,6 +163,7 @@ export default function MultiItemReview() {
         {phase === 'paused' && (
           <>
             <Text style={styles.help}>{error || 'AI processing is paused. This photo has not been sent.'}</Text>
+            <Pressable style={styles.button} onPress={() => router.back()}><Text style={styles.buttonText}>Continue in manual entry</Text></Pressable>
             <Pressable style={styles.button} onPress={() => setPhase('consent')}><Text style={styles.buttonText}>Use AI for this photo</Text></Pressable>
           </>
         )}
@@ -210,7 +211,13 @@ export default function MultiItemReview() {
           </>
         )}
       </ScrollView>
-      <AiProcessingConsent visible={phase === 'consent'} onCancel={() => setPhase('paused')}
+      <AiProcessingConsent
+        visible={phase === 'consent'}
+        context="upload"
+        onDismiss={() => router.back()}
+        onDecline={() => { void setAiProcessingPreference('declined')
+          .then(() => { if (mounted.current) router.back(); })
+          .catch(() => { if (mounted.current) { setError('Your choice could not be saved. This photo has not been sent.'); setPhase('paused'); } }); }}
         onAllow={() => { void setAiProcessingPreference('allowed')
           .then(() => { if (mounted.current) setPhase('loading'); })
           .catch(() => { if (mounted.current) { setError('AI preference could not be saved. No photo was sent.'); setPhase('paused'); } }); }} />
