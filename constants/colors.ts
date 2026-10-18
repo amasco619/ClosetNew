@@ -8,7 +8,7 @@ const Colors = {
   cardBackground: '#FFFFFF',
   cardBackgroundDark: '#1A1F2A',
   textPrimary: '#101826',
-  textSecondary: '#6B7280',
+  textSecondary: '#626A73',
   textLight: '#9CA3AF',
   textOnDark: '#F5F3F0',
   border: '#E8E5E0',

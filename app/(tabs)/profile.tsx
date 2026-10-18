@@ -48,7 +48,6 @@ import {
 } from '@/lib/profileStyleLabels';
 
 const DESTRUCTIVE_TEXT = '#B3433D';
-const MUTED_TEXT = '#626A73';
 
 function SectionLabel({ children }: { children: string }) {
   return <Text accessibilityRole="header" style={styles.sectionLabel}>{children}</Text>;
@@ -392,7 +391,7 @@ export default function ProfileScreen() {
                 returnKeyType="done"
                 onSubmitEditing={saveName}
                 placeholder="Your name"
-                placeholderTextColor={MUTED_TEXT}
+                placeholderTextColor={Colors.textSecondary}
               />
               <Pressable
                 accessibilityRole="button"
@@ -752,7 +751,7 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   heroEmail: {
-    color: MUTED_TEXT,
+    color: Colors.textSecondary,
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
     textAlign: 'center',
@@ -773,7 +772,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.secondary + '60',
     backgroundColor: Colors.secondary + '25',
   },
-  planPillText: { color: MUTED_TEXT, fontFamily: 'Inter_500Medium', fontSize: 12 },
+  planPillText: { color: Colors.textSecondary, fontFamily: 'Inter_500Medium', fontSize: 12 },
   planPillTextPremium: { color: Colors.primary },
   nameEditRow: {
     width: '100%',
@@ -797,7 +796,7 @@ const styles = StyleSheet.create({
   editAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   section: { marginTop: 32 },
   sectionLabel: {
-    color: MUTED_TEXT,
+    color: Colors.textSecondary,
     fontFamily: 'Inter_500Medium',
     fontSize: 11,
     letterSpacing: 1.4,
@@ -948,7 +947,7 @@ const styles = StyleSheet.create({
   },
   deleteText: { color: DESTRUCTIVE_TEXT, fontFamily: 'Inter_500Medium', fontSize: 16 },
   version: {
-    color: MUTED_TEXT,
+    color: Colors.textSecondary,
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
     textAlign: 'center',

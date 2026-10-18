@@ -74,16 +74,19 @@ the WCAG relative-luminance formula. Text colors used on small body text exceed
 | Primary `#101826` | White card `#FFFFFF` | 17.79:1 |
 | Primary `#101826` | Warm background `#F5F3F0` | 16.06:1 |
 | Primary `#101826` | Premium pill tint `#F8F5EF` | 16.35:1 |
-| Existing secondary text `#6B7280` | White card `#FFFFFF` | 4.83:1 |
-| Local muted text `#626A73` | Warm background `#F5F3F0` | 4.95:1 |
+| Previous secondary text `#6B7280` | White card `#FFFFFF` | 4.83:1 |
+| Previous secondary text `#6B7280` | Warm background `#F5F3F0` | 4.37:1 |
+| Current theme token `#626A73` | White card `#FFFFFF` | 5.49:1 |
+| Current theme token `#626A73` | Warm background `#F5F3F0` | 4.95:1 |
 | Destructive text `#B3433D` | White card `#FFFFFF` | 5.55:1 |
 | Destructive text `#B3433D` | Warm background `#F5F3F0` | 5.01:1 |
 | White `#FFFFFF` | Primary selected-chip/button fill `#101826` | 17.79:1 |
 | Warm white `#F5F3F0` | Primary upgrade-button fill `#101826` | 16.06:1 |
 
-The existing `#6B7280` secondary shade measures only 4.37:1 on the warm screen
-background, so `#626A73` is used locally for small text on that surface. The
-existing theme token was not globally changed.
+The original `#6B7280` token measured only 4.37:1 on the warm screen background.
+A later follow-up changed the shared `textSecondary` token to `#626A73` and
+removed the local Profile/Refinements overrides, so the improved contrast now
+applies consistently across the app.
 
 ## Verification
 
@@ -118,5 +121,7 @@ simulated dependency-failure logs from failure-path tests.
 - A non-fatal React Native Web `shadow*` deprecation warning appeared in the
   Metro browser preview; no shadow style was added by the changed Profile
   components. It is not addressed as part of this native screen redesign.
-- The `bg_removal_usage` deletion gap listed above remains out of scope.
+- The later account-deletion follow-up adds the user-keyed `bg_removal_usage`
+  row to the explicit deletion inventory; the shared, hash-keyed
+  `bg_removal_cache` remains retained.
 - The app was not published or deployed.

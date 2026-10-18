@@ -1974,8 +1974,10 @@ Storage policies: path-prefix ownership enforcement for `wardrobe-images` and `t
 `server/routes.ts` `DELETE /api/user/delete-account` now explicitly:
 1. Lists and removes all `wardrobe-images/{userId}/*` Storage objects.
 2. Lists and removes all `tryon-photos/{userId}/*` Storage objects.
-3. Deletes all DB records from: `affinity_signals`, `pair_affinity_signals`, `rotation_cursors`, `wear_logs`, `slot_statuses`, `tryon_profiles`, `saved_looks`, `wardrobe_items`, `user_profiles`.
+3. Deletes owner-scoped DB rows, in order, from: `affinity_signals`, `pair_affinity_signals`, `rotation_cursors`, `wear_logs`, `slot_statuses`, `tryon_profiles`, `saved_looks`, `garment_group_members`, `garment_groups`, `wardrobe_free_selections`, `wardrobe_items`, `bg_removal_usage`, and `user_profiles` (the `user_profiles` owner column is `id`; the others use `user_id`). Each deletion uses the same fail-closed handling, and any failure stops cleanup before Auth deletion.
 4. Deletes the Supabase Auth user.
+
+`bg_removal_cache` is deliberately not deleted: it is shared and keyed by image hash, not user ID.
 
 #### Compliance Documents Created
 
@@ -2991,12 +2993,13 @@ first-photo prompt only for `not_asked`. The full existing AI-processing
 description remains visible. Weather, temperature, Wear Log, auth, account
 deletion, Premium, and Style Quiz handlers remain unchanged.
 
-The hub and two detail screens use existing Inter fonts and color tokens. The
-existing `textSecondary` shade measures 4.37:1 against the warm screen
-background, so a local darker muted text shade is used for small text on that
-surface; destructive text likewise uses a local shade that meets 4.5:1. Text
-scales with system font settings; cards and rows wrap rather than impose a
-fixed-line clamp. Reduce Motion suppresses entering/accordion animations.
+The hub and two detail screens use existing Inter fonts and color tokens.
+`textSecondary` is globally `#626A73`, measuring 4.95:1 on the warm screen
+background and 5.49:1 on white. The Profile and Refinements screens use this
+token rather than a local muted-text override; destructive text continues to
+use its existing local shade. Text scales with system font settings; cards and
+rows wrap rather than impose a fixed-line clamp. Reduce Motion suppresses
+entering/accordion animations.
 
 Focused presentation tests cover all refinement totals (0, partial, complete),
 the hub summary, plan labels, empty-wardrobe invitation, Personal Intelligence

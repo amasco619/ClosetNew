@@ -67,6 +67,8 @@ The `wardrobe_free_selections` rows are not in the explicit delete list, but the
 
 **Deletion gap noted, not changed:** the separate PostgreSQL `bg_removal_usage` table has a `user_id` primary key but is not explicitly deleted by `deleteAccountData`. `bg_removal_cache` is keyed by image hash rather than account and is pruned after 30 days, so this code cannot identify or immediately remove a particular user’s cache entries. This is outside the Profile redesign scope and is not modified here.
 
+**Follow-up:** `bg_removal_usage` was subsequently added to the shared account-deletion inventory and is now removed with the other user-owned rows. The shared, hash-keyed `bg_removal_cache` remains untouched.
+
 ## Design and behavior constraints for implementation
 
 - Use existing `constants/colors.ts` and globally loaded Inter fonts; do not add dependencies or fonts.

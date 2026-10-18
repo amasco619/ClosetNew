@@ -31,7 +31,6 @@ import type {
 import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/constants/lifestyle';
 
 type RefinementGroup = 'physical' | 'style' | 'lifestyle';
-const MUTED_TEXT = '#626A73';
 
 const HAIR_OPTS: { id: HairColor; label: string }[] = [
   { id: 'black', label: 'Black' }, { id: 'dark-brown', label: 'Dark Brown' },
@@ -413,7 +412,7 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 44 },
   scrollContent: { paddingHorizontal: 24, paddingBottom: 32 },
   intro: {
-    color: MUTED_TEXT,
+    color: Colors.textSecondary,
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
     lineHeight: 21,

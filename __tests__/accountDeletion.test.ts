@@ -165,6 +165,18 @@ async function main() {
   _testOverrides.authenticatedUser = { id: userId };
 
   try {
+    assert(tables.includes("bg_removal_usage"), "per-user background-removal usage must be deleted");
+    const usageFailure = mockDeletion("table_bg_removal_usage");
+    try {
+      const res = await attempt("app");
+      assert.equal(res.status, 500, "usage deletion failure uses the normal app failure status");
+      assert.deepEqual(res.body, { success: false, error: "delete_failed" });
+      assert(usageFailure.calls.includes("table_bg_removal_usage"));
+      assert(!usageFailure.calls.includes("auth_delete"), "Auth deletion waits for usage cleanup");
+    } finally {
+      usageFailure.restore();
+    }
+
     for (const route of ["app", "web"] as const) {
       for (const stage of stages) {
         const mock = mockDeletion(stage);
