@@ -21,6 +21,7 @@ const migration = fs.readFileSync(
   'utf8',
 )
 const routes = fs.readFileSync(path.join(root, 'server/routes.ts'), 'utf8')
+const deletionInventory = fs.readFileSync(path.join(root, 'server/accountDeletionInventory.ts'), 'utf8')
 const database = fs.readFileSync(path.join(root, 'lib/database.ts'), 'utf8')
 
 console.log('\nDomain mapping')
@@ -148,18 +149,20 @@ assert(
   !/REFERENCES public\.garment_group_members/i.test(migration),
   'no relationship cascade can delete wardrobe items',
 )
-const accountLists = routes.match(/const userIdTables = \[[\s\S]*?\];/g) ?? []
-assert(accountLists.length === 1, 'both account-deletion routes share one table list')
+assert(
+  routes.includes('ACCOUNT_DELETION_TABLES') &&
+    routes.includes('ACCOUNT_DELETION_STORAGE_BUCKETS'),
+  'account deletion uses the shared table and storage inventory',
+)
 assert(
   (routes.match(/await deleteAccountData\(userId\)/g) ?? []).length === 2,
   'both account-deletion routes use the shared cleanup',
 )
-for (const list of accountLists) {
-  assert(
-    list.indexOf('"garment_group_members"') < list.indexOf('"garment_groups"'),
-    'account deletion processes members before groups',
-  )
-}
+assert(
+  deletionInventory.indexOf('{ table: "garment_group_members"') <
+    deletionInventory.indexOf('{ table: "garment_groups"'),
+  'account deletion processes members before groups',
+)
 
 console.log('\nWardrobe compatibility')
 const wardrobe = mapDbRowToWardrobeItem({

@@ -4,14 +4,17 @@ import express from "express";
 import request from "supertest";
 import { registerRoutes, _testOverrides } from "../server/routes";
 import { supabaseAdmin, supabaseAnon } from "../server/supabase";
+import {
+  ACCOUNT_DELETION_RETAINED_TABLES,
+  ACCOUNT_DELETION_SHARED_TABLES,
+  ACCOUNT_DELETION_STORAGE_BUCKETS,
+  ACCOUNT_DELETION_TABLES,
+} from "../server/accountDeletionInventory";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 
-const tables = [
-  "affinity_signals", "pair_affinity_signals", "rotation_cursors",
-  "wear_logs", "slot_statuses", "tryon_profiles", "saved_looks",
-  "garment_group_members", "garment_groups", "wardrobe_items",
-  "bg_removal_usage", "user_profiles",
-];
-const buckets = ["wardrobe-images", "tryon-photos"];
+const tables: string[] = ACCOUNT_DELETION_TABLES.map(({ table }) => table);
+const buckets: string[] = [...ACCOUNT_DELETION_STORAGE_BUCKETS];
 const stages = [
   ...buckets.flatMap(bucket => [
     `storage_list_${bucket}`, `storage_remove_${bucket}`, `storage_verify_${bucket}`,
@@ -21,8 +24,55 @@ const stages = [
 ];
 const userId = "deletion-test-user";
 
+function assertCreatedTablesAreInventoried() {
+  function readSources(directory: string, extension: string): string[] {
+    return readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) return readSources(path, extension);
+      return entry.name.endsWith(extension) ? [readFileSync(path, "utf8")] : [];
+    });
+  }
+  const serverSources = readSources("server", ".ts");
+  const migrationSources = readSources("supabase/migrations", ".sql");
+  const storageSources = [...serverSources, readFileSync("lib/storage.ts", "utf8")];
+  const createdTables = new Set(
+    [...serverSources, ...migrationSources]
+      .flatMap(source => [
+        ...source
+          .replace(/\/\*[\s\S]*?\*\/|\/\/.*|--.*$/gm, "")
+          .matchAll(/\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+(?:public\.)?([a-z_][\w]*)/gi),
+      ])
+      .map(match => match[1].toLowerCase()),
+  );
+  const inventoriedTables = new Set<string>([
+    ...tables,
+    ...ACCOUNT_DELETION_RETAINED_TABLES.map(({ table }) => table),
+    ...ACCOUNT_DELETION_SHARED_TABLES.map(({ table }) => table),
+  ]);
+  const unclassifiedTables = [...createdTables].filter(table => !inventoriedTables.has(table));
+  assert.deepEqual(unclassifiedTables, [], "every server/migration-created table needs a deletion, retention, or shared-data policy");
+
+  const referencedBuckets = new Set(
+    storageSources.flatMap(source =>
+      [...source.matchAll(/\.storage\.from\(\s*["']([^"']+)["']\s*\)/g)]
+        .map(match => match[1]),
+    ),
+  );
+  assert.deepEqual(
+    [...referencedBuckets].filter(bucket => !buckets.includes(bucket)),
+    [],
+    "every literal Supabase Storage bucket needs account-deletion coverage",
+  );
+
+  const deletedTables = new Set<string>(tables);
+  const sharedTablesDeleted = ACCOUNT_DELETION_SHARED_TABLES
+    .map(({ table }) => table)
+    .filter(table => deletedTables.has(table));
+  assert.deepEqual(sharedTablesDeleted, [], "shared/global tables must never be in per-user deletion");
+}
+
 function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false) {
-  const files = new Map(buckets.map(bucket => [
+  const files = new Map<string, string[]>(buckets.map(bucket => [
     bucket,
     Array.from({ length: bucket === "wardrobe-images" ? wardrobeCount : 1 }, (_, i) => `file-${i}.jpg`),
   ] as const));
@@ -60,7 +110,7 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
   Reflect.set(supabaseAdmin, "from", (table: string) => ({
     delete: () => ({
       eq: async (column: string, id: string) => {
-        assert.equal(column, table === "user_profiles" ? "id" : "user_id");
+        assert.equal(column, ACCOUNT_DELETION_TABLES.find(entry => entry.table === table)?.ownerColumn);
         assert.equal(id, userId);
         const stage = `table_${table}`;
         calls.push(stage);
@@ -89,6 +139,8 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
 }
 
 async function main() {
+  assertCreatedTablesAreInventoried();
+
   const app = express();
   app.set("trust proxy", 1);
   app.use(express.json());
@@ -167,8 +219,15 @@ async function main() {
         assert.equal(res.status, 200, `${route}: full cleanup succeeds`);
         assert.equal(mock.files.get("wardrobe-images")?.length, 0);
         assert.equal(mock.calls.filter(stage => stage === "storage_list_wardrobe-images").length, 3);
-        assert(mock.calls.includes("table_bg_removal_usage"), "per-user background-removal usage is deleted");
-        assert(!mock.calls.includes("table_bg_removal_cache"), "global image-hash cache is retained");
+        for (const table of tables) {
+          assert(mock.calls.includes(`table_${table}`), `per-user table ${table} is deleted`);
+        }
+        for (const { table } of ACCOUNT_DELETION_SHARED_TABLES) {
+          assert(!mock.calls.includes(`table_${table}`), `shared table ${table} is retained`);
+        }
+        for (const { table } of ACCOUNT_DELETION_RETAINED_TABLES) {
+          assert(!mock.calls.includes(`table_${table}`), `billing table ${table} is handled by its retention policy`);
+        }
         assert.equal(mock.calls.filter(stage => stage === "auth_delete").length, 1);
         console.log(`  ✓ ${route} deletes every page before confirming success`);
       } finally {

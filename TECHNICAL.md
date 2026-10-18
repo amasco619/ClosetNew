@@ -2163,6 +2163,7 @@ Google Play (and App Store) require a web URL where users can request account/da
 - Deletion requires Supabase OTP ownership proof before any data is removed
 - Account enumeration not possible — both existing and non-existing emails receive the verify page
 - Rate limiting on both endpoints prevents abuse
+- `server/accountDeletionInventory.ts` is the shared inventory used by deletion. Its regression test scans server table creation, Supabase migrations, and literal Storage bucket use, requiring every table to be classified as deleted per-user, retained under billing-deletion policy, or shared/operational. `wardrobe_free_selections` is explicitly removed; shared caches and limit stores are not.
 
 ### Phase 5B.1 Baseline
 

@@ -20,6 +20,10 @@ import {
   isRevenueCatBillingEnabled,
   getBillingReadiness,
 } from "./billing";
+import {
+  ACCOUNT_DELETION_STORAGE_BUCKETS,
+  ACCOUNT_DELETION_TABLES,
+} from "./accountDeletionInventory";
 import { reportError } from "../shared/observability";
 import {
   aiLimiter,
@@ -113,7 +117,7 @@ async function deleteAccountData(userId: string): Promise<void> {
 
   // Collect pages before removing objects: deleting while paginating with an
   // offset would shift the remaining pages and leave objects behind.
-  for (const bucketName of ["wardrobe-images", "tryon-photos"]) {
+  for (const bucketName of ACCOUNT_DELETION_STORAGE_BUCKETS) {
     const bucket = supabaseAdmin.storage.from(bucketName);
     const paths: string[] = [];
     for (let offset = 0; ; offset += 100) {
@@ -140,20 +144,11 @@ async function deleteAccountData(userId: string): Promise<void> {
 
   // Child tables precede parents. Repeating a successful delete of zero rows
   // is safe when retrying after a later stage failed.
-  const userIdTables = [
-    "affinity_signals", "pair_affinity_signals", "rotation_cursors",
-    "wear_logs", "slot_statuses", "tryon_profiles", "saved_looks",
-    "garment_group_members", "garment_groups", "wardrobe_items",
-    "bg_removal_usage",
-  ];
-  for (const table of userIdTables) {
+  for (const { table, ownerColumn } of ACCOUNT_DELETION_TABLES) {
     await checked(`table_${table}`, () =>
-      supabaseAdmin.from(table).delete().eq("user_id", userId),
+      supabaseAdmin.from(table).delete().eq(ownerColumn, userId),
     );
   }
-  await checked("table_user_profiles", () =>
-    supabaseAdmin.from("user_profiles").delete().eq("id", userId),
-  );
   await checked("auth_delete", () => supabaseAdmin.auth.admin.deleteUser(userId));
 }
 
