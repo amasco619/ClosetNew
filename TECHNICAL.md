@@ -2148,7 +2148,7 @@ Google Play (and App Store) require a web URL where users can request account/da
 #### Flow
 1. **Email entry (`GET /delete-account`)** — user enters their account email address. Client-side validation, CSRF-free (Supabase OTP makes the confirmation step the ownership proof).
 2. **OTP send (`POST /api/delete-account-request`)** — server calls `supabaseAnon.auth.signInWithOtp()` with `shouldCreateUser: false`. Always responds with the verify page (never reveals whether email exists — prevents account enumeration). Rate-limited via `resetLimiter` (3 req / 60 min).
-3. **OTP verify + deletion (`POST /api/delete-account-confirm`)** — verifies OTP token via `supabaseAnon.auth.verifyOtp()`. On success, performs full account deletion identical to the in-app flow: deletes Supabase Storage objects, wardrobe_items, wear_logs, and auth user via admin client. Rate-limited via `accountLimiter` (5 req / 60 min).
+3. **OTP verify + deletion (`POST /api/delete-account-confirm`)** — verifies OTP token via `supabaseAnon.auth.verifyOtp()`. On success, performs full account deletion identical to the in-app flow: deletes Supabase Storage objects, user-owned rows including background-removal usage, and auth user via admin client. The global image-hash cache is retained. Rate-limited via `accountLimiter` (5 req / 60 min).
 4. **Success confirmation (`GET /delete-account/verify` → final page)** — styled confirmation page.
 
 #### Files

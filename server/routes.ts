@@ -144,6 +144,7 @@ async function deleteAccountData(userId: string): Promise<void> {
     "affinity_signals", "pair_affinity_signals", "rotation_cursors",
     "wear_logs", "slot_statuses", "tryon_profiles", "saved_looks",
     "garment_group_members", "garment_groups", "wardrobe_items",
+    "bg_removal_usage",
   ];
   for (const table of userIdTables) {
     await checked(`table_${table}`, () =>

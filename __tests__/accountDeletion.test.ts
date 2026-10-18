@@ -8,7 +8,8 @@ import { supabaseAdmin, supabaseAnon } from "../server/supabase";
 const tables = [
   "affinity_signals", "pair_affinity_signals", "rotation_cursors",
   "wear_logs", "slot_statuses", "tryon_profiles", "saved_looks",
-  "garment_group_members", "garment_groups", "wardrobe_items", "user_profiles",
+  "garment_group_members", "garment_groups", "wardrobe_items",
+  "bg_removal_usage", "user_profiles",
 ];
 const buckets = ["wardrobe-images", "tryon-photos"];
 const stages = [
@@ -166,6 +167,8 @@ async function main() {
         assert.equal(res.status, 200, `${route}: full cleanup succeeds`);
         assert.equal(mock.files.get("wardrobe-images")?.length, 0);
         assert.equal(mock.calls.filter(stage => stage === "storage_list_wardrobe-images").length, 3);
+        assert(mock.calls.includes("table_bg_removal_usage"), "per-user background-removal usage is deleted");
+        assert(!mock.calls.includes("table_bg_removal_cache"), "global image-hash cache is retained");
         assert.equal(mock.calls.filter(stage => stage === "auth_delete").length, 1);
         console.log(`  ✓ ${route} deletes every page before confirming success`);
       } finally {
