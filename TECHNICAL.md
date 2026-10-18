@@ -2454,10 +2454,11 @@ the real classifier, compares results to read-only gold *after* the call,
 and writes a separately versioned report under `artifacts/synthetic-gu/`.
 It does not evaluate rights-cleared real photographs. Neither Kente taxonomy
 nor real-image accuracy is settled by these offline tests or synthetic images.
-The Recommendation Engine v3.7 and protected benchmark outputs remain
-unchanged. The existing Track C root `case-results.csv` has 3231 apparent
-rows instead of the expected 100; the validator failure predates this work
-and must not be “fixed” by regenerating protected output.
+The Recommendation Engine v3.7 remains unchanged. Track C root
+`case-results.csv` was restored to the original 100-case result snapshot from
+`b744f83` after later result commits had appended repeated case records. Its
+100 unique IDs and the Track C validator now pass; the sealed raw case outputs
+and their checksums are unchanged.
 
 ## 31. Private real-image evaluation reliability and privacy
 
@@ -2952,12 +2953,12 @@ palette, affinity, candidate generation or weather logic changes. Scorer edits
 are comments only. Controlled tests show the existing eye-colour and skin-depth
 bonuses are each +1 when supported, and zero in the tested non-match cases.
 
-Verification: focused run 6/6 test files (17 new personalization groups); full
-suite 106/106; TypeScript and lint passed; golden set 35/35; benchmark validator
-passed; frozen checksums 53/53 and raw seals 101/101 passed. The unchanged Track C
-validator still fails at `case-results.csv`, counting 3,231 apparent data rows
-instead of 100 (also documented above). Account isolation/migration evidence is
-offline, using production helpers and extracted actual callback branches with
-mocked I/O, not live accounts or device sign-off. See
-`reports/personalization-consistency-fix.html` for commands, changed files,
-warnings and limits. No migration, provider call, dependency change or deployment.
+Verification at implementation time: focused run 6/6 test files (17 new
+personalization groups); full suite 106/106; TypeScript and lint passed; golden
+set 35/35; benchmark validator passed; frozen checksums 53/53 and raw seals
+101/101 passed. Track C's result CSV was subsequently restored to its original
+100-case revision; the Track C validator now passes. Account isolation/migration
+evidence is offline, using production helpers and extracted actual callback
+branches with mocked I/O, not live accounts or device sign-off. See
+`reports/personalization-consistency-fix.html` for implementation-time details.
+No migration, provider call, dependency change or deployment.

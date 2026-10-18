@@ -11,9 +11,10 @@ or superseded migration writes cannot publish late profile data.
 
 Verification: 106/106 test files, focused 6/6 (17 new personalization groups),
 typecheck, lint, golden 35/35, benchmark validator, 53 frozen checksums and 101 raw
-seals passed. The pre-existing Track C CSV line-count validation failure remains
-(3,231 apparent data rows versus 100 expected); protected data was not changed.
-Live-account/device behavior was not verified. Full report:
+seals passed. The Track C `case-results.csv` was later restored to its original
+100-case snapshot after later commits had appended duplicate case records. Its
+100 unique case IDs and Track C validator now pass; raw sealed outputs remain
+unchanged. Live-account/device behavior was not verified. Full report:
 `reports/personalization-consistency-fix.html`. No schema/dependency change or
 deployment; frozen engine calculations and protected fixtures remain unchanged.
 

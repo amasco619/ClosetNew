@@ -21,7 +21,7 @@ code{font-size:13px;overflow-wrap:anywhere}pre{white-space:pre-wrap;background:#
 <section><h2>Executive result</h2>
 <p class="ok"><strong>All five targeted changes implemented. Final full suite: 106 passed, 0 failed test files.</strong></p>
 <p>Account hydration no longer falls back to another account's local profile. Guest migration includes face shape, preserves existing constraint/profile values, and cannot reuse an already-consumed guest snapshot for a later account. Skipping the primary goal completes coherently with Classic. Face shape now invalidates the rotation input hash. Controlled scorer tests document existing eye-colour and skin-tone effects without changing calculations.</p>
-<p class="warning">One existing protected validator remains failing: Track C's root CSV line-count check sees 3,231 apparent data rows instead of 100. This file is unchanged; frozen and raw-output checksums pass.</p>
+<p class="ok">The Track C result CSV has since been restored to the original 100-case snapshot; all 100 case IDs are unique and its validator now passes. Frozen and raw-output checksums pass.</p>
 </section>
 
 <section><h2>Exact behavior and decisions</h2>
@@ -61,12 +61,12 @@ code{font-size:13px;overflow-wrap:anywhere}pre{white-space:pre-wrap;background:#
 <tr><td><code>npm run lint</code></td><td class="ok">Exit 0; no lint errors or warnings emitted.</td></tr>
 <tr><td><code>node_modules/.bin/tsx __tests__/recommendation-golden-set.ts</code></td><td class="ok">35 passed, 0 failed.</td></tr>
 <tr><td><code>node scripts/validate-benchmark-fixtures.mjs</code></td><td class="ok">Exit 0: 100 cases, 84 fixtures, 100 signed labels, 40 synthetic image/provenance rows, 53 frozen-file checksums.</td></tr>
-<tr><td><code>node scripts/validate-africa-track-c.mjs</code></td><td class="warning">Exit 1: <code>case-results.csv: expected 100 rows, found 3231</code>. The validator counts physical lines, not parsed logical CSV records.</td></tr>
+<tr><td><code>node scripts/validate-africa-track-c.mjs</code></td><td class="ok">Passes after the CSV restoration: 100 sealed raw cases and complete metrics/CSVs.</td></tr>
 <tr><td><code>(cd docs/recommendation/africa/benchmark-v1/frozen-v1 &amp;&amp; sha256sum -c SHA256SUMS)</code></td><td class="ok">53 OK, 0 checksum failures.</td></tr>
 <tr><td><code>(cd docs/recommendation/africa/track-c/baseline-v3.7 &amp;&amp; sha256sum -c RAW-SHA256SUMS)</code></td><td class="ok">101 OK, 0 checksum failures.</td></tr>
 </tbody></table>
 <p><strong>Earlier failures:</strong> the first focused/typecheck pass exposed test fixture/type mismatches, corrected before the passing runs. An intermediate full run was 105 passed / 1 failed because the temperature test still required the old inline hydration expression. That assertion now checks the actual shared production path and account-isolated temperature behavior. The final full run passes. No failing test was deleted or skipped to obtain the final result.</p>
-<p><strong>Track C provenance:</strong> the pre-change CSV also contains 3,232 physical lines including its header. The existing technical source of truth already records the same 3,231-apparent-data-row issue. No protected CSV, benchmark, checksum or validator was edited to address it.</p>
+<p><strong>Track C restoration:</strong> commits after the original baseline successively appended case records. The CSV was restored to the original snapshot at commit <code>b744f83</code>, with the expected 100 unique case IDs. The raw case results, benchmark fixtures, validator and seals were not changed. The validator and raw seals pass.</p>
 </section>
 
 <section><h2>Evidence strength and limitations</h2>
