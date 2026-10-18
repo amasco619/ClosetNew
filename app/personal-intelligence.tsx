@@ -6,6 +6,7 @@ import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated'
 import Colors from '@/constants/colors';
 import { useApp } from '@/contexts/AppContext';
 import { useDialog } from '@/contexts/LuxuryFeedbackContext';
+import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
 
 export default function PersonalIntelligenceScreen() {
   const insets = useSafeAreaInsets();
@@ -24,7 +25,7 @@ export default function PersonalIntelligenceScreen() {
   const itemLabel = (id: string) => {
     const item = wardrobeItems.find(wardrobeItem => wardrobeItem.id === id);
     if (!item) return 'Removed item';
-    return `${item.colorFamily} ${item.subType.replace(/-/g, ' ')}`;
+    return `${wardrobeValueLabel(item.colorFamily)} ${item.subType.replace(/-/g, ' ')}`;
   };
   const entering = reduceMotion ? undefined : FadeInDown.duration(200);
   const openPremium = () => {

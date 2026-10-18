@@ -23,6 +23,7 @@ import { useToast } from '@/contexts/LuxuryFeedbackContext';
 import TravelPlanner from '../../components/TravelPlanner';
 import { CONCIERGE_OCCASIONS, conciergeReadiness, parseConciergeIntent, type ConciergeIntent } from '../../lib/concierge';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
+import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
 
 const MOOD_OPTIONS: { id: MoodGoal; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
   { id: 'confident', label: 'Confident', icon: 'flash-outline' },
@@ -109,7 +110,7 @@ const scenarioLabels: Record<OccasionTag, { label: string; icon: React.Component
 
 const categoryLabels: Record<string, string> = {
   top: 'Top', bottom: 'Bottom', dress: 'Dress',
-  outerwear: 'Layer', shoes: 'Shoes', bag: 'Bag', jewelry: 'Jewelry',
+  outerwear: 'Layer', shoes: 'Shoes', bag: 'Bag', jewelry: wardrobeValueLabel('jewelry'),
 };
 
 const SCENARIO_EMPTY_HINT: Record<OccasionTag, string> = {
@@ -308,7 +309,7 @@ function OutfitCard({
                 <Text style={styles.itemLabel} numberOfLines={1}>
                   {categoryLabels[comp.category] || comp.category}
                 </Text>
-                <Text style={styles.itemColor} numberOfLines={1}>{comp.colorFamily}</Text>
+                <Text style={styles.itemColor} numberOfLines={1}>{wardrobeValueLabel(comp.colorFamily)}</Text>
                 {isHero && (
                   <View style={[styles.focalBadge, { borderColor: accent + '40' }]}>
                     <Text style={[styles.focalBadgeText, { color: accent }]}>Focal</Text>
@@ -415,7 +416,7 @@ function JustAddedBanner({ suggestions, onDismiss }: {
 }) {
   const firstNewItem = suggestions[0]?.components[0];
   const label = firstNewItem
-    ? `${firstNewItem.colorFamily} ${firstNewItem.subType.replace(/-/g, ' ')}`
+    ? `${wardrobeValueLabel(firstNewItem.colorFamily)} ${firstNewItem.subType.replace(/-/g, ' ')}`
     : 'new item';
 
   return (

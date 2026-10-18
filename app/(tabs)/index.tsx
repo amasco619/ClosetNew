@@ -15,6 +15,7 @@ import { rs } from '../../lib/responsive';
 import { WardrobeGapCard } from '@/components/WardrobeGapCard';
 import { diagnoseWeatherGap } from '@/lib/wardrobeGapDiagnosis';
 import { GarmentTile } from '@/components/GarmentTile';
+import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
 
 const styleGoalLabels: Record<string, string> = {
   youthful: 'Youthful', elevated: 'Elevated', minimal: 'Minimal',
@@ -28,7 +29,7 @@ const categoryIcons: Record<string, string> = {
 };
 
 const categoryLabels: Record<string, string> = {
-  top: 'Tops', bottom: 'Bottoms', outerwear: 'Outerwear', shoes: 'Shoes', jewelry: 'Jewelry',
+  top: 'Tops', bottom: 'Bottoms', outerwear: 'Outerwear', shoes: 'Shoes', jewelry: wardrobeValueLabel('jewelry'),
 };
 
 const occasionLabels: Record<string, string> = {
@@ -409,7 +410,7 @@ export default function HomeScreen() {
                         colorFamily={item.colorFamily}
                         variant="card"
                         style={styles.pickPhoto}
-                        accessibilityLabel={`${item.colorFamily} ${item.subType} garment in today's look`}
+                        accessibilityLabel={`${wardrobeValueLabel(item.colorFamily)} ${item.subType} garment in today's look`}
                       />
                     ) : (
                       <View style={[styles.pickPhoto, styles.pickPhotoFallback]}>

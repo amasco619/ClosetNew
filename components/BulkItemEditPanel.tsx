@@ -36,6 +36,7 @@ import type { BulkItemCore, ClassifyResult } from '@/lib/bulkClassifyCore';
 import { stepCarousel, canGoPrev, canGoNext } from '@/lib/carouselUtils';
 import { rs } from '../lib/responsive';
 import { GarmentTile } from '@/components/GarmentTile';
+import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
 
 // ─── Re-export pure carousel utility for testing ──────────────────────────────
 export { stepCarousel } from '@/lib/carouselUtils';
@@ -49,7 +50,7 @@ const CATEGORIES: { id: ItemCategory; label: string }[] = [
   { id: 'outerwear', label: 'Outerwear' },
   { id: 'shoes',     label: 'Shoes' },
   { id: 'bag',       label: 'Bag' },
-  { id: 'jewelry',   label: 'Jewelry' },
+  { id: 'jewelry',   label: wardrobeValueLabel('jewelry') },
 ];
 
 const OCCASIONS: OccasionTag[] = [
@@ -303,7 +304,7 @@ export default function BulkItemEditPanel({
             isCutout={Boolean(currentItem.cutoutUri)}
             variant="preview"
             style={styles.photo}
-            accessibilityLabel={`${currentItem.classification?.colorFamily ?? ''} ${currentItem.classification?.subType ?? 'garment'} photo`}
+            accessibilityLabel={`${currentItem.classification?.colorFamily ? wardrobeValueLabel(currentItem.classification.colorFamily) : ''} ${currentItem.classification?.subType ?? 'garment'} photo`}
             recyclingKey={currentItem.uri}
           />
           {isReadOnly && (
@@ -364,7 +365,7 @@ export default function BulkItemEditPanel({
             >
               <View style={[styles.colorDot, { backgroundColor: COLOR_DOTS[cf] ?? '#ccc' }]} />
               <Text style={[styles.colorLabel, cl.colorFamily === cf && styles.colorLabelActive]}>
-                {cf}
+                {wardrobeValueLabel(cf)}
               </Text>
             </Pressable>
           ))}

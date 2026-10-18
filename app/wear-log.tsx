@@ -13,6 +13,7 @@ import { computeItemCpw, formatCpw, computeWardrobeDividends, DividendItem } fro
 import { rs } from '../lib/responsive';
 import { useEffect, useState } from 'react';
 import { GarmentTile } from '@/components/GarmentTile';
+import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
 
 const FREE_LOG_DAYS = 7;
 
@@ -71,7 +72,7 @@ function ItemThumb({ item, isHero = false }: { item: WardrobeItem | undefined; i
         colorFamily={item.colorFamily}
         variant="card"
         style={[styles.itemThumb, heroBorderStyle]}
-        accessibilityLabel={`${item.colorFamily} ${item.subType} garment`}
+        accessibilityLabel={`${wardrobeValueLabel(item.colorFamily)} ${item.subType} garment`}
       />
     );
   }
@@ -93,7 +94,7 @@ function DividendCard({ dividend }: { dividend: DividendItem }) {
           colorFamily={item.colorFamily}
           variant="card"
           style={styles.dividendPhoto}
-          accessibilityLabel={`${item.colorFamily} ${item.subType} garment`}
+        accessibilityLabel={`${wardrobeValueLabel(item.colorFamily)} ${item.subType} garment`}
         />
       ) : (
         <View style={[styles.dividendPhoto, styles.dividendPhotoFallback]}>

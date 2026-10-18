@@ -12,6 +12,7 @@ import { useMemo, useEffect, useRef, useState } from 'react';
 import { computeDiagnostics, CategoryStat, ScenarioCoverage, VersatileItem, GapItem } from '@/constants/wardrobeDiagnostics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { rs } from '../lib/responsive';
+import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
 
 const GRADE_COLORS: Record<string, string> = {
   A: '#6AAF7B',
@@ -94,7 +95,7 @@ function ColorSwatch({ item }: { item: { color: string; count: number; isNeutral
   return (
     <View style={styles.swatchWrap}>
       <View style={[styles.swatch, { backgroundColor: item.hex }]} />
-      <Text style={styles.swatchLabel} numberOfLines={1}>{item.color}</Text>
+      <Text style={styles.swatchLabel} numberOfLines={1}>{wardrobeValueLabel(item.color)}</Text>
       <Text style={styles.swatchCount}>{item.count}</Text>
     </View>
   );

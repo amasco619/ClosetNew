@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useApp, type WardrobeItem } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import { GarmentTile } from '@/components/GarmentTile';
+import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
 
 export default function ChooseThirtyScreen() {
   const insets = useSafeAreaInsets();
@@ -145,11 +146,11 @@ export default function ChooseThirtyScreen() {
                   colorFamily={item.colorFamily}
                   variant="list"
                   style={styles.photo}
-                  accessibilityLabel={`${item.colorFamily} ${item.subType} garment`}
+                  accessibilityLabel={`${wardrobeValueLabel(item.colorFamily)} ${item.subType} garment`}
                 />
                 <View style={styles.itemCopy}>
                   <Text style={styles.itemName} numberOfLines={1}>{item.subType.replace(/-/g, ' ')}</Text>
-                  <Text style={styles.itemColor}>{item.colorFamily}</Text>
+                  <Text style={styles.itemColor}>{wardrobeValueLabel(item.colorFamily)}</Text>
                 </View>
                 <Ionicons
                   name={selected ? 'checkmark-circle' : 'ellipse-outline'}

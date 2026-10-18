@@ -12,7 +12,7 @@ import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, Sleeve
 import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
 import { centroidHsl, centroidLab } from '@/constants/colorPerceptual';
 import Colors from '@/constants/colors';
-import { wardrobeCategoryLabel } from '@/constants/wardrobeLabels';
+import { wardrobeCategoryLabel, wardrobeValueLabel } from '@/constants/wardrobeLabels';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
 import { authenticatedApiRequest } from '@/lib/query-client';
@@ -81,7 +81,7 @@ const CATEGORIES: { id: ItemCategory; label: string; icon: string }[] = [
   { id: 'outerwear',label: 'Outerwear',icon: 'cloudy-outline' },
   { id: 'shoes',    label: 'Shoes',    icon: 'footsteps-outline' },
   { id: 'bag',      label: 'Bag',      icon: 'bag-handle-outline' },
-  { id: 'jewelry',  label: 'Jewelry & accessories', icon: 'diamond-outline' },
+  { id: 'jewelry',  label: wardrobeValueLabel('jewelry & accessories'), icon: 'diamond-outline' },
 ];
 
 const OCCASIONS: OccasionTag[] = [
@@ -1501,7 +1501,7 @@ export default function AddItemScreen() {
                   {subType ? subType.replace(/-/g, ' ') : 'Garment type to review'}
                 </Text>
                 <Text style={styles.summaryMeta}>
-                  {[wardrobeCategoryLabel(category, subType), colorFamily || 'Colour to review'].filter(Boolean).join('  ·  ')}
+                  {[wardrobeCategoryLabel(category, subType), colorFamily ? wardrobeValueLabel(colorFamily) : 'Colour to review'].filter(Boolean).join('  ·  ')}
                 </Text>
               </View>
               <Ionicons name="sparkles-outline" size={17} color={Colors.secondary} />
@@ -1569,7 +1569,7 @@ export default function AddItemScreen() {
                   }}
                 >
                   <View style={[styles.colorDot, { backgroundColor: colorDots[cf] || '#ccc' }]} />
-                  <Text style={[styles.colorLabel, colorFamily === cf && { color: Colors.primary }]}>{cf}</Text>
+                  <Text style={[styles.colorLabel, colorFamily === cf && { color: Colors.primary }]}>{wardrobeValueLabel(cf)}</Text>
                 </Pressable>
               ))}
             </View>

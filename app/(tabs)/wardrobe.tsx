@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { rs } from '../../lib/responsive';
 import { AmodkaErrorState } from '@/components/AmodkaErrorState';
 import { shouldShowFreeWardrobeChooser } from '@/lib/freeWardrobeVisibility';
+import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
 
 type ViewMode = 'list' | 'grid';
 
@@ -21,7 +22,7 @@ const STORAGE_KEY = '@amodka_wardrobe_view';
 const categoryFilters = ['all', 'top', 'bottom', 'dress', 'outerwear', 'shoes', 'bag', 'jewelry'] as const;
 const categoryLabels: Record<string, string> = {
   all: 'All', top: 'Tops', bottom: 'Bottoms', dress: 'Dresses',
-  outerwear: 'Outerwear', shoes: 'Shoes', bag: 'Bags', jewelry: 'Jewelry & accessories',
+  outerwear: 'Outerwear', shoes: 'Shoes', bag: 'Bags', jewelry: wardrobeValueLabel('jewelry & accessories'),
 };
 
 const colorDots: Record<string, string> = {
@@ -107,7 +108,7 @@ export default function WardrobeScreen() {
           colorFamily={item.colorFamily}
           variant="list"
           style={styles.listThumb}
-          accessibilityLabel={`${item.colorFamily} ${item.subType} garment`}
+          accessibilityLabel={`${wardrobeValueLabel(item.colorFamily)} ${item.subType} garment`}
         />
         <View style={styles.listMeta}>
           <Text style={styles.listItemType} numberOfLines={1}>
@@ -115,7 +116,7 @@ export default function WardrobeScreen() {
           </Text>
           <View style={styles.listColorRow}>
             <View style={[styles.colorDot, { backgroundColor: colorDots[item.colorFamily] || '#ccc' }]} />
-            <Text style={styles.listColorText}>{item.colorFamily}</Text>
+            <Text style={styles.listColorText}>{wardrobeValueLabel(item.colorFamily)}</Text>
           </View>
           <View style={styles.pillRow}>
             {item.seasonTags.slice(0, 1).map(s => (
@@ -155,7 +156,7 @@ export default function WardrobeScreen() {
             colorFamily={item.colorFamily}
             variant="grid"
             style={styles.gridImage}
-            accessibilityLabel={`${item.colorFamily} ${item.subType} garment`}
+              accessibilityLabel={`${wardrobeValueLabel(item.colorFamily)} ${item.subType} garment`}
           />
           {item.modelConfidence !== undefined && item.modelConfidence < LOW_CONFIDENCE_THRESHOLD && (
             <View style={styles.reviewBadge}>
@@ -165,7 +166,7 @@ export default function WardrobeScreen() {
           <View style={styles.gridLabel}>
             <Text style={styles.gridLabelText} numberOfLines={1}>
               {item.subType === 'stole' ? 'Stole · textile accessory' : item.fabric
-                ? `${item.fabric.charAt(0).toUpperCase() + item.fabric.slice(1)} · ${item.colorFamily}`
+                ? `${item.fabric.charAt(0).toUpperCase() + item.fabric.slice(1)} · ${wardrobeValueLabel(item.colorFamily)}`
                 : item.subType.replace(/-/g, ' ')}
             </Text>
           </View>

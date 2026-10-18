@@ -22,6 +22,7 @@ import { PhotoRefusalNotice } from '@/components/PhotoRefusalNotice';
 import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
 import BulkItemEditPanel from '@/components/BulkItemEditPanel';
 import Colors from '@/constants/colors';
+import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { removeBackground } from '@/lib/photoroom';
 import { classificationImagePayload } from '@/lib/classifyPath';
@@ -194,7 +195,7 @@ function BulkCard({
           isCutout={!photoErrored && Boolean(item.cutoutUri)}
           variant="card"
           style={styles.photo}
-          accessibilityLabel={`${item.classification?.colorFamily ?? ''} ${item.classification?.subType ?? 'garment'} photo`}
+          accessibilityLabel={`${item.classification?.colorFamily ? wardrobeValueLabel(item.classification.colorFamily) : ''} ${item.classification?.subType ?? 'garment'} photo`}
           recyclingKey={item.uri}
           onError={() => {
             if (!photoErrored) setPhotoErrorUri(previewUri);
@@ -245,7 +246,7 @@ function BulkCard({
               {item.classification.colorFamily ? (
                 <View style={styles.tagGold}>
                   <Text style={styles.tagGoldText} numberOfLines={1}>
-                    {item.classification.colorFamily}
+                    {wardrobeValueLabel(item.classification.colorFamily)}
                   </Text>
                 </View>
               ) : null}

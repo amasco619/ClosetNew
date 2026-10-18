@@ -8,6 +8,7 @@ import { WardrobeSlot, findCloseMatch } from '@/constants/wardrobeBlueprint';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { rs } from '../lib/responsive';
+import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
 
 const CATEGORY_LABELS: Record<string, string> = {
   top: 'Tops',
@@ -16,7 +17,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   outerwear: 'Outerwear',
   shoes: 'Shoes',
   bag: 'Bags',
-  jewelry: 'Jewelry',
+  jewelry: wardrobeValueLabel('jewelry'),
 };
 
 const CATEGORY_ICONS: Record<string, string> = {

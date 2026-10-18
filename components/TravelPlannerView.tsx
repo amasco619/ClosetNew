@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
+import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
 import { rs } from '@/lib/responsive';
 import {
   TRAVEL_ACTIVITIES,
@@ -50,7 +51,7 @@ export interface TravelPlannerViewProps {
 }
 
 function garmentName(item: Pick<WardrobeItem, 'subType' | 'colorFamily'>) {
-  return [item.colorFamily, item.subType]
+  return [wardrobeValueLabel(item.colorFamily), item.subType]
     .filter((part) => part && part.toLowerCase() !== 'unknown')
     .join(' ')
     .replace(/^./, (first) => first.toUpperCase()) || 'Wardrobe piece';
@@ -533,7 +534,7 @@ export default function TravelPlannerView({
                               colorFamily={item.colorFamily}
                               variant="list"
                               style={styles.checklistPhoto}
-                              accessibilityLabel={`${item.colorFamily} ${item.subType} packed garment`}
+                              accessibilityLabel={`${wardrobeValueLabel(item.colorFamily)} ${item.subType} packed garment`}
                             />
                           ) : (
                             <View style={[styles.checklistPhoto, styles.photoPlaceholder]}>

@@ -95,7 +95,7 @@ assert.deepEqual([hydrated.category, hydrated.subType, hydrated.fabric, hydrated
   ['jewelry', 'stole', 'linen', 'geometric', 'large'], 'existing save/reload mapping retains subtype and metadata');
 assert.equal(hydrated.storagePath, 'owner/test-stole.jpg');
 assert.equal(wardrobeCategoryLabel(hydrated.category, hydrated.subType), 'Textile accessory');
-assert.equal(wardrobeCategoryLabel('jewelry', 'gele'), 'Jewelry');
+assert.equal(wardrobeCategoryLabel('jewelry', 'gele'), 'Jewellery');
 
 const blueprint = readFileSync('constants/wardrobeBlueprint.ts', 'utf8');
 const ui = readFileSync('app/add-item.tsx', 'utf8');

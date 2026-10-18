@@ -13,6 +13,7 @@ import { computeNextSmartBuy, generateRecommendedOutfitGroups, UIRecommendedOutf
 import { OutfitSet, ReactionType, OccasionTag } from '@/constants/types';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
 
 const CATEGORY_LABELS: Record<string, string> = {
   top: 'Top',
@@ -21,7 +22,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   shoes: 'Shoes',
   outerwear: 'Outerwear',
   bag: 'Bag',
-  jewelry: 'Jewelry',
+  jewelry: wardrobeValueLabel('jewelry'),
 };
 
 const STYLE_GOAL_LABELS: Record<string, string> = {

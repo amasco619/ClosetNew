@@ -1,5 +1,6 @@
 import { WardrobeItem, UserProfile, OccasionTag, ItemCategory } from '@/constants/types';
 import { WardrobeSlot } from '@/constants/wardrobeBlueprint';
+import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
 
 const NEUTRAL_COLORS = new Set([
   'black', 'white', 'grey', 'beige', 'cream', 'navy', 'camel', 'brown', 'olive',
@@ -30,7 +31,7 @@ function scoreForScenario(item: WardrobeItem, scenario: OccasionTag): number {
 
 const CATEGORY_LABELS = {
   top: 'Tops', bottom: 'Bottoms', dress: 'Dresses',
-  outerwear: 'Outerwear', shoes: 'Shoes', bag: 'Bags', jewelry: 'Jewelry',
+  outerwear: 'Outerwear', shoes: 'Shoes', bag: 'Bags', jewelry: wardrobeValueLabel('jewelry'),
 } satisfies Record<ItemCategory, string>;
 
 const IDEAL_CATEGORY_RANGE = {
@@ -255,7 +256,7 @@ export function computeDiagnostics(
     return {
       item,
       scenarioCount,
-      label: `${item.colorFamily} ${item.subType.replace(/-/g, ' ')}`,
+      label: `${wardrobeValueLabel(item.colorFamily)} ${item.subType.replace(/-/g, ' ')}`,
     };
   });
 
@@ -340,9 +341,9 @@ export function computeDiagnostics(
     gaps.push({
       priority: 'medium',
       category: 'jewelry',
-      categoryLabel: 'Jewelry',
+      categoryLabel: wardrobeValueLabel('jewelry'),
       suggestion: 'A pair of gold hoop earrings',
-      reason: 'The fastest way to elevate any outfit — one piece of jewelry transforms a look',
+      reason: 'The fastest way to elevate any outfit — one piece of jewellery transforms a look',
     });
   }
 

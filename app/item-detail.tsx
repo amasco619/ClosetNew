@@ -10,7 +10,7 @@ import { useApp, subTypes, colorFamilies } from '@/contexts/AppContext';
 import { useDialog } from '@/contexts/LuxuryFeedbackContext';
 import type { Neckline } from '@/constants/types';
 import Colors from '@/constants/colors';
-import { wardrobeCategoryLabel } from '@/constants/wardrobeLabels';
+import { wardrobeCategoryLabel, wardrobeValueLabel } from '@/constants/wardrobeLabels';
 import * as Haptics from 'expo-haptics';
 import { rs } from '../lib/responsive';
 
@@ -205,7 +205,7 @@ export default function ItemDetailScreen() {
           colorFamily={item.colorFamily}
           variant="preview"
           style={styles.image}
-          accessibilityLabel={`${item.colorFamily} ${item.subType} garment`}
+          accessibilityLabel={`${wardrobeValueLabel(item.colorFamily)} ${item.subType} garment`}
         />
 
         <View style={styles.details}>
@@ -240,7 +240,7 @@ export default function ItemDetailScreen() {
           )}
           <Pressable style={styles.metaRow} onPress={() => setEditingColor(v => !v)} hitSlop={6}>
             <View style={[styles.dot, { backgroundColor: colorDots[item.colorFamily] || '#ccc' }]} />
-            <Text style={styles.metaText}>{item.colorFamily}</Text>
+            <Text style={styles.metaText}>{wardrobeValueLabel(item.colorFamily)}</Text>
             <Text style={styles.metaDivider}>|</Text>
             <Text style={styles.metaText}>{wardrobeCategoryLabel(item.category, item.subType)}</Text>
             <Ionicons name={editingColor ? 'chevron-up' : 'pencil-outline'} size={13} color={Colors.textSecondary} style={{ marginLeft: 4 }} />
@@ -257,7 +257,7 @@ export default function ItemDetailScreen() {
                   }}
                 >
                   <View style={[styles.editColorDot, { backgroundColor: colorDots[cf] || '#ccc' }]} />
-                  <Text style={[styles.editChipText, item.colorFamily === cf && styles.editChipTextActive]}>{cf}</Text>
+                  <Text style={[styles.editChipText, item.colorFamily === cf && styles.editChipTextActive]}>{wardrobeValueLabel(cf)}</Text>
                 </Pressable>
               ))}
             </View>
