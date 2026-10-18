@@ -291,6 +291,7 @@ constants/
   affinity.ts            Personal calibration: per-item affinity, per-pair pairAffinity
   weather.ts             Weather-aware outerwear logic, Open-Meteo integration
   orphanDetection.ts     Ghost-item recovery helpers: detectNoPhotoOrphans(), detectFileOrphans(), applyOrphanResolution()
+  accountDeletionCleanup.ts  Clear private device cache and app-managed wardrobe photos only after server deletion succeeds
   rePhotographSave.ts    applyRePhotographSave() — pure add+remove branching for re-photograph flow
   guestPhotoCleanup.ts   deleteGuestPhoto(), runGuestRemoval(), buildGuestPhotoDestPath() — guest local file cleanup
 
@@ -324,7 +325,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               106 test suites (see §11)
+__tests__/               109 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -436,7 +437,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 106 test suites once |
+| `npm test` | Run all 109 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -1358,7 +1359,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (106 total)
+### Test Suites (109 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1376,6 +1377,7 @@ These features are **not yet implemented**. They are the next development priori
 | `stylingRelationships.test.ts` | Additive Phase A membership projection, owner/parent checks, all three types, pre-evaluation coordinated construction under shortlist crowding, relationship removal and renamed-garment controls, Western complements, normal alternatives, immutable canonical/shared facts, transient provenance and provider-free graph |
 | `swipeDismiss.test.ts` | Exact-top gesture capture, scroll gating during movement/release, 120 px threshold, and scroll-ref/accessible-close wiring on all three sheet routes |
 | `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, and retries after partial cleanup |
+| `accountDeletionLocalCleanup.test.ts` | Confirmed deletion clears account cache keys, local wardrobe photos, and signed-photo cache; server failure preserves them for retry |
 | `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival, prune-interval state, DB integration (skipped when `DATABASE_URL` absent) |
 | `aiProcessingConsent.test.ts` | Mounted account preference API and server AI-route enforcement: unasked/malformed/declined denied, account isolation, metadata persistence, store errors fail closed |
 | `aiProcessingPreference.test.ts` | Client preference-state normalization; unknown responses cannot silently grant AI processing |
@@ -2057,14 +2059,15 @@ Security properties verified analytically from SQL (live two-user test requires 
 
 **Recommendation:** Operator should set `tryon-photos` bucket to PRIVATE (or disable it entirely until Virtual Try-On is implemented). No app functionality is affected either way.
 
-#### A6 — AsyncStorage.multiRemove on Account Deletion
+#### A6 — Device Data Cleanup on Account Deletion
 
-`app/(tabs)/profile.tsx` — account deletion now:
-1. Calls server to delete Storage + DB + auth (as per Phase 5B)
-2. **Only after server success**: calls `AsyncStorage.multiRemove([all user-owned keys])`
-3. Keys cleared: `@auracloset_*` (AppContext), `@amodka_item_ids`, `@amodka_wear_log`, `@amodka_weather_v1`, `@amodka_weather_perm_asked_v1`, `@amodka_wardrobe_view`, `@amodka_email_confirmed`, and all legacy keys
-4. If `multiRemove` fails: non-fatal (stale local data is overwritten on next sign-in); user receives success message
-5. If server deletion fails: local data preserved; error message tells user deletion did not complete
+`app/(tabs)/profile.tsx` confirms the server deletion before calling `AppContext.clearDeletedAccountLocalData()`. The client then:
+- Removes current and legacy profile, wardrobe, outfit, weather, wear-log, settings, and pending-photo-cleanup AsyncStorage keys.
+- Deletes only app-managed `wardrobe_<id>.jpg|png` files found in the app document directory; unrelated local files and remote photo URLs are untouched.
+- Clears the in-memory signed wardrobe-photo URL cache and resets account-specific AppContext state.
+- Keeps local cache and photos intact if server deletion fails or is not explicitly confirmed.
+
+`__tests__/accountDeletionLocalCleanup.test.ts` covers both success and failed-server paths.
 
 #### A7 — Signed URL Cold-Start Fix
 

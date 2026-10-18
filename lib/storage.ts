@@ -11,6 +11,10 @@ export { stripDataUriPrefix } from './uploadArg'
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>()
 const SIGNED_URL_TTL_SECONDS = 3600 // 1 hour; refresh buffer of 60 s applied at read time
 
+export function clearSignedWardrobeUrlCache(): void {
+  signedUrlCache.clear()
+}
+
 /**
  * Generate a short-lived signed URL for a wardrobe-images storage path.
  * Results are cached for SIGNED_URL_TTL_SECONDS with a 60-second refresh buffer

@@ -9,7 +9,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -22,6 +21,7 @@ import { useApp } from '@/contexts/AppContext';
 import { signOut } from '@/lib/auth';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { supabase } from '@/lib/supabase';
+import { deleteAccountThenClearLocalData } from '@/constants/accountDeletionCleanup';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 import { AmodkaErrorState } from '@/components/AmodkaErrorState';
 import { useDialog } from '@/contexts/LuxuryFeedbackContext';
@@ -135,6 +135,7 @@ export default function ProfileScreen() {
     dataUnavailable,
     entitlementUnavailable,
     retryInitialization,
+    clearDeletedAccountLocalData,
   } = useApp();
 
   const [editingName, setEditingName] = useState(false);
@@ -284,59 +285,25 @@ export default function ProfileScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            let cacheCleared = false;
             try {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (!user?.id) throw new Error('Not signed in');
-              const response = await authenticatedApiRequest(
-                'DELETE',
-                '/api/user/delete-account',
-                { userId: user.id },
-              );
-              const result = await response.json();
-              if (result.success !== true) throw new Error('Deletion not confirmed');
+              cacheCleared = await deleteAccountThenClearLocalData(async () => {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user?.id) throw new Error('Not signed in');
+                const response = await authenticatedApiRequest(
+                  'DELETE',
+                  '/api/user/delete-account',
+                  { userId: user.id },
+                );
+                const result = await response.json();
+                if (result.success !== true) throw new Error('Deletion not confirmed');
+              }, clearDeletedAccountLocalData);
             } catch {
               dialog.notify({
                 title: 'Deletion not confirmed',
                 message: 'Your account was not confirmed deleted. Some data may already have been removed. Please try again or contact support.',
               });
               return;
-            }
-
-            let cacheCleared = true;
-            try {
-              await AsyncStorage.multiRemove([
-                '@amodka_profile',
-                '@amodka_wardrobe',
-                '@amodka_premium',
-                '@amodka_slots',
-                '@amodka_rotation',
-                '@amodka_wear_history',
-                '@amodka_reactions',
-                '@amodka_mood',
-                '@amodka_saved_looks',
-                '@amodka_item_ids',
-                '@amodka_wear_log',
-                '@amodka_weather_v1',
-                '@amodka_weather_perm_asked_v1',
-                '@amodka_wardrobe_view',
-                '@amodka_email_confirmed',
-                '@auracloset_profile',
-                '@auracloset_wardrobe',
-                '@auracloset_premium',
-                '@auracloset_slots',
-                '@auracloset_rotation',
-                '@auracloset_wear_history',
-                '@auracloset_reactions',
-                '@auracloset_mood',
-                '@auracloset_saved_looks',
-                '@auracloset_item_ids',
-                '@auracloset_wear_log',
-                '@auracloset_weather_v1',
-                '@auracloset_weather_perm_asked_v1',
-              ]);
-            } catch {
-              cacheCleared = false;
-              console.warn('[profile] Deleted account local cache cleanup failed');
             }
             let signedOut = true;
             try {

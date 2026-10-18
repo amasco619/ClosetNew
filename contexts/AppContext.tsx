@@ -18,6 +18,7 @@ import {
   runGuestRemoval,
   type PendingPhotoCleanup,
 } from '@/constants/guestPhotoCleanup';
+import { clearAccountDeviceData } from '@/constants/accountDeletionCleanup';
 import {
   detectNoPhotoOrphans,
   isGuestPhotoUri,
@@ -44,7 +45,7 @@ import { projectWardrobeForStyling } from '../lib/stylingWardrobe';
 import { buildStylingContextCandidates, asTraditionalOutfits } from '../lib/traditionalStyling';
 import { annotateStylingRelationships, projectRelationshipsForStyling } from '../lib/stylingRelationships';
 import { supabase } from '../lib/supabase';
-import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl, getSignedWardrobeUrl } from '../lib/storage';
+import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl, getSignedWardrobeUrl, clearSignedWardrobeUrlCache } from '../lib/storage';
 import { reportError } from '@/shared/observability';
 import {
   canCommitStartupHydration,
@@ -96,6 +97,7 @@ interface AppContextValue {
   removeWardrobeItem: (id: string, photoUriHint?: string, expectedUserId?: string | null) => Promise<boolean>;
   hasPendingPhotoCleanup: () => Promise<boolean>;
   retryPendingPhotoCleanup: () => Promise<boolean>;
+  clearDeletedAccountLocalData: () => Promise<boolean>;
   updateWardrobeItem: (id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => Promise<void>;
   isPremium: boolean;
   outfitSets: OutfitSet[];
@@ -1242,6 +1244,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const clearLastAddedSuggestions = useCallback(() => setLastAddedSuggestions([]), []);
 
+  const clearDeletedAccountLocalData = useCallback(async () => {
+    const photoUris = wardrobeItemsRef.current.map(item => item.photoUri);
+    ++startupGenerationRef.current;
+    accountGenerationRef.current += 1;
+    currentUserIdRef.current = null;
+    currentUserGenerationRef.current = null;
+    wardrobeItemsRef.current = [];
+    pendingPhotoCleanupsRef.current = [];
+    await pendingPhotoCleanupQueueRef.current.catch(() => undefined);
+
+    const cacheCleared = await clearAccountDeviceData({
+      removeStorageKeys: async keys => {
+        pendingPhotoCleanupsRef.current = [];
+        await AsyncStorage.multiRemove([...keys]);
+      },
+      photoUris,
+      documentDirectory: FileSystem.documentDirectory,
+      deleteAsync: FileSystem.deleteAsync,
+      clearSignedPhotoCache: clearSignedWardrobeUrlCache,
+    });
+
+    setIsAuthenticated(false);
+    setAuthenticatedUserId(null);
+    setProfile(defaultProfile);
+    setWardrobeItems([]);
+    setWardrobeTotalCount(0);
+    setWardrobeLoadedCount(0);
+    setFreeSelectedItemIds([]);
+    setIsPremium(false);
+    isPremiumRef.current = false;
+    setRotationState(INITIAL_ROTATION_STATE);
+    setWearHistory([]);
+    setReactions([]);
+    setMoodOfDay(null);
+    setSavedLooks([]);
+    setOrphanedItems([]);
+    setRecommendationSlots([]);
+    setSlotsInitialized(false);
+    setLastAddedSuggestions([]);
+    setWeather(null);
+    setWeatherLoading(false);
+
+    return cacheCleared;
+  }, []);
+
   // ── Weather (Open-Meteo, no API key) ─────────────────────────────────────
   // Cached snapshot loads instantly on mount; a fresh fetch runs in the
   // background. When the user disables the toggle we drop the cache so we
@@ -2139,7 +2186,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     wardrobeTotalCount, wardrobeHasMore: wardrobeLoadedCount < wardrobeTotalCount, freeSelectedItemIds,
     loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection, getStylingRecommendations,
     addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem,
-    hasPendingPhotoCleanup, retryPendingPhotoCleanup, updateWardrobeItem,
+    hasPendingPhotoCleanup, retryPendingPhotoCleanup, clearDeletedAccountLocalData, updateWardrobeItem,
     isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
     isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable,
     retryInitialization: () => {
@@ -2162,7 +2209,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, wardrobeTotalCount, wardrobeLoadedCount, freeSelectedItemIds,
        loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection, getStylingRecommendations,
         addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem,
-        hasPendingPhotoCleanup, retryPendingPhotoCleanup, updateWardrobeItem,
+        hasPendingPhotoCleanup, retryPendingPhotoCleanup, clearDeletedAccountLocalData, updateWardrobeItem,
        isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
