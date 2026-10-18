@@ -1,0 +1,61 @@
+AMODKA — GUEST BULK UPLOAD (local-only parity with guest single add)
+
+RULES
+Work in phases; after each phase run npm test, typecheck, lint and the 
+golden set, then commit that phase alone. DO NOT TOUCH: Recommendation 
+Engine v3.7, database schema/RLS, billing/RevenueCat, auth, quota 
+numbers and semantics, the classifier, PhotoRoom logic, server-side AI 
+consent enforcement, the staging helper's behaviour, the Profile 
+layout. Authenticated-user behaviour must not change. List any 
+deviation or skipped item under "Deviations". Never claim something is 
+verified that you did not run.
+
+STEP 0 — AUDIT (report)
+How guest single add works today: what happens to the photo, which 
+network calls are and are not made, what the form shows, how the 8-item 
+guest cap is enforced, and how local items are handled when a guest 
+signs in. Bulk must match this.
+
+GOAL
+For guests, bulk upload mirrors guest single add: photos are staged and 
+kept on the device, with NO classify call, NO background-removal call 
+and NO AI-consent prompt (nothing leaves the device). No "Analysis 
+failed" cards.
+
+REQUIREMENTS
+1. Guest cards show the original photo on the neutral studio tile with 
+   a calm state, "Add details". Tapping opens the existing manual 
+   entry/review flow with that photo preloaded, using the existing 
+   opaque selection-ID route (no URIs in params).
+2. A quiet banner above the grid: "Sign in to let Amodka identify and 
+   prepare these photos for you." with a "Sign in" action using the 
+   existing sign-in route. Do not build a new continuity mechanism: if 
+   the existing selection store survives the navigation, resume; if not, 
+   leave staged files to the existing sweep.
+3. Cap: the guest cap (8) minus items already saved. If the guest 
+   selects more, keep the first N in picked order and show one calm 
+   message; never drop photos silently.
+4. Save: guests save locally exactly as guest single add does (same 
+   fields, same local-only path). "Save all" is enabled only when every 
+   card meets the existing manual validation.
+5. Fallback: if parity cannot be done safely (for example manual entry 
+   cannot take staged photos), block bulk for guests instead: before the 
+   picker opens, show a calm sign-in prompt ("Bulk upload is available 
+   with an account." with Sign in / Not now). Report which path you 
+   took and why.
+
+TESTS
+Pure-function tests for guest cap math (0, partial, full, over-select), 
+card-state mapping for guest vs signed-in, and a test with injected 
+stubs proving the guest path never calls classify or background 
+removal.
+
+DELIVERABLE
+Short report: audit findings, the path taken (parity or block), files 
+changed, tests, "Deviations", and what you did not verify on a device.
+
+REUSE
+Cleanup added a manual-entry path for consent dismissals in bulk review 
+(lib/aiConsentFlow.ts and app/bulk-review.tsx: "remaining selected 
+photos individually available for manual entry"). Reuse it for guest 
+cards where it fits. Report which parts you reused.
