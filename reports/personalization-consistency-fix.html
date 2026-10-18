@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Amodka — Bounded Personalization Consistency Fix</title>
+<style>
+body{margin:0;background:#f5f3ef;color:#18202c;font:16px/1.6 system-ui,sans-serif}
+main{max-width:980px;margin:auto;padding:32px 22px 64px}
+h1,h2{line-height:1.25}h1{font-size:30px}h2{margin-top:36px;font-size:23px}
+section{background:white;padding:22px;border-radius:12px;margin:18px 0;border:1px solid #dedbd5}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:10px;text-align:left;border-bottom:1px solid #ddd;vertical-align:top}
+code{font-size:13px;overflow-wrap:anywhere}pre{white-space:pre-wrap;background:#f3f2ef;padding:14px;font-size:13px;overflow-wrap:anywhere}
+.ok{color:#23623d}.warning{color:#854500}.muted{color:#555}li{margin:7px 0}
+</style>
+</head>
+<body><main>
+<h1>Amodka — Bounded Personalization Consistency Fix</h1>
+<p>Implementation and verification report. Scope: the five fixes in the supplied specification. No publishing or deployment.</p>
+
+<section><h2>Executive result</h2>
+<p class="ok"><strong>All five targeted changes implemented. Final full suite: 106 passed, 0 failed test files.</strong></p>
+<p>Account hydration no longer falls back to another account's local profile. Guest migration includes face shape, preserves existing constraint/profile values, and cannot reuse an already-consumed guest snapshot for a later account. Skipping the primary goal completes coherently with Classic. Face shape now invalidates the rotation input hash. Controlled scorer tests document existing eye-colour and skin-tone effects without changing calculations.</p>
+<p class="warning">One existing protected validator remains failing: Track C's root CSV line-count check sees 3,231 apparent data rows instead of 100. This file is unchanged; frozen and raw-output checksums pass.</p>
+</section>
+
+<section><h2>Exact behavior and decisions</h2>
+<ol>
+<li><strong>Account-safe hydration:</strong> clear cached profile values while an authoritative read runs, then build from neutral defaults plus the current remote account. Remote null/missing answers do not inherit the previous account; false, zero and intentionally empty strings are not mistaken for absent values. Existing account/startup guards remain in place.</li>
+<li><strong>Guest migration:</strong> only explicit guest-marked snapshots qualify for a blank account. Direct signed-in switches cannot nominate a guest snapshot. The shared existing-format serializer writes the top-level face shape into <code>constraints._profile.faceShape</code>, alongside the existing extended profile fields. Other constraint and extension keys are preserved. Successful hydration caches a non-guest snapshot, preventing later accidental re-migration. A failed guest migration write propagates failure, retains the guest cache, and does not claim success. Stale account completions cannot publish after their guarded async checkpoint.</li>
+<li><strong>Primary-goal skip:</strong> completing the quiz without a selected goal saves <code>classic</code>. This matches the existing Classic blueprint fallback and keeps the startup required-field rule intact. Completed legacy profiles missing that goal normalize to Classic; an incomplete quiz is not automatically completed. Explicit goals remain unchanged.</li>
+<li><strong>Rotation identity:</strong> face shape is added to <code>computePoolHash</code>. A changed face shape takes the existing hash-change reset path. Unchanged inputs remain stable; the shuffle and selector algorithms are untouched. The old serialized hash format will differ once after this update, so existing rotation state can reset once on first use.</li>
+<li><strong>Scorer evidence/comments:</strong> tests change one profile dimension at a time against controlled metadata. A supported eye/colour match adds exactly +1; the tested non-match adds nothing. Supported skin-depth/contrast-colour combinations add exactly +1; non-matching tones or colours add nothing. The stale subtype comment now correctly states +3 for a primary subtype match, with no direct secondary subtype bonus. No weights or palettes changed.</li>
+</ol>
+<p><strong>Why this approach:</strong> remote account data is authoritative for account privacy; local guest migration is explicit rather than a fallback. Saving the existing Classic default is smaller and more coherent than relaxing completion routing. No new database column or migration was needed.</p>
+</section>
+
+<section><h2>Files changed</h2>
+<table><thead><tr><th>File</th><th>Change</th></tr></thead><tbody>
+<tr><td><code>shared/profile-personalization.ts</code></td><td>Existing profile defaults/merge and startup-field check moved to a pure module; account hydration, guest eligibility, existing-format serialization and Classic default.</td></tr>
+<tr><td><code>contexts/AppContext.tsx</code></td><td>Integrates account-neutral hydration, guest-only migration, face-shape serialization and non-guest cache consumption; reuses serializer for normal profile updates.</td></tr>
+<tr><td><code>app/onboarding.tsx</code></td><td>Uses Classic when completing without a primary goal.</td></tr>
+<tr><td><code>app/index.tsx</code></td><td>Uses the shared, behaviorally unchanged required-field check.</td></tr>
+<tr><td><code>constants/outfitRotation.ts</code></td><td>One functional line: include face shape in the pool hash.</td></tr>
+<tr><td><code>constants/outfitScoring.ts</code></td><td>Comments only; no executable changes.</td></tr>
+<tr><td><code>__tests__/profilePersonalization.test.ts</code></td><td>17 new offline test groups covering all five requirements, failure/retry and stale migration cases.</td></tr>
+<tr><td><code>__tests__/temperatureUnits.test.ts</code></td><td>Replaces stale inline-source expectations with shared hydration/serialization checks, including explicit Fahrenheit and next-account Celsius isolation.</td></tr>
+<tr><td><code>TECHNICAL.md</code></td><td>Section 42, test-suite entry and three suite-count references updated.</td></tr>
+<tr><td><code>AMODKA-PROJECT-STATUS.md</code></td><td>Current bounded implementation and verification status.</td></tr>
+<tr><td><code>reports/personalization-consistency-fix.html</code></td><td>This report.</td></tr>
+</tbody></table>
+<p>The attached specification is an input asset, not an implementation change.</p>
+</section>
+
+<section><h2>Commands actually run and final results</h2>
+<p>Test-runner totals below count test <strong>files</strong>, not individual assertions. The new personalization file separately reports 17 test groups.</p>
+<table><thead><tr><th>Check / command</th><th>Result</th></tr></thead><tbody>
+<tr><td><code>npm test -- profilePersonalization.test.ts temperatureUnits.test.ts outfitComboScorer.test.ts outfitRotation.test.ts appContextStartupGeneration.test.ts getProfileBlueprint.test.ts</code></td><td class="ok">6 passed, 0 failed; 100 not selected. New personalization groups: 17 passed.</td></tr>
+<tr><td><code>npm test</code></td><td class="ok">Final run: 106 passed, 0 failed, no unselected files.</td></tr>
+<tr><td><code>npm run typecheck</code></td><td class="ok">Exit 0; no TypeScript errors.</td></tr>
+<tr><td><code>npm run lint</code></td><td class="ok">Exit 0; no lint errors or warnings emitted.</td></tr>
+<tr><td><code>node_modules/.bin/tsx __tests__/recommendation-golden-set.ts</code></td><td class="ok">35 passed, 0 failed.</td></tr>
+<tr><td><code>node scripts/validate-benchmark-fixtures.mjs</code></td><td class="ok">Exit 0: 100 cases, 84 fixtures, 100 signed labels, 40 synthetic image/provenance rows, 53 frozen-file checksums.</td></tr>
+<tr><td><code>node scripts/validate-africa-track-c.mjs</code></td><td class="warning">Exit 1: <code>case-results.csv: expected 100 rows, found 3231</code>. The validator counts physical lines, not parsed logical CSV records.</td></tr>
+<tr><td><code>(cd docs/recommendation/africa/benchmark-v1/frozen-v1 &amp;&amp; sha256sum -c SHA256SUMS)</code></td><td class="ok">53 OK, 0 checksum failures.</td></tr>
+<tr><td><code>(cd docs/recommendation/africa/track-c/baseline-v3.7 &amp;&amp; sha256sum -c RAW-SHA256SUMS)</code></td><td class="ok">101 OK, 0 checksum failures.</td></tr>
+</tbody></table>
+<p><strong>Earlier failures:</strong> the first focused/typecheck pass exposed test fixture/type mismatches, corrected before the passing runs. An intermediate full run was 105 passed / 1 failed because the temperature test still required the old inline hydration expression. That assertion now checks the actual shared production path and account-isolated temperature behavior. The final full run passes. No failing test was deleted or skipped to obtain the final result.</p>
+<p><strong>Track C provenance:</strong> the pre-change CSV also contains 3,232 physical lines including its header. The existing technical source of truth already records the same 3,231-apparent-data-row issue. No protected CSV, benchmark, checksum or validator was edited to address it.</p>
+</section>
+
+<section><h2>Evidence strength and limitations</h2>
+<ul>
+<li><strong>Account isolation and migration are demonstrated offline:</strong> production pure helpers plus the actual extracted hydration branch run with mocked reads/writes. Tests cover distinct account values, null fields, explicit false/zero, guest migration payload, face-shape round trip, consumed cache, migration failure and a superseded account response.</li>
+<li>Actual extracted onboarding skip/completion callbacks and the actual rotation effect body are executed with offline boundaries. Local and remote restart serialization is simulated; these are not physical process restarts.</li>
+<li>No live Supabase account switching, real cross-device hydration, physical iOS/Android journey or screen-reader testing was performed. No interactive signed-in browser journey was run.</li>
+<li>The frontend workflow was restarted. An unauthenticated web screenshot captured a blank startup viewport, without a JavaScript exception in the capture log; it is not successful visual/UI sign-off. Its log included the existing React Native Web <code>shadow*</code> deprecation and development/RevenueCat preview informational messages. Native behavior is not established by that screenshot.</li>
+<li>The tests do not prove handling of every native storage failure or device-crash timing. The existing persistence architecture remains; no transactional local/database migration was introduced.</li>
+<li>No live AI/provider request was intentionally made for this work. No release or production change is claimed.</li>
+</ul>
+</section>
+
+<section><h2>Protected-system verification</h2>
+<p>The diff against the pre-implementation source confirms no edits to protected benchmark data, Track B/C outputs, gold labels, golden fixtures, candidate generator, affinity, weather logic or engine version. Scorer changes are comments only. The sole functional engine-adjacent change is the explicitly requested face-shape hash input; ranking, scoring weights and rotation selection algorithms are unchanged.</p>
+<p>No schema/migration, dependency, billing/RevenueCat, quota, wardrobe persistence, AI-consent or unrelated feature change. Existing extended profile storage is reused. No publication or deployment.</p>
+</section>
+</main></body></html>

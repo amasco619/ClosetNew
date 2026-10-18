@@ -1,5 +1,22 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
+## Bounded personalization consistency update
+
+The five requested consistency fixes are implemented: account-neutral profile
+hydration, guest face-shape migration through the existing constraints format,
+Classic as the completed primary-goal skip default, face shape in the rotation
+input hash, and isolated eye-colour/skin-tone scoring tests. Guest snapshots are
+restricted to guest transitions and consumed after successful hydration; failed
+or superseded migration writes cannot publish late profile data.
+
+Verification: 106/106 test files, focused 6/6 (17 new personalization groups),
+typecheck, lint, golden 35/35, benchmark validator, 53 frozen checksums and 101 raw
+seals passed. The pre-existing Track C CSV line-count validation failure remains
+(3,231 apparent data rows versus 100 expected); protected data was not changed.
+Live-account/device behavior was not verified. Full report:
+`reports/personalization-consistency-fix.html`. No schema/dependency change or
+deployment; frozen engine calculations and protected fixtures remain unchanged.
+
 **Date:** 2026-09-11  
 **Purpose:** Short, current briefing for coding-agent work. This document supersedes older phase narratives where they conflict with the current source tree.
 

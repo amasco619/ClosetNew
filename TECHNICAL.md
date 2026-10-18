@@ -324,7 +324,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               105 test suites (see §11)
+__tests__/               106 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -436,7 +436,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 105 test suites once |
+| `npm test` | Run all 106 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -1357,10 +1357,11 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (105 total)
+### Test Suites (106 total)
 
 | Suite | What it tests |
 |-------|--------------|
+| `profilePersonalization.test.ts` | 17 offline groups: account-neutral hydration, null/explicit values, guest-only migration and face-shape round trip, consumed guest cache, failed/stale migration, actual onboarding skip/completion and rotation-effect callbacks, eye/skin scoring match and no-effect cases |
 | `alertDialogAdapter.test.ts` | Branded dialog adapter preserves cancel/destructive roles, outside-cancel policy, button callbacks and default Done behavior |
 | `travelCapsule.test.ts` | Exact activity/scenario matching and source separation, owned/current IDs, stable look identity, authoritative coordinated membership/partial use, checklist deduplication, partial coverage and no write/generation imports |
 | `travelCapsuleUi.test.ts` | Mounted actual session planner/view: fresh checks, explicit reuse, unsupported/empty slots, separate essentials, group failures/retry, wardrobe/account/entitlement invalidation, superseded responses, blur/remount cleanup and unchanged domain state |
@@ -2923,3 +2924,40 @@ records. A failed Undo shows a "Retry cleanup" toast action, and retained work
 is also retried after app startup. Guest path checks enforce directory-segment
 boundaries and reject traversal; authenticated Storage deletion rejects unsafe
 path segments.
+
+## 42. BOUNDED PERSONALIZATION CONSISTENCY
+
+Signed-in profile hydration starts from account-neutral defaults, not the
+previous profile or an unscoped signed-in cache. Remote null/unset answers do not
+inherit another account's answers; explicit false/zero values are preserved.
+Profile state is cleared while the authoritative account read is pending.
+Existing account/startup-generation checks still reject stale completions.
+
+Only an explicitly guest-marked local profile can migrate to a blank account.
+Direct signed-in account switches cannot nominate a guest snapshot. Migration
+and normal profile updates share the existing constraints serializer, including
+top-level face shape as `constraints._profile.faceShape`; other constraints and
+extended profile keys are retained. A successful hydration replaces the local
+guest marker with a signed-in snapshot. A failed migration write is not reported
+as success and does not consume the guest cache.
+
+Completing a quiz with no primary style goal saves `classic`, matching the
+existing Classic blueprint fallback. Completed legacy quizzes with a missing
+goal normalize to Classic on hydration; incomplete quizzes remain incomplete.
+The existing startup required-field check is unchanged and shared with tests.
+
+Face shape is included in the pool-input hash. This uses the existing reset path
+when personalization changes; no shuffle/selection algorithm, scoring weight,
+palette, affinity, candidate generation or weather logic changes. Scorer edits
+are comments only. Controlled tests show the existing eye-colour and skin-depth
+bonuses are each +1 when supported, and zero in the tested non-match cases.
+
+Verification: focused run 6/6 test files (17 new personalization groups); full
+suite 106/106; TypeScript and lint passed; golden set 35/35; benchmark validator
+passed; frozen checksums 53/53 and raw seals 101/101 passed. The unchanged Track C
+validator still fails at `case-results.csv`, counting 3,231 apparent data rows
+instead of 100 (also documented above). Account isolation/migration evidence is
+offline, using production helpers and extracted actual callback branches with
+mocked I/O, not live accounts or device sign-off. See
+`reports/personalization-consistency-fix.html` for commands, changed files,
+warnings and limits. No migration, provider call, dependency change or deployment.

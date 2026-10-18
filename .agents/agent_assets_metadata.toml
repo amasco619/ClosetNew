@@ -533,3 +533,17 @@ mtime_ms = 1792268168086
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/6fb60f29-bda3-47a1-866a-6d6acb0e1fbb/2e45f1a2-ef5e-4e27-8423-aa0b7f1b40e8"
 storage_version_token = "1792268273183729"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "dmwfRIFxlG7uGZRa7zpUW"
+uri = "file://reports/personalization-consistency-fix.html"
+type = "html"
+title = "Personalization consistency — implementation report"
+description = "Five bounded fixes, exact verification results, changed files, protected-system checks, and live-validation limitations."
+logical_id = "b6f91a72-e421-4836-9a9d-081f3dffdc8a"
+content_hash = "sha256:c784f6fb634ebd3587ad9391130679bd11cc20b40fe11920ffd2664ae62647e2"
+size = 11361
+mtime_ms = 1792282079822
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/b6f91a72-e421-4836-9a9d-081f3dffdc8a/65f727aa-5adf-4807-932d-ab7b86fea5d9"
+storage_version_token = "1792282099982509"
+content_type = "text/html"
