@@ -2317,10 +2317,12 @@ transport failure, and confirmed-server/deferred-device cleanup. A migration
 journal cleanup exception does not prevent the remaining local cleanup and
 sign-out attempt.
 
-**Not live-resolved:** read-only inspection found that `service_role` lacks
-SELECT and DELETE privileges on `wardrobe_free_selections`. The route correctly
-fails closed there. The narrow proposed grant needs approval; no privilege,
-schema, RLS, billing, or consent changes have been made. See
+**Permission blocker repaired after explicit approval:** live inspection found
+that `service_role` lacked SELECT and DELETE on `wardrobe_free_selections`.
+The narrow server-only grant was applied and a subsequent live privilege query
+confirmed both privileges. No schema, RLS policy, billing or consent changes
+were made. Full live account deletion remains unverified; no account was deleted
+as part of the permission repair. See
 `reports/account-deletion-regression.md` for evidence and verification limits.
 
 ## 27. AUTH-2 — Sign-up and password-recovery correctness

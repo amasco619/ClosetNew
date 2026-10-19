@@ -6,7 +6,8 @@ description: Why deletion tests alone cannot establish live cleanup access in Su
 Service-role RLS bypass does not imply table privileges. Live inspection during
 the account-deletion regression found no service-role SELECT/DELETE privileges
 on free wardrobe selections; deletion correctly stopped before Auth removal.
-The proposed grant was not applied pending approval.
+The user subsequently approved the narrow server-only grant; it was applied and
+live metadata confirmed both privileges. This was not a live deletion test.
 
 **Why:** Mocked deletion tests passed while the real service could not execute
 the inventory. A separate wrong-database usage deletion would have failed next.

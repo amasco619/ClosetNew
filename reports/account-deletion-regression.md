@@ -2,10 +2,13 @@
 
 ## Outcome
 
-**Blocked for live completion, not release-ready.** Code corrections and regression
-checks pass, but Supabase permissions still prevent deletion. No live user was
-deleted and no database permissions, schema, RLS, billing logic or consent
-enforcement were changed. No publication/deployment occurred.
+**Known permission blocker repaired; end-to-end live deletion remains unverified.**
+Code corrections and regression checks pass. Following explicit user approval,
+SELECT and DELETE were granted on `public.wardrobe_free_selections` to
+`service_role` only. A subsequent live metadata query returned
+`can_select: true` and `can_delete: true`. No live user was deleted. Schema,
+RLS policies, billing logic and consent enforcement were not changed.
+No publication/deployment occurred.
 
 ## Evidence before editing
 
@@ -71,7 +74,7 @@ steps were exercised with fixtures, not a destructive live-account reproduction.
 
 ## Root causes and correction
 
-### Live permissions — still blocked
+### Live permissions — repaired after approval
 
 `server/accountDeletionInventory.ts:16` requests deletion of
 `wardrobe_free_selections`; `server/routes.ts:149` executes the checked inventory.
@@ -79,15 +82,16 @@ The selected Supabase project lacks the necessary privileges. The creation
 migration `20260928000000_free_wardrobe_selection.sql` grants authenticated reads,
 but does not grant service-role reads/deletes.
 
-The minimal proposed operational correction is:
+The approved operational correction applied was:
 
 ```sql
 GRANT SELECT, DELETE ON TABLE public.wardrobe_free_selections TO service_role;
 ```
 
-**Not executed.** This adds no client privileges and changes no RLS policies or
-schema, but is a live database security change requiring approval. No table has
-been removed from deletion to conceal the failure. No migration was added.
+**Executed after explicit approval.** A subsequent live privilege query confirmed
+both privileges are now true for `service_role`. This adds no client privileges
+and changes no RLS policies or schema. No table has been removed from deletion
+to conceal the failure. No migration was added.
 
 ### Wrong-database deletion — corrected in code
 
@@ -191,8 +195,8 @@ already fails because port 23636 is occupied; it was not changed/restarted.
 
 ## Deviations and unverified behavior
 
-- Full live resolution is intentionally **pending approval** of the precise
-  service-role permission repair above. No schema/RLS migration was created.
+- The precise service-role permission repair above was approved, applied and
+  verified through live metadata. No schema/RLS migration was created.
 - No destructive attempt against the user's existing test account was made.
   Its exact ID/current remaining rows and Storage contents were not inspected.
   The logged failed step is known, but account attribution is not.
@@ -200,10 +204,10 @@ already fails because port 23636 is occupied; it was not changed/restarted.
   to `.replit`; that incidental configuration change was removed. No dependency
   or configuration change is retained.
 - No physical Android/iOS deletion, screen-reader journey or signed-in browser
-  deletion was performed. The live permission failure would prevent a passing
-  journey; fixture coverage must not be presented as live-service evidence.
-- After permission approval: recheck effective privileges, use an explicitly
-  disposable account with migrated garments and both bucket paths, delete it,
+  deletion was performed. Fixture coverage and a verified permission repair
+  must not be presented as evidence of successful live account deletion.
+- Remaining live check, requiring separate approval to delete a test account:
+  use an explicitly disposable account with migrated garments and both bucket paths, delete it,
   verify absence of owned rows/objects and Auth identity, and verify sign-in
   return plus device cleanup. Existing exhausted-IP windows must expire normally.
 - Concurrent new uploads during deletion and lost-response-after-Auth-delete
