@@ -240,12 +240,12 @@ export default function HomeScreen() {
               <Ionicons name="warning-outline" size={15} color={Colors.blush} />
               <Text style={styles.orphanTitle}>
                 {orphanedItems.length === 1
-                  ? 'An item was saved without a photo'
-                  : `${orphanedItems.length} items were saved without photos`}
+                  ? 'A wardrobe photo is unavailable'
+                  : `${orphanedItems.length} wardrobe photos are unavailable`}
               </Text>
             </View>
             <Text style={styles.orphanBody}>
-              These items were interrupted mid-save. You can re-photograph them and correct any details, or remove them.
+              Your garment details are still saved, but these photos could not be found. You can re-photograph the items or remove them.
             </Text>
             {orphanedItems.map(item => (
               <View key={item.id} style={styles.orphanRow}>

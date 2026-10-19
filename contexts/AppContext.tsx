@@ -52,6 +52,7 @@ import {
   subscribeToManagedPhotoReferenceRelease,
 } from '../lib/managedPhotoReferences';
 import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl, getSignedWardrobeUrl, clearSignedWardrobeUrlCache } from '../lib/storage';
+import { hydrateWardrobePhoto } from '../lib/wardrobePhotoHydration';
 import { reportError } from '@/shared/observability';
 import {
   canCommitStartupHydration,
@@ -1160,11 +1161,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // to short-lived signed URLs for display. Must run after file:// recovery
         // so the two passes do not overlap.
         const storagePathItems = mapped.filter(it => it.storagePath);
+        const missingStoragePhotos: WardrobeItem[] = [];
         if (storagePathItems.length > 0) {
           await Promise.all(
             storagePathItems.map(async it => {
               try {
-                it.photoUri = await resolveWardrobeImageUrl(it.storagePath!);
+                if (await hydrateWardrobePhoto(it, resolveWardrobeImageUrl)) {
+                  missingStoragePhotos.push(it);
+                }
               } catch (err) {
                 console.warn(`[Amodka] Could not resolve signed URL for item id=${it.id}`, err);
               }
@@ -1174,6 +1178,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // URL recovery can outlive the startup attempt that began hydration.
         // Do not let a stale listener completion publish its item snapshot.
         assertCurrent();
+        if (missingStoragePhotos.length > 0) {
+          setOrphanedItems(previous => {
+            const existing = new Set(previous.map(item => item.id));
+            return [...previous, ...missingStoragePhotos.filter(item => !existing.has(item.id))];
+          });
+        }
         setWardrobeItems(mapped);
         updateWardrobePagination(wardrobePage.totalCount, wardrobePage.items.length);
       }

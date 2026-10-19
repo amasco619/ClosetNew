@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { decode } from 'base64-arraybuffer'
 import { stripDataUriPrefix } from './uploadArg'
+import { MissingWardrobePhotoError } from './wardrobePhotoHydration'
 
 export { stripDataUriPrefix } from './uploadArg'
 
@@ -33,6 +34,9 @@ export async function getSignedWardrobeUrl(storagePath: string): Promise<string>
     .from('wardrobe-images')
     .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS)
   if (error || !data?.signedUrl) {
+    if (error?.message?.trim().toLowerCase() === 'object not found') {
+      throw new MissingWardrobePhotoError('Wardrobe photo is no longer available')
+    }
     throw new Error(`[getSignedWardrobeUrl] ${error?.message ?? 'no signed URL returned'}`)
   }
   signedUrlCache.set(storagePath, {

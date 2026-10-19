@@ -3170,3 +3170,14 @@ as “Jewellery” / “Jewellery & accessories”.
 
 Per-directory denylist counts, dispositions, Pants/Trousers comparison,
 validation and device limitations: `reports/uk-spelling-follow-up.md`.
+
+## 48. MISSING-PHOTO RECOVERY AFTER SIGN-IN
+
+Confirmed Storage `Object not found` responses during signed-in wardrobe
+hydration now preserve the garment and durable Storage path, clear the unusable
+display URI, and populate the existing Home re-photograph/remove recovery card.
+This is not an authentication failure. Network/permission errors still propagate
+to the existing diagnostic handler rather than being classified as missing photos.
+The existing startup/account guard runs before recovery state is published.
+No photo is recreated, garment deleted, or AI request made automatically.
+See `reports/missing-wardrobe-photos.md` for live evidence and validation limits.
