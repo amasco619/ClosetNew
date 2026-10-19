@@ -551,7 +551,62 @@ async function main(): Promise<void> {
       user_can_delete: false,
     }, 'receipt access is limited to owner reads/acknowledgements and server account cleanup')
 
-    console.log('Disposable PostgreSQL wardrobe capacity, canonical semantics, durable photo receipts, ACL, rollback, shared-photo and RLS checks passed')
+    const deletionOwner = randomUUID()
+    await admin.query('INSERT INTO auth.users (id) VALUES ($1)', [deletionOwner])
+    await admin.query('INSERT INTO public.user_profiles (id) VALUES ($1)', [deletionOwner])
+    await admin.query(
+      'INSERT INTO public.wardrobe_items (id, user_id, garment_type, image_url) VALUES ($1, $2, $3, $4)',
+      [randomUUID(), deletionOwner, 'top', `${deletionOwner}/pending.jpg`],
+    )
+    await admin.query(
+      `INSERT INTO public.wardrobe_photo_cleanup_receipts (user_id, item_id, image_url)
+       VALUES ($1, $2, $3)`,
+      [deletionOwner, randomUUID(), `${deletionOwner}/already-pending.jpg`],
+    )
+    async function failAfterWardrobeCleanup() {
+      await admin.query(
+        'DELETE FROM public.wardrobe_photo_cleanup_receipts WHERE user_id=$1',
+        [deletionOwner],
+      )
+      await admin.query('DELETE FROM public.wardrobe_items WHERE user_id=$1', [deletionOwner])
+      throw new Error('injected failure after wardrobe cleanup')
+    }
+    await assert.rejects(failAfterWardrobeCleanup(), /injected failure/)
+    assert.equal((await admin.query(
+      'SELECT count(*) FROM public.wardrobe_photo_cleanup_receipts WHERE user_id=$1',
+      [deletionOwner],
+    )).rows[0].count, '1', 'a receipt created after its cleanup stage survives a later failure')
+    assert.equal((await admin.query('SELECT count(*) FROM auth.users WHERE id=$1', [deletionOwner]))
+      .rows[0].count, '1', 'Auth remains available while cleanup is incomplete')
+
+    await admin.query(
+      'DELETE FROM public.wardrobe_photo_cleanup_receipts WHERE user_id=$1',
+      [deletionOwner],
+    )
+    await admin.query('DELETE FROM public.wardrobe_items WHERE user_id=$1', [deletionOwner])
+    await admin.query('DELETE FROM public.user_profiles WHERE id=$1', [deletionOwner])
+    await admin.query('DELETE FROM auth.users WHERE id=$1', [deletionOwner])
+    assert.equal((await admin.query(
+      'SELECT count(*) FROM public.wardrobe_photo_cleanup_receipts WHERE user_id=$1',
+      [deletionOwner],
+    )).rows[0].count, '0', 'the completed account-deletion retry removes pending receipts')
+    assert.equal((await admin.query('SELECT count(*) FROM auth.users WHERE id=$1', [deletionOwner]))
+      .rows[0].count, '0', 'the retry deletes the Auth owner only after cleanup')
+
+    const cascadeOwner = randomUUID()
+    await admin.query('INSERT INTO auth.users (id) VALUES ($1)', [cascadeOwner])
+    await admin.query(
+      `INSERT INTO public.wardrobe_photo_cleanup_receipts (user_id, item_id, image_url)
+       VALUES ($1, $2, $3)`,
+      [cascadeOwner, randomUUID(), `${cascadeOwner}/pending.jpg`],
+    )
+    await admin.query('DELETE FROM auth.users WHERE id=$1', [cascadeOwner])
+    assert.equal((await admin.query(
+      'SELECT count(*) FROM public.wardrobe_photo_cleanup_receipts WHERE user_id=$1',
+      [cascadeOwner],
+    )).rows[0].count, '0', 'Auth deletion cascades even a pending receipt')
+
+    console.log('Disposable PostgreSQL wardrobe capacity, canonical semantics, durable photo receipts, account-deletion retries, Auth cascade, ACL, rollback, shared-photo and RLS checks passed')
   } finally {
     await admin.end()
   }

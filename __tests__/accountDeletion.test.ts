@@ -81,6 +81,8 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
   ] as const));
   const calls: string[] = [];
   const remainingTables = new Set(tables);
+  let pendingPhotoReceipts = 1;
+  let wardrobeRowsPresent = true;
   let failAt = failure;
   const error = { message: "provider-private-error-do-not-log" };
   const originals = {
@@ -122,6 +124,11 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
         calls.push(stage);
         if (failed(stage)) return { error };
         remainingTables.delete(table);
+        if (table === "wardrobe_photo_cleanup_receipts") pendingPhotoReceipts = 0;
+        if (table === "wardrobe_items" && wardrobeRowsPresent) {
+          pendingPhotoReceipts++;
+          wardrobeRowsPresent = false;
+        }
         return { error: null };
       },
     }),
@@ -142,7 +149,9 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
     assert.equal(id, userId);
     calls.push("auth_delete");
     assert.equal(remainingTables.size, 0, "all owned tables must be cleared before Auth");
-    return { error: failed("auth_delete") ? error : null };
+    if (failed("auth_delete")) return { error };
+    pendingPhotoReceipts = 0; // Auth's ON DELETE CASCADE is the final safety net.
+    return { error: null };
   });
   Reflect.set(supabaseAnon.auth, "verifyOtp", async () => ({
     data: { user: { id: userId } }, error: null,
@@ -151,6 +160,7 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
     calls,
     files,
     remainingTables,
+    get pendingPhotoReceipts() { return pendingPhotoReceipts; },
     restore() {
       Reflect.set(supabaseAdmin.storage, "from", originals.storageFrom);
       Reflect.set(supabaseAdmin, "from", originals.from);
@@ -237,9 +247,16 @@ async function main() {
           assert.doesNotMatch(res.text, /provider-private-error-do-not-log/);
           assert.equal(mock.calls.includes("auth_delete"), stage === "auth_delete",
             `${route}: Auth must only be attempted after successful cleanup (${stage})`);
+          if (stage === "table_affinity_signals") {
+            assert.equal(mock.pendingPhotoReceipts, 1, `${route}: an earlier failure preserves pending receipts`);
+          }
+          if (stage === "auth_delete") {
+            assert.equal(mock.pendingPhotoReceipts, 1, `${route}: receipts created during partial cleanup remain for retry`);
+          }
           const retry = await attempt(route);
           assert.equal(retry.status, 200, `${route}: retry completes after ${stage}`);
           assert.equal(mock.remainingTables.size, 0);
+          assert.equal(mock.pendingPhotoReceipts, 0, `${route}: completed retry leaves no pending receipts`);
           console.log(`  ✓ ${route} fails closed at ${stage}`);
         } finally {
           mock.restore();

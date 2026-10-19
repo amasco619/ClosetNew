@@ -1382,7 +1382,7 @@ These features are **not yet implemented**. They are the next development priori
 | `traditionalStylingUi.test.ts` | Mounted actual Outfits screen with real context adapter/generator/rotation: no implicit selection, generated owned coordinated-set photos, loading, retry, ignored late responses, honest gaps and unchanged premium chip gate |
 | `stylingRelationships.test.ts` | Additive Phase A membership projection, owner/parent checks, all three types, pre-evaluation coordinated construction under shortlist crowding, relationship removal and renamed-garment controls, Western complements, normal alternatives, immutable canonical/shared facts, transient provenance and provider-free graph |
 | `swipeDismiss.test.ts` | Exact-top gesture capture, scroll gating during movement/release, 120 px threshold, and scroll-ref/accessible-close wiring on all three sheet routes |
-| `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, and retries after partial cleanup |
+| `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, pending-receipt preservation and cleanup across partial retries |
 | `accountDeletionLocalCleanup.test.ts` | Confirmed deletion clears account cache keys, local wardrobe photos, and signed-photo cache; server failure preserves them for retry |
 | `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival, prune-interval state, DB integration (skipped when `DATABASE_URL` absent) |
 | `aiProcessingConsent.test.ts` | Mounted account preference API and server AI-route enforcement: unasked/malformed/declined denied, account isolation, metadata persistence, store errors fail closed |
@@ -1394,7 +1394,7 @@ These features are **not yet implemented**. They are the next development priori
 | `bulkAutoPersist.test.ts` | Legacy auto-persist helper contract; the B2.8 review UI now commits Save All atomically instead |
 | `addItemReplacementContract.test.ts` | Actual Home route, no-initial-photo metadata initialization, single-photo picker cancellation, failed upload and successful retry; controlled I/O fixtures, not live/device evidence |
 | `bulkSaveAtomic.test.ts` | Bulk Save All uploads before a single acknowledged commit; failed uploads and rejected commits do not navigate or report success |
-| `freeWardrobeSelectionDb.test.ts` | Disposable PostgreSQL verification of capacity, expiry, role privileges, ownership, selection, concurrency, rollback, cascading deletion, durable photo-cleanup receipts, shared-photo protection and receipt RLS |
+| `freeWardrobeSelectionDb.test.ts` | Disposable PostgreSQL verification of capacity, expiry, role privileges, ownership, selection, concurrency, rollback, cascading deletion, durable photo-cleanup receipts, partial account-deletion retry, Auth cascade, shared-photo protection and receipt RLS |
 | `freeWardrobeSelectionSql.test.ts` | Static contract checks for authenticated insert RPCs, selection, and ordering index |
 | `wardrobeDatabaseContract.test.ts` | Acknowledged item persistence, deterministic pagination, account isolation, selected-row loading, and deferred token-refresh entitlement reads |
 | `apiNoCache.test.ts` | Express conditional GET still returns JSON 200 with `Cache-Control: no-store`; prevents API ETags becoming unusable 304s in native fetch |
@@ -3221,7 +3221,9 @@ commits but before the client receives its delete result or removes the object.
 Ambiguous database responses still never authorize a client-side photo delete;
 only the committed database receipt can authorize restart cleanup. Receipt reads
 are owner-RLS scoped, acknowledgements are owner-bound, and account deletion
-clears receipts with the user's data.
+clears receipts before wardrobe rows; any receipt created by a later row delete
+remains available across a partial failure and is cleared on retry. The receipt
+owner also references Auth with `ON DELETE CASCADE` as a final cleanup safeguard.
 
 Single-upload rollback and unsigned-upload cleanup also use the exact uploaded
 path. The existing ambiguous-save rule remains: uncertain database outcomes do
