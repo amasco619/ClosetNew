@@ -159,3 +159,16 @@ is still required. The first root-route preview capture timed out; a later
 public `/welcome` capture loaded, but no signed-in visual flow was available.
 Live Supabase read outages, photo cleanup on a real filesystem, account
 switching with real accounts, and VoiceOver/TalkBack were not exercised.
+
+## Follow-up: durable photo-cleanup table (2026-10-19)
+
+After a physical-device sign-in showed that
+`public.wardrobe_photo_cleanup_receipts` was missing from the connected
+Supabase project, the user approved applying the existing
+`20261019000000_durable_wardrobe_photo_cleanup.sql` migration. It was applied to
+the connected Amodka project; the migration record, table, RLS enablement,
+wardrobe-delete trigger, acknowledgement function, and service-role
+SELECT/DELETE grants were verified. Authenticated users do not have INSERT
+privilege. A PostgREST schema reload notification was issued. No existing
+wardrobe rows were changed. The phone build's target project and a physical
+receipt-backed delete/recovery journey remain unverified.

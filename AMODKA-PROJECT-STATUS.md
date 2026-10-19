@@ -22,11 +22,14 @@ offline dismissal and ignores stale preference refresh errors.
 Validation results, item-by-item causes/fixes/tests, known limitations and
 device-verification status: `docs/reports/guest-data-rules-pending-bulk-fixes.md`.
 Latest checks: 117/117 tests, typecheck, lint, benchmark fixture validation,
-Track C validation, and `git diff --check` passed. Physical-device, live-service,
-and signed-in preview verification remain outstanding.
-No schema/RLS, quota semantics, auth API, AI consent enforcement, billing,
-Recommendation Engine v3.7, Phase A, P1.3 or frozen benchmark changes; no
-deployment.
+Track C validation, and `git diff --check` passed. Physical-device and
+signed-in app-flow verification remain outstanding.
+The approved durable photo-cleanup migration is now applied to the connected
+Amodka Supabase project; table, RLS, trigger, acknowledgement function and
+service grants were verified, and the PostgREST schema cache was refreshed. No
+existing wardrobe rows were changed. No other schema/RLS, quota, auth API, AI
+consent enforcement, billing, Recommendation Engine v3.7, Phase A, P1.3 or
+frozen benchmark changes; no deployment.
 
 ## AI preference save failure correction
 

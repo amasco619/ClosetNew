@@ -3234,15 +3234,19 @@ callback, database delete and Storage functions using isolated synthetic objects
 It checks exact PNG/JPG removal, unrelated/other-owner preservation, empty display
 URIs/unloaded rows, durable retry round-trips, account changes, ambiguous deletes,
 legacy fallback/URLs and unsafe-path rejection. No live account or photo is
-modified by these checks. No schema/RLS, dependency or recommendation-engine
-change; no browser sign-in or physical-device deletion verified.
+modified by these checks. The durable receipt migration was applied to the
+connected Amodka Supabase project on 2026-10-19; table, RLS, trigger,
+acknowledgement function and service grants were verified, and the PostgREST
+schema cache was refreshed. No live account/photo deletion or physical-device
+receipt round-trip was verified. No other schema change, dependency change or
+Recommendation Engine change was made.
 The Undo integration fixture also returns owner-scoped deletion receipts, checks
 the persisted replacement path through failed-cleanup and context retry, and
 executes cold-restart recovery after a committed delete with an ambiguous client
 response. The disposable PostgreSQL migration test exercises receipt creation,
 shared-photo protection, transaction rollback, owner RLS, acknowledgement
-permissions, and account-deletion privileges; no live Supabase migration or
-physical-device restart was performed.
+permissions, and account-deletion privileges; no physical-device restart was
+performed.
 
 ## 50. GUEST DATA DISPOSITION, PENDING WARDROBE, AND MANUAL BULK HANDOFF
 

@@ -17,6 +17,19 @@ and the actual database used by every owner-keyed store. Do not bypass failed
 tables or delete Auth to conceal cleanup failures. Recheck the grant's current
 state rather than assuming this historical missing privilege is still present.
 
+Repository migrations and isolated database tests do not prove that the connected
+Supabase project has the same schema. For receipt-backed photo cleanup, verify
+the target project's migration history, table, RLS, trigger, function and grants;
+refresh PostgREST's schema cache after applying a missing migration.
+
+**Why:** A physical-device session encountered the receipt table missing from
+the connected project's schema cache even though its migration and tests existed
+in the repository.
+
+**How to apply:** Confirm the intended Supabase project before applying schema
+changes. After migration, verify database metadata and API schema-cache
+visibility; do not hide a missing-table error by treating receipts as empty.
+
 A failed account deletion can leave wardrobe rows whose Storage objects were
 already removed. A later sign-in may therefore succeed but encounter missing
 photos; account existence is not evidence that its images remain available.
