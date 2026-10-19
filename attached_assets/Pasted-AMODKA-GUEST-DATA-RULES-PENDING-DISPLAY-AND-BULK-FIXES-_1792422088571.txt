@@ -1,0 +1,74 @@
+AMODKA — GUEST DATA RULES, PENDING DISPLAY AND BULK FIXES
+
+DO NOT TOUCH: Recommendation Engine v3.7, schema/RLS migrations, 
+billing, consent logic, quota numbers, the account-deletion handler. 
+Keep tests green; list deviations.
+
+1. GUEST DATA RULE (product decision; supersedes merge behaviour)
+- Guest signs in to an EXISTING account: discard ALL guest data (items, 
+  local photo files, migration claim/journal for that sign-in, guest 
+  onboarding and personalisation answers). The existing account's 
+  wardrobe and profile are authoritative. Guest answers must NEVER 
+  overwrite or merge into an existing account's profile. No migration 
+  is attempted.
+- Guest creates a NEW account (no wardrobe items AND no saved 
+  onboarding/personalisation): absorb the guest data (wardrobe via 
+  the existing migration; guest answers as the existing profile 
+  migration does).
+- Decide from the authenticated account's server-side state at first 
+  sign-in, not from which button was tapped, so Google/Apple 
+  sign-in and sign-up behave correctly. Evaluate ONCE, before any 
+  guest data is written to the account, and persist the decision in 
+  the claim; never re-evaluate after migration writes begin (the 
+  migrated profile would make the account look non-empty).
+- If the state cannot be read (offline or error), neither discard nor 
+  absorb: keep guest data pending and decide when it can be read. 
+  Never discard on an ambiguous read.
+- Discard only after the decision is confirmed, using the existing 
+  file cleanup.
+- Sign-in screen: when guest items exist on the device, show a quiet 
+  inline notice above the form: "Signing in to an existing account 
+  won't keep the N pieces you added as a guest." In sign-up mode: 
+  "Your N pieces will be added to your new account." N comes from 
+  local data. No extra confirmation tap.
+- Verify and report what the existing guest-profile migration does 
+  today when signing in to an existing account (overwrite risk), and 
+  fix it to match this rule.
+- Tests: decision table (existing with items / existing empty but 
+  onboarded / truly new / read failure), no overwrite of an existing 
+  profile, discard cleans files, no claim for existing accounts, 
+  ambiguity keeps data pending, decision persists once.
+
+2. PENDING PIECES MUST SHOW
+Offline after sign-up, the wardrobe showed "Start your closet / Add 
+First Item" while the banner said "2 pieces remain safely on this 
+device". Fix: pending migration items for the signed-in owner appear 
+in the list from the local journal, with their photos and a subtle 
+"Waiting to sync" marker. The empty state never appears while pending 
+items exist; counts include them; the marker goes away when synced; 
+no duplicates once synced (stable id). Keep cross-account hiding.
+
+3. GUEST BULK TILE DOES NOTHING
+In guest bulk upload, tapping a photo tile or its "Add details" 
+control does nothing. The whole tile and the control must open the 
+existing manual entry/review flow with that photo preloaded 
+(opaque selection ID route). Find the cause, fix it, test the state 
+mapping.
+
+4. OFFLINE "NOT NOW"
+With airplane mode on, flipping AI processing ON in Profile opens the 
+disclosure; tapping "Not now" does nothing, then "We couldn't reach 
+the server" appears. "Not now" must close the sheet immediately, 
+offline or online, and never trigger or await a network call. 
+Reproduce, find the cause (a pending refresh? error-state gating?), 
+fix it, and add a test for the offline path.
+
+5. COUNTER COPY
+The Wardrobe header shows "1 TOTAL ITEMS" (should read "1 TOTAL 
+ITEM") and "30 INCLUDED" for a guest whose cap is 8. Fix the 
+pluralisation and show the correct figure for guests, or omit it for 
+guests. Display only.
+
+DELIVERABLE
+Report per item: cause, fix, tests, "Deviations", and what you did not 
+verify on a device.
