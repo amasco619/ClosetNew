@@ -2,9 +2,180 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
+import ts from 'typescript';
 import { hydrateWardrobePhoto, MissingWardrobePhotoError } from '../lib/wardrobePhotoHydration';
+import { readCurrentEntitlement } from '../lib/entitlements';
+
+// Execute the production callbacks with in-memory I/O, without bootstrapping
+// Expo/auth. This exercises pagination and entitlement wiring, not a replica.
+function refreshHarness(options: {
+  resolve?: (path: string) => Promise<string>;
+  queued?: boolean;
+} = {}) {
+  const source = readFileSync('contexts/AppContext.tsx', 'utf8');
+  const block = (start: string, end: string) =>
+    source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
+  const tokenStart = source.indexOf("if (event === 'TOKEN_REFRESHED'");
+  const tokenEnd = source.indexOf('\n      }\n    );', tokenStart);
+  const code = `
+    const { hydrateWardrobePhoto, readCurrentEntitlement, resolve, queued } = dependencies;
+    const useCallback = callback => callback;
+    const currentUserIdRef = { current: 'owner' };
+    const accountGenerationRef = { current: 1 };
+    const startupGenerationRef = { current: 1 };
+    const wardrobeCorrectionRevisionRef = { current: 0 };
+    const wardrobeLoadPromiseRef = { current: null };
+    const wardrobeLoadedCountRef = { current: 100 };
+    const wardrobeTotalCountRef = { current: 102 };
+    const isPremiumRef = { current: true };
+    const firstPage = Array.from({ length: 100 }, (_, i) => ({
+      id: 'item-' + i, photoUri: 'https://example.com/' + i,
+    }));
+    const laterPage = ['missing', 'transient'].map(id => ({
+      id, photoUri: 'owner/' + id + '.jpg', storagePath: 'owner/' + id + '.jpg',
+      description: 'Keep garment metadata', category: 'top',
+    }));
+    const state = { items: firstPage, orphans: [], selection: [], premium: true, unavailable: false };
+    const wardrobeItemsRef = { current: firstPage };
+    const updates = [];
+    const setOrphanedItems = update => {
+      if (queued) updates.push(update);
+      else state.orphans = update(state.orphans);
+    };
+    const setWardrobeItems = update => {
+      state.items = typeof update === 'function' ? update(state.items) : update;
+      wardrobeItemsRef.current = state.items;
+    };
+    const setFreeSelectedItemIds = ids => { state.selection = ids; };
+    const setIsPremium = value => { state.premium = value; };
+    const setEntitlementUnavailable = value => { state.unavailable = value; };
+    const reportError = () => { throw new Error('Unexpected entitlement failure'); };
+    const warnings = [];
+    const console = { warn: (...args) => warnings.push(args) };
+    const resolveWardrobeImageUrl = resolve;
+    const isCurrentStartupGeneration = (generation, current) => generation === current;
+    const getWardrobeItems = async (userId, offset = 0) => ({
+      totalCount: 102, items: offset === 0 ? firstPage : laterPage,
+    });
+    const getFreeWardrobeSelection = async () => ['missing', 'transient'];
+    const getSelectedWardrobeItems = async (userId, ids) => laterPage.filter(item => ids.includes(item.id));
+    const mapDbRowToWardrobeItem = row => ({ ...row });
+    const fetchAuthoritativeEntitlement = async () => ({ isPremium: false, expiresAt: null });
+    const updateWardrobePagination = (total, loaded) => {
+      wardrobeTotalCountRef.current = total;
+      wardrobeLoadedCountRef.current = loaded;
+    };
+    ${block('const isCurrentAccountRequest =', 'const readPendingPhotoCleanups =')}
+    ${block('const refreshPremiumEntitlement =', 'const updateProfile =')}
+    ${block('const loadMoreWardrobeItems =', 'const setFreeWardrobeSelection =')}
+    let active = true;
+    const timers = [];
+    const pendingEntitlementTimers = new Set();
+    const setTimeout = callback => { timers.push(callback); return callback; };
+    const event = 'TOKEN_REFRESHED';
+    const session = { user: { id: 'owner' } };
+    const tokenRefresh = () => { ${source.slice(tokenStart, tokenEnd)} };
+    return {
+      state, warnings, currentUserIdRef, accountGenerationRef, startupGenerationRef,
+      wardrobeCorrectionRevisionRef, wardrobeLoadedCountRef,
+      loadMoreWardrobeItems, loadAllWardrobeItems, refreshPremiumEntitlement,
+      tokenRefresh: () => { tokenRefresh(); timers.splice(0).forEach(callback => callback()); },
+      flushUpdates: () => updates.splice(0).forEach(update => { state.orphans = update(state.orphans); }),
+    };
+  `;
+  const compiled = ts.transpileModule(code, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  return new Function('dependencies', compiled)({
+    hydrateWardrobePhoto, readCurrentEntitlement, queued: options.queued,
+    resolve: options.resolve ?? (async (path: string) => {
+      if (path.includes('missing')) throw new MissingWardrobePhotoError('Object not found');
+      throw new Error('Network request failed');
+    }),
+  });
+}
+
+async function checkLaterReads() {
+  const flows = ['loadMoreWardrobeItems', 'loadAllWardrobeItems', 'refreshPremiumEntitlement', 'tokenRefresh'];
+  const settle = () => new Promise(resolve => setImmediate(resolve));
+  for (const flow of flows) {
+    const harness = refreshHarness();
+    await harness[flow]();
+    await settle();
+    assert.equal(harness.state.items.length, 102, `${flow}: preserve all garment records`);
+    assert.deepEqual(harness.state.orphans.map((item: { id: string }) => item.id), ['missing'],
+      `${flow}: recover only confirmed missing photos outside page one`);
+    const missing = harness.state.items.find((item: { id: string }) => item.id === 'missing');
+    assert.equal(missing.photoUri, '');
+    assert.equal(missing.storagePath, 'owner/missing.jpg');
+    assert.equal(missing.description, 'Keep garment metadata');
+    const transient = harness.state.items.find((item: { id: string }) => item.id === 'transient');
+    assert.equal(transient.photoUri, 'owner/transient.jpg');
+    assert.equal(harness.warnings.length, 1, `${flow}: diagnose transient failures`);
+    assert.equal(harness.state.unavailable, false, `${flow}: missing photos are not entitlement failures`);
+    if (flow.includes('Entitlement') || flow === 'tokenRefresh') {
+      assert.equal(harness.state.premium, false);
+      assert.deepEqual(harness.state.selection, ['missing', 'transient']);
+    } else {
+      assert.equal(harness.wardrobeLoadedCountRef.current, 102, `${flow}: pagination advances normally`);
+    }
+    await harness.loadAllWardrobeItems();
+    assert.equal(harness.state.orphans.length, 1, `${flow}: repeated discovery is deduplicated`);
+
+    for (const invalidate of [
+      (h: any) => { h.currentUserIdRef.current = null; },
+      (h: any) => { h.currentUserIdRef.current = 'another-owner'; },
+      (h: any) => { h.accountGenerationRef.current++; },
+      (h: any) => { h.startupGenerationRef.current++; },
+    ]) {
+      const deferred = Promise.withResolvers<string>();
+      const stale = refreshHarness({ resolve: () => deferred.promise });
+      const pending = stale[flow]();
+      await settle();
+      invalidate(stale);
+      deferred.reject(new MissingWardrobePhotoError('Object not found'));
+      await pending;
+      await settle();
+      assert.equal(stale.state.orphans.length, 0, `${flow}: no stale recovery publication`);
+      assert.equal(stale.state.items.length, 100, `${flow}: no stale wardrobe publication`);
+    }
+
+    const queued = refreshHarness({ queued: true });
+    await queued[flow]();
+    await settle();
+    queued.startupGenerationRef.current++;
+    queued.flushUpdates();
+    assert.equal(queued.state.orphans.length, 0, `${flow}: updater rechecks ownership`);
+
+    const healthy = refreshHarness({ resolve: async path => `https://example.com/${path}` });
+    await healthy[flow]();
+    await settle();
+    assert.equal(healthy.state.orphans.length, 0, `${flow}: available photos need no recovery`);
+    assert.equal(healthy.warnings.length, 0);
+    assert.equal(healthy.state.items.find((item: { id: string }) => item.id === 'missing').photoUri,
+      'https://example.com/owner/missing.jpg');
+  }
+
+  const deferred = Promise.withResolvers<string>();
+  const corrected = refreshHarness({ resolve: () => deferred.promise });
+  const pending = corrected.loadAllWardrobeItems();
+  await settle();
+  corrected.wardrobeCorrectionRevisionRef.current++;
+  deferred.reject(new MissingWardrobePhotoError('Object not found'));
+  await pending;
+  assert.equal(corrected.state.orphans.length, 0, 'full refresh cannot reintroduce corrected photos');
+  assert.equal(corrected.state.items.length, 100);
+
+  for (const message of ['Unauthorized', 'Permission denied', 'Network request failed']) {
+    const transient = refreshHarness({ resolve: async () => { throw new Error(message); } });
+    await transient.loadAllWardrobeItems();
+    assert.equal(transient.state.orphans.length, 0, `${message}: never a recovery candidate`);
+    assert.equal(transient.warnings.length, 2);
+  }
+}
 
 async function main() {
+  await checkLaterReads();
   const missing = {
     id: 'existing-item', storagePath: 'owner/existing-item.jpg',
     photoUri: 'owner/existing-item.jpg', category: 'top', description: 'Keep my details',
@@ -79,7 +250,7 @@ async function main() {
     'late responses must pass existing account/startup guards before publishing recovery UI');
   assert.doesNotMatch(hydration, /deleteWardrobe|uploadWardrobe|\.remove\(|\.insert\(/,
     'hydrating a missing photo must not mutate cloud data');
-  console.log('Wardrobe photo hydration: missing-photo recovery, restored photos, preserved metadata, auth/network propagation and stale-account guard passed');
+  console.log('Wardrobe photo hydration: initial/page/full/manual/token recovery, available photos, deduplication, preserved metadata, transient diagnostics and deferred ownership/correction guards passed');
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });

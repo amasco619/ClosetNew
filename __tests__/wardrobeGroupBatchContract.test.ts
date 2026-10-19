@@ -23,7 +23,7 @@ assert.match(database, /p_relationship_confidence: relationship\.relationshipCon
 assert.match(database, /p_shared_attributes: relationship\.sharedAttributes \?\? \{\}/)
 assert.match(context, /addWardrobeGroupItems:\s*\([\s\S]*?relationshipType: GarmentRelationshipType/)
 assert.match(context, /const addWardrobeGroupItems = useCallback/)
-assert.match(context, /filter\(it => it\.storagePath\)[\s\S]*?resolveWardrobeImageUrl\(it\.storagePath!/)
+assert.match(context, /filter\(item => item\.storagePath\)[\s\S]*?hydrateWardrobePhoto\(item, resolveWardrobeImageUrl\)/)
 const groupSaveStart = context.indexOf('const addWardrobeGroupItems =')
 const groupSaveEnd = context.indexOf('const replaceWardrobeItem =', groupSaveStart)
 const groupSave = context.slice(groupSaveStart, groupSaveEnd)

@@ -77,7 +77,7 @@ async function checkRefreshContract() {
       return { isPremium: serverPremium };
     },
     getFreeWardrobeSelection: async () => [], getSelectedWardrobeItems: async () => [],
-    mapDbRowToWardrobeItem: (value: unknown) => value, resolveWardrobeImageUrl: async () => '',
+    mapDbRowToWardrobeItem: (value: unknown) => value, hydrateWardrobePhotos: async () => {},
     setWardrobeItems: () => {}, setFreeSelectedItemIds: () => {},
     setEntitlementUnavailable: (value: boolean) => { unavailable = value; },
     setIsPremium: (value: boolean) => { premium.current = value; },

@@ -324,6 +324,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (startupGeneration === undefined ||
       isCurrentStartupGeneration(startupGeneration, startupGenerationRef.current));
 
+  const hydrateWardrobePhotos = async (items: WardrobeItem[], isCurrent: () => boolean) => {
+    const missing: WardrobeItem[] = [];
+    await Promise.all(items.filter(item => item.storagePath).map(async item => {
+      try {
+        if (await hydrateWardrobePhoto(item, resolveWardrobeImageUrl)) missing.push(item);
+      } catch (error) {
+        console.warn(`[Amodka] Could not resolve signed URL for item id=${item.id}`, error);
+      }
+    }));
+    if (!isCurrent() || missing.length === 0) return;
+    setOrphanedItems(previous => {
+      if (!isCurrent()) return previous;
+      const existing = new Set(previous.map(item => item.id));
+      const additions = missing.filter(item => !existing.has(item.id));
+      return additions.length > 0 ? [...previous, ...additions] : previous;
+    });
+  };
+
   const readPendingPhotoCleanups = useCallback(async () => {
     await pendingPhotoCleanupQueueRef.current.catch(() => undefined);
     if (pendingPhotoCleanupsRef.current) return pendingPhotoCleanupsRef.current;
@@ -629,9 +647,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     rows.push(...selectedRows);
                   }
                   const mapped = rows.map(mapDbRowToWardrobeItem);
-                  await Promise.all(mapped.filter(it => it.storagePath).map(async it => {
-                    try { it.photoUri = await resolveWardrobeImageUrl(it.storagePath!); } catch {}
-                  }));
+                  await hydrateWardrobePhotos(mapped, isCurrent);
                   if (!isCurrent()) return;
                   setWardrobeItems(mapped);
                   updateWardrobePagination(page.totalCount, page.items.length);
@@ -1270,9 +1286,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const selectedRows = await getSelectedWardrobeItems(userId, missingIds);
         if (!isCurrent()) return unavailable();
         const selectedItems = selectedRows.map(mapDbRowToWardrobeItem);
-        await Promise.all(selectedItems.filter(item => item.storagePath).map(async item => {
-          try { item.photoUri = await resolveWardrobeImageUrl(item.storagePath!); } catch {}
-        }));
+        await hydrateWardrobePhotos(selectedItems, isCurrent);
         if (!isCurrent()) return unavailable();
         setWardrobeItems(previous => {
           const existing = new Set(previous.map(item => item.id));
@@ -1602,9 +1616,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const page = await getWardrobeItems(userId, offset);
       if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
       const mapped = page.items.map(mapDbRowToWardrobeItem);
-      await Promise.all(mapped.filter(it => it.storagePath).map(async it => {
-        try { it.photoUri = await resolveWardrobeImageUrl(it.storagePath!); } catch {}
-      }));
+      await hydrateWardrobePhotos(mapped, () =>
+        isCurrentAccountRequest(userId, accountGeneration, startupGeneration));
       if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
       setWardrobeItems(prev => {
         if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return prev;
@@ -1651,9 +1664,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         offset += page.items.length;
       }
       const mapped = rows.map(mapDbRowToWardrobeItem);
-      await Promise.all(mapped.filter(it => it.storagePath).map(async it => {
-        try { it.photoUri = await resolveWardrobeImageUrl(it.storagePath!); } catch {}
-      }));
+      await hydrateWardrobePhotos(mapped, () =>
+        isCurrentAccountRequest(userId, accountGeneration, startupGeneration) &&
+        correctionRevision === wardrobeCorrectionRevisionRef.current);
       if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
       // A refresh started before/during a correction cannot restore old truth.
       if (correctionRevision !== wardrobeCorrectionRevisionRef.current) return;

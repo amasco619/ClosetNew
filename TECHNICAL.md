@@ -3181,4 +3181,11 @@ This is not an authentication failure. Network/permission errors still propagate
 to the existing diagnostic handler rather than being classified as missing photos.
 The existing startup/account guard runs before recovery state is published.
 No photo is recreated, garment deleted, or AI request made automatically.
+The same classification also applies to load-more/full wardrobe reads and both
+manual and token-triggered entitlement refreshes, including free-selected items
+outside the first page. Confirmed missing photos are merged into recovery by ID;
+transient signing failures retain their existing URI and are logged, not offered
+as missing. Recovery publication checks account/startup ownership both after
+resolution and inside the state updater. Full reads also retain the correction
+revision guard so an in-flight read cannot reintroduce a corrected photo.
 See `reports/missing-wardrobe-photos.md` for live evidence and validation limits.
