@@ -14,9 +14,14 @@ const removalCallback = contextSource.match(
   /const removeWardrobeItem = useCallback\(async \([\s\S]*?\n  \}, \[profile, isPremium, freeSelectedItemIds, updateWardrobePagination, rememberPhotoCleanup\]\);/,
 );
 assert.ok(removalCallback, 'the actual AppContext removal callback is available for integration coverage');
-const pendingCleanupRetryCallback = contextSource.match(
-  /const retryPendingPhotoCleanup = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[profile\.isGuest, readPendingPhotoCleanups, rememberPhotoCleanup\]\);/,
+const pendingCleanupRetryStart = contextSource.indexOf('const retryPendingPhotoCleanup =');
+const pendingCleanupRetryEnd = contextSource.indexOf(
+  '\n\n  useEffect(\n    () => subscribeToManagedPhotoReferenceRelease',
+  pendingCleanupRetryStart,
 );
+const pendingCleanupRetryCallback = pendingCleanupRetryStart >= 0 && pendingCleanupRetryEnd > pendingCleanupRetryStart
+  ? [contextSource.slice(pendingCleanupRetryStart, pendingCleanupRetryEnd).trim()]
+  : null;
 assert.ok(pendingCleanupRetryCallback, 'the actual AppContext cleanup retry callback is available for integration coverage');
 
 const feedbackSource = readFileSync('components/LuxuryFeedbackProvider.tsx', 'utf8');
@@ -43,9 +48,12 @@ const appState = {
   items: [] as Array<{ id: string; photoUri?: string }>,
   dbRows: new Map<string, string>(),
   failDbId: null as string | null,
+  failAfterDbCommitId: null as string | null,
   failStorageId: null as string | null,
   failGuestPhotoUri: null as string | null,
   pendingCleanups: [] as PendingPhotoCleanup[],
+  photoReceipts: [] as Array<{ id: string; user_id: string; item_id: string; image_url: string }>,
+  photoObjects: new Set<string>(),
   holdDbDelete: null as (() => void) | null,
   pendingDbDelete: null as (() => void) | null,
   lastPagination: { total: 0, loaded: 0 },
@@ -83,11 +91,29 @@ const deps = {
     if (appState.dbRows.get(id) !== userId) return null;
     appState.dbRows.delete(id);
     // Recovery deliberately uses an object ID different from the garment ID.
-    return { image_url: `${userId}/${id}-photo.png` };
+    const image_url = `${userId}/${id}-photo.png`;
+    appState.photoObjects.add(image_url);
+    appState.photoReceipts.push({
+      id: `receipt-${id}`, user_id: userId, item_id: id, image_url,
+    });
+    if (appState.failAfterDbCommitId === id) {
+      throw new Error('Synthetic lost response after committed delete');
+    }
+    return { image_url };
   },
   deleteWardrobeImage: async (userId: string, id: string, storagePath?: string) => {
     storageCalls.push({ userId, id, storagePath });
     if (appState.failStorageId === id) throw new Error('storage delete failed');
+    if (storagePath) appState.photoObjects.delete(storagePath);
+  },
+  getWardrobePhotoCleanupReceipts: async (userId: string) =>
+    appState.photoReceipts.filter(receipt => receipt.user_id === userId),
+  acknowledgeWardrobePhotoCleanup: async (itemId: string, imageUrl: string) => {
+    appState.photoReceipts = appState.photoReceipts.filter(receipt =>
+      receipt.user_id !== appState.userId ||
+      receipt.item_id !== itemId ||
+      receipt.image_url !== imageUrl,
+    );
   },
   getWardrobeItems: async () => ({
     items: [...appState.dbRows.keys()].map(id => ({ id })),
@@ -165,9 +191,12 @@ function resetState(userId: string | null, items: Array<{ id: string; photoUri?:
   appState.cachedItems = items;
   appState.dbRows = new Map(items.map(item => [item.id, userId ?? '']));
   appState.failDbId = null;
+  appState.failAfterDbCommitId = null;
   appState.failStorageId = null;
   appState.failGuestPhotoUri = null;
   appState.pendingCleanups = [];
+  appState.photoReceipts = [];
+  appState.photoObjects.clear();
   appState.holdDbDelete = null;
   appState.pendingDbDelete = null;
   appState.lastPagination = { total: items.length, loaded: items.length };
@@ -191,6 +220,8 @@ async function testAuthenticatedCleanup(): Promise<void> {
   assert.deepEqual(appState.cachedItems, [], 'authenticated in-memory wardrobe cache drops the removed row');
   assert.equal(appState.lastPagination.total, 0);
   assert.deepEqual(appState.pendingCleanups, [], 'successful photo cleanup does not leave a retry record');
+  assert.deepEqual(appState.photoReceipts, [], 'successful Storage removal acknowledges its durable receipt');
+  assert.equal(appState.photoObjects.has('owner-a/auth-1-photo.png'), false);
   await removeWardrobeItem('auth-1', undefined, 'owner-a');
   assert.equal(storageCalls.length, 1, 'a missing row returns no receipt and cannot trigger another Storage deletion');
 }
@@ -265,6 +296,15 @@ async function testFailedPhotoCleanupIsRetainedAndRetryable(): Promise<void> {
     deleteWardrobeImage: async (userId: string, itemId: string, storagePath?: string) => {
       retryStorageCalls.push({ userId, itemId, storagePath });
     },
+    getWardrobePhotoCleanupReceipts: async (userId: string) =>
+      appState.photoReceipts.filter(receipt => receipt.user_id === userId),
+    acknowledgeWardrobePhotoCleanup: async (itemId: string, imageUrl: string) => {
+      appState.photoReceipts = appState.photoReceipts.filter(receipt =>
+        receipt.user_id !== appState.userId ||
+        receipt.item_id !== itemId ||
+        receipt.image_url !== imageUrl,
+      );
+    },
     retryPhotoCleanups,
     getActiveManagedPhotoReferences: () => new Set<string>(),
     getReclaimableGuestPhotoSources: () => [],
@@ -295,6 +335,68 @@ async function testFailedPhotoCleanupIsRetainedAndRetryable(): Promise<void> {
     [],
     'successful context retry clears persisted cleanup state',
   );
+}
+
+async function testCommittedDeleteSurvivesProcessExit(): Promise<void> {
+  resetState('owner-a', [{ id: 'interrupted-delete', photoUri: 'https://signed.example/interrupted' }]);
+  appState.failAfterDbCommitId = 'interrupted-delete';
+  assert.equal(
+    await removeWardrobeItem('interrupted-delete', undefined, 'owner-a'),
+    false,
+    'a lost response is not treated as permission to clean up the photo',
+  );
+  assert.equal(appState.dbRows.has('interrupted-delete'), false, 'the synthetic database commit removed the row');
+  assert.equal(storageCalls.length, 0, 'the ambiguous response caused no client-side Storage delete');
+  assert.equal(appState.photoObjects.has('owner-a/interrupted-delete-photo.png'), true);
+  assert.equal(appState.photoReceipts.length, 1, 'the database transaction retained the cleanup receipt');
+
+  // Recreate app-local state to model a cold restart; only the synthetic
+  // database receipt and Storage object survive.
+  appState.pendingCleanups = [];
+  asyncStorage.clear();
+  const retryRef = { current: [] as PendingPhotoCleanup[] };
+  const retryQueue = { current: Promise.resolve() };
+  const retryDeps = {
+    useCallback: (callback: unknown) => callback,
+    profile: { isGuest: false },
+    currentUserIdRef: { get current() { return appState.userId; } },
+    accountGenerationRef: { get current() { return appState.accountGeneration; } },
+    startupGenerationRef: { get current() { return appState.startupGeneration; } },
+    readPendingPhotoCleanups: async () => retryRef.current,
+    pendingPhotoCleanupsRef: retryRef,
+    pendingPhotoCleanupQueueRef: retryQueue,
+    isCurrentAccountRequest: (userId: string, generation: number, startup: number) =>
+      appState.userId === userId &&
+      appState.accountGeneration === generation &&
+      appState.startupGeneration === startup,
+    FileSystem: { documentDirectory, deleteAsync: async () => undefined },
+    deleteWardrobeImage: deps.deleteWardrobeImage,
+    getWardrobePhotoCleanupReceipts: deps.getWardrobePhotoCleanupReceipts,
+    acknowledgeWardrobePhotoCleanup: deps.acknowledgeWardrobePhotoCleanup,
+    retryPhotoCleanups,
+    getActiveManagedPhotoReferences: () => new Set<string>(),
+    getReclaimableGuestPhotoSources: () => [],
+    rebaseGuestPhotoUri: (uri: string) => uri,
+    getGuestPhotoRelativePath,
+    guestWardrobeSync: {
+      list: async () => [],
+      markSourceReclaimed: async () => undefined,
+    },
+    rememberPhotoCleanup: async () => undefined,
+    AsyncStorage: {
+      getItem: async (key: string) => asyncStorage.get(key) ?? null,
+      setItem: async (key: string, value: string) => { asyncStorage.set(key, value); },
+    },
+    STORAGE_KEYS,
+  };
+  const retryPendingPhotoCleanup = new Function(
+    ...Object.keys(retryDeps),
+    transformedPendingCleanupRetry.code,
+  )(...Object.values(retryDeps)) as () => Promise<boolean>;
+
+  assert.equal(await retryPendingPhotoCleanup(), true, 'cold-start retry drains the committed receipt');
+  assert.equal(appState.photoObjects.has('owner-a/interrupted-delete-photo.png'), false);
+  assert.deepEqual(appState.photoReceipts, [], 'receipt is acknowledged only after Storage succeeds');
 }
 
 async function testGuestCleanupAndManagedDirectoryGuard(): Promise<void> {
@@ -420,6 +522,7 @@ async function testAccountSwitchDuringUndo(): Promise<void> {
 async function run(): Promise<void> {
   await testAuthenticatedCleanup();
   await testFailedPhotoCleanupIsRetainedAndRetryable();
+  await testCommittedDeleteSurvivesProcessExit();
   await testGuestCleanupAndManagedDirectoryGuard();
   await testPartialBatchAndQuota();
   await testFailedUndoOffersPhotoCleanupRetry();

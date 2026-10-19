@@ -31,6 +31,7 @@ import { fetchAuthoritativeEntitlement, readCurrentEntitlement } from '@/lib/ent
 import { setRevenueCatIdentity } from '@/lib/revenuecat';
 import {
   upsertUserProfile, getUserProfile, getWardrobeItems, getSelectedWardrobeItems, getFreeWardrobeSelection,
+  getWardrobePhotoCleanupReceipts, acknowledgeWardrobePhotoCleanup,
   getSlotStatuses, getWearLogs, getRotationCursors,
   getAffinitySignals, getPairAffinitySignals,
   getGarmentGroups,
@@ -384,10 +385,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [updatePendingPhotoCleanups]);
 
   const hasPendingPhotoCleanup = useCallback(async () => {
-    const ownerKey = currentUserIdRef.current ?? (profile.isGuest ? 'guest' : null);
+    const userId = currentUserIdRef.current;
+    const ownerKey = userId ?? (profile.isGuest ? 'guest' : null);
     if (!ownerKey) return false;
-    return (await readPendingPhotoCleanups()).some(cleanup => cleanup.ownerKey === ownerKey);
-  }, [profile.isGuest, readPendingPhotoCleanups]);
+    if ((await readPendingPhotoCleanups()).some(cleanup => cleanup.ownerKey === ownerKey)) return true;
+    if (!userId) return false;
+    return (await getWardrobePhotoCleanupReceipts(userId)).length > 0;
+  }, [profile.isGuest, readPendingPhotoCleanups, getWardrobePhotoCleanupReceipts]);
 
   const retryPendingPhotoCleanup = useCallback(async () => {
     const userId = currentUserIdRef.current;
@@ -413,14 +417,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     const pending = await readPendingPhotoCleanups();
     const matching = pending.filter(cleanup => cleanup.ownerKey === ownerKey);
-    if (matching.length === 0) return false;
+    let receipts: Awaited<ReturnType<typeof getWardrobePhotoCleanupReceipts>> = [];
+    let receiptLoadFailed = false;
+    if (userId) {
+      try {
+        receipts = await getWardrobePhotoCleanupReceipts(userId);
+      } catch (error) {
+        receiptLoadFailed = true;
+        console.warn('[wardrobe] Durable photo cleanup receipts could not be loaded', error);
+      }
+    }
+    if (matching.length === 0 && receipts.length === 0 && !receiptLoadFailed) return false;
 
     let cleanupComplete = false;
     const operation = pendingPhotoCleanupQueueRef.current.catch(() => undefined).then(async () => {
       const current = pendingPhotoCleanupsRef.current ??
         parsePendingPhotoCleanups(await AsyncStorage.getItem(STORAGE_KEYS.pendingPhotoCleanups));
-      const remaining = await retryPhotoCleanups(
-        current,
+      const receiptMatchesCleanup = (cleanup: PendingPhotoCleanup) =>
+        Boolean(userId && cleanup.ownerKey === userId && receipts.some(receipt =>
+          receipt.item_id === cleanup.itemId &&
+          (cleanup.storagePath === undefined || cleanup.storagePath === receipt.image_url),
+        ));
+      const receiptBackedCleanups = current.filter(receiptMatchesCleanup);
+      const remainingFromLocalRetry = await retryPhotoCleanups(
+        current.filter(cleanup => !receiptMatchesCleanup(cleanup)),
         ownerKey,
         FileSystem.documentDirectory,
         async (uri, options) => {
@@ -447,6 +467,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
           (ownerKey === 'guest' && !profile.isGuest)) {
         throw new Error('Account changed during photo cleanup retry');
       }
+      let receiptsComplete = !receiptLoadFailed;
+      const storageRemovedReceipts = new Set<string>();
+      for (const receipt of receipts) {
+        try {
+          if (!userId || !isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) {
+            throw new Error('Account changed before durable photo cleanup retry');
+          }
+          await deleteWardrobeImage(userId, receipt.item_id, receipt.image_url);
+          storageRemovedReceipts.add(JSON.stringify([receipt.item_id, receipt.image_url]));
+          if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) {
+            throw new Error('Account changed during durable photo cleanup retry');
+          }
+          await acknowledgeWardrobePhotoCleanup(receipt.item_id, receipt.image_url);
+        } catch (error) {
+          receiptsComplete = false;
+          console.warn('[wardrobe] Durable photo cleanup did not complete', error);
+        }
+      }
+      const remaining = [
+        ...remainingFromLocalRetry,
+        ...receiptBackedCleanups.filter(cleanup => !receipts.some(receipt =>
+          storageRemovedReceipts.has(JSON.stringify([receipt.item_id, receipt.image_url])) &&
+          receiptMatchesCleanup(cleanup),
+        )),
+      ];
       pendingPhotoCleanupsRef.current = remaining;
       await AsyncStorage.setItem(STORAGE_KEYS.pendingPhotoCleanups, JSON.stringify(remaining));
       if (userId) {
@@ -461,12 +506,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
         }
       }
-      cleanupComplete = !remaining.some(cleanup => cleanup.ownerKey === ownerKey);
+      cleanupComplete = receiptsComplete && !remaining.some(cleanup => cleanup.ownerKey === ownerKey);
     });
     pendingPhotoCleanupQueueRef.current = operation.then(() => undefined, () => undefined);
     await operation;
     return cleanupComplete;
-  }, [profile.isGuest, readPendingPhotoCleanups, rememberPhotoCleanup]);
+  }, [
+    profile.isGuest,
+    readPendingPhotoCleanups,
+    rememberPhotoCleanup,
+    getWardrobePhotoCleanupReceipts,
+    acknowledgeWardrobePhotoCleanup,
+  ]);
 
   useEffect(
     () => subscribeToManagedPhotoReferenceRelease(() => {
@@ -1991,7 +2042,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return false;
         if (deleted) {
           const storagePath = deleted.image_url ?? undefined;
-          try { await deleteWardrobeImage(userId, id, storagePath); }
+          try {
+            await deleteWardrobeImage(userId, id, storagePath);
+            if (deleted.image_url) {
+              await acknowledgeWardrobePhotoCleanup(id, deleted.image_url);
+            }
+          }
           catch (error) {
             photoCleanupComplete = false;
             console.warn('[wardrobe] Removed item photo cleanup did not complete', error);

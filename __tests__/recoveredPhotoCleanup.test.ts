@@ -80,6 +80,7 @@ function removalHarness(storage: any, options: {
       if (options.failPhoto) throw new Error('Synthetic storage outage');
       await storage.deleteWardrobeImage(...args);
     };
+    const acknowledgeWardrobePhotoCleanup = async () => {};
     const rememberPhotoCleanup = async entry => { queued.push(entry); };
     const getWardrobeItems = async () => ({ totalCount: 0, items: [] });
     const getFreeWardrobeSelection = async () => [];
@@ -168,7 +169,7 @@ async function main() {
   // path from the deleted row. Ambiguous/failed deletes never return a receipt.
   const db = readFileSync('lib/database.ts', 'utf8');
   const dbStart = db.indexOf('export async function deleteWardrobeItem(');
-  const dbEnd = db.indexOf('export async function updateWardrobeItemAffinity', dbStart);
+  const dbEnd = db.indexOf('export interface WardrobePhotoCleanupReceipt', dbStart);
   assert.match(db.slice(dbStart, dbEnd),
     /\.delete\(\)[\s\S]*\.eq\('id', itemId\)[\s\S]*\.eq\('user_id', userId\)[\s\S]*\.select\('image_url'\)[\s\S]*\.maybeSingle\(\)/);
   const dbCode = ts.transpileModule(

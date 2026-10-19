@@ -26,6 +26,7 @@
 - [Local PostgreSQL child-process startup](local-postgres-child-process.md) — redirect daemon output when starting disposable PostgreSQL from a test with captured child-process streams.
 - [Free wardrobe retained-row policy](free-wardrobe-retention-policy.md) — active-item admission is not a retained-row storage cap; changing that rule needs a separate product decision.
 - [Upload cleanup after ambiguous saves](upload-cleanup-ambiguity.md) — only a confirmed DB rejection makes it safe to delete a just-uploaded image; a lost response may follow a commit.
+- [Durable wardrobe photo deletion](wardrobe-photo-deletion-receipts.md) — authenticated deletes need a transactionally recorded owner receipt so a process exit cannot lose photo cleanup intent.
 - [Per-garment metadata persistence](garment-metadata-persistence.md) — store normalized recommendation attributes per wardrobe row, not on group shared attributes; leave legacy rows NULL.
 - [Stole taxonomy boundary](stole-taxonomy-boundary.md) — use existing accessory backing with a textile-specific UI label; require explicit shoulder/neck identification before accepting a stole.
 - [Expo restart verification](expo-restart-verification.md) — a restart acknowledgement does not prove a fresh Metro process owns the frontend port; watch for an interactive port-conflict prompt.

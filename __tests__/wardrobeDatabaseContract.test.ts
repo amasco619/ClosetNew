@@ -4,10 +4,22 @@ import { readFileSync } from 'node:fs';
 const source = readFileSync('lib/database.ts', 'utf8');
 const context = readFileSync('contexts/AppContext.tsx', 'utf8');
 const mapper = readFileSync('lib/wardrobeMapper.ts', 'utf8');
+const cleanupMigration = readFileSync(
+  'supabase/migrations/20261019000000_durable_wardrobe_photo_cleanup.sql',
+  'utf8',
+);
 
 assert.match(source, /rpc\('insert_wardrobe_item',\s*\{\s*p_item:\s*item\s*\}\)/);
 assert.match(source, /rpc\('insert_wardrobe_items',\s*\{\s*p_items:\s*items\s*\}\)/);
 assert.match(source, /rpc\('set_free_wardrobe_selection',\s*\{\s*p_ids:\s*ids\s*\}\)/);
+assert.match(cleanupMigration, /AFTER DELETE ON public\.wardrobe_items[\s\S]*?EXECUTE FUNCTION public\.record_wardrobe_photo_cleanup/);
+assert.match(cleanupMigration, /OLD\.image_url IS NOT NULL[\s\S]*?remaining\.user_id = OLD\.user_id[\s\S]*?remaining\.image_url = OLD\.image_url/);
+assert.match(cleanupMigration, /USING \(auth\.uid\(\) = user_id\)/);
+assert.match(cleanupMigration, /WHERE user_id = auth\.uid\(\)[\s\S]*?AND item_id = p_item_id[\s\S]*?AND image_url = p_image_url/);
+assert.match(cleanupMigration, /REFERENCES auth\.users\(id\) ON DELETE CASCADE/);
+assert.match(cleanupMigration, /GRANT SELECT, DELETE ON public\.wardrobe_photo_cleanup_receipts TO service_role/);
+assert.match(source, /export async function getWardrobePhotoCleanupReceipts/);
+assert.match(source, /export async function acknowledgeWardrobePhotoCleanup/);
 assert.match(source, /export async function replaceWardrobeItem\([\s\S]*?\.from\('wardrobe_items'\)[\s\S]*?\.update\(payload\)[\s\S]*?\.eq\('id', itemId\)[\s\S]*?\.eq\('user_id', userId\)[\s\S]*?\.select\('id'\)[\s\S]*?\.maybeSingle\(\)/);
 assert.match(source, /error\.code === 'P0001'.*WARDROBE_CAPACITY_REACHED/s);
 assert.match(source, /class WardrobeCapacityError/);

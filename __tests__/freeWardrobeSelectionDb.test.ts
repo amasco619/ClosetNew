@@ -38,7 +38,9 @@ async function main(): Promise<void> {
     await admin.query(`
       CREATE ROLE authenticated NOLOGIN;
       CREATE ROLE anon NOLOGIN;
+      CREATE ROLE service_role NOLOGIN BYPASSRLS;
       CREATE SCHEMA auth;
+      CREATE TABLE auth.users (id uuid PRIMARY KEY);
       CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE
         AS $$ SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
       CREATE TABLE public.user_profiles (
@@ -86,6 +88,10 @@ async function main(): Promise<void> {
          ($4, true, now() + interval '1 year')`,
       [freeId, bobId, expiredId, premiumId],
     )
+    await admin.query(
+      'INSERT INTO auth.users (id) VALUES ($1), ($2), ($3), ($4)',
+      [freeId, bobId, expiredId, premiumId],
+    )
     for (const [userId, itemCount] of [[freeId, 28], [expiredId, 35], [premiumId, 1999]] as const) {
       await admin.query(
         `INSERT INTO public.wardrobe_items (user_id, garment_type)
@@ -124,6 +130,9 @@ async function main(): Promise<void> {
     ))
     await admin.query(readFileSync(
       'supabase/migrations/20261012000000_canonical_wardrobe_semantics.sql', 'utf8',
+    ))
+    await admin.query(readFileSync(
+      'supabase/migrations/20261019000000_durable_wardrobe_photo_cleanup.sql', 'utf8',
     ))
 
     const grants = await admin.query(`
@@ -453,7 +462,96 @@ async function main(): Promise<void> {
     })
     assert.equal((await admin.query('SELECT recommendation_semantics FROM public.wardrobe_items WHERE id=$1',
       [freeInitialIds[0]])).rows[0]?.recommendation_semantics ?? null, null, 'migration does not invent legacy values')
-    console.log('Free wardrobe and canonical semantics local PostgreSQL migration, ACL, capacity, atomicity, correction and RLS checks passed')
+
+    const photoOwner = randomUUID()
+    const otherPhotoOwner = randomUUID()
+    await admin.query('INSERT INTO public.user_profiles (id) VALUES ($1), ($2)', [photoOwner, otherPhotoOwner])
+    await admin.query('INSERT INTO auth.users (id) VALUES ($1), ($2)', [photoOwner, otherPhotoOwner])
+    const [sharedPhotoFirst, sharedPhotoLast] = await as(photoOwner, db => insertMany(db, [
+      { garment_type: 'top', image_url: `${photoOwner}/shared.png` },
+      { garment_type: 'bottom', image_url: `${photoOwner}/shared.png` },
+    ]))
+    await as(photoOwner, async db => {
+      assert.equal((await db.query(
+        'DELETE FROM public.wardrobe_items WHERE id=$1', [sharedPhotoFirst],
+      )).rowCount, 1)
+      assert.equal((await db.query(
+        'SELECT count(*) FROM public.wardrobe_photo_cleanup_receipts WHERE user_id=$1',
+        [photoOwner],
+      )).rows[0].count, '0', 'a shared photo is retained while another owned row references it')
+      assert.equal((await db.query(
+        'DELETE FROM public.wardrobe_items WHERE id=$1', [sharedPhotoLast],
+      )).rowCount, 1)
+      const receipt = (await db.query(
+        'SELECT item_id, image_url FROM public.wardrobe_photo_cleanup_receipts WHERE user_id=$1',
+        [photoOwner],
+      )).rows[0]
+      assert.deepEqual(receipt, {
+        item_id: sharedPhotoLast,
+        image_url: `${photoOwner}/shared.png`,
+      }, 'the final row delete creates an owner-bound photo receipt')
+      assert.equal((await db.query(
+        'SELECT count(*) FROM public.wardrobe_photo_cleanup_receipts WHERE user_id=$1',
+        [otherPhotoOwner],
+      )).rows[0].count, '0', 'another owner cannot see the cleanup receipt')
+      await db.query(
+        'SELECT public.acknowledge_wardrobe_photo_cleanup($1, $2)',
+        [sharedPhotoLast, `${photoOwner}/shared.png`],
+      )
+      assert.equal((await db.query(
+        'SELECT count(*) FROM public.wardrobe_photo_cleanup_receipts WHERE user_id=$1',
+        [photoOwner],
+      )).rows[0].count, '0', 'the owner can acknowledge cleanup after Storage succeeds')
+    })
+
+    const rollbackPhoto = `${photoOwner}/rollback.jpg`
+    const [rollbackPhotoId] = await as(photoOwner, db => insertMany(db, [
+      { garment_type: 'top', image_url: rollbackPhoto },
+    ]))
+    await as(photoOwner, async db => {
+      await db.query('BEGIN')
+      await db.query('DELETE FROM public.wardrobe_items WHERE id=$1', [rollbackPhotoId])
+      assert.equal((await db.query(
+        'SELECT count(*) FROM public.wardrobe_photo_cleanup_receipts WHERE user_id=$1',
+        [photoOwner],
+      )).rows[0].count, '1', 'receipt is visible in the same transaction as deletion')
+      await db.query('ROLLBACK')
+      assert.equal((await db.query(
+        'SELECT count(*) FROM public.wardrobe_items WHERE id=$1', [rollbackPhotoId],
+      )).rows[0].count, '1', 'rolling back a row delete also rolls back its cleanup receipt')
+      assert.equal((await db.query(
+        'SELECT count(*) FROM public.wardrobe_photo_cleanup_receipts WHERE user_id=$1',
+        [photoOwner],
+      )).rows[0].count, '0')
+    })
+
+    const unsafePhotoId = randomUUID()
+    await as(photoOwner, async db => {
+      await insertMany(db, [
+        { id: unsafePhotoId, garment_type: 'top', image_url: 'file:///documents/private.jpg' },
+      ])
+      await db.query('DELETE FROM public.wardrobe_items WHERE id=$1', [unsafePhotoId])
+      assert.equal((await db.query(
+        'SELECT count(*) FROM public.wardrobe_photo_cleanup_receipts WHERE user_id=$1',
+        [photoOwner],
+      )).rows[0].count, '0', 'non-Storage paths do not create cloud cleanup receipts')
+      await assert.rejects(
+        db.query('DELETE FROM public.wardrobe_photo_cleanup_receipts WHERE user_id=$1', [photoOwner]),
+        /permission denied/,
+      )
+    })
+    const receiptGrants = (await admin.query(`
+      SELECT has_table_privilege('service_role', 'public.wardrobe_photo_cleanup_receipts', 'SELECT') AS server_can_select,
+        has_table_privilege('service_role', 'public.wardrobe_photo_cleanup_receipts', 'DELETE') AS server_can_delete,
+        has_table_privilege('authenticated', 'public.wardrobe_photo_cleanup_receipts', 'INSERT') AS user_can_insert,
+        has_table_privilege('authenticated', 'public.wardrobe_photo_cleanup_receipts', 'DELETE') AS user_can_delete
+    `)).rows[0]
+    assert.deepEqual(receiptGrants, {
+      server_can_select: true, server_can_delete: true, user_can_insert: false,
+      user_can_delete: false,
+    }, 'receipt access is limited to owner reads/acknowledgements and server account cleanup')
+
+    console.log('Disposable PostgreSQL wardrobe capacity, canonical semantics, durable photo receipts, ACL, rollback, shared-photo and RLS checks passed')
   } finally {
     await admin.end()
   }

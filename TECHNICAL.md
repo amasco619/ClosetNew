@@ -1394,7 +1394,7 @@ These features are **not yet implemented**. They are the next development priori
 | `bulkAutoPersist.test.ts` | Legacy auto-persist helper contract; the B2.8 review UI now commits Save All atomically instead |
 | `addItemReplacementContract.test.ts` | Actual Home route, no-initial-photo metadata initialization, single-photo picker cancellation, failed upload and successful retry; controlled I/O fixtures, not live/device evidence |
 | `bulkSaveAtomic.test.ts` | Bulk Save All uploads before a single acknowledged commit; failed uploads and rejected commits do not navigate or report success |
-| `freeWardrobeSelectionDb.test.ts` | Disposable PostgreSQL verification of capacity, expiry, role privileges, ownership, selection, concurrency, rollback and cascading deletion |
+| `freeWardrobeSelectionDb.test.ts` | Disposable PostgreSQL verification of capacity, expiry, role privileges, ownership, selection, concurrency, rollback, cascading deletion, durable photo-cleanup receipts, shared-photo protection and receipt RLS |
 | `freeWardrobeSelectionSql.test.ts` | Static contract checks for authenticated insert RPCs, selection, and ordering index |
 | `wardrobeDatabaseContract.test.ts` | Acknowledged item persistence, deterministic pagination, account isolation, selected-row loading, and deferred token-refresh entitlement reads |
 | `apiNoCache.test.ts` | Express conditional GET still returns JSON 200 with `Cache-Control: no-store`; prevents API ETags becoming unusable 304s in native fetch |
@@ -1402,7 +1402,7 @@ These features are **not yet implemented**. They are the next development priori
 | `bulkCarousel.test.ts` | Bulk-review carousel scroll contract: index clamping, null FlatList ref guard, empty-list safety |
 | `bulkPhotoStaging.test.ts` | App-owned multi-photo staging, partial/all copy failures, in-memory selection lookup, protected cleanup, and 24-hour sweep |
 | `bulkReviewMountedGuard.test.ts` | `isMountedRef` guard, serialized image-transform queue, ID-only one-photo redirect, acknowledged-save cleanup ordering, retryable errors, original-JPEG fallback, one post-commit Undo snapshot and partial batch-removal reporting |
-| `undoRemovalIntegration.test.ts` | Actual AppContext Undo removal callback: owner-scoped row and Storage cleanup, guest file and cache cleanup, retained/retried photo-cleanup failures, retry-toast action, managed-directory rejection, partial batch failure/quota retention and account-switch protection |
+| `undoRemovalIntegration.test.ts` | Actual AppContext Undo removal callback: owner-scoped row and Storage cleanup, guest file and cache cleanup, retained/retried photo-cleanup failures, cold-restart recovery after an ambiguous committed delete, retry-toast action, managed-directory rejection, partial batch failure/quota retention and account-switch protection |
 | `photoPrepareDiagnostic.test.ts` | Redacted failure diagnostics plus pick-time/current staged-file metadata comparison |
 | `bulkSaveLock.test.ts` | Save-lock ref in bulk-review: concurrent save attempts are blocked by the `saveLockRef` guard |
 | `bulkSaveNoShrunk.test.ts` | Missing/null/data-URI `shrunk.base64` never silently drops a bulk-upload item; `addItem` always fires with the local URI as fallback when `resolveUploadArg` returns null |
@@ -3153,7 +3153,8 @@ originals are queued for cleanup through the existing owner-scoped retry path.
 Managed files stay protected while an Add Item review references them; failed or
 deferred deletion retries later. The owner-bound migration tombstone remains
 after the source file is reclaimed and is removed only by account deletion.
-Pending work does not survive uninstall/cleared app data.
+Pending device-local managed-file cleanup does not survive uninstall or cleared
+app data; authenticated cloud-photo deletion is retained server-side.
 
 Audit, exact checks, implementation and device limitations:
 `docs/reports/guest-to-account-migration.md`. No schema/RLS, dependency, frozen
@@ -3211,6 +3212,17 @@ New retries persist and round-trip `storagePath`, including when the display
 URI is blank. Invalid explicit paths never downgrade to ID-based deletion.
 Guest managed-file cleanup and its protected-reference checks remain unchanged.
 
+Authenticated row deletion also creates a durable receipt in the same database
+transaction. The receipt records only recognized owner-scoped Storage paths and
+is created only after the last wardrobe row referencing that photo is removed.
+On startup/retry, the active owner drains receipts; a receipt is acknowledged
+only after Storage removal succeeds. This covers an app exit after the row
+commits but before the client receives its delete result or removes the object.
+Ambiguous database responses still never authorize a client-side photo delete;
+only the committed database receipt can authorize restart cleanup. Receipt reads
+are owner-RLS scoped, acknowledgements are owner-bound, and account deletion
+clears receipts with the user's data.
+
 Single-upload rollback and unsigned-upload cleanup also use the exact uploaded
 path. The existing ambiguous-save rule remains: uncertain database outcomes do
 not authorise deleting a possibly committed photo.
@@ -3224,4 +3236,8 @@ modified by these checks. No schema/RLS, dependency or recommendation-engine
 change; no browser sign-in or physical-device deletion verified.
 The Undo integration fixture also returns owner-scoped deletion receipts, checks
 the persisted replacement path through failed-cleanup and context retry, and
-executes its previously uncalled failed-photo-cleanup scenario.
+executes cold-restart recovery after a committed delete with an ambiguous client
+response. The disposable PostgreSQL migration test exercises receipt creation,
+shared-photo protection, transaction rollback, owner RLS, acknowledgement
+permissions, and account-deletion privileges; no live Supabase migration or
+physical-device restart was performed.

@@ -270,6 +270,34 @@ export async function deleteWardrobeItem(
   return data
 }
 
+export interface WardrobePhotoCleanupReceipt {
+  item_id: string
+  image_url: string
+}
+
+export async function getWardrobePhotoCleanupReceipts(
+  userId: string,
+): Promise<WardrobePhotoCleanupReceipt[]> {
+  const { data, error } = await supabase
+    .from('wardrobe_photo_cleanup_receipts')
+    .select('item_id, image_url')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(`[getWardrobePhotoCleanupReceipts] ${error.message}`)
+  return data ?? []
+}
+
+export async function acknowledgeWardrobePhotoCleanup(
+  itemId: string,
+  imageUrl: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('acknowledge_wardrobe_photo_cleanup', {
+    p_item_id: itemId,
+    p_image_url: imageUrl,
+  })
+  if (error) throw new Error(`[acknowledgeWardrobePhotoCleanup] ${error.message}`)
+}
+
 export async function updateWardrobeItemAffinity(
   userId: string,
   itemId: string,
