@@ -3131,3 +3131,16 @@ Pending work does not survive uninstall/cleared app data.
 Audit, exact checks, implementation and device limitations:
 `docs/reports/guest-to-account-migration.md`. No schema/RLS, dependency, frozen
 engine/benchmark, quota enforcement, auth API or consent change; not published.
+
+## 47. UK SPELLING SCAN GAP FOLLOW-UP
+
+The expanded display-string scan corrected “Eye Color” to “Eye Colour”,
+“Colorful Resin Bangles” to “Colourful Resin Bangles”, and the elevated
+“Black Tailored Wide-Leg Pants” hero to “Black Tailored Wide-Leg Trousers”.
+Only display labels changed: stored category/subtype values, profile fields,
+asset IDs, classifier schema, and Recommendation Engine v3.7 remain unchanged.
+The existing wardrobe label map continues to render stored jewelry categories
+as “Jewellery” / “Jewellery & accessories”.
+
+Per-directory denylist counts, dispositions, Pants/Trousers comparison,
+validation and device limitations: `reports/uk-spelling-follow-up.md`.

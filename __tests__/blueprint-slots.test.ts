@@ -165,6 +165,17 @@ for (const goal of expectedGoals) {
   );
 }
 
+const wideLegHero = STYLE_BLUEPRINT_SLOTS.elevated.find(slot => slot.id === 'elv-bot-3');
+assert(
+  wideLegHero?.label === 'Black Tailored Wide-Leg Trousers',
+  'The elevated black wide-leg hero uses the displayed UK garment term',
+);
+const colourfulBangles = STYLE_BLUEPRINT_SLOTS.youthful.find(slot => slot.id === 'yth-jew-3');
+assert(
+  colourfulBangles?.label === 'Colourful Resin Bangles',
+  'The youthful bangles slot uses the displayed UK colour spelling',
+);
+
 assert(
   Object.keys(STYLE_BLUEPRINT_SLOTS).length === expectedGoals.length,
   `STYLE_BLUEPRINT_SLOTS has exactly ${expectedGoals.length} keys (no extras)`,

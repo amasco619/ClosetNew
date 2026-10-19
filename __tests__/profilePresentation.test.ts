@@ -118,7 +118,7 @@ test('Style DNA labels map empty, partial, and complete quiz profiles', () => {
     styleGoalSecondary: 'romantic',
   })), [
     { label: 'Body Shape', value: 'Inv. Triangle' },
-    { label: 'Eye Color', value: 'Light Brown' },
+    { label: 'Eye Colour', value: 'Light Brown' },
     { label: 'Skin Tone', value: 'Med Light' },
     { label: 'Undertone', value: 'Warm' },
     { label: 'Primary Style', value: 'Elevated' },
