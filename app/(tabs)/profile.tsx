@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Haptics from 'expo-haptics';
@@ -26,12 +26,7 @@ import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weathe
 import { AmodkaErrorState } from '@/components/AmodkaErrorState';
 import { useDialog } from '@/contexts/LuxuryFeedbackContext';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
-import {
-  getAiProcessingPreference,
-  setAiProcessingPreference,
-  getAiProcessingSwitchAction,
-  type AiProcessingPreference,
-} from '@/lib/aiProcessingPreference';
+import { useAiProcessingPreference } from '@/lib/useAiProcessingPreference';
 import {
   getAiProcessingDisplay,
   getPersonalIntelligenceSubtitle,
@@ -120,6 +115,7 @@ export default function ProfileScreen() {
     loadAllWardrobeItems,
     isPremium,
     isGuest,
+    authenticatedUserId,
     isLoading,
     wearHistory,
     affinityActive,
@@ -135,13 +131,13 @@ export default function ProfileScreen() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(profile.name || '');
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [aiProcessingPreference, setAiProcessingPreferenceState] = useState<AiProcessingPreference>('not_asked');
-  const [aiPreferenceLoading, setAiPreferenceLoading] = useState(true);
-  const [aiPreferenceSaving, setAiPreferenceSaving] = useState(false);
-  const [aiPreferenceError, setAiPreferenceError] = useState<string | null>(null);
-  const [aiPreferenceUnavailable, setAiPreferenceUnavailable] = useState(false);
-  const [aiPreferenceRetry, setAiPreferenceRetry] = useState(0);
-  const [showAiConsent, setShowAiConsent] = useState(false);
+  const {
+    preference: aiProcessingPreference, loading: aiPreferenceLoading,
+    saving: aiPreferenceSaving, error: aiPreferenceError,
+    unavailable: aiPreferenceUnavailable, showConsent: showAiConsent,
+    refresh: refreshAiPreference, toggle: changeAiProcessingPreference,
+    allow: allowProfileAiProcessing, dismiss: dismissAiConsent,
+  } = useAiProcessingPreference(isGuest, authenticatedUserId);
   const [wardrobeLoadError, setWardrobeLoadError] = useState(false);
   const [wardrobeHistoryReady, setWardrobeHistoryReady] = useState(false);
   const wardrobeLoadStarted = useRef(false);
@@ -173,73 +169,6 @@ export default function ProfileScreen() {
     }).catch(() => {});
     return () => { active = false; };
   }, []);
-
-  useFocusEffect(useCallback(() => {
-    if (isGuest) {
-      setAiProcessingPreferenceState('not_asked');
-      setAiPreferenceError(null);
-      setAiPreferenceLoading(false);
-      setAiPreferenceUnavailable(false);
-      return;
-    }
-    if (aiPreferenceRetry > 0) {
-      setAiPreferenceError(null);
-      setAiPreferenceUnavailable(false);
-    }
-    let active = true;
-    setAiPreferenceLoading(true);
-    void getAiProcessingPreference().then(preference => {
-      if (!active) return;
-      setAiProcessingPreferenceState(preference);
-      setAiPreferenceError(null);
-      setAiPreferenceUnavailable(false);
-    }).catch(() => {
-      if (!active) return;
-      setAiProcessingPreferenceState('not_asked');
-      setAiPreferenceError('Your preference could not be loaded.');
-      setAiPreferenceUnavailable(true);
-    }).finally(() => {
-      if (active) setAiPreferenceLoading(false);
-    });
-    return () => { active = false; };
-  }, [isGuest, aiPreferenceRetry]));
-
-  const changeAiProcessingPreference = async (enabled: boolean) => {
-    if (aiPreferenceSaving || isGuest) return;
-    const action = getAiProcessingSwitchAction(aiProcessingPreference, enabled);
-    if (action === 'unchanged') return;
-    if (action === 'request_consent') {
-      setAiPreferenceError(null);
-      setShowAiConsent(true);
-      return;
-    }
-    setAiPreferenceSaving(true);
-    setAiPreferenceError(null);
-    try {
-      const saved = await setAiProcessingPreference('declined');
-      setAiProcessingPreferenceState(saved);
-      setAiPreferenceError(null);
-    } catch {
-      setAiPreferenceError('Your preference could not be saved. Please try again.');
-    } finally {
-      setAiPreferenceSaving(false);
-    }
-  };
-
-  const allowProfileAiProcessing = async () => {
-    if (aiPreferenceSaving || isGuest) return;
-    setAiPreferenceSaving(true);
-    setAiPreferenceError(null);
-    try {
-      const saved = await setAiProcessingPreference('allowed');
-      setAiProcessingPreferenceState(saved);
-      setShowAiConsent(false);
-    } catch {
-      setAiPreferenceError('Your preference could not be saved. AI processing remains unavailable.');
-    } finally {
-      setAiPreferenceSaving(false);
-    }
-  };
 
   const saveName = () => {
     const trimmed = nameInput.trim();
@@ -609,13 +538,14 @@ export default function ProfileScreen() {
             </View>
             {aiPreferenceLoading && <ActivityIndicator size="small" color={Colors.primary} />}
             {aiPreferenceError && <Text style={styles.errorText}>{aiPreferenceError}</Text>}
-            {aiPreferenceUnavailable && (
+            {aiPreferenceError && (
               <Pressable
                 accessibilityRole="button"
-                onPress={() => setAiPreferenceRetry(value => value + 1)}
+                onPress={() => { void refreshAiPreference(); }}
+                disabled={aiPreferenceLoading || aiPreferenceSaving}
                 style={styles.noteLink}
               >
-                <Text style={styles.linkText}>Try loading your preference again</Text>
+                <Text style={styles.linkText}>Try again</Text>
               </Pressable>
             )}
             {isGuest && (
@@ -683,8 +613,9 @@ export default function ProfileScreen() {
         visible={showAiConsent}
         busy={aiPreferenceSaving}
         context="profile"
+        error={aiPreferenceError}
         onAllow={allowProfileAiProcessing}
-        onDismiss={() => setShowAiConsent(false)}
+        onDismiss={dismissAiConsent}
       />
     </View>
   );

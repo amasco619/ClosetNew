@@ -589,3 +589,17 @@ mtime_ms = 1792353947775
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/c05b60ab-03c9-4723-9b3a-b0d3007fd25c/8ab30ea3-2c54-4a31-927b-b7e638a952c8"
 storage_version_token = "1792354051062437"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "7YOfyjnWsDlv1x-H7h6vS"
+uri = "file://docs/reports/ai-preference-save-failure.md"
+type = "text"
+title = "AI preference save failure — diagnosis and verification"
+description = "Request-by-request log evidence, root causes, fixes, exact test results, deviations and remaining device checks."
+logical_id = "0a23f211-e24c-4b70-94ff-d10c9a22cb65"
+content_hash = "sha256:9033ba25d5e4dfcab1b1a0018a4b5866bf850aca7a1e74d3be587a13c9b0bb91"
+size = 16631
+mtime_ms = 1792368079953
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/0a23f211-e24c-4b70-94ff-d10c9a22cb65/70f3abf5-9853-41f2-8271-01dd33849e0b"
+storage_version_token = "1792368090209121"
+content_type = "text/markdown"

@@ -36,6 +36,7 @@ import { readCachedCutout } from '@/lib/uploadPhotoSource';
 import { GarmentTile } from '@/components/GarmentTile';
 import {
   getAiProcessingPreference,
+  aiPreferenceErrorMessage,
   setAiProcessingPreference,
   type AiProcessingPreference,
 } from '@/lib/aiProcessingPreference';
@@ -929,8 +930,8 @@ export default function AddItemScreen() {
       setAiPreference('allowed');
       setShowAiConsent(false);
       await pickImage(false, asset, true);
-    } catch {
-      setAiPreferenceError('AI processing could not be enabled. Your photo has not been sent.');
+    } catch (error) {
+      setAiPreferenceError(`${aiPreferenceErrorMessage(error, true)} Your photo has not been sent.`);
     } finally {
       setSavingAiPreference(false);
     }
@@ -943,8 +944,8 @@ export default function AddItemScreen() {
     setAiPreferenceError(null);
     setSavingAiPreference(true);
     void setAiProcessingPreference('declined')
-      .catch(() => {
-        setAiPreferenceError('Your choice could not be saved. AI processing remains unavailable until it can be checked.');
+      .catch((error) => {
+        setAiPreferenceError(`${aiPreferenceErrorMessage(error, true)} AI processing remains unavailable until it can be checked.`);
       })
       .finally(() => setSavingAiPreference(false));
   };
@@ -2009,6 +2010,7 @@ export default function AddItemScreen() {
         visible={showAiConsent}
         busy={savingAiPreference}
         context="upload"
+        error={aiPreferenceError}
         onAllow={allowAiForCurrentPhoto}
         onDecline={declineAiForCurrentPhoto}
         onDismiss={dismissAiConsent}

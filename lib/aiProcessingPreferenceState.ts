@@ -34,3 +34,13 @@ export function isAiProcessingSwitchOn(
   if (state.loading || state.unavailable || state.guest) return false;
   return preference === 'allowed';
 }
+
+export function bulkCardActivity(status: string, preference: string, requestInFlight = false) {
+  return {
+    processing: status === 'classifying' && preference === 'allowed' && requestInFlight,
+    waiting: status === 'pending' || (status === 'classifying' && (preference !== 'allowed' || !requestInFlight)),
+    label: preference === 'unavailable' || preference === 'checking'
+      ? 'Waiting for connection'
+      : preference === 'allowed' ? status === 'classifying' ? 'Preparing photo' : 'Waiting to start' : 'Awaiting permission',
+  };
+}

@@ -2342,8 +2342,11 @@ permits processing. The Express account API reads/writes the authenticated
 user's preference through the server-only Auth admin client; the server checks
 the current stored value before both Gemini routes and the PhotoRoom route.
 Metadata reads/writes that fail deny processing; no client-only preference can
-authorize an AI request. The shared five-per-hour account limiter protects
-preference writes, not the photo-by-photo read endpoint.
+authorize an AI request. Preference writes use a separate authenticated-user
+limiter (30 per minute, `aipreference` store prefix,
+`ai_preference_rate_limit` on 429), not the five-per-hour account mutation
+bucket or sign-in bucket. Reads retain their authenticated,
+non-account-limited path.
 
 For a signed-in account with a confirmed `not_asked` response, Profile displays
 the preference switch OFF. The state remains `not_asked` until the user makes
@@ -2374,6 +2377,21 @@ photos to AI.
 
 No Supabase schema or provider setting was changed. Mounted server consent
 tests use test-only overrides; no live AI or Supabase data calls are required.
+
+Preference requests have a ten-second deadline including session acquisition
+and response JSON parsing. Writes re-read the authoritative preference before
+reporting success. Profile reconciles after failed/ambiguous writes, refreshes
+on focus/account changes, rejects superseded results, and exposes a quiet retry.
+An unavailable read is unknown, not confirmed OFF. Profile "Not now" closes
+without issuing a write even while an already-submitted Allow is pending;
+it cannot cancel a write already received by the server. Errors are shown
+inside the disclosure as well as the Privacy row. Only status/code diagnostics
+are emitted behind the existing development upload-diagnostic flag.
+Bulk cards show neutral waiting/manual-entry states while permission or
+connectivity blocks processing; processing tint/copy is bound to outstanding
+provider-bound requests, not queued items or local image preparation.
+Evidence, test matrix, concurrency limitations and unverified device behavior:
+`docs/reports/ai-preference-save-failure.md`.
 
 ## 29. RevenueCat billing rollout boundary
 

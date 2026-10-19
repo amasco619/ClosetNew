@@ -760,6 +760,7 @@ export const LIMITER_CONFIGS = {
   bgRemovalLimiter: { windowMs: 60 * 1000,      max: 8  },
   billingReconcileLimiter: { windowMs: 60 * 1000, max: 10 },
   accountLimiter:   { windowMs: 60 * 60 * 1000, max: 5  },
+  aiPreferenceLimiter: { windowMs: 60 * 1000, max: 30 },
   authLimiter:      { windowMs: 15 * 60 * 1000, max: 5  },
   resetLimiter:     { windowMs: 60 * 60 * 1000, max: 3  },
 } as const;
@@ -794,6 +795,24 @@ export const accountLimiter = rateLimit({
   legacyHeaders: true,
   store: makeStore("account"),
   handler: makeLimiterHandler(),
+});
+
+// Preference toggles must not consume the destructive account-mutation budget.
+export const aiPreferenceLimiter = rateLimit({
+  ...LIMITER_CONFIGS.aiPreferenceLimiter,
+  standardHeaders: true,
+  legacyHeaders: true,
+  store: makeStore("aipreference"),
+  // requireAuth runs first; users behind the same NAT must not share toggle limits.
+  keyGenerator: req => (req as Request & { authenticatedUser: { id: string } }).authenticatedUser.id,
+  handler: (req, res) => {
+    const info = (req as any).rateLimit;
+    const retryAfter = Math.max(1, Math.ceil(
+      ((info?.resetTime?.getTime() ?? Date.now()) - Date.now()) / 1000,
+    ));
+    res.setHeader("Retry-After", retryAfter);
+    res.status(429).json({ error: "ai_preference_rate_limit", retryAfter });
+  },
 });
 
 export const authLimiter = rateLimit({

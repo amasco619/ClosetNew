@@ -30,6 +30,7 @@ import {
   bgRemovalLimiter,
   billingReconcileLimiter,
   accountLimiter,
+  aiPreferenceLimiter,
   authLimiter,
   resetLimiter,
   checkAccountLockout,
@@ -496,7 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/user/ai-processing", accountLimiter, requireAuth, async (req, res) => {
+  app.put("/api/user/ai-processing", requireAuth, aiPreferenceLimiter, async (req, res) => {
     const state = req.body?.state;
     if (state !== "allowed" && state !== "declined") {
       return res.status(400).json({ error: "invalid_ai_processing_preference" });

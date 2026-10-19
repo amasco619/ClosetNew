@@ -7,6 +7,7 @@ export function AiProcessingConsent({
   visible,
   busy = false,
   context,
+  error,
   privacyPolicyUrl,
   onAllow,
   onDecline,
@@ -15,6 +16,7 @@ export function AiProcessingConsent({
   visible: boolean;
   busy?: boolean;
   context: AiConsentContext;
+  error?: string | null;
   privacyPolicyUrl?: string | null;
   onAllow: () => void;
   onDecline?: () => void;
@@ -23,7 +25,8 @@ export function AiProcessingConsent({
   const [learnMore, setLearnMore] = useState(false);
   const [translateY] = useState(() => new Animated.Value(0));
   const dismiss = useCallback(() => {
-    if (busy) return;
+    if (busy && context !== 'profile') return;
+    if (context === 'profile') { onDismiss(); return; }
     Animated.timing(translateY, {
       toValue: Dimensions.get('window').height,
       duration: 190,
@@ -31,10 +34,10 @@ export function AiProcessingConsent({
     }).start(({ finished }) => {
       if (finished) onDismiss();
     });
-  }, [busy, onDismiss, translateY]);
+  }, [busy, context, onDismiss, translateY]);
   const panResponder = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponder: (_event, gesture) =>
-      !busy && gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+      (!busy || context === 'profile') && gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
     onPanResponderMove: (_event, gesture) => {
       if (gesture.dy > 0) translateY.setValue(gesture.dy);
     },
@@ -44,7 +47,7 @@ export function AiProcessingConsent({
     },
     onPanResponderTerminate: () =>
       Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 240 }).start(),
-  }), [busy, dismiss, translateY]);
+  }), [busy, context, dismiss, translateY]);
   const handleSecondaryAction = () => {
     const action: AiConsentAction = context === 'upload' ? 'decline' : 'not_now';
     if (getAiConsentDisposition(context, action) === 'persist_declined') onDecline?.();
@@ -76,7 +79,7 @@ export function AiProcessingConsent({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close AI processing disclosure"
-          disabled={busy}
+          disabled={busy && context !== 'profile'}
           onPress={dismiss}
           style={StyleSheet.absoluteFill}
         />
@@ -156,6 +159,7 @@ export function AiProcessingConsent({
             )}
           </ScrollView>
           <View style={styles.actions}>
+            {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ disabled: busy }}
@@ -167,9 +171,9 @@ export function AiProcessingConsent({
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              disabled={busy}
+              disabled={busy && context !== 'profile'}
               onPress={handleSecondaryAction}
-              style={({ pressed }) => [styles.cancelButton, pressed && !busy && styles.pressed, busy && styles.disabled]}
+              style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed, busy && context !== 'profile' && styles.disabled]}
             >
               <Text style={styles.cancelText}>{context === 'upload' ? 'Decline' : 'Not now'}</Text>
             </Pressable>
@@ -181,6 +185,7 @@ export function AiProcessingConsent({
 }
 
 const styles = StyleSheet.create({
+  error: { color: Colors.error, fontSize: 13, lineHeight: 19 },
   scrim: {
     flex: 1,
     justifyContent: 'center',

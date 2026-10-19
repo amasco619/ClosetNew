@@ -247,6 +247,7 @@ const mountedScreenMocks: Record<string, string> = {
   '../lib/responsive': `export const rs=value=>value;`,
   '@/components/AiProcessingConsent': `export const AiProcessingConsent=()=>null;`,
   '@/lib/aiProcessingPreference': `
+    export const aiPreferenceErrorMessage=()=> 'Preference unavailable';
     export const getAiProcessingPreference=async()=>{globalThis.__bulkReviewMounted.calls.preference++;return 'allowed';};
     export const setAiProcessingPreference=async()=>{};
   `,

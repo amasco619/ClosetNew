@@ -60,9 +60,11 @@ import {
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
 import {
   getAiProcessingPreference,
+  aiPreferenceErrorMessage,
   setAiProcessingPreference,
   type AiProcessingPreference,
 } from '@/lib/aiProcessingPreference';
+import { bulkCardActivity } from '@/lib/aiProcessingPreferenceState';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -157,6 +159,8 @@ function BulkCard({
   item,
   statusPhase,
   manualReady,
+  preference,
+  requestInFlight,
   onRemove,
   onRetry,
   onManual,
@@ -165,12 +169,14 @@ function BulkCard({
   item: BulkItem;
   statusPhase: number;
   manualReady: boolean;
+  preference: string;
+  requestInFlight: boolean;
   onRemove: (uri: string) => void;
   onRetry: (uri: string) => void;
   onManual: (uri: string) => void;
   onPress?: () => void;
 }) {
-  const isActive     = item.status === 'pending' || item.status === 'classifying';
+  const activity = bulkCardActivity(item.status, preference, requestInFlight);
   const isManual     = item.status === 'manual';
   const isLocalOnly  = item.status === 'local-only';
   const isSettled    = item.status === 'settled' || item.status === 'saving' || item.status === 'saved' || isLocalOnly;
@@ -202,7 +208,12 @@ function BulkCard({
           }}
         />
 
-        <GoldOverlay isActive={isActive} statusPhase={statusPhase} />
+        {activity.processing && <GoldOverlay isActive statusPhase={statusPhase} />}
+        {activity.waiting && (
+          <View style={styles.waitingLabel}>
+            <Text style={styles.waitingText}>{activity.label}</Text>
+          </View>
+        )}
 
         {isSaved && (
           <Animated.View
@@ -259,7 +270,7 @@ function BulkCard({
           </Animated.View>
         ) : isManual ? (
           <Text style={styles.errorLabel}>Add details</Text>
-        ) : isRefused || isError ? null : manualReady && isActive ? (
+        ) : isRefused || isError ? null : manualReady && activity.waiting ? (
           <Pressable
             accessibilityRole="button"
             onPress={() => onManual(item.uri)}
@@ -413,6 +424,7 @@ export default function BulkReviewScreen() {
     router.setParams({ undoManualSavedPhotoIndex: undefined });
   }, [undoManualSavedPhotoIndex, selectionId, selectionStartedAsGuest]);
   const [statusPhase, setStatusPhase] = useState(0);
+  const [inFlightUris, setInFlightUris] = useState<ReadonlySet<string>>(() => new Set());
   const [saving, setSaving] = useState(false);
   const [retryingAll, setRetryingAll] = useState(false);
   const retryingAllRef = useRef(false);
@@ -447,8 +459,8 @@ export default function BulkReviewScreen() {
       await setAiProcessingPreference('allowed');
       setAiPreference('allowed');
       setShowAiConsent(false);
-    } catch {
-      setAiPreferenceError('AI processing could not be enabled. These photos have not been sent.');
+    } catch (error) {
+      setAiPreferenceError(`${aiPreferenceErrorMessage(error, true)} These photos have not been sent.`);
     } finally {
       setSavingAiPreference(false);
     }
@@ -460,8 +472,8 @@ export default function BulkReviewScreen() {
     setAiPreferenceError(null);
     setSavingAiPreference(true);
     void setAiProcessingPreference('declined')
-      .catch(() => {
-        setAiPreferenceError('Your choice could not be saved. AI processing remains unavailable until it can be checked.');
+      .catch((error) => {
+        setAiPreferenceError(`${aiPreferenceErrorMessage(error, true)} AI processing remains unavailable until it can be checked.`);
       })
       .finally(() => setSavingAiPreference(false));
     routeFirstPhotoManually();
@@ -484,9 +496,9 @@ export default function BulkReviewScreen() {
         setAiPreference(preference);
         setShowAiConsent(true);
       }
-    } catch {
+    } catch (error) {
       setAiPreference('unavailable');
-      setAiPreferenceError('Your AI preference could not be checked. These photos have not been sent.');
+      setAiPreferenceError(`${aiPreferenceErrorMessage(error)} These photos have not been sent.`);
     }
   };
 
@@ -662,16 +674,29 @@ export default function BulkReviewScreen() {
 
   // Cycle status micro-copy every 450ms while items are still classifying
   useEffect(() => {
-    const hasActive = items.some(it => it.status === 'pending' || it.status === 'classifying');
+    const hasActive = aiPreference === 'allowed' && inFlightUris.size > 0;
     if (!hasActive) return;
     const id = setInterval(() => setStatusPhase(p => (p + 1) % STATUS_COPIES.length), 450);
     return () => clearInterval(id);
-  }, [items]);
+  }, [inFlightUris, aiPreference]);
 
   // Classify one URI: resize → background removal → POST /api/classify-garment → settle card.
   // Core guard logic lives in lib/bulkClassifyCore.runClassifyUri (tested directly in Node).
   const classifyUri = useCallback(async (uri: string) => {
     await runBulkAiProcessing(isGuest || selectionStartedAsGuest, aiPreference, async () => {
+      // Only actual provider-bound requests get processing copy/tint, not
+      // permission checks, local preparation, or time spent queued for a slot.
+      const requestForCard = async <T,>(request: () => Promise<T>): Promise<T> => {
+        if (mountedRef.current) setInFlightUris(prev => new Set([...prev, uri]));
+        try { return await request(); }
+        finally {
+          if (mountedRef.current) setInFlightUris(prev => {
+            const next = new Set(prev);
+            next.delete(uri);
+            return next;
+          });
+        }
+      };
       const stagedPhoto = selection?.photos.find(photo => photo.uri === uri);
       const previous = itemsRef.current.find(item => item.uri === uri);
       await runClassifyUri(uri, mountedRef, {
@@ -698,7 +723,7 @@ export default function BulkReviewScreen() {
         onDiagnostic: diagnostic => {
           if (__DEV__ && UPLOAD_DIAGNOSTICS_ENABLED) console.log('[bulk:prepare]', diagnostic);
         },
-        removeBg: (b64) => removeBackground(b64).then(r => {
+        removeBg: (b64) => requestForCard(() => removeBackground(b64)).then(r => {
           if (r.status === 'not-authenticated') setBgNotAuthenticated(true);
           if (r.status === 'limit-reached') setBgLimitReached(true);
           if (r.status === 'success' && r.remaining !== undefined) setBgRemaining(r.remaining);
@@ -729,8 +754,10 @@ export default function BulkReviewScreen() {
           classificationStartsRef.current = [...classificationStartsRef.current.filter(time => time > now - 60_000), now];
           const image = classificationImagePayload(imageBase64);
           if (image.imageMimeType !== imageMimeType) throw new Error('image_mime_mismatch');
-          const res = await authenticatedApiRequest('POST', '/api/classify-garment', image);
-          return res.json();
+          return requestForCard(async () => {
+            const res = await authenticatedApiRequest('POST', '/api/classify-garment', image);
+            return res.json();
+          });
         },
         setItems: updater => setItems(prev => updater(prev).map(item => {
           const previous = prev.find(current => current.uri === item.uri);
@@ -1200,6 +1227,8 @@ export default function BulkReviewScreen() {
             item={item}
             statusPhase={statusPhase}
             manualReady={aiPreference !== 'allowed'}
+            preference={aiPreference}
+            requestInFlight={inFlightUris.has(item.uri)}
             onRemove={handleRemove}
             onRetry={handleRetry}
             onManual={handleManual}
@@ -1270,6 +1299,7 @@ export default function BulkReviewScreen() {
         visible={showAiConsent}
         busy={savingAiPreference}
         context="upload"
+        error={aiPreferenceError}
         onAllow={allowBulkAiProcessing}
         onDecline={declineBulkAiProcessing}
         onDismiss={dismissBulkAiConsent}
@@ -1281,6 +1311,8 @@ export default function BulkReviewScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  waitingLabel: { position: 'absolute', bottom: 8, alignSelf: 'center', backgroundColor: Colors.background, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 },
+  waitingText: { color: Colors.textSecondary, fontSize: 11 },
   container:  { flex: 1, backgroundColor: Colors.background },
 
   header: {

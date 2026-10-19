@@ -71,7 +71,28 @@ async function main() {
     assert.equal((await call("post", "/api/classify-garment").send({})).status, 503,
       "store failure must fail closed");
     assert.equal((await call("get", pref)).status, 503);
-    console.log("AI consent: missing/malformed denied, account persistence, withdrawal and route guards passed");
+    // Preference writes have an independent, short-window budget; auth/account
+    // and provider limiters must not be consumed by ordinary privacy toggles.
+    consent._testOverrides.load = async id => metadata.get(id) ?? {};
+    routes._testOverrides.authenticatedUser = { id: 'limiter-preference-account' };
+    const sameIp = '198.19.42.1';
+    for (let i = 0; i < limiter.LIMITER_CONFIGS.aiPreferenceLimiter.max; i++) {
+      const result = await request(app).put(pref).set('X-Forwarded-For', sameIp).send({ state: 'declined' });
+      assert.equal(result.status, 200);
+    }
+    const limited = await request(app).put(pref).set('X-Forwarded-For', sameIp).send({ state: 'allowed' });
+    assert.equal(limited.status, 429);
+    assert.equal(limited.body.error, 'ai_preference_rate_limit');
+    assert.ok(Number(limited.headers['retry-after']) > 0);
+    assert.equal((await request(app).get(pref).set('X-Forwarded-For', sameIp)).status, 200);
+    assert.equal((await request(app).post('/api/auth/sign-in').set('X-Forwarded-For', sameIp).send({})).status, 400);
+    assert.equal((await request(app).post('/api/classify-garment').set('X-Forwarded-For', sameIp).send({})).status, 403);
+    app.post('/test-account-budget', limiter.accountLimiter, (_req, res) => res.sendStatus(204));
+    assert.equal((await request(app).post('/test-account-budget').set('X-Forwarded-For', sameIp)).status, 204);
+    routes._testOverrides.authenticatedUser = { id: 'other-preference-account' };
+    assert.equal((await request(app).put(pref).set('X-Forwarded-For', sameIp).send({ state: 'declined' })).status, 200,
+      'different authenticated users do not share a preference bucket behind the same IP');
+    console.log("AI consent: missing/malformed denied, account persistence, withdrawal, route guards and isolated preference limiter passed");
   } finally {
     delete routes._testOverrides.authenticatedUser;
     delete consent._testOverrides.load;

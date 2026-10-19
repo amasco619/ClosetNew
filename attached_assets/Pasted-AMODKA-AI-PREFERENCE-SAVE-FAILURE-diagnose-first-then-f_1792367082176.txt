@@ -1,0 +1,80 @@
+AMODKA — AI PREFERENCE SAVE FAILURE (diagnose first, then fix)
+
+SYMPTOMS (device test, Expo Go, account created from a guest session)
+1. Offline bulk upload shows "AI processing has not started … could not 
+   be checked" (correct). Online: "Check preference again", then "Enable 
+   AI processing", then the disclosure. Allow sends photos; Decline 
+   sends nothing (correct).
+2. After declining there, Profile > AI Processing switch ON opens the 
+   disclosure, but both "Allow AI processing" and "Not now" do nothing.
+3. After sign out and sign in, the switch could be turned ON, but 
+   turning it OFF shows "Your preference could not be saved. Please try 
+   again." and the message never clears; the switch shows ON.
+Sign-in, sign-up, classification and background removal worked on the 
+same server minutes earlier, so treat this as a probable bug unless 
+logs show otherwise.
+
+DO NOT TOUCH: server-side consent enforcement semantics (fail closed), 
+the consent wording, Recommendation Engine v3.7, billing, auth flows. 
+Keep npm test, typecheck, lint and the golden set green.
+
+STEP 1 — EVIDENCE (before editing; report it)
+a) Pull server logs for the preference endpoints (/api/user/
+   ai-processing, GET/PUT/POST) between about 22:15 and 23:15 UTC on 
+   2026-10-18. Report each request: time, method, status, error code, 
+   and which limiter handled it. If logs are unavailable, say so.
+b) Identify which rate limiters apply to these endpoints (for example 
+   authLimiter at 5 per 15 minutes per IP, aiLimiter at 10 per minute) 
+   and whether they share a bucket with sign-up and sign-in. Work out 
+   whether the test sequence (sign-up, several preference writes, 
+   sign-out, sign-in, repeated toggles) could exhaust it.
+c) Describe how the Supabase app_metadata update is performed and 
+   which errors can surface (admin update failure, stale session, 
+   concurrency).
+d) Client trace: every state variable involved (preference value, 
+   loading, saving, error, sheet visibility) in Profile and the add/
+   bulk flows. Find any path where saving/loading never resets (fetch 
+   without a timeout, a promise that never settles after airplane 
+   mode, an early return for "no state change"), where the error is 
+   never cleared, where the preference is cached separately and goes 
+   stale after the bulk flow or after sign-in, and why "Not now" does 
+   not close the sheet.
+
+STEP 2 — FIX the root cause(s) found
+- "Not now" ALWAYS closes the sheet and writes nothing. Allow closes 
+  after a successful save, or shows the error without freezing the 
+  sheet. Buttons are never dead. Every preference request has a timeout 
+  (about 10 s) and always settles; no infinite busy state.
+- The switch shows the TRUE saved state: re-read after a write, revert 
+  on failure, no optimistic state that stays wrong.
+- The error clears on the next attempt or on refresh; add a quiet "Try 
+  again". Calm copy; distinguish "couldn't reach the server" from 
+  "couldn't save" when the status allows it.
+- Refresh the preference when Profile mounts or gains focus, so a 
+  decline made in bulk review shows up.
+- If a rate limiter is the cause: give the preference endpoints their 
+  own sensible limiter (do not share authLimiter), keep protection, 
+  return 429 with a clear code, and show "Too many changes. Please try 
+  again in a moment."
+- Sanitised logging behind the existing dev flag: status and error code 
+  only, no tokens or emails.
+
+STEP 3 — BATCH REVIEW WAITING STATE
+While processing is blocked (offline preference check or awaiting 
+permission), cards currently show rotating phrases ("DERIVING OCCASION 
+TAGS", "REVIEWING SILHOUETTE") over a heavy sepia tint, contradicting 
+the banner "AI processing has not started". Fix: when no request is 
+in flight, cards show the neutral studio tile, the photo at normal 
+contrast, a quiet "Awaiting permission" (or "Waiting for connection" 
+when offline) and "Add manually". The rotating phrases and tint appear 
+only while a request is actually in flight.
+
+TESTS
+State-machine tests for the preference flow: not_asked / declined / 
+allowed × ON/OFF × save success / failure / timeout / 429; "Not now" 
+closes without a write; the error clears; stale-cache refresh. Card 
+state mapping for waiting vs in flight.
+
+DELIVERABLE
+Report: log evidence (statuses), root cause(s) with file and line, 
+fixes, tests, "Deviations", and what you did not verify on a device.

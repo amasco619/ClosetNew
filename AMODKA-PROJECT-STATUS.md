@@ -1,5 +1,23 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
+## AI preference save failure correction
+
+Observed preference-write 429s were traced to the five-per-hour account
+mutation limiter. Preference writes now have a separate authenticated-user
+30/minute budget; reads, sign-in limits and provider consent enforcement are
+unchanged. Client preference operations include JSON parsing in a ten-second
+deadline, re-read after writes, reconcile failures, refresh on Profile focus,
+and reject superseded account responses. Profile "Not now" closes without
+writing, errors are visible inside the disclosure, and waiting bulk cards no
+longer imply active analysis. No consent wording, schema, provider setting,
+engine, billing, or auth flow changed.
+
+Focused tests 5/5, full suite 113/113, TypeScript, lint, golden set 35/35,
+Track C 100 cases and 53 frozen-file checksums passed. Historical logs lack
+per-request timestamps; physical-device/offline-screen-reader behavior remains
+unverified. See `docs/reports/ai-preference-save-failure.md` for full evidence,
+limitations and the remaining device checklist. Not published or deployed.
+
 ## Guest bulk upload parity
 
 Guest bulk photo selection now uses the existing local-only manual Add Item
