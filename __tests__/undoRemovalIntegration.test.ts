@@ -6,6 +6,7 @@ import {
   getGuestPhotoRelativePath,
   retryPhotoCleanups,
   runGuestRemoval,
+  type PendingPhotoCleanup,
 } from '../constants/guestPhotoCleanup';
 
 const contextSource = readFileSync('contexts/AppContext.tsx', 'utf8');
@@ -32,7 +33,7 @@ const STORAGE_KEYS = {
 };
 const documentDirectory = 'file:///documents/';
 const removeCalls: Array<{ userId: string; id: string }> = [];
-const storageCalls: Array<{ userId: string; id: string }> = [];
+const storageCalls: Array<{ userId: string; id: string; storagePath?: string }> = [];
 const guestFileCalls: string[] = [];
 const selectedIds: string[] = [];
 const appState = {
@@ -44,7 +45,7 @@ const appState = {
   failDbId: null as string | null,
   failStorageId: null as string | null,
   failGuestPhotoUri: null as string | null,
-  pendingCleanups: [] as Array<{ ownerKey: string; itemId: string; guestPath?: string }>,
+  pendingCleanups: [] as PendingPhotoCleanup[],
   holdDbDelete: null as (() => void) | null,
   pendingDbDelete: null as (() => void) | null,
   lastPagination: { total: 0, loaded: 0 },
@@ -79,10 +80,13 @@ const deps = {
       });
     }
     if (appState.failDbId === id) throw new Error('database delete failed');
-    if (appState.dbRows.get(id) === userId) appState.dbRows.delete(id);
+    if (appState.dbRows.get(id) !== userId) return null;
+    appState.dbRows.delete(id);
+    // Recovery deliberately uses an object ID different from the garment ID.
+    return { image_url: `${userId}/${id}-photo.png` };
   },
-  deleteWardrobeImage: async (userId: string, id: string) => {
-    storageCalls.push({ userId, id });
+  deleteWardrobeImage: async (userId: string, id: string, storagePath?: string) => {
+    storageCalls.push({ userId, id, storagePath });
     if (appState.failStorageId === id) throw new Error('storage delete failed');
   },
   getWardrobeItems: async () => ({
@@ -110,7 +114,7 @@ const deps = {
     setItem: async (key: string, value: string) => { asyncStorage.set(key, value); },
   },
   STORAGE_KEYS,
-  rememberPhotoCleanup: async (cleanup: { ownerKey: string; itemId: string; guestPath?: string }) => {
+  rememberPhotoCleanup: async (cleanup: PendingPhotoCleanup) => {
     appState.pendingCleanups = [
       ...appState.pendingCleanups.filter(entry =>
         entry.ownerKey !== cleanup.ownerKey || entry.itemId !== cleanup.itemId,
@@ -180,11 +184,15 @@ async function testAuthenticatedCleanup(): Promise<void> {
 
   assert.equal(done, true);
   assert.deepEqual(removeCalls, [{ userId: 'owner-a', id: 'auth-1' }], 'database removal carries the authenticated owner id');
-  assert.deepEqual(storageCalls, [{ userId: 'owner-a', id: 'auth-1' }], 'Storage removal uses the same authenticated owner id');
+  assert.deepEqual(storageCalls, [{
+    userId: 'owner-a', id: 'auth-1', storagePath: 'owner-a/auth-1-photo.png',
+  }], 'Storage removal uses the authenticated owner and persisted replacement path');
   assert.equal(appState.dbRows.has('auth-1'), false);
   assert.deepEqual(appState.cachedItems, [], 'authenticated in-memory wardrobe cache drops the removed row');
   assert.equal(appState.lastPagination.total, 0);
   assert.deepEqual(appState.pendingCleanups, [], 'successful photo cleanup does not leave a retry record');
+  await removeWardrobeItem('auth-1', undefined, 'owner-a');
+  assert.equal(storageCalls.length, 1, 'a missing row returns no receipt and cannot trigger another Storage deletion');
 }
 
 async function testFailedPhotoCleanupIsRetainedAndRetryable(): Promise<void> {
@@ -193,19 +201,21 @@ async function testFailedPhotoCleanupIsRetainedAndRetryable(): Promise<void> {
   assert.equal(await removeWardrobeItem('storage-fails', undefined, 'owner-a'), false);
   assert.equal(appState.dbRows.has('storage-fails'), false, 'the wardrobe row is still removed after a photo cleanup failure');
   assert.deepEqual(appState.pendingCleanups, [
-    { ownerKey: 'owner-a', itemId: 'storage-fails' },
-  ], 'failed authenticated cleanup retains only its owner and item ID');
+    { ownerKey: 'owner-a', itemId: 'storage-fails', storagePath: 'owner-a/storage-fails-photo.png' },
+  ], 'failed authenticated cleanup retains its owner, garment ID and exact photo path');
 
-  const storageRetryCalls: Array<{ userId: string; id: string }> = [];
+  const storageRetryCalls: Array<{ userId: string; id: string; storagePath?: string }> = [];
   const otherOwnerRecord = { ownerKey: 'owner-b', itemId: 'other-account-item' };
   const stillPending = await retryPhotoCleanups(
     [...appState.pendingCleanups, otherOwnerRecord],
     'owner-a',
     documentDirectory,
     async () => undefined,
-    async (userId, itemId) => { storageRetryCalls.push({ userId, id: itemId }); },
+    async (userId, itemId, storagePath) => { storageRetryCalls.push({ userId, id: itemId, storagePath }); },
   );
-  assert.deepEqual(storageRetryCalls, [{ userId: 'owner-a', id: 'storage-fails' }], 'retry deletes only the active owner’s storage key');
+  assert.deepEqual(storageRetryCalls, [{
+    userId: 'owner-a', id: 'storage-fails', storagePath: 'owner-a/storage-fails-photo.png',
+  }], 'retry deletes only the active owner’s persisted replacement photo');
   assert.deepEqual(stillPending, [otherOwnerRecord], 'another owner’s pending cleanup remains untouched');
 
   const guestPhoto = `${documentDirectory}wardrobe_guest-fails.jpg`;
@@ -231,11 +241,13 @@ async function testFailedPhotoCleanupIsRetainedAndRetryable(): Promise<void> {
   assert.deepEqual(retryResult, [], 'successful guest retry clears the pending record');
 
   resetState('owner-a', []);
-  appState.pendingCleanups = [{ ownerKey: 'owner-a', itemId: 'retry-success' }];
+  appState.pendingCleanups = [{
+    ownerKey: 'owner-a', itemId: 'retry-success', storagePath: 'owner-a/retry-success-photo.png',
+  }];
   const retryRecords = [...appState.pendingCleanups];
   const retryRef = { current: retryRecords };
   const retryQueue = { current: Promise.resolve() };
-  const retryStorageCalls: Array<{ userId: string; itemId: string }> = [];
+  const retryStorageCalls: Array<{ userId: string; itemId: string; storagePath?: string }> = [];
   const retryDeps = {
     useCallback: (callback: unknown) => callback,
     profile: { isGuest: false },
@@ -250,8 +262,8 @@ async function testFailedPhotoCleanupIsRetainedAndRetryable(): Promise<void> {
       appState.accountGeneration === generation &&
       appState.startupGeneration === startup,
     FileSystem: { documentDirectory, deleteAsync: async () => undefined },
-    deleteWardrobeImage: async (userId: string, itemId: string) => {
-      retryStorageCalls.push({ userId, itemId });
+    deleteWardrobeImage: async (userId: string, itemId: string, storagePath?: string) => {
+      retryStorageCalls.push({ userId, itemId, storagePath });
     },
     retryPhotoCleanups,
     getActiveManagedPhotoReferences: () => new Set<string>(),
@@ -274,7 +286,9 @@ async function testFailedPhotoCleanupIsRetainedAndRetryable(): Promise<void> {
     transformedPendingCleanupRetry.code,
   )(...Object.values(retryDeps)) as () => Promise<boolean>;
   assert.equal(await retryPendingPhotoCleanup(), true, 'the context retry succeeds for its active owner');
-  assert.deepEqual(retryStorageCalls, [{ userId: 'owner-a', itemId: 'retry-success' }]);
+  assert.deepEqual(retryStorageCalls, [{
+    userId: 'owner-a', itemId: 'retry-success', storagePath: 'owner-a/retry-success-photo.png',
+  }]);
   assert.deepEqual(retryRef.current, [], 'successful context retry clears in-memory cleanup state');
   assert.deepEqual(
     JSON.parse(asyncStorage.get(STORAGE_KEYS.pendingPhotoCleanups) ?? 'null'),
@@ -348,7 +362,9 @@ async function testPartialBatchAndQuota(): Promise<void> {
 
   assert.equal(batchComplete, false, 'Undo reports partial failure to the toast layer');
   assert.deepEqual(removeCalls.map(call => call.id), ['db-fails', 'delete-succeeds'], 'every row is attempted after a database failure');
-  assert.deepEqual(storageCalls, [{ userId: 'owner-a', id: 'delete-succeeds' }], 'Storage cleanup runs only for the row whose database deletion succeeded');
+  assert.deepEqual(storageCalls, [{
+    userId: 'owner-a', id: 'delete-succeeds', storagePath: 'owner-a/delete-succeeds-photo.png',
+  }], 'Storage cleanup runs only for the row whose database deletion succeeded');
   assert.equal(appState.dbRows.get('db-fails'), 'owner-a', 'the failed row remains owned by its account');
   assert.equal(appState.lastPagination.total, 1, 'the failed row continues to consume one wardrobe slot; Undo does not refund its quota');
   assert.deepEqual(shown.map(toast => toast.message), ['Undo could not be confirmed. Check your wardrobe before trying again.'], 'partial database failure displays the existing Undo failure message');
@@ -403,6 +419,7 @@ async function testAccountSwitchDuringUndo(): Promise<void> {
 
 async function run(): Promise<void> {
   await testAuthenticatedCleanup();
+  await testFailedPhotoCleanupIsRetainedAndRetryable();
   await testGuestCleanupAndManagedDirectoryGuard();
   await testPartialBatchAndQuota();
   await testFailedUndoOffersPhotoCleanupRetry();

@@ -2,6 +2,7 @@ import { supabase } from './supabase'
 import { decode } from 'base64-arraybuffer'
 import { stripDataUriPrefix } from './uploadArg'
 import { MissingWardrobePhotoError } from './wardrobePhotoHydration'
+import { wardrobeImageCleanupPaths } from './wardrobeImagePath'
 
 export { stripDataUriPrefix } from './uploadArg'
 
@@ -95,7 +96,7 @@ export async function uploadWardrobeImage(
   try {
     signedUrl = await getSignedWardrobeUrl(storagePath)
   } catch (signedUrlError) {
-    await deleteWardrobeImage(userId, itemId).catch(cleanupError =>
+    await deleteWardrobeImage(userId, itemId, storagePath).catch(cleanupError =>
       console.warn('[uploadWardrobeImage] Could not clean up unsigned upload:', cleanupError))
     throw signedUrlError
   }
@@ -150,16 +151,15 @@ export async function uploadTryonPhoto(
 
 export async function deleteWardrobeImage(
   userId: string,
-  itemId: string
+  itemId: string,
+  storagePath?: string
 ): Promise<void> {
-  const safePathSegment = (value: string) => /^[A-Za-z0-9_-]+$/.test(value)
-  if (!safePathSegment(userId) || !safePathSegment(itemId)) {
-    throw new Error('[deleteWardrobeImage] invalid owner or item id')
-  }
+  const paths = wardrobeImageCleanupPaths(userId, itemId, storagePath)
   const { error } = await supabase.storage
     .from('wardrobe-images')
-    .remove([`${userId}/${itemId}.jpg`, `${userId}/${itemId}.png`])
+    .remove(paths)
   if (error) throw new Error(`[deleteWardrobeImage] ${error.message}`)
+  paths.forEach(path => signedUrlCache.delete(path))
 }
 
 /**

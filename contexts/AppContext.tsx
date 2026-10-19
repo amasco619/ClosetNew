@@ -369,7 +369,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await updatePendingPhotoCleanups(current => [
       ...current.filter(entry =>
         entry.ownerKey !== cleanup.ownerKey || entry.itemId !== cleanup.itemId ||
-        entry.guestPath !== cleanup.guestPath || entry.managedPath !== cleanup.managedPath,
+        entry.guestPath !== cleanup.guestPath || entry.managedPath !== cleanup.managedPath ||
+        entry.storagePath !== cleanup.storagePath,
       ),
       cleanup,
     ]);
@@ -424,12 +425,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
           await FileSystem.deleteAsync(uri, options);
         },
-        async (cleanupUserId, itemId) => {
+        async (cleanupUserId, itemId, storagePath) => {
           if (cleanupUserId !== userId || !userId ||
               !isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) {
             throw new Error('Account changed before photo cleanup retry');
           }
-          await deleteWardrobeImage(cleanupUserId, itemId);
+          await deleteWardrobeImage(cleanupUserId, itemId, storagePath);
         },
         getActiveManagedPhotoReferences(),
       );
@@ -1993,14 +1994,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     try {
       if (userId) {
-        await deleteWardrobeItem(userId, id);
+        // Capture the persisted photo from the owner-scoped delete, not a stale
+        // display URI or a row ID that recovery may no longer use for its object.
+        const deleted = await deleteWardrobeItem(userId, id);
         if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return false;
-        if (photoUri) {
-          try { await deleteWardrobeImage(userId, id); }
+        if (deleted) {
+          const storagePath = deleted.image_url ?? undefined;
+          try { await deleteWardrobeImage(userId, id, storagePath); }
           catch (error) {
             photoCleanupComplete = false;
             console.warn('[wardrobe] Removed item photo cleanup did not complete', error);
-            await rememberPhotoCleanup({ ownerKey: userId, itemId: id }).catch(queueError =>
+            await rememberPhotoCleanup({ ownerKey: userId, itemId: id, storagePath }).catch(queueError =>
               console.warn('[wardrobe] Could not retain failed photo cleanup', queueError),
             );
           }

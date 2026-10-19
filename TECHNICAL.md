@@ -325,7 +325,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               109 test suites (see §11)
+__tests__/               116 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -437,7 +437,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 109 test suites once |
+| `npm test` | Run all 116 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -1365,7 +1365,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (109 total)
+### Test Suites (116 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -3189,3 +3189,36 @@ as missing. Recovery publication checks account/startup ownership both after
 resolution and inside the state updater. Full reads also retain the correction
 revision guard so an in-flight read cannot reintroduce a corrected photo.
 See `reports/missing-wardrobe-photos.md` for live evidence and validation limits.
+
+## 49. RECOVERED-PHOTO DELETION
+
+Recovery keeps the original garment row ID while uploading under a fresh image
+object ID. `deleteWardrobeItem` now returns `image_url` from its owner-scoped
+delete (`id` + `user_id`); `removeWardrobeItem` uses that persisted photo instead
+of guessing the object from the row ID or relying on a loaded display URI.
+A missing row, failed/ambiguous delete, or changed account never triggers cloud
+photo cleanup.
+
+`deleteWardrobeImage` accepts an explicit owned path and removes exactly that
+object, evicting its signed-URL cache entry only after successful removal.
+Validation rejects foreign owners, nested/traversal/encoded paths and unsupported
+extensions. Legacy public/signed wardrobe-image URLs are converted to owned paths;
+old retry records without a path retain their JPG/PNG row-ID fallback.
+New retries persist and round-trip `storagePath`, including when the display
+URI is blank. Invalid explicit paths never downgrade to ID-based deletion.
+Guest managed-file cleanup and its protected-reference checks remain unchanged.
+
+Single-upload rollback and unsigned-upload cleanup also use the exact uploaded
+path. The existing ambiguous-save rule remains: uncertain database outcomes do
+not authorise deleting a possibly committed photo.
+
+`__tests__/recoveredPhotoCleanup.test.ts` executes the production deletion
+callback, database delete and Storage functions using isolated synthetic objects.
+It checks exact PNG/JPG removal, unrelated/other-owner preservation, empty display
+URIs/unloaded rows, durable retry round-trips, account changes, ambiguous deletes,
+legacy fallback/URLs and unsafe-path rejection. No live account or photo is
+modified by these checks. No schema/RLS, dependency or recommendation-engine
+change; no browser sign-in or physical-device deletion verified.
+The Undo integration fixture also returns owner-scoped deletion receipts, checks
+the persisted replacement path through failed-cleanup and context retry, and
+executes its previously uncalled failed-photo-cleanup scenario.

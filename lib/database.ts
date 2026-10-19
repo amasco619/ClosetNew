@@ -253,15 +253,21 @@ export async function setFreeWardrobeSelection(ids: string[]): Promise<void> {
   if (error) throw normalizeWardrobeError(error, 'setFreeWardrobeSelection')
 }
 
-export async function deleteWardrobeItem(userId: string, itemId: string): Promise<void> {
+export async function deleteWardrobeItem(
+  userId: string,
+  itemId: string,
+): Promise<{ image_url: string | null } | null> {
   // NH-1: always scope the delete to the owning user so a caller cannot delete
   // another user's item even if they somehow obtain a foreign item ID.
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('wardrobe_items')
     .delete()
     .eq('id', itemId)
     .eq('user_id', userId)
+    .select('image_url')
+    .maybeSingle()
   if (error) throw new Error(`[deleteWardrobeItem] ${error.message}`)
+  return data
 }
 
 export async function updateWardrobeItemAffinity(

@@ -1028,7 +1028,7 @@ export default function AddItemScreen() {
     setSaving(true);
     stagedSaveActiveRef.current = Boolean(stagedSourceUriRef.current);
     setSaveStage('resizing');
-    let uploadedPhoto: { userId: string; itemId: string } | null = null;
+    let uploadedPhoto: { userId: string; itemId: string; storagePath: string } | null = null;
     let dbStarted = false;
     try {
       if (replaceItemId && !replacementItem) {
@@ -1095,7 +1095,7 @@ export default function AddItemScreen() {
             .catch(error => { reportUploadError({ stage: 'upload', code: 'FAILED' }); throw error; });
           finalUri = _signedUrl;
           finalStoragePath = _sp;
-          uploadedPhoto = { userId: session.user.id, itemId };
+          uploadedPhoto = { userId: session.user.id, itemId, storagePath: _sp };
       } else {
         // Guest user — copy the photo from the temp cache to the document directory
         // so the thumbnail survives an app restart (temp files are purged by the OS).
@@ -1203,7 +1203,7 @@ export default function AddItemScreen() {
       // a photo that could belong to a committed row.
       const dbCode = (e as { code?: string })?.code;
       if (uploadedPhoto && (!dbStarted || (dbCode && dbCode !== 'INVALID_RPC_RESULT'))) {
-        await deleteWardrobeImage(uploadedPhoto.userId, uploadedPhoto.itemId)
+        await deleteWardrobeImage(uploadedPhoto.userId, uploadedPhoto.itemId, uploadedPhoto.storagePath)
           .catch(() => reportUploadError({ stage: 'save', code: 'FAILED' }));
       }
       reportUploadError({ stage: 'save', code: 'FAILED' });

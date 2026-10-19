@@ -3,9 +3,9 @@ name: Image upload and transient bulk staging
 description: Storage/row identity, safe bulk picker handoff, and staged-source cleanup boundaries.
 ---
 
-**Why this matters:** uploadWardrobeImage stores the file under `{userId}/{itemId}.jpg` in Supabase Storage. AppContext.addWardrobeItem also generates a UUID for the DB row. If they differ, deleteWardrobeImage(userId, itemId) cannot find the image.
+**Identity rule:** New garments can share their row and image-object IDs, but recovery deliberately preserves the garment ID while uploading a fresh object. Never assume those identities remain equal when cleaning up a saved garment.
 
-**Solution:** add-item.tsx handleSave generates the itemId via `Crypto.randomUUID()`, passes it to `uploadWardrobeImage(userId, photoBase64, itemId)`, then passes it as `id` to `addWardrobeItem({ id: itemId, photoUri: storageUrl, ... })`. AppContext.addWardrobeItem uses `item.id ?? Crypto.randomUUID()` so existing callers without an id still work.
+**Why:** A replacement must not overwrite the existing photo before its database save is confirmed; a lost response can mean the replacement committed. Cleanup must respect the persisted photo identity rather than infer it from the garment identity.
 
 **Save boundary:** Authenticated saves require a successful Storage upload and never persist a device-local picker URI. Guest saves copy the image into `documentDirectory`; the temporary cache source can then be removed after the wardrobe write is acknowledged.
 
@@ -21,4 +21,4 @@ description: Storage/row identity, safe bulk picker handoff, and staged-source c
 
 The user subsequently confirmed that bulk preparation works with staging. Later footwear refusals occurred in the classifier after successful preparation; do not conflate semantic HTTP 422 refusals with bitmap/staging failures.
 
-**How to apply:** Any future flow that adds a wardrobe item with an image should pre-generate the itemId, upload, then pass the same id to addWardrobeItem. For multi-photo selection, stage before route changes, navigate by ID, and clean only after confirmed persistence or explicit unreferenced cancellation.
+**How to apply:** For new garments, pre-generate the itemId, upload, then pass the same id to addWardrobeItem. For recovery, preserve the garment ID and persist the replacement object's path; use that owned path for later removal and retries. For multi-photo selection, stage before route changes, navigate by ID, and clean only after confirmed persistence or explicit unreferenced cancellation.

@@ -14,6 +14,8 @@
  * the two sides of the cleanup guard always agree on the path format.
  */
 
+import { wardrobeImageCleanupPaths } from '../lib/wardrobeImagePath';
+
 export type DeleteAsyncFn = (
   uri: string,
   options: { idempotent: boolean }
@@ -24,6 +26,7 @@ export interface PendingPhotoCleanup {
   itemId: string;
   guestPath?: string;
   managedPath?: string;
+  storagePath?: string;
 }
 
 function isSafePathSegment(value: unknown): value is string {
@@ -48,7 +51,7 @@ export function parsePendingPhotoCleanups(raw: string | null): PendingPhotoClean
       const candidate = entry as Partial<PendingPhotoCleanup>;
       if (!isSafePathSegment(candidate.ownerKey) || !isSafePathSegment(candidate.itemId)) continue;
       if (candidate.ownerKey === 'guest') {
-        if (isSafeGuestRelativePath(candidate.guestPath)) {
+        if (candidate.storagePath === undefined && isSafeGuestRelativePath(candidate.guestPath)) {
           valid.push({
             ownerKey: candidate.ownerKey,
             itemId: candidate.itemId,
@@ -56,7 +59,15 @@ export function parsePendingPhotoCleanups(raw: string | null): PendingPhotoClean
           });
         }
       } else if (candidate.guestPath === undefined) {
-        if (candidate.managedPath === undefined) {
+        if (candidate.storagePath !== undefined) {
+          if (candidate.managedPath !== undefined || typeof candidate.storagePath !== 'string') continue;
+          try {
+            const [storagePath] = wardrobeImageCleanupPaths(
+              candidate.ownerKey, candidate.itemId, candidate.storagePath,
+            );
+            valid.push({ ownerKey: candidate.ownerKey, itemId: candidate.itemId, storagePath });
+          } catch { /* Never downgrade an invalid explicit path to ID-based cleanup. */ }
+        } else if (candidate.managedPath === undefined) {
           valid.push({ ownerKey: candidate.ownerKey, itemId: candidate.itemId });
         } else if (
           isSafeGuestRelativePath(candidate.managedPath) &&
@@ -96,7 +107,7 @@ export async function retryPhotoCleanups(
   ownerKey: string,
   documentDirectory: string | null | undefined,
   deleteAsync: DeleteAsyncFn,
-  deleteStorage: (userId: string, itemId: string) => Promise<void>,
+  deleteStorage: (userId: string, itemId: string, storagePath?: string) => Promise<void>,
   protectedUris: ReadonlySet<string> = new Set(),
 ): Promise<PendingPhotoCleanup[]> {
   const remaining: PendingPhotoCleanup[] = [];
@@ -122,10 +133,8 @@ export async function retryPhotoCleanups(
         }
         await deleteGuestPhoto(uri, documentDirectory, deleteAsync);
       } else {
-        if (!isSafePathSegment(ownerKey) || !isSafePathSegment(cleanup.itemId)) {
-          throw new Error('Storage photo cleanup path is invalid');
-        }
-        await deleteStorage(ownerKey, cleanup.itemId);
+        wardrobeImageCleanupPaths(ownerKey, cleanup.itemId, cleanup.storagePath);
+        await deleteStorage(ownerKey, cleanup.itemId, cleanup.storagePath);
       }
     } catch {
       remaining.push(cleanup);
