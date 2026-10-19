@@ -21,9 +21,11 @@ import { classificationImagePayload } from '@/lib/classifyPath';
 import { prepareClassificationImage } from '@/lib/prepareClassificationImage';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
-import { buildGuestPhotoDestPath } from '../constants/guestPhotoCleanup';
+import { buildGuestPhotoDestPath, getGuestPhotoRelativePath } from '../constants/guestPhotoCleanup';
 import { uploadWardrobeImage, deleteWardrobeImage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
+import { rebaseGuestPhotoUri } from '../lib/rebaseGuestPhotoUri';
+import { retainManagedPhotoReference } from '../lib/managedPhotoReferences';
 import { rs } from '../lib/responsive';
 import { selectedSingleAsset } from '../lib/imagePickerSelection';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
@@ -237,6 +239,15 @@ export default function AddItemScreen() {
     : stagedSelection?.photos.length === 1 ? stagedSelection.photos[0] : undefined;
   const resolvedInitialUri = initialUri ?? stagedBulkPhoto?.uri ?? null;
   const missingStagedSelection = Boolean(bulkSelectionId && !stagedBulkPhoto);
+  const managedReviewUri = resolvedInitialUri
+    ? rebaseGuestPhotoUri(resolvedInitialUri, FileSystem.documentDirectory ?? '')
+    : null;
+  useEffect(() => {
+    if (!managedReviewUri) return;
+    const relativePath = getGuestPhotoRelativePath(managedReviewUri, FileSystem.documentDirectory);
+    if (!relativePath || !/^wardrobe_[A-Za-z0-9_-]+\.(?:jpg|png)$/i.test(relativePath)) return;
+    return retainManagedPhotoReference(managedReviewUri);
+  }, [managedReviewUri]);
 
   // Parse pre-classified payload once at mount — route params are strings so
   // arrays and objects need JSON.parse. Gracefully falls back to defaults if

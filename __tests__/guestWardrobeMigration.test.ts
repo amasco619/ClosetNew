@@ -3,8 +3,14 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { build, transformSync } from 'esbuild';
+import { clearAccountDeviceData } from '../constants/accountDeletionCleanup';
 import type { WardrobeItem } from '../constants/types';
-import { createGuestWardrobeMigration, planGuestMigration, type GuestMigrationEntry } from '../lib/guestWardrobeMigration';
+import {
+  createGuestWardrobeMigration,
+  getReclaimableGuestPhotoSources,
+  planGuestMigration,
+  type GuestMigrationEntry,
+} from '../lib/guestWardrobeMigration';
 
 const item = (n: number): WardrobeItem => ({
   id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
@@ -69,6 +75,12 @@ async function main() {
   assert.deepEqual(inserts, [[item(1).id, item(3).id]], 'uploads that succeed use the existing batch insert');
   assert.ok(disk.find(entry => entry.item.id === item(2).id && !entry.synced));
   assert.deepEqual(confirmed, [item(1).id, item(3).id], 'no failed upload is cleared/confirmed');
+  assert.deepEqual(
+    getReclaimableGuestPhotoSources(disk, 'a').map(entry => entry.item.id).sort(),
+    [item(1).id, item(3).id].sort(),
+    'only row-confirmed sources are eligible; pending originals stay untouched',
+  );
+  assert.deepEqual(getReclaimableGuestPhotoSources(disk, 'b'), [], 'source cleanup is owner-bound');
   assert.equal(await migration.takeNotice('a'), 2);
   assert.equal(await migration.takeNotice('a'), 0, 'notice is persisted at most once');
 
@@ -78,6 +90,8 @@ async function main() {
   loseInsertResponse = true;
   await migration.sync('a', () => true);
   assert.equal(disk.find(entry => entry.item.id === item(2).id)!.synced, false);
+  assert.ok(!getReclaimableGuestPhotoSources(disk, 'a').some(entry => entry.item.id === item(2).id),
+    'ambiguous insert acknowledgement never makes its source eligible for deletion');
   assert.ok(disk.find(entry => entry.item.id === item(2).id)!.storagePath);
   const beforeRetry = uploads.length;
   loseInsertResponse = false;
@@ -105,9 +119,25 @@ async function main() {
   current = true;
   await migration.sync('a', () => current);
   assert.equal(disk.find(entry => entry.item.id === item(4).id)!.synced, true);
+  await migration.markSourceReclaimed('a', item(1).id);
+  assert.equal(disk.find(entry => entry.ownerId === 'a' && entry.migrationId === item(1).id)!.sourceReclaimed, true);
+  await migration.markSourceReclaimed('b', item(1).id);
+  assert.equal(disk.find(entry => entry.ownerId === 'a' && entry.migrationId === item(1).id)!.sourceReclaimed, true,
+    'another account cannot mark an owned tombstone reclaimed');
   await migration.claim('b', [item(5)]);
-  await migration.removeOwner('a');
+  const accountAOriginals = await migration.removeOwner('a');
+  assert.ok(accountAOriginals.includes(item(1).photoUri), 'account deletion receives the owned original for local cleanup');
   assert.deepEqual(disk.map(entry => entry.ownerId), ['b'], 'account deletion keeps another owner’s pending work');
+  const deletedAccountPhotos: string[] = [];
+  await clearAccountDeviceData({
+    removeStorageKeys: async () => undefined,
+    photoUris: accountAOriginals,
+    documentDirectory: 'file:///docs/',
+    deleteAsync: async uri => { deletedAccountPhotos.push(uri); },
+    clearSignedPhotoCache: () => undefined,
+  });
+  assert.deepEqual(deletedAccountPhotos.sort(), accountAOriginals.sort(),
+    'account deletion uses the managed-file guard for only the removed owner’s tombstone sources');
 
   const offline = createGuestWardrobeMigration({
     ...deps, snapshot: async () => { throw new Error('service unavailable'); },

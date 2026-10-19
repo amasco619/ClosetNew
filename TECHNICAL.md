@@ -3121,8 +3121,12 @@ success note after the existing guarded wardrobe refresh. Remaining work stays
 device-local and owner-bound across signout/restart; other accounts cannot see
 or adopt it. Account deletion additionally removes that owner's journal entries
 and includes their original managed files in existing device cleanup, without
-discarding another owner's queue. Synced originals otherwise remain for open
-guest-origin reviews. Pending work does not survive uninstall/cleared app data.
+discarding another owner's queue. After Storage and row confirmation, synced
+originals are queued for cleanup through the existing owner-scoped retry path.
+Managed files stay protected while an Add Item review references them; failed or
+deferred deletion retries later. The owner-bound migration tombstone remains
+after the source file is reclaimed and is removed only by account deletion.
+Pending work does not survive uninstall/cleared app data.
 
 Audit, exact checks, implementation and device limitations:
 `docs/reports/guest-to-account-migration.md`. No schema/RLS, dependency, frozen

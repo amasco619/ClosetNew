@@ -14,7 +14,7 @@ const removalCallback = contextSource.match(
 );
 assert.ok(removalCallback, 'the actual AppContext removal callback is available for integration coverage');
 const pendingCleanupRetryCallback = contextSource.match(
-  /const retryPendingPhotoCleanup = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[profile\.isGuest, readPendingPhotoCleanups\]\);/,
+  /const retryPendingPhotoCleanup = useCallback\(async \(\) => \{[\s\S]*?\n  \}, \[profile\.isGuest, readPendingPhotoCleanups, rememberPhotoCleanup\]\);/,
 );
 assert.ok(pendingCleanupRetryCallback, 'the actual AppContext cleanup retry callback is available for integration coverage');
 
@@ -254,6 +254,15 @@ async function testFailedPhotoCleanupIsRetainedAndRetryable(): Promise<void> {
       retryStorageCalls.push({ userId, itemId });
     },
     retryPhotoCleanups,
+    getActiveManagedPhotoReferences: () => new Set<string>(),
+    getReclaimableGuestPhotoSources: () => [],
+    rebaseGuestPhotoUri: (uri: string) => uri,
+    getGuestPhotoRelativePath,
+    guestWardrobeSync: {
+      list: async () => [],
+      markSourceReclaimed: async () => undefined,
+    },
+    rememberPhotoCleanup: async () => undefined,
     AsyncStorage: {
       getItem: async (key: string) => asyncStorage.get(key) ?? null,
       setItem: async (key: string, value: string) => { asyncStorage.set(key, value); },

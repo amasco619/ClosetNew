@@ -8,6 +8,7 @@ export type GuestMigrationEntry = {
   storagePath?: string;
   synced: boolean;
   announced: boolean;
+  sourceReclaimed?: boolean;
 };
 export type MigrationSnapshot = {
   confirmedIds: string[];
@@ -15,6 +16,13 @@ export type MigrationSnapshot = {
   totalCount: number;
   premium: boolean;
 };
+
+export function getReclaimableGuestPhotoSources(
+  entries: GuestMigrationEntry[],
+  ownerId: string,
+): GuestMigrationEntry[] {
+  return entries.filter(entry => entry.ownerId === ownerId && entry.synced && !entry.sourceReclaimed);
+}
 
 export function planGuestMigration(entries: GuestMigrationEntry[], ownerId: string, snapshot: MigrationSnapshot) {
   const owned = entries.filter(entry => entry.ownerId === ownerId && !entry.synced)
@@ -93,6 +101,10 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
       const owned = entries.filter(entry => entry.ownerId === ownerId);
       entries.splice(0, entries.length, ...entries.filter(entry => entry.ownerId !== ownerId));
       return owned.map(entry => entry.item.photoUri);
+    }),
+    markSourceReclaimed: (ownerId: string, migrationId: string) => mutate(entries => {
+      const entry = entries.find(row => row.ownerId === ownerId && row.migrationId === migrationId);
+      if (entry?.synced) entry.sourceReclaimed = true;
     }),
     async sync(ownerId: string, isCurrent: () => boolean) {
       if (running.has(ownerId)) return null;

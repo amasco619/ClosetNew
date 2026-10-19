@@ -23,6 +23,7 @@ export interface PendingPhotoCleanup {
   ownerKey: string;
   itemId: string;
   guestPath?: string;
+  managedPath?: string;
 }
 
 function isSafePathSegment(value: unknown): value is string {
@@ -55,7 +56,18 @@ export function parsePendingPhotoCleanups(raw: string | null): PendingPhotoClean
           });
         }
       } else if (candidate.guestPath === undefined) {
-        valid.push({ ownerKey: candidate.ownerKey, itemId: candidate.itemId });
+        if (candidate.managedPath === undefined) {
+          valid.push({ ownerKey: candidate.ownerKey, itemId: candidate.itemId });
+        } else if (
+          isSafeGuestRelativePath(candidate.managedPath) &&
+          /^wardrobe_[A-Za-z0-9_-]+\.(?:jpg|png)$/i.test(candidate.managedPath)
+        ) {
+          valid.push({
+            ownerKey: candidate.ownerKey,
+            itemId: candidate.itemId,
+            managedPath: candidate.managedPath,
+          });
+        }
       }
     }
     return valid;
@@ -85,6 +97,7 @@ export async function retryPhotoCleanups(
   documentDirectory: string | null | undefined,
   deleteAsync: DeleteAsyncFn,
   deleteStorage: (userId: string, itemId: string) => Promise<void>,
+  protectedUris: ReadonlySet<string> = new Set(),
 ): Promise<PendingPhotoCleanup[]> {
   const remaining: PendingPhotoCleanup[] = [];
   for (const cleanup of cleanups) {
@@ -93,12 +106,21 @@ export async function retryPhotoCleanups(
       continue;
     }
     try {
-      if (ownerKey === 'guest') {
-        if (!cleanup.guestPath || !isSafeGuestRelativePath(cleanup.guestPath) || !documentDirectory) {
+      if (ownerKey === 'guest' || cleanup.managedPath !== undefined) {
+        const relativePath = ownerKey === 'guest' ? cleanup.guestPath : cleanup.managedPath;
+        if (!relativePath || !isSafeGuestRelativePath(relativePath) || !documentDirectory) {
           throw new Error('Guest photo cleanup path is unavailable');
         }
+        if (ownerKey !== 'guest' && !/^wardrobe_[A-Za-z0-9_-]+\.(?:jpg|png)$/i.test(relativePath)) {
+          throw new Error('Managed wardrobe photo cleanup path is invalid');
+        }
         const prefix = documentDirectory.endsWith('/') ? documentDirectory : `${documentDirectory}/`;
-        await deleteGuestPhoto(`${prefix}${cleanup.guestPath}`, documentDirectory, deleteAsync);
+        const uri = `${prefix}${relativePath}`;
+        if (protectedUris.has(uri)) {
+          remaining.push(cleanup);
+          continue;
+        }
+        await deleteGuestPhoto(uri, documentDirectory, deleteAsync);
       } else {
         if (!isSafePathSegment(ownerKey) || !isSafePathSegment(cleanup.itemId)) {
           throw new Error('Storage photo cleanup path is invalid');

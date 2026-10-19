@@ -69,8 +69,12 @@
    and pending until that account returns.
 9. Successful account deletion removes only that owner's journal records and
    includes their managed source files in existing local cleanup. Another
-   owner's pending journal survives. Synced source files are otherwise retained
-   deliberately: an open guest-origin review can still reference them.
+   owner's pending journal survives. After Storage and row confirmation, synced
+   source files enter the existing owner-scoped cleanup retry queue. Active
+   Add Item reviews protect their managed photo URI until unmount; failed
+   deletion remains retryable. The account-owned tombstone remains after the
+   source file is reclaimed, preventing a surviving guest cache from being
+   claimed by another account.
 
 ### Side-effect and protection boundaries
 
@@ -97,6 +101,8 @@ Normal existing wardrobe-change observers still run as before.
 - `app/(tabs)/wardrobe.tsx`: quiet sync/pending/success note.
 - `__tests__/guestWardrobeMigration.test.ts`: focused proofs and production
   adapter with stubbed I/O.
+- `lib/managedPhotoReferences.ts`: tracks active review references so cleanup
+  waits until their managed source files are no longer in use.
 - `TECHNICAL.md`, `AMODKA-PROJECT-STATUS.md`: current behavior/source of truth.
 - `.agents/memory/MEMORY.md`, `.agents/memory/guest-mode.md`: update the superseded no-transfer product
   decision to the explicitly approved account-bound, non-AI transfer.
@@ -126,6 +132,10 @@ Normal existing wardrobe-change observers still run as before.
   owner rechecks, durable path/ID payload and no AI dependency/call or unrelated
   local-setting writes. Real auth-capture helper execution proves that only an
   explicitly guest cache qualifies; both event/startup call sites are checked.
+- Source reclamation tests prove pending/ambiguous transfers remain untouched,
+  open review references defer deletion, cleanup is owner-bound across account
+  switches, failed file deletion retries, and deletion preserves other owners'
+  migration work.
 
 ### Browser fixture journey (390 × 844)
 
@@ -160,8 +170,9 @@ evidence of live Supabase or native filesystem success.
 
 - New durable local journal was necessary because no guest-upload retry
   mechanism existed. No migration/schema change, provider or dependency added.
-- Local images remain available for pending work and open reviews; synced
-  source-file reclamation outside account deletion is intentionally deferred.
+- Local images remain available for pending work and active reviews. Confirmed
+  sources are reclaimed through the managed-photo cleanup retry path after all
+  active review references are released; owner-bound tombstones remain.
 - Pending work is device-local, not cross-device. An app uninstall or clearing
   app storage can destroy still-unsynced work. Confirmed cloud rows are durable.
 - Failed/missing original files remain pending; reopening cannot recreate a
@@ -184,3 +195,18 @@ evidence of live Supabase or native filesystem success.
   fixtures cannot certify physical filesystem access, OS process killing, or
   actual cloud transfer.
 - No publish or deployment performed.
+
+## Deferred source cleanup follow-up — 2026-10-19
+
+Confirmed migration sources are now added to the existing local-photo retry
+queue only for the owning account and only after the migration journal marks
+their Storage/row result synced. `AddItemScreen` protects a managed source URI
+while its review is mounted. A successful deletion marks `sourceReclaimed` on
+the still-retained owner-bound tombstone; account deletion removes the owner's
+tombstone and includes its rebased managed source paths in existing local
+cleanup.
+
+Verification: focused guest migration/photo cleanup/account deletion tests
+passed; full `npm test` passed with 114 test files, and `npm run typecheck` and
+`npm run lint` passed. File deletion was tested through injected filesystem
+stubs, not on a physical device.

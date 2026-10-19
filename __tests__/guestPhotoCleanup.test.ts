@@ -22,7 +22,12 @@ import {
   parsePendingPhotoCleanups,
   runGuestRemoval,
   buildGuestPhotoDestPath,
+  retryPhotoCleanups,
 } from '../constants/guestPhotoCleanup';
+import {
+  getActiveManagedPhotoReferences,
+  retainManagedPhotoReference,
+} from '../lib/managedPhotoReferences';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -132,10 +137,13 @@ async function testDeleteGuestPhoto(): Promise<void> {
       { ownerKey: 'owner-a', itemId: 'item-a', photoUri: 'file:///outside/private.jpg' },
       { ownerKey: 'guest', itemId: 'item-b', guestPath: '../private.jpg' },
       { ownerKey: 'guest', itemId: 'item-c', guestPath: 'wardrobe_item-c.jpg' },
+      { ownerKey: 'owner-a', itemId: 'migration-a', managedPath: 'wardrobe_item-a.jpg' },
+      { ownerKey: 'owner-a', itemId: 'migration-b', managedPath: '../private.jpg' },
     ]));
-    assert(parsed.length === 2, 'only safe records survive parsing');
+    assert(parsed.length === 3, 'only safe records survive parsing');
     assert(parsed[1]?.guestPath === 'wardrobe_item-c.jpg', 'guest records retain a relative path only');
     assert(!('photoUri' in (parsed[0] ?? {})), 'untrusted absolute URI fields are not preserved');
+    assert(parsed[2]?.managedPath === 'wardrobe_item-a.jpg', 'account-owned migration cleanup retains a safe managed path');
   }
 }
 
@@ -352,6 +360,65 @@ async function testPerDeletionContract(): Promise<void> {
   }
 }
 
+async function testConfirmedMigrationSourceCleanup(): Promise<void> {
+  const uri = `${DOCUMENT_DIR}wardrobe_migrated-item.jpg`;
+  const cleanup = {
+    ownerKey: 'account-a',
+    itemId: 'migration-id',
+    managedPath: 'wardrobe_migrated-item.jpg',
+  };
+  const release = retainManagedPhotoReference(uri);
+  const attempted: string[] = [];
+  const firstPass = await retryPhotoCleanups(
+    [cleanup],
+    'account-a',
+    DOCUMENT_DIR,
+    async path => { attempted.push(path); },
+    async () => assert(false, 'managed source cleanup never deletes the cloud object'),
+    getActiveManagedPhotoReferences(),
+  );
+  assert(JSON.stringify(attempted) === '[]', 'an open guest-origin review protects its managed photo');
+  assert(JSON.stringify(firstPass) === JSON.stringify([cleanup]), 'open review keeps the cleanup retryable');
+
+  const otherAccountPass = await retryPhotoCleanups(
+    [cleanup],
+    'account-b',
+    DOCUMENT_DIR,
+    async path => { attempted.push(path); },
+    async () => assert(false, 'another account cannot delete this source'),
+  );
+  assert(JSON.stringify(otherAccountPass) === JSON.stringify([cleanup]), 'account switch preserves the original owner’s cleanup');
+  assert(JSON.stringify(attempted) === '[]', 'account switch never deletes another owner’s local file');
+
+  release();
+  let failOnce = true;
+  const failedPass = await retryPhotoCleanups(
+    [cleanup],
+    'account-a',
+    DOCUMENT_DIR,
+    async path => {
+      attempted.push(path);
+      if (failOnce) {
+        failOnce = false;
+        throw new Error('file temporarily unavailable');
+      }
+    },
+    async () => assert(false, 'managed source cleanup never deletes the cloud object'),
+    getActiveManagedPhotoReferences(),
+  );
+  assert(JSON.stringify(failedPass) === JSON.stringify([cleanup]), 'failed file deletion remains queued');
+  const retryPass = await retryPhotoCleanups(
+    failedPass,
+    'account-a',
+    DOCUMENT_DIR,
+    async path => { attempted.push(path); },
+    async () => assert(false, 'managed source cleanup never deletes the cloud object'),
+    getActiveManagedPhotoReferences(),
+  );
+  assert(JSON.stringify(retryPass) === '[]', 'retry clears the queue after deletion succeeds');
+  assert(JSON.stringify(attempted) === JSON.stringify([uri, uri]), 'retry targets only the guarded managed photo path');
+}
+
 // ── Runner ────────────────────────────────────────────────────────────────────
 
 async function runTests(): Promise<void> {
@@ -359,6 +426,7 @@ async function runTests(): Promise<void> {
   await testRunGuestRemoval();
   await testBuildGuestPhotoDestPath();
   await testPerDeletionContract();
+  await testConfirmedMigrationSourceCleanup();
 
   console.log(`\n${failed === 0 ? 'All tests passed.' : `${failed} test(s) failed.`}`);
   if (failed > 0) process.exit(1);

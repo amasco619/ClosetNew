@@ -46,6 +46,11 @@ import { buildStylingContextCandidates, asTraditionalOutfits } from '../lib/trad
 import { annotateStylingRelationships, projectRelationshipsForStyling } from '../lib/stylingRelationships';
 import { supabase } from '../lib/supabase';
 import { guestWardrobeSync } from '../lib/guestWardrobeSync';
+import { getReclaimableGuestPhotoSources } from '../lib/guestWardrobeMigration';
+import {
+  getActiveManagedPhotoReferences,
+  subscribeToManagedPhotoReferenceRelease,
+} from '../lib/managedPhotoReferences';
 import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl, getSignedWardrobeUrl, clearSignedWardrobeUrlCache } from '../lib/storage';
 import { reportError } from '@/shared/observability';
 import {
@@ -343,7 +348,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const rememberPhotoCleanup = useCallback(async (cleanup: PendingPhotoCleanup) => {
     await updatePendingPhotoCleanups(current => [
-      ...current.filter(entry => entry.ownerKey !== cleanup.ownerKey || entry.itemId !== cleanup.itemId),
+      ...current.filter(entry =>
+        entry.ownerKey !== cleanup.ownerKey || entry.itemId !== cleanup.itemId ||
+        entry.guestPath !== cleanup.guestPath || entry.managedPath !== cleanup.managedPath,
+      ),
       cleanup,
     ]);
   }, [updatePendingPhotoCleanups]);
@@ -360,6 +368,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!ownerKey) return false;
     const accountGeneration = accountGenerationRef.current;
     const startupGeneration = startupGenerationRef.current;
+    if (userId) {
+      try {
+        const entries = await guestWardrobeSync.list();
+        for (const entry of getReclaimableGuestPhotoSources(entries, userId)) {
+          const uri = rebaseGuestPhotoUri(entry.item.photoUri, FileSystem.documentDirectory ?? '');
+          const managedPath = getGuestPhotoRelativePath(uri, FileSystem.documentDirectory);
+          if (!managedPath || (
+            managedPath !== `wardrobe_${entry.item.id}.jpg` &&
+            managedPath !== `wardrobe_${entry.item.id}.png`
+          )) continue;
+          await rememberPhotoCleanup({ ownerKey: userId, itemId: entry.migrationId, managedPath });
+        }
+      } catch (error) {
+        console.warn('[wardrobe] Confirmed guest photo cleanup could not be queued', error);
+      }
+    }
     const pending = await readPendingPhotoCleanups();
     const matching = pending.filter(cleanup => cleanup.ownerKey === ownerKey);
     if (matching.length === 0) return false;
@@ -388,6 +412,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
           await deleteWardrobeImage(cleanupUserId, itemId);
         },
+        getActiveManagedPhotoReferences(),
       );
       if (currentUserIdRef.current !== userId ||
           accountGenerationRef.current !== accountGeneration ||
@@ -397,12 +422,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       pendingPhotoCleanupsRef.current = remaining;
       await AsyncStorage.setItem(STORAGE_KEYS.pendingPhotoCleanups, JSON.stringify(remaining));
+      if (userId) {
+        for (const cleanup of current) {
+          if (cleanup.ownerKey === userId && cleanup.managedPath &&
+              !remaining.some(entry =>
+                entry.ownerKey === cleanup.ownerKey &&
+                entry.itemId === cleanup.itemId &&
+                entry.managedPath === cleanup.managedPath,
+              )) {
+            await guestWardrobeSync.markSourceReclaimed(userId, cleanup.itemId);
+          }
+        }
+      }
       cleanupComplete = !remaining.some(cleanup => cleanup.ownerKey === ownerKey);
     });
     pendingPhotoCleanupQueueRef.current = operation.then(() => undefined, () => undefined);
     await operation;
     return cleanupComplete;
-  }, [profile.isGuest, readPendingPhotoCleanups]);
+  }, [profile.isGuest, readPendingPhotoCleanups, rememberPhotoCleanup]);
+
+  useEffect(
+    () => subscribeToManagedPhotoReferenceRelease(() => {
+      void retryPendingPhotoCleanup().catch(error =>
+        console.warn('[wardrobe] Deferred photo cleanup did not complete', error),
+      );
+    }),
+    [retryPendingPhotoCleanup],
+  );
 
   useEffect(() => {
     if (!appReady || isLoading || (!authenticatedUserId && !profile.isGuest)) return;
@@ -1273,7 +1319,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     accountGenerationRef.current += 1;
     currentUserIdRef.current = null;
     currentUserGenerationRef.current = null;
-    if (deletingOwner) photoUris.push(...await guestWardrobeSync.removeOwner(deletingOwner));
+    if (deletingOwner) {
+      photoUris.push(...(await guestWardrobeSync.removeOwner(deletingOwner))
+        .map(uri => uri ? rebaseGuestPhotoUri(uri, FileSystem.documentDirectory ?? '') : uri));
+    }
     wardrobeItemsRef.current = [];
     pendingPhotoCleanupsRef.current = [];
     await pendingPhotoCleanupQueueRef.current.catch(() => undefined);
@@ -1645,6 +1694,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setGuestWardrobeSyncState({ syncing: true, pending, capacity: false, notice: null });
         const result = await guestWardrobeSync.sync(userId, isCurrent);
         if (!isCurrent() || !result) return;
+        void retryPendingPhotoCleanup().catch(error =>
+          console.warn('[wardrobe] Deferred photo cleanup did not complete', error),
+        );
         const changed = result.pending < pending || entries.some(entry => entry.synced && !entry.announced);
         pending = result.pending;
         // Existing full refresh preserves account/correction guards and does
@@ -1677,7 +1729,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       guestSyncRunningRef.current = null;
       subscription.remove();
     };
-  }, [appReady, isLoading, authenticatedUserId, loadAllWardrobeItems]);
+  }, [appReady, isLoading, authenticatedUserId, loadAllWardrobeItems, retryPendingPhotoCleanup]);
 
   const commitAddedWardrobeItems = useCallback((
     items: WardrobeItem[],
