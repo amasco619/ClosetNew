@@ -115,8 +115,8 @@ test('face shape and other profile/constraint values survive guest DB round trip
 });
 
 test('actual hydration and update paths use the tested account/migration helpers', () => {
-  assert.ok(contextSource.includes('const guestHasData = hasMigratableGuestProfile(localSnap)'));
-  assert.ok(contextSource.includes('constraints: profileConstraints(localSnap)'));
+  assert.ok(contextSource.includes('const guestHasData = hasMigratableGuestProfile(guestProfileSnapshot)'));
+  assert.ok(contextSource.includes('constraints: profileConstraints(guestProfileSnapshot)'));
   assert.ok(contextSource.includes('constraints: profileConstraints(updated)'));
   assert.ok(contextSource.includes('hydratedProfile = hydrateAccountProfile(dbProfile, authName)'));
   assert.ok(contextSource.includes('setProfile({ ...defaultProfile, isGuest: false })'));
@@ -264,10 +264,11 @@ async function hydrationCases() {
     console.log(`PASS ${name}`);
   }
 
-  // Execute the real account/guest branch after mocked owner-scoped reads.
+  // Execute the real profile branch after the durable disposition has been
+  // decided from mocked owner-scoped reads.
   // No live Supabase, native runtime or provider is imported.
-  const start = contextSource.indexOf('const isNewBlankAccount =');
-  const end = contextSource.indexOf('\n      {\n        const mapped:', start);
+  const start = contextSource.indexOf('const guestHasData = hasMigratableGuestProfile(guestProfileSnapshot)');
+  const end = contextSource.indexOf('\n\n      {\n        const mapped:', start);
   assert.ok(start > 0 && end > start);
   const compiled = transformSync(`return async () => {
     ${contextSource.slice(start, end)}
@@ -278,13 +279,18 @@ async function hydrationCases() {
   let stored = JSON.stringify(readyGuest);
   const writes: Array<Record<string, unknown>> = [];
   let save: (payload: Record<string, unknown>) => Promise<void> = async payload => { writes.push(payload); };
-  const hydrate = (userId: string, dbProfile: Remote, localSnap: UserProfile | null) =>
+  const hydrate = (
+    userId: string,
+    dbProfile: Remote,
+    guestProfileSnapshot: UserProfile | null,
+    guestDisposition: 'absorb' | 'discard' | null = null,
+  ) =>
     new Function('deps', `const {
-      userId, dbProfile, localSnap, authName, hasMigratableGuestProfile,
+      userId, dbProfile, guestProfileSnapshot, guestDisposition, authName, hasMigratableGuestProfile,
       upsertUserProfile, profileConstraints, assertCurrent, mergeProfile,
       hydrateAccountProfile, AsyncStorage, STORAGE_KEYS, setProfile
     } = deps; ${compiled}`)({
-      userId, dbProfile, localSnap, authName: userId, hasMigratableGuestProfile,
+      userId, dbProfile, guestProfileSnapshot, guestDisposition, authName: userId, hasMigratableGuestProfile,
       upsertUserProfile: (payload: Record<string, unknown>) => save(payload),
       profileConstraints, mergeProfile, hydrateAccountProfile,
       assertCurrent: () => assert.equal(userId, current, 'stale account hydration'),
@@ -294,7 +300,7 @@ async function hydrationCases() {
     })() as Promise<void>;
 
   await asyncTest('real guest migration writes face shape and consumes the guest cache before another account', async () => {
-    await hydrate('account-a', null, readyGuest);
+    await hydrate('account-a', null, readyGuest, 'absorb');
     assert.equal(shown.faceShape, 'round');
     assert.equal(shown.isGuest, false);
     const payload = writes[0];
@@ -303,11 +309,26 @@ async function hydrationCases() {
     assert.deepEqual(payload.style_goals, ['romantic']);
     assert.equal(JSON.parse(stored).isGuest, false);
     current = 'account-b';
-    await hydrate('account-b', null, mergeProfile(JSON.parse(stored)));
-    assert.equal(writes.length, 1, 'second account does not migrate a signed-in cache');
+    await hydrate('account-b', null, mergeProfile(JSON.parse(stored)), null);
+    assert.equal(writes.length, 2, 'second account does not migrate a signed-in cache (only its provider name is saved)');
+    assert.equal(writes[1].body_type, undefined);
     assert.equal(shown.faceShape, null);
     assert.equal(shown.bodyType, null);
     assert.equal(shown.styleGoalPrimary, null);
+  });
+
+  await asyncTest('existing account keeps its profile and discards guest personalization', async () => {
+    current = 'existing-account';
+    const writesBefore = writes.length;
+    await hydrate(current, {
+      name: 'Authoritative remote name', body_type: 'pear', eye_color: 'blue',
+      skin_tone: 'light', undertone: 'cool', onboarding_complete: true,
+    }, readyGuest, 'discard');
+    assert.equal(shown.name, 'Authoritative remote name');
+    assert.equal(shown.bodyType, 'pear');
+    assert.equal(shown.faceShape, null);
+    assert.equal(writes.length, writesBefore, 'existing profile is never overwritten by guest data');
+    assert.equal(JSON.parse(stored).name, 'Authoritative remote name');
   });
 
   await asyncTest('real remote hydration clears all prior-account answers when next account has null fields', async () => {
@@ -315,13 +336,13 @@ async function hydrationCases() {
     await hydrate(current, {
       name: 'A', body_type: 'pear', eye_color: 'blue', skin_tone: 'light', undertone: 'cool',
       style_goals: ['romantic'], constraints: profileConstraints(readyGuest),
-    }, null);
+    }, null, null);
     assert.equal(shown.bodyType, 'pear');
     current = 'account-b';
     await hydrate(current, {
       name: 'B', body_type: null, eye_color: null, skin_tone: null, undertone: null,
       style_goals: null, secondary_goal: null, constraints: { _profile: { faceShape: null } },
-    }, shown);
+    }, shown, null);
     assert.equal(shown.name, 'B');
     assert.equal(shown.bodyType, null);
     assert.equal(shown.eyeColor, null);
@@ -338,7 +359,7 @@ async function hydrationCases() {
     stored = JSON.stringify(readyGuest);
     shown = defaultProfile;
     save = async () => { throw new Error('profile write unavailable'); };
-    await assert.rejects(hydrate(current, null, readyGuest), /profile write unavailable/);
+    await assert.rejects(hydrate(current, null, readyGuest, 'absorb'), /profile write unavailable/);
     assert.equal(JSON.parse(stored).isGuest, true);
     assert.equal(shown, defaultProfile);
   });
@@ -347,7 +368,7 @@ async function hydrationCases() {
     current = 'account-a';
     stored = JSON.stringify(readyGuest);
     save = async () => { current = 'account-b'; };
-    await assert.rejects(hydrate('account-a', null, readyGuest), /stale account hydration/);
+    await assert.rejects(hydrate('account-a', null, readyGuest, 'absorb'), /stale account hydration/);
     assert.equal(shown, defaultProfile);
     assert.equal(JSON.parse(stored).isGuest, true, 'late completion cannot consume guest cache');
   });

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { GarmentTile } from '@/components/GarmentTile';
 import { useApp, WardrobeItem } from '@/contexts/AppContext';
+import { wardrobeHeaderCopy } from '@/lib/guestWardrobePresentation';
 import { LOW_CONFIDENCE_THRESHOLD } from '@/constants/types';
 import Colors from '@/constants/colors';
 import * as Haptics from 'expo-haptics';
@@ -39,11 +40,14 @@ const colorDots: Record<string, string> = {
 const formatSeasonTag = (tag: string) =>
   tag === 'all-season' ? 'All season' : tag.charAt(0).toUpperCase() + tag.slice(1);
 
+type WardrobeDisplayItem = WardrobeItem & { pendingSync?: boolean; pendingMigrationId?: string };
+
 export default function WardrobeScreen() {
   const insets = useSafeAreaInsets();
   const {
     activeWardrobeItems, canAddItem, isPremium, isAuthenticated, profile,
     wardrobeTotalCount, freeSelectedItemIds,
+    guestPendingWardrobeItems,
     loadMoreWardrobeItems, wardrobeHasMore, dataUnavailable, retryInitialization,
     guestWardrobeSyncState, dismissGuestWardrobeNotice,
   } = useApp();
@@ -64,9 +68,15 @@ export default function WardrobeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
-  const filteredItems = filter === 'all'
-    ? activeWardrobeItems
-    : activeWardrobeItems.filter(item => item.category === filter);
+  const displayItems: WardrobeDisplayItem[] = [
+    ...activeWardrobeItems,
+    ...guestPendingWardrobeItems.map(({ item, migrationId }) => ({
+      ...item, pendingSync: true, pendingMigrationId: migrationId,
+    })),
+  ];
+  const filteredItems = (filter === 'all'
+    ? displayItems
+    : displayItems.filter(item => item.category === filter)) as WardrobeDisplayItem[];
 
   if (dataUnavailable) {
     return <AmodkaErrorState type="network" onRetry={retryInitialization} />;
@@ -97,11 +107,13 @@ export default function WardrobeScreen() {
     </Pressable>
   ) : null;
 
-  const renderListItem = ({ item, index }: { item: WardrobeItem; index: number }) => (
+  const renderListItem = ({ item, index }: { item: WardrobeDisplayItem; index: number }) => (
     <Animated.View entering={FadeInDown.delay(index * 40).duration(400)}>
       <Pressable
         style={({ pressed }) => [styles.listCard, pressed && { opacity: 0.72 }]}
+        disabled={item.pendingSync}
         onPress={() => router.push(`/item-detail?id=${item.id}`)}
+        accessibilityLabel={`${wardrobeValueLabel(item.colorFamily)} ${item.subType} garment${item.pendingSync ? ', waiting to sync' : ''}`}
       >
         <GarmentTile
           uri={item.photoUri}
@@ -136,6 +148,11 @@ export default function WardrobeScreen() {
                 <Text style={styles.reviewPillText}>Review</Text>
               </View>
             )}
+            {item.pendingSync && (
+              <View style={styles.pendingSyncPill}>
+                <Text style={styles.pendingSyncText}>Waiting to sync</Text>
+              </View>
+            )}
           </View>
         </View>
         <Ionicons name="chevron-forward" size={14} color={Colors.border} style={styles.listChevron} />
@@ -143,12 +160,14 @@ export default function WardrobeScreen() {
     </Animated.View>
   );
 
-  const renderGridItem = ({ item, index }: { item: WardrobeItem; index: number }) => {
+  const renderGridItem = ({ item, index }: { item: WardrobeDisplayItem; index: number }) => {
     return (
       <Animated.View entering={FadeInDown.delay(index * 30).duration(350)} style={styles.gridCell}>
         <Pressable
           style={({ pressed }) => [styles.gridPressable, pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] }]}
+          disabled={item.pendingSync}
           onPress={() => router.push(`/item-detail?id=${item.id}`)}
+          accessibilityLabel={`${wardrobeValueLabel(item.colorFamily)} ${item.subType} garment${item.pendingSync ? ', waiting to sync' : ''}`}
         >
           <View style={[styles.colorStrip, { backgroundColor: colorDots[item.colorFamily] || Colors.border }]} />
           <GarmentTile
@@ -170,6 +189,7 @@ export default function WardrobeScreen() {
                 ? `${item.fabric.charAt(0).toUpperCase() + item.fabric.slice(1)} · ${wardrobeValueLabel(item.colorFamily)}`
                 : item.subType.replace(/-/g, ' ')}
             </Text>
+            {item.pendingSync && <Text style={styles.pendingGridText}>Waiting to sync</Text>}
           </View>
         </Pressable>
       </Animated.View>
@@ -184,7 +204,7 @@ export default function WardrobeScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.subtitle}>
-            {wardrobeTotalCount} total items{!isPremium ? ' · 30 included' : ''}
+            {wardrobeHeaderCopy(wardrobeTotalCount + guestPendingWardrobeItems.length, profile.isGuest === true, isPremium)}
           </Text>
           <Text style={styles.title}>Wardrobe</Text>
         </View>
@@ -307,7 +327,7 @@ export default function WardrobeScreen() {
           key="list"
           data={filteredItems}
           renderItem={renderListItem}
-          keyExtractor={item => item.id}
+           keyExtractor={item => item.pendingMigrationId ? `guest-${item.pendingMigrationId}` : item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           onEndReached={handleLoadMore}
@@ -319,7 +339,7 @@ export default function WardrobeScreen() {
           key="grid"
           data={filteredItems}
           renderItem={renderGridItem}
-          keyExtractor={item => item.id}
+           keyExtractor={item => item.pendingMigrationId ? `guest-${item.pendingMigrationId}` : item.id}
           numColumns={3}
           columnWrapperStyle={styles.gridRow}
           contentContainerStyle={styles.gridContent}
@@ -336,6 +356,9 @@ export default function WardrobeScreen() {
 const styles = StyleSheet.create({
   syncNote: { marginHorizontal: 20, marginBottom: 12, padding: 12, borderRadius: 12, backgroundColor: Colors.white, flexDirection: 'row', alignItems: 'center', gap: 12 },
   syncText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19 },
+  pendingSyncPill: { backgroundColor: Colors.background, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
+  pendingSyncText: { color: Colors.textSecondary, fontSize: 10, fontFamily: 'Inter_500Medium' },
+  pendingGridText: { color: Colors.textSecondary, fontSize: 9, marginTop: 2 },
   container: { flex: 1, backgroundColor: Colors.background },
 
   // Header

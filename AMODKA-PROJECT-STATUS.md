@@ -1,23 +1,32 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
-## Guest-to-account wardrobe continuity
+## Guest-to-account data boundary and pending wardrobe
 
-Guest garments now transfer automatically after signup/signin through the
-existing owner-folder Storage upload and wardrobe batch RPC, without AI calls
-or consent prompts. A durable device-local owner claim precedes guest-state
-replacement; stable IDs, row/path reconciliation and account guards prevent
-duplicate/cross-account import. Oldest pieces fit the existing free active
-allowance (30) or Premium ceiling; the remainder stays pending on-device.
-Startup/foreground retries and a quiet Wardrobe note update the signed-in
-wardrobe without restarting. The earlier guest-bulk “no migration promise”
-scope is superseded for already-saved guest rows; guest upload/review stays
-manual and does not retroactively process photos.
+Before any guest data write, signed-in server state decides the one-time claim:
+an account with any wardrobe row or saved profile/onboarding/personalization
+keeps its profile and discards guest-local wardrobe, photos and onboarding;
+a truly blank account absorbs the existing guest wardrobe/profile migration.
+The decision is owner-bound in the existing device journal and is retained
+until discard cleanup/hydration completes or absorbed rows finish syncing.
+Server-read failure leaves guest and pending data untouched. Sign-in and
+sign-up screens disclose the respective outcome without an extra confirmation.
 
-Full suite 114/114, typecheck, lint, golden 35/35, and benchmark/frozen validation
-passed. Native filesystem, live-service transfer and physical-device recovery
-still require device checks. Audit, implementation, precise evidence and
-limitations: `docs/reports/guest-to-account-migration.md`. No schema, RLS,
-quota-rule, consent, billing or frozen-engine changes; no deployment.
+Pending absorbed garments remain visible in the signed-in Wardrobe with their
+photos and a “Waiting to sync” label until acknowledged; they are not inserted
+into active wardrobe, quota, rotation or recommendation state. Counts use
+singular/plural wording and the correct guest/free allowance. Guest bulk review
+has separate tappable photo and “Add details” actions that retain the staged
+selection ID and open manual Add Item. Profile “Not now” remains a no-write,
+offline dismissal and ignores stale preference refresh errors.
+
+Validation results, item-by-item causes/fixes/tests, known limitations and
+device-verification status: `docs/reports/guest-data-rules-pending-bulk-fixes.md`.
+Latest checks: 117/117 tests, typecheck, lint, benchmark fixture validation,
+Track C validation, and `git diff --check` passed. Physical-device, live-service,
+and signed-in preview verification remain outstanding.
+No schema/RLS, quota semantics, auth API, AI consent enforcement, billing,
+Recommendation Engine v3.7, Phase A, P1.3 or frozen benchmark changes; no
+deployment.
 
 ## AI preference save failure correction
 

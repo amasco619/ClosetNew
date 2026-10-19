@@ -47,7 +47,12 @@ import { buildStylingContextCandidates, asTraditionalOutfits } from '../lib/trad
 import { annotateStylingRelationships, projectRelationshipsForStyling } from '../lib/stylingRelationships';
 import { supabase } from '../lib/supabase';
 import { guestWardrobeSync } from '../lib/guestWardrobeSync';
-import { getReclaimableGuestPhotoSources } from '../lib/guestWardrobeMigration';
+import {
+  getReclaimableGuestPhotoSources, isGuestMigrationEntry,
+  type GuestMigrationEntry,
+} from '../lib/guestWardrobeMigration';
+import { selectPendingGuestWardrobeItems, type PendingGuestWardrobeItem } from '../lib/guestWardrobePresentation';
+import { decideGuestDataDisposition } from '../shared/guest-account-disposition';
 import {
   getActiveManagedPhotoReferences,
   subscribeToManagedPhotoReferenceRelease,
@@ -118,6 +123,7 @@ interface AppContextValue {
   retryInitialization: () => void;
   dataUnavailable: boolean;
   guestWardrobeSyncState: { syncing: boolean; pending: number; capacity: boolean; notice: string | null };
+  guestPendingWardrobeItems: PendingGuestWardrobeItem[];
   dismissGuestWardrobeNotice: () => void;
   entitlementUnavailable: boolean;
   refreshPremiumEntitlement: (rejectUnavailable?: boolean) => Promise<boolean>;
@@ -193,15 +199,6 @@ const STORAGE_KEYS = {
   pendingPhotoCleanups: '@amodka_pending_photo_cleanups',
 };
 
-async function claimGuestWardrobe(userId: string, guestProfile: UserProfile | null) {
-  if (guestProfile?.isGuest !== true) return;
-  const raw = await AsyncStorage.getItem(STORAGE_KEYS.wardrobe);
-  const cached: WardrobeItem[] = raw ? JSON.parse(raw) : [];
-  // Only the proven guest-only persisted cache is eligible. An in-memory
-  // account snapshot may still be awaiting React's account-switch cleanup.
-  await guestWardrobeSync.claim(userId, cached);
-}
-
 // Sub-type chips are derived from the curated blueprints (single source
 // of truth) so every blueprint slot is guaranteed to be selectable from
 // Add Item / Item Detail under the strict matcher.
@@ -272,6 +269,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [guestWardrobeSyncState, setGuestWardrobeSyncState] = useState<{
     syncing: boolean; pending: number; capacity: boolean; notice: string | null;
   }>({ syncing: false, pending: 0, capacity: false, notice: null });
+  const [guestPendingWardrobeItems, setGuestPendingWardrobeItems] = useState<PendingGuestWardrobeItem[]>([]);
   const guestSyncRunningRef = useRef<symbol | null>(null);
   const dismissGuestWardrobeNotice = useCallback(() =>
     setGuestWardrobeSyncState(prev => ({ ...prev, notice: null })), []);
@@ -612,6 +610,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setRecommendationSlots([]);
             setSlotsInitialized(false);
             setLastAddedSuggestions([]);
+            setGuestPendingWardrobeItems([]);
           }
           currentUserIdRef.current = userId;
           currentUserGenerationRef.current = generation;
@@ -623,7 +622,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const localRaw = await AsyncStorage.getItem(STORAGE_KEYS.profile).catch(() => null);
           const localSnap: UserProfile | null = mayMigrateGuest && localRaw
             ? mergeProfile(JSON.parse(localRaw)) : null;
-          await claimGuestWardrobe(userId, localSnap);
           await loadUserDataFromDB(userId, authName, localSnap, generation);
           // The hydration may have completed after a retry advanced the
           // startup generation. Never publish auth state from that stale
@@ -653,6 +651,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setIsAuthenticated(false);
           setAuthenticatedUserId(null);
           setGuestWardrobeSyncState({ syncing: false, pending: 0, capacity: false, notice: null });
+          setGuestPendingWardrobeItems([]);
           setProfile(defaultProfile);
           setWardrobeItems([]);
           updateWardrobePagination(0, 0);
@@ -1062,6 +1061,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setRecommendationSlots([]);
             setSlotsInitialized(false);
             setLastAddedSuggestions([]);
+            setGuestPendingWardrobeItems([]);
           }
           currentUserIdRef.current = initUserId;
           await setRevenueCatIdentity(initUserId).catch(error =>
@@ -1070,7 +1070,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
           currentUserGenerationRef.current = generation;
           startingUserId = initUserId;
           startingAccountGeneration = accountGenerationRef.current;
-          await claimGuestWardrobe(initUserId, loadedProfile);
           await loadUserDataFromDB(initUserId, initAuthName, loadedProfile, generation);
           assertCurrent();
         }
@@ -1104,15 +1103,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     };
     assertCurrent();
+    let guestProfileSnapshot = localSnap;
     // Hide cached/previous-account preferences while the authoritative read runs.
     // The explicit guest snapshot remains available only to the migration below.
     setProfile({ ...defaultProfile, isGuest: false });
-
-    await upsertUserProfile({
-      id: userId,
-      ...(authName ? { name: authName } : {}),
-    }).catch(console.error);
-    assertCurrent();
 
     try {
       const [
@@ -1129,6 +1123,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
         getPairAffinitySignals(userId),
       ]);
       assertCurrent();
+
+      // Resolve the guest-data rule only from the authenticated account's
+      // server snapshot, and durably record it before claiming or writing any
+      // guest rows/profile. A read failure exits with the guest cache intact.
+      const journal = await guestWardrobeSync.list();
+      assertCurrent();
+      const hasPendingOwnerClaim = journal.some((record): record is GuestMigrationEntry =>
+        isGuestMigrationEntry(record) && record.ownerId === userId && !record.synced,
+      );
+      let cachedGuestItems: WardrobeItem[] | null = null;
+      if (guestProfileSnapshot?.isGuest === true) {
+        const rawGuestItems = await AsyncStorage.getItem(STORAGE_KEYS.wardrobe);
+        assertCurrent();
+        cachedGuestItems = rawGuestItems ? JSON.parse(rawGuestItems) as WardrobeItem[] : [];
+      }
+      const needsGuestDisposition = guestProfileSnapshot?.isGuest === true || hasPendingOwnerClaim;
+      let guestDisposition: 'absorb' | 'discard' | null = null;
+      if (needsGuestDisposition) {
+        guestDisposition = await guestWardrobeSync.getDecision(userId);
+        if (!guestDisposition) {
+          const decision = decideGuestDataDisposition(dbProfile, wardrobePage.totalCount);
+          guestDisposition = await guestWardrobeSync.decide(userId, decision);
+        }
+        assertCurrent();
+
+        if (guestDisposition === 'absorb') {
+          if (guestProfileSnapshot?.isGuest === true) {
+            await guestWardrobeSync.claim(userId, cachedGuestItems ?? []);
+            assertCurrent();
+          }
+        } else {
+          const discardGuestCache = guestProfileSnapshot?.isGuest === true;
+          const journalPhotoUris = await guestWardrobeSync.discardOwner(userId);
+          assertCurrent();
+          const photoUris = [
+            ...(cachedGuestItems ?? []).map(item => item.photoUri),
+            ...journalPhotoUris,
+          ].map(uri => uri ? rebaseGuestPhotoUri(uri, FileSystem.documentDirectory ?? '') : uri);
+          const cleanupComplete = await clearAccountDeviceData({
+            removeStorageKeys: async keys => {
+              if (discardGuestCache) await AsyncStorage.multiRemove([...keys]);
+            },
+            photoUris,
+            documentDirectory: FileSystem.documentDirectory,
+            deleteAsync: FileSystem.deleteAsync,
+            clearSignedPhotoCache: clearSignedWardrobeUrlCache,
+          });
+          assertCurrent();
+          if (!cleanupComplete) {
+            console.warn('[guest-migration] Some confirmed guest photo cleanup remains on this device');
+          }
+          if (discardGuestCache) guestProfileSnapshot = null;
+        }
+      }
+
       const pageIds = new Set(wardrobePage.items.map(item => item.id));
       const missingSelectionIds = freeSelection.filter(id => !pageIds.has(id));
       const selectedRows = await getSelectedWardrobeItems(userId, missingSelectionIds);
@@ -1145,38 +1194,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
       assertCurrent();
 
       // A "blank" account has never completed onboarding on this or any device
-      const isNewBlankAccount = !dbProfile || (
-        !dbProfile.body_type && !dbProfile.eye_color && !dbProfile.skin_tone &&
-        !dbProfile.onboarding_complete
-      );
       // The local snapshot has onboarding data if the guest completed the quiz
-      const guestHasData = hasMigratableGuestProfile(localSnap);
+      const guestHasData = hasMigratableGuestProfile(guestProfileSnapshot);
 
       let hydratedProfile: UserProfile;
-      if (isNewBlankAccount && guestHasData && localSnap) {
+      if (guestDisposition === 'absorb' && guestHasData && guestProfileSnapshot) {
         // Guest created a new account — carry their onboarding preferences forward
         await upsertUserProfile({
           id: userId,
-          name: localSnap.name || authName || undefined,
-          body_type: localSnap.bodyType ?? undefined,
-          eye_color: localSnap.eyeColor ?? undefined,
-          skin_tone: localSnap.skinTone ?? undefined,
-          undertone: localSnap.undertone ?? undefined,
-          style_goals: [localSnap.styleGoalPrimary, localSnap.styleGoalSecondary].filter(Boolean) as string[],
-          secondary_goal: localSnap.styleGoalSecondary ?? undefined,
+          name: guestProfileSnapshot.name || authName || undefined,
+          body_type: guestProfileSnapshot.bodyType ?? undefined,
+          eye_color: guestProfileSnapshot.eyeColor ?? undefined,
+          skin_tone: guestProfileSnapshot.skinTone ?? undefined,
+          undertone: guestProfileSnapshot.undertone ?? undefined,
+          style_goals: [guestProfileSnapshot.styleGoalPrimary, guestProfileSnapshot.styleGoalSecondary].filter(Boolean) as string[],
+          secondary_goal: guestProfileSnapshot.styleGoalSecondary ?? undefined,
           lifestyle: {
-            work: localSnap.lifestyleWork,
-            casual: localSnap.lifestyleCasual,
-            events: localSnap.lifestyleEvents,
-            active: localSnap.lifestyleActive ?? 0,
-            brunch: localSnap.lifestyleBrunch ?? 0,
+            work: guestProfileSnapshot.lifestyleWork,
+            casual: guestProfileSnapshot.lifestyleCasual,
+            events: guestProfileSnapshot.lifestyleEvents,
+            active: guestProfileSnapshot.lifestyleActive ?? 0,
+            brunch: guestProfileSnapshot.lifestyleBrunch ?? 0,
           },
-          constraints: profileConstraints(localSnap),
-          onboarding_complete: localSnap.onboardingComplete ?? false,
+          constraints: profileConstraints(guestProfileSnapshot),
+          onboarding_complete: guestProfileSnapshot.onboardingComplete ?? false,
         });
         assertCurrent();
-        hydratedProfile = mergeProfile({ ...localSnap, isGuest: false, name: localSnap.name || authName || '' });
+        hydratedProfile = mergeProfile({
+          ...guestProfileSnapshot, isGuest: false,
+          name: guestProfileSnapshot.name || authName || '',
+        });
       } else {
+        // Do not overwrite an existing account profile with provider metadata.
+        if (!dbProfile && authName) {
+          await upsertUserProfile({ id: userId, name: authName });
+          assertCurrent();
+        }
         hydratedProfile = hydrateAccountProfile(dbProfile, authName);
       }
       // Consume the guest marker only after a successful migration/read, so a
@@ -1282,6 +1335,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           savedAt: l.saved_at,
         }));
         setSavedLooks(mappedLooks);
+      }
+      if (guestDisposition) {
+        assertCurrent();
+        await guestWardrobeSync.completeDecision(userId);
+        assertCurrent();
       }
     } catch (err: any) {
       if (err instanceof Error && err.message === 'stale account hydration') return;
@@ -1749,6 +1807,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       isCurrentAccountRequest(userId, accountGeneration, startupGeneration);
     if (!userId) {
       setGuestWardrobeSyncState({ syncing: false, pending: 0, capacity: false, notice: null });
+      setGuestPendingWardrobeItems([]);
       return;
     }
     if (!appReady || isLoading) return;
@@ -1760,7 +1819,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const entries = (await guestWardrobeSync.list()).filter(entry => entry.ownerId === userId);
         if (!isCurrent()) return;
-        pending = entries.filter(entry => !entry.synced).length;
+        const syncEntries = entries.filter((entry): entry is GuestMigrationEntry => isGuestMigrationEntry(entry));
+        pending = syncEntries.filter(entry => !entry.synced).length;
+        setGuestPendingWardrobeItems(selectPendingGuestWardrobeItems(
+          entries, userId, new Set(wardrobeItemsRef.current.map(item => item.id)),
+        ));
         if (!pending && !entries.some(entry => !entry.announced)) return;
         setGuestWardrobeSyncState({ syncing: true, pending, capacity: false, notice: null });
         const result = await guestWardrobeSync.sync(userId, isCurrent);
@@ -1778,7 +1841,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (!isCurrent()) return;
           setFreeSelectedItemIds(selected);
         }
+        const refreshedEntries = await guestWardrobeSync.list();
+        if (!isCurrent()) return;
+        setGuestPendingWardrobeItems(selectPendingGuestWardrobeItems(
+          refreshedEntries, userId, new Set(wardrobeItemsRef.current.map(item => item.id)),
+        ));
         const count = await guestWardrobeSync.takeNotice(userId);
+        if (!isCurrent()) return;
+        if (result.pending === 0) await guestWardrobeSync.completeDecision(userId);
         if (!isCurrent()) return;
         setGuestWardrobeSyncState({
           syncing: false, pending, capacity: result.capacity,
@@ -2407,6 +2477,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
     isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable,
     guestWardrobeSyncState, dismissGuestWardrobeNotice,
+    guestPendingWardrobeItems,
     retryInitialization: () => {
       setStartupError(false);
       setIsLoading(true);
@@ -2431,6 +2502,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
        isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
        guestWardrobeSyncState, dismissGuestWardrobeNotice,
+        guestPendingWardrobeItems,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
        todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
        profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,

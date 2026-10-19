@@ -182,6 +182,31 @@ async function main() {
     assert.equal(state.unavailable, false);
     assert.equal(state.error, null);
 
+    model.stored = 'not_asked';
+    model.transport = normal;
+    await React.act(async () => { await state.refresh(); state.toggle(true); });
+    assert.equal(state.showConsent, true);
+    model.calls = [];
+    await React.act(async () => state.dismiss());
+    assert.equal(state.showConsent, false);
+    assert.deepEqual(model.calls, [], 'offline-capable Not now dismissal starts no request');
+
+    let rejectStaleRefresh!: (error: Error) => void;
+    model.transport = method => {
+      model.calls.push(method);
+      return new Promise((_resolve, reject) => { rejectStaleRefresh = reject; });
+    };
+    let staleRefresh!: Promise<void>;
+    await React.act(async () => {
+      staleRefresh = state.refresh();
+      state.dismiss();
+    });
+    rejectStaleRefresh(new api.ApiRequestError('offline', 'network'));
+    await React.act(async () => { await staleRefresh; });
+    assert.equal(state.error, null, 'a superseded offline refresh cannot surface an error after Not now');
+    assert.equal(state.unavailable, false);
+    model.transport = normal;
+
     // Offline failure of both write and reconciliation must leave Allow
     // retryable inside the still-open sheet, not an enabled-but-dead button.
     await React.act(async () => state.toggle(true));

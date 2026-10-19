@@ -3243,3 +3243,48 @@ response. The disposable PostgreSQL migration test exercises receipt creation,
 shared-photo protection, transaction rollback, owner RLS, acknowledgement
 permissions, and account-deletion privileges; no live Supabase migration or
 physical-device restart was performed.
+
+## 50. GUEST DATA DISPOSITION, PENDING WARDROBE, AND MANUAL BULK HANDOFF
+
+This section supersedes the automatic-transfer policy in §46 for account
+transitions that begin from a guest session. Before claiming guest rows or
+writing guest profile answers, AppContext reads the authenticated account's
+owner-scoped profile and exact wardrobe count. Any wardrobe row or saved
+profile/onboarding/personalization value means the account is existing:
+preserve the remote profile, discard guest-local wardrobe/profile/journal data,
+and pass guest photos through the existing managed-file cleanup. Only a blank,
+unpersonalised account absorbs the existing saved guest rows and profile.
+Signup provider and button do not affect the server-side decision. A failed
+authoritative read does not create a decision or clear guest data.
+
+The owner-bound decision is stored in `@amodka_guest_wardrobe_migration` before
+any claim or profile write. `claim` is a no-op unless the durable decision is
+`absorb`; it cannot be changed after creation. Discard removes only that
+owner's pending item claims while preserving the decision until profile
+hydration/cleanup finishes. Absorb retains the decision while any owned row is
+pending, then clears the marker after sync completes so a later, separate guest
+session can make a fresh account-state decision. Account deletion still removes
+all records for that owner. No new table, key, schema, or RLS policy was added.
+
+When a signed-in owner has pending absorbed rows, the Wardrobe screen displays
+their existing photo and “Waiting to sync” label, suppresses item-detail
+navigation until confirmation, avoids duplicate IDs, and removes the local card
+after the canonical row is loaded. These rows do not enter active wardrobe,
+quota admission, outfit generation, rotation or recommendation state. Header
+counts use singular/plural copy and display the existing guest 8 / free 30
+allowance as appropriate. Sign-in and sign-up show a short, mode-specific
+notice when guest pieces exist; neither introduces a confirmation step.
+
+Guest bulk review continues to route with its staged selection ID and photo
+index. The photo tile and “Add details” are independent manual actions into
+the existing Add Item flow; guest selections remain manual and no AI provider
+is invoked. Profile “Not now” closes without a preference request or write;
+it invalidates a stale in-flight preference refresh so a late offline error
+cannot appear after dismissal, without invalidating a preference save already
+in progress.
+
+Focused and full-suite results, item-level evidence, exceptions and
+device-verification limits: `docs/reports/guest-data-rules-pending-bulk-fixes.md`.
+Frozen Recommendation Engine v3.7, Phase A schema/security, P1.3, consent
+enforcement, billing/RevenueCat, auth, quota semantics, and benchmark artifacts
+remain unchanged.

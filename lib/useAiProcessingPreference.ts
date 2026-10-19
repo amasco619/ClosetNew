@@ -95,6 +95,14 @@ export function useAiProcessingPreference(isGuest: boolean, accountId: string | 
     },
     allow: () => { void save('allowed'); },
     // Not now is never blocked by an in-flight save, and never writes a choice.
-    dismiss: () => { setShowConsent(false); },
+    dismiss: () => {
+      setShowConsent(false);
+      if (busy.current) return;
+      // A stale focus refresh must not surface its offline error after Not now.
+      ++generation.current;
+      setLoading(false);
+      setUnavailable(false);
+      setError(null);
+    },
   };
 }

@@ -104,7 +104,7 @@ function SocialButton({
 
 export default function SignInScreen() {
   const insets = useSafeAreaInsets()
-  const { isAuthenticated } = useApp()
+  const { isAuthenticated, isGuest, wardrobeTotalCount } = useApp()
   const [mode, setMode] = useState<Mode>('sign-in')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -341,6 +341,16 @@ export default function SignInScreen() {
               {!isSignIn && <View style={styles.activeIndicator} />}
             </TouchableOpacity>
           </Animated.View>
+
+          {isGuest && wardrobeTotalCount > 0 && (
+            <View style={styles.guestDataNotice}>
+              <Text style={styles.guestDataNoticeText}>
+                {isSignIn
+                  ? `Signing in to an existing account won't keep the ${wardrobeTotalCount} ${wardrobeTotalCount === 1 ? 'piece' : 'pieces'} you added as a guest.`
+                  : `Your ${wardrobeTotalCount} ${wardrobeTotalCount === 1 ? 'piece' : 'pieces'} will be added to your new account.`}
+              </Text>
+            </View>
+          )}
 
           {/* Form */}
           <Animated.View entering={FadeInDown.delay(260).duration(280)} style={styles.formStack}>
@@ -584,6 +594,21 @@ const styles = StyleSheet.create({
   },
   formStack: {
     gap: 4,
+  },
+  guestDataNotice: {
+    marginBottom: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
+  guestDataNoticeText: {
+    color: 'rgba(255,255,255,0.78)',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    lineHeight: 18,
   },
   fieldBlock: {
     marginBottom: 18,

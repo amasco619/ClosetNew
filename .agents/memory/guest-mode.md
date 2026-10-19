@@ -6,8 +6,9 @@ description: How AuraCloset handles unauthenticated guest users — caps, routin
 ## Rule
 - Guest manual wardrobe additions are local-only: photos are copied into app documents and wardrobe rows remain in the existing local store.
 - Guest bulk upload follows the same manual local-save path; it does not classify photos or invoke PhotoRoom/Gemini.
-- The user explicitly approved automatic transfer of already-saved guest garments after signup OR signin. This supersedes the earlier no-transfer scope; guest photo selection/review itself remains local and manual.
-- Account transfer must be owner-bound, durable, stable-ID/idempotent and non-AI. Preserve pending originals through failure/capacity limits; never copy a prior account's wardrobe or infer consent to AI processing from signup.
+- On account creation/sign-in, discard guest wardrobe/profile/photos when the authenticated account already has any wardrobe row or saved personalization; preserve that account's profile. Only a blank, unpersonalised account absorbs saved guest data.
+- Persist the owner-bound disposition before writes; do not decide from provider or signup button. If authoritative reads fail, keep guest data and pending claims intact.
+- New-account transfer remains durable, stable-ID/idempotent and non-AI. Pending absorbed garments stay visible as “Waiting to sync” until confirmation; they do not enter active wardrobe or recommendation state.
 
 ## Routing (app/index.tsx)
 1. Session exists → tabs (if onboarding done) or /onboarding
@@ -17,6 +18,6 @@ description: How AuraCloset handles unauthenticated guest users — caps, routin
 ## Onboarding entry
 `/onboarding?guest=true` — `handleNext` checks `params.guest === 'true'` and spreads `{ isGuest: true }` into the final `updateProfile` call.
 
-**Why:** The user reported losing three guest garments when creating an account and explicitly requested account continuity without AI calls or changes to schema, quota rules, billing or consent.
+**Why:** The user specified that established accounts must not be overwritten by guest data, while truly blank new accounts may absorb saved guest data.
 
-**How to apply:** Keep guest photo selection and manual save on-device; migrate only saved rows from the explicitly guest cache through the separately account-bound transfer. Do not apply AI to previous selections or turn account-owned data into guest data.
+**How to apply:** Decide from the signed-in server profile and exact wardrobe count before any guest claim/profile write. Keep guest photo selection and manual saves local; never infer AI consent from signup or transfer guest data into an existing account.

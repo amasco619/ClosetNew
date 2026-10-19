@@ -9,7 +9,11 @@ import { uploadWardrobeImage } from './storage';
 import { supabase } from './supabase';
 import { serializeRecommendationSemantics } from './wardrobeSemantics';
 import { rebaseGuestPhotoUri } from './rebaseGuestPhotoUri';
-import { createGuestWardrobeMigration, GUEST_MIGRATION_KEY, type GuestMigrationEntry } from './guestWardrobeMigration';
+import {
+  createGuestWardrobeMigration, GUEST_MIGRATION_KEY,
+  isGuestMigrationEntry,
+  type GuestMigrationEntry, type GuestMigrationRecord,
+} from './guestWardrobeMigration';
 
 const wardrobeKey = '@amodka_wardrobe';
 const assertOwner = async (ownerId: string) => {
@@ -25,12 +29,15 @@ export const guestWardrobeSync = createGuestWardrobeMigration({
     if (!raw) return [];
     const entries = JSON.parse(raw);
     if (!Array.isArray(entries) || entries.some(entry =>
-      !entry.ownerId || !entry.migrationId || !entry.item?.id || typeof entry.synced !== 'boolean')) {
+      !entry.ownerId || !entry.migrationId || typeof entry.synced !== 'boolean' ||
+      (entry.migrationId === '__guest-data-decision__'
+        ? !['absorb', 'discard'].includes(entry.disposition)
+        : !entry.item?.id))) {
       throw new Error('Guest sync journal is invalid');
     }
-    return entries;
+    return entries as GuestMigrationRecord[];
   },
-  write: entries => AsyncStorage.setItem(GUEST_MIGRATION_KEY, JSON.stringify(entries)),
+  write: (entries: GuestMigrationRecord[]) => AsyncStorage.setItem(GUEST_MIGRATION_KEY, JSON.stringify(entries)),
   newId: () => Crypto.randomUUID(),
   snapshot: async (ownerId, entries) => {
     await assertOwner(ownerId);

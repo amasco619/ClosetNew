@@ -196,17 +196,38 @@ function BulkCard({
     <>
       {/* Photo — always visible; overlay sits on top */}
       <View style={styles.photoWrap}>
-        <GarmentTile
-          uri={previewUri}
-          isCutout={!photoErrored && Boolean(item.cutoutUri)}
-          variant="card"
-          style={styles.photo}
-          accessibilityLabel={`${item.classification?.colorFamily ? wardrobeValueLabel(item.classification.colorFamily) : ''} ${item.classification?.subType ?? 'garment'} photo`}
-          recyclingKey={item.uri}
-          onError={() => {
-            if (!photoErrored) setPhotoErrorUri(previewUri);
-          }}
-        />
+        {isManual ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add details for this photo"
+            onPress={() => onManual(item.uri)}
+            style={StyleSheet.absoluteFill}
+          >
+            <GarmentTile
+              uri={previewUri}
+              isCutout={!photoErrored && Boolean(item.cutoutUri)}
+              variant="card"
+              style={styles.photo}
+              accessibilityLabel={`${item.classification?.colorFamily ? wardrobeValueLabel(item.classification.colorFamily) : ''} ${item.classification?.subType ?? 'garment'} photo`}
+              recyclingKey={item.uri}
+              onError={() => {
+                if (!photoErrored) setPhotoErrorUri(previewUri);
+              }}
+            />
+          </Pressable>
+        ) : (
+          <GarmentTile
+            uri={previewUri}
+            isCutout={!photoErrored && Boolean(item.cutoutUri)}
+            variant="card"
+            style={styles.photo}
+            accessibilityLabel={`${item.classification?.colorFamily ? wardrobeValueLabel(item.classification.colorFamily) : ''} ${item.classification?.subType ?? 'garment'} photo`}
+            recyclingKey={item.uri}
+            onError={() => {
+              if (!photoErrored) setPhotoErrorUri(previewUri);
+            }}
+          />
+        )}
 
         {activity.processing && <GoldOverlay isActive statusPhase={statusPhase} />}
         {activity.waiting && (
@@ -269,7 +290,14 @@ function BulkCard({
             </Text>
           </Animated.View>
         ) : isManual ? (
-          <Text style={styles.errorLabel}>Add details</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add details for this photo"
+            onPress={() => onManual(item.uri)}
+            style={{ minHeight: 44, justifyContent: 'center' }}
+          >
+            <Text style={styles.errorLabel}>Add details</Text>
+          </Pressable>
         ) : isRefused || isError ? null : manualReady && activity.waiting ? (
           <Pressable
             accessibilityRole="button"
@@ -293,12 +321,12 @@ function BulkCard({
 
   return (
     <View style={styles.card}>
-      {(isSettled && onPress) || isManual ? (
+      {isSettled && onPress ? (
         <Pressable
           style={({ pressed }) => [styles.cardBody, pressed && styles.cardPressed]}
-          onPress={isManual ? () => onManual(item.uri) : onPress}
+          onPress={onPress}
           accessibilityRole="button"
-          accessibilityLabel={isManual ? 'Add details for this photo' : 'Edit garment details'}
+          accessibilityLabel="Edit garment details"
         >
           {cardBody}
         </Pressable>
