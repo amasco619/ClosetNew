@@ -1919,6 +1919,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     const { cleanedImageUrl, ...replacementItem } = replacement;
     const mergeReplacement = (item: WardrobeItem): WardrobeItem => ({
+      ...item,
       ...replacementItem,
       id: item.id,
       createdAt: item.createdAt,
@@ -1943,6 +1944,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         recommendation_semantics: serializeRecommendationSemantics(replacement),
       });
       if (!isCurrent()) return;
+      setOrphanedItems(prev => prev.filter(item => item.id !== existingId));
       setWardrobeItems(prev => isCurrent()
         ? prev.map(item => item.id === existingId ? mergeReplacement(item) : item)
         : prev);
@@ -1954,6 +1956,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
     await AsyncStorage.setItem(STORAGE_KEYS.wardrobe, JSON.stringify(nextItems));
     if (!isCurrent()) return;
+    setOrphanedItems(prev => prev.filter(item => item.id !== existingId));
     setWardrobeItems(prev => isCurrent()
       ? prev.map(item => item.id === existingId ? mergeReplacement(item) : item)
       : prev);

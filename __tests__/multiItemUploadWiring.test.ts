@@ -7,7 +7,7 @@ const client = readFileSync('lib/query-client.ts', 'utf8');
 const routes = readFileSync('server/routes.ts', 'utf8');
 
 assert.match(picker, /if \(multiplePieces\)[\s\S]*?pathname: '\/multi-item-review'/);
-assert.match(picker, /selectionLimit: multiplePieces \? 1 : 10/);
+assert.match(picker, /selectionLimit: multiplePieces \|\| replaceItemId \? 1 : 10/);
 assert.match(review, /getAiProcessingPreference\(\)/);
 assert.match(review, /authenticatedApiRequest\('POST', '\/api\/classify-garments'/);
 assert.match(review, /constructMultiItemDraft\(/);

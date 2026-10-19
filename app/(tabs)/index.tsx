@@ -262,7 +262,6 @@ export default function HomeScreen() {
                     style={({ pressed }) => [styles.orphanBtn, pressed && styles.orphanBtnPressed]}
                     onPress={() => {
                       Haptics.selectionAsync();
-                      resolveOrphan(item.id, 'dismiss');
                       router.push({
                         pathname: '/add-item',
                         params: {

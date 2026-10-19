@@ -252,7 +252,10 @@ export default function AddItemScreen() {
   // Parse pre-classified payload once at mount — route params are strings so
   // arrays and objects need JSON.parse. Gracefully falls back to defaults if
   // the param is missing or malformed.
-  const hasPreClassified = preClassified === 'true' && Boolean(resolvedInitialUri);
+  const replacementItem = replaceItemId
+    ? wardrobeItems.find(item => item.id === replaceItemId)
+    : undefined;
+  const hasPreClassified = preClassified === 'true' && Boolean(resolvedInitialUri || replaceItemId);
 
   const initCategory = (): ItemCategory => {
     if (hasPreClassified && pcCategory) return pcCategory as ItemCategory;
@@ -309,7 +312,7 @@ export default function AddItemScreen() {
   });
   const photoRequestRef = useRef(0);
   const currentPhotoUriRef = useRef<string | null>(resolvedInitialUri);
-  const correctedFieldsRef = useRef<Set<string>>(new Set());
+  const correctedFieldsRef = useRef<Set<string>>(new Set(replacementItem?.confirmedFields));
   const categoryRef = useRef<ItemCategory>(initCategory());
   const subTypeRef = useRef<string>(initSubType());
   const [detailsExpanded, setDetailsExpanded] = useState(false);
@@ -322,7 +325,7 @@ export default function AddItemScreen() {
   const [classifyFlash,   setClassifyFlash]   = useState<'none' | 'success' | 'error'>('none');
   const [occasions,       setOccasions]       = useState<OccasionTag[]>(initOccasions);
   const [seasons,         setSeasons]         = useState<SeasonTag[]>(initSeasons);
-  const [purchasePrice,   setPurchasePrice]   = useState('');
+  const [purchasePrice,   setPurchasePrice]   = useState(replacementItem?.purchasePrice?.toString() ?? '');
   const [step,            setStep]            = useState((hasPreClassified || (manualEntry === 'true' && resolvedInitialUri)) && !replaceItemId ? 1 : 0);
   const [showPhotoRefusal, setShowPhotoRefusal] = useState(false);
   const [pattern,         setPattern]         = useState<string | undefined>(hasPreClassified && pcPattern ? pcPattern : undefined);
@@ -332,10 +335,10 @@ export default function AddItemScreen() {
   const [accentColor,     setAccentColor]     = useState<string | undefined>(hasPreClassified && pcAccentColor ? pcAccentColor : undefined);
   const [dominantHsl,     setDominantHsl]     = useState<{ h: number; s: number; l: number } | undefined>(initDominantHsl);
   const [dominantLab,     setDominantLab]     = useState<{ L: number; a: number; b: number } | undefined>(initDominantLab);
-  const [modelConfidence, setModelConfidence] = useState<number | undefined>(undefined);
-  const [formalityLevel, setFormalityLevel] = useState<number | undefined>(undefined);
+  const [modelConfidence, setModelConfidence] = useState<number | undefined>(replacementItem?.modelConfidence);
+  const [formalityLevel, setFormalityLevel] = useState<number | undefined>(replacementItem?.formalityLevel);
   const [fit,             setFit]             = useState<string | undefined>(hasPreClassified && pcFit ? pcFit : undefined);
-  const [metalTone,       setMetalTone]       = useState<string | undefined>(undefined);
+  const [metalTone,       setMetalTone]       = useState<string | undefined>(replacementItem?.metalTone);
   const [neckline,        setNeckline]        = useState<string | undefined>(hasPreClassified && pcNeckline ? pcNeckline : undefined);
   const [sleeveLength,    setSleeveLength]    = useState<string | undefined>(hasPreClassified && pcSleeveLength ? pcSleeveLength : undefined);
   const [rise,            setRise]            = useState<string | undefined>(
@@ -634,8 +637,8 @@ export default function AddItemScreen() {
         }
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ['images'],
-          allowsMultipleSelection: !multiplePieces,
-          selectionLimit: multiplePieces ? 1 : 10,
+          allowsMultipleSelection: !multiplePieces && !replaceItemId,
+          selectionLimit: multiplePieces || replaceItemId ? 1 : 10,
         });
         if (!result.canceled && result.assets.length > 1) {
           const guestLimit = isGuest
@@ -737,11 +740,20 @@ export default function AddItemScreen() {
       requestId = photoRequestRef.current + 1;
       photoRequestRef.current = requestId;
       const isNewPhoto = asset.uri !== currentPhotoUriRef.current;
-      if (isNewPhoto) {
+      if (isNewPhoto && !replaceItemId) {
         resetAllFields();
         setPhotoPrepareDiagnostic(null);
       }
       currentPhotoUriRef.current = asset.uri;
+      if (replaceItemId) {
+        // Recovery changes the photo, not the saved classification or AI quota.
+        setPhotoUri(asset.uri);
+        setPhotoBgRemoved(false);
+        setPhotoWidth(asset.width ?? 0);
+        setPhotoHeight(asset.height ?? 0);
+        setStep(1);
+        return;
+      }
       if (multiplePieces) {
         router.push({ pathname: '/multi-item-review', params: { uri: asset.uri } });
         return;
@@ -1019,6 +1031,9 @@ export default function AddItemScreen() {
     let uploadedPhoto: { userId: string; itemId: string } | null = null;
     let dbStarted = false;
     try {
+      if (replaceItemId && !replacementItem) {
+        throw new Error('The original garment is no longer available. Reopen it from your wardrobe.');
+      }
       const parsedPrice = parseFloat(purchasePrice.replace(/[^0-9.]/g, ''));
 
       const itemId = Crypto.randomUUID();
@@ -1304,7 +1319,7 @@ export default function AddItemScreen() {
                 <Text style={styles.photoBtnLabel}>From Gallery</Text>
               </Pressable>
             </View>
-            <Pressable
+            {!replaceItemId && <Pressable
               accessibilityRole="checkbox"
               accessibilityState={{ checked: multiplePieces }}
               onPress={() => setMultiplePieces(value => !value)}
@@ -1313,7 +1328,7 @@ export default function AddItemScreen() {
               <Text style={[styles.categoryLabel, multiplePieces && styles.categoryLabelActive]}>
                 {multiplePieces ? '✓ ' : '○ '}Several pieces in one photo
               </Text>
-            </Pressable>
+            </Pressable>}
             {multiplePieces && <Text style={{ color: Colors.textSecondary, marginTop: 8 }}>Choose one photo of 2–6 separate garments to review as a set.</Text>}
 
             <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Category</Text>
@@ -1380,7 +1395,7 @@ export default function AddItemScreen() {
               </View>
             )}
 
-            {photoUri && aiPreference !== 'allowed' && !classifying && manualOnly !== 'true' && (
+            {photoUri && !replaceItemId && aiPreference !== 'allowed' && !classifying && manualOnly !== 'true' && (
               <View style={styles.aiPausedCard}>
                 <Text style={styles.aiPausedTitle}>AI processing is paused</Text>
                 <Text style={styles.aiPausedCopy}>

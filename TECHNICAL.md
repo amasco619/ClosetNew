@@ -292,7 +292,7 @@ constants/
   weather.ts             Weather-aware outerwear logic, Open-Meteo integration
   orphanDetection.ts     Ghost-item recovery helpers: detectNoPhotoOrphans(), detectFileOrphans(), applyOrphanResolution()
   accountDeletionCleanup.ts  Clear private device cache and app-managed wardrobe photos only after server deletion succeeds
-  rePhotographSave.ts    applyRePhotographSave() — pure add+remove branching for re-photograph flow
+  rePhotographSave.ts    Legacy add+remove helper (not used by the current replacement screen)
   guestPhotoCleanup.ts   deleteGuestPhoto(), runGuestRemoval(), buildGuestPhotoDestPath() — guest local file cleanup
 
 lib/
@@ -530,10 +530,10 @@ The original full-resolution asset is never sent over the network. Both resize c
 - "Cancel" text button replaces the earlier icon-only close control, improving accessibility and clarity.
 - Subtype chip rows use `flexDirection: 'row', flexWrap: 'wrap'` instead of a `ScrollView` — all sub-types are always visible without horizontal scrolling.
 - Photoroom background removal is now invoked between photo selection and classification (see [Photoroom Background Removal](#photoroom-background-removal) for the full pipeline).
-- Re-photograph flow: when `replaceItemId` is present in route params, saving a new item atomically removes the old ghost item (see [Re-photograph Flow](#re-photograph-flow)).
+- Re-photograph flow: `replaceItemId` updates the same owned garment row after upload; it does not insert/remove rows or consume an additional wardrobe slot (see [Re-photograph Flow](#re-photograph-flow)).
 - Multi-select now routes directly to `bulk-review.tsx` with no intermediate splash screen.
 
-**Code:** `app/add-item.tsx`, `lib/storage.ts`, `lib/classifyPath.ts`, `lib/uploadArg.ts`, `constants/rePhotographSave.ts`
+**Code:** `app/add-item.tsx`, `contexts/AppContext.tsx`, `lib/database.ts`, `lib/storage.ts`, `lib/classifyPath.ts`, `lib/uploadArg.ts`
 
 ---
 
@@ -1239,18 +1239,19 @@ Items can become "ghosts" — they exist in wardrobe state but their photo is mi
 
 ### Re-photograph Flow
 
-From the ghost-item recovery card (and from `app/item-detail.tsx`), users can retake or re-select a photo for a wardrobe item rather than removing it entirely.
+From the Home missing-photo recovery card, users can retake or re-select a photo for a wardrobe item rather than removing the garment.
 
 **Flow:**
-1. User taps "Re-photograph" on a ghost item card
-2. `app/add-item.tsx` receives a `replaceItemId` param via route
-3. Classification and upload proceed exactly as a normal new-item add
-4. On save: `applyRePhotographSave()` in `constants/rePhotographSave.ts` calls `addWardrobeItem(newItem)` then `removeWardrobeItem(replaceItemId)` — the old ghost is atomically replaced by the new item
-5. If `replaceItemId` is absent (normal add flow), `removeWardrobeItem` is not called — the function is a pure no-op branch
+1. User taps **Edit & re-photograph**. Home routes to `/add-item` with the same `replaceItemId`, pre-classified metadata and no initial photo.
+2. Add Item starts at Choose Photo but initializes the saved metadata even without `initialUri`. Price, formality, metal tone and confirmed fields come from the loaded original garment.
+3. Recovery accepts one photo. Selecting it preserves the draft metadata and bypasses AI reclassification/background removal; it does not spend AI allowances.
+4. Save uploads a new image object before `replaceWardrobeItem()` updates the row filtered by both garment ID and owner ID. The garment ID, creation time, row count and free selected-item slots stay unchanged. A fresh object key avoids overwriting the old image before the row acknowledges the replacement.
+5. Cancellation leaves the garment and Home recovery action intact. Upload failure does not start the database update and keeps the draft retryable. Only an acknowledged replacement clears the recovery card and shows **Changes saved**.
+6. Without `replaceItemId`, the normal insert flow remains unchanged.
 
-`applyRePhotographSave` is a deliberately simple, asset-free, React-free utility so it can be imported and verified directly in Node/tsx tests without any mocking.
+`constants/rePhotographSave.ts` and its old helper tests are legacy add/remove fixtures, not evidence for the current screen flow. `addItemReplacementContract.test.ts` executes the actual Home route, screen initialization, picker and save callbacks with controlled I/O. Live verification evidence and its limits are recorded separately in `docs/testing/missing-photo-recovery.md`.
 
-**Code:** `constants/rePhotographSave.ts`, `app/add-item.tsx`, `app/(tabs)/index.tsx`
+**Code:** `app/add-item.tsx`, `app/(tabs)/index.tsx`, `contexts/AppContext.tsx`, `lib/database.ts`
 
 ---
 
@@ -1391,7 +1392,7 @@ These features are **not yet implemented**. They are the next development priori
 | `blueprint-lifestyle-slots.test.ts` | Lifestyle slot group thresholds across all 6 blueprints (group existence, category ordering, proportionality) |
 | `blueprint-slots.test.ts` | Slot structure invariants (required fields, valid categories, no duplicate IDs) |
 | `bulkAutoPersist.test.ts` | Legacy auto-persist helper contract; the B2.8 review UI now commits Save All atomically instead |
-| `addItemReplacementContract.test.ts` | Replacement at capacity updates the existing item rather than deleting it or consuming another slot |
+| `addItemReplacementContract.test.ts` | Actual Home route, no-initial-photo metadata initialization, single-photo picker cancellation, failed upload and successful retry; controlled I/O fixtures, not live/device evidence |
 | `bulkSaveAtomic.test.ts` | Bulk Save All uploads before a single acknowledged commit; failed uploads and rejected commits do not navigate or report success |
 | `freeWardrobeSelectionDb.test.ts` | Disposable PostgreSQL verification of capacity, expiry, role privileges, ownership, selection, concurrency, rollback and cascading deletion |
 | `freeWardrobeSelectionSql.test.ts` | Static contract checks for authenticated insert RPCs, selection, and ordering index |
