@@ -1,5 +1,24 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
+## Guest-to-account wardrobe continuity
+
+Guest garments now transfer automatically after signup/signin through the
+existing owner-folder Storage upload and wardrobe batch RPC, without AI calls
+or consent prompts. A durable device-local owner claim precedes guest-state
+replacement; stable IDs, row/path reconciliation and account guards prevent
+duplicate/cross-account import. Oldest pieces fit the existing free active
+allowance (30) or Premium ceiling; the remainder stays pending on-device.
+Startup/foreground retries and a quiet Wardrobe note update the signed-in
+wardrobe without restarting. The earlier guest-bulk “no migration promise”
+scope is superseded for already-saved guest rows; guest upload/review stays
+manual and does not retroactively process photos.
+
+Full suite 114/114, typecheck, lint, golden 35/35, and benchmark/frozen validation
+passed. Native filesystem, live-service transfer and physical-device recovery
+still require device checks. Audit, implementation, precise evidence and
+limitations: `docs/reports/guest-to-account-migration.md`. No schema, RLS,
+quota-rule, consent, billing or frozen-engine changes; no deployment.
+
 ## AI preference save failure correction
 
 Observed preference-write 429s were traced to the five-per-hour account

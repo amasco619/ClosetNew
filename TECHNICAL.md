@@ -3093,3 +3093,37 @@ Profile-layout, quota, PhotoRoom, or authenticated-flow behavior was changed.
 The report records user-reported successful physical-device checks on iOS 27
 and Android 16; device models were not provided and the workspace did not
 directly observe the runs.
+
+## 46. GUEST-TO-ACCOUNT WARDROBE TRANSFER
+
+Guest saves remain local/manual and invoke no AI. On signup or signin from an
+explicitly guest cache, AppContext now durably claims those existing saved rows
+for that authenticated owner before replacing guest state. Session restoration
+can capture an interrupted transition while the local profile is still guest.
+No prior-account cache is eligible. The local journal
+`@amodka_guest_wardrobe_migration` retains original rows, stable migration IDs,
+owner binding, upload paths and confirmation/notice flags; tombstones prevent
+re-import of a surviving legacy cache into another account.
+
+Startup/foreground retry reads current entitlement/counts and owned matching
+rows, admits oldest-created first within existing free active-selection capacity
+30 (not a new retained-row limit), or Premium ceiling 2,000, uploads managed
+originals through existing private wardrobe Storage, and uses
+`insert_wardrobe_items`. Never mark synced or remove a legacy guest-cache row
+until a valid insert acknowledgement or matching owned ID/path confirms it.
+Ambiguous responses are reconciled before retry; never delete their uploads.
+Account/generation guards and adapter session-owner checks reject stale work.
+Each network stage has a 20-second waiting deadline; requests may still finish
+after timeout. No AI/consent/billing/rotation/wear/profile writes are introduced.
+
+The Wardrobe screen shows quiet syncing/pending/capacity text and an at-most-once
+success note after the existing guarded wardrobe refresh. Remaining work stays
+device-local and owner-bound across signout/restart; other accounts cannot see
+or adopt it. Account deletion additionally removes that owner's journal entries
+and includes their original managed files in existing device cleanup, without
+discarding another owner's queue. Synced originals otherwise remain for open
+guest-origin reviews. Pending work does not survive uninstall/cleared app data.
+
+Audit, exact checks, implementation and device limitations:
+`docs/reports/guest-to-account-migration.md`. No schema/RLS, dependency, frozen
+engine/benchmark, quota enforcement, auth API or consent change; not published.

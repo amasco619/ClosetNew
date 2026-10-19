@@ -45,6 +45,7 @@ import { projectWardrobeForStyling } from '../lib/stylingWardrobe';
 import { buildStylingContextCandidates, asTraditionalOutfits } from '../lib/traditionalStyling';
 import { annotateStylingRelationships, projectRelationshipsForStyling } from '../lib/stylingRelationships';
 import { supabase } from '../lib/supabase';
+import { guestWardrobeSync } from '../lib/guestWardrobeSync';
 import { deleteWardrobeImage, recoverWardrobeImageUrl, isStoragePath, resolveWardrobeImageUrl, getSignedWardrobeUrl, clearSignedWardrobeUrlCache } from '../lib/storage';
 import { reportError } from '@/shared/observability';
 import {
@@ -109,6 +110,8 @@ interface AppContextValue {
   startupError: boolean;
   retryInitialization: () => void;
   dataUnavailable: boolean;
+  guestWardrobeSyncState: { syncing: boolean; pending: number; capacity: boolean; notice: string | null };
+  dismissGuestWardrobeNotice: () => void;
   entitlementUnavailable: boolean;
   refreshPremiumEntitlement: (rejectUnavailable?: boolean) => Promise<boolean>;
   isAuthenticated: boolean;
@@ -183,6 +186,15 @@ const STORAGE_KEYS = {
   pendingPhotoCleanups: '@amodka_pending_photo_cleanups',
 };
 
+async function claimGuestWardrobe(userId: string, guestProfile: UserProfile | null) {
+  if (guestProfile?.isGuest !== true) return;
+  const raw = await AsyncStorage.getItem(STORAGE_KEYS.wardrobe);
+  const cached: WardrobeItem[] = raw ? JSON.parse(raw) : [];
+  // Only the proven guest-only persisted cache is eligible. An in-memory
+  // account snapshot may still be awaiting React's account-switch cleanup.
+  await guestWardrobeSync.claim(userId, cached);
+}
+
 // Sub-type chips are derived from the curated blueprints (single source
 // of truth) so every blueprint slot is guaranteed to be selectable from
 // Add Item / Item Detail under the strict matcher.
@@ -250,6 +262,12 @@ function selectActiveWardrobeItems(
 export function AppProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [wardrobeItems, setWardrobeItems] = useState<WardrobeItem[]>([]);
+  const [guestWardrobeSyncState, setGuestWardrobeSyncState] = useState<{
+    syncing: boolean; pending: number; capacity: boolean; notice: string | null;
+  }>({ syncing: false, pending: 0, capacity: false, notice: null });
+  const guestSyncRunningRef = useRef<symbol | null>(null);
+  const dismissGuestWardrobeNotice = useCallback(() =>
+    setGuestWardrobeSyncState(prev => ({ ...prev, notice: null })), []);
   const wardrobeItemsRef = useRef(wardrobeItems);
   const wardrobeCorrectionPendingRef = useRef(false);
   const wardrobeCorrectionRevisionRef = useRef(0);
@@ -460,6 +478,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           )) return;
           if (currentUserIdRef.current !== userId) {
             accountGenerationRef.current += 1;
+            setGuestWardrobeSyncState({ syncing: false, pending: 0, capacity: false, notice: null });
             setWardrobeItems([]);
             setFreeSelectedItemIds([]);
             updateWardrobePagination(0, 0);
@@ -480,6 +499,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const localRaw = await AsyncStorage.getItem(STORAGE_KEYS.profile).catch(() => null);
           const localSnap: UserProfile | null = mayMigrateGuest && localRaw
             ? mergeProfile(JSON.parse(localRaw)) : null;
+          await claimGuestWardrobe(userId, localSnap);
           await loadUserDataFromDB(userId, authName, localSnap, generation);
           // The hydration may have completed after a retry advanced the
           // startup generation. Never publish auth state from that stale
@@ -508,6 +528,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           currentUserGenerationRef.current = null;
           setIsAuthenticated(false);
           setAuthenticatedUserId(null);
+          setGuestWardrobeSyncState({ syncing: false, pending: 0, capacity: false, notice: null });
           setProfile(defaultProfile);
           setWardrobeItems([]);
           updateWardrobePagination(0, 0);
@@ -927,6 +948,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           currentUserGenerationRef.current = generation;
           startingUserId = initUserId;
           startingAccountGeneration = accountGenerationRef.current;
+          await claimGuestWardrobe(initUserId, loadedProfile);
           await loadUserDataFromDB(initUserId, initAuthName, loadedProfile, generation);
           assertCurrent();
         }
@@ -1246,10 +1268,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const clearDeletedAccountLocalData = useCallback(async () => {
     const photoUris = wardrobeItemsRef.current.map(item => item.photoUri);
+    const deletingOwner = currentUserIdRef.current;
     ++startupGenerationRef.current;
     accountGenerationRef.current += 1;
     currentUserIdRef.current = null;
     currentUserGenerationRef.current = null;
+    if (deletingOwner) photoUris.push(...await guestWardrobeSync.removeOwner(deletingOwner));
     wardrobeItemsRef.current = [];
     pendingPhotoCleanupsRef.current = [];
     await pendingPhotoCleanupQueueRef.current.catch(() => undefined);
@@ -1595,6 +1619,65 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!isCurrentAccountRequest(userId, accountGeneration, startupGeneration)) return;
     setFreeSelectedItemIds(ids);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const userId = authenticatedUserId;
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    const isCurrent = () => active && !!userId &&
+      isCurrentAccountRequest(userId, accountGeneration, startupGeneration);
+    if (!userId) {
+      setGuestWardrobeSyncState({ syncing: false, pending: 0, capacity: false, notice: null });
+      return;
+    }
+    if (!appReady || isLoading) return;
+    const run = async () => {
+      if (!isCurrent() || guestSyncRunningRef.current) return;
+      const token = Symbol('guest-sync');
+      guestSyncRunningRef.current = token;
+      let pending = 0;
+      try {
+        const entries = (await guestWardrobeSync.list()).filter(entry => entry.ownerId === userId);
+        if (!isCurrent()) return;
+        pending = entries.filter(entry => !entry.synced).length;
+        if (!pending && !entries.some(entry => !entry.announced)) return;
+        setGuestWardrobeSyncState({ syncing: true, pending, capacity: false, notice: null });
+        const result = await guestWardrobeSync.sync(userId, isCurrent);
+        if (!isCurrent() || !result) return;
+        const changed = result.pending < pending || entries.some(entry => entry.synced && !entry.announced);
+        pending = result.pending;
+        // Existing full refresh preserves account/correction guards and does
+        // not write rotation, wear, profile, mood, reactions or saved looks.
+        if (changed) {
+          await loadAllWardrobeItems();
+          const selected = await getFreeWardrobeSelection(userId);
+          if (!isCurrent()) return;
+          setFreeSelectedItemIds(selected);
+        }
+        const count = await guestWardrobeSync.takeNotice(userId);
+        if (!isCurrent()) return;
+        setGuestWardrobeSyncState({
+          syncing: false, pending, capacity: result.capacity,
+          notice: count ? `Your ${count} ${count === 1 ? 'piece is' : 'pieces are'} now in your account.` : null,
+        });
+      } catch {
+        if (isCurrent()) setGuestWardrobeSyncState(prev => ({ ...prev, syncing: false, pending }));
+      } finally {
+        if (guestSyncRunningRef.current === token) guestSyncRunningRef.current = null;
+        if (isCurrent()) setGuestWardrobeSyncState(prev => ({ ...prev, syncing: false }));
+      }
+    };
+    void run();
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') void run();
+    });
+    return () => {
+      active = false;
+      guestSyncRunningRef.current = null;
+      subscription.remove();
+    };
+  }, [appReady, isLoading, authenticatedUserId, loadAllWardrobeItems]);
 
   const commitAddedWardrobeItems = useCallback((
     items: WardrobeItem[],
@@ -2189,6 +2272,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     hasPendingPhotoCleanup, retryPendingPhotoCleanup, clearDeletedAccountLocalData, updateWardrobeItem,
     isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
     isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable,
+    guestWardrobeSyncState, dismissGuestWardrobeNotice,
     retryInitialization: () => {
       setStartupError(false);
       setIsLoading(true);
@@ -2212,6 +2296,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         hasPendingPhotoCleanup, retryPendingPhotoCleanup, clearDeletedAccountLocalData, updateWardrobeItem,
        isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
+       guestWardrobeSyncState, dismissGuestWardrobeNotice,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
        todayMood, setTodayMood, reactions, reactToOutfit, clearOutfitReaction, getOutfitReaction,
        profileCompleteness, missingDimensions, dismissProfileNudge, shouldShowProfileNudge,

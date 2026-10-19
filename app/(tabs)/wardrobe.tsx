@@ -45,6 +45,7 @@ export default function WardrobeScreen() {
     activeWardrobeItems, canAddItem, isPremium, isAuthenticated, profile,
     wardrobeTotalCount, freeSelectedItemIds,
     loadMoreWardrobeItems, wardrobeHasMore, dataUnavailable, retryInitialization,
+    guestWardrobeSyncState, dismissGuestWardrobeNotice,
   } = useApp();
   const [filter, setFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -221,6 +222,30 @@ export default function WardrobeScreen() {
         </View>
       </View>
 
+      {!profile.isGuest && guestWardrobeSyncState && (
+        guestWardrobeSyncState.syncing || guestWardrobeSyncState.pending > 0 || guestWardrobeSyncState.notice
+      ) && (
+        <View style={styles.syncNote} accessibilityLiveRegion="polite">
+          <View style={{ flex: 1 }}>
+            {guestWardrobeSyncState.syncing && <Text style={styles.syncText}>Syncing your wardrobe</Text>}
+            {guestWardrobeSyncState.notice && <Text style={styles.syncText}>{guestWardrobeSyncState.notice}</Text>}
+            {!guestWardrobeSyncState.syncing && guestWardrobeSyncState.pending > 0 && (
+              <Text style={styles.syncText}>
+                {guestWardrobeSyncState.pending} pieces remain safely on this device. {guestWardrobeSyncState.capacity
+                  ? 'They will sync when there is room in your account.'
+                  : 'We’ll try again when you reopen the app or return to it.'}
+              </Text>
+            )}
+          </View>
+          {guestWardrobeSyncState.notice && (
+            <Pressable accessibilityRole="button" accessibilityLabel="Dismiss wardrobe sync note"
+              onPress={dismissGuestWardrobeNotice} hitSlop={12}>
+              <Ionicons name="close" size={18} color={Colors.textSecondary} />
+            </Pressable>
+          )}
+        </View>
+      )}
+
       {/* Category filter chips */}
       <View style={styles.filterRow}>
         <FlatList
@@ -309,6 +334,8 @@ export default function WardrobeScreen() {
 }
 
 const styles = StyleSheet.create({
+  syncNote: { marginHorizontal: 20, marginBottom: 12, padding: 12, borderRadius: 12, backgroundColor: Colors.white, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  syncText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19 },
   container: { flex: 1, backgroundColor: Colors.background },
 
   // Header

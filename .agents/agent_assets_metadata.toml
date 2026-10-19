@@ -603,3 +603,17 @@ mtime_ms = 1792368079953
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/0a23f211-e24c-4b70-94ff-d10c9a22cb65/70f3abf5-9853-41f2-8271-01dd33849e0b"
 storage_version_token = "1792368090209121"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "ssNyfA-hs_LUPdW5l8Fu_"
+uri = "file://docs/reports/guest-to-account-migration.md"
+type = "text"
+title = "Guest-to-account migration — audit and implementation report"
+description = "Root cause, implemented transfer/retry behavior, changed files, exact test results, browser-fixture evidence, and remaining physical-device checks."
+logical_id = "44d27247-f36e-4b40-9fc2-49dafa5130e9"
+content_hash = "sha256:784f55ad564154cc2e87ce745dea7e9196abe9c7f242916719a009753b58a272"
+size = 11783
+mtime_ms = 1792369663212
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/44d27247-f36e-4b40-9fc2-49dafa5130e9/3421d2cd-09c7-49e3-b3d5-a31dee70e051"
+storage_version_token = "1792369694111747"
+content_type = "text/markdown"

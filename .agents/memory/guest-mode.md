@@ -6,8 +6,8 @@ description: How AuraCloset handles unauthenticated guest users — caps, routin
 ## Rule
 - Guest manual wardrobe additions are local-only: photos are copied into app documents and wardrobe rows remain in the existing local store.
 - Guest bulk upload follows the same manual local-save path; it does not classify photos or invoke PhotoRoom/Gemini.
-- Signing in does not imply that guest wardrobe rows or photos are transferred to the account. Do not promise or implement transfer as part of a guest upload change.
-- The `SIGNED_IN` event clears `isGuest: false`; guest profile/onboarding settings may be migrated, but that is separate from wardrobe-row/photo transfer.
+- The user explicitly approved automatic transfer of already-saved guest garments after signup OR signin. This supersedes the earlier no-transfer scope; guest photo selection/review itself remains local and manual.
+- Account transfer must be owner-bound, durable, stable-ID/idempotent and non-AI. Preserve pending originals through failure/capacity limits; never copy a prior account's wardrobe or infer consent to AI processing from signup.
 
 ## Routing (app/index.tsx)
 1. Session exists → tabs (if onboarding done) or /onboarding
@@ -17,6 +17,6 @@ description: How AuraCloset handles unauthenticated guest users — caps, routin
 ## Onboarding entry
 `/onboarding?guest=true` — `handleNext` checks `params.guest === 'true'` and spreads `{ isGuest: true }` into the final `updateProfile` call.
 
-**Why:** The approved guest bulk scope requires local-only parity with single manual add and no new continuity or migration behavior.
+**Why:** The user reported losing three guest garments when creating an account and explicitly requested account continuity without AI calls or changes to schema, quota rules, billing or consent.
 
-**How to apply:** Keep guest photo selection, manual save, and cleanup on-device. Treat account transfer as a separate explicit product and security decision.
+**How to apply:** Keep guest photo selection and manual save on-device; migrate only saved rows from the explicitly guest cache through the separately account-bound transfer. Do not apply AI to previous selections or turn account-owned data into guest data.
