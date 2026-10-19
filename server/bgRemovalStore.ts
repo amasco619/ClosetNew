@@ -207,3 +207,12 @@ export async function getUserBgRemovalStatus(
   const remaining = Math.max(0, freeLimit - count);
   return { allowed: count < freeLimit, count, remaining };
 }
+
+/** Account deletion must use the same Postgres store as quota writes, and fail closed. */
+export async function deleteUserBgRemovalUsage(
+  userId: string,
+  pool = getPool(),
+): Promise<void> {
+  if (!pool) throw new BgRemovalStoreUnavailableError();
+  await pool.query("DELETE FROM bg_removal_usage WHERE user_id = $1", [userId]);
+}

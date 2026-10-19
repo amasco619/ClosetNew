@@ -617,3 +617,17 @@ mtime_ms = 1792369663212
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/44d27247-f36e-4b40-9fc2-49dafa5130e9/3421d2cd-09c7-49e3-b3d5-a31dee70e051"
 storage_version_token = "1792369694111747"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "vSRRYaCrDXxwzVcvE-c-s"
+uri = "file://reports/account-deletion-regression.md"
+type = "text"
+title = "Account deletion: evidence, corrections and remaining blocker"
+description = "Per-step diagnosis, code fixes, exact test results, limitations and proposed permission repair."
+logical_id = "04509f27-74ef-4b13-a215-096dc485816c"
+content_hash = "sha256:3937501cc1690d4bfd45f1fc4a61c7f863d5d7ffd3d29c00e0e2ac4846958c7e"
+size = 13310
+mtime_ms = 1792416758348
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/04509f27-74ef-4b13-a215-096dc485816c/e8fc4be2-fb2f-47c0-b4a3-66458de4db95"
+storage_version_token = "1792416765044339"
+content_type = "text/markdown"

@@ -12,10 +12,13 @@ import {
 } from "../server/accountDeletionInventory";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { Pool } from "pg";
+import { deleteUserBgRemovalUsage } from "../server/bgRemovalStore";
 
 const tables: string[] = ACCOUNT_DELETION_TABLES.map(({ table }) => table);
 const buckets: string[] = [...ACCOUNT_DELETION_STORAGE_BUCKETS];
 const stages = [
+  "billing_tombstone",
   ...buckets.flatMap(bucket => [
     `storage_list_${bucket}`, `storage_remove_${bucket}`, `storage_verify_${bucket}`,
   ]),
@@ -77,6 +80,7 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
     Array.from({ length: bucket === "wardrobe-images" ? wardrobeCount : 1 }, (_, i) => `file-${i}.jpg`),
   ] as const));
   const calls: string[] = [];
+  const remainingTables = new Set(tables);
   let failAt = failure;
   const error = { message: "provider-private-error-do-not-log" };
   const originals = {
@@ -84,6 +88,7 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
     from: supabaseAdmin.from,
     deleteUser: supabaseAdmin.auth.admin.deleteUser,
     verifyOtp: supabaseAnon.auth.verifyOtp,
+    rpc: supabaseAdmin.rpc,
   };
   function failed(stage: string) {
     if (stage !== failAt) return false;
@@ -110,17 +115,33 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
   Reflect.set(supabaseAdmin, "from", (table: string) => ({
     delete: () => ({
       eq: async (column: string, id: string) => {
+        assert.notEqual(table, "bg_removal_usage", "quota usage is not a Supabase table");
         assert.equal(column, ACCOUNT_DELETION_TABLES.find(entry => entry.table === table)?.ownerColumn);
         assert.equal(id, userId);
         const stage = `table_${table}`;
         calls.push(stage);
-        return { error: failed(stage) ? error : null };
+        if (failed(stage)) return { error };
+        remainingTables.delete(table);
+        return { error: null };
       },
     }),
   }));
+  _testOverrides.deleteBgRemovalUsage = async id => {
+    assert.equal(id, userId);
+    const stage = "table_bg_removal_usage";
+    calls.push(stage);
+    if (failed(stage)) throw new Error(error.message);
+    remainingTables.delete("bg_removal_usage");
+  };
+  Reflect.set(supabaseAdmin, "rpc", async (name: string) => {
+    assert.equal(name, "billing_tombstone_account");
+    calls.push("billing_tombstone");
+    return { error: failed("billing_tombstone") ? error : null };
+  });
   Reflect.set(supabaseAdmin.auth.admin, "deleteUser", async (id: string) => {
     assert.equal(id, userId);
     calls.push("auth_delete");
+    assert.equal(remainingTables.size, 0, "all owned tables must be cleared before Auth");
     return { error: failed("auth_delete") ? error : null };
   });
   Reflect.set(supabaseAnon.auth, "verifyOtp", async () => ({
@@ -129,17 +150,41 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
   return {
     calls,
     files,
+    remainingTables,
     restore() {
       Reflect.set(supabaseAdmin.storage, "from", originals.storageFrom);
       Reflect.set(supabaseAdmin, "from", originals.from);
       Reflect.set(supabaseAdmin.auth.admin, "deleteUser", originals.deleteUser);
       Reflect.set(supabaseAnon.auth, "verifyOtp", originals.verifyOtp);
+      Reflect.set(supabaseAdmin, "rpc", originals.rpc);
+      delete _testOverrides.deleteBgRemovalUsage;
     },
   };
 }
 
 async function main() {
   assertCreatedTablesAreInventoried();
+  // This pool never connects: test the real deletion helper's SQL and failure semantics.
+  const pool = new Pool();
+  const sqlCalls: unknown[][] = [];
+  Reflect.set(pool, "query", async (...args: unknown[]) => {
+    sqlCalls.push(args);
+    return { rowCount: 0 }; // a retry with no remaining row is success
+  });
+  await deleteUserBgRemovalUsage(userId, pool);
+  await deleteUserBgRemovalUsage(userId, pool);
+  assert.deepEqual(sqlCalls, Array.from({ length: 2 }, () => [
+    "DELETE FROM bg_removal_usage WHERE user_id = $1", [userId],
+  ]));
+  await assert.rejects(deleteUserBgRemovalUsage(userId, null), /store unavailable/);
+  for (const message of ["relation does not exist", "connection failed"]) {
+    Reflect.set(pool, "query", async () => { throw new Error(message); });
+    await assert.rejects(deleteUserBgRemovalUsage(userId, pool), new RegExp(message));
+  }
+  await pool.end();
+
+  const billingEnabled = process.env.REVENUECAT_BILLING_ENABLED;
+  process.env.REVENUECAT_BILLING_ENABLED = "true";
 
   const app = express();
   app.set("trust proxy", 1);
@@ -192,6 +237,9 @@ async function main() {
           assert.doesNotMatch(res.text, /provider-private-error-do-not-log/);
           assert.equal(mock.calls.includes("auth_delete"), stage === "auth_delete",
             `${route}: Auth must only be attempted after successful cleanup (${stage})`);
+          const retry = await attempt(route);
+          assert.equal(retry.status, 200, `${route}: retry completes after ${stage}`);
+          assert.equal(mock.remainingTables.size, 0);
           console.log(`  ✓ ${route} fails closed at ${stage}`);
         } finally {
           mock.restore();
@@ -246,8 +294,28 @@ async function main() {
         mock.restore();
       }
     }
+    const limitedIp = `202.${randomInt(1, 255)}.${randomInt(1, 255)}.${randomInt(1, 255)}`;
+    const mock = mockDeletion();
+    try {
+      for (let i = 0; i < 5; i++) {
+        const response = await request(app).delete("/api/user/delete-account")
+          .set("X-Forwarded-For", limitedIp).send({ userId });
+        assert.equal(response.status, 200);
+      }
+      const callCount = mock.calls.length;
+      const limited = await request(app).delete("/api/user/delete-account")
+        .set("X-Forwarded-For", limitedIp).send({ userId });
+      assert.equal(limited.status, 429);
+      assert.equal(limited.body.error, "rate_limit");
+      assert(Number(limited.headers["retry-after"]) > 0);
+      assert.equal(mock.calls.length, callCount, "429 never starts deletion");
+    } finally {
+      mock.restore();
+    }
   } finally {
     delete _testOverrides.authenticatedUser;
+    if (billingEnabled === undefined) delete process.env.REVENUECAT_BILLING_ENABLED;
+    else process.env.REVENUECAT_BILLING_ENABLED = billingEnabled;
   }
 }
 

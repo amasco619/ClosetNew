@@ -3,6 +3,7 @@ import {
   ACCOUNT_LOCAL_STORAGE_KEYS,
   clearAccountDeviceData,
   deleteAccountThenClearLocalData,
+  getAccountDeletionFailure,
 } from '../constants/accountDeletionCleanup';
 
 const DOCUMENT_DIRECTORY = 'file:///documents/';
@@ -75,6 +76,25 @@ async function testServerFailurePreservesDeviceData(): Promise<void> {
 async function runTests(): Promise<void> {
   await testConfirmedDeletionClearsDeviceData();
   await testServerFailurePreservesDeviceData();
+  const cleanupThrew = await deleteAccountThenClearLocalData(
+    async () => undefined,
+    async () => { throw new Error('journal or local cleanup failed'); },
+  );
+  assert.equal(cleanupThrew, false, 'confirmed deletion is not reclassified as a server failure');
+  assert.match(getAccountDeletionFailure({ status: 429 }).message, /little while/);
+  assert.equal(getAccountDeletionFailure({ status: 500 }).title, 'Deletion incomplete');
+  assert.match(getAccountDeletionFailure({ status: 500 }).message, /Some data may already/);
+  assert.equal(getAccountDeletionFailure({ kind: 'timeout' }).title, 'Deletion not confirmed');
+  assert.equal(getAccountDeletionFailure({ kind: 'network' }).title, 'Deletion not confirmed');
+  assert.equal(getAccountDeletionFailure({ status: 401 }).title, 'Please sign in again');
+  const filesFailed = await clearAccountDeviceData({
+    removeStorageKeys: async () => undefined,
+    photoUris: [`${DOCUMENT_DIRECTORY}wardrobe_item-1.jpg`],
+    documentDirectory: DOCUMENT_DIRECTORY,
+    deleteAsync: async () => { throw new Error('device file unavailable'); },
+    clearSignedPhotoCache: () => undefined,
+  });
+  assert.equal(filesFailed, false);
   console.log('accountDeletionLocalCleanup: success and failed-server deletion cases passed');
 }
 

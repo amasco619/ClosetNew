@@ -44,7 +44,32 @@ export async function deleteAccountThenClearLocalData(
   clearLocalData: () => Promise<boolean>,
 ): Promise<boolean> {
   await deleteAccountOnServer();
-  return clearLocalData();
+  try {
+    return await clearLocalData();
+  } catch {
+    // Server deletion is already confirmed; a device cleanup exception cannot undo it.
+    return false;
+  }
+}
+
+export function getAccountDeletionFailure(error: unknown): { title: string; message: string } {
+  const failure = error as { status?: number; kind?: string } | null;
+  if (failure?.status === 429) {
+    return { title: 'Please try again later', message: 'Please try again in a little while.' };
+  }
+  if (failure?.status === 401) {
+    return { title: 'Please sign in again', message: 'Your session could not be verified. Sign in again before retrying account deletion.' };
+  }
+  if (failure?.status && failure.status >= 500) {
+    return {
+      title: 'Deletion incomplete',
+      message: 'Account deletion could not be completed. Some data may already have been removed. Please try again.',
+    };
+  }
+  return {
+    title: 'Deletion not confirmed',
+    message: 'We could not confirm account deletion. Some data may already have been removed. Check your connection and try again.',
+  };
 }
 
 export async function clearAccountDeviceData(options: {

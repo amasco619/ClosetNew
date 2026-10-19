@@ -21,7 +21,7 @@ import { useApp } from '@/contexts/AppContext';
 import { signOut } from '@/lib/auth';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { supabase } from '@/lib/supabase';
-import { deleteAccountThenClearLocalData } from '@/constants/accountDeletionCleanup';
+import { deleteAccountThenClearLocalData, getAccountDeletionFailure } from '@/constants/accountDeletionCleanup';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 import { AmodkaErrorState } from '@/components/AmodkaErrorState';
 import { useDialog } from '@/contexts/LuxuryFeedbackContext';
@@ -211,11 +211,8 @@ export default function ProfileScreen() {
                 const result = await response.json();
                 if (result.success !== true) throw new Error('Deletion not confirmed');
               }, clearDeletedAccountLocalData);
-            } catch {
-              dialog.notify({
-                title: 'Deletion not confirmed',
-                message: 'Your account was not confirmed deleted. Some data may already have been removed. Please try again or contact support.',
-              });
+            } catch (error) {
+              dialog.notify(getAccountDeletionFailure(error));
               return;
             }
             let signedOut = true;

@@ -2299,6 +2299,30 @@ No database transaction or rollback is implied, and no production data or
 Supabase settings were changed. `__tests__/accountDeletion.test.ts` injects
 failure at every stage for both routes and verifies partial-cleanup retries.
 
+### Account-deletion regression: database routing and live permission blocker
+
+The delete inventory, in order, is `affinity_signals`,
+`pair_affinity_signals`, `rotation_cursors`, `wear_logs`, `slot_statuses`,
+`tryon_profiles`, `saved_looks`, `garment_group_members`, `garment_groups`,
+`wardrobe_free_selections`, `wardrobe_items`, `bg_removal_usage`, and
+`user_profiles`. All use Supabase except `bg_removal_usage`, which must use
+the Replit Postgres connection used by background-removal quota writes.
+Its missing connection/table or failed DELETE blocks Auth deletion; deleting
+an already-absent usage row succeeds. The shared `bg_removal_cache` is untouched.
+
+Each completed deletion operation emits a sanitised step/ok/application-status
+record; failures identify the step without provider messages or account IDs.
+The app distinguishes 429, server/possibly-partial failure, unconfirmed
+transport failure, and confirmed-server/deferred-device cleanup. A migration
+journal cleanup exception does not prevent the remaining local cleanup and
+sign-out attempt.
+
+**Not live-resolved:** read-only inspection found that `service_role` lacks
+SELECT and DELETE privileges on `wardrobe_free_selections`. The route correctly
+fails closed there. The narrow proposed grant needs approval; no privilege,
+schema, RLS, billing, or consent changes have been made. See
+`reports/account-deletion-regression.md` for evidence and verification limits.
+
 ## 27. AUTH-2 — Sign-up and password-recovery correctness
 
 The sign-up route returns a privacy-equivalent acknowledgement rather than

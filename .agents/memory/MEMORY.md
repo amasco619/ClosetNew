@@ -39,3 +39,4 @@
 - [Wardrobe load state ownership](wardrobe-load-state-ownership.md) — include active account identity in screen load keys; equal wardrobe counts do not mean the request belongs to the same account.
 - [Supabase email auth policy](supabase-email-confirmation.md) — confirmation is off; only explicit duplicate codes disclose account_exists, while signup outages fail closed and sign-in stays non-enumerating.
 - [Luxury feedback hook boundary](luxury-feedback-hook-boundary.md) — screens use a lightweight dialog/toast context; only the root provider imports native feedback UI.
+- [Account deletion permissions](account-deletion-permissions.md) — passing mocks do not prove live service-role table privileges; verify effective access before claiming deletion works.

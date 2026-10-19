@@ -1319,9 +1319,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     accountGenerationRef.current += 1;
     currentUserIdRef.current = null;
     currentUserGenerationRef.current = null;
+    let journalCleared = true;
     if (deletingOwner) {
-      photoUris.push(...(await guestWardrobeSync.removeOwner(deletingOwner))
-        .map(uri => uri ? rebaseGuestPhotoUri(uri, FileSystem.documentDirectory ?? '') : uri));
+      try {
+        photoUris.push(...(await guestWardrobeSync.removeOwner(deletingOwner))
+          .map(uri => uri ? rebaseGuestPhotoUri(uri, FileSystem.documentDirectory ?? '') : uri));
+      } catch {
+        journalCleared = false;
+      }
     }
     wardrobeItemsRef.current = [];
     pendingPhotoCleanupsRef.current = [];
@@ -1359,7 +1364,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWeather(null);
     setWeatherLoading(false);
 
-    return cacheCleared;
+    return cacheCleared && journalCleared;
   }, []);
 
   // ── Weather (Open-Meteo, no API key) ─────────────────────────────────────

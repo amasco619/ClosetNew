@@ -25,6 +25,7 @@ import {
   ACCOUNT_DELETION_TABLES,
 } from "./accountDeletionInventory";
 import { reportError } from "../shared/observability";
+import { deleteUserBgRemovalUsage } from "./bgRemovalStore";
 import {
   aiLimiter,
   bgRemovalLimiter,
@@ -97,6 +98,7 @@ async function deleteAccountData(userId: string): Promise<void> {
     try {
       const result = await operation();
       if (result.error) throw new AccountDeletionError(stage);
+      console.info(JSON.stringify({ type: "account_deletion_step", step: stage, ok: true, status: 200 }));
       return result;
     } catch {
       throw new AccountDeletionError(stage);
@@ -109,11 +111,10 @@ async function deleteAccountData(userId: string): Promise<void> {
   // cleanup only; there is deliberately no path that clears the tombstone or
   // restores billing.
   if (isRevenueCatBillingEnabled()) {
-    try {
+    await checked("billing_tombstone", async () => {
       await tombstoneBillingAccount(userId);
-    } catch {
-      throw new AccountDeletionError("billing_tombstone");
-    }
+      return { error: null };
+    });
   }
 
   // Collect pages before removing objects: deleting while paginating with an
@@ -145,17 +146,28 @@ async function deleteAccountData(userId: string): Promise<void> {
 
   // Child tables precede parents. Repeating a successful delete of zero rows
   // is safe when retrying after a later stage failed.
-  for (const { table, ownerColumn } of ACCOUNT_DELETION_TABLES) {
-    await checked(`table_${table}`, () =>
-      supabaseAdmin.from(table).delete().eq(ownerColumn, userId),
-    );
+  for (const entry of ACCOUNT_DELETION_TABLES) {
+    const { table, ownerColumn } = entry;
+    await checked(`table_${table}`, async () => {
+      if ("database" in entry && entry.database === "replit") {
+        const remove = process.env.NODE_ENV === "test" && _testOverrides.deleteBgRemovalUsage
+          ? _testOverrides.deleteBgRemovalUsage : deleteUserBgRemovalUsage;
+        await remove(userId);
+        return { error: null };
+      }
+      return await supabaseAdmin.from(table).delete().eq(ownerColumn, userId);
+    });
   }
   await checked("auth_delete", () => supabaseAdmin.auth.admin.deleteUser(userId));
 }
 
 function logAccountDeletionError(error: unknown, route: string): void {
   const stage = error instanceof AccountDeletionError ? error.stage : "unexpected";
-  reportError(error, `account_deletion_${stage}`, { dependency: "supabase", route });
+  // Application status, not a claimed upstream status. No owner IDs or raw provider messages.
+  console.info(JSON.stringify({ type: "account_deletion_step", step: stage, ok: false, status: 500 }));
+  reportError(error, `account_deletion_${stage}`, {
+    dependency: stage === "table_bg_removal_usage" ? "postgres" : "supabase", route,
+  });
 }
 
 /** Return the ALLOWED_RESET_ORIGINS allowlist, or null when not configured. */
@@ -233,6 +245,7 @@ interface AuthenticatedRequest extends Request {
 
 export const _testOverrides: {
   authenticatedUser?: { id: string; email?: string };
+  deleteBgRemovalUsage?: (userId: string) => Promise<void>;
 } = {};
 
 /**
@@ -667,7 +680,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? " Billing access remains quarantined; a retry completes only deletion and never restores billing."
         : "";
       return renderVerifyError(
-        `Account deletion could not be completed. Some data may already have been removed.${retryPolicy} Please request a new code to retry deletion or contact support.`,
+        `Account deletion could not be completed. Some data may already have been removed.${retryPolicy} Please request a new code to retry deletion.`,
       );
     }
 
