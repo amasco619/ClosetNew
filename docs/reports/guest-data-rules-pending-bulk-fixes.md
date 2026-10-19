@@ -172,3 +172,26 @@ SELECT/DELETE grants were verified. Authenticated users do not have INSERT
 privilege. A PostgREST schema reload notification was issued. No existing
 wardrobe rows were changed. The phone build's target project and a physical
 receipt-backed delete/recovery journey remain unverified.
+
+## Physical Android follow-up: offline receipt lookup (2026-10-19)
+
+The user reported that signing into an existing account correctly left guest
+pieces behind, while a blank new account retained two guest photos as “Waiting
+to sync” and synced them after the phone reconnected and the app was reopened.
+Guest bulk photo and “Add details” actions opened manual Add Item, and offline
+AI-processing “Not Now” closed without an error.
+
+The warning shown during offline account creation was a DNS/network failure
+(`UnknownHostException: Unable to resolve host`), not a missing receipt table.
+The retry still treats receipt loading or photo removal as incomplete, but known
+fetch, transport and DNS errors no longer emit console warnings. Schema-cache,
+permission and other unexpected receipt errors remain visible. A focused
+integration test checks quiet offline lookup/removal, successful later receipt
+cleanup, and continued warning visibility for a missing-table error.
+
+Verification: focused Undo integration test, full `npm test` (117 passed, 0
+failed), `npm run typecheck`, and `npm run lint` passed. The test suite emits
+expected simulated cleanup-error logs and React test-renderer deprecation
+notices; no check failed. Expo frontend restarted and remained running. The user
+has not yet retested the quiet-warning change on a physical phone. iOS and
+VoiceOver/TalkBack remain unverified.

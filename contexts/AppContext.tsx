@@ -395,6 +395,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const userId = currentUserIdRef.current;
     const ownerKey = userId ?? (profile.isGuest ? 'guest' : null);
     if (!ownerKey) return false;
+    const isConnectivityFailure = (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      return /network request failed|failed to fetch|fetch failed|network error|unable to resolve host|unknownhostexception|no address associated with hostname|name or service not known|temporary failure in name resolution|eai_again|enotfound|network is unreachable|ehostunreach|econnreset|connection reset|socket hang up|sockettimeoutexception|etimedout|timed out/i
+        .test(message);
+    };
     const accountGeneration = accountGenerationRef.current;
     const startupGeneration = startupGenerationRef.current;
     if (userId) {
@@ -422,7 +427,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         receipts = await getWardrobePhotoCleanupReceipts(userId);
       } catch (error) {
         receiptLoadFailed = true;
-        console.warn('[wardrobe] Durable photo cleanup receipts could not be loaded', error);
+        if (!isConnectivityFailure(error)) {
+          console.warn('[wardrobe] Durable photo cleanup receipts could not be loaded', error);
+        }
       }
     }
     if (matching.length === 0 && receipts.length === 0 && !receiptLoadFailed) return false;
@@ -480,7 +487,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           await acknowledgeWardrobePhotoCleanup(receipt.item_id, receipt.image_url);
         } catch (error) {
           receiptsComplete = false;
-          console.warn('[wardrobe] Durable photo cleanup did not complete', error);
+          if (!isConnectivityFailure(error)) {
+            console.warn('[wardrobe] Durable photo cleanup did not complete', error);
+          }
         }
       }
       const remaining = [

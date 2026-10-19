@@ -399,6 +399,84 @@ async function testCommittedDeleteSurvivesProcessExit(): Promise<void> {
   assert.deepEqual(appState.photoReceipts, [], 'receipt is acknowledged only after Storage succeeds');
 }
 
+async function testOfflineReceiptLookupIsQuietAndRetryable(): Promise<void> {
+  resetState('owner-a', []);
+  const retryRef = { current: [] as PendingPhotoCleanup[] };
+  const retryQueue = { current: Promise.resolve() };
+  const warnings: unknown[][] = [];
+  const removedPaths: string[] = [];
+  const receipt = {
+    user_id: 'owner-a',
+    item_id: 'deleted-item',
+    image_url: 'owner-a/deleted-item-photo.png',
+  };
+  let lookupCount = 0;
+  let failStorageOnce = true;
+  const retryDeps = {
+    useCallback: (callback: unknown) => callback,
+    profile: { isGuest: false },
+    currentUserIdRef: { get current() { return appState.userId; } },
+    accountGenerationRef: { get current() { return appState.accountGeneration; } },
+    startupGenerationRef: { get current() { return appState.startupGeneration; } },
+    readPendingPhotoCleanups: async () => retryRef.current,
+    pendingPhotoCleanupsRef: retryRef,
+    pendingPhotoCleanupQueueRef: retryQueue,
+    isCurrentAccountRequest: (userId: string, generation: number, startup: number) =>
+      appState.userId === userId &&
+      appState.accountGeneration === generation &&
+      appState.startupGeneration === startup,
+    FileSystem: { documentDirectory, deleteAsync: async () => undefined },
+    deleteWardrobeImage: async (_userId: string, _itemId: string, storagePath?: string) => {
+      if (failStorageOnce) {
+        failStorageOnce = false;
+        throw new Error('Network request failed');
+      }
+      if (storagePath) removedPaths.push(storagePath);
+    },
+    getWardrobePhotoCleanupReceipts: async () => {
+      lookupCount++;
+      if (lookupCount === 1) {
+        throw new Error('fetch failed: java.net.UnknownHostException: Unable to resolve host');
+      }
+      if (lookupCount === 2 || lookupCount === 3) return [receipt];
+      throw new Error("Could not find the table 'public.wardrobe_photo_cleanup_receipts' in the schema cache");
+    },
+    acknowledgeWardrobePhotoCleanup: async () => undefined,
+    retryPhotoCleanups,
+    getActiveManagedPhotoReferences: () => new Set<string>(),
+    getReclaimableGuestPhotoSources: () => [],
+    rebaseGuestPhotoUri: (uri: string) => uri,
+    getGuestPhotoRelativePath,
+    guestWardrobeSync: {
+      list: async () => [],
+      markSourceReclaimed: async () => undefined,
+    },
+    rememberPhotoCleanup: async () => undefined,
+    AsyncStorage: {
+      getItem: async (key: string) => asyncStorage.get(key) ?? null,
+      setItem: async (key: string, value: string) => { asyncStorage.set(key, value); },
+    },
+    STORAGE_KEYS,
+    console: { warn: (...args: unknown[]) => warnings.push(args) },
+  };
+  const retryPendingPhotoCleanup = new Function(
+    ...Object.keys(retryDeps),
+    transformedPendingCleanupRetry.code,
+  )(...Object.values(retryDeps)) as () => Promise<boolean>;
+
+  assert.equal(await retryPendingPhotoCleanup(), false, 'an offline receipt lookup leaves cleanup incomplete');
+  assert.deepEqual(warnings, [], 'a DNS/network failure is not emitted as a console warning');
+  assert.equal(await retryPendingPhotoCleanup(), false, 'a failed offline photo removal leaves cleanup incomplete');
+  assert.deepEqual(warnings, [], 'a network failure while removing the photo is also quiet');
+  assert.equal(await retryPendingPhotoCleanup(), true, 'a later online retry drains the durable receipt');
+  assert.deepEqual(removedPaths, ['owner-a/deleted-item-photo.png']);
+  assert.deepEqual(warnings, [], 'successful recovery remains quiet');
+  assert.equal(await retryPendingPhotoCleanup(), false, 'a missing-table receipt error remains incomplete');
+  assert.equal(warnings.length, 1, 'non-connectivity receipt failures remain visible as warnings');
+  assert.match(String(warnings[0]?.[0]), /Durable photo cleanup receipts could not be loaded/);
+  assert.match(String(warnings[0]?.[1]), /schema cache/);
+}
+
 async function testGuestCleanupAndManagedDirectoryGuard(): Promise<void> {
   const guestPhoto = `${documentDirectory}wardrobe_guest-1.jpg`;
   resetState(null, [{ id: 'guest-1', photoUri: guestPhoto }]);
@@ -523,6 +601,7 @@ async function run(): Promise<void> {
   await testAuthenticatedCleanup();
   await testFailedPhotoCleanupIsRetainedAndRetryable();
   await testCommittedDeleteSurvivesProcessExit();
+  await testOfflineReceiptLookupIsQuietAndRetryable();
   await testGuestCleanupAndManagedDirectoryGuard();
   await testPartialBatchAndQuota();
   await testFailedUndoOffersPhotoCleanupRetry();

@@ -21,9 +21,13 @@ offline dismissal and ignores stale preference refresh errors.
 
 Validation results, item-by-item causes/fixes/tests, known limitations and
 device-verification status: `docs/reports/guest-data-rules-pending-bulk-fixes.md`.
-Latest checks: 117/117 tests, typecheck, lint, benchmark fixture validation,
-Track C validation, and `git diff --check` passed. Physical-device and
-signed-in app-flow verification remain outstanding.
+User-reported Android checks on 2026-10-19 confirmed existing-account guest
+separation, pending guest-photo retention and sync after reconnect, manual guest
+bulk actions, and offline AI-disclosure dismissal. Offline receipt lookup,
+photo removal and acknowledgement keep cleanup pending without logging known
+network/DNS failures; missing-table, permission and other unexpected failures
+remain warnings. The new log behavior has automated coverage but has not yet
+been retested on a phone. iOS and VoiceOver/TalkBack checks remain outstanding.
 The approved durable photo-cleanup migration is now applied to the connected
 Amodka Supabase project; table, RLS, trigger, acknowledgement function and
 service grants were verified, and the PostgREST schema cache was refreshed. No

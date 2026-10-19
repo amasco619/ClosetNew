@@ -3224,6 +3224,15 @@ are owner-RLS scoped, acknowledgements are owner-bound, and account deletion
 clears receipts before wardrobe rows; any receipt created by a later row delete
 remains available across a partial failure and is cleared on retry. The receipt
 owner also references Auth with `ON DELETE CASCADE` as a final cleanup safeguard.
+Known fetch, transport and DNS failures during receipt lookup, Storage removal
+or acknowledgement leave cleanup incomplete and quiet; the existing
+startup/reference-release retries remain in place. Unexpected failures,
+including schema-cache and permission errors, are still warned.
+`undoRemovalIntegration.test.ts` verifies Android-style DNS failure and offline
+Storage removal are quiet, a later retry drains the receipt, and a missing table
+remains visible. The user reported that guest photos synced after network
+reconnection on Android; the quiet-warning change itself has not been retested
+on a physical device.
 
 Single-upload rollback and unsigned-upload cleanup also use the exact uploaded
 path. The existing ambiguous-save rule remains: uncertain database outcomes do
