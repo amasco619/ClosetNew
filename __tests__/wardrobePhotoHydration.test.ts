@@ -12,13 +12,19 @@ function refreshHarness(options: {
   resolve?: (path: string) => Promise<string>;
   queued?: boolean;
 } = {}) {
+  const resolver = {
+    current: options.resolve ?? (async (path: string) => {
+      if (path.includes('missing')) throw new MissingWardrobePhotoError('Object not found');
+      throw new Error('Network request failed');
+    }),
+  };
   const source = readFileSync('contexts/AppContext.tsx', 'utf8');
   const block = (start: string, end: string) =>
     source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)));
   const tokenStart = source.indexOf("if (event === 'TOKEN_REFRESHED'");
   const tokenEnd = source.indexOf('\n      }\n    );', tokenStart);
   const code = `
-    const { hydrateWardrobePhoto, readCurrentEntitlement, resolve, queued } = dependencies;
+    const { hydrateWardrobePhoto, readCurrentEntitlement, resolver, queued } = dependencies;
     const useCallback = callback => callback;
     const currentUserIdRef = { current: 'owner' };
     const accountGenerationRef = { current: 1 };
@@ -52,7 +58,7 @@ function refreshHarness(options: {
     const reportError = () => { throw new Error('Unexpected entitlement failure'); };
     const warnings = [];
     const console = { warn: (...args) => warnings.push(args) };
-    const resolveWardrobeImageUrl = resolve;
+    const resolveWardrobeImageUrl = path => resolver.current(path);
     const isCurrentStartupGeneration = (generation, current) => generation === current;
     const getWardrobeItems = async (userId, offset = 0) => ({
       totalCount: 102, items: offset === 0 ? firstPage : laterPage,
@@ -81,17 +87,14 @@ function refreshHarness(options: {
       loadMoreWardrobeItems, loadAllWardrobeItems, refreshPremiumEntitlement,
       tokenRefresh: () => { tokenRefresh(); timers.splice(0).forEach(callback => callback()); },
       flushUpdates: () => updates.splice(0).forEach(update => { state.orphans = update(state.orphans); }),
+      setResolve: resolve => { resolver.current = resolve; },
     };
   `;
   const compiled = ts.transpileModule(code, {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS },
   }).outputText;
   return new Function('dependencies', compiled)({
-    hydrateWardrobePhoto, readCurrentEntitlement, queued: options.queued,
-    resolve: options.resolve ?? (async (path: string) => {
-      if (path.includes('missing')) throw new MissingWardrobePhotoError('Object not found');
-      throw new Error('Network request failed');
-    }),
+    hydrateWardrobePhoto, readCurrentEntitlement, queued: options.queued, resolver,
   });
 }
 
@@ -140,6 +143,18 @@ async function checkLaterReads() {
       assert.equal(stale.state.items.length, 100, `${flow}: no stale wardrobe publication`);
     }
 
+    const restoredDeferred = Promise.withResolvers<string>();
+    const staleRestore = refreshHarness({ resolve: () => restoredDeferred.promise });
+    staleRestore.state.orphans = [{ id: 'missing' }];
+    const staleRestorePending = staleRestore[flow]();
+    await settle();
+    staleRestore.startupGenerationRef.current++;
+    restoredDeferred.resolve('https://example.com/restored');
+    await staleRestorePending;
+    await settle();
+    assert.deepEqual(staleRestore.state.orphans.map((item: { id: string }) => item.id), ['missing'],
+      `${flow}: stale successful signing must not clear an existing warning`);
+
     const queued = refreshHarness({ queued: true });
     await queued[flow]();
     await settle();
@@ -158,12 +173,14 @@ async function checkLaterReads() {
 
   const deferred = Promise.withResolvers<string>();
   const corrected = refreshHarness({ resolve: () => deferred.promise });
+  corrected.state.orphans = [{ id: 'missing' }];
   const pending = corrected.loadAllWardrobeItems();
   await settle();
   corrected.wardrobeCorrectionRevisionRef.current++;
-  deferred.reject(new MissingWardrobePhotoError('Object not found'));
+  deferred.resolve('https://example.com/restored');
   await pending;
-  assert.equal(corrected.state.orphans.length, 0, 'full refresh cannot reintroduce corrected photos');
+  assert.deepEqual(corrected.state.orphans.map((item: { id: string }) => item.id), ['missing'],
+    'full refresh cannot clear recovery for a correction made while signing is pending');
   assert.equal(corrected.state.items.length, 100);
 
   for (const message of ['Unauthorized', 'Permission denied', 'Network request failed']) {
@@ -241,13 +258,32 @@ async function main() {
     }
   }
 
+  const restored = refreshHarness();
+  await restored.loadAllWardrobeItems();
+  assert.deepEqual(restored.state.orphans.map((item: { id: string }) => item.id), ['missing']);
+  restored.state.orphans = [...restored.state.orphans, { id: 'transient' }];
+  restored.setResolve(async (path: string) => {
+    if (path.includes('missing')) return `https://example.com/${path}`;
+    throw new Error('Network request failed');
+  });
+  await restored.loadAllWardrobeItems();
+  assert.deepEqual(restored.state.orphans.map((item: { id: string }) => item.id), ['transient'],
+    'successful signing clears the resolved warning but transient failures remain unresolved');
+
   const context = readFileSync('contexts/AppContext.tsx', 'utf8');
   const start = context.indexOf('const storagePathItems =');
-  const end = context.indexOf('setWardrobeItems(mapped);', start);
+  const end = context.indexOf('updateWardrobePagination', start);
   const hydration = context.slice(start, end);
-  assert.match(hydration, /hydrateWardrobePhoto\(it, resolveWardrobeImageUrl\)/);
-  assert(hydration.indexOf('assertCurrent();') < hydration.indexOf('setOrphanedItems('),
-    'late responses must pass existing account/startup guards before publishing recovery UI');
+  assert.match(hydration, /await hydrateWardrobePhotos\(\s*storagePathItems,/);
+  assert.match(hydration, /assertCurrent\(\);\s*setWardrobeItems\(mapped\);/,
+    'late startup responses must pass existing account/startup guards before publishing the wardrobe');
+  const helperStart = context.indexOf('const hydrateWardrobePhotos =');
+  const helperEnd = context.indexOf('const readPendingPhotoCleanups =', helperStart);
+  const helper = context.slice(helperStart, helperEnd);
+  assert(helper.indexOf('if (!isCurrent()') < helper.indexOf('setOrphanedItems('),
+    'late responses must pass existing account/startup and correction guards before publishing recovery UI');
+  assert.match(helper, /resolved\.filter\(id => !missingIds\.has\(id\)\)/,
+    'only successfully resolved IDs clear warnings, while confirmed missing IDs remain');
   assert.doesNotMatch(hydration, /deleteWardrobe|uploadWardrobe|\.remove\(|\.insert\(/,
     'hydrating a missing photo must not mutate cloud data');
   console.log('Wardrobe photo hydration: initial/page/full/manual/token recovery, available photos, deduplication, preserved metadata, transient diagnostics and deferred ownership/correction guards passed');

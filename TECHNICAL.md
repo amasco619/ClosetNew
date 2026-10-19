@@ -3188,6 +3188,9 @@ transient signing failures retain their existing URI and are logged, not offered
 as missing. Recovery publication checks account/startup ownership both after
 resolution and inside the state updater. Full reads also retain the correction
 revision guard so an in-flight read cannot reintroduce a corrected photo.
+When a later signing attempt succeeds, its item ID is removed from recovery;
+confirmed missing items remain listed and transient signing failures do not
+clear existing warnings. Startup uses the same guarded reconciliation.
 See `reports/missing-wardrobe-photos.md` for live evidence and validation limits.
 
 ## 49. RECOVERED-PHOTO DELETION

@@ -326,19 +326,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const hydrateWardrobePhotos = async (items: WardrobeItem[], isCurrent: () => boolean) => {
     const missing: WardrobeItem[] = [];
+    const resolved: string[] = [];
     await Promise.all(items.filter(item => item.storagePath).map(async item => {
       try {
         if (await hydrateWardrobePhoto(item, resolveWardrobeImageUrl)) missing.push(item);
+        else resolved.push(item.id);
       } catch (error) {
         console.warn(`[Amodka] Could not resolve signed URL for item id=${item.id}`, error);
       }
     }));
-    if (!isCurrent() || missing.length === 0) return;
+    if (!isCurrent() || (missing.length === 0 && resolved.length === 0)) return;
     setOrphanedItems(previous => {
       if (!isCurrent()) return previous;
-      const existing = new Set(previous.map(item => item.id));
+      const missingIds = new Set(missing.map(item => item.id));
+      const resolvedIds = new Set(resolved.filter(id => !missingIds.has(id)));
+      const retained = previous.filter(item => !resolvedIds.has(item.id));
+      const existing = new Set(retained.map(item => item.id));
       const additions = missing.filter(item => !existing.has(item.id));
-      return additions.length > 0 ? [...previous, ...additions] : previous;
+      return retained.length !== previous.length || additions.length > 0
+        ? [...retained, ...additions]
+        : previous;
     });
   };
 
@@ -1178,29 +1185,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // to short-lived signed URLs for display. Must run after file:// recovery
         // so the two passes do not overlap.
         const storagePathItems = mapped.filter(it => it.storagePath);
-        const missingStoragePhotos: WardrobeItem[] = [];
-        if (storagePathItems.length > 0) {
-          await Promise.all(
-            storagePathItems.map(async it => {
-              try {
-                if (await hydrateWardrobePhoto(it, resolveWardrobeImageUrl)) {
-                  missingStoragePhotos.push(it);
-                }
-              } catch (err) {
-                console.warn(`[Amodka] Could not resolve signed URL for item id=${it.id}`, err);
-              }
-            }),
-          );
-        }
+        await hydrateWardrobePhotos(
+          storagePathItems,
+          () => isCurrentAccountRequest(userId, accountGeneration, startupGeneration),
+        );
         // URL recovery can outlive the startup attempt that began hydration.
         // Do not let a stale listener completion publish its item snapshot.
         assertCurrent();
-        if (missingStoragePhotos.length > 0) {
-          setOrphanedItems(previous => {
-            const existing = new Set(previous.map(item => item.id));
-            return [...previous, ...missingStoragePhotos.filter(item => !existing.has(item.id))];
-          });
-        }
         setWardrobeItems(mapped);
         updateWardrobePagination(wardrobePage.totalCount, wardrobePage.items.length);
       }
