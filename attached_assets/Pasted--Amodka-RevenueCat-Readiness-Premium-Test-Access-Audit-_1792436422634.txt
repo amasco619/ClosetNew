@@ -1,0 +1,109 @@
+# Amodka RevenueCat Readiness & Premium Test-Access Audit — READ ONLY
+
+You are conducting a bounded, evidence-based audit of the existing Amodka RevenueCat integration. I need to decide the quickest and safest way to obtain a legitimate Premium test account so I can continue validating the existing Premium-only Travel Capsule Planner.
+
+## Strict restrictions
+
+**READ ONLY. Do not modify any files or code.**
+
+Do not install dependencies, change environment variables, edit RevenueCat or app configuration, alter store products, change entitlements, run migrations, modify Supabase, create test bypasses, change Premium authorization logic, publish or deploy.
+
+Do not print or expose secret values. You may identify the names and locations of required variables, but redact their values completely. Never expose API keys, tokens, credentials, signing secrets, purchase receipts or personal account information.
+
+Treat `AMODKA-PROJECT-STATUS.md`, `TECHNICAL.md`, the existing RevenueCat implementation and current tests as the sources of truth. Inspect actual current code rather than relying solely on documentation or earlier reports.
+
+## 1. Current implementation inventory
+
+Identify the relevant files, functions and actual behavior for:
+
+- RevenueCat SDK initialization and platform-specific configuration.
+- Public SDK key selection and environment/configuration requirements.
+- Customer identity, sign-in/sign-out, user switching and anonymous-to-identified transitions.
+- Entitlement retrieval and server-authoritative Premium status.
+- Offerings, packages, localized prices, monthly/annual purchase flows, trials if applicable, restore purchases and cancellation/customer-center functionality.
+- Billing readiness gating and the exact reason the Premium screen currently displays “Amodka billing is not currently ready.”
+- Frontend-to-backend entitlement flow, including `/api/user/entitlements` and relevant server-side checks.
+- How the Travel Capsule Planner's strict Premium verification interacts with RevenueCat and server entitlements.
+
+Distinguish implemented code, implemented-but-unverified code, incomplete code and configuration-only dependencies. Cite file/function names and line numbers where possible.
+
+## 2. External configuration readiness
+
+Determine exactly which external configuration requirements remain unmet. Inspect existing configuration and code references without exposing secret values.
+
+Cover, where applicable:
+
+- RevenueCat project, app/platform setup and public SDK keys.
+- Product identifiers and matching identifiers in RevenueCat and the Apple/Google stores.
+- Entitlement identifier(s) and offering/package configuration.
+- App Store Connect and Google Play billing setup.
+- Sandbox tester or license-tester requirements.
+- Required environment variables, server secrets and app configuration.
+- Any backend endpoint, webhook or entitlement synchronization requirement actually used by this implementation.
+- Platform/build requirements, including whether the current Expo Go environment can exercise the native purchase flow or whether an existing development build is required.
+
+For each item, report one of: verified present, apparently missing, present but unverified, not applicable, or cannot be determined from this repository. Do not assume a dashboard setting exists just because the code expects it.
+
+## 3. Diagnose the current billing-not-ready screen
+
+Trace the actual readiness decision from the Premium screen through the RevenueCat helper and relevant backend/configuration checks.
+
+Explain:
+- The exact conditions that cause the current message and disabled purchase button.
+- Which condition or conditions are evidenced by current code and available logs.
+- Which causes remain hypotheses because dashboard state, runtime logs or secrets are inaccessible.
+- The smallest safe diagnostic step to distinguish the likely causes without changing code or configuration.
+
+Do not claim that an external configuration item is missing unless there is evidence.
+
+## 4. Testing options and recommendation
+
+Compare these three paths:
+
+A. Complete RevenueCat external configuration and use a legitimate sandbox Premium purchase/test account.
+
+B. Use any existing, supported development/test entitlement mechanism that already exists in the project, if one can be verified. Do not invent or implement a bypass.
+
+C. Temporarily reverse or disable the RevenueCat integration.
+
+For each path, assess:
+- Estimated effort and dependencies, distinguishing what can be determined from what cannot.
+- Whether it tests the real Premium authorization path used by the planner.
+- Whether it requires an iOS/Android development build instead of Expo Go.
+- Risk of regressions or wasted work.
+- Suitability for release validation versus a temporary component test.
+
+Recommend the quickest safe path. Explain explicitly why reverting the code would or would not help. Do not create or enable a bypass.
+
+## 5. Test coverage and outstanding blockers
+
+Inspect existing relevant tests, especially:
+- `lib/revenuecat.ts`
+- `lib/entitlements.ts`
+- `server/entitlements.ts`
+- `contexts/AppContext.tsx`
+- `app/premium.tsx`
+- `__tests__/revenuecatClient.test.ts`
+- Relevant entitlement, Premium screen and Travel Capsule Planner tests.
+
+Use the actual current paths if any differ.
+
+Summarize what tests prove and what remains untested. Explain the known `revenuecatClient.test.ts` signature assertion failure and whether the evidence supports classifying it as a stale test contract, a potential defect or inconclusive.
+
+Do not execute mutating workflows or change the tests. If you run any read-only inspection or tests, identify exactly what you ran and report the result accurately. Do not claim live purchases, store connectivity or dashboard settings have been verified unless they actually have.
+
+## 6. Deliverables
+
+Return a concise but comprehensive report with these headings:
+
+1. Executive recommendation.
+2. Current implementation map.
+3. Why billing is currently marked not ready.
+4. External configuration checklist, with status and evidence for every item.
+5. Expo Go versus development-build requirements.
+6. Comparison of the three testing paths.
+7. Existing test evidence and unresolved failures.
+8. Exact next steps in the recommended order.
+9. Unknowns requiring access to RevenueCat, App Store Connect, Google Play Console, runtime logs or a physical device.
+
+Prioritize the shortest route to a legitimate Premium test account without undoing completed work. Preserve all existing architecture and frozen areas. No code changes, configuration changes, data changes, purchases or deployments.
