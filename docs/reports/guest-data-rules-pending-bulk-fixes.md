@@ -193,5 +193,5 @@ Verification: focused Undo integration test, full `npm test` (117 passed, 0
 failed), `npm run typecheck`, and `npm run lint` passed. The test suite emits
 expected simulated cleanup-error logs and React test-renderer deprecation
 notices; no check failed. Expo frontend restarted and remained running. The user
-has not yet retested the quiet-warning change on a physical phone. iOS and
-VoiceOver/TalkBack remain unverified.
+subsequently retried on a physical Android device and confirmed the warning no
+longer appeared. iOS and VoiceOver/TalkBack remain unverified.

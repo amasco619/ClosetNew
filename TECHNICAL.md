@@ -3231,8 +3231,8 @@ including schema-cache and permission errors, are still warned.
 `undoRemovalIntegration.test.ts` verifies Android-style DNS failure and offline
 Storage removal are quiet, a later retry drains the receipt, and a missing table
 remains visible. The user reported that guest photos synced after network
-reconnection on Android; the quiet-warning change itself has not been retested
-on a physical device.
+reconnection and later confirmed the quiet-warning change on a physical Android
+device.
 
 Single-upload rollback and unsigned-upload cleanup also use the exact uploaded
 path. The existing ambiguous-save rule remains: uncertain database outcomes do

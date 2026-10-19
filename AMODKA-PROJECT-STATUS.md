@@ -26,8 +26,9 @@ separation, pending guest-photo retention and sync after reconnect, manual guest
 bulk actions, and offline AI-disclosure dismissal. Offline receipt lookup,
 photo removal and acknowledgement keep cleanup pending without logging known
 network/DNS failures; missing-table, permission and other unexpected failures
-remain warnings. The new log behavior has automated coverage but has not yet
-been retested on a phone. iOS and VoiceOver/TalkBack checks remain outstanding.
+remain warnings. The user subsequently retried on a physical Android device and
+confirmed the warning no longer appeared. iOS and VoiceOver/TalkBack checks
+remain outstanding.
 The approved durable photo-cleanup migration is now applied to the connected
 Amodka Supabase project; table, RLS, trigger, acknowledgement function and
 service grants were verified, and the PostgREST schema cache was refreshed. No
