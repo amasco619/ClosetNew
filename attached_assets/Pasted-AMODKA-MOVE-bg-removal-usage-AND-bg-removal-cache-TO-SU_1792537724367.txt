@@ -1,0 +1,44 @@
+AMODKA - MOVE bg_removal_usage AND bg_removal_cache TO SUPABASE
+
+Goal: one database. There are no production users, so NO data is
+copied; both tables start empty. Do NOT add any new secret. The server
+keeps using only SUPABASE_URL and SUPABASE_SECRET_KEY.
+DO NOT TOUCH: Recommendation Engine v3.7 and the 53 frozen files,
+RLS policies on existing tables, billing logic, consent enforcement,
+the rate limiter and lockout code, the order of the deletion
+inventory. Keep npm test, typecheck, lint and the golden set green.
+List deviations.
+
+1. Read the current schema and SQL in server/bgRemovalStore.ts. The
+   schema is: bg_removal_cache (image_hash text pk, result_b64 text
+   not null, created_at timestamptz default now()); bg_removal_usage
+   (user_id uuid pk, count integer not null default 0, last_used_at
+   timestamptz default now()).
+2. Show me the exact SQL BEFORE applying: create both tables in
+   public with that schema; enable RLS with NO policies; REVOKE ALL on
+   both tables from PUBLIC, anon and authenticated; GRANT only the
+   needed privileges to service_role; create server-only functions
+   that reproduce the current atomic semantics exactly (quota
+   increment upsert and quota reset), with SET search_path = '',
+   REVOKE EXECUTE from PUBLIC, anon and authenticated, GRANT EXECUTE to
+   service_role only. Apply with your migration tool after I approve
+   in this chat. Save the same SQL as a repo migration file named with
+   the recorded version. Verify with metadata queries: RLS on, zero
+   policies, no anon/authenticated privileges on the tables or
+   functions.
+3. Switch bgRemovalStore.ts to Supabase: table API for cache read,
+   insert-ignore and 30-day prune; RPC for the quota increment and
+   reset; table API delete for the account-deletion step. Preserve
+   fail-closed semantics for quota reads and writes and for the
+   deletion step. Update accountDeletionInventory.ts so
+   bg_removal_usage is a Supabase table with no Replit-Postgres
+   special case. Do not touch any other file's pool usage.
+4. Do NOT drop anything in the old Replit database. Add a rollback
+   note in TECHNICAL.md.
+5. Tests: update the quota, cache and deletion tests; add tests that
+   an RLS/permission denial fails closed and that the increment
+   preserves the cap. Update the TECHNICAL.md data-store section.
+
+DELIVERABLE
+Short report: the SQL applied after approval, verification results,
+files changed, tests, "Deviations", what is not verified live.
