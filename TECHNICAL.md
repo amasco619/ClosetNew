@@ -2440,7 +2440,46 @@ that record. Schema readiness does not establish RevenueCat/store configuration
 or enable billing. Live DDL must always be mirrored by a repository migration
 file using the version recorded by the migration tool; the existing RevenueCat
 history and differently timestamped repository file are retained unchanged.
-The migration establishes protected billing records,
+
+**Public-table privilege hardening:** migration
+`20261020223802_harden_public_table_client_privileges.sql` was applied through
+the migration tool and mirrored verbatim in `supabase/migrations/`. It removes
+TRUNCATE, REFERENCES, TRIGGER and MAINTAIN from `anon` and `authenticated`
+on all existing public tables and from the public-table defaults of `postgres`
+and `pg_database_owner`. Live `has_table_privilege` checks found all four
+privileges absent for both client roles on all 19 public tables (152 checks).
+Table-level CRUD privileges, RLS settings and policy definitions matched the
+pre-migration snapshot. PostgreSQL 17 supports MAINTAIN.
+
+**OUTSTANDING — `supabase_admin` default privileges:** the current SQL
+connection runs as non-superuser `postgres`, which is not a member of
+`supabase_admin`. Its defaults still grant all four excess privileges to both
+client roles on future public tables created by `supabase_admin`; existing
+tables are hardened. Closing this requires a privileged Supabase operator
+executing as `supabase_admin` (or a superuser authorised to alter that role's
+defaults), not the application `service_role` or the current `postgres`
+connection. Apply this statement through the migration tool with that
+authority, then mirror the identical SQL in a repository migration named with
+the tool's recorded version:
+
+```sql
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
+REVOKE TRUNCATE, REFERENCES, TRIGGER, MAINTAIN
+ON TABLES FROM anon, authenticated;
+```
+
+Verify its default ACL no longer grants those four privileges to either
+client role; this statement deliberately preserves CRUD defaults and does not
+retroactively harden tables created after the existing-table migration.
+
+**Required migration rule:** every new migration that creates a public table
+must explicitly `REVOKE ALL` on that table from `PUBLIC`, `anon` and
+`authenticated`, then grant only what is needed. Apply the revoke before the
+minimal grants, in the same migration transaction. This rule remains in force
+even after the outstanding admin defaults are repaired. Do not rely on default
+ACLs or RLS to remove table-level administrative privileges.
+
+The RevenueCat migration establishes protected billing records,
 idempotent event processing, subscription/transaction facts, reconciliation,
 and deletion tombstones. The Express webhook verifies RevenueCat's HMAC over
 the raw body before parsing, checks a five-minute signing-time window, and
