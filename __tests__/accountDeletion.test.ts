@@ -12,8 +12,6 @@ import {
 } from "../server/accountDeletionInventory";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { Pool } from "pg";
-import { deleteUserBgRemovalUsage } from "../server/bgRemovalStore";
 
 const tables: string[] = ACCOUNT_DELETION_TABLES.map(({ table }) => table);
 const buckets: string[] = [...ACCOUNT_DELETION_STORAGE_BUCKETS];
@@ -84,7 +82,10 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
   let pendingPhotoReceipts = 1;
   let wardrobeRowsPresent = true;
   let failAt = failure;
-  const error = { message: "provider-private-error-do-not-log" };
+  const error = {
+    code: failure === "table_bg_removal_usage" ? "42501" : undefined,
+    message: "provider-private-error-do-not-log",
+  };
   const originals = {
     storageFrom: supabaseAdmin.storage.from,
     from: supabaseAdmin.from,
@@ -117,7 +118,6 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
   Reflect.set(supabaseAdmin, "from", (table: string) => ({
     delete: () => ({
       eq: async (column: string, id: string) => {
-        assert.notEqual(table, "bg_removal_usage", "quota usage is not a Supabase table");
         assert.equal(column, ACCOUNT_DELETION_TABLES.find(entry => entry.table === table)?.ownerColumn);
         assert.equal(id, userId);
         const stage = `table_${table}`;
@@ -133,13 +133,6 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
       },
     }),
   }));
-  _testOverrides.deleteBgRemovalUsage = async id => {
-    assert.equal(id, userId);
-    const stage = "table_bg_removal_usage";
-    calls.push(stage);
-    if (failed(stage)) throw new Error(error.message);
-    remainingTables.delete("bg_removal_usage");
-  };
   Reflect.set(supabaseAdmin, "rpc", async (name: string) => {
     assert.equal(name, "billing_tombstone_account");
     calls.push("billing_tombstone");
@@ -167,31 +160,14 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
       Reflect.set(supabaseAdmin.auth.admin, "deleteUser", originals.deleteUser);
       Reflect.set(supabaseAnon.auth, "verifyOtp", originals.verifyOtp);
       Reflect.set(supabaseAdmin, "rpc", originals.rpc);
-      delete _testOverrides.deleteBgRemovalUsage;
     },
   };
 }
 
 async function main() {
   assertCreatedTablesAreInventoried();
-  // This pool never connects: test the real deletion helper's SQL and failure semantics.
-  const pool = new Pool();
-  const sqlCalls: unknown[][] = [];
-  Reflect.set(pool, "query", async (...args: unknown[]) => {
-    sqlCalls.push(args);
-    return { rowCount: 0 }; // a retry with no remaining row is success
-  });
-  await deleteUserBgRemovalUsage(userId, pool);
-  await deleteUserBgRemovalUsage(userId, pool);
-  assert.deepEqual(sqlCalls, Array.from({ length: 2 }, () => [
-    "DELETE FROM bg_removal_usage WHERE user_id = $1", [userId],
-  ]));
-  await assert.rejects(deleteUserBgRemovalUsage(userId, null), /store unavailable/);
-  for (const message of ["relation does not exist", "connection failed"]) {
-    Reflect.set(pool, "query", async () => { throw new Error(message); });
-    await assert.rejects(deleteUserBgRemovalUsage(userId, pool), new RegExp(message));
-  }
-  await pool.end();
+  assert.deepEqual(ACCOUNT_DELETION_TABLES.find(entry => entry.table === "bg_removal_usage"),
+    { table: "bg_removal_usage", ownerColumn: "user_id" });
 
   const billingEnabled = process.env.REVENUECAT_BILLING_ENABLED;
   process.env.REVENUECAT_BILLING_ENABLED = "true";

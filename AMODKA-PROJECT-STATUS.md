@@ -1,5 +1,24 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
+## Background-removal store cutover
+
+Migration `20261020231945_move_bg_removal_store_to_supabase.sql` creates the
+server-only cache/usage tables and atomic increment/reset RPCs in Supabase.
+Live metadata confirms RLS, zero policies, no anon/authenticated access and
+least-privilege service-role grants. No rows were copied and no old Replit
+tables were changed or dropped. The store now uses the existing Supabase
+server client; account deletion retains its inventory order and uses the
+normal owner-filtered Supabase DELETE. Quota operations fail closed; cache
+maintenance remains best effort. Free allowance admission remains the existing
+TypeScript check, not an atomic SQL cap. Rate-limit/lockout pools, billing,
+consent and frozen recommendation artifacts remain outside this change.
+Rollback constraints are recorded in TECHNICAL.md §9's Photoroom
+background-removal data-store description. Validation: 119 test files passed,
+typecheck/lint passed, golden set 35/35 and all 53 frozen checksums passed.
+No live provider call, live quota write, live account deletion or physical
+device journey was performed for this cutover.
+Report: `docs/reports/bg-removal-supabase-cutover.md`.
+
 ## Guest-to-account data boundary and pending wardrobe
 
 Before any guest data write, signed-in server state decides the one-time claim:

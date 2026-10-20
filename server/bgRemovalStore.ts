@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 const CACHE_MAX = 200;
@@ -23,20 +23,15 @@ function putInMem(hash: string, base64: string): void {
   inMemCache.set(hash, base64);
 }
 
-let _pool: Pool | null | undefined = undefined;
+type StoreClient = Pick<SupabaseClient, "from" | "rpc">;
+export const _testOverrides: { client?: StoreClient } = {};
 
-function getPool(): Pool | null {
-  if (_pool !== undefined) return _pool;
-  const url = process.env.DATABASE_URL;
-  if (!url) { _pool = null; return null; }
-  try {
-    _pool = new Pool({ connectionString: url });
-    return _pool;
-  } catch (err) {
-    console.error("[bgRemovalStore] failed to create pool:", err);
-    _pool = null;
-    return null;
+async function getStoreClient(): Promise<StoreClient> {
+  if (process.env.NODE_ENV === "test" && _testOverrides.client) {
+    return _testOverrides.client;
   }
+  // Keep pure count/hash helpers usable without initialising server credentials.
+  return (await import("./supabase")).supabaseAdmin;
 }
 
 export function computeImageHash(imageBase64: string): string {
@@ -44,43 +39,19 @@ export function computeImageHash(imageBase64: string): string {
 }
 
 export async function initBgRemovalStore(): Promise<void> {
-  const pool = getPool();
-  if (!pool) {
-    console.warn("[bgRemovalStore] DATABASE_URL not set — in-memory cache only");
-    return;
-  }
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS bg_removal_cache (
-        image_hash  TEXT        PRIMARY KEY,
-        result_b64  TEXT        NOT NULL,
-        created_at  TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS bg_removal_usage (
-        user_id      UUID        PRIMARY KEY,
-        count        INT         NOT NULL DEFAULT 0,
-        last_used_at TIMESTAMPTZ DEFAULT NOW()
-      )
-    `);
-    console.log("[bgRemovalStore] tables ready");
-
-    // NM-2: prune stale cache entries once at startup and then every 24 h so
-    // the bg_removal_cache table cannot grow without bound.
-    await pruneBgRemovalCache(pool);
-    setInterval(() => pruneBgRemovalCache(pool!), 24 * 60 * 60 * 1000);
-  } catch (err) {
-    console.error("[bgRemovalStore] table init failed:", err);
-  }
+  // Tables/RPCs are provisioned by migration, never by application startup.
+  await pruneBgRemovalCache();
+  setInterval(() => void pruneBgRemovalCache(), 24 * 60 * 60 * 1000);
 }
 
-async function pruneBgRemovalCache(pool: Pool): Promise<void> {
+async function pruneBgRemovalCache(): Promise<void> {
   try {
-    const result = await pool.query(
-      `DELETE FROM bg_removal_cache WHERE created_at < NOW() - INTERVAL '30 days'`
-    );
-    const removed = result.rowCount ?? 0;
+    const client = await getStoreClient();
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { count, error } = await client.from("bg_removal_cache")
+      .delete({ count: "exact" }).lt("created_at", cutoff);
+    if (error) throw error;
+    const removed = count ?? 0;
     if (removed > 0) {
       console.log(`[bgRemovalStore] pruned ${removed} stale cache entries`);
     }
@@ -92,16 +63,14 @@ async function pruneBgRemovalCache(pool: Pool): Promise<void> {
 export async function checkCacheByHash(hash: string): Promise<string | null> {
   const mem = inMemCache.get(hash);
   if (mem) return mem;
-  const pool = getPool();
-  if (!pool) return null;
   try {
-    const { rows } = await pool.query<{ result_b64: string }>(
-      "SELECT result_b64 FROM bg_removal_cache WHERE image_hash = $1",
-      [hash],
-    );
-    if (rows.length > 0) {
-      putInMem(hash, rows[0].result_b64);
-      return rows[0].result_b64;
+    const client = await getStoreClient();
+    const { data, error } = await client.from("bg_removal_cache")
+      .select("result_b64").eq("image_hash", hash).maybeSingle();
+    if (error) throw error;
+    if (data) {
+      putInMem(hash, data.result_b64);
+      return data.result_b64;
     }
   } catch (err) {
     console.error("[bgRemovalStore] cache lookup failed:", err);
@@ -111,29 +80,25 @@ export async function checkCacheByHash(hash: string): Promise<string | null> {
 
 export async function storeCacheResult(hash: string, base64: string): Promise<void> {
   putInMem(hash, base64);
-  const pool = getPool();
-  if (!pool) return;
   try {
-    await pool.query(
-      `INSERT INTO bg_removal_cache (image_hash, result_b64)
-       VALUES ($1, $2)
-       ON CONFLICT (image_hash) DO NOTHING`,
-      [hash, base64],
+    const client = await getStoreClient();
+    const { error } = await client.from("bg_removal_cache").upsert(
+      { image_hash: hash, result_b64: base64 },
+      { onConflict: "image_hash", ignoreDuplicates: true },
     );
+    if (error) throw error;
   } catch (err) {
     console.error("[bgRemovalStore] cache store failed:", err);
   }
 }
 
 export async function getUserBgRemovalCount(userId: string): Promise<number> {
-  const pool = getPool();
-  if (!pool) throw new BgRemovalStoreUnavailableError();
   try {
-    const { rows } = await pool.query<{ count: number }>(
-      "SELECT count FROM bg_removal_usage WHERE user_id = $1",
-      [userId],
-    );
-    const count = rows.length > 0 ? rows[0].count : 0;
+    const client = await getStoreClient();
+    const { data, error } = await client.from("bg_removal_usage")
+      .select("count").eq("user_id", userId).maybeSingle();
+    if (error) throw error;
+    const count = data ? data.count : 0;
     if (!isValidBgRemovalCount(count)) throw new Error("Invalid background-removal quota count");
     return count;
   } catch (error) {
@@ -143,21 +108,14 @@ export async function getUserBgRemovalCount(userId: string): Promise<number> {
 }
 
 export async function incrementUserBgRemovalCount(userId: string): Promise<number> {
-  const pool = getPool();
-  if (!pool) throw new BgRemovalStoreUnavailableError();
   try {
-    const { rows } = await pool.query<{ count: number }>(
-      `INSERT INTO bg_removal_usage (user_id, count, last_used_at)
-       VALUES ($1, 1, NOW())
-       ON CONFLICT (user_id) DO UPDATE
-         SET count        = bg_removal_usage.count + 1,
-             last_used_at = NOW()
-       RETURNING count`,
-      [userId],
+    const client = await getStoreClient();
+    const { data: count, error } = await client.rpc(
+      "bg_removal_increment_usage", { p_user_id: userId },
     );
-     const count = rows.length > 0 ? rows[0].count : null;
-     if (!isValidBgRemovalCount(count)) throw new Error("Invalid background-removal quota count");
-     return count;
+    if (error) throw error;
+    if (!isValidBgRemovalCount(count)) throw new Error("Invalid background-removal quota count");
+    return count;
   } catch (err) {
     console.error("[bgRemovalStore] increment failed:", err instanceof Error ? err.name : "unknown");
     throw new BgRemovalStoreUnavailableError();
@@ -183,19 +141,13 @@ export async function incrementUserBgRemovalCount(userId: string): Promise<numbe
  * endpoint when a user transitions from free/lapsed → premium.
  */
 export async function resetUserBgRemovalCount(userId: string): Promise<void> {
-  const pool = getPool();
-  if (!pool) return;
   try {
-    await pool.query(
-      `INSERT INTO bg_removal_usage (user_id, count, last_used_at)
-       VALUES ($1, 0, NOW())
-       ON CONFLICT (user_id) DO UPDATE
-         SET count        = 0,
-             last_used_at = NOW()`,
-      [userId],
-    );
+    const client = await getStoreClient();
+    const { error } = await client.rpc("bg_removal_reset_usage", { p_user_id: userId });
+    if (error) throw error;
   } catch (err) {
-    console.error("[bgRemovalStore] reset failed:", err);
+    console.error("[bgRemovalStore] reset failed:", err instanceof Error ? err.name : "unknown");
+    throw new BgRemovalStoreUnavailableError();
   }
 }
 
@@ -206,13 +158,4 @@ export async function getUserBgRemovalStatus(
   const count = await getUserBgRemovalCount(userId);
   const remaining = Math.max(0, freeLimit - count);
   return { allowed: count < freeLimit, count, remaining };
-}
-
-/** Account deletion must use the same Postgres store as quota writes, and fail closed. */
-export async function deleteUserBgRemovalUsage(
-  userId: string,
-  pool = getPool(),
-): Promise<void> {
-  if (!pool) throw new BgRemovalStoreUnavailableError();
-  await pool.query("DELETE FROM bg_removal_usage WHERE user_id = $1", [userId]);
 }

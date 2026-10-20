@@ -24,6 +24,7 @@
 
 import { resolveClassifyBase64, selectClassifyPayload, resolvePhotoUri } from '../lib/classifyPath';
 import { removeBackground as serverRemoveBackground } from '../server/remove-background';
+import { _testOverrides as storeOverrides } from '../server/bgRemovalStore';
 import { resolveWardrobeUploadArg, stripDataUriPrefix } from '../lib/uploadArg';
 import {
   BACKGROUND_REMOVAL_FAILED,
@@ -93,6 +94,11 @@ function makeMockReq(
 // ── All tests (sync + async) in a single runner ────────────────────────────────
 
 async function main() {
+  // Route tests stub the cache write separately from the paid-provider fetch.
+  // Never send a real Supabase request through the provider's fetch fixture.
+  storeOverrides.client = {
+    from: () => ({ upsert: async () => ({ error: null }) }),
+  } as unknown as NonNullable<typeof storeOverrides.client>;
 
   // ── A. resolveClassifyBase64 — happy path ─────────────────────────────────
 

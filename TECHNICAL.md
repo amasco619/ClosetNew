@@ -1163,10 +1163,39 @@ At upload time, both `app/add-item.tsx` and `app/bulk-review.tsx` attempt to str
 | Cache hit | Any tier (hash match) | Returns cached result; does **not** count against quota |
 
 **Hash cache (`server/bgRemovalStore.ts`):**
-- Two Postgres tables initialised by `initBgRemovalStore()` on server startup:
+- Two server-only Supabase public tables, provisioned by migration
+  `20261020231945_move_bg_removal_store_to_supabase.sql`, not by server startup:
   - `bg_removal_cache (image_hash TEXT PK, result_b64 TEXT, created_at TIMESTAMPTZ)` — stores SHA-256 hash → PNG base64. Hit rate avoids redundant Photoroom API calls and doesn't consume quota.
   - `bg_removal_usage (user_id UUID PK, count INT, last_used_at TIMESTAMPTZ)` — per-user lifetime call counter for free-tier quota enforcement.
-- In-memory LRU cache (200 entries) backed by the DB. Cache hits are returned before any auth or quota check.
+- In-memory cache (200 entries) backed by Supabase. Cache hits do not increment usage.
+- The existing server `supabaseAdmin` client uses `SUPABASE_URL` and
+  `SUPABASE_SECRET_KEY`; no direct database URL or new secret is required by
+  this store. Cache lookup, insert-ignore and pruning use the table API;
+  quota reads use the table API, and increment/reset use
+  `bg_removal_increment_usage(uuid)` / `bg_removal_reset_usage(uuid)`.
+  Both RPCs are atomic SECURITY INVOKER SQL functions with empty search paths.
+  The free allowance remains a TypeScript read-before-increment check;
+  the increment is deliberately uncapped to preserve Premium counting.
+- RLS is enabled with zero policies. PUBLIC/anon/authenticated have no table
+  privileges or RPC execution. `service_role` has SELECT/INSERT/DELETE on
+  cache, SELECT/INSERT/UPDATE/DELETE on usage and EXECUTE on the two RPCs.
+  Quota read/increment/reset errors fail closed. Cache failures remain
+  best-effort, retaining the in-memory behavior. Account deletion uses the
+  normal owner-filtered Supabase DELETE and blocks Auth deletion on failure.
+- This approved cutover copied no rows. Both new tables started empty; old
+  Replit tables were neither changed nor dropped. Other stores, including
+  rate-limit and lockout pools, are unchanged; this is not a claim that every
+  operational table has moved.
+
+**Rollback:** pause background-removal requests and account deletion before
+reverting the store and deletion-routing/inventory changes together. The old
+tables remain available to the old code through its existing connection.
+There is no automatic reverse copy: old quota counters and cache become stale
+after cutover, and completed account deletions are not undone by a code
+rollback. Retain the new schema; if use has occurred since cutover, separately
+approve counter reconciliation and cleanup of Supabase usage rows before
+resuming old-store account deletion. Do not drop either store as part of this
+rollback.
 
 **Client return type (`lib/photoroom.ts`):**
 `removeBackground()` now returns `Promise<BgRemovalResult>` instead of `Promise<string | null>`:
@@ -1506,7 +1535,12 @@ This section documents every security remediation applied to the codebase and th
 **Severity:** Medium  
 **File:** `server/bgRemovalStore.ts`
 
-The `bg_removal_cache` Postgres table previously grew without bound — every background-removed image was stored forever. `initBgRemovalStore()` now runs `pruneBgRemovalCache()` once on startup and then every 24 hours via `setInterval`. The prune deletes all rows where `created_at < NOW() - INTERVAL '30 days'`. The in-memory LRU cap (200 entries) was already in place; the DB prune closes the disk-growth gap.
+The `bg_removal_cache` table previously grew without bound. `initBgRemovalStore()`
+runs `pruneBgRemovalCache()` on startup and every 24 hours via `setInterval`.
+After the Supabase cutover, the table API deletes rows with `created_at` strictly
+before the server-computed UTC cutoff of 30 days ago. Server clock accuracy is
+therefore relevant; the old SQL used database `NOW()`. The in-memory cap remains
+200 entries.
 
 ---
 
@@ -1980,7 +2014,7 @@ Storage policies: path-prefix ownership enforcement for `wardrobe-images` and `t
 `server/routes.ts` `DELETE /api/user/delete-account` now explicitly:
 1. Lists and removes all `wardrobe-images/{userId}/*` Storage objects.
 2. Lists and removes all `tryon-photos/{userId}/*` Storage objects.
-3. Deletes owner-scoped DB rows, in order, from: `affinity_signals`, `pair_affinity_signals`, `rotation_cursors`, `wear_logs`, `slot_statuses`, `tryon_profiles`, `saved_looks`, `garment_group_members`, `garment_groups`, `wardrobe_free_selections`, `wardrobe_items`, `bg_removal_usage`, and `user_profiles` (the `user_profiles` owner column is `id`; the others use `user_id`). Each deletion uses the same fail-closed handling, and any failure stops cleanup before Auth deletion.
+3. Deletes owner-scoped DB rows, in order, from: `affinity_signals`, `pair_affinity_signals`, `rotation_cursors`, `wear_logs`, `slot_statuses`, `tryon_profiles`, `saved_looks`, `garment_group_members`, `garment_groups`, `wardrobe_free_selections`, `wardrobe_photo_cleanup_receipts`, `wardrobe_items`, `bg_removal_usage`, and `user_profiles` (the `user_profiles` owner column is `id`; the others use `user_id`). All now use Supabase. Each deletion uses the same fail-closed handling, and any failure stops cleanup before Auth deletion.
 4. Deletes the Supabase Auth user.
 
 `bg_removal_cache` is deliberately not deleted: it is shared and keyed by image hash, not user ID.
@@ -2305,10 +2339,10 @@ failure at every stage for both routes and verifies partial-cleanup retries.
 The delete inventory, in order, is `affinity_signals`,
 `pair_affinity_signals`, `rotation_cursors`, `wear_logs`, `slot_statuses`,
 `tryon_profiles`, `saved_looks`, `garment_group_members`, `garment_groups`,
-`wardrobe_free_selections`, `wardrobe_items`, `bg_removal_usage`, and
-`user_profiles`. All use Supabase except `bg_removal_usage`, which must use
-the Replit Postgres connection used by background-removal quota writes.
-Its missing connection/table or failed DELETE blocks Auth deletion; deleting
+`wardrobe_free_selections`, `wardrobe_photo_cleanup_receipts`, `wardrobe_items`,
+`bg_removal_usage`, and `user_profiles`. All now use Supabase, including
+`bg_removal_usage` after the approved background-removal store cutover.
+Its unavailable table or failed DELETE blocks Auth deletion; deleting
 an already-absent usage row succeeds. The shared `bg_removal_cache` is untouched.
 
 Each completed deletion operation emits a sanitised step/ok/application-status

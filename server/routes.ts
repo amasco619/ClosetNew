@@ -25,7 +25,6 @@ import {
   ACCOUNT_DELETION_TABLES,
 } from "./accountDeletionInventory";
 import { reportError } from "../shared/observability";
-import { deleteUserBgRemovalUsage } from "./bgRemovalStore";
 import {
   aiLimiter,
   bgRemovalLimiter,
@@ -149,12 +148,6 @@ async function deleteAccountData(userId: string): Promise<void> {
   for (const entry of ACCOUNT_DELETION_TABLES) {
     const { table, ownerColumn } = entry;
     await checked(`table_${table}`, async () => {
-      if ("database" in entry && entry.database === "replit") {
-        const remove = process.env.NODE_ENV === "test" && _testOverrides.deleteBgRemovalUsage
-          ? _testOverrides.deleteBgRemovalUsage : deleteUserBgRemovalUsage;
-        await remove(userId);
-        return { error: null };
-      }
       return await supabaseAdmin.from(table).delete().eq(ownerColumn, userId);
     });
   }
@@ -245,7 +238,6 @@ interface AuthenticatedRequest extends Request {
 
 export const _testOverrides: {
   authenticatedUser?: { id: string; email?: string };
-  deleteBgRemovalUsage?: (userId: string) => Promise<void>;
 } = {};
 
 /**

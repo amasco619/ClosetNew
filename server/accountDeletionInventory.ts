@@ -16,7 +16,7 @@ export const ACCOUNT_DELETION_TABLES = [
   { table: "wardrobe_free_selections", ownerColumn: "user_id" },
   { table: "wardrobe_photo_cleanup_receipts", ownerColumn: "user_id" },
   { table: "wardrobe_items", ownerColumn: "user_id" },
-  { table: "bg_removal_usage", ownerColumn: "user_id", database: "replit" },
+  { table: "bg_removal_usage", ownerColumn: "user_id" },
   { table: "user_profiles", ownerColumn: "id" },
 ] as const;
 
