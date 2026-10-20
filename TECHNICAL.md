@@ -2431,8 +2431,16 @@ authenticated server reconciles with RevenueCat, and the app re-reads the
 server-authoritative entitlement. Customer Center handles store management
 where available. Expo Go is only a non-purchase preview.
 
-The repository migration `supabase/migrations/20260930000000_revenuecat_billing.sql`
-is **not applied to production**. It establishes protected billing records,
+The connected Amodka Supabase migration history records `revenuecat_billing`
+as version `20260928193628`. Its stored SQL matches
+`supabase/migrations/20260930000000_revenuecat_billing.sql` after trimming
+leading/trailing whitespace, and the live `billing_readiness_check()` returns
+`{"ready":true}`. The historical execution mechanism is not established by
+that record. Schema readiness does not establish RevenueCat/store configuration
+or enable billing. Live DDL must always be mirrored by a repository migration
+file using the version recorded by the migration tool; the existing RevenueCat
+history and differently timestamped repository file are retained unchanged.
+The migration establishes protected billing records,
 idempotent event processing, subscription/transaction facts, reconciliation,
 and deletion tombstones. The Express webhook verifies RevenueCat's HMAC over
 the raw body before parsing, checks a five-minute signing-time window, and
