@@ -1,0 +1,45 @@
+AMODKA - READ-ONLY INSPECTION: HOW DID WE APPLY SQL TO SUPABASE?
+
+Do NOT modify any file, secret, database, table, grant, policy or
+config. Do NOT run any write or DDL statement. Do not ask me for any
+new secret. Report secret NAMES only, never values. Answer from
+evidence (files, logs, tool history) and say "unknown" where you
+cannot prove something.
+
+1. The RevenueCat billing migration: exactly how was it applied to the
+   live Supabase project? Name the mechanism (Supabase CLI, a
+   connector or tool in your agent, direct Postgres connection string,
+   SQL editor, manual by me). Which credential or env var did it use
+   (name only)? Is that same credential available to the RUNNING
+   backend server, or only to your agent tooling?
+
+2. Runtime connection: does the running Express server have a direct
+   Postgres connection to Supabase today (a connection string or
+   pooler), or only the Supabase URL plus API keys? Name the env vars
+   involved (names only) and the file where it is used. How does the
+   server currently connect to the Replit Postgres for the four
+   operational tables (bg_removal_cache, bg_removal_usage,
+   lockout_store, ratelimit_store)?
+
+3. Can your agent tooling create tables in the live Supabase project
+   right now? Say yes, no or unknown, and give the evidence.
+
+4. Security reference: report, from live metadata queries (read-only),
+   the RLS status, policies, and per-role grants (anon, authenticated,
+   service_role) for the six billing tables, and for two existing
+   user tables (wardrobe_items, wear_logs). Tell me which billing
+   table pattern is server-only.
+
+5. Schema of the four operational tables: full CREATE TABLE
+   definitions, indexes, constraints and the type of
+   bg_removal_usage.user_id, taken from the Replit Postgres.
+
+6. List every place the server runs raw SQL (pool.query or similar)
+   against these four tables, with file and line, and say whether each
+   statement relies on features the Supabase API cannot do (for
+   example ON CONFLICT increments, transactions, advisory locks).
+
+DELIVERABLE
+A short report with these six numbered answers and a final line:
+"Can the running server connect directly to Supabase Postgres: yes/no/
+unknown".
