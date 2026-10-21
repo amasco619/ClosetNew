@@ -1,5 +1,12 @@
 # Account-deletion regression — diagnosis and bounded code correction
 
+> **Historical update (2026-10-21):** this report records the Oct 19 state. Its
+> note that `bg_removal_usage` was routed to Replit Postgres was superseded by
+> migration `20261020231945_move_bg_removal_store_to_supabase.sql`; all current
+> account-deletion inventory tables, including that table, use Supabase. The
+> Replit development database still contains the four old tables pending
+> explicit deletion approval.
+
 ## Outcome
 
 **Known permission blocker repaired; end-to-end live deletion remains unverified.**
@@ -62,7 +69,7 @@ so the existing billing predicate is false here; published environment not check
 | `garment_groups` | Same. |
 | `wardrobe_free_selections` | **Observed failure** in five app requests; verified missing service-role privileges. No skipping or permission bypass added. |
 | `wardrobe_items` | Not reached in those failed requests. Existing checked deletion retained. |
-| `bg_removal_usage` | Not reached. Independently found wrong-database defect; now routed to Replit Postgres. Missing pool/table or connection/DELETE failure stops Auth deletion. Zero rows succeeds. |
+| `bg_removal_usage` | At report time, this was routed to Replit Postgres. That behavior was later superseded by the Supabase cutover; the old Replit table is now unused. |
 | `user_profiles` | Not reached. Existing checked deletion retained. |
 | Auth user | Not reached in those 500s; intentionally remains until owned-data cleanup succeeds. |
 

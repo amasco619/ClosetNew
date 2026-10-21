@@ -30,6 +30,8 @@ import {
   bgRemovalLimiter,
   billingReconcileLimiter,
   accountLimiter,
+  accountDeletionIpLimiter,
+  accountDeletionUserLimiter,
   aiPreferenceLimiter,
   authLimiter,
   resetLimiter,
@@ -159,7 +161,7 @@ function logAccountDeletionError(error: unknown, route: string): void {
   // Application status, not a claimed upstream status. No owner IDs or raw provider messages.
   console.info(JSON.stringify({ type: "account_deletion_step", step: stage, ok: false, status: 500 }));
   reportError(error, `account_deletion_${stage}`, {
-    dependency: stage === "table_bg_removal_usage" ? "postgres" : "supabase", route,
+    dependency: "supabase", route,
   });
 }
 
@@ -548,25 +550,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/user/delete-account", accountLimiter, requireAuth, async (req, res) => {
-    const { userId } = req.body;
-    const authedUser = (req as AuthenticatedRequest).authenticatedUser;
+  app.delete(
+    "/api/user/delete-account",
+    accountDeletionIpLimiter,
+    requireAuth,
+    accountDeletionUserLimiter,
+    async (req, res) => {
+      const { userId } = req.body;
+      const authedUser = (req as AuthenticatedRequest).authenticatedUser;
 
-    if (!userId) {
-      return res.status(400).json({ success: false, error: "userId is required." });
-    }
-    if (authedUser.id !== userId) {
-      return res.status(403).json({ success: false, error: "forbidden" });
-    }
+      if (!userId) {
+        return res.status(400).json({ success: false, error: "userId is required." });
+      }
+      if (authedUser.id !== userId) {
+        return res.status(403).json({ success: false, error: "forbidden" });
+      }
 
-    try {
-      await deleteAccountData(userId);
-      return res.json({ success: true });
-    } catch (err: unknown) {
-      logAccountDeletionError(err, "/api/user/delete-account");
-      return res.status(500).json({ success: false, error: "delete_failed" });
-    }
-  });
+      try {
+        await deleteAccountData(userId);
+        return res.json({ success: true });
+      } catch (err: unknown) {
+        logAccountDeletionError(err, "/api/user/delete-account");
+        return res.status(500).json({ success: false, error: "delete_failed" });
+      }
+    },
+  );
 
   // ─── External account-deletion web resource ──────────────────────────────
   // Required by Google Play policy: a stable, publicly-accessible URL where

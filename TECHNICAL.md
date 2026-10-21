@@ -967,6 +967,8 @@ All Express API endpoints use `express-rate-limit` and the centrally-configured 
 | `bgRemovalLimiter` | 8 | 60 sec |
 | `billingReconcileLimiter` | 10 | 60 sec |
 | `accountLimiter` | 5 | 60 min |
+| `accountDeletionIpLimiter` | 60 per IP | 60 min |
+| `accountDeletionUserLimiter` | 5 per authenticated user ID | 60 min |
 | `aiPreferenceLimiter` | 30 per authenticated user ID | 60 sec |
 | `authLimiter` | 5 | 15 min |
 | `resetLimiter` | 3 | 60 min |
@@ -994,6 +996,12 @@ has passed; lockout pruning deletes rows whose non-NULL `expires` has passed.
 `service_role` has DELETE on both tables, so these direct table API prune calls
 are covered by the grants; RPC functions are SECURITY INVOKER with an empty
 search path.
+
+The authenticated in-app deletion endpoint applies the 60/hour IP limiter
+before authentication, then the 5/hour per-user limiter after `requireAuth`.
+Both use the same fixed-window Supabase store and return the existing `rate_limit`
+429 body and `Retry-After` header. The public OTP-confirm endpoint retains
+`accountLimiter` (5/hour per IP).
 
 No old Replit tables were dropped and no rows were copied. The new stores began
 empty, so persisted rate-limit windows and lockouts in the former store were
@@ -1458,8 +1466,9 @@ These features are **not yet implemented**. They are the next development priori
 | `stylingRelationships.test.ts` | Additive Phase A membership projection, owner/parent checks, all three types, pre-evaluation coordinated construction under shortlist crowding, relationship removal and renamed-garment controls, Western complements, normal alternatives, immutable canonical/shared facts, transient provenance and provider-free graph |
 | `swipeDismiss.test.ts` | Exact-top gesture capture, scroll gating during movement/release, 120 px threshold, and scroll-ref/accessible-close wiring on all three sheet routes |
 | `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, pending-receipt preservation and cleanup across partial retries |
+| `accountDeletionRateLimit.test.ts` | In-app deletion's 60/hour IP and 5/hour authenticated-user limits, ordering, fixed-window Retry-After, user isolation, and failed-attempt counting |
 | `accountDeletionLocalCleanup.test.ts` | Confirmed deletion clears account cache keys, local wardrobe photos, and signed-photo cache; server failure preserves them for retry |
-| `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival, prune-interval state, DB integration (skipped when `DATABASE_URL` absent) |
+| `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival and prune-interval state using isolated persistence fixtures; no live database integration |
 | `aiProcessingConsent.test.ts` | Mounted account preference API and server AI-route enforcement: unasked/malformed/declined denied, account isolation, metadata persistence, store errors fail closed |
 | `aiProcessingPreference.test.ts` | Client preference-state normalization; unknown responses cannot silently grant AI processing |
 | `androidOAuthCancel.test.ts` | Android OAuth cancellation path: `useEffect` cleanup, loading-spinner reset on cancel, no stuck-spinner regression |
@@ -2406,6 +2415,30 @@ confirmed both privileges. No schema, RLS policy, billing or consent changes
 were made. Full live account deletion remains unverified; no account was deleted
 as part of the permission repair. See
 `reports/account-deletion-regression.md` for evidence and verification limits.
+
+### Deletion readiness and release gate
+
+`node scripts/check-deletion-readiness.mjs` uses only `SUPABASE_URL`,
+`SUPABASE_SECRET_KEY`, and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. It reads the
+current `ACCOUNT_DELETION_TABLES` inventory, checks service-role SELECT and
+zero-row DELETE probes, invokes the safe no-op rate-limit RPCs, and verifies that
+the publishable key is denied SELECT on all six `billing_*` tables plus
+`bg_removal_usage`, `bg_removal_cache`, `ratelimit_store`, and `lockout_store`.
+It never prints credential values. It also prints a read-only SQL query for RLS,
+policy-count, and anon/authenticated TRUNCATE, REFERENCES, TRIGGER, and MAINTAIN
+checks; a human must run that query in the intended Supabase SQL Editor.
+Use the live published-environment smoke procedure in
+`docs/release-checklist-deletion.md` before release.
+
+The connected Supabase project currently has `service_role` SELECT and DELETE
+on `wardrobe_free_selections`, but its migration history has no entry recording
+that grant, and no previously checked-in migration contained it. The exact
+one-statement mirror is
+`supabase/migrations/20261021115252_grant_service_role_wardrobe_free_selections.sql`.
+It is intentionally **not applied**: the grant was already live when verified,
+and this task must not reapply it. The grant must exist in every Supabase
+environment (including staging and production); staging was not available to
+verify. All live DDL must always be mirrored by a repository migration file.
 
 ## 27. AUTH-2 — Sign-up and password-recovery correctness
 

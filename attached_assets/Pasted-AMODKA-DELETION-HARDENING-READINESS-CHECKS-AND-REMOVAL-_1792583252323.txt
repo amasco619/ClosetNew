@@ -1,0 +1,97 @@
+AMODKA - DELETION HARDENING, READINESS CHECKS AND REMOVAL OF REPLIT
+POSTGRES USE
+
+Context: account deletion now works live against the connected Supabase
+project. The grant on public.wardrobe_free_selections was applied
+manually earlier. The four operational tables now live in Supabase
+(bg_removal_cache, bg_removal_usage, ratelimit_store, lockout_store).
+
+DO NOT TOUCH: Recommendation Engine v3.7 and the 53 frozen files, RLS
+policies, existing CRUD grants, billing logic, consent enforcement, the
+order of the deletion inventory, the limiter windows and 429 copy for
+every route except those named in item 2. Keep npm test, typecheck,
+lint and the golden set green. Do NOT add any secret. Do NOT execute
+any DDL or DROP without showing me the exact statement and receiving my
+approval in this chat. List deviations.
+
+1. GRANT MIGRATION FILE
+   Create a repo migration file (same naming style as the others, with
+   a new timestamp) containing exactly:
+   GRANT SELECT, DELETE ON TABLE public.wardrobe_free_selections
+   TO service_role;
+   It mirrors a grant already live; it is idempotent. Do not apply it
+   again. Check Supabase's migration history and tell me whether the
+   grant was ever recorded there. In TECHNICAL.md note that this grant
+   must exist on every Supabase project (staging and production) and
+   that all live DDL must be mirrored by a repo migration file.
+
+2. DELETION RATE LIMITS
+   Authenticated in-app deletion: add a 5-per-hour fixed-window budget
+   per authenticated user, applied AFTER requireAuth, and keep a more
+   generous per-IP ceiling (60 per hour) in front of it. The
+   unauthenticated OTP-confirm deletion path keeps today's protection
+   (5 per IP per hour). Reuse the existing Supabase-backed store and
+   the ratelimit_increment function; do not add functions or tables.
+   429 copy and Retry-After stay as today. Tests: two accounts behind
+   one IP are not blocked by each other; one account is blocked on the
+   sixth attempt; the fixed window does not extend on further attempts;
+   failed attempts count.
+
+3. READINESS SCRIPT (no new secrets)
+   Add scripts/check-deletion-readiness.mjs using only the existing
+   SUPABASE_URL, SUPABASE_SECRET_KEY and publishable key. It performs
+   non-destructive probes and exits non-zero listing failures:
+   - for every Supabase table in the deletion inventory, with the
+     service key: a SELECT with limit 0, and a DELETE filtered by a
+     random never-used UUID (zero rows affected). A permission error on
+     either is a failure.
+   - for the rate-limit RPCs that are safe (ratelimit_decrement and
+     ratelimit_delete_key with a random key), a call must succeed.
+   - with the PUBLISHABLE (anon) key: a SELECT on each server-only table
+     (billing_* tables, bg_removal_usage, bg_removal_cache,
+     ratelimit_store, lockout_store) must be DENIED. Success is a
+     failure.
+   Anything that cannot be checked through the API with existing
+   secrets (privileges such as TRUNCATE for anon/authenticated, RLS
+   flags) must be printed as a SQL query for a human to run in the
+   Supabase SQL editor, and documented. Do not skip silently. Document
+   usage in TECHNICAL.md.
+
+4. RELEASE CHECKLIST
+   Add docs/release-checklist-deletion.md: a live smoke-test procedure
+   for the PUBLISHED environment (disposable account with guest-
+   migrated pieces; a background-removal photo so a usage row exists;
+   delete it; verify absence of the Auth user, user_profiles,
+   wardrobe_items, wardrobe_free_selections, objects in both buckets and
+   the bg_removal_usage row); the env vars to confirm (Supabase URL and
+   keys, REVOKE/privilege SQL result, REVENUECAT_BILLING_ENABLED state)
+   and the billing tombstone path when enabled; the rule that every
+   migration creating a public table must REVOKE ALL from PUBLIC, anon
+   and authenticated and then grant only what is needed; the outstanding
+   supabase_admin default-privileges item.
+
+5. REMOVE REPLIT POSTGRES USE (do this LAST)
+   a. Inventory first and report: every use of DATABASE_URL, pg.Pool,
+      pg, Keyv Postgres adapters or Replit Postgres anywhere in the
+      repo (server, scripts, tests, docs), and what each does. Say
+      whether anything other than the four moved tables uses it.
+   b. Remove the code that still creates a Replit Postgres pool or runs
+      DDL for the four moved tables, plus unused dependencies ONLY if
+      nothing else imports them. Keep the in-memory limiter fallback
+      exactly as it is. Update tests and docs.
+   c. Show me the exact DROP TABLE statements for the four old tables
+      in the Replit development database, and nothing else. Wait for my
+      approval in this chat before executing. After approval, run them,
+      verify the tables are gone, and verify the backend starts and the
+      limiter and background-removal paths still use Supabase.
+   d. Do NOT remove the Replit Postgres module, the DATABASE_URL
+      secret, or any .replit entries. List what else depends on them
+      and what removing them would require, and leave the decision to
+      me. State clearly whether the PUBLISHED deployment has its own
+      database that this item does not touch.
+
+DELIVERABLE
+Short report: migration history answer, files changed, tests, probe
+results from running the readiness script now (what passed, what was
+printed for manual SQL), the inventory from 5a, the DROP statements
+awaiting approval, "Deviations", and what is not verified live.

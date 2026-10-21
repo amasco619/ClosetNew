@@ -2,6 +2,13 @@
 
 > **Historical report — do not use this document for native identity, OAuth, Apple, Google, or store setup.** Its `com.amodka` and legacy callback findings were superseded by Phase 5C.2 before any public release. Use [PHASE-5C.2-NATIVE-PRODUCTION-FOUNDATION.md](./PHASE-5C.2-NATIVE-PRODUCTION-FOUNDATION.md) and [PHASE-5C.2-MANUAL-ACTIONS-REQUIRED.md](./PHASE-5C.2-MANUAL-ACTIONS-REQUIRED.md) for current, authoritative guidance targeting `com.amodka.app`.
 
+> **Storage update (2026-10-21):** this historical audit's background-removal,
+> rate-limit, and lockout PostgreSQL descriptions predate Supabase migrations
+> `20261020231945_move_bg_removal_store_to_supabase.sql` and
+> `20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql`. They do
+> not describe current server runtime use. `DATABASE_URL` and the Replit
+> PostgreSQL module remain configured but were intentionally not removed.
+
 **Project**: Amodka (formerly AuraCloset)  
 **Audit date**: 2026-08-18  
 **Auditor**: Replit Agent (read-only inspection — no code changes made)  

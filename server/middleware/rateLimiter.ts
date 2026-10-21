@@ -236,6 +236,8 @@ export const LIMITER_CONFIGS = {
   bgRemovalLimiter: { windowMs: 60 * 1000, max: 8 },
   billingReconcileLimiter: { windowMs: 60 * 1000, max: 10 },
   accountLimiter: { windowMs: 60 * 60 * 1000, max: 5 },
+  accountDeletionIpLimiter: { windowMs: 60 * 60 * 1000, max: 60 },
+  accountDeletionUserLimiter: { windowMs: 60 * 60 * 1000, max: 5 },
   aiPreferenceLimiter: { windowMs: 60 * 1000, max: 30 },
   authLimiter: { windowMs: 15 * 60 * 1000, max: 5 },
   resetLimiter: { windowMs: 60 * 60 * 1000, max: 3 },
@@ -280,6 +282,24 @@ export const accountLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: true,
   store: makeStore("account"),
+  handler: makeLimiterHandler(),
+});
+
+export const accountDeletionIpLimiter = rateLimit({
+  ...LIMITER_CONFIGS.accountDeletionIpLimiter,
+  standardHeaders: true,
+  legacyHeaders: true,
+  store: makeStore("account-delete-ip"),
+  handler: makeLimiterHandler(),
+});
+
+export const accountDeletionUserLimiter = rateLimit({
+  ...LIMITER_CONFIGS.accountDeletionUserLimiter,
+  standardHeaders: true,
+  legacyHeaders: true,
+  store: makeStore("account-delete-user"),
+  keyGenerator: (req) =>
+    (req as Request & { authenticatedUser: { id: string } }).authenticatedUser.id,
   handler: makeLimiterHandler(),
 });
 

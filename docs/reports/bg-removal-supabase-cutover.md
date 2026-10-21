@@ -1,5 +1,11 @@
 # Background-removal Supabase cutover
 
+> Historical update (2026-10-21): rate-limit and lockout stores still used
+> Replit Postgres at the time of this cutover; they were later moved to Supabase
+> by `20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql`. The
+> four former Replit tables remain in the development database pending explicit
+> deletion approval.
+
 ## Applied SQL and live verification
 
 Approved SQL was applied through the Supabase migration tool as

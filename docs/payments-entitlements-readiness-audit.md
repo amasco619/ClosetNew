@@ -2,6 +2,13 @@
 
 **Scope:** Read-only repository audit, 27 September 2026. No live store, production database, Supabase dashboard, or device purchase was inspected. “Missing” below means not found after searching application, server, migrations, configuration, dependencies, tests, and payment documentation; it does not assert the state of external dashboards. The existing payment requirements document is **not** an implementation record (`docs/compliance/phase5c-payment-architecture.md:1-16`).
 
+> Historical note (2026-10-21): the background-removal `DATABASE_URL` and
+> runtime-table statements below describe the pre-cutover implementation. The
+> active background-removal store now uses Supabase through
+> `server/bgRemovalStore.ts` and migration
+> `20261020231945_move_bg_removal_store_to_supabase.sql`; no server or script
+> currently creates a Replit PostgreSQL pool or performs runtime DDL.
+
 ## 1. Executive Summary
 
 **Overall status: NOT IMPLEMENTED** for paid subscriptions. The app has a Premium information screen, local feature gates, a server entitlement read, an expiry-aware resolver, and a server-checked PhotoRoom quota, but no purchasable product, billing SDK, purchase or restore action, store verification, transaction ledger, or store notification handler (`app/premium.tsx:82-115`; `package.json:23-81`; `server/routes.ts:228-234,396-406`; `server/entitlements.ts:15-60`). Paid Premium must not launch in this state.

@@ -193,6 +193,7 @@ async function main() {
 
   async function attempt(route: "app" | "web") {
     // Real limiter stays enabled; avoid persistent counters from other test runs.
+    rateLimitRows.clear();
     const ip = `203.${randomInt(1, 255)}.${randomInt(1, 255)}.${randomInt(1, 255)}`;
     return route === "app"
       ? request(app).delete("/api/user/delete-account").set("X-Forwarded-For", ip).send({ userId })
@@ -303,6 +304,7 @@ async function main() {
     const limitedIp = `202.${randomInt(1, 255)}.${randomInt(1, 255)}.${randomInt(1, 255)}`;
     const mock = mockDeletion();
     try {
+      rateLimitRows.clear();
       for (let i = 0; i < 5; i++) {
         const response = await request(app).delete("/api/user/delete-account")
           .set("X-Forwarded-For", limitedIp).send({ userId });

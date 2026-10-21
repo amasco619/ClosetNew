@@ -1,5 +1,13 @@
 # PHASE 4 — PRODUCTION RELEASE CANDIDATE REPORT
 
+> Historical report from 2026-08-13. Its `DATABASE_URL`/Replit Postgres runtime
+> references predate the Supabase cutovers: background-removal storage moved in
+> migration `20261020231945_move_bg_removal_store_to_supabase.sql`, and rate-limit
+> and lockout stores moved in
+> `20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql`. They do not
+> describe current server runtime use. The secret and Replit PostgreSQL module
+> remain present by explicit project instruction.
+
 **Date:** 2026-08-13  
 **Engine version:** Recommendation Engine v3.7 (frozen)  
 **Node.js:** v22.22.0  
