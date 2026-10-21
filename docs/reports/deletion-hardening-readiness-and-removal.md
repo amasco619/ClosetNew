@@ -3,8 +3,9 @@
 **Date:** 2026-10-21
 
 **Scope:** Bounded account-deletion readiness, rate-limit, operational-storage
-inventory, and a proposed removal of four unused Replit development tables.
-No Supabase DDL, account deletion, or Replit table drop was executed.
+inventory, and the approved removal of four unused Replit development tables.
+No Supabase DDL or account deletion was executed. Only the four explicitly
+approved Replit development table drops were executed.
 
 ## Findings and implementation
 
@@ -87,7 +88,8 @@ ORDER BY c.relname;
 | Historical reports | `docs/phase-4-report.md`, `docs/PHASE-5C-PRODUCTION-AUDIT.md`, `docs/payments-entitlements-readiness-audit.md`, `reports/account-deletion-regression.md`, and `docs/reports/bg-removal-supabase-cutover.md` describe pre-cutover states; each now has a dated supersession note. `docs/compliance/data-inventory.md` was updated to the current Supabase rate-limit/lockout stores. |
 | Dependencies/configuration | Removed unused direct `keyv` and `@keyv/postgres` dependencies. Kept `pg` because the four isolated database tests import it. Their `initdb`/`pg_ctl` commands resolve to the configured PostgreSQL 16 binaries. Kept the `postgresql-16` `.replit` module and `DATABASE_URL` secret exactly as instructed. Drizzle packages and `db:push` remain in `package.json` without source imports/configuration found; they were not changed, leaving that separate tooling decision to the user. |
 
-The Replit development database currently contains all four legacy tables:
+The pre-drop read-only inventory found all four legacy tables in the Replit
+development database (all were subsequently removed as verified below):
 `bg_removal_cache`, `bg_removal_usage`, `ratelimit_store`, and `lockout_store`.
 Only table names were queried; no rows were read or changed. No active server or
 script code still uses those Replit tables. The published Replit-managed
@@ -95,10 +97,11 @@ database is separate from the development database; it was not queried or
 changed. The published app's Supabase target is separately controlled by its
 Supabase environment and was not altered here.
 
-## Development-only DROP statements — approval required
+## Development-only DROP statements — approved and executed
 
-These statements are shown for review and **have not been executed**. They
-target the four tables verified in the Replit development database only. They
+After explicit chat approval, exactly these statements were executed with
+`executeSql`, target `replit_database`, environment `development`. They
+targeted the four tables verified in the Replit development database only. They
 permanently remove their old cache, usage, rate-limit, and lockout rows. No rows
 will be copied. They do not use `CASCADE` and will fail rather than remove
 dependent objects.
@@ -110,11 +113,28 @@ DROP TABLE public.ratelimit_store;
 DROP TABLE public.lockout_store;
 ```
 
-No table drop or other destructive database operation may run until the user
-explicitly approves these exact statements. After approval, verify all four
-relations are absent and restart the backend; confirm startup and that current
-Supabase rate-limit and background-removal stores still initialize. Do not
-remove the `.replit` PostgreSQL module or `DATABASE_URL` secret.
+The operation returned four `DROP TABLE` results and exit code 0.
+Post-drop verification used:
+
+```sql
+SELECT
+  to_regclass('public.bg_removal_usage') AS bg_removal_usage,
+  to_regclass('public.bg_removal_cache') AS bg_removal_cache,
+  to_regclass('public.ratelimit_store') AS ratelimit_store,
+  to_regclass('public.lockout_store') AS lockout_store;
+```
+
+All four results were NULL: all four relations are absent.
+`Start Backend` was then restarted successfully on port 5000. Logs recorded
+zero expired lockouts pruned, zero active lockouts loaded from Supabase, and
+the Supabase rate-limit store ready with two expired rows pruned. Startup
+awaits `initBgRemovalStore` before listening; it completed with no
+`[bgRemovalStore] prune failed` error. Zero-row successful background-removal
+prunes are intentionally silent. This verifies startup, not a PhotoRoom
+request, quota increment, or a complete upload journey.
+
+The `.replit` PostgreSQL module, `DATABASE_URL` secret, and published database
+were not changed or queried.
 
 ## Validation and limits
 
@@ -180,8 +200,8 @@ manual cleanup was performed. All final tests used the repository runner.
 
 No customer account, wardrobe, consent, or billing data was deleted or modified.
 Readiness DELETE probes affected zero rows. The four development DROP statements
-remain awaiting explicit approval, so post-drop absence and startup checks
-cannot yet be reported. There was no runtime Replit pool/DDL left to remove;
+were subsequently approved and executed, and post-drop absence and backend
+startup were verified as documented above. There was no runtime Replit pool/DDL left to remove;
 only unused direct Keyv dependencies and stale test/docs references needed
 cleanup.
 

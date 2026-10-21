@@ -2441,6 +2441,17 @@ and this task must not reapply it. The grant must exist in every Supabase
 environment (including staging and production); staging was not available to
 verify. All live DDL must always be mirrored by a repository migration file.
 
+The four obsolete operational tables in the **Replit development database**
+were removed after explicit approval using exactly four `DROP TABLE` statements,
+without CASCADE. `to_regclass` verified all four relations absent. The backend
+then restarted on port 5000 with Supabase lockout/rate-limit readiness logged
+and the awaited background-removal initialisation completed without a prune
+error. Exact SQL and evidence are recorded in
+`docs/reports/deletion-hardening-readiness-and-removal.md`; this is not a
+Supabase migration and must never be applied to the active Supabase tables.
+`.replit`, the PostgreSQL module, `DATABASE_URL`, and the published database
+were not changed.
+
 ## 27. AUTH-2 — Sign-up and password-recovery correctness
 
 The sign-up route returns a privacy-equivalent acknowledgement rather than

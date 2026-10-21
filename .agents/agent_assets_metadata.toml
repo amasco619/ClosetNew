@@ -650,14 +650,14 @@ content_type = "text/markdown"
 id = "yJwZOsqC1-kHQCA06XEjY"
 uri = "file://docs/reports/deletion-hardening-readiness-and-removal.md"
 type = "text"
-title = "Deletion hardening and readiness report"
-description = "Implementation, live probes, inventory, checks, deviations, and pending DROP statements."
+title = "Updated deletion-hardening report"
+description = "Records the four approved development-only table drops, NULL relation checks, and successful backend/Supabase-store startup verification."
 logical_id = "817260c2-1b80-4230-9b0e-8cb443c7278c"
-content_hash = "sha256:5e4e074e2c6472bae029bf7c572ec7525d06632f959d906e98bf375095ed5805"
-size = 11447
-mtime_ms = 1792585009363
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/817260c2-1b80-4230-9b0e-8cb443c7278c/b75d8d5e-3940-4548-833e-d921ff7fd0ad"
-storage_version_token = "1792585050543255"
+content_hash = "sha256:8bc96079d19048436a55cc6a911d56f67c2521bed1be705bdb081045ef7d69a9"
+size = 12329
+mtime_ms = 1792621516134
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/817260c2-1b80-4230-9b0e-8cb443c7278c/e235b039-13ef-414c-aa97-57c63f7fad84"
+storage_version_token = "1792621520654563"
 content_type = "text/markdown"
 
 [[outputs]]

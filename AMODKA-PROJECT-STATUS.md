@@ -22,9 +22,12 @@ intentionally unapplied. Every Supabase environment must have the grant.
 
 No active server/script Replit PostgreSQL pool or runtime DDL remains. Unused
 direct Keyv dependencies were removed; `pg` stays for four disposable local
-database tests. The four old Replit development tables still exist, pending
-approval of the exact DROP statements in
-`docs/reports/deletion-hardening-readiness-and-removal.md`. The module,
+database tests. After explicit approval, the four old Replit development
+tables were dropped using the exact statements recorded in
+`docs/reports/deletion-hardening-readiness-and-removal.md`, without CASCADE.
+`to_regclass` returned NULL for all four relations. The backend restarted on
+port 5000: Supabase lockout and rate-limit readiness was logged, and the awaited
+background-removal initialisation completed without a prune error. The module,
 `DATABASE_URL`, `.replit`, and published database are untouched.
 
 Final checks: 121 test files passed; typecheck/lint passed; golden set 35/35;
