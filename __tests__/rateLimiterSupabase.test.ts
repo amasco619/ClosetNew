@@ -117,8 +117,7 @@ function makeFakeSupabase() {
       return { data: null, error: null };
     }
     if (name === "ratelimit_delete_prefix") {
-      const pattern = String(args.p_key_pattern);
-      const prefix = pattern.endsWith("%") ? pattern.slice(0, -1) : pattern;
+      const prefix = String(args.p_prefix);
       for (const key of counters.keys()) if (key.startsWith(prefix)) counters.delete(key);
       return { data: null, error: null };
     }
@@ -156,6 +155,15 @@ async function main() {
     assert.equal((await store.increment("client")).totalHits, 1, "key reset affects only that key");
     await store.resetAll();
     assert.equal((await store.increment("other")).totalHits, 1, "prefix reset clears the store's own keys");
+
+    const underscoreStore = new SupabaseRateLimitStore("member_a", fake.client);
+    const similarPrefixStore = new SupabaseRateLimitStore("memberXa", fake.client);
+    await underscoreStore.increment("client");
+    await similarPrefixStore.increment("client");
+    await underscoreStore.resetAll();
+    assert.equal(fake.counters.has("member_a:client"), false, "literal underscore prefix removes its own key");
+    assert.equal(fake.counters.has("memberXa:client"), true,
+      "underscore is literal and does not match unrelated keys as a SQL LIKE wildcard would");
 
     const middlewareFake = makeFakeSupabase();
     const middlewareStore = new SupabaseRateLimitStore("middleware", middlewareFake.client);

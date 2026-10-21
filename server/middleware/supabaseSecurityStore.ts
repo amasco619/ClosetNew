@@ -179,7 +179,7 @@ export class SupabaseRateLimitStore implements Store {
       if (client) {
         const { error } = await withTimeout(
           client.rpc("ratelimit_delete_prefix", {
-            p_key_pattern: `${this.prefix}:%`,
+              p_prefix: `${this.prefix}:`,
           }),
           "rate-limit prefix reset",
         );
