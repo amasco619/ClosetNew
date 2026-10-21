@@ -43,3 +43,4 @@
 - [Account deletion permissions](account-deletion-permissions.md) — passing mocks do not prove live service-role table privileges; verify effective access before claiming deletion works.
 - [Disposable recovery verification](disposable-recovery-verification.md) — use disposable accounts/synthetic photos; distinguish fixture, live browser and physical-device evidence.
 - [Background-removal quota approval](bg-removal-quota-policy.md) — concurrency verification does not authorize a quota fix; preserve Premium counting and seek separate approval.
+- [Supabase admin default privileges](supabase-admin-default-acls.md) — changing `supabase_admin` defaults requires Supabase-authorized role access; the project SQL/migration role cannot do it.
