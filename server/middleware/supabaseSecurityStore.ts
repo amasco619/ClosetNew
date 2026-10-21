@@ -78,6 +78,9 @@ export class SupabaseRateLimitStore implements Store {
     prefix: string,
     private readonly clientOverride?: StoreClient | null,
   ) {
+    if (typeof prefix !== "string" || prefix.trim().length === 0) {
+      throw new TypeError("Rate-limit store prefix must be non-empty");
+    }
     this.prefix = prefix;
   }
 

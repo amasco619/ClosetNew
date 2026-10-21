@@ -959,24 +959,46 @@ Premium status is stored in Supabase `user_profiles` with an expiry timestamp. T
 ---
 
 ### Rate Limiting
-All Express API endpoints are protected by `express-rate-limit` using the centrally-configured `LIMITER_CONFIGS` object:
+All Express API endpoints use `express-rate-limit` and the centrally-configured `LIMITER_CONFIGS`. The existing limits and windows are unchanged:
 
-| Limiter | Route(s) | Max | Window |
-|---------|----------|-----|--------|
-| `aiLimiter` | `POST /api/classify-garment` | 10 req | 60 sec |
-| `bgRemovalLimiter` | `POST /api/remove-background` | 8 req | 60 sec |
+| Limiter | Maximum | Window |
+|---------|---------|--------|
+| `aiLimiter` | 10 | 60 sec |
+| `bgRemovalLimiter` | 8 | 60 sec |
+| `billingReconcileLimiter` | 10 | 60 sec |
+| `accountLimiter` | 5 | 60 min |
+| `aiPreferenceLimiter` | 30 per authenticated user ID | 60 sec |
+| `authLimiter` | 5 | 15 min |
+| `resetLimiter` | 3 | 60 min |
 
-| `accountLimiter` | entitlements, delete-account | 5 req | 60 min |
-| `authLimiter` | sign-in, sign-up | 5 req | 15 min |
-| `resetLimiter` | password-reset | 3 req | 60 min |
+**Supabase persistence:** `SupabaseRateLimitStore` stores fixed-window counters in
+`public.ratelimit_store`; account lockout records use `public.lockout_store`
+through `createSupabaseLockoutPersistence()`. Migration
+`20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql` creates both
+tables with RLS enabled and zero policies. Only the server's `service_role`
+receives the required CRUD access and RPC execution; anon/authenticated have no
+table privileges or function EXECUTE.
 
-**`PgRateLimitStore`** — custom `express-rate-limit` store that writes counters to Postgres (`ratelimit_store` table) with automatic in-memory fallback when the pool is unavailable.  Key behaviours:
-- `loadFromDb()` — called by `initRateLimitStore()` at startup to pre-warm the in-memory fallback Map with unexpired DB counters, preventing false window resets after a process restart.
-- `_consecutiveDbFailures` — private counter incremented on each failed DB query; emits a `console.warn` once ≥ 3 consecutive failures to signal a persistent DB problem.
+`ratelimit_increment` atomically increments hits and preserves an active window's
+original reset time. `ratelimit_decrement` floors at zero and only changes active
+windows. Key and prefix reset use dedicated RPCs; prefix matching is literal
+(`starts_with`) and refuses empty or NULL prefixes. Lockout records are keyed by
+normalized email, stored as JSON text, and expire by epoch milliseconds.
 
-**`withRetry(fn, label, maxAttempts, baseDelayMs)`** — internal helper that retries async calls with exponential back-off. Used by `initLockoutStore()` when ensuring the `lockout_store` table and pruning expired rows.
+The server uses the existing Supabase service client with a 1.5-second abortable
+timeout and the existing in-memory fallback on persistence errors. Startup
+preloads active rate-limit rows and lockouts, and prunes expired rows from both
+tables. Pruning repeats hourly after success; failures back off exponentially
+to a maximum of eight hours. Rate-limit pruning deletes rows whose `reset_time`
+has passed; lockout pruning deletes rows whose non-NULL `expires` has passed.
+`service_role` has DELETE on both tables, so these direct table API prune calls
+are covered by the grants; RPC functions are SECURITY INVOKER with an empty
+search path.
 
-**`_stores` registry** — module-level `Map<string, PgRateLimitStore>` populated by `makeStore()`. Allows `initRateLimitStore()` to call `loadFromDb()` on every registered store in one pass.
+No old Replit tables were dropped and no rows were copied. The new stores began
+empty, so persisted rate-limit windows and lockouts in the former store were
+not transferred. A code rollback can restore the prior adapter, but state
+written after this cutover is not present in the old store.
 
 **Code:** `server/middleware/rateLimiter.ts`, `server/routes.ts`
 
@@ -1480,8 +1502,9 @@ These features are **not yet implemented**. They are the next development priori
 | `outfitScoringData.test.ts` | Data-table invariants for `SCENARIO_AFFINITY`, `STYLE_PREFERRED_COLORS`, `STYLE_GOAL_SUBTYPES` (key completeness against `OccasionTag` and `StyleGoal` unions) |
 | `perceptualScoring.test.ts` | HSL/Lab perceptual colour scoring |
 | `photoroomRetry.test.ts` | `removeBackground()` retry contract, session lookup failure degrading to `failed`, and cross-layer import assertion |
-| `rateLimiter.test.ts` | Per-limiter blocking + 429 response shape, standard headers, `PgRateLimitStore` fallback behaviour, `LIMITER_CONFIGS` key completeness and security bounds, `loadFromDb()` no-throw contract, `_consecutiveDbFailuresForTesting` counter |
-| `rateLimiterDbFallback.test.ts` | `PgRateLimitStore` in-memory fallback: sequential counting, window expiry reset, key isolation, decrement, resetKey, resetAll, resetTime contract, instance isolation |
+| `rateLimiter.test.ts` | Per-limiter blocking + 429 response shape, standard headers, `SupabaseRateLimitStore` fallback behaviour, `LIMITER_CONFIGS` completeness/security bounds, no-throw preload contract, consecutive store-failure counter |
+| `rateLimiterDbFallback.test.ts` | `SupabaseRateLimitStore` in-memory fallback: sequential counting, window expiry reset, key isolation, decrement, resetKey, resetAll, resetTime contract, instance isolation |
+| `rateLimiterSupabase.test.ts` | Fake-RPC fixed-window increment/decrement/delete semantics, active-window reset stability, 6th-request 429/Retry-After, authenticated-user isolation, lockout persistence/reload, failure timeout/fallback, literal underscore prefix, empty/NULL prefix guard and TypeScript prefix validation |
 | `rebaseGuestPhotoUri.test.ts` | `rebaseGuestPhotoUri()`: prefix unchanged, old prefix rebased, non-guest URIs untouched, malformed filenames untouched, edge cases (empty currentDocDir, same prefix) |
 | `removeBackground.test.ts` | `resolveClassifyBase64`/`selectClassifyPayload`/`resolvePhotoUri` pipeline helpers; server handler error codes (503 missing key, 400 missing body, 502 non-OK/empty-body/network-error/AbortError/mid-stream AbortError); `resolveWardrobeUploadArg`/`stripDataUriPrefix` |
 | `signInWithEmail.test.ts` | Email sign-in flow: credential validation, Supabase auth call, error propagation |

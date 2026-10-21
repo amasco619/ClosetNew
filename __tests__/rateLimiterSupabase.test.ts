@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import request from "supertest";
@@ -18,6 +19,7 @@ type Row = Record<string, any>;
 function makeFakeSupabase() {
   const counters = new Map<string, { hits: number; resetTime: number }>();
   const lockouts = new Map<string, { value: string; expires: number | null }>();
+  const prefixRequests: unknown[] = [];
 
   function from(table: string) {
     let operation = "";
@@ -117,14 +119,18 @@ function makeFakeSupabase() {
       return { data: null, error: null };
     }
     if (name === "ratelimit_delete_prefix") {
-      const prefix = String(args.p_prefix);
+      prefixRequests.push(args.p_prefix);
+      if (typeof args.p_prefix !== "string" || args.p_prefix.length === 0) {
+        return { data: null, error: null };
+      }
+      const prefix = args.p_prefix;
       for (const key of counters.keys()) if (key.startsWith(prefix)) counters.delete(key);
       return { data: null, error: null };
     }
     return { data: null, error: { message: `unexpected RPC ${name}` } };
   };
 
-  return { client: { from, rpc } as any, counters, lockouts };
+  return { client: { from, rpc } as any, counters, lockouts, prefixRequests };
 }
 
 async function main() {
@@ -164,6 +170,25 @@ async function main() {
     assert.equal(fake.counters.has("member_a:client"), false, "literal underscore prefix removes its own key");
     assert.equal(fake.counters.has("memberXa:client"), true,
       "underscore is literal and does not match unrelated keys as a SQL LIKE wildcard would");
+    assert.equal(fake.prefixRequests.at(-1), "member_a:",
+      "TypeScript passes a non-empty plain prefix without LIKE wildcards");
+
+    const guardedFake = makeFakeSupabase();
+    guardedFake.counters.set("existing:key", { hits: 1, resetTime: Date.now() + 60_000 });
+    await guardedFake.client.rpc("ratelimit_delete_prefix", { p_prefix: "" });
+    await guardedFake.client.rpc("ratelimit_delete_prefix", { p_prefix: null });
+    assert.equal(guardedFake.counters.size, 1, "empty and NULL prefixes delete no rows");
+    assert.throws(
+      () => new SupabaseRateLimitStore("", guardedFake.client),
+      /prefix must be non-empty/,
+      "the TypeScript store rejects an empty prefix before it can call the RPC",
+    );
+    const migrationSql = readFileSync(
+      "supabase/migrations/20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql",
+      "utf8",
+    );
+    assert.match(migrationSql, /p_prefix IS NOT NULL AND p_prefix <> ''\s+AND pg_catalog\.starts_with\(key, p_prefix\)/,
+      "the installed migration uses the same empty-safe literal prefix rule");
 
     const middlewareFake = makeFakeSupabase();
     const middlewareStore = new SupabaseRateLimitStore("middleware", middlewareFake.client);

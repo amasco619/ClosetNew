@@ -1,5 +1,29 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
+## Rate-limit and lockout store Supabase cutover
+
+Migration `20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql`
+is applied to the connected Amodka Supabase project. Live metadata confirms
+both tables have RLS enabled, zero policies, no anon/authenticated table
+privileges, and service-role CRUD only. The four `ratelimit_*` functions are
+SECURITY INVOKER with an empty search path; anon/authenticated lack EXECUTE and
+service_role has EXECUTE. Prefix reset is literal and rejects empty/NULL input.
+
+The existing limiter budgets, 429 copy, and account-lockout thresholds are
+unchanged. The server now uses Supabase RPC/table APIs with a 1.5-second
+abortable timeout and in-memory fallback. Both tables are pruned at startup and
+hourly after success, with exponential retry backoff capped at eight hours.
+No rows were copied and the old Replit tables were not changed or dropped;
+existing persisted counters and lockouts therefore did not transfer to the
+empty Supabase tables. No deployment was performed.
+
+Full test suite: 120 test files passed; typecheck and lint passed; Recommendation
+Engine v3.7 golden set 35/35 and benchmark validation including all 53 frozen
+checksums passed. No live rate-limit request or account-lockout flow was run.
+Backend restart completed on port 5000; startup pruned 12 expired counter rows,
+pruned 0 expired lockout rows, and loaded 0 active lockouts.
+See `docs/reports/ratelimit-lockout-supabase-cutover.md`.
+
 ## Background-removal store cutover
 
 Migration `20261020231945_move_bg_removal_store_to_supabase.sql` creates the
