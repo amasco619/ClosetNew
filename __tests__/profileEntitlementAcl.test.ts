@@ -6,6 +6,10 @@ import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
+import express from "express";
+import request from "supertest";
+import { registerRoutes, _testOverrides as routeTestOverrides } from "../server/routes";
+import { _testOverrides as entitlementTestOverrides } from "../server/entitlements";
 
 // An isolated local PostgreSQL cluster: no application, Supabase or production data.
 const dir = mkdtempSync(join(tmpdir(), "amodka-b1-"));
@@ -177,7 +181,63 @@ async function main(): Promise<void> {
       assert.equal((await db.query("DELETE FROM public.user_profiles WHERE id=$1",
         [alice])).rowCount, 1);
     });
-    console.log("B1 isolated PostgreSQL ACL, conflict upsert, RLS and service-role checks passed");
+
+    const newEmailUser = randomUUID();
+    await as("authenticated", newEmailUser, async db => {
+      // The email signup has no provider display name, so hydration upserts
+      // only the authenticated user's ID and relies on profile defaults.
+      await db.query(
+        "INSERT INTO public.user_profiles (id) VALUES ($1) ON CONFLICT (id) DO UPDATE SET id=EXCLUDED.id",
+        [newEmailUser],
+      );
+      const profile = await db.query(
+        "SELECT id, premium, premium_expires_at FROM public.user_profiles WHERE id=$1",
+        [newEmailUser],
+      );
+      assert.deepEqual(profile.rows[0], {
+        id: newEmailUser, premium: false, premium_expires_at: null,
+      });
+    });
+
+    const serverDb = new Client({ host: dir, port, user: username, database: "postgres" });
+    await serverDb.connect();
+    try {
+      await serverDb.query("SET ROLE service_role");
+      const app = express();
+      app.set("trust proxy", () => true);
+      app.use(express.json());
+      await registerRoutes(app);
+      routeTestOverrides.authenticatedUser = { id: newEmailUser };
+      entitlementTestOverrides.client = {
+        from: (table: string) => ({
+          select: (columns: string) => ({
+            eq: (_column: string, id: string) => ({
+              single: async () => {
+                assert.equal(table, "user_profiles");
+                assert.equal(columns, "premium,premium_expires_at");
+                const result = await serverDb.query(
+                  "SELECT premium,premium_expires_at FROM public.user_profiles WHERE id=$1",
+                  [id],
+                );
+                return { data: result.rows[0] ?? null, error: null };
+              },
+            }),
+          }),
+        }),
+      };
+      const response = await request(app)
+        .get("/api/user/entitlements")
+        .set("Authorization", "Bearer local-test-token")
+        .set("X-Forwarded-For", "198.51.100.240");
+      assert.equal(response.status, 200);
+      assert.deepEqual(response.body, { isPremium: false, expiresAt: null });
+    } finally {
+      delete routeTestOverrides.authenticatedUser;
+      delete entitlementTestOverrides.client;
+      await serverDb.end();
+    }
+
+    console.log("B1 isolated PostgreSQL ACL, profile upsert, entitlement endpoint and RLS checks passed");
   } finally {
     await admin.end();
   }
