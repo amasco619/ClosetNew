@@ -7,9 +7,8 @@ import {
 } from "../lib/aiProcessingPreferenceState";
 
 async function main() {
-  // Import mounted routes with database-backed rate-limit state disabled.
-  const originalDbUrl = process.env.DATABASE_URL;
-  delete process.env.DATABASE_URL;
+  assert.equal(process.env.NODE_ENV, "test", "Run this fixture via npm test, not directly against live stores");
+  // The limiter uses Supabase now; removing DATABASE_URL no longer isolates it.
   const [routes, consent, limiter] = await Promise.all([
     import("../server/routes"),
     import("../server/aiProcessingConsent"),
@@ -21,6 +20,18 @@ async function main() {
     consent._testOverrides.load = async id => metadata.get(id) ?? {};
     consent._testOverrides.save = async (id, value) => { metadata.set(id, value); };
     limiter.__resetForTesting();
+    const counters = new Map<string, { hits: number; resetTime: number }>();
+    limiter.__storeOverrides.client = {
+      rpc: async (_name: string, args: { p_key: string; p_window_ms: number }) => {
+        const now = Date.now();
+        const previous = counters.get(args.p_key);
+        const row = !previous || now >= previous.resetTime
+          ? { hits: 1, resetTime: now + args.p_window_ms }
+          : { hits: previous.hits + 1, resetTime: previous.resetTime };
+        counters.set(args.p_key, row);
+        return { data: [{ hits: row.hits, reset_time_ms: row.resetTime }], error: null };
+      },
+    } as any;
     const app = express();
     app.set("trust proxy", 1);
     app.use(express.json());
@@ -98,8 +109,6 @@ async function main() {
     delete consent._testOverrides.load;
     delete consent._testOverrides.save;
     limiter.__resetForTesting();
-    if (originalDbUrl === undefined) delete process.env.DATABASE_URL;
-    else process.env.DATABASE_URL = originalDbUrl;
   }
 }
 

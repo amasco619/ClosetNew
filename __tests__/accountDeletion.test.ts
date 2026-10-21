@@ -166,6 +166,7 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
 }
 
 async function main() {
+  assert.equal(process.env.NODE_ENV, "test", "Run this fixture via npm test, not directly against live stores");
   assertCreatedTablesAreInventoried();
   assert.deepEqual(ACCOUNT_DELETION_TABLES.find(entry => entry.table === "bg_removal_usage"),
     { table: "bg_removal_usage", ownerColumn: "user_id" });

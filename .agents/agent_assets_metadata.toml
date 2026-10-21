@@ -645,3 +645,31 @@ mtime_ms = 1792418159024
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/0b58c0f6-34fa-4925-87cb-78431608374a/141359ed-9e69-4a30-ad5b-c20618d64dea"
 storage_version_token = "1792418210920195"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "yJwZOsqC1-kHQCA06XEjY"
+uri = "file://docs/reports/deletion-hardening-readiness-and-removal.md"
+type = "text"
+title = "Deletion hardening and readiness report"
+description = "Implementation, live probes, inventory, checks, deviations, and pending DROP statements."
+logical_id = "817260c2-1b80-4230-9b0e-8cb443c7278c"
+content_hash = "sha256:5e4e074e2c6472bae029bf7c572ec7525d06632f959d906e98bf375095ed5805"
+size = 11447
+mtime_ms = 1792585009363
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/817260c2-1b80-4230-9b0e-8cb443c7278c/b75d8d5e-3940-4548-833e-d921ff7fd0ad"
+storage_version_token = "1792585050543255"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "fwq-EXpCJb7lPsfESrx5a"
+uri = "file://docs/release-checklist-deletion.md"
+type = "text"
+title = "Account-deletion release checklist"
+description = "Published disposable-account smoke test and manual privilege checks."
+logical_id = "2bdba5e3-8154-4ff1-b7e1-4cf25fa7938e"
+content_hash = "sha256:24711f65e3586fdf35afe28ca3f48643d7f30f613f3a9cfd01dd4c54d69311a7"
+size = 4465
+mtime_ms = 1792584908561
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/2bdba5e3-8154-4ff1-b7e1-4cf25fa7938e/6e1badd2-fbd0-42f7-b217-ee60a8d90875"
+storage_version_token = "1792585051355140"
+content_type = "text/markdown"

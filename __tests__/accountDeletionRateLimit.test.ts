@@ -11,6 +11,7 @@ import {
 } from "../server/middleware/rateLimiter";
 
 async function main() {
+  assert.equal(process.env.NODE_ENV, "test", "Run this fixture via npm test, not directly against live stores");
   const routes = readFileSync("server/routes.ts", "utf8");
   assert.match(
     routes,

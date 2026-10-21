@@ -959,7 +959,7 @@ Premium status is stored in Supabase `user_profiles` with an expiry timestamp. T
 ---
 
 ### Rate Limiting
-All Express API endpoints use `express-rate-limit` and the centrally-configured `LIMITER_CONFIGS`. The existing limits and windows are unchanged:
+Express API endpoints use `express-rate-limit` and the centrally-configured `LIMITER_CONFIGS`. Non-deletion limits and windows are unchanged; authenticated deletion now uses the layered IP/user budgets below:
 
 | Limiter | Maximum | Window |
 |---------|---------|--------|
@@ -1448,7 +1448,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (116 total)
+### Test Suites (121 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -2386,8 +2386,8 @@ is safe for empty buckets and already-removed rows. The OTP web path requires
 a new verification code to retry. The in-app client clears its local cache
 and signs out only after explicit server success; if device cleanup fails
 after confirmed deletion, it reports that separate failure truthfully.
-No database transaction or rollback is implied, and no production data or
-Supabase settings were changed. `__tests__/accountDeletion.test.ts` injects
+No database transaction or rollback is implied.
+`__tests__/accountDeletion.test.ts` injects
 failure at every stage for both routes and verifies partial-cleanup retries.
 
 ### Account-deletion regression: database routing and live permission blocker
@@ -2431,8 +2431,9 @@ Use the live published-environment smoke procedure in
 `docs/release-checklist-deletion.md` before release.
 
 The connected Supabase project currently has `service_role` SELECT and DELETE
-on `wardrobe_free_selections`, but its migration history has no entry recording
-that grant, and no previously checked-in migration contained it. The exact
+on `wardrobe_free_selections`. Inspection of the recorded migration statements
+found only its authenticated SELECT grant, not the service-role grant; no
+previously checked-in migration contained it either. The exact
 one-statement mirror is
 `supabase/migrations/20261021115252_grant_service_role_wardrobe_free_selections.sql`.
 It is intentionally **not applied**: the grant was already live when verified,

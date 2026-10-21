@@ -1,5 +1,38 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
+## Account-deletion readiness and legacy Replit-table removal
+
+Authenticated in-app deletion now has a 60/hour IP ceiling before `requireAuth`
+and a 5/hour fixed-window authenticated-user budget after it. The OTP-confirm
+path remains 5/hour per IP, and the existing 429 body/Retry-After behavior is
+preserved. Owner-table deletion order, memory fallback, billing and consent
+logic are unchanged.
+
+`node scripts/check-deletion-readiness.mjs` passed 41/41 connected-Supabase
+API probes: zero-row SELECT/DELETE access for all 14 owner-scoped tables,
+two safe no-op RPCs, and denied publishable-key SELECTs on all ten server-only
+tables. It prints the manual RLS/privilege SQL query for a human operator; that
+query and a complete published-app deletion smoke test remain unperformed.
+See `docs/release-checklist-deletion.md`.
+
+The live `wardrobe_free_selections` service-role SELECT/DELETE grant is present
+but absent from recorded migration GRANT statements. The exact repository
+mirror `20261021115252_grant_service_role_wardrobe_free_selections.sql` is
+intentionally unapplied. Every Supabase environment must have the grant.
+
+No active server/script Replit PostgreSQL pool or runtime DDL remains. Unused
+direct Keyv dependencies were removed; `pg` stays for four disposable local
+database tests. The four old Replit development tables still exist, pending
+approval of the exact DROP statements in
+`docs/reports/deletion-hardening-readiness-and-removal.md`. The module,
+`DATABASE_URL`, `.replit`, and published database are untouched.
+
+Final checks: 121 test files passed; typecheck/lint passed; golden set 35/35;
+all 53 frozen checksums passed. Initial improperly invoked tests incremented
+short-lived synthetic Supabase rate-limit counters but did not delete accounts;
+test-mode guards and the stale consent-test fixture were corrected. Backend
+restart initialized the current Supabase stores successfully. No deployment.
+
 ## Rate-limit and lockout store Supabase cutover
 
 Migration `20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql`

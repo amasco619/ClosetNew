@@ -1,6 +1,7 @@
 # Amodka — Complete Data Inventory
 
-**Phase 5B | Date:** 2026-08-14 (operational-store entries updated 2026-10-21)  
+**Phase 5B | Date:** 2026-08-14 (operational-store entries updated 2026-10-21)
+
 **Status:** Verified against source code. Operational rate-limit and lockout storage reflects the current Supabase cutover.
 
 ---

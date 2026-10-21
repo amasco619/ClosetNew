@@ -41,14 +41,15 @@ including staging and production. Live DDL must always have a matching
 repository migration file. Every new migration creating a public table must
 first `REVOKE ALL` from `PUBLIC`, `anon`, and `authenticated`, then grant only
 what the feature needs. The outstanding `supabase_admin` default-privilege
-change remains a separate operator action documented in `TECHNICAL.md` §28;
+change remains a separate operator action documented in `TECHNICAL.md` §29;
 do not treat the per-table migration rule as a substitute for it.
 
 ## 2. Prepare the disposable account
 
 1. Open the published app as a guest and add at least one garment.
-2. Create/sign in to the disposable account and confirm the guest garment was
-   migrated and is visible as owned wardrobe data.
+2. Create a **new** disposable account through guest sign-up (not sign-in to an
+   existing account) and confirm the guest garment was migrated and is visible
+   as owned wardrobe data.
 3. Confirm the account has an owned object in `wardrobe-images` and an owned
    object in `tryon-photos`. Use only a supported test flow or an authorised
    disposable fixture; if the second bucket cannot be populated safely, record
