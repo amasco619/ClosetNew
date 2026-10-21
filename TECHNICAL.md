@@ -1178,6 +1178,14 @@ At upload time, both `app/add-item.tsx` and `app/bulk-review.tsx` attempt to str
   Both RPCs are atomic SECURITY INVOKER SQL functions with empty search paths.
   The free allowance remains a TypeScript read-before-increment check;
   the increment is deliberately uncapped to preserve Premium counting.
+- Isolated handler/store/SQL concurrency fixtures confirm this is not an
+  atomic free-tier cap: two requests reading count 19 both succeed and leave
+  count 21; six leave count 25. Sequential requests stop at 20, already-at-limit
+  requests do not increment or call the provider, and Premium remains uncapped.
+  These characterization tests use a read barrier, disposable PostgreSQL and
+  a synthetic provider response, not live Supabase or provider calls. See
+  `docs/reports/bg-removal-supabase-cutover.md` for the matrix and evidence limits.
+  No quota policy change is authorized by this finding.
 - RLS is enabled with zero policies. PUBLIC/anon/authenticated have no table
   privileges or RPC execution. `service_role` has SELECT/INSERT/DELETE on
   cache, SELECT/INSERT/UPDATE/DELETE on usage and EXECUTE on the two RPCs.

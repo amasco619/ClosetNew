@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { createServer } from "node:net";
 import { Client } from "pg";
 import { createHash, randomUUID } from "node:crypto";
+import { BG_REMOVAL_LIMIT_REACHED } from "../shared/photoroom-error-codes";
 
 async function main() {
   const directory = mkdtempSync(join(tmpdir(), "amodka-bg-removal-"));
@@ -33,11 +34,14 @@ async function main() {
     SUPABASE_SECRET_KEY: "local-test-only",
     EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "local-test-only",
   };
-  function runRemovalServer(mode: "first" | "restart"): number {
+  function runRemovalServer(mode: "first" | "restart" | "concurrent"): number {
     const output = execFileSync("node_modules/.bin/tsx",
       ["__tests__/bgRemovalMigration.test.ts"], { env: {
         ...childEnv, BG_REMOVAL_RESTART_CHILD: mode,
-      }, encoding: "utf8" });
+      }, encoding: "utf8", timeout: 60_000 });
+    for (const line of output.split("\n").filter(line => line.startsWith("CONCURRENCY_RESULT:"))) {
+      console.log(line);
+    }
     const result = output.split("\n").find(line => line.startsWith("RESTART_RESULT:"));
     assert(result, `the ${mode} removal server reports its provider-call count`);
     return Number(result!.slice("RESTART_RESULT:".length));
@@ -148,6 +152,8 @@ async function main() {
       "SELECT count(*)::int AS n FROM public.bg_removal_cache WHERE image_hash=$1",
       [createHash("sha256").update(restartImage).digest("hex")],
     )).rows[0].n, 1, "deleting per-user usage leaves the shared image cache available");
+    assert.equal(runRemovalServer("concurrent"), 19,
+      "isolated boundary scenarios invoke only the stub provider for admitted cache misses");
     // A quota write permission failure cannot turn into a successful RPC.
     await admin.query("REVOKE INSERT ON public.bg_removal_usage FROM service_role");
     await assert.rejects(asRole("service_role", db => db.query(
@@ -165,14 +171,14 @@ async function main() {
 }
 
 if (process.env.BG_REMOVAL_RESTART_CHILD) {
-  runRemovalServerChild(process.env.BG_REMOVAL_RESTART_CHILD as "first" | "restart")
+  runRemovalServerChild(process.env.BG_REMOVAL_RESTART_CHILD as "first" | "restart" | "concurrent")
     .catch(error => { console.error(error); process.exitCode = 1; });
 } else {
   main().catch(error => { console.error(error); process.exitCode = 1; });
 }
 
-async function runRemovalServerChild(mode: "first" | "restart") {
-  const [{ removeBackground, _testOverrides }, store, { Client: PgClient }, expressModule, supertestModule] =
+async function runRemovalServerChild(mode: "first" | "restart" | "concurrent") {
+  const [{ removeBackground, _testOverrides }, store, { Pool: PgPool }, expressModule, supertestModule] =
     await Promise.all([
       import("../server/remove-background"),
       import("../server/bgRemovalStore"),
@@ -180,13 +186,19 @@ async function runRemovalServerChild(mode: "first" | "restart") {
       import("express"),
       import("supertest"),
     ]);
-  const db = new PgClient({
+  const db = new PgPool({
     host: process.env.BG_REMOVAL_TEST_SOCKET,
     port: Number(process.env.BG_REMOVAL_TEST_PORT),
     user: userInfo().username,
     database: "postgres",
+    max: 8,
+    options: "-c role=service_role",
   });
-  await db.connect();
+  assert.equal((await db.query("SELECT current_user")).rows[0].current_user, "service_role");
+  let premium = false;
+  let usageReads: number[] = [];
+  let increments: number[] = [];
+  let readBarrier: { expected: number; wait: Promise<void>; release: () => void } | undefined;
   const imageHash = store.computeImageHash(process.env.BG_REMOVAL_TEST_IMAGE!);
   const client = {
     from(table: string) {
@@ -202,6 +214,15 @@ async function runRemovalServerChild(mode: "first" | "restart") {
                     `SELECT ${table === "bg_removal_cache" ? "result_b64" : "count"} ` +
                       `FROM public.${table} WHERE ${column}=$1`, [value],
                   );
+                  if (table === "bg_removal_usage") {
+                    usageReads.push(Number(result.rows[0]?.count ?? 0));
+                    // Hold each captured read until all parallel admissions have read.
+                    // This forces a valid worst-case interleaving without changing the handler.
+                    if (readBarrier) {
+                      if (usageReads.length === readBarrier.expected) readBarrier.release();
+                      await readBarrier.wait;
+                    }
+                  }
                   if (!result.rows.length) return { data: null, error: null };
                   return { data: table === "bg_removal_cache"
                     ? result.rows[0] : { count: Number(result.rows[0].count) }, error: null };
@@ -220,9 +241,11 @@ async function runRemovalServerChild(mode: "first" | "restart") {
       };
     },
     async rpc(name: string, params: { p_user_id: string }) {
+      assert.equal(name, "bg_removal_increment_usage");
       const result = await db.query(
         `SELECT public.${name}($1::uuid) AS count`, [params.p_user_id],
       );
+      increments.push(Number(result.rows[0].count));
       return { data: result.rows[0].count, error: null };
     },
   };
@@ -233,7 +256,10 @@ async function runRemovalServerChild(mode: "first" | "restart") {
     from: () => ({
       select: () => ({
         eq: () => ({
-          single: async () => ({ data: { premium: false, premium_expires_at: null }, error: null }),
+          single: async () => ({ data: {
+            premium,
+            premium_expires_at: premium ? new Date(Date.now() + 60_000).toISOString() : null,
+          }, error: null }),
         }),
       }),
     }),
@@ -247,7 +273,9 @@ async function runRemovalServerChild(mode: "first" | "restart") {
     sync: { write(image: TestRaster): Buffer };
   };
   const { PNG } = require("pngjs") as { PNG: TestPngCodec };
-  globalThis.fetch = async () => {
+  globalThis.fetch = async (url) => {
+    assert.equal(url, "https://sdk.photoroom.com/v1/segment",
+      "all network fetches are intercepted; only the expected provider URL is permitted");
     providerCalls++;
     const png = new PNG({ width: 80, height: 80 });
     for (let y = 0; y < png.height; y++) {
@@ -270,6 +298,87 @@ async function runRemovalServerChild(mode: "first" | "restart") {
   app.use(express.json());
   app.post("/api/remove-background", removeBackground);
   try {
+    if (mode === "concurrent") {
+      const scenarios = [
+        { name: "free-one-left-pair", start: 19, parallel: 2, admitted: 2 },
+        { name: "free-one-left-burst", start: 19, parallel: 6, admitted: 6 },
+        { name: "free-two-left-burst", start: 18, parallel: 6, admitted: 6 },
+        { name: "free-at-limit", start: 20, parallel: 4, admitted: 0 },
+        { name: "premium-at-limit", start: 20, parallel: 4, admitted: 4, premium: true },
+        { name: "free-sequential", start: 19, parallel: 2, admitted: 1, sequential: true },
+      ];
+      for (const scenario of scenarios) {
+        const userId = process.env.BG_REMOVAL_TEST_USER_ID!;
+        await db.query(
+          "INSERT INTO public.bg_removal_usage (user_id,count) VALUES ($1,$2) " +
+          "ON CONFLICT (user_id) DO UPDATE SET count=EXCLUDED.count",
+          [userId, scenario.start],
+        );
+        premium = scenario.premium === true;
+        usageReads = [];
+        increments = [];
+        const callsBefore = providerCalls;
+        readBarrier = undefined;
+        if (!premium && !scenario.sequential) {
+          let release!: () => void;
+          const wait = new Promise<void>(resolve => { release = resolve; });
+          readBarrier = { expected: scenario.parallel, wait, release };
+        }
+        const send = (index: number) => request(app).post("/api/remove-background")
+          .set("Authorization", "Bearer local-test-token")
+          .send({ imageBase64: Buffer.from(`${scenario.name}-${index}`).toString("base64") })
+          .timeout({ response: 10_000, deadline: 15_000 });
+        const responses = [];
+        if (scenario.sequential) {
+          for (let index = 0; index < scenario.parallel; index++) responses.push(await send(index));
+        } else {
+          responses.push(...await Promise.all(Array.from({ length: scenario.parallel }, (_, i) => send(i))));
+        }
+        readBarrier = undefined;
+        const admitted = responses.filter(response => response.status === 200);
+        const rejected = responses.filter(response => response.status === 403);
+        assert.equal(admitted.length, scenario.admitted, scenario.name);
+        assert.equal(rejected.length, scenario.parallel - scenario.admitted, scenario.name);
+        for (const response of rejected) {
+          assert.deepEqual(response.body, {
+            error: BG_REMOVAL_LIMIT_REACHED, limit: 20,
+            count: scenario.sequential ? 20 : scenario.start, remaining: 0,
+          });
+        }
+        for (const response of admitted) {
+          assert.equal(response.body.fromCache, undefined, "unique inputs must miss the cache");
+          assert.equal(typeof response.body.imageBase64, "string");
+          assert.equal(response.body.remaining, premium ? undefined : Math.max(0, 19 - scenario.start));
+        }
+        assert.deepEqual(usageReads, premium ? [] : scenario.sequential
+          ? [19, 20] : Array(scenario.parallel).fill(scenario.start));
+        assert.deepEqual(increments.sort((a, b) => a - b),
+          Array.from({ length: scenario.admitted }, (_, i) => scenario.start + i + 1),
+          "SQL increments remain atomic and uncapped; none are lost");
+        const finalCount = Number((await db.query(
+          "SELECT count FROM public.bg_removal_usage WHERE user_id=$1", [userId],
+        )).rows[0].count);
+        assert.equal(finalCount, scenario.start + scenario.admitted);
+        assert.equal(providerCalls - callsBefore, scenario.admitted);
+        const callsBeforeBlockedProbe = providerCalls;
+        if (!premium) {
+          const blocked = await send(scenario.parallel);
+          assert.equal(blocked.status, 403, "later free requests see the stored count and are blocked");
+          assert.equal(blocked.body.count, finalCount);
+          assert.equal(blocked.body.remaining, 0);
+          assert.equal(providerCalls, callsBeforeBlockedProbe);
+          assert.equal(increments.length, scenario.admitted, "blocked follow-up cannot increment");
+        }
+        console.log(`CONCURRENCY_RESULT:${JSON.stringify({
+          scenario: scenario.name, start: scenario.start, requests: scenario.parallel,
+          admitted: admitted.length, rejected: rejected.length, finalCount,
+          providerCalls: providerCalls - callsBefore,
+          freeAllowanceExceededBy: premium ? null : Math.max(0, finalCount - 20),
+        })}`);
+      }
+      console.log(`RESTART_RESULT:${providerCalls}`);
+      return;
+    }
     const response = await request(app).post("/api/remove-background")
       .set("Authorization", "Bearer local-test-token")
       .send({ imageBase64: process.env.BG_REMOVAL_TEST_IMAGE });

@@ -74,6 +74,72 @@ Other database pools, rate limiting, lockout, billing, consent enforcement,
 Recommendation Engine v3.7 and frozen benchmark files were not changed.
 Rollback and future migration rules are documented in TECHNICAL.md.
 
+## Isolated concurrent free-tier boundary verification
+
+**Finding: concurrent free-tier admissions can exceed the 20-use allowance.**
+This is the preserved read-before-increment behavior, not a lost-update defect
+in the Supabase increment RPC. No fix or quota-semantics change was made.
+
+Reproduce with:
+
+```sh
+npm test -- bgRemovalMigration.test.ts bgRemovalStore.test.ts removeBackground.test.ts
+```
+
+The extended migration fixture mounts `server/remove-background.ts` on an
+isolated Express app and sends parallel HTTP requests via Supertest. It uses
+the real `server/bgRemovalStore.ts` adapter with a test-injected Supabase-shaped
+table/RPC client backed by a disposable local PostgreSQL pool (eight connections).
+The pool executes as `service_role`, against the exact cutover migration.
+Auth and server profile lookup are fixture-controlled; `skipAuth` is not used
+and `useRealQuotaStore` is enabled. Every input is distinct, so both the real
+memory cache and database cache miss. Fetch is fully intercepted and returns
+a synthetic valid PNG; no PhotoRoom, Gemini, connected Supabase, or production
+data is used.
+
+For parallel free requests, a barrier holds each completed usage read until
+all requests have captured the same seeded count. The barrier is test-only,
+outside the handler and store implementation; it forces a valid worst-case
+interleaving rather than depending on timing or asserting how often it occurs.
+Requests have deadlines and the child fixture has a 60-second timeout.
+
+| Tier / execution | Initial count | Requests | HTTP 200 | HTTP 403 | Final count | Provider stub calls | Free allowance overrun |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Free, parallel | 19 | 2 | 2 | 0 | 21 | 2 | 1 |
+| Free, parallel | 19 | 6 | 6 | 0 | 25 | 6 | 5 |
+| Free, parallel | 18 | 6 | 6 | 0 | 24 | 6 | 4 |
+| Free, parallel, already at limit | 20 | 4 | 0 | 4 | 20 | 0 | 0 |
+| Premium, parallel | 20 | 4 | 4 | 0 | 24 | 4 | Not applicable |
+| Free, sequential control | 19 | 2 | 1 | 1 | 20 | 1 | 0 |
+
+Assertions also confirm:
+
+- Every successful cache miss increments exactly once; the real SQL RPC
+  returns consecutive counts with no lost increments.
+- Every later free request is rejected with `bg_removal_limit_reached`,
+  the final stored count, and `remaining: 0`, without another increment or
+  provider call.
+- Free success responses use the earlier read, not the final shared count:
+  all successes starting at 19 report `remaining: 0`; those starting at 18
+  report `remaining: 1`, even though the burst ends above the allowance.
+- Premium requests skip the usage read, still increment every removal, and
+  omit `remaining`.
+
+The three focused test files passed, as did `npm run typecheck`,
+`npm run lint`, and `git diff --check`.
+
+**Evidence limits:** this verifies the handler, store adapter, and migrated SQL
+in isolation, not live PostgREST transport, production concurrency frequency,
+provider behavior, full-route rate limiting, or lockout. The app's rate-limit
+middleware is not mounted in this fixture and was not changed. Atomic counting
+alone does not make admission atomic: if N free cache misses all observe count
+C below 20 before any increment, all N can be admitted and the stored count
+can become C + N. This is a possible interleaving, not a claim that every burst
+will overrun. No live reset, permissions change, billing change, production
+write, or deployment was performed. Any remedy requires separate explicit
+approval and must preserve the approved Premium behavior unless separately
+authorized.
+
 ## Files changed
 
 - `server/bgRemovalStore.ts`

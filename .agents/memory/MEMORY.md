@@ -42,3 +42,4 @@
 - [Luxury feedback hook boundary](luxury-feedback-hook-boundary.md) — screens use a lightweight dialog/toast context; only the root provider imports native feedback UI.
 - [Account deletion permissions](account-deletion-permissions.md) — passing mocks do not prove live service-role table privileges; verify effective access before claiming deletion works.
 - [Disposable recovery verification](disposable-recovery-verification.md) — use disposable accounts/synthetic photos; distinguish fixture, live browser and physical-device evidence.
+- [Background-removal quota approval](bg-removal-quota-policy.md) — concurrency verification does not authorize a quota fix; preserve Premium counting and seek separate approval.
