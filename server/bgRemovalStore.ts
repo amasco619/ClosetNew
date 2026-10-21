@@ -3,6 +3,7 @@ import crypto from "crypto";
 
 const CACHE_MAX = 200;
 const inMemCache = new Map<string, string>();
+const inFlightResults = new Map<string, Promise<string>>();
 
 export class BgRemovalStoreUnavailableError extends Error {
   constructor() {
@@ -90,6 +91,29 @@ export async function storeCacheResult(hash: string, base64: string): Promise<vo
   } catch (err) {
     console.error("[bgRemovalStore] cache store failed:", err);
   }
+}
+
+export function getOrCreateBgRemovalResult(
+  hash: string,
+  create: () => Promise<string>,
+): Promise<string> {
+  const cached = inMemCache.get(hash);
+  if (cached) return Promise.resolve(cached);
+
+  const inFlight = inFlightResults.get(hash);
+  if (inFlight) return inFlight;
+
+  let pending: Promise<string>;
+  pending = create()
+    .then(async result => {
+      await storeCacheResult(hash, result);
+      return result;
+    })
+    .finally(() => {
+      if (inFlightResults.get(hash) === pending) inFlightResults.delete(hash);
+    });
+  inFlightResults.set(hash, pending);
+  return pending;
 }
 
 export async function getUserBgRemovalCount(userId: string): Promise<number> {

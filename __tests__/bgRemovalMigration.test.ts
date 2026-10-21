@@ -152,8 +152,8 @@ async function main() {
       "SELECT count(*)::int AS n FROM public.bg_removal_cache WHERE image_hash=$1",
       [createHash("sha256").update(restartImage).digest("hex")],
     )).rows[0].n, 1, "deleting per-user usage leaves the shared image cache available");
-    assert.equal(runRemovalServer("concurrent"), 19,
-      "isolated boundary scenarios invoke only the stub provider for admitted cache misses");
+    assert.equal(runRemovalServer("concurrent"), 20,
+      "isolated scenarios invoke the stub provider once for identical concurrent cache misses");
     // A quota write permission failure cannot turn into a successful RPC.
     await admin.query("REVOKE INSERT ON public.bg_removal_usage FROM service_role");
     await assert.rejects(asRole("service_role", db => db.query(
@@ -199,6 +199,7 @@ async function runRemovalServerChild(mode: "first" | "restart" | "concurrent") {
   let usageReads: number[] = [];
   let increments: number[] = [];
   let readBarrier: { expected: number; wait: Promise<void>; release: () => void } | undefined;
+  let providerBarrier: { expected: number; wait: Promise<void>; release: () => void } | undefined;
   const imageHash = store.computeImageHash(process.env.BG_REMOVAL_TEST_IMAGE!);
   const client = {
     from(table: string) {
@@ -246,6 +247,7 @@ async function runRemovalServerChild(mode: "first" | "restart" | "concurrent") {
         `SELECT public.${name}($1::uuid) AS count`, [params.p_user_id],
       );
       increments.push(Number(result.rows[0].count));
+      if (providerBarrier && increments.length === providerBarrier.expected) providerBarrier.release();
       return { data: result.rows[0].count, error: null };
     },
   };
@@ -277,6 +279,7 @@ async function runRemovalServerChild(mode: "first" | "restart" | "concurrent") {
     assert.equal(url, "https://sdk.photoroom.com/v1/segment",
       "all network fetches are intercepted; only the expected provider URL is permitted");
     providerCalls++;
+    if (providerBarrier) await providerBarrier.wait;
     const png = new PNG({ width: 80, height: 80 });
     for (let y = 0; y < png.height; y++) {
       for (let x = 0; x < png.width; x++) {
@@ -306,6 +309,7 @@ async function runRemovalServerChild(mode: "first" | "restart" | "concurrent") {
         { name: "free-at-limit", start: 20, parallel: 4, admitted: 0 },
         { name: "premium-at-limit", start: 20, parallel: 4, admitted: 4, premium: true },
         { name: "free-sequential", start: 19, parallel: 2, admitted: 1, sequential: true },
+        { name: "same-image-burst", start: 19, parallel: 6, admitted: 6, sameImage: true },
       ];
       for (const scenario of scenarios) {
         const userId = process.env.BG_REMOVAL_TEST_USER_ID!;
@@ -319,14 +323,22 @@ async function runRemovalServerChild(mode: "first" | "restart" | "concurrent") {
         increments = [];
         const callsBefore = providerCalls;
         readBarrier = undefined;
+        providerBarrier = undefined;
         if (!premium && !scenario.sequential) {
           let release!: () => void;
           const wait = new Promise<void>(resolve => { release = resolve; });
           readBarrier = { expected: scenario.parallel, wait, release };
         }
+        if (scenario.sameImage) {
+          let release!: () => void;
+          const wait = new Promise<void>(resolve => { release = resolve; });
+          providerBarrier = { expected: scenario.parallel, wait, release };
+        }
         const send = (index: number) => request(app).post("/api/remove-background")
           .set("Authorization", "Bearer local-test-token")
-          .send({ imageBase64: Buffer.from(`${scenario.name}-${index}`).toString("base64") })
+          .send({ imageBase64: Buffer.from(
+            scenario.sameImage ? `${scenario.name}-shared-image` : `${scenario.name}-${index}`,
+          ).toString("base64") })
           .timeout({ response: 10_000, deadline: 15_000 });
         const responses = [];
         if (scenario.sequential) {
@@ -335,6 +347,7 @@ async function runRemovalServerChild(mode: "first" | "restart" | "concurrent") {
           responses.push(...await Promise.all(Array.from({ length: scenario.parallel }, (_, i) => send(i))));
         }
         readBarrier = undefined;
+        providerBarrier = undefined;
         const admitted = responses.filter(response => response.status === 200);
         const rejected = responses.filter(response => response.status === 403);
         assert.equal(admitted.length, scenario.admitted, scenario.name);
@@ -359,7 +372,16 @@ async function runRemovalServerChild(mode: "first" | "restart" | "concurrent") {
           "SELECT count FROM public.bg_removal_usage WHERE user_id=$1", [userId],
         )).rows[0].count);
         assert.equal(finalCount, scenario.start + scenario.admitted);
-        assert.equal(providerCalls - callsBefore, scenario.admitted);
+        assert.equal(providerCalls - callsBefore,
+          scenario.sameImage ? 1 : scenario.admitted,
+          scenario.sameImage ? "identical concurrent images share one provider call" : undefined);
+        if (scenario.sameImage) {
+          assert.equal(new Set(admitted.map(response => response.body.imageBase64)).size, 1,
+            "every identical-image request receives the shared result");
+          assert.deepEqual(increments.sort((a, b) => a - b),
+            Array.from({ length: scenario.parallel }, (_, i) => scenario.start + i + 1),
+            "each admitted request still consumes one usage");
+        }
         const callsBeforeBlockedProbe = providerCalls;
         if (!premium) {
           const blocked = await send(scenario.parallel);

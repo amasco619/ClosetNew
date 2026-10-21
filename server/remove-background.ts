@@ -14,9 +14,9 @@ import {
   checkCacheByHash,
   computeImageHash,
   BgRemovalStoreUnavailableError,
+  getOrCreateBgRemovalResult,
   getUserBgRemovalStatus,
   incrementUserBgRemovalCount,
-  storeCacheResult,
 } from "./bgRemovalStore";
 import { reportError } from "../shared/observability";
 import { supabaseAdmin } from "./supabase";
@@ -25,6 +25,12 @@ import { getUserEntitlement, resolveEntitlement } from "./entitlements";
 const FREE_TIER_LIMIT = 20;
 const PHOTOROOM_SEGMENT_URL = "https://sdk.photoroom.com/v1/segment";
 const PHOTOROOM_TIMEOUT_MS = 15_000;
+
+class ProviderResponseError extends Error {
+  constructor(readonly status: number, readonly body: Record<string, unknown>) {
+    super("Background-removal provider returned an invalid response");
+  }
+}
 
 if (process.env.PHOTOROOM_API_KEY) {
   console.log("[remove-background] PHOTOROOM_API_KEY is set — background removal enabled");
@@ -227,75 +233,78 @@ export async function removeBackground(req: Request, res: Response) {
     }
   }
 
-  // ── 6. Call Photoroom ─────────────────────────────────────────────────────
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), PHOTOROOM_TIMEOUT_MS);
-
   try {
-    const buffer = Buffer.from(imageBase64, "base64");
-    const form = new FormData();
-    const blob = new Blob([buffer], { type: "image/jpeg" });
-    form.append("image_file", blob, "garment.jpg");
+    // ── 6. Call Photoroom, sharing successful work for identical image hashes. ──
+    const createResult = async (): Promise<string> => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), PHOTOROOM_TIMEOUT_MS);
+      try {
+        const buffer = Buffer.from(imageBase64, "base64");
+        const form = new FormData();
+        const blob = new Blob([buffer], { type: "image/jpeg" });
+        form.append("image_file", blob, "garment.jpg");
 
-    const fetchResponse = await fetch(PHOTOROOM_SEGMENT_URL, {
-      method: "POST",
-      headers: { "x-api-key": apiKey },
-      body: form,
-      signal: controller.signal,
-    });
+        const fetchResponse = await fetch(PHOTOROOM_SEGMENT_URL, {
+          method: "POST",
+          headers: { "x-api-key": apiKey },
+          body: form,
+          signal: controller.signal,
+        });
 
-    if (!fetchResponse.ok) {
-      clearTimeout(timeoutId);
-      reportError(new Error("Photoroom dependency returned an error"), "background_removal", {
-        dependency: "photoroom",
-        status: fetchResponse.status,
-        requestId: res.locals?.requestId,
-      });
-      return res.status(502).json({ error: PHOTOROOM_ERROR, status: fetchResponse.status });
-    }
+        if (!fetchResponse.ok) {
+          reportError(new Error("Photoroom dependency returned an error"), "background_removal", {
+            dependency: "photoroom",
+            status: fetchResponse.status,
+            requestId: res.locals?.requestId,
+          });
+          throw new ProviderResponseError(502, {
+            error: PHOTOROOM_ERROR,
+            status: fetchResponse.status,
+          });
+        }
 
-    const arrayBuffer = await fetchResponse.arrayBuffer();
-    clearTimeout(timeoutId);
+        const arrayBuffer = await fetchResponse.arrayBuffer();
+        if (arrayBuffer.byteLength === 0) {
+          reportError(new Error("Photoroom returned an empty response"), "background_removal", {
+            dependency: "photoroom",
+            requestId: res.locals?.requestId,
+          });
+          throw new ProviderResponseError(502, { error: PHOTOROOM_EMPTY_RESPONSE });
+        }
 
-    if (arrayBuffer.byteLength === 0) {
-      reportError(new Error("Photoroom returned an empty response"), "background_removal", {
-        dependency: "photoroom",
-        requestId: res.locals?.requestId,
-      });
-      return res.status(502).json({ error: PHOTOROOM_EMPTY_RESPONSE });
-    }
+        const resultBuf = Buffer.from(arrayBuffer);
+        const isPng =
+          resultBuf.length >= 4 &&
+          resultBuf[0] === 0x89 &&
+          resultBuf[1] === 0x50 &&
+          resultBuf[2] === 0x4e &&
+          resultBuf[3] === 0x47;
 
-    const resultBuf = Buffer.from(arrayBuffer);
-    const isPng =
-      resultBuf.length >= 4 &&
-      resultBuf[0] === 0x89 &&
-      resultBuf[1] === 0x50 &&
-      resultBuf[2] === 0x4e &&
-      resultBuf[3] === 0x47;
+        if (!isPng || arrayBuffer.byteLength < 1024) {
+          reportError(new Error("Photoroom returned a malformed image"), "background_removal", {
+            dependency: "photoroom",
+            requestId: res.locals?.requestId,
+          });
+          throw new ProviderResponseError(502, { error: PHOTOROOM_INVALID_RESPONSE });
+        }
 
-    if (!isPng || arrayBuffer.byteLength < 1024) {
-      reportError(new Error("Photoroom returned a malformed image"), "background_removal", {
-        dependency: "photoroom",
-        requestId: res.locals?.requestId,
-      });
-      return res.status(502).json({ error: PHOTOROOM_INVALID_RESPONSE });
-    }
+        try {
+          return trimTransparentGarmentPng(resultBuf).toString("base64");
+        } catch (error) {
+          reportError(error, "background_removal", {
+            dependency: "photoroom",
+            requestId: res.locals?.requestId,
+          });
+          throw new ProviderResponseError(502, { error: PHOTOROOM_INVALID_RESPONSE });
+        }
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
 
-    let trimmedResult: Buffer;
-    try {
-      trimmedResult = trimTransparentGarmentPng(resultBuf);
-    } catch (error) {
-      reportError(error, "background_removal", {
-        dependency: "photoroom",
-        requestId: res.locals?.requestId,
-      });
-      return res.status(502).json({ error: PHOTOROOM_INVALID_RESPONSE });
-    }
-    const resultBase64 = trimmedResult.toString("base64");
-
-    // ── 7. Await the cache-write attempt before success. Cache persistence is
-    // best-effort: a write failure does not discard a successful provider result.
-    if (hash) await storeCacheResult(hash, resultBase64);
+    const resultBase64 = hash
+      ? await getOrCreateBgRemovalResult(hash, createResult)
+      : await createResult();
     // Always record usage regardless of premium status.
     // The FREE_TIER_LIMIT quota gate (step 4) is applied only at check-time,
     // so premium users are never blocked. But tracking the count unconditionally
@@ -312,7 +321,9 @@ export async function removeBackground(req: Request, res: Response) {
     return res.json(responseBody);
 
   } catch (err: any) {
-    clearTimeout(timeoutId);
+    if (err instanceof ProviderResponseError) {
+      return res.status(err.status).json(err.body);
+    }
     if (err?.name === "AbortError") {
       reportError(err, "background_removal", {
         dependency: "photoroom",
