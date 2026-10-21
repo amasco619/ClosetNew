@@ -293,8 +293,9 @@ export async function removeBackground(req: Request, res: Response) {
     }
     const resultBase64 = trimmedResult.toString("base64");
 
-    // ── 7. Cache result + increment usage (fire-and-forget, non-blocking) ──
-    if (hash) void storeCacheResult(hash, resultBase64);
+    // ── 7. Await the cache-write attempt before success. Cache persistence is
+    // best-effort: a write failure does not discard a successful provider result.
+    if (hash) await storeCacheResult(hash, resultBase64);
     // Always record usage regardless of premium status.
     // The FREE_TIER_LIMIT quota gate (step 4) is applied only at check-time,
     // so premium users are never blocked. But tracking the count unconditionally

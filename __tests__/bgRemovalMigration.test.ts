@@ -386,19 +386,12 @@ async function runRemovalServerChild(mode: "first" | "restart" | "concurrent") {
     if (mode === "first") {
       assert.equal(response.body.fromCache, undefined);
       assert.equal(providerCalls, 1);
-      for (let attempt = 0; attempt < 50; attempt++) {
-        const cached = await db.query(
-          "SELECT 1 FROM public.bg_removal_cache WHERE image_hash=$1", [imageHash],
-        );
-        if (cached.rowCount) break;
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
       assert.equal((await db.query(
         "SELECT count(*)::int AS n FROM public.bg_removal_cache WHERE image_hash=$1", [imageHash],
-      )).rows[0].n, 1, "the first server persisted its cache result before exit");
+      )).rows[0].n, 1, "the successful response is returned only after its cache row is durable");
     } else {
-      assert.equal(response.body.fromCache, true, "the fresh server reports a persisted cache hit");
-      assert.equal(providerCalls, 0, "the fresh server does not call the provider");
+      assert.equal(response.body.fromCache, true, "the immediate fresh-process repeat reports a persisted cache hit");
+      assert.equal(providerCalls, 0, "the immediate fresh-process repeat does not call the provider");
     }
     console.log(`RESTART_RESULT:${providerCalls}`);
   } finally {

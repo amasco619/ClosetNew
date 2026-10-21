@@ -1320,6 +1320,75 @@ async function main() {
     delete process.env.PHOTOROOM_API_KEY;
   }
 
+  // ── J1. Cache writes are awaited, but remain best-effort on failure ────────
+  {
+    const overrides = (require('../server/remove-background') as any)._testOverrides;
+    const savedClient = storeOverrides.client;
+    const savedFetch = globalThis.fetch;
+    const savedKey = process.env.PHOTOROOM_API_KEY;
+    const originalError = console.error;
+    let beginWrite!: () => void;
+    let finishWrite!: () => void;
+    const writeStarted = new Promise<void>(resolve => { beginWrite = resolve; });
+    const pendingWrite = new Promise<void>(resolve => { finishWrite = resolve; });
+    const apiKey = 'provider-test-key-not-for-response';
+    const cacheWriteError = { message: 'cache unavailable' };
+
+    overrides.skipAuth = true;
+    overrides.testUserId = 'user-cache-write-failure';
+    overrides.bypassCache = false;
+    overrides.mockCheckCache = async () => null;
+    overrides.mockQuota = { allowed: true, count: 0, remaining: 20 };
+    storeOverrides.client = {
+      from: () => ({
+        upsert: async () => {
+          beginWrite();
+          await pendingWrite;
+          return { error: cacheWriteError };
+        },
+      }),
+    } as unknown as NonNullable<typeof storeOverrides.client>;
+    process.env.PHOTOROOM_API_KEY = apiKey;
+    globalThis.fetch = async () => ({
+      ok: true,
+      arrayBuffer: async () => makePngArrayBuffer(2048),
+    } as Response);
+    console.error = () => {};
+
+    try {
+      const res = makeMockRes();
+      const response = serverRemoveBackground(
+        makeMockReq({ imageBase64: 'cache-write-failure-input' }) as any,
+        res as any,
+      );
+      await writeStarted;
+      assertEq(res._body, null, 'success is not returned while the cache write is pending');
+      finishWrite();
+      await response;
+      assertEq(res._status, 200, 'cache write failure does not discard a successful provider result');
+      assert(
+        !JSON.stringify(res._body).includes(apiKey),
+        'cache-write failure response does not expose the provider API key',
+      );
+      assert(
+        !JSON.stringify(res._body).includes(cacheWriteError.message),
+        'cache-write failure response does not expose the database error',
+      );
+    } finally {
+      finishWrite();
+      globalThis.fetch = savedFetch;
+      console.error = originalError;
+      storeOverrides.client = savedClient;
+      delete overrides.bypassCache;
+      delete overrides.mockCheckCache;
+      delete overrides.mockQuota;
+      overrides.skipAuth = true;
+      overrides.testUserId = 'test-user-id';
+      if (savedKey === undefined) delete process.env.PHOTOROOM_API_KEY;
+      else process.env.PHOTOROOM_API_KEY = savedKey;
+    }
+  }
+
   // ── K. Quota-exhausted path — handler returns 403, Photoroom is never called ──
   //
   // When the user has used all 20 free-tier removals the quota guard in the

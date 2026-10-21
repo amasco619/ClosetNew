@@ -1170,6 +1170,10 @@ At upload time, both `app/add-item.tsx` and `app/bulk-review.tsx` attempt to str
 - In-memory cache (200 entries) backed by Supabase. Persisted hits survive a
   server restart and do not increment usage; `__tests__/bgRemovalMigration.test.ts`
   proves this with two fresh test processes and disposable local PostgreSQL.
+  The endpoint waits for the cache-write attempt before returning a successful
+  provider result, so a fresh process can immediately reuse a completed write.
+  Cache-write errors remain best-effort: the successful image is returned, with
+  no provider credentials or database error included in the response.
 - The existing server `supabaseAdmin` client uses `SUPABASE_URL` and
   `SUPABASE_SECRET_KEY`; no direct database URL or new secret is required by
   this store. Cache lookup, insert-ignore and pruning use the table API;
