@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { reportError } from "../shared/observability";
 
 const CACHE_MAX = 200;
 const inMemCache = new Map<string, string>();
@@ -89,7 +90,12 @@ export async function storeCacheResult(hash: string, base64: string): Promise<vo
     );
     if (error) throw error;
   } catch (err) {
-    console.error("[bgRemovalStore] cache store failed:", err);
+    reportError(new Error("Background-removal cache write failed"), "background_removal_cache_write", {
+      category: "database",
+      code: "DATABASE_UNAVAILABLE",
+      dependency: "supabase",
+      retryable: true,
+    });
   }
 }
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {
   _testOverrides, BgRemovalStoreUnavailableError, checkCacheByHash,
-  getUserBgRemovalCount, getUserBgRemovalStatus, incrementUserBgRemovalCount,
+  getOrCreateBgRemovalResult, getUserBgRemovalCount, getUserBgRemovalStatus, incrementUserBgRemovalCount,
   initBgRemovalStore, resetUserBgRemovalCount, storeCacheResult,
 } from "../server/bgRemovalStore";
 
@@ -9,6 +9,10 @@ async function main() {
   const usage = new Map<string, unknown>();
   const cache = new Map<string, { result_b64: string; created_at: number }>();
   const denied = { code: "42501", message: "permission denied" };
+  const sensitiveCacheWriteFailure = {
+    code: "42501",
+    message: "provider-secret image-payload",
+  };
   let failure: "read" | "rpc" | "cacheWrite" | "prune" | undefined;
   let malformedRpc: unknown;
   let throwNetwork = false;
@@ -42,7 +46,7 @@ async function main() {
         async upsert(row: { image_hash: string; result_b64: string }, options: unknown) {
           assert.equal(table, "bg_removal_cache");
           assert.deepEqual(options, { onConflict: "image_hash", ignoreDuplicates: true });
-          if (failure === "cacheWrite") return { error: denied };
+          if (failure === "cacheWrite") return { error: sensitiveCacheWriteFailure };
           if (!cache.has(row.image_hash)) {
             cache.set(row.image_hash, { result_b64: row.result_b64, created_at: Date.now() });
           }
@@ -143,9 +147,28 @@ async function main() {
     await storeCacheResult("insert-ignore", "second");
     assert.equal(cache.get("insert-ignore")?.result_b64, "first");
     failure = "cacheWrite";
-    await storeCacheResult("memory-only", "still-available");
-    assert.equal(await checkCacheByHash("memory-only"), "still-available");
-    assert.equal(cache.has("memory-only"), false);
+    const errorsBeforeCacheWrite = errors.length;
+    let providerCalls = 0;
+    const generatedImage = "image-base64-content";
+    const result = await getOrCreateBgRemovalResult("best-effort-failure", async () => {
+      providerCalls++;
+      return generatedImage;
+    });
+    assert.equal(result, generatedImage, "cache write failure does not block the successful image result");
+    assert.equal(providerCalls, 1);
+    assert.equal(await checkCacheByHash("best-effort-failure"), generatedImage,
+      "result remains available in the process-local cache");
+    assert.equal(cache.has("best-effort-failure"), false,
+      "failed persistent cache write is not represented as durable");
+    const cacheWriteSignal = JSON.parse(String(errors[errorsBeforeCacheWrite]?.[0]));
+    assert.equal(cacheWriteSignal.type, "error");
+    assert.equal(cacheWriteSignal.operation, "background_removal_cache_write");
+    assert.equal(cacheWriteSignal.category, "database");
+    assert.equal(cacheWriteSignal.code, "DATABASE_UNAVAILABLE");
+    assert.equal(cacheWriteSignal.dependency, "supabase");
+    assert.equal(cacheWriteSignal.retryable, true);
+    assert(!JSON.stringify(cacheWriteSignal).includes("provider-secret"));
+    assert(!JSON.stringify(cacheWriteSignal).includes(generatedImage));
     failure = undefined;
 
     cache.set("old", { result_b64: "old", created_at: Date.now() - 31 * 86400000 });
