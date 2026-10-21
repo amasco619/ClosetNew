@@ -16,9 +16,31 @@ let areSupabaseProjectUrlsAligned: typeof import("../server/supabase").areSupaba
 let __resetForTesting: typeof import("../server/middleware/rateLimiter").__resetForTesting;
 let checkAccountLockout: typeof import("../server/middleware/rateLimiter").checkAccountLockout;
 let recordFailedAttempt: typeof import("../server/middleware/rateLimiter").recordFailedAttempt;
+let storeTestOverrides: typeof import("../server/middleware/rateLimiter").__storeOverrides;
 
 let ipCounter = 1;
 const ipRun = randomInt(1, 255);
+function makeRateLimitClient() {
+  const counts = new Map<string, number>();
+  return {
+    rpc: async (_name: string, args: { p_key: string; p_window_ms?: number }) => {
+      const hits = (counts.get(args.p_key) ?? 0) + 1;
+      counts.set(args.p_key, hits);
+      return {
+        data: [{
+          hits,
+          reset_time_ms: Date.now() + (args.p_window_ms ?? 60_000),
+        }],
+        error: null,
+      };
+    },
+    from: () => ({
+      upsert: async () => ({ error: null }),
+      delete: () => ({ eq: async () => ({ error: null }) }),
+    }),
+  } as any;
+}
+
 function uniqueIp(): string {
   // Every assertion gets its own limiter bucket.  The only intentionally
   // repeated IP in this file is the explicit limiter test.
@@ -27,6 +49,7 @@ function uniqueIp(): string {
 
 async function makeApp() {
   __resetForTesting();
+  storeTestOverrides.client = makeRateLimitClient();
   const app = express();
   app.set("trust proxy", 1);
   app.use(express.json());
@@ -41,10 +64,7 @@ function post(app: express.Express, path: string, body: any, origin?: string) {
 }
 
 async function main() {
-  // Import the real mounted limiters only after disabling their DB persistence.
-  // Otherwise this test writes synthetic counters/lockouts to the live dev DB.
-  const originalDatabaseUrl = process.env.DATABASE_URL;
-  delete process.env.DATABASE_URL;
+  // Use an isolated fake RPC/table client so this route test never writes to Supabase.
   const [routes, auth, limiter] = await Promise.all([
     import("../server/routes"),
     import("../server/supabase"),
@@ -53,7 +73,7 @@ async function main() {
   registerRoutes = routes.registerRoutes;
   supabaseAuth = auth.supabaseAuth;
   ({ areSupabaseProjectUrlsAligned, isSelectedSupabaseProjectUrl } = auth);
-  ({ __resetForTesting, checkAccountLockout, recordFailedAttempt } = limiter);
+  ({ __resetForTesting, checkAccountLockout, recordFailedAttempt, __storeOverrides: storeTestOverrides } = limiter);
   assert.equal(
     (supabaseAuth as unknown as { supabaseKey?: string }).supabaseKey ===
       process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
@@ -461,8 +481,6 @@ async function main() {
     console.error = originalError;
     delete process.env.ALLOWED_RESET_ORIGINS;
     __resetForTesting();
-    if (originalDatabaseUrl === undefined) delete process.env.DATABASE_URL;
-    else process.env.DATABASE_URL = originalDatabaseUrl;
   }
 }
 

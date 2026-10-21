@@ -1,20 +1,19 @@
 /**
- * Verifies that the PgRateLimitStore in-memory fallback correctly counts and
- * resets requests when the Postgres pool is absent (DATABASE_URL not set).
+ * Verifies that the SupabaseRateLimitStore in-memory fallback correctly counts
+ * and resets requests when the persistent store is unavailable.
  *
  * This guards against a regression where the fallback Map could:
  *   - Undercount hits (allowing requests past the limit)
  *   - Fail to reset the window after it expires
  *   - Lose the count between increment calls
  *
- * The tests exercise PgRateLimitStore directly with pool=null so no real DB
- * connection is needed.
+ * The tests exercise SupabaseRateLimitStore directly in memory-only mode.
  *
  * Run: `npx tsx __tests__/rateLimiterDbFallback.test.ts`
  * Exits non-zero on any failed assertion.
  */
 
-import { PgRateLimitStore, __resetForTesting, __makeStoreForTesting } from '../server/middleware/rateLimiter';
+import { SupabaseRateLimitStore, __resetForTesting, __makeStoreForTesting } from '../server/middleware/rateLimiter';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
 
@@ -44,9 +43,9 @@ function section(label: string): void {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Create a PgRateLimitStore with null pool (forces in-memory fallback). */
-function makeInMemoryStore(prefix = 'test', windowMs = 60_000): PgRateLimitStore {
-  const store = new PgRateLimitStore(prefix, null);
+/** Create a SupabaseRateLimitStore with no client (forces in-memory fallback). */
+function makeInMemoryStore(prefix = 'test', windowMs = 60_000): SupabaseRateLimitStore {
+  const store = new SupabaseRateLimitStore(prefix, null);
   store.init({ windowMs } as any);
   return store;
 }
@@ -55,17 +54,13 @@ function makeInMemoryStore(prefix = 'test', windowMs = 60_000): PgRateLimitStore
 
 (async () => {
 
-  section('1. pool is null when DATABASE_URL is absent');
+  section('1. the production store factory creates a Supabase-backed store');
   {
-    const saved = process.env.DATABASE_URL;
-    delete process.env.DATABASE_URL;
     __resetForTesting();
 
     const store = __makeStoreForTesting('auth');
-    assert(store instanceof PgRateLimitStore, 'store is PgRateLimitStore');
-    assert(store._poolForTesting === null, 'pool is null without DATABASE_URL');
+    assert(store instanceof SupabaseRateLimitStore, 'store is SupabaseRateLimitStore');
 
-    if (saved !== undefined) process.env.DATABASE_URL = saved;
     __resetForTesting();
   }
 

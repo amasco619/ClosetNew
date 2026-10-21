@@ -1,0 +1,41 @@
+AMODKA - MOVE ratelimit_store AND lockout_store TO SUPABASE
+
+Run only after the quota/cache move is applied. No new secrets. No
+data copied; counters start empty.
+DO NOT TOUCH: Recommendation Engine v3.7 and the 53 frozen files,
+limits and window lengths, 429 copy, billing logic, consent
+enforcement, the deletion inventory order. Keep npm test, typecheck,
+lint and the golden set green. List deviations.
+
+1. Read server/middleware/rateLimiter.ts. The schema is:
+   ratelimit_store (key text pk, hits integer not null default 0,
+   reset_time timestamptz not null); lockout_store (key text pk,
+   value text, expires bigint).
+2. Show me the exact SQL BEFORE applying: create both tables in
+   public with RLS enabled and NO policies, REVOKE ALL from PUBLIC,
+   anon and authenticated, GRANT only what is needed to service_role;
+   server-only functions (search_path = '', EXECUTE revoked from
+   PUBLIC/anon/authenticated, granted to service_role) that
+   reproduce the current fixed-window increment (preserving the
+   initial reset time while active), decrement, and key/prefix delete
+   exactly. Apply after I approve in this chat. Save the same SQL
+   as a repo migration file named with the recorded version. Verify
+   by metadata query.
+3. Replace the Replit Postgres access for the counters and lockouts
+   with these functions and the table API. The Keyv/Postgres adapter
+   for lockouts must be replaced with a small store over the Supabase
+   table API; keep the existing in-memory fallback behaviour when
+   Supabase is unreachable, and keep the existing fail-open/closed
+   choices per limiter. Add a short timeout so a slow Supabase call
+   cannot hang requests.
+4. Do NOT drop the old Replit tables. Rollback note in TECHNICAL.md.
+5. Tests: real limiter middleware tests against a fake RPC that
+   mirrors the SQL semantics (fixed window, reset time preserved,
+   sixth request 429 with Retry-After, two users behind one IP where
+   applicable), a lockout persistence test, a Supabase-unreachable
+   fallback test. Update TECHNICAL.md.
+
+DELIVERABLE
+Short report: the SQL applied after approval, verification results,
+files changed, tests, latency or timeout choices, "Deviations", what
+is not verified live.

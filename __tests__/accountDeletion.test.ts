@@ -4,6 +4,7 @@ import express from "express";
 import request from "supertest";
 import { registerRoutes, _testOverrides } from "../server/routes";
 import { supabaseAdmin, supabaseAnon } from "../server/supabase";
+import { __storeOverrides } from "../server/middleware/rateLimiter";
 import {
   ACCOUNT_DELETION_RETAINED_TABLES,
   ACCOUNT_DELETION_SHARED_TABLES,
@@ -176,6 +177,18 @@ async function main() {
   app.set("trust proxy", 1);
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
+  const rateLimitRows = new Map<string, { hits: number; resetTime: number }>();
+  __storeOverrides.client = {
+    rpc: async (_name: string, args: { p_key: string; p_window_ms?: number }) => {
+      const now = Date.now();
+      const prior = rateLimitRows.get(args.p_key);
+      const row = !prior || now >= prior.resetTime
+        ? { hits: 1, resetTime: now + (args.p_window_ms ?? 60_000) }
+        : { hits: prior.hits + 1, resetTime: prior.resetTime };
+      rateLimitRows.set(args.p_key, row);
+      return { data: [{ hits: row.hits, reset_time_ms: row.resetTime }], error: null };
+    },
+  } as any;
   await registerRoutes(app);
 
   async function attempt(route: "app" | "web") {

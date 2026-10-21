@@ -22,7 +22,7 @@ import request from "supertest";
 import {
   LIMITER_CONFIGS,
   makeLimiterHandler,
-  PgRateLimitStore,
+  SupabaseRateLimitStore,
   __makeStoreForTesting,
   __resetForTesting,
 } from "../server/middleware/rateLimiter";
@@ -167,49 +167,26 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
     );
   }
 
-  // ── Postgres store adapter ────────────────────────────────────────────────
+  // ── Supabase store adapter ────────────────────────────────────────────────
   //
   // These tests verify that:
-  //   1. makeStore() returns a PgRateLimitStore in all cases.
-  //   2. Without DATABASE_URL the pool is null (in-memory fallback).
-  //   3. With DATABASE_URL set the pool is non-null (Postgres mode).
+  //   1. makeStore() returns a SupabaseRateLimitStore.
+  //   2. The store can explicitly run in memory-only mode.
   //
   // We use __resetForTesting() to clear module-level singletons between
   // scenarios so the lazy-init logic is exercised fresh each time.
 
-  section("Postgres store adapter — falls back to in-memory without DATABASE_URL");
+  section("Supabase store adapter — production factory returns the Supabase store");
   {
-    const savedUrl = process.env.DATABASE_URL;
-    delete process.env.DATABASE_URL;
     __resetForTesting();
 
     const store = __makeStoreForTesting("auth");
-    assert(store instanceof PgRateLimitStore, "store is a PgRateLimitStore");
-    assert(store._poolForTesting === null, "pool is null when DATABASE_URL is absent (in-memory fallback)");
-
-    if (savedUrl !== undefined) process.env.DATABASE_URL = savedUrl;
+    assert(store instanceof SupabaseRateLimitStore, "store is a SupabaseRateLimitStore");
     __resetForTesting();
   }
 
-  section("Postgres store adapter — pool is created when DATABASE_URL is set");
+  section("Supabase store adapter — security-sensitive limiters each get a dedicated prefix");
   {
-    const savedUrl = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = "postgres://localhost/test_auracloset";
-    __resetForTesting();
-
-    const store = __makeStoreForTesting("auth");
-    assert(store instanceof PgRateLimitStore, "store is a PgRateLimitStore");
-    assert(store._poolForTesting !== null, "pool is non-null when DATABASE_URL is set (Postgres mode)");
-
-    if (savedUrl !== undefined) process.env.DATABASE_URL = savedUrl;
-    else delete process.env.DATABASE_URL;
-    __resetForTesting();
-  }
-
-  section("Postgres store adapter — security-sensitive limiters each get a dedicated prefix");
-  {
-    const savedUrl = process.env.DATABASE_URL;
-    delete process.env.DATABASE_URL;
     __resetForTesting();
 
     const authStore    = __makeStoreForTesting("auth");
@@ -228,7 +205,6 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
     assert(billingStore.prefix !== accountStore.prefix,
       "billing reconciliation and account mutation limits use distinct prefixes");
 
-    if (savedUrl !== undefined) process.env.DATABASE_URL = savedUrl;
     __resetForTesting();
   }
 
@@ -240,11 +216,10 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
 
   section("DB-error fallback — increment falls back to in-memory on pool error");
   {
-    const brokenPool = {
-      query: () => Promise.reject(new Error("simulated DB connection refused")),
+    const brokenClient = {
+      rpc: () => Promise.reject(new Error("simulated Supabase connection refused")),
     } as any;
-
-    const store = new PgRateLimitStore("test-fallback", brokenPool);
+    const store = new SupabaseRateLimitStore("test-fallback", brokenClient);
     store.init({ windowMs: 60_000 } as any);
 
     let result: import("express-rate-limit").ClientRateLimitInfo | undefined;
@@ -266,11 +241,10 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
 
   section("DB-error fallback — decrement falls back to in-memory on pool error");
   {
-    const brokenPool = {
-      query: () => Promise.reject(new Error("simulated DB connection refused")),
+    const brokenClient = {
+      rpc: () => Promise.reject(new Error("simulated Supabase connection refused")),
     } as any;
-
-    const store = new PgRateLimitStore("test-fallback-dec", brokenPool);
+    const store = new SupabaseRateLimitStore("test-fallback-dec", brokenClient);
     store.init({ windowMs: 60_000 } as any);
 
     await store.increment("user-2");
@@ -291,11 +265,10 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
 
   section("DB-error fallback — resetKey falls back to in-memory on pool error");
   {
-    const brokenPool = {
-      query: () => Promise.reject(new Error("simulated DB connection refused")),
+    const brokenClient = {
+      rpc: () => Promise.reject(new Error("simulated Supabase connection refused")),
     } as any;
-
-    const store = new PgRateLimitStore("test-fallback-reset", brokenPool);
+    const store = new SupabaseRateLimitStore("test-fallback-reset", brokenClient);
     store.init({ windowMs: 60_000 } as any);
 
     await store.increment("user-3");
@@ -377,50 +350,54 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
     );
   }
 
-  // ── PgRateLimitStore — loadFromDb() ─────────────────────────────────────────
+  // ── SupabaseRateLimitStore — startup preload ────────────────────────────────
 
-  section("PgRateLimitStore.loadFromDb — null pool: no-op, no throw");
+  section("SupabaseRateLimitStore.loadFromSupabase — explicit in-memory mode: no-op");
   {
-    const store = new PgRateLimitStore("test-lfd-null", null);
+    const store = new SupabaseRateLimitStore("test-lfd-null", null);
     store.init({ windowMs: 60_000 } as any);
 
     let threw = false;
-    try { await store.loadFromDb(); } catch { threw = true; }
-    assert(!threw, "loadFromDb() with null pool does not throw");
+    try { await store.loadFromSupabase(); } catch { threw = true; }
+    assert(!threw, "loadFromSupabase() in memory-only mode does not throw");
   }
 
-  section("PgRateLimitStore.loadFromDb — broken pool: logs and does not throw");
+  section("SupabaseRateLimitStore.loadFromSupabase — broken request: logs and does not throw");
   {
-    const brokenPool = {
-      query: () => Promise.reject(new Error("simulated DB error")),
+    const brokenClient = {
+      from: () => ({
+        select: () => ({
+          like: () => ({
+            gt: () => Promise.reject(new Error("simulated Supabase error")),
+          }),
+        }),
+      }),
     } as any;
-
-    const store = new PgRateLimitStore("test-lfd-err", brokenPool);
+    const store = new SupabaseRateLimitStore("test-lfd-err", brokenClient);
     store.init({ windowMs: 60_000 } as any);
 
     let threw = false;
-    try { await store.loadFromDb(); } catch { threw = true; }
-    assert(!threw, "loadFromDb() swallows pool errors (no throw)");
+    try { await store.loadFromSupabase(); } catch { threw = true; }
+    assert(!threw, "loadFromSupabase() swallows request errors (no throw)");
   }
 
-  // ── PgRateLimitStore — consecutive DB failure counter ────────────────────────
+  // ── SupabaseRateLimitStore — consecutive store failure counter ──────────────
 
-  section("PgRateLimitStore._consecutiveDbFailuresForTesting — starts at 0");
+  section("SupabaseRateLimitStore._consecutiveDbFailuresForTesting — starts at 0");
   {
-    const store = new PgRateLimitStore("test-cdf-start", null);
+    const store = new SupabaseRateLimitStore("test-cdf-start", null);
     assert(
       store._consecutiveDbFailuresForTesting === 0,
       `_consecutiveDbFailuresForTesting starts at 0 (got ${store._consecutiveDbFailuresForTesting})`,
     );
   }
 
-  section("PgRateLimitStore._consecutiveDbFailuresForTesting — increments on each DB failure");
+  section("SupabaseRateLimitStore._consecutiveDbFailuresForTesting — increments on each store failure");
   {
-    const brokenPool = {
-      query: () => Promise.reject(new Error("simulated failure")),
+    const brokenClient = {
+      rpc: () => Promise.reject(new Error("simulated failure")),
     } as any;
-
-    const store = new PgRateLimitStore("test-cdf-inc", brokenPool);
+    const store = new SupabaseRateLimitStore("test-cdf-inc", brokenClient);
     store.init({ windowMs: 60_000 } as any);
 
     await store.increment("u1");
@@ -436,23 +413,23 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
     );
   }
 
-  section("PgRateLimitStore._consecutiveDbFailuresForTesting — resets to 0 after success");
+  section("SupabaseRateLimitStore._consecutiveDbFailuresForTesting — resets to 0 after success");
   {
     let callCount = 0;
-    const flakyPool = {
-      query: () => {
+    const flakyClient = {
+      rpc: () => {
         callCount++;
         if (callCount <= 2) {
           return Promise.reject(new Error("simulated failure"));
         }
-        // Simulate a successful upsert return
         return Promise.resolve({
-          rows: [{ hits: 1, reset_time_ms: String(Date.now() + 60_000) }],
+          data: [{ hits: 1, reset_time_ms: Date.now() + 60_000 }],
+          error: null,
         });
       },
     } as any;
 
-    const store = new PgRateLimitStore("test-cdf-reset", flakyPool);
+    const store = new SupabaseRateLimitStore("test-cdf-reset", flakyClient);
     store.init({ windowMs: 60_000 } as any);
 
     await store.increment("u2"); // fail 1 → counter = 1

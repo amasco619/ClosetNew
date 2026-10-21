@@ -447,33 +447,8 @@ section('prune interval: __resetForTesting is idempotent (safe to call twice)');
   );
 }
 
-// ── DB integration: skipped when DATABASE_URL is absent ───────────────────
-
-section('DB integration (skipped when DATABASE_URL absent)');
-
-if (!process.env.DATABASE_URL) {
-  console.log('  (skipped — DATABASE_URL not set; run with a real DB to exercise this section)');
-} else {
-  __resetForTesting();
-  try {
-    await initLockoutStore();
-    // When DATABASE_URL is present, initLockoutStore should schedule the prune
-    // interval and load any persisted lockout records.
-    const { __lockoutPruneIntervalForTesting: val } = await import('../server/middleware/rateLimiter');
-    assert(
-      val !== null,
-      'prune interval is set after initLockoutStore with DATABASE_URL',
-    );
-    assert(
-      checkAccountLockout(EMAIL).locked === false,
-      'no spurious lock after clean initLockoutStore with DB',
-    );
-  } catch (err) {
-    assert(false, `initLockoutStore threw unexpectedly: ${String(err)}`);
-  } finally {
-    __resetForTesting();
-  }
-}
+section('Supabase persistence is covered by the isolated fake-client tests');
+console.log('  (no live project or DATABASE_URL is queried by this unit test)');
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 

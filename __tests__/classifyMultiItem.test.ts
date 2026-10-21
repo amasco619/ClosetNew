@@ -13,6 +13,7 @@ import {
 import { registerRoutes, _testOverrides as routeTestOverrides } from "../server/routes";
 import { _testOverrides as consentTestOverrides, AI_PROCESSING_KEY } from "../server/aiProcessingConsent";
 import { supabaseAdmin } from "../server/supabase";
+import { __storeOverrides } from "../server/middleware/rateLimiter";
 
 let passed = 0;
 function test(name: string, run: () => void): void {
@@ -384,6 +385,12 @@ async function runHttpTests(): Promise<void> {
 
     const registeredApp = express();
     registeredApp.use(express.json({ limit: "10mb" }));
+    __storeOverrides.client = {
+      rpc: async (_name: string, args: { p_window_ms?: number }) => ({
+        data: [{ hits: 1, reset_time_ms: Date.now() + (args.p_window_ms ?? 60_000) }],
+        error: null,
+      }),
+    } as any;
     await registerRoutes(registeredApp);
     providerCalls = 0;
     axios.post = (async () => {
