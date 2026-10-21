@@ -2430,6 +2430,14 @@ checks; a human must run that query in the intended Supabase SQL Editor.
 Use the live published-environment smoke procedure in
 `docs/release-checklist-deletion.md` before release.
 
+The 2026-10-21 production verification did not clear this release gate: no
+active published deployment was available, so no disposable account or data
+was created or deleted. The required `wardrobe_free_selections` service-role
+grant was confirmed, and the RLS/ACL metadata query was run through the
+Supabase connection; policy-count contract comparison and the app-level test
+remain unverified. See
+`docs/reports/disposable-account-deletion-verification-20261021.md`.
+
 The connected Supabase project currently has `service_role` SELECT and DELETE
 on `wardrobe_free_selections`. Inspection of the recorded migration statements
 found only its authenticated SELECT grant, not the service-role grant; no
