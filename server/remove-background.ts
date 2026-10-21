@@ -66,6 +66,8 @@ export const _testOverrides: {
   mockPremium?: boolean;
   mockPremiumExpiresAt?: string | null;
   mockIncrementCount?: () => Promise<void>;
+  /** Exercise the real quota store in isolated end-to-end tests. */
+  useRealQuotaStore?: boolean;
   /** Injected supabaseAdmin for DB-fallback premium-check tests (NODE_ENV=test only). */
   mockSupabaseAdmin?: any;
 } = { skipAuth: false, testUserId: "" };
@@ -143,7 +145,8 @@ export async function removeBackground(req: Request, res: Response) {
       let quota: Awaited<ReturnType<typeof getUserBgRemovalStatus>>;
       try {
         quota = (process.env.NODE_ENV === "test" && !_testOverrides.mockQuota &&
-          (_testOverrides.skipAuth || _testOverrides.mockSupabaseAdmin))
+          (_testOverrides.skipAuth || _testOverrides.mockSupabaseAdmin) &&
+          !_testOverrides.useRealQuotaStore)
           ? { allowed: true, count: 0, remaining: FREE_TIER_LIMIT }
           : await getUserBgRemovalStatus(userId, FREE_TIER_LIMIT);
       } catch (error) {
@@ -208,7 +211,7 @@ export async function removeBackground(req: Request, res: Response) {
   // must never silently permit billable work.
   if (!(process.env.NODE_ENV === 'test' &&
     (_testOverrides.skipAuth || _testOverrides.mockSupabaseAdmin) &&
-    !_testOverrides.mockIncrementCount)) {
+    !_testOverrides.mockIncrementCount && !_testOverrides.useRealQuotaStore)) {
     try {
       if (process.env.NODE_ENV === 'test' && _testOverrides.mockIncrementCount) {
         await _testOverrides.mockIncrementCount();

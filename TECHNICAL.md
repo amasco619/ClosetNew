@@ -1167,7 +1167,9 @@ At upload time, both `app/add-item.tsx` and `app/bulk-review.tsx` attempt to str
   `20261020231945_move_bg_removal_store_to_supabase.sql`, not by server startup:
   - `bg_removal_cache (image_hash TEXT PK, result_b64 TEXT, created_at TIMESTAMPTZ)` — stores SHA-256 hash → PNG base64. Hit rate avoids redundant Photoroom API calls and doesn't consume quota.
   - `bg_removal_usage (user_id UUID PK, count INT, last_used_at TIMESTAMPTZ)` — per-user lifetime call counter for free-tier quota enforcement.
-- In-memory cache (200 entries) backed by Supabase. Cache hits do not increment usage.
+- In-memory cache (200 entries) backed by Supabase. Persisted hits survive a
+  server restart and do not increment usage; `__tests__/bgRemovalMigration.test.ts`
+  proves this with two fresh test processes and disposable local PostgreSQL.
 - The existing server `supabaseAdmin` client uses `SUPABASE_URL` and
   `SUPABASE_SECRET_KEY`; no direct database URL or new secret is required by
   this store. Cache lookup, insert-ignore and pruning use the table API;

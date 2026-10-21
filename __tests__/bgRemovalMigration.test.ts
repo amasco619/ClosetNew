@@ -5,6 +5,7 @@ import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
 import { Client } from "pg";
+import { createHash, randomUUID } from "node:crypto";
 
 async function main() {
   const directory = mkdtempSync(join(tmpdir(), "amodka-bg-removal-"));
@@ -18,6 +19,29 @@ async function main() {
   let started = false;
   const admin = new Client(config);
   let connected = false;
+  const restartUserId = randomUUID();
+  const restartImage = Buffer.from("same-photo-after-restart").toString("base64");
+  const childEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    NODE_ENV: "test",
+    BG_REMOVAL_TEST_SOCKET: directory,
+    BG_REMOVAL_TEST_PORT: String(port),
+    BG_REMOVAL_TEST_USER_ID: restartUserId,
+    BG_REMOVAL_TEST_IMAGE: restartImage,
+    SUPABASE_URL: "http://127.0.0.1:9",
+    EXPO_PUBLIC_SUPABASE_URL: "http://127.0.0.1:9",
+    SUPABASE_SECRET_KEY: "local-test-only",
+    EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "local-test-only",
+  };
+  function runRemovalServer(mode: "first" | "restart"): number {
+    const output = execFileSync("node_modules/.bin/tsx",
+      ["__tests__/bgRemovalMigration.test.ts"], { env: {
+        ...childEnv, BG_REMOVAL_RESTART_CHILD: mode,
+      }, encoding: "utf8" });
+    const result = output.split("\n").find(line => line.startsWith("RESTART_RESULT:"));
+    assert(result, `the ${mode} removal server reports its provider-call count`);
+    return Number(result!.slice("RESTART_RESULT:".length));
+  }
   async function asRole<T>(role: string, action: (db: Client) => Promise<T>): Promise<T> {
     assert(["anon", "authenticated", "service_role"].includes(role));
     const db = new Client(config);
@@ -109,6 +133,21 @@ async function main() {
       await assert.rejects(db.query("UPDATE public.bg_removal_cache SET result_b64='forbidden'"),
         { code: "42501" });
     });
+    assert.equal(runRemovalServer("first"), 1,
+      "the first server invokes the stub provider once and stores its result");
+    assert.equal((await admin.query(
+      "SELECT count FROM public.bg_removal_usage WHERE user_id=$1", [restartUserId],
+    )).rows[0].count, 1, "the first removal consumes one usage");
+    assert.equal(runRemovalServer("restart"), 0,
+      "a fresh server returns the persisted result without invoking the provider");
+    assert.equal((await admin.query(
+      "SELECT count FROM public.bg_removal_usage WHERE user_id=$1", [restartUserId],
+    )).rows[0].count, 1, "a persisted cache hit does not consume another usage");
+    await admin.query("DELETE FROM public.bg_removal_usage WHERE user_id=$1", [restartUserId]);
+    assert.equal((await admin.query(
+      "SELECT count(*)::int AS n FROM public.bg_removal_cache WHERE image_hash=$1",
+      [createHash("sha256").update(restartImage).digest("hex")],
+    )).rows[0].n, 1, "deleting per-user usage leaves the shared image cache available");
     // A quota write permission failure cannot turn into a successful RPC.
     await admin.query("REVOKE INSERT ON public.bg_removal_usage FROM service_role");
     await assert.rejects(asRole("service_role", db => db.query(
@@ -125,4 +164,139 @@ async function main() {
   }
 }
 
-main().catch(error => { console.error(error); process.exitCode = 1; });
+if (process.env.BG_REMOVAL_RESTART_CHILD) {
+  runRemovalServerChild(process.env.BG_REMOVAL_RESTART_CHILD as "first" | "restart")
+    .catch(error => { console.error(error); process.exitCode = 1; });
+} else {
+  main().catch(error => { console.error(error); process.exitCode = 1; });
+}
+
+async function runRemovalServerChild(mode: "first" | "restart") {
+  const [{ removeBackground, _testOverrides }, store, { Client: PgClient }, expressModule, supertestModule] =
+    await Promise.all([
+      import("../server/remove-background"),
+      import("../server/bgRemovalStore"),
+      import("pg"),
+      import("express"),
+      import("supertest"),
+    ]);
+  const db = new PgClient({
+    host: process.env.BG_REMOVAL_TEST_SOCKET,
+    port: Number(process.env.BG_REMOVAL_TEST_PORT),
+    user: userInfo().username,
+    database: "postgres",
+  });
+  await db.connect();
+  const imageHash = store.computeImageHash(process.env.BG_REMOVAL_TEST_IMAGE!);
+  const client = {
+    from(table: string) {
+      assert(["bg_removal_cache", "bg_removal_usage"].includes(table));
+      return {
+        select(_columns: string) {
+          return {
+            eq(column: string, value: string) {
+              return {
+                async maybeSingle() {
+                  assert.equal(column, table === "bg_removal_cache" ? "image_hash" : "user_id");
+                  const result = await db.query(
+                    `SELECT ${table === "bg_removal_cache" ? "result_b64" : "count"} ` +
+                      `FROM public.${table} WHERE ${column}=$1`, [value],
+                  );
+                  if (!result.rows.length) return { data: null, error: null };
+                  return { data: table === "bg_removal_cache"
+                    ? result.rows[0] : { count: Number(result.rows[0].count) }, error: null };
+                },
+              };
+            },
+          };
+        },
+        async upsert(row: { image_hash: string; result_b64: string }) {
+          await db.query(
+            "INSERT INTO public.bg_removal_cache (image_hash,result_b64) VALUES ($1,$2) ON CONFLICT (image_hash) DO NOTHING",
+            [row.image_hash, row.result_b64],
+          );
+          return { error: null };
+        },
+      };
+    },
+    async rpc(name: string, params: { p_user_id: string }) {
+      const result = await db.query(
+        `SELECT public.${name}($1::uuid) AS count`, [params.p_user_id],
+      );
+      return { data: result.rows[0].count, error: null };
+    },
+  };
+  store._testOverrides.client = client as never;
+  _testOverrides.useRealQuotaStore = true;
+  _testOverrides.mockSupabaseAdmin = {
+    auth: { getUser: async () => ({ data: { user: { id: process.env.BG_REMOVAL_TEST_USER_ID } }, error: null }) },
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => ({ data: { premium: false, premium_expires_at: null }, error: null }),
+        }),
+      }),
+    }),
+  };
+  process.env.PHOTOROOM_API_KEY = "local-test-provider-stub";
+  let providerCalls = 0;
+  const savedFetch = globalThis.fetch;
+  type TestRaster = { width: number; height: number; data: Buffer };
+  type TestPngCodec = {
+    new(options: { width: number; height: number }): TestRaster;
+    sync: { write(image: TestRaster): Buffer };
+  };
+  const { PNG } = require("pngjs") as { PNG: TestPngCodec };
+  globalThis.fetch = async () => {
+    providerCalls++;
+    const png = new PNG({ width: 80, height: 80 });
+    for (let y = 0; y < png.height; y++) {
+      for (let x = 0; x < png.width; x++) {
+        const offset = (y * png.width + x) * 4;
+        png.data[offset] = (x * 17 + y * 3) % 256;
+        png.data[offset + 1] = (x * 5 + y * 13) % 256;
+        png.data[offset + 2] = (x * 11 + y * 7) % 256;
+        png.data[offset + 3] = 255;
+      }
+    }
+    const output = PNG.sync.write(png);
+    return { ok: true, arrayBuffer: async () => output.buffer.slice(
+      output.byteOffset, output.byteOffset + output.byteLength,
+    ) } as Response;
+  };
+  const express = expressModule.default;
+  const request = supertestModule.default;
+  const app = express();
+  app.use(express.json());
+  app.post("/api/remove-background", removeBackground);
+  try {
+    const response = await request(app).post("/api/remove-background")
+      .set("Authorization", "Bearer local-test-token")
+      .send({ imageBase64: process.env.BG_REMOVAL_TEST_IMAGE });
+    assert.equal(response.status, 200, JSON.stringify(response.body));
+    if (mode === "first") {
+      assert.equal(response.body.fromCache, undefined);
+      assert.equal(providerCalls, 1);
+      for (let attempt = 0; attempt < 50; attempt++) {
+        const cached = await db.query(
+          "SELECT 1 FROM public.bg_removal_cache WHERE image_hash=$1", [imageHash],
+        );
+        if (cached.rowCount) break;
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      assert.equal((await db.query(
+        "SELECT count(*)::int AS n FROM public.bg_removal_cache WHERE image_hash=$1", [imageHash],
+      )).rows[0].n, 1, "the first server persisted its cache result before exit");
+    } else {
+      assert.equal(response.body.fromCache, true, "the fresh server reports a persisted cache hit");
+      assert.equal(providerCalls, 0, "the fresh server does not call the provider");
+    }
+    console.log(`RESTART_RESULT:${providerCalls}`);
+  } finally {
+    globalThis.fetch = savedFetch;
+    delete store._testOverrides.client;
+    delete _testOverrides.useRealQuotaStore;
+    delete _testOverrides.mockSupabaseAdmin;
+    await db.end();
+  }
+}
