@@ -1187,6 +1187,14 @@ At upload time, both `app/add-item.tsx` and `app/bulk-review.tsx` attempt to str
   rate-limit and lockout pools, are unchanged; this is not a claim that every
   operational table has moved.
 
+**Live verification (2026-10-21):** A user-operated Expo Go test account
+recorded one uncached removal. Repeating the same photo succeeded without a
+second usage increment, including after a backend restart, confirming the
+Supabase-backed cache path. Usage remained at 1 after app/network reconnect.
+Account deletion cleared that user's usage/profile rows and Auth account while
+the exact shared-cache row remained. See
+`docs/reports/bg-removal-supabase-cutover.md` for the evidence details.
+
 **Rollback:** pause background-removal requests and account deletion before
 reverting the store and deletion-routing/inventory changes together. The old
 tables remain available to the old code through its existing connection.
@@ -1398,7 +1406,7 @@ These features are **not yet implemented**. They are the next development priori
 
 | Suite | What it tests |
 |-------|--------------|
-| `profilePersonalization.test.ts` | 17 offline groups: account-neutral hydration, null/explicit values, guest-only migration and face-shape round trip, consumed guest cache, failed/stale migration, actual onboarding skip/completion and rotation-effect callbacks, eye/skin scoring match and no-effect cases |
+| `profilePersonalization.test.ts` | 19 offline groups: account-neutral hydration, null/explicit values, minimal profile creation for unnamed email accounts, guest-only migration and face-shape round trip, consumed guest cache, failed/stale migration, actual onboarding skip/completion and rotation-effect callbacks, eye/skin scoring match and no-effect cases |
 | `alertDialogAdapter.test.ts` | Branded dialog adapter preserves cancel/destructive roles, outside-cancel policy, button callbacks and default Done behavior |
 | `travelCapsule.test.ts` | Exact activity/scenario matching and source separation, owned/current IDs, stable look identity, authoritative coordinated membership/partial use, checklist deduplication, partial coverage and no write/generation imports |
 | `travelCapsuleUi.test.ts` | Mounted actual session planner/view: fresh checks, explicit reuse, unsupported/empty slots, separate essentials, group failures/retry, wardrobe/account/entitlement invalidation, superseded responses, blur/remount cleanup and unchanged domain state |
@@ -3076,6 +3084,9 @@ previous profile or an unscoped signed-in cache. Remote null/unset answers do no
 inherit another account's answers; explicit false/zero values are preserved.
 Profile state is cleared while the authoritative account read is pending.
 Existing account/startup-generation checks still reject stale completions.
+When no remote profile row exists, hydration creates a minimal owner row even
+for email accounts without provider name metadata, before reading authoritative
+entitlements. Existing profile rows are never overwritten by provider metadata.
 
 Only an explicitly guest-marked local profile can migrate to a blank account.
 Direct signed-in account switches cannot nominate a guest snapshot. Migration

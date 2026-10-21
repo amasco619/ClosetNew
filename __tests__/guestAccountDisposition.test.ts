@@ -62,8 +62,8 @@ assert.match(appContext, /const journal = await guestWardrobeSync\.list\(\);[\s\
   'server state is read before the durable decision');
 assert.match(appContext, /if \(guestDisposition === 'absorb'\)[\s\S]*?guestWardrobeSync\.claim\(userId, cachedGuestItems/);
 assert.match(appContext, /await guestWardrobeSync\.discardOwner\(userId\);[\s\S]*?clearAccountDeviceData/);
-assert.match(appContext, /if \(!dbProfile && authName\)[\s\S]*?await upsertUserProfile/,
-  'provider metadata cannot overwrite an existing remote profile');
+assert.match(appContext, /if \(!dbProfile\)[\s\S]*?await upsertUserProfile/,
+  'a missing profile row is created without overwriting an existing remote profile');
 assert.match(appContext, /setGuestPendingWardrobeItems\(selectPendingGuestWardrobeItems/);
 
 const bulk = readFileSync('app/bulk-review.tsx', 'utf8');

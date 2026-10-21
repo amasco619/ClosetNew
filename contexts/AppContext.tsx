@@ -1235,8 +1235,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       } else {
         // Do not overwrite an existing account profile with provider metadata.
-        if (!dbProfile && authName) {
-          await upsertUserProfile({ id: userId, name: authName });
+        if (!dbProfile) {
+          await upsertUserProfile({ id: userId, name: authName || undefined });
           assertCurrent();
         }
         hydratedProfile = hydrateAccountProfile(dbProfile, authName);

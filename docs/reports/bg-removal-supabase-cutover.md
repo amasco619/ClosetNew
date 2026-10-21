@@ -7,8 +7,8 @@ Approved SQL was applied through the Supabase migration tool as
 in `supabase/migrations/20261020231945_move_bg_removal_store_to_supabase.sql`;
 comparison with both the approved script and stored migration history passed.
 No rows were copied. Both tables were confirmed empty through the existing
-server client's read-only table API. The old Replit tables were not changed
-or dropped, and no secret or dependency was added.
+server client's read-only table API at migration time. The old Replit tables
+were not changed or dropped, and no secret or dependency was added.
 
 Live metadata confirms:
 
@@ -21,6 +21,39 @@ Live metadata confirms:
 
 CRUD grants, RLS settings and policy definitions on the 19 previously existing
 public tables matched the pre-change snapshot.
+
+## Authorized live device verification (2026-10-21)
+
+With explicit approval, a newly created disposable email account was used for
+the Expo Go journey and the necessary PhotoRoom/Gemini calls. No customer
+account was used. The first account launch exposed an unrelated signup
+bootstrap defect: email signup had no provider display name, so `AppContext`
+skipped creating its missing `user_profiles` row; the later entitlement
+endpoint's `.single()` read returned HTTP 500. This was not caused by table
+hardening. The hardening migration revoked only `TRUNCATE`, `REFERENCES`,
+`TRIGGER`, and `MAINTAIN`; live ACL checks confirmed authenticated profile
+SELECT and `id`/`name` INSERT remain allowed, while premium INSERT/UPDATE
+remain denied. Hydration now creates the minimal profile row without a name.
+After reopening, the profile row existed and entitlement retrieval returned
+HTTP 200.
+
+The device then completed the requested photo journey:
+
+- First removal succeeded and displayed **19 of 20** remaining. Read-only
+  Supabase verification showed usage count `1` and a newly created shared-cache
+  row.
+- Repeating the same original photo succeeded with usage still `1`.
+- After restarting the backend (clearing its in-memory cache), repeating the
+  same photo again succeeded. Usage remained `1`, and the same Supabase cache
+  row remained, verifying the persistent shared-cache hit.
+- The user force-closed Expo Go, toggled Airplane mode off/on, reopened Amodka,
+  and signed in to the same test account. The entitlement endpoint returned
+  HTTP 200; read-only Supabase verification still showed usage count `1`.
+- In-app account deletion immediately signed the user out. The delete endpoint
+  returned HTTP 200; every deletion step, including `bg_removal_usage`,
+  `user_profiles`, and Auth deletion, logged success. A final scoped read found
+  zero usage rows and zero profile rows for the account, while the exact
+  test-created shared-cache row remained.
 
 ## Behavior and scope
 
@@ -51,6 +84,9 @@ Rollback and future migration rules are documented in TECHNICAL.md.
 - `__tests__/bgRemovalMigration.test.ts` (new)
 - `__tests__/accountDeletion.test.ts`
 - `__tests__/removeBackground.test.ts`
+- `contexts/AppContext.tsx` (create minimal profiles for email accounts without a name)
+- `__tests__/profilePersonalization.test.ts`
+- `__tests__/guestAccountDisposition.test.ts`
 - `TECHNICAL.md`
 - `AMODKA-PROJECT-STATUS.md`
 - This report
@@ -58,7 +94,7 @@ Rollback and future migration rules are documented in TECHNICAL.md.
 ## Checks run
 
 - Focused quota/cache/migration/deletion/provider tests: 4 test files passed.
-- `npm test`: 119 test files passed, zero failed.
+- `npm test`: 119 passed, zero failed (re-run after the profile-bootstrap fix).
 - `npm run typecheck`: passed.
 - `npm run lint`: passed, no lint warnings.
 - `tsx __tests__/recommendation-golden-set.ts`: 35 passed, zero failed.
@@ -66,8 +102,11 @@ Rollback and future migration rules are documented in TECHNICAL.md.
   frozen-file checksums, 100 cases and 84 fixtures.
 - `git diff --check`: passed.
 - Backend restarted and serves on port 5000 without background-store errors.
-- Browser snapshot renders the Expo phone-preview landing page, not a
-  signed-in native journey.
+- Focused profile/disposition tests passed; the personalization suite reports
+  19 groups.
+- The live signed-in journey was operated in Expo Go by the user and verified
+  with backend request logs plus scoped read-only Supabase queries; the browser
+  landing-page snapshot is not used as evidence for that journey.
 
 The new migration test uses a disposable local PostgreSQL instance, never the
 connected Supabase database. It checks permissive inherited defaults are
@@ -80,7 +119,9 @@ Provider tests now stub cache writes independently of the provider fetch.
 
 ## Deviations, warnings and unverified behavior
 
-No scope deviation. Reset now propagates failures as required by the requested
+The verification required a small app-side prerequisite fix for new email
+accounts without provider name metadata; no Supabase grant or migration change
+was needed. Reset now propagates failures as required by the requested
 fail-closed write contract; previously it swallowed failures. Table-API pruning
 uses a server-clock UTC cutoff rather than database NOW().
 
@@ -89,8 +130,8 @@ pre-existing frontend workflow reports port 8081 occupied and cannot start a
 second Metro instance; it was not altered. The landing-page capture logged
 one unspecified resource 404; it does not establish native app behavior.
 
-No live provider call, live quota write/reset, live account deletion or
-physical-device journey was performed. Mutation/concurrency behavior was
-validated only in the isolated database, not against Supabase. Other
-operational Postgres stores remain unchanged, so this is not a claim that
-every app table has been consolidated. No publishing or deployment occurred.
+No live quota reset or permission-failure injection was performed. Mutation
+concurrency remains validated only in the isolated database, not under live
+concurrent load. Other operational Postgres stores remain unchanged, so this
+is not a claim that every app table has been consolidated. No publishing or
+deployment occurred.

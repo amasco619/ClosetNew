@@ -284,13 +284,14 @@ async function hydrationCases() {
     dbProfile: Remote,
     guestProfileSnapshot: UserProfile | null,
     guestDisposition: 'absorb' | 'discard' | null = null,
+    authName = userId,
   ) =>
     new Function('deps', `const {
       userId, dbProfile, guestProfileSnapshot, guestDisposition, authName, hasMigratableGuestProfile,
       upsertUserProfile, profileConstraints, assertCurrent, mergeProfile,
       hydrateAccountProfile, AsyncStorage, STORAGE_KEYS, setProfile
     } = deps; ${compiled}`)({
-      userId, dbProfile, guestProfileSnapshot, guestDisposition, authName: userId, hasMigratableGuestProfile,
+      userId, dbProfile, guestProfileSnapshot, guestDisposition, authName, hasMigratableGuestProfile,
       upsertUserProfile: (payload: Record<string, unknown>) => save(payload),
       profileConstraints, mergeProfile, hydrateAccountProfile,
       assertCurrent: () => assert.equal(userId, current, 'stale account hydration'),
@@ -352,6 +353,15 @@ async function hydrationCases() {
     assert.equal(shown.styleGoalPrimary, null);
     assert.equal(shown.styleGoalSecondary, null);
     assert.equal(shown.constraints.noSleeveless, false);
+  });
+
+  await asyncTest('new email account creates a minimal profile without provider name metadata', async () => {
+    current = 'email-account';
+    save = async payload => { writes.push(payload); };
+    await hydrate(current, null, null, null, '');
+    assert.equal(writes.at(-1)?.id, current);
+    assert.equal(writes.at(-1)?.name, undefined);
+    assert.equal(shown.isGuest, false);
   });
 
   await asyncTest('failed migration retains guest cache for retry instead of claiming success', async () => {
