@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { build, type Plugin } from 'esbuild'
 
@@ -67,6 +68,7 @@ async function main() {
       auth: {
         setSession: (session: { access_token: string; refresh_token: string }) => Promise<any>
         getSession: () => Promise<any>
+        signOut: (options?: { scope?: 'global' | 'local' | 'others' }) => Promise<any>
       }
     }
   }
@@ -126,12 +128,46 @@ async function main() {
         `refresh-${platform}`,
         `${platform}: refresh token survives client reinitialization`,
       )
+
+      // The mounted deletion-flow test covers confirmed deletion. Exercise its
+      // local sign-out against SecureStore here, then reopen the client as a
+      // new app process to verify the deleted account cannot be restored.
+      const signedOut = await reopenedClient.auth.signOut({ scope: 'local' })
+      assert.equal(signedOut.error, null, `${platform}: local sign-out clears the persisted session`)
+
+      const restartedClient = createSupabaseClient()
+      const afterRestart = await restartedClient.auth.getSession()
+      assert.equal(afterRestart.error, null, `${platform}: signed-out startup session read succeeds`)
+      assert.equal(afterRestart.data.session, null, `${platform}: restart does not restore the deleted account`)
+      assert.equal(
+        [...nativeState.store.keys()].some(key => key.endsWith('-auth-token')),
+        false,
+        `${platform}: deleted-account session is removed from SecureStore`,
+      )
     }
   } finally {
     globalThis.fetch = originalFetch
   }
 
-  console.log('Native Supabase session persistence checks passed for iOS and Android.')
+  const startup = readFileSync('app/index.tsx', 'utf8')
+  const welcome = readFileSync('app/welcome.tsx', 'utf8')
+  assert.match(
+    startup,
+    /if \(isAuthenticated\) \{[\s\S]*?fadeOutThenNavigate\('\/\(tabs\)'\);[\s\S]*?\}\s*if \(profile\.isGuest\) \{/,
+    'startup only opens the private tab stack for an authenticated session',
+  )
+  assert.match(
+    startup,
+    /if \(profile\.isGuest\) \{[\s\S]*?\}\s*fadeOutThenNavigate\('\/welcome'\);/,
+    'a signed-out non-guest restart opens the welcome/auth entry instead of Profile',
+  )
+  assert.match(
+    welcome,
+    /const handleSignIn = \(\) => \{\s*router\.replace\('\/sign-in'\);\s*\};/,
+    'the signed-out startup screen provides a direct path to Sign In',
+  )
+
+  console.log('Native Supabase session persistence and deleted-account restart checks passed for iOS and Android.')
 }
 
 main().catch(error => {
