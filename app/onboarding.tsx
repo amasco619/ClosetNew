@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInRight, FadeInUp } from 'react-native-reanimated';
 import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/constants/lifestyle';
 import { rs } from '../lib/responsive';
-import { firstUnansweredOnboardingStep, onboardingStyleGoal } from '../shared/profile-personalization';
+import { ONBOARDING_STEP_COUNT, onboardingResumeStep, onboardingStyleGoal } from '../shared/profile-personalization';
 
 const { width } = Dimensions.get('window');
 
@@ -176,13 +176,13 @@ function deriveContrast(skin: SkinTone | null, hair: HairColor | null): Contrast
   return 'medium';
 }
 
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = ONBOARDING_STEP_COUNT;
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { updateProfile, profile } = useApp();
   const params = useLocalSearchParams<{ guest?: string }>();
-  const [step, setStep] = useState(() => firstUnansweredOnboardingStep(profile));
+  const [step, setStep] = useState(() => onboardingResumeStep(profile));
   const [name, setName] = useState(profile.name || '');
   const [nameFocused, setNameFocused] = useState(false);
   const [bodyType, setBodyType] = useState<BodyType | null>(profile.bodyType);
@@ -232,41 +232,50 @@ export default function OnboardingScreen() {
     setColorAversions(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]);
   };
 
+  const saveProgress = (progressStep: number, complete = false) => {
+    updateProfile({
+      name: name.trim(),
+      bodyType,
+      faceShape,
+      eyeColor,
+      skinTone,
+      undertone,
+      styleGoalPrimary: complete ? onboardingStyleGoal(styleGoalPrimary) : styleGoalPrimary,
+      styleGoalSecondary,
+      lifestyleWork: lifestyleAlloc.work,
+      lifestyleCasual: lifestyleAlloc.casual,
+      lifestyleEvents: lifestyleAlloc.events,
+      lifestyleActive: lifestyleAlloc.active,
+      lifestyleBrunch: lifestyleAlloc.brunch,
+      hairColor,
+      heightBand,
+      contrastLevel: effectiveContrast,
+      defaultMood,
+      lifePhase,
+      metalPreference,
+      industry,
+      constraints: { ...profile.constraints, colorAversions },
+      onboardingComplete: complete,
+      onboardingProgressStep: complete ? null : progressStep,
+      ...(params.guest === 'true' && { isGuest: true }),
+    });
+  };
+
   const skipStep = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (step < TOTAL_STEPS - 1) setStep(step + 1);
+    if (step < TOTAL_STEPS - 1) {
+      saveProgress(step + 1);
+      setStep(step + 1);
+    }
   };
 
   const handleNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step < TOTAL_STEPS - 1) {
+      saveProgress(step + 1);
       setStep(step + 1);
     } else {
-      updateProfile({
-        name: name.trim(),
-        bodyType,
-        faceShape,
-        eyeColor,
-        skinTone,
-        undertone,
-        styleGoalPrimary: onboardingStyleGoal(styleGoalPrimary),
-        styleGoalSecondary,
-        lifestyleWork:   lifestyleAlloc.work,
-        lifestyleCasual: lifestyleAlloc.casual,
-        lifestyleEvents: lifestyleAlloc.events,
-        lifestyleActive: lifestyleAlloc.active,
-        lifestyleBrunch: lifestyleAlloc.brunch,
-        hairColor,
-        heightBand,
-        contrastLevel: effectiveContrast,
-        defaultMood,
-        lifePhase,
-        metalPreference,
-        industry,
-        constraints: { ...profile.constraints, colorAversions },
-        onboardingComplete: true,
-        ...(params.guest === 'true' && { isGuest: true }),
-      });
+      saveProgress(step, true);
       router.replace('/(tabs)');
     }
   };

@@ -4,7 +4,7 @@ import { transformSync } from 'esbuild';
 import {
   defaultProfile, mergeProfile, hydrateAccountProfile, hasMigratableGuestProfile,
   profileConstraints, onboardingStyleGoal, hasRequiredOnboardingFields,
-  firstUnansweredOnboardingStep,
+  firstUnansweredOnboardingStep, onboardingResumeStep,
 } from '../shared/profile-personalization';
 import { scoreItemForProfile } from '../constants/outfitScoring';
 import {
@@ -86,6 +86,9 @@ test('onboarding resumes at the earliest missing required answer', () => {
   assert.equal(firstUnansweredOnboardingStep(mergeProfile({ ...complete, undertone: null })), 4);
   assert.equal(firstUnansweredOnboardingStep(mergeProfile({ ...complete, styleGoalPrimary: null })), 5);
   assert.equal(firstUnansweredOnboardingStep(complete), 0, 'fully answered profiles keep the existing start behavior');
+  assert.equal(onboardingResumeStep(mergeProfile({ ...complete, onboardingProgressStep: 7 })), 7);
+  assert.equal(onboardingResumeStep(mergeProfile({ ...complete, bodyType: null, onboardingProgressStep: 7 })), 1);
+  assert.equal(onboardingResumeStep(mergeProfile({ ...complete, onboardingProgressStep: 9 })), 0);
 });
 
 test('current-account false, zero, empty string and explicit null are respected', () => {
@@ -99,6 +102,29 @@ test('current-account false, zero, empty string and explicit null are respected'
   assert.equal(profile.weatherEnabled, false);
   assert.equal(profile.faceShape, null);
   assert.equal(profile.constraints.noSleeveless, false);
+});
+
+test('onboarding resume progress and optional answers survive profile hydration', () => {
+  const partial = mergeProfile({
+    name: 'Ava', bodyType: 'pear', faceShape: 'round', eyeColor: 'blue',
+    skinTone: 'light', undertone: 'cool', styleGoalPrimary: 'romantic',
+    hairColor: 'blonde', onboardingComplete: false, onboardingProgressStep: 7,
+  });
+  const saved = profileConstraints(partial);
+  const restored = hydrateAccountProfile({
+    name: partial.name,
+    body_type: partial.bodyType,
+    eye_color: partial.eyeColor,
+    skin_tone: partial.skinTone,
+    undertone: partial.undertone,
+    style_goals: ['romantic'],
+    constraints: saved,
+    onboarding_complete: false,
+  }, '');
+  assert.equal(restored.onboardingProgressStep, 7);
+  assert.equal(restored.faceShape, 'round');
+  assert.equal(restored.hairColor, 'blonde');
+  assert.equal(onboardingResumeStep(restored), 7);
 });
 
 test('only an explicit guest can migrate; signed-in caches cannot seed a blank account', () => {
@@ -159,13 +185,17 @@ function callback(source: string, start: string, end: string, name: string, deps
 
 test('actual skip → completion → local restart and remote restart satisfy startup routing', () => {
   let step = 5;
+  const savedSteps: number[] = [];
   const haptics = { impactAsync: () => {}, ImpactFeedbackStyle: { Light: 'light' } };
   callback(onboardingSource, 'const skipStep =', 'const handleNext =', 'skipStep', {
     step, TOTAL_STEPS: 10, setStep: (value: number) => { step = value; }, Haptics: haptics,
+    saveProgress: (nextStep: number) => { savedSteps.push(nextStep); },
   })();
   assert.equal(step, 6);
+  assert.deepEqual(savedSteps, [6]);
   let completed: UserProfile | null = null;
   const routes: string[] = [];
+  const saveTestProfile = (updates: Partial<UserProfile>) => { completed = mergeProfile({ ...readyGuest, ...updates }); };
   callback(onboardingSource, 'const handleNext =', 'const handleBack =', 'handleNext', {
     step: 9, TOTAL_STEPS: 10, Haptics: haptics, setStep: () => {},
     name: readyGuest.name, bodyType: readyGuest.bodyType, faceShape: readyGuest.faceShape,
@@ -175,7 +205,12 @@ test('actual skip → completion → local restart and remote restart satisfy st
     hairColor: null, heightBand: null, effectiveContrast: null, defaultMood: null,
     lifePhase: 'none', metalPreference: null, industry: 'unspecified', colorAversions: [],
     profile: readyGuest, params: { guest: 'true' },
-    updateProfile: (updates: Partial<UserProfile>) => { completed = mergeProfile({ ...readyGuest, ...updates }); },
+    saveProgress: (progressStep: number, complete: boolean) => saveTestProfile({
+      onboardingProgressStep: complete ? null : progressStep,
+      onboardingComplete: complete,
+      styleGoalPrimary: complete ? 'classic' : null,
+    }),
+    updateProfile: saveTestProfile,
     router: { replace: (path: string) => routes.push(path) },
   })();
   assert.ok(completed);
@@ -192,6 +227,40 @@ test('actual skip → completion → local restart and remote restart satisfy st
   assert.ok(readFileSync('app/index.tsx', 'utf8').includes(
     'profile.onboardingComplete && hasRequiredOnboardingFields(profile)',
   ));
+});
+
+test('advancing onboarding persists required and optional answers with the next step', () => {
+  const saved: Partial<UserProfile>[] = [];
+  const saveProgress = callback(
+    onboardingSource, 'const saveProgress =', 'const skipStep =', 'saveProgress', {
+      updateProfile: (updates: Partial<UserProfile>) => { saved.push(updates); },
+      name: 'Ava', bodyType: 'pear', faceShape: 'round', eyeColor: 'blue',
+      skinTone: 'light', undertone: 'cool', styleGoalPrimary: null,
+      styleGoalSecondary: 'bold',
+      lifestyleAlloc: { work: 25, casual: 50, events: 25, active: 0, brunch: 0 },
+      hairColor: 'blonde', heightBand: 'tall', effectiveContrast: 'high',
+      defaultMood: 'joyful', lifePhase: 'postpartum', metalPreference: 'silver',
+      industry: 'creative', colorAversions: ['orange'], profile: readyGuest,
+      params: { guest: 'true' }, onboardingStyleGoal,
+    },
+  ) as unknown as (step: number, complete?: boolean) => void;
+  saveProgress(7);
+  assert.deepEqual(saved.at(-1), {
+    name: 'Ava', bodyType: 'pear', faceShape: 'round', eyeColor: 'blue',
+    skinTone: 'light', undertone: 'cool', styleGoalPrimary: null,
+    styleGoalSecondary: 'bold',
+    lifestyleWork: 25, lifestyleCasual: 50, lifestyleEvents: 25,
+    lifestyleActive: 0, lifestyleBrunch: 0,
+    hairColor: 'blonde', heightBand: 'tall', contrastLevel: 'high',
+    defaultMood: 'joyful', lifePhase: 'postpartum', metalPreference: 'silver',
+    industry: 'creative',
+    constraints: { ...readyGuest.constraints, colorAversions: ['orange'] },
+    onboardingComplete: false, onboardingProgressStep: 7, isGuest: true,
+  });
+  saveProgress(7, true);
+  assert.equal(saved.at(-1)?.onboardingComplete, true);
+  assert.equal(saved.at(-1)?.onboardingProgressStep, null);
+  assert.equal(saved.at(-1)?.styleGoalPrimary, 'classic');
 });
 
 test('every missing required personalization field keeps completed profiles incomplete after hydration', () => {

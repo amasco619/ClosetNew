@@ -56,6 +56,7 @@ export interface UserProfile {
   lifestyleBrunch: number;
   constraints: Constraints;
   onboardingComplete: boolean;
+  onboardingProgressStep?: number | null;
   // Sophisticated stylist fields (optional)
   hairColor?: HairColor | null;
   heightBand?: HeightBand | null;

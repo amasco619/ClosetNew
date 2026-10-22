@@ -513,8 +513,8 @@ The six body-type cards in onboarding step 1 (Body Shape) now display inline vec
 ---
 
 ### Onboarding
-Multi-step style quiz capturing: name, body type (with illustrated SVG silhouettes for 6 body shapes), eye colour, skin tone, undertone, primary and secondary style goals, and lifestyle percentages (work / casual / events / active / brunch). Profile is persisted to AsyncStorage and Supabase. The app routes to authenticated tabs only when `profile.onboardingComplete` is true and all required profile answers are present; a stale completion flag cannot fill in a missing answer or skip onboarding.
-When an incomplete profile returns to onboarding, the screen resumes at the earliest unanswered required question; completed profiles retain the existing first-step behavior.
+Multi-step style quiz capturing: name, body type (with illustrated SVG silhouettes for 6 body shapes), eye colour, skin tone, undertone, primary and secondary style goals, and lifestyle percentages (work / casual / events / active / brunch). Profile is persisted to AsyncStorage and Supabase. Advancing or skipping a step saves the answers and current step; optional answers use the existing profile metadata storage. The app routes to authenticated tabs only when `profile.onboardingComplete` is true and all required profile answers are present; a stale completion flag cannot fill in a missing answer or skip onboarding.
+When onboarding reopens, it resumes at the earliest unanswered required question, or the saved step when all required answers are already present. Completing onboarding clears the saved step.
 
 **Code:** `app/onboarding.tsx`, `contexts/AppContext.tsx`
 

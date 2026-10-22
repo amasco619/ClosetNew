@@ -20,6 +20,7 @@ export const defaultProfile: UserProfile = {
     colorAversions: [],
   },
   onboardingComplete: false,
+  onboardingProgressStep: null,
   hairColor: null,
   heightBand: null,
   contrastLevel: null,
@@ -31,6 +32,7 @@ export const defaultProfile: UserProfile = {
 };
 
 export const onboardingStyleGoal = (goal: UserProfile['styleGoalPrimary']) => goal ?? 'classic';
+export const ONBOARDING_STEP_COUNT = 9;
 
 export function mergeProfile(stored: Partial<UserProfile>): UserProfile {
   return {
@@ -58,6 +60,13 @@ export function firstUnansweredOnboardingStep(p: UserProfile): number {
   return 0;
 }
 
+export function onboardingResumeStep(p: UserProfile): number {
+  if (!hasRequiredOnboardingFields(p)) return firstUnansweredOnboardingStep(p);
+  const savedStep = p.onboardingProgressStep;
+  return typeof savedStep === 'number' && Number.isInteger(savedStep) &&
+    savedStep >= 0 && savedStep < ONBOARDING_STEP_COUNT ? savedStep : 0;
+}
+
 export function hasMigratableGuestProfile(profile: UserProfile | null): boolean {
   return !!(profile?.isGuest && profile.bodyType && profile.eyeColor &&
     (profile.styleGoalPrimary || profile.onboardingComplete));
@@ -83,6 +92,7 @@ export function profileConstraints(profile: UserProfile) {
       lifePhase: profile.lifePhase ?? null,
       tempUnit: profile.tempUnit ?? null,
       weatherEnabled: profile.weatherEnabled ?? null,
+      onboardingProgressStep: profile.onboardingProgressStep ?? null,
     },
   };
 }
@@ -139,6 +149,7 @@ export function hydrateAccountProfile(remote: RemoteProfile | null, authName: st
     lifePhase: ext.lifePhase ?? defaultProfile.lifePhase,
     tempUnit: ext.tempUnit ?? defaultProfile.tempUnit,
     weatherEnabled: ext.weatherEnabled ?? defaultProfile.weatherEnabled,
+    onboardingProgressStep: ext.onboardingProgressStep ?? null,
     onboardingComplete: db.onboarding_complete ?? false,
   });
 }
