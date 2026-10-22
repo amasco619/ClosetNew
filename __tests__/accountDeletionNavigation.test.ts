@@ -216,7 +216,7 @@ const mountedPlugin: Plugin = {
   },
 };
 
-async function verifyDeletionWarningsInMountedProfile() {
+async function verifyDeletionNavigationInMountedProfile() {
   mountedMocks.alerts = [];
   mountedMocks.notifications = [];
   mountedMocks.navigation = [];
@@ -252,8 +252,27 @@ async function verifyDeletionWarningsInMountedProfile() {
   };
 
   for (const scenario of [
-    { label: 'sign-out failure', cleanupResult: true, signOutFails: true, navigates: false },
-    { label: 'incomplete local cleanup', cleanupResult: false, signOutFails: false, navigates: true },
+    {
+      label: 'successful deletion and sign-out',
+      cleanupResult: true,
+      signOutFails: false,
+      navigates: true,
+      showsWarning: false,
+    },
+    {
+      label: 'sign-out failure',
+      cleanupResult: true,
+      signOutFails: true,
+      navigates: false,
+      showsWarning: true,
+    },
+    {
+      label: 'incomplete local cleanup',
+      cleanupResult: false,
+      signOutFails: false,
+      navigates: true,
+      showsWarning: true,
+    },
   ]) {
     mountedMocks.alerts = [];
     mountedMocks.notifications = [];
@@ -311,14 +330,26 @@ async function verifyDeletionWarningsInMountedProfile() {
     }], `${scenario.label}: server account deletion was confirmed successfully`);
     assert.equal(mountedMocks.localCleanupCalls, 1, `${scenario.label}: local account cleanup ran once`);
     assert.equal(mountedMocks.signOutCalls, 1, `${scenario.label}: local Supabase sign-out was attempted once`);
-    assert.deepEqual(mountedMocks.notifications, [warning], `${scenario.label}: device-cleanup warning is shown`);
-    assert.equal(mountedMocks.dismissAllCalls, scenario.navigates ? 1 : 0);
-    assert.deepEqual(mountedMocks.navigation, scenario.navigates ? ['/sign-in'] : []);
+    assert.deepEqual(
+      mountedMocks.notifications,
+      scenario.showsWarning ? [warning] : [],
+      `${scenario.label}: device-cleanup warning state is correct`,
+    );
+    assert.equal(
+      mountedMocks.dismissAllCalls,
+      scenario.navigates ? 1 : 0,
+      `${scenario.label}: old navigation stack is dismissed only after successful sign-out`,
+    );
+    assert.deepEqual(
+      mountedMocks.navigation,
+      scenario.navigates ? ['/sign-in'] : [],
+      `${scenario.label}: sign-in replaces the deleted account screen`,
+    );
     await React.act(async () => tree.unmount());
   }
 }
 
-void verifyDeletionWarningsInMountedProfile().catch(error => {
+void verifyDeletionNavigationInMountedProfile().catch(error => {
   console.error(error);
   process.exitCode = 1;
 });
