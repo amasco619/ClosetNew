@@ -9,12 +9,11 @@ files each), typecheck/lint, golden set 35/35, both benchmark validators includi
 53 frozen checksums, Expo compatibility check and Android export.
 
 Approved compatible leaf updates reduced the root audit from 41 records before
-Step 3 to 35, then unused http-proxy-middleware removal reduced it to 34:
-1 critical, 23 high, 10 moderate. The compatible shell-quote fix was outside the
-named update list and remains outstanding. pg moved to direct devDependencies,
-but retained Drizzle still supplies an optional runtime peer edge. Drizzle and
-db:push were retained because historical documentation claims active ORM use
-while source searches and later reports find no use.
+Step 3 to 35, then http-proxy-middleware removal reduced it to 34. In Dependency
+Phase 3, shell-quote was fixed at 1.12.0 with a parent-scoped override because
+react-devtools-core's 8.x major is incompatible with the pinned React Native
+range. The unreferenced Drizzle packages and db:push script were removed. `pg`
+is now development-only, with no production dependency path.
 
 The earlier Expo install did change extra transitive entries: Android release
 source maps include changed Radix react-slot and nested compose-refs, not Vaul.

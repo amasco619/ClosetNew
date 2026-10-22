@@ -498,7 +498,7 @@ Zero GCV packages found in `package.json`. Zero GCV imports in production code. 
 | `@expo/ngrok` | Used for Expo tunnel during development. Retain. |
 | `@stardazed/streams-text-encoding` | Transitive Expo/RN polyfill. Retain. |
 | `@ungap/structured-clone` | Polyfill for older RN environments. Retain. |
-| `drizzle-orm` / `drizzle-kit` | Used in server ORM layer. Retain. |
+| `drizzle-orm`, `drizzle-zod`, `drizzle-kit` | Removed in the approved Dependency Phase 3 cleanup: no active source/configuration imports were found, and `db:push` was unused. |
 | `patch-package` | Applied patches to node_modules (postinstall). Retain. |
 | `base64-arraybuffer` | Used in image encoding pipeline. Retain. |
 

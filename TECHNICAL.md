@@ -155,7 +155,7 @@ Whenever you make a change that affects any section of this document — new API
 | Technology | Role |
 |-----------|------|
 | **TypeScript** | Strict typing throughout; `npm run typecheck` runs `tsc --noEmit` |
-| **drizzle-orm / drizzle-kit** | ORM and migration tooling (schema defined; DB operations primarily via Supabase client) |
+| **pg** | Development-only PostgreSQL client for isolated database tests |
 | **patch-package** | Applies the `expo-asset` patch on install |
 | **eslint / eslint-config-expo** | Linting |
 | **@babel/core / babel-plugin-react-compiler** | React compiler Babel transform |
