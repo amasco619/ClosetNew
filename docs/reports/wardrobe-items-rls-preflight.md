@@ -317,7 +317,8 @@ authorised by this report.
 ## Tests, deviations and remaining live verification
 
 `__tests__/wardrobeItemsRls.test.ts` executes the **exact proposed and rollback
-SQL blocks from this report** in disposable PostgreSQL 16.10. An independent
+SQL blocks from this report** in disposable PostgreSQL 17.6. It asserts the
+server major version before applying any fixture SQL. An independent
 nine-policy baseline must match the live catalog fingerprint. It tests:
 
 - Two fake users, own/foreign rows, broad reads/updates/deletes, insertion,
@@ -351,8 +352,8 @@ checks migration/report SQL identity and the historical replay rejection.
   grants, customer-data queries/changes, app publication or deployment.
 - INSERT allowance is tested separately from INSERT ACL: own direct INSERT
   cannot honestly be labelled allowed under today's live privileges.
-- Local PostgreSQL is 16.10, versus live 17.6. Tests verify SQL/RLS behavior,
-  not live PostgREST caching, RPC execution, full production schema constraints,
-  physical devices, performance or lock duration.
+- Local PostgreSQL is 17.6, matching the live version. Tests verify SQL/RLS
+  behavior, not live PostgREST caching, RPC execution, full production schema
+  constraints, physical devices, performance or lock duration.
 - Live application, recorded-version mirror and metadata comparison are complete.
   Live rollback and the proposed fresh-install transition were not executed.

@@ -8,7 +8,8 @@ Live metadata confirms one PUBLIC ALL owner policy with explicit WITH CHECK,
 RLS enabled/not forced, unchanged role/table/column privileges and all **82**
 other table policies unchanged. No live rollback or replay variant executed.
 Authenticated direct INSERT remains denied; guarded RPCs/functions are unchanged.
-Disposable tests pass 321 command checks across current/proposed/rollback.
+Disposable PostgreSQL 17.6 tests pass 321 command checks across
+current/proposed/rollback.
 Current gates: **124 test files passed**, typecheck/lint, golden **35/35** and
 both benchmark validators including **53 frozen checksums** pass.
 **Fresh replay is not ready:** the base app schema is missing from the ordered

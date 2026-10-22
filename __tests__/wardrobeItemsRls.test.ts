@@ -145,6 +145,11 @@ async function main(): Promise<void> {
   const client = new Client({ host: directory, port, user: userInfo().username, database: 'postgres' })
   await client.connect()
   try {
+    const serverVersion = (await client.query<{ version: string }>(
+      "SELECT current_setting('server_version') AS version"
+    )).rows[0].version
+    assert.match(serverVersion, /^17\./, `Expected PostgreSQL 17, got ${serverVersion}`)
+    console.log(`wardrobeItemsRls: disposable PostgreSQL ${serverVersion}`)
     await client.query(`
       CREATE ROLE anon NOLOGIN;
       CREATE ROLE authenticated NOLOGIN;

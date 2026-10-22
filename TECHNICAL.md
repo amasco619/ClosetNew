@@ -2105,7 +2105,7 @@ ACLs, effective privileges for anon/authenticated/service_role and all 82 other
 table policies are unchanged. Authenticated direct SELECT/UPDATE/DELETE remain;
 direct INSERT remains revoked and uses guarded RPCs. No live rollback ran.
 Exact approved transaction, docs-only rollback, other-table duplicate inventory
-and verification fingerprints: `docs/reports/wardrobe-items-rls-preflight.md`. Disposable-only
+and verification fingerprints: `docs/reports/wardrobe-items-rls-preflight.md`. Disposable PostgreSQL 17.6
 `wardrobeItemsRls.test.ts` passes 321 current/proposed/rollback command checks,
 including both users, anon, PUBLIC coverage, live-CRUD-grant versus RLS-only
 fixtures, exact rollback, drift rejection and repo/report SQL identity.
