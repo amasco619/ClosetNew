@@ -510,6 +510,17 @@ async function main() {
       expectedStackRoute: 'onboarding',
     },
     {
+      name: '   ',
+      bodyType: 'hourglass',
+      eyeColor: 'brown',
+      skinTone: 'medium',
+      undertone: 'warm',
+      styleGoalPrimary: 'classic',
+      onboardingComplete: true,
+      expectedRoute: '/onboarding',
+      expectedStackRoute: 'onboarding',
+    },
+    {
       name: '',
       bodyType: null,
       eyeColor: null,
@@ -637,7 +648,7 @@ async function main() {
   }
 
   const requiredFieldGaps = [
-    { field: 'name', missingValue: '' },
+    { field: 'name', missingValue: '   ' },
     { field: 'bodyType', missingValue: null },
     { field: 'eyeColor', missingValue: null },
     { field: 'skinTone', missingValue: null },

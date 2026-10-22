@@ -73,6 +73,7 @@ test('onboarding resumes at the earliest missing required answer', () => {
     undertone: 'cool', styleGoalPrimary: 'romantic',
   });
   assert.equal(firstUnansweredOnboardingStep(mergeProfile({ ...complete, name: '' })), 0);
+  assert.equal(firstUnansweredOnboardingStep(mergeProfile({ ...complete, name: '   ' })), 0);
   assert.equal(firstUnansweredOnboardingStep(mergeProfile({ ...complete, bodyType: null })), 1);
   assert.equal(firstUnansweredOnboardingStep(mergeProfile({ ...complete, eyeColor: null })), 3);
   assert.equal(firstUnansweredOnboardingStep(mergeProfile({ ...complete, skinTone: null })), 4);
@@ -213,6 +214,7 @@ test('every missing required personalization field keeps completed profiles inco
     expected: string | null;
   }> = [
     { field: 'name', profile: { name: '' }, remote: { name: '' }, expected: '' },
+    { field: 'name', profile: { name: '   ' }, remote: { name: '   ' }, expected: '   ' },
     { field: 'bodyType', profile: { bodyType: null }, remote: { body_type: null }, expected: null },
     { field: 'eyeColor', profile: { eyeColor: null }, remote: { eye_color: null }, expected: null },
     { field: 'skinTone', profile: { skinTone: null }, remote: { skin_tone: null }, expected: null },
