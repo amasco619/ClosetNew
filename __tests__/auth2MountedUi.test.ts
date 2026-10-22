@@ -14,7 +14,16 @@ const mocks = {
   backHandlers: [] as Array<() => boolean>,
   dismisses: 0,
   signInCalls: 0,
-  appState: { isAuthenticated: false, isGuest: false, wardrobeTotalCount: 0 },
+  platformOS: 'web',
+  appState: {
+    isAuthenticated: false,
+    isGuest: false,
+    wardrobeTotalCount: 0,
+    appReady: false,
+    startupError: null,
+    retryInitialization: () => {},
+    profile: {} as Record<string, unknown>,
+  },
   confirm: (_url: string): Promise<unknown> => Promise.resolve({}),
   recover: (_url: string): Promise<unknown> => Promise.resolve({}),
   signIn: (_email: string, _password: string): Promise<void> => Promise.resolve(),
@@ -42,8 +51,8 @@ const modules: Record<string, string> = {
     export const ActivityIndicator = host('ActivityIndicator')
     export const KeyboardAvoidingView = host('KeyboardAvoidingView')
     export const ScrollView = host('ScrollView')
-    export const Platform = { OS: 'web' }
     const m = globalThis.__auth2MountedMocks
+    export const Platform = { get OS() { return m.platformOS } }
     export const BackHandler = {
       addEventListener: (_event, handler) => {
         m.backHandlers.push(handler)
@@ -71,20 +80,26 @@ const modules: Record<string, string> = {
   'expo-blur': `import React from 'react'; export const BlurView = props => React.createElement('BlurView', props)`,
   'react-native-safe-area-context': `export const useSafeAreaInsets = () => ({ top: 0, bottom: 0 })`,
   'expo-linking': `export const useLinkingURL = () => null`,
+  'expo-splash-screen': `export const hideAsync = async () => {}`,
   'expo-haptics': `export const selectionAsync = async () => {}; export const impactAsync = async () => {}; export const ImpactFeedbackStyle = { Light: 'light' }`,
   '@expo/vector-icons': `export const Ionicons = () => null`,
   'react-native-reanimated': `
     import React from 'react'
     const View = props => React.createElement('AnimatedView', props)
-    const Animated = { View }
+    const Text = props => React.createElement('AnimatedText', props)
+    const Animated = { View, Text }
     export default Animated
     export const FadeInDown = { delay: () => ({ duration: () => null }) }
     export const FadeInUp = { delay: () => ({ duration: () => null }) }
     export const useSharedValue = value => ({ value })
     export const useAnimatedStyle = callback => callback()
     export const withRepeat = value => value
-    export const withTiming = value => value
-    export const Easing = { inOut: value => value, out: value => value, quad: {}, ease: {}, cubic: {} }
+    export const withTiming = (value, _config, callback) => {
+      if (callback) callback(true)
+      return value
+    }
+    export const runOnJS = callback => callback
+    export const Easing = { in: value => value, inOut: value => value, out: value => value, quad: {}, ease: {}, cubic: {} }
     export const withSpring = value => value
   `,
   '../../lib/auth': `
@@ -112,6 +127,8 @@ const modules: Record<string, string> = {
   '@/contexts/AppContext': `const m = globalThis.__auth2MountedMocks; export const useApp = () => m.appState`,
   '@/constants/colors': `export default new Proxy({}, { get: () => '#000000' })`,
   '@/components/AuthNotice': `export const AuthNotice = () => null`,
+  '@/components/AmodkaErrorState': `export const AmodkaErrorState = () => null`,
+  '@/shared/observability': `export const reportError = () => {}`,
   '@/lib/authErrors': `export const normalizeAuthError = error => ({ code: 'unknown', message: String(error) })`,
   '../assets/images/closet.jpg': `export default { uri: 'closet' }`,
   '../../lib/supabase': `
@@ -183,6 +200,24 @@ async function signInScreen() {
   return mod.exports.default
 }
 
+async function indexScreen() {
+  const built = await build({
+    entryPoints: [path.join(process.cwd(), 'app/index.tsx')],
+    bundle: true,
+    write: false,
+    format: 'cjs',
+    platform: 'node',
+    jsx: 'automatic',
+    packages: 'external',
+    plugins: [boundaryMocks],
+  })
+  const mod: { exports: { default?: React.ComponentType } } = { exports: {} }
+  new Function('require', 'module', 'exports', built.outputFiles[0].text)(
+    requireFromProject, mod, mod.exports)
+  assert.ok(mod.exports.default, 'loaded profile-based index route')
+  return mod.exports.default
+}
+
 async function forgotPasswordScreen() {
   const built = await build({
     entryPoints: [path.join(process.cwd(), 'app/forgot-password.tsx')],
@@ -215,7 +250,16 @@ function reset(params: typeof mocks.params = {}) {
   mocks.backHandlers = []
   mocks.dismisses = 0
   mocks.signInCalls = 0
-  mocks.appState = { isAuthenticated: false, isGuest: false, wardrobeTotalCount: 0 }
+  mocks.platformOS = 'web'
+  mocks.appState = {
+    isAuthenticated: false,
+    isGuest: false,
+    wardrobeTotalCount: 0,
+    appReady: false,
+    startupError: null,
+    retryInitialization: () => {},
+    profile: {},
+  }
   mocks.confirm = async () => ({})
   mocks.recover = async () => ({})
   mocks.signIn = async () => {}
@@ -257,6 +301,7 @@ async function main() {
     screen('confirm.tsx'), screen('update-password.tsx'),
   ])
   const ForgotPassword = await forgotPasswordScreen()
+  const Index = await indexScreen()
   {
     reset({ code: 'confirmation-code', type: 'signup' })
     const pending = deferred<unknown>()
@@ -423,6 +468,114 @@ async function main() {
     assert.equal(mocks.dismisses, 1, 'clears routes before entering the authenticated index')
     assert.deepEqual(mocks.stack, ['/'], `Android Back cannot reveal sign-in after ${method} auth`)
     await unmount(tree)
+  }
+
+  const { StackRouter, StackActions } = requireFromProject(
+    'expo-router/build/react-navigation/routers/StackRouter',
+  )
+  const stackRouter = StackRouter({})
+  const stackOptions = { routeParamList: {}, routeGetIdList: {} }
+  const hydratedProfiles = [
+    {
+      name: 'Amodka User',
+      bodyType: 'hourglass',
+      eyeColor: 'brown',
+      skinTone: 'medium',
+      undertone: 'warm',
+      styleGoalPrimary: 'classic',
+      onboardingComplete: true,
+      expectedRoute: '/(tabs)',
+      expectedStackRoute: '(tabs)',
+    },
+    {
+      name: '',
+      bodyType: null,
+      eyeColor: null,
+      skinTone: null,
+      undertone: null,
+      styleGoalPrimary: null,
+      onboardingComplete: false,
+      expectedRoute: '/onboarding',
+      expectedStackRoute: 'onboarding',
+    },
+  ]
+
+  for (const profile of hydratedProfiles) {
+    reset()
+    mocks.platformOS = 'android'
+    mocks.stack = ['/welcome', '/sign-in']
+    const SignIn = await signInScreen()
+    const signInTree = await mount(SignIn)
+    const [email, password] = signInTree.root.findAllByType('TextInput')
+    await React.act(async () => {
+      email.props.onChangeText('user@example.com')
+      password.props.onChangeText('ValidPass1')
+    })
+    const submit = signInTree.root.findAllByType('TouchableOpacity')
+      .filter(node => words(node).trim() === 'Sign in')
+      .pop()
+    assert.ok(submit, 'email sign-in button is rendered')
+    await React.act(async () => submit.props.onPress())
+    await React.act(async () => {
+      mocks.appState = {
+        ...mocks.appState,
+        isAuthenticated: true,
+        appReady: true,
+        profile,
+      }
+      signInTree.update(React.createElement(SignIn))
+    })
+    assert.deepEqual(mocks.stack, ['/'], 'sign-in history is cleared after profile hydration')
+    assert.equal(mocks.dismisses, 1)
+
+    const indexTree = await mount(Index)
+    assert.deepEqual(
+      mocks.routes,
+      ['/', profile.expectedRoute],
+      `hydrated profile navigates to ${profile.expectedRoute}`,
+    )
+    assert.deepEqual(
+      mocks.stack,
+      [profile.expectedRoute],
+      `Android Back cannot restore sign-in from ${profile.expectedRoute}`,
+    )
+
+    let backState = stackRouter.getInitialState({
+      routeNames: ['welcome', 'sign-in', 'index', '(tabs)', 'onboarding'],
+      routeParamList: {},
+    })
+    backState = stackRouter.getStateForAction(
+      backState,
+      StackActions.push('sign-in'),
+      stackOptions,
+    )
+    backState = stackRouter.getStateForAction(
+      backState,
+      StackActions.popToTop(),
+      stackOptions,
+    )
+    backState = stackRouter.getStateForAction(
+      backState,
+      StackActions.replace('index'),
+      stackOptions,
+    )
+    backState = stackRouter.getStateForAction(
+      backState,
+      StackActions.replace(profile.expectedStackRoute),
+      stackOptions,
+    )
+    assert.deepEqual(
+      backState.routes.map((route: { name: string }) => route.name),
+      [profile.expectedStackRoute],
+      'profile-based destination is the only route left in the Android stack',
+    )
+    assert.equal(
+      stackRouter.getStateForAction(backState, { type: 'GO_BACK' }, stackOptions),
+      null,
+      'Android Back has no sign-in route to reveal',
+    )
+    await unmount(indexTree)
+    await unmount(signInTree)
   }
 
   console.log('AUTH-2 mounted confirmation, recovery, and sign-in navigation UI: all states passed')

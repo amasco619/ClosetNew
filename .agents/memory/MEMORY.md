@@ -39,6 +39,7 @@
 - [SDK 57 Reanimated lint exception](sdk57-reanimated-lint.md) — stable SharedValues mutated inside callbacks may need a narrowly documented exhaustive-deps exception.
 - [Mounted screen test fixtures](mounted-screen-fixture-stability.md) — keep mocked context arrays and callbacks stable across renders to avoid effect loops unrelated to the screen.
 - [Mounted async handler tests](mounted-screen-async-handlers.md) — don't return an intentionally pending submit promise from React.act when testing its loading state.
+- [Mounted animation mocks](mounted-screen-animation-mocks.md) — when mounting real animated routes, mock Animated text elements and animation completion callbacks so navigation effects run.
 - [Wardrobe load state ownership](wardrobe-load-state-ownership.md) — include active account identity in screen load keys; equal wardrobe counts do not mean the request belongs to the same account.
 - [Supabase email auth policy](supabase-email-confirmation.md) — confirmation is off; only explicit duplicate codes disclose account_exists, while signup outages fail closed and sign-in stays non-enumerating.
 - [Luxury feedback hook boundary](luxury-feedback-hook-boundary.md) — screens use a lightweight dialog/toast context; only the root provider imports native feedback UI.
