@@ -107,6 +107,8 @@ const mountedMocks: any = {
   signOutCalls: 0,
   deleteRequests: [] as Array<{ method: string; path: string; body: unknown }>,
   localCleanupCalls: 0,
+  localCleanupResult: true,
+  signOutFails: true,
   appState: null as any,
 };
 Object.assign(globalThis, { __accountDeletionMountedMocks: mountedMocks, IS_REACT_ACT_ENVIRONMENT: true });
@@ -151,7 +153,10 @@ const mountedModules: Record<string, string> = {
   `,
   '@/lib/auth': `
     const m = globalThis.__accountDeletionMountedMocks;
-    export const signOut = async () => { m.signOutCalls++; throw new Error('local sign-out failed'); };
+    export const signOut = async () => {
+      m.signOutCalls++;
+      if (m.signOutFails) throw new Error('local sign-out failed');
+    };
   `,
   '@/lib/query-client': `
     const m = globalThis.__accountDeletionMountedMocks;
@@ -164,8 +169,7 @@ const mountedModules: Record<string, string> = {
   '@/constants/accountDeletionCleanup': `
     export const deleteAccountThenClearLocalData = async (deleteAccount, clearLocalData) => {
       await deleteAccount();
-      await clearLocalData();
-      return true;
+      try { return await clearLocalData(); } catch { return false; }
     };
     export const getAccountDeletionFailure = error => ({ title: 'Account deletion failed', message: String(error) });
   `,
@@ -212,36 +216,11 @@ const mountedPlugin: Plugin = {
   },
 };
 
-async function verifySignOutFailureInMountedProfile() {
+async function verifyDeletionWarningsInMountedProfile() {
   mountedMocks.alerts = [];
   mountedMocks.notifications = [];
   mountedMocks.navigation = [];
   mountedMocks.dismissAllCalls = 0;
-  mountedMocks.signOutCalls = 0;
-  mountedMocks.deleteRequests = [];
-  mountedMocks.localCleanupCalls = 0;
-  const wardrobeItems: unknown[] = [];
-  const wearHistory: unknown[] = [];
-  mountedMocks.appState = {
-    profile: { name: 'Test User', tempUnit: 'C', weatherEnabled: true },
-    updateProfile: () => {},
-    wardrobeItems,
-    wardrobeTotalCount: 0,
-    loadAllWardrobeItems: async () => {},
-    isPremium: false,
-    isGuest: false,
-    authenticatedUserId: 'user-1',
-    isLoading: false,
-    wearHistory,
-    affinityActive: false,
-    affinitySignalCount: 0,
-    weather: null,
-    setWeatherEnabled: () => {},
-    dataUnavailable: false,
-    entitlementUnavailable: false,
-    retryInitialization: () => {},
-    clearDeletedAccountLocalData: async () => { mountedMocks.localCleanupCalls++; },
-  };
 
   const built = await build({
     entryPoints: [path.join(process.cwd(), 'app/(tabs)/profile.tsx')],
@@ -267,36 +246,79 @@ async function verifySignOutFailureInMountedProfile() {
   const words = (node: any): string => typeof node === 'string'
     ? node
     : (node.children ?? []).map(words).join('');
-  let tree!: ReturnType<typeof renderer.create>;
-  await React.act(async () => { tree = renderer.create(React.createElement(module.exports.default!)); });
-  const deleteButton = tree.root.findAllByType('Pressable')
-    .find(node => words(node).includes('Delete account'));
-  assert.ok(deleteButton, 'mounted Profile displays the account deletion action');
-  await React.act(async () => { deleteButton.props.onPress(); });
-  assert.equal(mountedMocks.alerts.at(-1)?.title, 'Delete account', 'deletion confirmation is shown');
-  const confirmDelete = mountedMocks.alerts.at(-1)?.buttons.find(
-    (button: { text: string; onPress?: () => unknown }) => button.text === 'Delete',
-  );
-  assert.ok(confirmDelete?.onPress, 'confirmation includes the Delete action');
-  await React.act(async () => { await confirmDelete.onPress?.(); });
-
-  assert.deepEqual(mountedMocks.deleteRequests, [{
-    method: 'DELETE',
-    path: '/api/user/delete-account',
-    body: { userId: 'user-1' },
-  }], 'server account deletion was confirmed successfully');
-  assert.equal(mountedMocks.localCleanupCalls, 1, 'local account data cleanup completed');
-  assert.equal(mountedMocks.signOutCalls, 1, 'local Supabase sign-out was attempted once');
-  assert.deepEqual(mountedMocks.notifications, [{
+  const warning = {
     title: 'Account deleted — device cleanup incomplete',
     message: 'Your account was deleted, but this device could not fully clear its local data or session. Clear this app’s data before anyone else uses this device.',
-  }], 'the user receives the incomplete device-cleanup warning, not a clean sign-out result');
-  assert.equal(mountedMocks.dismissAllCalls, 0, 'failed sign-out does not clear navigation history');
-  assert.deepEqual(mountedMocks.navigation, [], 'failed sign-out keeps the user on Profile');
-  await React.act(async () => tree.unmount());
+  };
+
+  for (const scenario of [
+    { label: 'sign-out failure', cleanupResult: true, signOutFails: true, navigates: false },
+    { label: 'incomplete local cleanup', cleanupResult: false, signOutFails: false, navigates: true },
+  ]) {
+    mountedMocks.alerts = [];
+    mountedMocks.notifications = [];
+    mountedMocks.navigation = [];
+    mountedMocks.dismissAllCalls = 0;
+    mountedMocks.signOutCalls = 0;
+    mountedMocks.deleteRequests = [];
+    mountedMocks.localCleanupCalls = 0;
+    mountedMocks.localCleanupResult = scenario.cleanupResult;
+    mountedMocks.signOutFails = scenario.signOutFails;
+
+    const wardrobeItems: unknown[] = [];
+    const wearHistory: unknown[] = [];
+    mountedMocks.appState = {
+      profile: { name: 'Test User', tempUnit: 'C', weatherEnabled: true },
+      updateProfile: () => {},
+      wardrobeItems,
+      wardrobeTotalCount: 0,
+      loadAllWardrobeItems: async () => {},
+      isPremium: false,
+      isGuest: false,
+      authenticatedUserId: 'user-1',
+      isLoading: false,
+      wearHistory,
+      affinityActive: false,
+      affinitySignalCount: 0,
+      weather: null,
+      setWeatherEnabled: () => {},
+      dataUnavailable: false,
+      entitlementUnavailable: false,
+      retryInitialization: () => {},
+      clearDeletedAccountLocalData: async () => {
+        mountedMocks.localCleanupCalls++;
+        return mountedMocks.localCleanupResult;
+      },
+    };
+
+    let tree!: ReturnType<typeof renderer.create>;
+    await React.act(async () => { tree = renderer.create(React.createElement(module.exports.default!)); });
+    const deleteButton = tree.root.findAllByType('Pressable')
+      .find(node => words(node).includes('Delete account'));
+    assert.ok(deleteButton, 'mounted Profile displays the account deletion action');
+    await React.act(async () => { deleteButton.props.onPress(); });
+    assert.equal(mountedMocks.alerts.at(-1)?.title, 'Delete account', 'deletion confirmation is shown');
+    const confirmDelete = mountedMocks.alerts.at(-1)?.buttons.find(
+      (button: { text: string; onPress?: () => unknown }) => button.text === 'Delete',
+    );
+    assert.ok(confirmDelete?.onPress, 'confirmation includes the Delete action');
+    await React.act(async () => { await confirmDelete.onPress?.(); });
+
+    assert.deepEqual(mountedMocks.deleteRequests, [{
+      method: 'DELETE',
+      path: '/api/user/delete-account',
+      body: { userId: 'user-1' },
+    }], `${scenario.label}: server account deletion was confirmed successfully`);
+    assert.equal(mountedMocks.localCleanupCalls, 1, `${scenario.label}: local account cleanup ran once`);
+    assert.equal(mountedMocks.signOutCalls, 1, `${scenario.label}: local Supabase sign-out was attempted once`);
+    assert.deepEqual(mountedMocks.notifications, [warning], `${scenario.label}: device-cleanup warning is shown`);
+    assert.equal(mountedMocks.dismissAllCalls, scenario.navigates ? 1 : 0);
+    assert.deepEqual(mountedMocks.navigation, scenario.navigates ? ['/sign-in'] : []);
+    await React.act(async () => tree.unmount());
+  }
 }
 
-void verifySignOutFailureInMountedProfile().catch(error => {
+void verifyDeletionWarningsInMountedProfile().catch(error => {
   console.error(error);
   process.exitCode = 1;
 });
