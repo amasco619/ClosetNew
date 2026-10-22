@@ -4,6 +4,7 @@ import path from 'node:path'
 import React from 'react'
 import { build, type Plugin } from 'esbuild'
 import { virtualMockModule } from './helpers/virtualMockModule'
+import { hydrateAccountProfile } from '../shared/profile-personalization'
 
 // Bundle the real screens, replacing only their native and external boundaries.
 // Nothing in this test imports the live Supabase client or makes network calls.
@@ -51,6 +52,7 @@ const modules: Record<string, string> = {
     export const ActivityIndicator = host('ActivityIndicator')
     export const KeyboardAvoidingView = host('KeyboardAvoidingView')
     export const ScrollView = host('ScrollView')
+    export const Dimensions = { get: () => ({ width: 390, height: 844 }) }
     const m = globalThis.__auth2MountedMocks
     export const Platform = { get OS() { return m.platformOS } }
     export const BackHandler = {
@@ -79,6 +81,16 @@ const modules: Record<string, string> = {
   'expo-linear-gradient': `import React from 'react'; export const LinearGradient = props => React.createElement('LinearGradient', props)`,
   'expo-blur': `import React from 'react'; export const BlurView = props => React.createElement('BlurView', props)`,
   'react-native-safe-area-context': `export const useSafeAreaInsets = () => ({ top: 0, bottom: 0 })`,
+  'react-native-svg': `
+    import React from 'react'
+    const host = name => props => React.createElement(name, props)
+    export default host('Svg')
+    export const Circle = host('Circle')
+    export const Path = host('Path')
+    export const Line = host('Line')
+    export const Ellipse = host('Ellipse')
+    export const Rect = host('Rect')
+  `,
   'expo-linking': `export const useLinkingURL = () => null`,
   'expo-splash-screen': `export const hideAsync = async () => {}`,
   'expo-haptics': `export const selectionAsync = async () => {}; export const impactAsync = async () => {}; export const ImpactFeedbackStyle = { Light: 'light' }`,
@@ -90,6 +102,7 @@ const modules: Record<string, string> = {
     const Animated = { View, Text }
     export default Animated
     export const FadeInDown = { delay: () => ({ duration: () => null }) }
+    export const FadeInRight = { duration: () => null }
     export const FadeInUp = { delay: () => ({ duration: () => null }) }
     export const useSharedValue = value => ({ value })
     export const useAnimatedStyle = callback => callback()
@@ -135,6 +148,8 @@ const modules: Record<string, string> = {
     const m = globalThis.__auth2MountedMocks
     export const supabase = { auth: { getClaims: () => m.getClaims() } }
   `,
+  '@/constants/lifestyle': `export const LIFESTYLE_OPTIONS = []; export const LIFESTYLE_SCENARIOS = []`,
+  '../lib/responsive': `export const rs = size => size`,
 }
 
 const boundaryMocks: Plugin = {
@@ -215,6 +230,24 @@ async function indexScreen() {
   new Function('require', 'module', 'exports', built.outputFiles[0].text)(
     requireFromProject, mod, mod.exports)
   assert.ok(mod.exports.default, 'loaded profile-based index route')
+  return mod.exports.default
+}
+
+async function onboardingScreen() {
+  const built = await build({
+    entryPoints: [path.join(process.cwd(), 'app/onboarding.tsx')],
+    bundle: true,
+    write: false,
+    format: 'cjs',
+    platform: 'node',
+    jsx: 'automatic',
+    packages: 'external',
+    plugins: [boundaryMocks],
+  })
+  const mod: { exports: { default?: React.ComponentType } } = { exports: {} }
+  new Function('require', 'module', 'exports', built.outputFiles[0].text)(
+    requireFromProject, mod, mod.exports)
+  assert.ok(mod.exports.default, 'loaded onboarding screen')
   return mod.exports.default
 }
 
@@ -302,6 +335,7 @@ async function main() {
   ])
   const ForgotPassword = await forgotPasswordScreen()
   const Index = await indexScreen()
+  const Onboarding = await onboardingScreen()
   {
     reset({ code: 'confirmation-code', type: 'signup' })
     const pending = deferred<unknown>()
@@ -468,6 +502,37 @@ async function main() {
     assert.equal(mocks.dismisses, 1, 'clears routes before entering the authenticated index')
     assert.deepEqual(mocks.stack, ['/'], `Android Back cannot reveal sign-in after ${method} auth`)
     await unmount(tree)
+  }
+
+  for (const [method, providerName] of [
+    ['google', 'Google Provider'],
+    ['apple', 'Apple Provider'],
+  ] as const) {
+    reset()
+    mocks.platformOS = 'android'
+    mocks.stack = ['/welcome', '/sign-in']
+    const SignIn = await signInScreen()
+    const signInTree = await mount(SignIn)
+    const provider = method === 'google' ? 'Google' : 'Apple'
+    await React.act(async () => button(signInTree, `Continue with ${provider}`).props.onPress())
+    await React.act(async () => {
+      mocks.appState = {
+        ...mocks.appState,
+        isAuthenticated: true,
+        appReady: true,
+        profile: hydrateAccountProfile({ name: null }, providerName) as unknown as Record<string, unknown>,
+      }
+      signInTree.update(React.createElement(SignIn))
+    })
+    const indexTree = await mount(Index)
+    assert.deepEqual(mocks.routes, ['/', '/onboarding'], `${provider} opens onboarding`)
+    const onboardingTree = await mount(Onboarding)
+    await React.act(async () => onboardingTree.root.findAllByType('Pressable')[0].props.onPress())
+    const nameInput = onboardingTree.root.findAllByType('TextInput')[0]
+    assert.equal(nameInput.props.value, providerName, `${provider} name is prefilled in onboarding`)
+    await unmount(onboardingTree)
+    await unmount(indexTree)
+    await unmount(signInTree)
   }
 
   const { StackRouter, StackActions } = requireFromProject(

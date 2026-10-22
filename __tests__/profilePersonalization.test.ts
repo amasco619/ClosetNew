@@ -67,6 +67,12 @@ test('null/missing remote fields and missing profile reset to neutral defaults',
   assert.equal(empty.isGuest, false);
 });
 
+test('null saved profile names fall back to Google and Apple provider names', () => {
+  for (const providerName of ['Google Provider', 'Apple Provider']) {
+    assert.equal(hydrateAccountProfile({ name: null }, providerName).name, providerName);
+  }
+});
+
 test('onboarding resumes at the earliest missing required answer', () => {
   const complete = mergeProfile({
     name: 'Ava', bodyType: 'pear', eyeColor: 'blue', skinTone: 'light',
@@ -418,6 +424,18 @@ async function hydrationCases() {
     assert.equal(writes.at(-1)?.id, current);
     assert.equal(writes.at(-1)?.name, undefined);
     assert.equal(shown.isGuest, false);
+  });
+
+  await asyncTest('Google and Apple provider names survive real account hydration with a null saved name', async () => {
+    for (const [userId, authName] of [
+      ['google-account', 'Google Provider'],
+      ['apple-account', 'Apple Provider'],
+    ]) {
+      current = userId;
+      await hydrate(userId, { name: null }, null, null, authName);
+      assert.equal(shown.name, authName);
+      assert.equal(JSON.parse(stored).name, authName);
+    }
   });
 
   await asyncTest('failed migration retains guest cache for retry instead of claiming success', async () => {
