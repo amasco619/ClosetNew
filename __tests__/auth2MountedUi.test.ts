@@ -624,65 +624,77 @@ async function main() {
     await unmount(signInTree)
   }
 
+  const requiredFieldGaps = [
+    { field: 'name', missingValue: '' },
+    { field: 'bodyType', missingValue: null },
+    { field: 'eyeColor', missingValue: null },
+    { field: 'skinTone', missingValue: null },
+    { field: 'undertone', missingValue: null },
+    { field: 'styleGoalPrimary', missingValue: null },
+  ] as const
+
   for (const method of ['google', 'apple'] as const) {
-    reset()
-    mocks.platformOS = 'android'
-    mocks.stack = ['/welcome', '/sign-in']
-    const SignIn = await signInScreen()
-    const signInTree = await mount(SignIn)
     const provider = method === 'google' ? 'Google' : 'Apple'
-    await React.act(async () => button(signInTree, `Continue with ${provider}`).props.onPress())
-    await React.act(async () => {
-      mocks.appState = {
-        ...mocks.appState,
-        isAuthenticated: true,
-        appReady: true,
-        profile: {
-          name: 'Amodka User',
-          bodyType: 'hourglass',
-          eyeColor: 'brown',
-          skinTone: 'medium',
-          undertone: 'warm',
-          styleGoalPrimary: null,
-          onboardingComplete: true,
-        },
-      }
-      signInTree.update(React.createElement(SignIn))
-    })
-    assert.deepEqual(mocks.stack, ['/'], `${provider} sign-in clears Android sign-in history`)
+    for (const { field, missingValue } of requiredFieldGaps) {
+      reset()
+      mocks.platformOS = 'android'
+      mocks.stack = ['/welcome', '/sign-in']
+      const SignIn = await signInScreen()
+      const signInTree = await mount(SignIn)
+      await React.act(async () => button(signInTree, `Continue with ${provider}`).props.onPress())
+      await React.act(async () => {
+        mocks.appState = {
+          ...mocks.appState,
+          isAuthenticated: true,
+          appReady: true,
+          profile: {
+            name: 'Amodka User',
+            bodyType: 'hourglass',
+            eyeColor: 'brown',
+            skinTone: 'medium',
+            undertone: 'warm',
+            styleGoalPrimary: 'classic',
+            onboardingComplete: true,
+            [field]: missingValue,
+          },
+        }
+        signInTree.update(React.createElement(SignIn))
+      })
+      assert.deepEqual(mocks.stack, ['/'], `${provider} sign-in clears Android sign-in history`)
 
-    const indexTree = await mount(Index)
-    assert.deepEqual(
-      mocks.routes,
-      ['/', '/onboarding'],
-      `${provider} sign-in with an incomplete hydrated profile reaches onboarding`,
-    )
-    assert.deepEqual(
-      mocks.stack,
-      ['/onboarding'],
-      `Android Back cannot restore sign-in after ${provider} routes to onboarding`,
-    )
+      const indexTree = await mount(Index)
+      assert.deepEqual(
+        mocks.routes,
+        ['/', '/onboarding'],
+        `${provider} sign-in with missing ${field} reaches onboarding`,
+      )
+      assert.deepEqual(
+        mocks.stack,
+        ['/onboarding'],
+        `Android Back cannot restore sign-in after ${provider} routes to onboarding for missing ${field}`,
+      )
 
-    let backState = stackRouter.getInitialState({
-      routeNames: ['welcome', 'sign-in', 'index', '(tabs)', 'onboarding'],
-      routeParamList: {},
-    })
-    backState = stackRouter.getStateForAction(backState, StackActions.push('sign-in'), stackOptions)
-    backState = stackRouter.getStateForAction(backState, StackActions.popToTop(), stackOptions)
-    backState = stackRouter.getStateForAction(backState, StackActions.replace('index'), stackOptions)
-    backState = stackRouter.getStateForAction(backState, StackActions.replace('onboarding'), stackOptions)
-    assert.deepEqual(
-      backState.routes.map((route: { name: string }) => route.name),
-      ['onboarding'],
-      `${provider} onboarding is the only route left in the Android stack`,
-    )
-    assert.equal(
-      stackRouter.getStateForAction(backState, { type: 'GO_BACK' }, stackOptions),
-      null,
-      `Android Back has no sign-in route to reveal after ${provider} sign-in`,
-    )
-    await unmount(indexTree)
-    await unmount(signInTree)
+      let backState = stackRouter.getInitialState({
+        routeNames: ['welcome', 'sign-in', 'index', '(tabs)', 'onboarding'],
+        routeParamList: {},
+      })
+      backState = stackRouter.getStateForAction(backState, StackActions.push('sign-in'), stackOptions)
+      backState = stackRouter.getStateForAction(backState, StackActions.popToTop(), stackOptions)
+      backState = stackRouter.getStateForAction(backState, StackActions.replace('index'), stackOptions)
+      backState = stackRouter.getStateForAction(backState, StackActions.replace('onboarding'), stackOptions)
+      assert.deepEqual(
+        backState.routes.map((route: { name: string }) => route.name),
+        ['onboarding'],
+        `${provider} onboarding is the only route left for missing ${field}`,
+      )
+      assert.equal(
+        stackRouter.getStateForAction(backState, { type: 'GO_BACK' }, stackOptions),
+        null,
+        `Android Back has no sign-in route to reveal after ${provider} sign-in with missing ${field}`,
+      )
+      await unmount(indexTree)
+      await unmount(signInTree)
+    }
   }
 
   for (const method of ['google', 'apple'] as const) {

@@ -187,23 +187,52 @@ test('actual skip → completion → local restart and remote restart satisfy st
   ));
 });
 
-test('completed profiles with a missing required style goal remain incomplete', () => {
-  const legacy = mergeProfile({ ...readyGuest, styleGoalPrimary: null });
-  assert.equal(legacy.styleGoalPrimary, null);
-  assert.equal(hasRequiredOnboardingFields(legacy), false);
-  const hydratedLegacy = hydrateAccountProfile({
-    name: readyGuest.name,
-    body_type: readyGuest.bodyType,
-    eye_color: readyGuest.eyeColor,
-    skin_tone: readyGuest.skinTone,
-    undertone: readyGuest.undertone,
+test('every missing required personalization field keeps completed profiles incomplete after hydration', () => {
+  const completeRemote: NonNullable<Parameters<typeof hydrateAccountProfile>[0]> = {
+    name: 'Ava',
+    body_type: 'hourglass',
+    eye_color: 'blue',
+    skin_tone: 'light',
+    undertone: 'cool',
+    style_goals: ['romantic'],
     onboarding_complete: true,
-  }, '');
-  assert.equal(hydratedLegacy.styleGoalPrimary, null);
-  assert.equal(hasRequiredOnboardingFields(hydratedLegacy), false);
-  assert.equal(mergeProfile({ styleGoalPrimary: null }).styleGoalPrimary, null);
+  };
+  const completeProfile = mergeProfile({
+    name: 'Ava',
+    bodyType: 'hourglass',
+    eyeColor: 'blue',
+    skinTone: 'light',
+    undertone: 'cool',
+    styleGoalPrimary: 'romantic',
+    onboardingComplete: true,
+  });
+  const cases: Array<{
+    field: keyof Pick<UserProfile, 'name' | 'bodyType' | 'eyeColor' | 'skinTone' | 'undertone' | 'styleGoalPrimary'>;
+    profile: Partial<UserProfile>;
+    remote: Partial<NonNullable<Parameters<typeof hydrateAccountProfile>[0]>>;
+    expected: string | null;
+  }> = [
+    { field: 'name', profile: { name: '' }, remote: { name: '' }, expected: '' },
+    { field: 'bodyType', profile: { bodyType: null }, remote: { body_type: null }, expected: null },
+    { field: 'eyeColor', profile: { eyeColor: null }, remote: { eye_color: null }, expected: null },
+    { field: 'skinTone', profile: { skinTone: null }, remote: { skin_tone: null }, expected: null },
+    { field: 'undertone', profile: { undertone: null }, remote: { undertone: null }, expected: null },
+    { field: 'styleGoalPrimary', profile: { styleGoalPrimary: null }, remote: { style_goals: [] }, expected: null },
+  ];
+
+  for (const { field, profile: missing, remote, expected } of cases) {
+    const locallyMissing = mergeProfile({ ...completeProfile, ...missing });
+    assert.equal(locallyMissing.onboardingComplete, true, `${field} fixture is otherwise complete`);
+    assert.equal(hasRequiredOnboardingFields(locallyMissing), false, `${field} is required locally`);
+
+    const hydrated = hydrateAccountProfile({ ...completeRemote, ...remote }, '');
+    assert.equal(hydrated.onboardingComplete, true, `${field} remains marked complete in storage`);
+    assert.equal(hasRequiredOnboardingFields(hydrated), false, `${field} stays required after hydration`);
+    assert.equal(hydrated[field], expected, `${field} remains missing after hydration`);
+  }
+
   assert.equal(onboardingStyleGoal('bold'), 'bold');
-  assert.equal(mergeProfile({ ...legacy, styleGoalPrimary: 'bold' }).styleGoalPrimary, 'bold');
+  assert.equal(mergeProfile({ ...completeProfile, styleGoalPrimary: 'bold' }).styleGoalPrimary, 'bold');
 });
 
 const item: WardrobeItem = {
