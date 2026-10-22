@@ -556,6 +556,13 @@ async function main() {
       profile: {},
     }
     const indexTree = await mount(Index)
+    const loadingStatus = indexTree.root.findAllByType('View')
+      .find(node => node.props.accessibilityLabel === 'Preparing your wardrobe')
+    assert.ok(loadingStatus, 'pending startup exposes a loading announcement')
+    assert.equal(loadingStatus.props.accessible, true)
+    assert.equal(loadingStatus.props.accessibilityRole, 'progressbar')
+    assert.equal(loadingStatus.props.accessibilityLiveRegion, 'polite')
+    assert.equal(loadingStatus.props['aria-live'], 'polite')
     assert.deepEqual(
       mocks.routes,
       ['/'],
@@ -575,6 +582,11 @@ async function main() {
       }
       indexTree.update(React.createElement(Index))
     })
+    assert.ok(
+      !indexTree.root.findAllByType('View')
+        .some(node => node.props.accessibilityLabel === 'Preparing your wardrobe'),
+      'loading announcement is removed when startup finishes',
+    )
     assert.deepEqual(
       mocks.routes,
       ['/', profile.expectedRoute],

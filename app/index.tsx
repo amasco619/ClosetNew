@@ -118,7 +118,14 @@ export default function IndexScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      accessible={!appReady}
+      accessibilityRole={!appReady ? 'progressbar' : undefined}
+      accessibilityLabel={!appReady ? 'Preparing your wardrobe' : undefined}
+      accessibilityLiveRegion={!appReady ? 'polite' : undefined}
+      aria-live={!appReady ? 'polite' : undefined}
+    >
       <Animated.View style={[styles.content, containerStyle]}>
         <Animated.Text style={[styles.wordmark, wordmarkStyle]}>
           Amodka
