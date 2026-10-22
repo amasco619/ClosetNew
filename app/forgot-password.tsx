@@ -17,14 +17,19 @@ export default function ForgotPasswordScreen() {
   const [success, setSuccess] = useState(false)
   const [focused, setFocused] = useState(false)
 
+  const goToSignIn = () => {
+    router.dismissAll()
+    router.replace('/sign-in')
+  }
+
   useEffect(() => {
-    if (!success) return
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      router.dismissAll()
       router.replace('/sign-in')
       return true
     })
     return () => sub.remove()
-  }, [success])
+  }, [])
 
   const validateEmail = () => {
     if (!email.trim()) {
@@ -58,7 +63,7 @@ export default function ForgotPasswordScreen() {
       <View style={styles.successContainer}>
         <StatusBar style="dark" />
         <TouchableOpacity
-          onPress={() => router.replace('/sign-in')}
+          onPress={goToSignIn}
           style={styles.backBtn}
           activeOpacity={0.82}
           accessibilityLabel="Back to sign in"
@@ -73,7 +78,7 @@ export default function ForgotPasswordScreen() {
           Follow the link to set a new password if it arrives.
         </Text>
         <TouchableOpacity
-          onPress={() => router.replace('/sign-in')}
+          onPress={goToSignIn}
           activeOpacity={0.82}
           style={styles.backLink}
           accessibilityRole="button"
@@ -97,7 +102,7 @@ export default function ForgotPasswordScreen() {
         showsVerticalScrollIndicator={false}
       >
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={goToSignIn}
           style={styles.backBtn}
           activeOpacity={0.82}
           accessibilityLabel="Go back"

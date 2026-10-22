@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator,
+  BackHandler,
 } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { router, useLocalSearchParams } from 'expo-router'
@@ -55,6 +56,21 @@ export default function UpdatePasswordScreen() {
     })
     return () => { active = false }
   }, [callback.code, callback.error, callback.type, callbackKey])
+
+  useEffect(() => {
+    if (recoveryStatus !== 'invalid') return
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      router.dismissAll()
+      router.replace('/sign-in')
+      return true
+    })
+    return () => sub.remove()
+  }, [recoveryStatus])
+
+  const requestAnotherLink = () => {
+    router.dismissAll()
+    router.replace('/forgot-password')
+  }
 
   const validateNewPassword = () => {
     const err = validatePassword(newPassword)
@@ -121,7 +137,7 @@ export default function UpdatePasswordScreen() {
           <>
             <Text style={styles.heading}>Recovery link unavailable</Text>
             <Text style={styles.successText}>This password recovery link is invalid or has expired.</Text>
-            <TouchableOpacity onPress={() => router.replace('/forgot-password')} style={styles.ctaBtn} accessibilityRole="button">
+            <TouchableOpacity onPress={requestAnotherLink} style={styles.ctaBtn} accessibilityRole="button">
               <Text style={styles.ctaBtnText}>Request another link</Text>
             </TouchableOpacity>
           </>

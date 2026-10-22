@@ -11,6 +11,7 @@ const mocks = {
   params: {} as { code?: string; type?: string; error?: string },
   routes: [] as string[],
   stack: [] as string[],
+  backHandlers: [] as Array<() => boolean>,
   dismisses: 0,
   signInCalls: 0,
   appState: { isAuthenticated: false, isGuest: false, wardrobeTotalCount: 0 },
@@ -42,6 +43,13 @@ const modules: Record<string, string> = {
     export const KeyboardAvoidingView = host('KeyboardAvoidingView')
     export const ScrollView = host('ScrollView')
     export const Platform = { OS: 'web' }
+    const m = globalThis.__auth2MountedMocks
+    export const BackHandler = {
+      addEventListener: (_event, handler) => {
+        m.backHandlers.push(handler)
+        return { remove: () => { m.backHandlers = m.backHandlers.filter(item => item !== handler) } }
+      },
+    }
     export const StyleSheet = { create: styles => styles, absoluteFill: {} }
   `,
   'expo-router': `
@@ -95,6 +103,7 @@ const modules: Record<string, string> = {
     export const signUpWithEmail = (email, password) => m.signUp(email, password)
     export const signInWithGoogle = () => m.signInWithGoogle()
     export const signInWithApple = () => m.signInWithApple()
+    export const requestPasswordReset = _email => Promise.resolve()
     export const createSessionFromUrl = async () => {}
     export const isValidEmail = email => email.includes('@')
     export const validatePassword = password => password.length >= 8 ? null : 'Password too short.'
@@ -174,6 +183,24 @@ async function signInScreen() {
   return mod.exports.default
 }
 
+async function forgotPasswordScreen() {
+  const built = await build({
+    entryPoints: [path.join(process.cwd(), 'app/forgot-password.tsx')],
+    bundle: true,
+    write: false,
+    format: 'cjs',
+    platform: 'node',
+    jsx: 'automatic',
+    packages: 'external',
+    plugins: [boundaryMocks],
+  })
+  const mod: { exports: { default?: React.ComponentType } } = { exports: {} }
+  new Function('require', 'module', 'exports', built.outputFiles[0].text)(
+    requireFromProject, mod, mod.exports)
+  assert.ok(mod.exports.default, 'loaded forgot-password screen')
+  return mod.exports.default
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (reason: Error) => void
@@ -185,6 +212,7 @@ function reset(params: typeof mocks.params = {}) {
   mocks.params = params
   mocks.routes = []
   mocks.stack = []
+  mocks.backHandlers = []
   mocks.dismisses = 0
   mocks.signInCalls = 0
   mocks.appState = { isAuthenticated: false, isGuest: false, wardrobeTotalCount: 0 }
@@ -228,6 +256,7 @@ async function main() {
   const [Confirm, UpdatePassword] = await Promise.all([
     screen('confirm.tsx'), screen('update-password.tsx'),
   ])
+  const ForgotPassword = await forgotPasswordScreen()
   {
     reset({ code: 'confirmation-code', type: 'signup' })
     const pending = deferred<unknown>()
@@ -284,6 +313,39 @@ async function main() {
     assert.ok(hasText(tree, 'Recovery link unavailable'))
     assert.equal(tree.root.findAllByType('TextInput').length, 0)
     await unmount(tree)
+  }
+
+  for (const failure of ['expired link', 'invalid link']) {
+    reset({ code: 'expired-recovery-code', type: 'recovery', error: failure })
+    mocks.stack = ['/(tabs)', '/auth/update-password']
+    const tree = await mount(UpdatePassword)
+    assert.ok(hasText(tree, 'Recovery link unavailable'))
+    assert.ok(hasText(tree, 'This password recovery link is invalid or has expired.'))
+    assert.equal(mocks.backHandlers.length, 1, 'failed recovery intercepts Android Back')
+    await React.act(async () => {
+      assert.equal(mocks.backHandlers[0](), true)
+    })
+    assert.deepEqual(mocks.stack, ['/sign-in'], 'Android Back cannot return to authenticated routes')
+    await unmount(tree)
+  }
+
+  {
+    reset()
+    mocks.stack = ['/(tabs)', '/auth/update-password']
+    const tree = await mount(UpdatePassword)
+    await React.act(async () => button(tree, 'Request another link').props.onPress())
+    assert.deepEqual(mocks.stack, ['/forgot-password'], 'requesting another link clears private history')
+    await unmount(tree)
+
+    reset()
+    mocks.stack = ['/(tabs)', '/forgot-password']
+    const forgotTree = await mount(ForgotPassword)
+    assert.equal(mocks.backHandlers.length, 1, 'forgot-password intercepts Android Back')
+    await React.act(async () => {
+      assert.equal(mocks.backHandlers[0](), true)
+    })
+    assert.deepEqual(mocks.stack, ['/sign-in'], 'Android Back from recovery cannot reveal private routes')
+    await unmount(forgotTree)
   }
 
   {
