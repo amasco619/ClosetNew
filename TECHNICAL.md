@@ -3538,3 +3538,14 @@ device-verification limits: `docs/reports/guest-data-rules-pending-bulk-fixes.md
 Frozen Recommendation Engine v3.7, Phase A schema/security, P1.3, consent
 enforcement, billing/RevenueCat, auth, quota semantics, and benchmark artifacts
 remain unchanged.
+
+## 51. Read-only live Supabase catalog baseline
+
+The connected Supabase project's schema/catalog snapshot, per-object origin
+annotations, public function definitions, grants/default privileges, storage
+metadata, Auth-settings checklist, and 24-class read-only fingerprints are
+recorded under `supabase/baseline/`. This is reference data, not an apply-ready
+migration. The connected project's environment label was not established, and
+the snapshot has not been replayed against an empty project; it does not prove
+repo migration parity. Any live DDL still needs an explicit repo migration and
+a fresh-rebuild comparison before claiming parity.
