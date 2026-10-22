@@ -3603,3 +3603,13 @@ No Supabase project was changed or rebuilt during this work, and hosted
 Auth/Storage, PG17 execution, effective role memberships and device behaviour
 remain unverified. Any future live DDL still requires explicit approval and a
 matching repository migration; local stub parity does not prove hosted parity.
+
+## 52. Signed-out navigation history
+
+After a successful normal sign-out from Profile, clear the existing tab stack
+with `router.dismissAll()` before replacing the route with `/sign-in`. Keep both
+navigation operations after the awaited sign-out so a failure preserves the
+current screen and account state. Account deletion uses the same stack-clearing
+order after successful local sign-out.
+
+**Code:** `app/(tabs)/profile.tsx`, `__tests__/accountDeletionNavigation.test.ts`

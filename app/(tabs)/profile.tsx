@@ -179,6 +179,7 @@ export default function ProfileScreen() {
   const handleSignOut = async () => {
     try {
       await signOut();
+      router.dismissAll();
       router.replace('/sign-in');
     } catch {
       dialog.notify({
