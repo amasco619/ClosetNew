@@ -1,15 +1,20 @@
 -- GENERATED FILE: do not edit; run python3 scripts/generate-supabase-baseline.py
 -- Generated from a captured snapshot; schema only; NEVER APPLY TO PRODUCTION.
--- Snapshot project ref: garppyocfgdamdgfyfbr
 -- Snapshot date: 2026-10-22; exact catalog query time was not recorded.
 -- Snapshot artifact mtime (UTC, not query time): 2026-10-22T14:18:48Z (filesystem mtime; exact catalog-query timestamp unavailable)
 -- Source PostgreSQL version: 17.6; MAINTAIN is emitted conditionally for PG17+.
 -- Requires a Supabase-initialized target with platform roles, auth.uid(), storage schema/tables,
 -- and any platform-managed extensions already provisioned. This is not a Supabase bootstrap.
 -- Captured ACL scope is the principals stored in the manifest; it does not reconstruct role memberships.
+-- Apply sections in numeric order, each on its own connection with ON_ERROR_STOP=1.
+-- Each section is atomic; earlier successful sections remain if a later section fails.
+-- Keep the project unused until all required sections and verification complete.
+-- Extract one section: python3 scripts/generate-supabase-baseline.py --section 01-tables
+-- Hosted Storage permissions are NOT verified: 06-storage is isolated and optional pending operator review.
+-- Privileged snapshot restoration is separate in operator-only.sql, never an automatic prerequisite.
 
+-- BEGIN SECTION: 01-tables
 BEGIN;
--- Keep pg_catalog implicit/first so gen_random_uuid() binds to the captured core function, not pgcrypto's wrapper.
 SET LOCAL search_path = public, extensions, storage, auth;
 DO $baseline$
 BEGIN
@@ -47,6 +52,8 @@ CREATE TABLE public."affinity_signals" (
   "logged_at" timestamp with time zone DEFAULT now()
 );
 ALTER TABLE public."affinity_signals" OWNER TO "postgres";
+ALTER TABLE public."affinity_signals" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."affinity_signals" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261020231945_move_bg_removal_store_to_supabase.sql
 CREATE TABLE public."bg_removal_cache" (
   "image_hash" text NOT NULL,
@@ -54,6 +61,8 @@ CREATE TABLE public."bg_removal_cache" (
   "created_at" timestamp with time zone DEFAULT now()
 );
 ALTER TABLE public."bg_removal_cache" OWNER TO "postgres";
+ALTER TABLE public."bg_removal_cache" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."bg_removal_cache" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261020231945_move_bg_removal_store_to_supabase.sql
 CREATE TABLE public."bg_removal_usage" (
   "user_id" uuid NOT NULL,
@@ -61,6 +70,8 @@ CREATE TABLE public."bg_removal_usage" (
   "last_used_at" timestamp with time zone DEFAULT now()
 );
 ALTER TABLE public."bg_removal_usage" OWNER TO "postgres";
+ALTER TABLE public."bg_removal_usage" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."bg_removal_usage" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE TABLE public."billing_accounts" (
   "user_id" uuid NOT NULL,
@@ -69,6 +80,8 @@ CREATE TABLE public."billing_accounts" (
   "last_snapshot_at" timestamp with time zone
 );
 ALTER TABLE public."billing_accounts" OWNER TO "postgres";
+ALTER TABLE public."billing_accounts" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."billing_accounts" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE TABLE public."billing_deletion_tombstones" (
   "user_id" uuid NOT NULL,
@@ -76,6 +89,8 @@ CREATE TABLE public."billing_deletion_tombstones" (
   "reason" text DEFAULT 'account_deletion'::text NOT NULL
 );
 ALTER TABLE public."billing_deletion_tombstones" OWNER TO "postgres";
+ALTER TABLE public."billing_deletion_tombstones" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."billing_deletion_tombstones" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE TABLE public."billing_event_journal" (
   "event_id" text NOT NULL,
@@ -96,6 +111,8 @@ CREATE TABLE public."billing_event_journal" (
   "processed_at" timestamp with time zone
 );
 ALTER TABLE public."billing_event_journal" OWNER TO "postgres";
+ALTER TABLE public."billing_event_journal" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."billing_event_journal" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE TABLE public."billing_reconciliations" (
   "user_id" uuid NOT NULL,
@@ -106,6 +123,8 @@ CREATE TABLE public."billing_reconciliations" (
   "updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public."billing_reconciliations" OWNER TO "postgres";
+ALTER TABLE public."billing_reconciliations" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."billing_reconciliations" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE TABLE public."billing_subscriptions" (
   "id" bigint GENERATED ALWAYS AS IDENTITY (START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE) NOT NULL,
@@ -125,6 +144,8 @@ CREATE TABLE public."billing_subscriptions" (
   "updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public."billing_subscriptions" OWNER TO "postgres";
+ALTER TABLE public."billing_subscriptions" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."billing_subscriptions" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE TABLE public."billing_transactions" (
   "id" bigint GENERATED ALWAYS AS IDENTITY (START WITH 1 INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 NO CYCLE) NOT NULL,
@@ -138,6 +159,8 @@ CREATE TABLE public."billing_transactions" (
   "created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public."billing_transactions" OWNER TO "postgres";
+ALTER TABLE public."billing_transactions" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."billing_transactions" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
 CREATE TABLE public."garment_group_members" (
   "user_id" uuid NOT NULL,
@@ -146,6 +169,8 @@ CREATE TABLE public."garment_group_members" (
   "created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public."garment_group_members" OWNER TO "postgres";
+ALTER TABLE public."garment_group_members" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."garment_group_members" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
 CREATE TABLE public."garment_groups" (
   "id" uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -159,6 +184,8 @@ CREATE TABLE public."garment_groups" (
   "updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public."garment_groups" OWNER TO "postgres";
+ALTER TABLE public."garment_groups" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."garment_groups" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql
 CREATE TABLE public."lockout_store" (
   "key" text NOT NULL,
@@ -166,6 +193,8 @@ CREATE TABLE public."lockout_store" (
   "expires" bigint
 );
 ALTER TABLE public."lockout_store" OWNER TO "postgres";
+ALTER TABLE public."lockout_store" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."lockout_store" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
 CREATE TABLE public."pair_affinity_signals" (
   "id" uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -177,6 +206,8 @@ CREATE TABLE public."pair_affinity_signals" (
   "logged_at" timestamp with time zone DEFAULT now()
 );
 ALTER TABLE public."pair_affinity_signals" OWNER TO "postgres";
+ALTER TABLE public."pair_affinity_signals" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."pair_affinity_signals" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql
 CREATE TABLE public."ratelimit_store" (
   "key" text NOT NULL,
@@ -184,6 +215,8 @@ CREATE TABLE public."ratelimit_store" (
   "reset_time" timestamp with time zone NOT NULL
 );
 ALTER TABLE public."ratelimit_store" OWNER TO "postgres";
+ALTER TABLE public."ratelimit_store" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."ratelimit_store" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
 CREATE TABLE public."rotation_cursors" (
   "id" uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -194,6 +227,8 @@ CREATE TABLE public."rotation_cursors" (
   "updated_at" timestamp with time zone DEFAULT now()
 );
 ALTER TABLE public."rotation_cursors" OWNER TO "postgres";
+ALTER TABLE public."rotation_cursors" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."rotation_cursors" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
 CREATE TABLE public."saved_looks" (
   "id" text NOT NULL,
@@ -203,6 +238,8 @@ CREATE TABLE public."saved_looks" (
   "created_at" timestamp with time zone DEFAULT now()
 );
 ALTER TABLE public."saved_looks" OWNER TO "postgres";
+ALTER TABLE public."saved_looks" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."saved_looks" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
 CREATE TABLE public."slot_statuses" (
   "id" uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -213,6 +250,8 @@ CREATE TABLE public."slot_statuses" (
   "updated_at" timestamp with time zone DEFAULT now()
 );
 ALTER TABLE public."slot_statuses" OWNER TO "postgres";
+ALTER TABLE public."slot_statuses" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."slot_statuses" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
 CREATE TABLE public."tryon_profiles" (
   "id" uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -222,6 +261,8 @@ CREATE TABLE public."tryon_profiles" (
   "created_at" timestamp with time zone DEFAULT now()
 );
 ALTER TABLE public."tryon_profiles" OWNER TO "postgres";
+ALTER TABLE public."tryon_profiles" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."tryon_profiles" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
 CREATE TABLE public."user_profiles" (
   "id" uuid NOT NULL,
@@ -244,12 +285,16 @@ CREATE TABLE public."user_profiles" (
   "name" text
 );
 ALTER TABLE public."user_profiles" OWNER TO "postgres";
+ALTER TABLE public."user_profiles" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."user_profiles" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260928000000_free_wardrobe_selection.sql
 CREATE TABLE public."wardrobe_free_selections" (
   "user_id" uuid NOT NULL,
   "item_id" uuid NOT NULL
 );
 ALTER TABLE public."wardrobe_free_selections" OWNER TO "postgres";
+ALTER TABLE public."wardrobe_free_selections" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_free_selections" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
 CREATE TABLE public."wardrobe_items" (
   "id" uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -273,6 +318,8 @@ CREATE TABLE public."wardrobe_items" (
   "recommendation_semantics" jsonb
 );
 ALTER TABLE public."wardrobe_items" OWNER TO "postgres";
+ALTER TABLE public."wardrobe_items" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_items" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261019000000_durable_wardrobe_photo_cleanup.sql
 CREATE TABLE public."wardrobe_photo_cleanup_receipts" (
   "id" uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -282,6 +329,8 @@ CREATE TABLE public."wardrobe_photo_cleanup_receipts" (
   "created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 ALTER TABLE public."wardrobe_photo_cleanup_receipts" OWNER TO "postgres";
+ALTER TABLE public."wardrobe_photo_cleanup_receipts" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_photo_cleanup_receipts" FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
 CREATE TABLE public."wear_logs" (
   "id" uuid DEFAULT gen_random_uuid() NOT NULL,
@@ -292,7 +341,17 @@ CREATE TABLE public."wear_logs" (
   "logged_at" timestamp with time zone DEFAULT now()
 );
 ALTER TABLE public."wear_logs" OWNER TO "postgres";
+ALTER TABLE public."wear_logs" ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public."wear_logs" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON SEQUENCE public."billing_subscriptions_id_seq" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON SEQUENCE public."billing_transactions_id_seq" FROM PUBLIC, anon, authenticated, service_role;
 
+COMMIT;
+-- END SECTION
+
+-- BEGIN SECTION: 02-functions
+BEGIN;
+SET LOCAL search_path = public, extensions, storage, auth;
 -- Public functions; full captured CREATE definitions, ownership, security mode and search_path.
 -- ORIGIN: supabase/migrations/20261019000000_durable_wardrobe_photo_cleanup.sql
 CREATE OR REPLACE FUNCTION public.acknowledge_wardrobe_photo_cleanup(p_item_id uuid, p_image_url text)
@@ -313,6 +372,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.acknowledge_wardrobe_photo_cleanup(uuid,text) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.acknowledge_wardrobe_photo_cleanup(uuid,text) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261020231945_move_bg_removal_store_to_supabase.sql
 CREATE OR REPLACE FUNCTION public.bg_removal_increment_usage(p_user_id uuid)
  RETURNS integer
@@ -327,6 +387,7 @@ AS $function$
   RETURNING count;
 $function$;
 ALTER FUNCTION public.bg_removal_increment_usage(uuid) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.bg_removal_increment_usage(uuid) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261020231945_move_bg_removal_store_to_supabase.sql
 CREATE OR REPLACE FUNCTION public.bg_removal_reset_usage(p_user_id uuid)
  RETURNS void
@@ -340,6 +401,7 @@ AS $function$
         last_used_at = pg_catalog.now();
 $function$;
 ALTER FUNCTION public.bg_removal_reset_usage(uuid) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.bg_removal_reset_usage(uuid) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_journal_ignored_revenuecat_event(p_event_id text, p_event_type text, p_payload_hash text)
  RETURNS jsonb
@@ -373,6 +435,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.billing_journal_ignored_revenuecat_event(text,text,text) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_journal_ignored_revenuecat_event(text,text,text) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_journal_revenuecat_event(p_event_id text, p_user_id uuid, p_event_type text, p_store text, p_product_id text, p_entitlement_id text, p_transaction_id text, p_original_transaction_id text, p_purchased_at timestamp with time zone, p_expires_at timestamp with time zone, p_occurred_at timestamp with time zone, p_active boolean, p_payload_hash text)
  RETURNS jsonb
@@ -406,6 +469,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.billing_journal_revenuecat_event(text,uuid,text,text,text,text,text,text,timestamp with time zone,timestamp with time zone,timestamp with time zone,boolean,text) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_journal_revenuecat_event(text,uuid,text,text,text,text,text,text,timestamp with time zone,timestamp with time zone,timestamp with time zone,boolean,text) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_process_revenuecat_event(p_event_id text)
  RETURNS jsonb
@@ -557,6 +621,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.billing_process_revenuecat_event(text) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_process_revenuecat_event(text) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_readiness_check()
  RETURNS jsonb
@@ -599,6 +664,7 @@ AS $function$
   )
 $function$;
 ALTER FUNCTION public.billing_readiness_check() OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_readiness_check() FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_reconcile_entitlement(p_user_id uuid)
  RETURNS jsonb
@@ -625,6 +691,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.billing_reconcile_entitlement(uuid) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_reconcile_entitlement(uuid) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_reconcile_revenuecat_snapshot(p_user_id uuid, p_event_id text, p_payload_hash text, p_provider_entitlement_active boolean, p_provider_product_id text, p_provider_store text, p_provider_expires_at timestamp with time zone, p_fetch_started_at timestamp with time zone)
  RETURNS jsonb
@@ -753,6 +820,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.billing_reconcile_revenuecat_snapshot(uuid,text,text,boolean,text,text,timestamp with time zone,timestamp with time zone) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_reconcile_revenuecat_snapshot(uuid,text,text,boolean,text,text,timestamp with time zone,timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_tombstone_account(p_user_id uuid)
  RETURNS void
@@ -781,6 +849,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.billing_tombstone_account(uuid) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_tombstone_account(uuid) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
 CREATE OR REPLACE FUNCTION public.create_garment_group(p_garment_ids uuid[], p_relationship_type text, p_relationship_confidence double precision DEFAULT NULL::double precision, p_confirmation_status text DEFAULT 'user_confirmed'::text, p_shared_attributes jsonb DEFAULT '{}'::jsonb, p_source_image_path text DEFAULT NULL::text)
  RETURNS garment_groups
@@ -849,6 +918,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.create_garment_group(uuid[],text,double precision,text,jsonb,text) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.create_garment_group(uuid[],text,double precision,text,jsonb,text) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
 CREATE OR REPLACE FUNCTION public.delete_empty_garment_group()
  RETURNS trigger
@@ -876,6 +946,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.delete_empty_garment_group() OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.delete_empty_garment_group() FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261001000000_wardrobe_group_batch_insert.sql
 CREATE OR REPLACE FUNCTION public.insert_wardrobe_group_items(p_items jsonb, p_relationship_type text, p_relationship_confidence double precision, p_shared_attributes jsonb)
  RETURNS uuid[]
@@ -924,6 +995,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.insert_wardrobe_group_items(jsonb,text,double precision,jsonb) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_group_items(jsonb,text,double precision,jsonb) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260928000000_free_wardrobe_selection.sql
 CREATE OR REPLACE FUNCTION public.insert_wardrobe_item(p_item jsonb)
  RETURNS uuid
@@ -939,6 +1011,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.insert_wardrobe_item(jsonb) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_item(jsonb) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260928000000_free_wardrobe_selection.sql
 CREATE OR REPLACE FUNCTION public.insert_wardrobe_items(p_items jsonb)
  RETURNS uuid[]
@@ -1041,6 +1114,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.insert_wardrobe_items(jsonb) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_items(jsonb) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql
 CREATE OR REPLACE FUNCTION public.ratelimit_decrement(p_key text)
  RETURNS void
@@ -1053,6 +1127,7 @@ AS $function$
     AND reset_time > pg_catalog.now();
 $function$;
 ALTER FUNCTION public.ratelimit_decrement(text) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_decrement(text) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql
 CREATE OR REPLACE FUNCTION public.ratelimit_delete_key(p_key text)
  RETURNS void
@@ -1063,6 +1138,7 @@ AS $function$
   WHERE key = p_key;
 $function$;
 ALTER FUNCTION public.ratelimit_delete_key(text) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_delete_key(text) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql
 CREATE OR REPLACE FUNCTION public.ratelimit_delete_prefix(p_prefix text)
  RETURNS void
@@ -1074,6 +1150,7 @@ AS $function$
     AND pg_catalog.starts_with(key, p_prefix);
 $function$;
 ALTER FUNCTION public.ratelimit_delete_prefix(text) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_delete_prefix(text) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql
 CREATE OR REPLACE FUNCTION public.ratelimit_increment(p_key text, p_window_ms bigint)
  RETURNS TABLE(hits integer, reset_time_ms bigint)
@@ -1102,6 +1179,7 @@ AS $function$
     (pg_catalog.date_part('epoch', r.reset_time) * 1000)::bigint;
 $function$;
 ALTER FUNCTION public.ratelimit_increment(text,bigint) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_increment(text,bigint) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261019000000_durable_wardrobe_photo_cleanup.sql
 CREATE OR REPLACE FUNCTION public.record_wardrobe_photo_cleanup()
  RETURNS trigger
@@ -1134,6 +1212,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.record_wardrobe_photo_cleanup() OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.record_wardrobe_photo_cleanup() FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
 CREATE OR REPLACE FUNCTION public.rls_auto_enable()
  RETURNS event_trigger
@@ -1165,6 +1244,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.rls_auto_enable() OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260928000000_free_wardrobe_selection.sql
 CREATE OR REPLACE FUNCTION public.set_free_wardrobe_selection(p_ids uuid[])
  RETURNS void
@@ -1211,6 +1291,7 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.set_free_wardrobe_selection(uuid[]) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.set_free_wardrobe_selection(uuid[]) FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20260916000000_harden_update_updated_at.sql
 CREATE OR REPLACE FUNCTION public.update_updated_at()
  RETURNS trigger
@@ -1223,6 +1304,7 @@ begin
 end;
 $function$;
 ALTER FUNCTION public.update_updated_at() OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.update_updated_at() FROM PUBLIC, anon, authenticated, service_role;
 -- ORIGIN: supabase/migrations/20261012000000_canonical_wardrobe_semantics.sql
 CREATE OR REPLACE FUNCTION public.valid_wardrobe_recommendation_semantics(value jsonb)
  RETURNS boolean
@@ -1295,7 +1377,14 @@ BEGIN
 END;
 $function$;
 ALTER FUNCTION public.valid_wardrobe_recommendation_semantics(jsonb) OWNER TO "postgres";
+REVOKE ALL PRIVILEGES ON FUNCTION public.valid_wardrobe_recommendation_semantics(jsonb) FROM PUBLIC, anon, authenticated, service_role;
 
+COMMIT;
+-- END SECTION
+
+-- BEGIN SECTION: 03-constraints
+BEGIN;
+SET LOCAL search_path = public, extensions, storage, auth;
 -- Primary, unique and check constraints
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
 ALTER TABLE public."affinity_signals" ADD CONSTRAINT "affinity_signals_pkey" PRIMARY KEY (id);
@@ -1514,7 +1603,13 @@ ALTER TABLE public."wardrobe_photo_cleanup_receipts" ADD CONSTRAINT "wardrobe_ph
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
 ALTER TABLE public."wear_logs" ADD CONSTRAINT "wear_logs_user_id_fkey" FOREIGN KEY (user_id) REFERENCES user_profiles(id) ON DELETE CASCADE;
 
--- Table ownership, RLS flags and policies
+COMMIT;
+-- END SECTION
+
+-- BEGIN SECTION: 04-policies
+BEGIN;
+SET LOCAL search_path = public, extensions, storage, auth;
+-- Final RLS flags, public policies and table triggers
 ALTER TABLE public."affinity_signals" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."affinity_signals" NO FORCE ROW LEVEL SECURITY;
 -- ORIGIN: supabase/migrations/20260814000000_rls_all_tables.sql
@@ -1981,7 +2076,27 @@ CREATE POLICY "Users manage own wear logs" ON public."wear_logs"
   FOR ALL
   TO PUBLIC
   USING ((auth.uid() = user_id));
+-- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
+CREATE TRIGGER garment_group_members_delete_empty_group AFTER DELETE ON garment_group_members FOR EACH ROW EXECUTE FUNCTION delete_empty_garment_group();
+-- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
+CREATE TRIGGER garment_groups_set_updated_at BEFORE UPDATE ON garment_groups FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+CREATE TRIGGER trg_rotation_cursors_updated_at BEFORE UPDATE ON rotation_cursors FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+CREATE TRIGGER trg_slot_statuses_updated_at BEFORE UPDATE ON slot_statuses FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+CREATE TRIGGER trg_user_profiles_updated_at BEFORE UPDATE ON user_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+CREATE TRIGGER trg_wardrobe_items_updated_at BEFORE UPDATE ON wardrobe_items FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+-- ORIGIN: supabase/migrations/20261019000000_durable_wardrobe_photo_cleanup.sql
+CREATE TRIGGER wardrobe_photo_cleanup_receipt_after_delete AFTER DELETE ON wardrobe_items FOR EACH ROW EXECUTE FUNCTION record_wardrobe_photo_cleanup();
 
+COMMIT;
+-- END SECTION
+
+-- BEGIN SECTION: 05-acls
+BEGIN;
+SET LOCAL search_path = public, extensions, storage, auth;
 -- Public table and column ACLs. Revoke captured-principal grants first, then restore captured grants.
 -- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."affinity_signals" FROM PUBLIC;
@@ -2623,20 +2738,6 @@ REVOKE ALL PRIVILEGES ON SEQUENCE public."billing_transactions_id_seq" FROM "ser
 GRANT SELECT ON SEQUENCE public."billing_transactions_id_seq" TO "service_role";
 GRANT USAGE ON SEQUENCE public."billing_transactions_id_seq" TO "service_role";
 
--- Public schema ACL
-REVOKE ALL PRIVILEGES ON SCHEMA public FROM PUBLIC;
-REVOKE ALL PRIVILEGES ON SCHEMA public FROM "anon";
-REVOKE ALL PRIVILEGES ON SCHEMA public FROM "authenticated";
-REVOKE ALL PRIVILEGES ON SCHEMA public FROM "service_role";
--- ORIGIN: MANUAL/UNKNOWN — Supabase/platform or role-level default configuration; no repo migration source
-GRANT USAGE ON SCHEMA public TO PUBLIC;
--- ORIGIN: MANUAL/UNKNOWN — Supabase/platform or role-level default configuration; no repo migration source
-GRANT USAGE ON SCHEMA public TO "anon";
--- ORIGIN: MANUAL/UNKNOWN — Supabase/platform or role-level default configuration; no repo migration source
-GRANT USAGE ON SCHEMA public TO "authenticated";
--- ORIGIN: MANUAL/UNKNOWN — Supabase/platform or role-level default configuration; no repo migration source
-GRANT USAGE ON SCHEMA public TO "service_role";
-
 -- Schema-scoped default ACLs for captured creator roles.
 -- Captured defaults for creator role postgres.
 -- ORIGIN: MANUAL/UNKNOWN — platform or role-level default configuration; no repo migration source.
@@ -2671,127 +2772,18 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA public GRANT UPDATE ON SE
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA public GRANT USAGE ON SEQUENCES TO "postgres";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM PUBLIC, "anon", "authenticated", "postgres", "service_role";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO "postgres";
--- Captured defaults for creator role supabase_admin.
--- ORIGIN: MANUAL/UNKNOWN — platform or role-level default configuration; no repo migration source.
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC, "anon", "authenticated", "postgres", "service_role";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT DELETE ON TABLES TO "anon";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT INSERT ON TABLES TO "anon";
-DO $baseline$
-BEGIN
-  IF current_setting('server_version_num')::integer >= 170000 THEN
-    EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT MAINTAIN ON TABLES TO "anon";';
-  END IF;
-END
-$baseline$;
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT REFERENCES ON TABLES TO "anon";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT SELECT ON TABLES TO "anon";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT TRIGGER ON TABLES TO "anon";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT TRUNCATE ON TABLES TO "anon";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT UPDATE ON TABLES TO "anon";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT DELETE ON TABLES TO "authenticated";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT INSERT ON TABLES TO "authenticated";
-DO $baseline$
-BEGIN
-  IF current_setting('server_version_num')::integer >= 170000 THEN
-    EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT MAINTAIN ON TABLES TO "authenticated";';
-  END IF;
-END
-$baseline$;
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT REFERENCES ON TABLES TO "authenticated";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT SELECT ON TABLES TO "authenticated";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT TRIGGER ON TABLES TO "authenticated";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT TRUNCATE ON TABLES TO "authenticated";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT UPDATE ON TABLES TO "authenticated";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT DELETE ON TABLES TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT INSERT ON TABLES TO "postgres";
-DO $baseline$
-BEGIN
-  IF current_setting('server_version_num')::integer >= 170000 THEN
-    EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT MAINTAIN ON TABLES TO "postgres";';
-  END IF;
-END
-$baseline$;
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT REFERENCES ON TABLES TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT SELECT ON TABLES TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT TRIGGER ON TABLES TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT TRUNCATE ON TABLES TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT UPDATE ON TABLES TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT DELETE ON TABLES TO "service_role";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT INSERT ON TABLES TO "service_role";
-DO $baseline$
-BEGIN
-  IF current_setting('server_version_num')::integer >= 170000 THEN
-    EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT MAINTAIN ON TABLES TO "service_role";';
-  END IF;
-END
-$baseline$;
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT REFERENCES ON TABLES TO "service_role";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT SELECT ON TABLES TO "service_role";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT TRIGGER ON TABLES TO "service_role";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT TRUNCATE ON TABLES TO "service_role";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT UPDATE ON TABLES TO "service_role";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public REVOKE ALL ON SEQUENCES FROM PUBLIC, "anon", "authenticated", "postgres", "service_role";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT SELECT ON SEQUENCES TO "anon";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT UPDATE ON SEQUENCES TO "anon";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT USAGE ON SEQUENCES TO "anon";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT SELECT ON SEQUENCES TO "authenticated";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT UPDATE ON SEQUENCES TO "authenticated";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT USAGE ON SEQUENCES TO "authenticated";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT SELECT ON SEQUENCES TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT UPDATE ON SEQUENCES TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT USAGE ON SEQUENCES TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT SELECT ON SEQUENCES TO "service_role";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT UPDATE ON SEQUENCES TO "service_role";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT USAGE ON SEQUENCES TO "service_role";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM PUBLIC, "anon", "authenticated", "postgres", "service_role";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO "anon";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO "authenticated";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO "service_role";
+COMMIT;
+-- END SECTION
 
+-- BEGIN SECTION: 06-storage
+BEGIN;
+SET LOCAL search_path = public, extensions, storage, auth;
+-- HOSTED PERMISSIONS UNVERIFIED: apply this section independently only after operator verification.
 -- Supabase Storage prerequisite: storage schema, storage.objects and storage.buckets are platform-managed.
 -- Bucket rows are captured app configuration and are inserted/upserted here.
 -- ORIGIN: MANUAL/UNKNOWN — bucket configuration was not found in reviewed repo migrations.
 INSERT INTO storage.buckets (id, name, public, avif_autodetection, file_size_limit, allowed_mime_types, type, versioning_status, lifecycle_configuration) VALUES ('tryon-photos', 'tryon-photos', false, false, NULL, NULL, storage.buckettype'STANDARD', 'DISABLED', NULL) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, public = EXCLUDED.public, avif_autodetection = EXCLUDED.avif_autodetection, file_size_limit = EXCLUDED.file_size_limit, allowed_mime_types = EXCLUDED.allowed_mime_types, type = EXCLUDED.type, versioning_status = EXCLUDED.versioning_status, lifecycle_configuration = EXCLUDED.lifecycle_configuration;
 INSERT INTO storage.buckets (id, name, public, avif_autodetection, file_size_limit, allowed_mime_types, type, versioning_status, lifecycle_configuration) VALUES ('wardrobe-images', 'wardrobe-images', false, false, NULL, NULL, storage.buckettype'STANDARD', 'DISABLED', NULL) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, public = EXCLUDED.public, avif_autodetection = EXCLUDED.avif_autodetection, file_size_limit = EXCLUDED.file_size_limit, allowed_mime_types = EXCLUDED.allowed_mime_types, type = EXCLUDED.type, versioning_status = EXCLUDED.versioning_status, lifecycle_configuration = EXCLUDED.lifecycle_configuration;
-
--- Storage schema ACL and storage.objects ACL (platform-managed relations are not created here).
-REVOKE ALL PRIVILEGES ON SCHEMA storage FROM PUBLIC;
-REVOKE ALL PRIVILEGES ON SCHEMA storage FROM "anon";
-REVOKE ALL PRIVILEGES ON SCHEMA storage FROM "authenticated";
-REVOKE ALL PRIVILEGES ON SCHEMA storage FROM "service_role";
--- ORIGIN: Supabase-managed (grantor supabase_admin)
-GRANT USAGE ON SCHEMA storage TO "anon";
--- ORIGIN: Supabase-managed (grantor supabase_admin)
-GRANT USAGE ON SCHEMA storage TO "authenticated";
--- ORIGIN: Supabase-managed (grantor supabase_admin)
-GRANT USAGE ON SCHEMA storage TO "service_role";
-REVOKE ALL PRIVILEGES ON TABLE storage.objects FROM PUBLIC;
-REVOKE ALL PRIVILEGES ON TABLE storage.objects FROM "anon";
-REVOKE ALL PRIVILEGES ON TABLE storage.objects FROM "authenticated";
-REVOKE ALL PRIVILEGES ON TABLE storage.objects FROM "service_role";
-GRANT DELETE ON TABLE storage.objects TO "anon";
-GRANT INSERT ON TABLE storage.objects TO "anon";
-GRANT SELECT ON TABLE storage.objects TO "anon";
-GRANT UPDATE ON TABLE storage.objects TO "anon";
-GRANT DELETE ON TABLE storage.objects TO "authenticated";
-GRANT INSERT ON TABLE storage.objects TO "authenticated";
-GRANT SELECT ON TABLE storage.objects TO "authenticated";
-GRANT UPDATE ON TABLE storage.objects TO "authenticated";
-GRANT DELETE ON TABLE storage.objects TO "service_role";
-GRANT INSERT ON TABLE storage.objects TO "service_role";
-DO $baseline$
-BEGIN
-  IF current_setting('server_version_num')::integer >= 170000 THEN
-    EXECUTE 'GRANT MAINTAIN ON TABLE storage.objects TO "service_role";';
-  END IF;
-END
-$baseline$;
-GRANT REFERENCES ON TABLE storage.objects TO "service_role";
-GRANT SELECT ON TABLE storage.objects TO "service_role";
-GRANT TRIGGER ON TABLE storage.objects TO "service_role";
-GRANT TRUNCATE ON TABLE storage.objects TO "service_role";
-GRANT UPDATE ON TABLE storage.objects TO "service_role";
 
 -- Storage object policies; storage.objects and auth.uid() must already exist.
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
@@ -2885,38 +2877,5 @@ CREATE POLICY "wardrobe-images update own" ON storage.objects
   TO "authenticated"
   USING (((bucket_id = 'wardrobe-images'::text) AND ((auth.uid())::text = (string_to_array(name, '/'::text))[1])));
 
--- Public table triggers
--- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
-CREATE TRIGGER garment_group_members_delete_empty_group AFTER DELETE ON garment_group_members FOR EACH ROW EXECUTE FUNCTION delete_empty_garment_group();
--- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
-CREATE TRIGGER garment_groups_set_updated_at BEFORE UPDATE ON garment_groups FOR EACH ROW EXECUTE FUNCTION update_updated_at();
--- ORIGIN: MANUAL/UNKNOWN — manual/unknown
-CREATE TRIGGER trg_rotation_cursors_updated_at BEFORE UPDATE ON rotation_cursors FOR EACH ROW EXECUTE FUNCTION update_updated_at();
--- ORIGIN: MANUAL/UNKNOWN — manual/unknown
-CREATE TRIGGER trg_slot_statuses_updated_at BEFORE UPDATE ON slot_statuses FOR EACH ROW EXECUTE FUNCTION update_updated_at();
--- ORIGIN: MANUAL/UNKNOWN — manual/unknown
-CREATE TRIGGER trg_user_profiles_updated_at BEFORE UPDATE ON user_profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
--- ORIGIN: MANUAL/UNKNOWN — manual/unknown
-CREATE TRIGGER trg_wardrobe_items_updated_at BEFORE UPDATE ON wardrobe_items FOR EACH ROW EXECUTE FUNCTION update_updated_at();
--- ORIGIN: supabase/migrations/20261019000000_durable_wardrobe_photo_cleanup.sql
-CREATE TRIGGER wardrobe_photo_cleanup_receipt_after_delete AFTER DELETE ON wardrobe_items FOR EACH ROW EXECUTE FUNCTION record_wardrobe_photo_cleanup();
-
--- Manual/unknown event trigger; Supabase-managed event triggers are listed but not recreated.
--- ORIGIN: MANUAL/UNKNOWN — manual/unknown
-CREATE EVENT TRIGGER "ensure_rls" ON ddl_command_end WHEN TAG IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO') EXECUTE FUNCTION public.rls_auto_enable();
-ALTER EVENT TRIGGER "ensure_rls" OWNER TO "postgres";
--- Skipped Supabase-managed event triggers: issue_graphql_placeholder, issue_pg_cron_access, issue_pg_graphql_access, issue_pg_net_access, pgrst_ddl_watch, pgrst_drop_watch
-
--- Other skipped Supabase-managed objects recorded in the snapshot:
--- auth.users, storage.objects, storage.buckets relation definitions and storage.objects triggers.
--- SKIPPED Supabase-managed trigger: storage.objects.protect_objects_delete -> storage.protect_delete()
--- SKIPPED Supabase-managed trigger: storage.objects.update_objects_updated_at -> storage.update_updated_at_column()
--- SKIPPED platform function implementation referenced by issue_graphql_placeholder: set_graphql_placeholder()
--- SKIPPED platform function implementation referenced by issue_pg_cron_access: grant_pg_cron_access()
--- SKIPPED platform function implementation referenced by issue_pg_graphql_access: grant_pg_graphql_access()
--- SKIPPED platform function implementation referenced by issue_pg_net_access: grant_pg_net_access()
--- SKIPPED platform function implementation referenced by pgrst_ddl_watch: pgrst_ddl_watch()
--- SKIPPED platform function implementation referenced by pgrst_drop_watch: pgrst_drop_watch()
--- Non-public Supabase-managed function definitions and platform schema internals are not in this baseline.
--- Public views/materialized views and public custom types: none captured.
 COMMIT;
+-- END SECTION

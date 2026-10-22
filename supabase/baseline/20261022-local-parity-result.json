@@ -1,17 +1,485 @@
 {
-  "tested_at_utc": "2026-10-22T15:11:58.271303+00:00",
+  "tested_at_utc": "2026-10-22T16:20:45.083462+00:00",
   "source_project_ref": "garppyocfgdamdgfyfbr",
   "source_postgres_version": "17.6",
-  "local_postgres_version": "16.10",
+  "local_postgres_version": "17.6",
   "connection": "disposable local Unix socket only; TCP disabled; no remote URL accepted",
   "bootstrap": "Minimal local Supabase roles, auth.uid/auth.users and storage tables/functions; no customer rows.",
-  "baseline_sha256": "cfa5c81806d1026a3ff8921bd22612cacea41bba769e8a534abbf3a8cb1f165e",
+  "baseline_sha256": "a32db66a899435d7355f5de681ea381ed51c153b2d7c9ca5b0500391718753e9",
+  "operator_only_sha256": "7da616761cfd716e16f44846b08cda1b0932edda029847a19e1a5ab403753ac8",
   "manifest_sha256": "370e31a7555a2b3d3f8d36edd0c0efda73f67db23a0728ecc86c324be1f7faf7",
   "fingerprint_sql_sha256": "23dce201880f65db39bc83b306a1390a1a4daee1db5e919b29b386d15c3e120f",
-  "exact_classes": 18,
-  "explained_difference_classes": 6,
+  "exact_classes": 17,
+  "explained_difference_classes": 7,
   "unexplained_difference_classes": 0,
   "nonempty_target_guard": "passed",
+  "section_atomicity_tests": [
+    {
+      "section": "01-tables",
+      "rollback_fault_injection": "passed",
+      "standalone_apply": "passed"
+    },
+    {
+      "section": "02-functions",
+      "rollback_fault_injection": "passed",
+      "standalone_apply": "passed"
+    },
+    {
+      "section": "03-constraints",
+      "rollback_fault_injection": "passed",
+      "standalone_apply": "passed"
+    },
+    {
+      "section": "04-policies",
+      "rollback_fault_injection": "passed",
+      "standalone_apply": "passed"
+    },
+    {
+      "section": "05-acls",
+      "rollback_fault_injection": "passed",
+      "standalone_apply": "passed"
+    },
+    {
+      "section": "06-storage",
+      "rollback_fault_injection": "passed",
+      "standalone_apply": "passed"
+    }
+  ],
+  "fail_closed_table_sequence_function_boundaries": "passed",
+  "operator_only_local_verification": {
+    "scope": "Disposable local superuser only; NOT evidence of hosted permission or approval to apply.",
+    "exact_classes": 21,
+    "explained_difference_classes": 3,
+    "unexplained_difference_classes": 0,
+    "classes": [
+      {
+        "class": "public_tables",
+        "live": {
+          "md5": "7441d4c4ff738f13edcfd352d7cbfbe2",
+          "class": "public_tables",
+          "count": 23
+        },
+        "local": {
+          "md5": "7441d4c4ff738f13edcfd352d7cbfbe2",
+          "class": "public_tables",
+          "count": 23
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_columns",
+        "live": {
+          "md5": "167d679d270108cbbba3b086c501302c",
+          "class": "public_columns",
+          "count": 163
+        },
+        "local": {
+          "md5": "167d679d270108cbbba3b086c501302c",
+          "class": "public_columns",
+          "count": 163
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_constraints",
+        "live": {
+          "md5": "2e55c8e60adecc11c642b2d923a5c454",
+          "class": "public_constraints",
+          "count": 69
+        },
+        "local": {
+          "md5": "2e55c8e60adecc11c642b2d923a5c454",
+          "class": "public_constraints",
+          "count": 69
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_indexes",
+        "live": {
+          "md5": "b9188356fc7a373250fb381350c3cf69",
+          "class": "public_indexes",
+          "count": 37
+        },
+        "local": {
+          "md5": "b9188356fc7a373250fb381350c3cf69",
+          "class": "public_indexes",
+          "count": 37
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_policies",
+        "live": {
+          "md5": "35dfe694049a3fffa540e8571a61c072",
+          "class": "public_policies",
+          "count": 68
+        },
+        "local": {
+          "md5": "35dfe694049a3fffa540e8571a61c072",
+          "class": "public_policies",
+          "count": 68
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_rls_flags",
+        "live": {
+          "md5": "f93da09ff6c2378c3aa265e5b4c3b213",
+          "class": "public_rls_flags",
+          "count": 23
+        },
+        "local": {
+          "md5": "f93da09ff6c2378c3aa265e5b4c3b213",
+          "class": "public_rls_flags",
+          "count": 23
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_table_acl",
+        "live": {
+          "md5": "3f1b49a72bd84c3b70a74eee9bd44356",
+          "class": "public_table_acl",
+          "count": 177
+        },
+        "local": {
+          "md5": "3f1b49a72bd84c3b70a74eee9bd44356",
+          "class": "public_table_acl",
+          "count": 177
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_column_acl",
+        "live": {
+          "md5": "eb8571532c41cde47d0845bb3bc05923",
+          "class": "public_column_acl",
+          "count": 28
+        },
+        "local": {
+          "md5": "eb8571532c41cde47d0845bb3bc05923",
+          "class": "public_column_acl",
+          "count": 28
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_function_definitions",
+        "live": {
+          "md5": "493bd24c4bd462d455522f9355f6f0f7",
+          "class": "public_function_definitions",
+          "count": 24
+        },
+        "local": {
+          "md5": "493bd24c4bd462d455522f9355f6f0f7",
+          "class": "public_function_definitions",
+          "count": 24
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_function_acl",
+        "live": {
+          "md5": "4ae767080a9e2dd1e11682326eab86f9",
+          "class": "public_function_acl",
+          "count": 21
+        },
+        "local": {
+          "md5": "4ae767080a9e2dd1e11682326eab86f9",
+          "class": "public_function_acl",
+          "count": 21
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_triggers",
+        "live": {
+          "md5": "3b5a860709f99a2c25c71020d7e6ee0d",
+          "class": "public_triggers",
+          "count": 7
+        },
+        "local": {
+          "md5": "3b5a860709f99a2c25c71020d7e6ee0d",
+          "class": "public_triggers",
+          "count": 7
+        },
+        "exact_match": true
+      },
+      {
+        "class": "event_triggers",
+        "live": {
+          "md5": "56994d19618fc789f5c46cb07cc6fd18",
+          "class": "event_triggers",
+          "count": 7
+        },
+        "local": {
+          "md5": "b38bb1ebfc8a0f67e92dece7e4dbc290",
+          "class": "event_triggers",
+          "count": 1
+        },
+        "exact_match": false,
+        "explanation": "Six Supabase-managed event triggers are not recreated. ensure_rls creation is operator-only because hosted event-trigger authority is unverified.",
+        "documented_normalization_matches": true,
+        "missing_live_rows": [
+          {
+            "name": "issue_graphql_placeholder",
+            "event": "sql_drop",
+            "tags": [
+              "DROP EXTENSION"
+            ],
+            "enabled": "O",
+            "function": "set_graphql_placeholder()",
+            "owner": "supabase_admin"
+          },
+          {
+            "name": "issue_pg_cron_access",
+            "event": "ddl_command_end",
+            "tags": [
+              "CREATE EXTENSION"
+            ],
+            "enabled": "O",
+            "function": "grant_pg_cron_access()",
+            "owner": "supabase_admin"
+          },
+          {
+            "name": "issue_pg_graphql_access",
+            "event": "ddl_command_end",
+            "tags": [
+              "CREATE EXTENSION"
+            ],
+            "enabled": "O",
+            "function": "grant_pg_graphql_access()",
+            "owner": "supabase_admin"
+          },
+          {
+            "name": "issue_pg_net_access",
+            "event": "ddl_command_end",
+            "tags": [
+              "CREATE EXTENSION"
+            ],
+            "enabled": "O",
+            "function": "grant_pg_net_access()",
+            "owner": "supabase_admin"
+          },
+          {
+            "name": "pgrst_ddl_watch",
+            "event": "ddl_command_end",
+            "tags": null,
+            "enabled": "O",
+            "function": "pgrst_ddl_watch()",
+            "owner": "supabase_admin"
+          },
+          {
+            "name": "pgrst_drop_watch",
+            "event": "sql_drop",
+            "tags": null,
+            "enabled": "O",
+            "function": "pgrst_drop_watch()",
+            "owner": "supabase_admin"
+          }
+        ],
+        "local_only_rows": []
+      },
+      {
+        "class": "public_views",
+        "live": {
+          "md5": "d751713988987e9331980363e24189ce",
+          "class": "public_views",
+          "count": 0
+        },
+        "local": {
+          "md5": "d751713988987e9331980363e24189ce",
+          "class": "public_views",
+          "count": 0
+        },
+        "exact_match": true
+      },
+      {
+        "class": "extensions",
+        "live": {
+          "md5": "2845b261f5cffdb8733da4f6f30af401",
+          "class": "extensions",
+          "count": 5
+        },
+        "local": {
+          "md5": "a6100437f6095851ec4e737403e43629",
+          "class": "extensions",
+          "count": 4
+        },
+        "exact_match": false,
+        "explanation": "supabase_vault 0.3.1 is Supabase-managed and omitted. All remaining extension versions match on PostgreSQL 17.",
+        "documented_normalization_matches": true,
+        "missing_live_rows": [
+          {
+            "name": "supabase_vault",
+            "version": "0.3.1",
+            "schema": "vault"
+          }
+        ],
+        "local_only_rows": []
+      },
+      {
+        "class": "storage_buckets",
+        "live": {
+          "md5": "92db97a3ffbb95c25e82f8bddfb55642",
+          "class": "storage_buckets",
+          "count": 2
+        },
+        "local": {
+          "md5": "92db97a3ffbb95c25e82f8bddfb55642",
+          "class": "storage_buckets",
+          "count": 2
+        },
+        "exact_match": true
+      },
+      {
+        "class": "storage_objects_policies",
+        "live": {
+          "md5": "4a2afe61ac903982bfda1bce55fbeebd",
+          "class": "storage_objects_policies",
+          "count": 15
+        },
+        "local": {
+          "md5": "4a2afe61ac903982bfda1bce55fbeebd",
+          "class": "storage_objects_policies",
+          "count": 15
+        },
+        "exact_match": true
+      },
+      {
+        "class": "storage_objects_acl",
+        "live": {
+          "md5": "584b699829d7deea48566936ae7f3577",
+          "class": "storage_objects_acl",
+          "count": 16
+        },
+        "local": {
+          "md5": "584b699829d7deea48566936ae7f3577",
+          "class": "storage_objects_acl",
+          "count": 16
+        },
+        "exact_match": true
+      },
+      {
+        "class": "storage_objects_triggers",
+        "live": {
+          "md5": "83a2a10efcbc3d745c0332fac28e2e29",
+          "class": "storage_objects_triggers",
+          "count": 2
+        },
+        "local": {
+          "md5": "d751713988987e9331980363e24189ce",
+          "class": "storage_objects_triggers",
+          "count": 0
+        },
+        "exact_match": false,
+        "explanation": "The two Supabase-managed storage.objects triggers and their platform functions are deliberately omitted.",
+        "documented_normalization_matches": true,
+        "missing_live_rows": [
+          {
+            "table": "objects",
+            "name": "protect_objects_delete",
+            "enabled": "O",
+            "definition": "CREATE TRIGGER protect_objects_delete BEFORE DELETE ON storage.objects FOR EACH STATEMENT EXECUTE FUNCTION storage.protect_delete()",
+            "function": "storage.protect_delete()"
+          },
+          {
+            "table": "objects",
+            "name": "update_objects_updated_at",
+            "enabled": "O",
+            "definition": "CREATE TRIGGER update_objects_updated_at BEFORE UPDATE ON storage.objects FOR EACH ROW EXECUTE FUNCTION storage.update_updated_at_column()",
+            "function": "storage.update_updated_at_column()"
+          }
+        ],
+        "local_only_rows": []
+      },
+      {
+        "class": "auth_users_triggers",
+        "live": {
+          "md5": "d751713988987e9331980363e24189ce",
+          "class": "auth_users_triggers",
+          "count": 0
+        },
+        "local": {
+          "md5": "d751713988987e9331980363e24189ce",
+          "class": "auth_users_triggers",
+          "count": 0
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_sequences",
+        "live": {
+          "md5": "c53f64e20e53bdf6570a4ebc48505371",
+          "class": "public_sequences",
+          "count": 2
+        },
+        "local": {
+          "md5": "c53f64e20e53bdf6570a4ebc48505371",
+          "class": "public_sequences",
+          "count": 2
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_schema_acl",
+        "live": {
+          "md5": "56d6f2198e77ecebc92c60796cffea6a",
+          "class": "public_schema_acl",
+          "count": 4
+        },
+        "local": {
+          "md5": "56d6f2198e77ecebc92c60796cffea6a",
+          "class": "public_schema_acl",
+          "count": 4
+        },
+        "exact_match": true
+      },
+      {
+        "class": "storage_schema_acl",
+        "live": {
+          "md5": "c24cf8db39bc65e1f11c09992c2aa7c5",
+          "class": "storage_schema_acl",
+          "count": 3
+        },
+        "local": {
+          "md5": "c24cf8db39bc65e1f11c09992c2aa7c5",
+          "class": "storage_schema_acl",
+          "count": 3
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_default_acl",
+        "live": {
+          "md5": "8510ffb3d156d847b1423e4e86b27935",
+          "class": "public_default_acl",
+          "count": 64
+        },
+        "local": {
+          "md5": "8510ffb3d156d847b1423e4e86b27935",
+          "class": "public_default_acl",
+          "count": 64
+        },
+        "exact_match": true
+      },
+      {
+        "class": "public_sequence_acl",
+        "live": {
+          "md5": "f9237e2da111fdb6b1680faec6bbd693",
+          "class": "public_sequence_acl",
+          "count": 4
+        },
+        "local": {
+          "md5": "f9237e2da111fdb6b1680faec6bbd693",
+          "class": "public_sequence_acl",
+          "count": 4
+        },
+        "exact_match": true
+      }
+    ]
+  },
   "temporary_cluster": "stopped and removed",
   "classes": [
     {
@@ -106,135 +574,11 @@
         "count": 177
       },
       "local": {
-        "md5": "34b4c8eb420a8f02a00b24588aaf758b",
+        "md5": "3f1b49a72bd84c3b70a74eee9bd44356",
         "class": "public_table_acl",
-        "count": 160
+        "count": 177
       },
-      "exact_match": false,
-      "explanation": "PostgreSQL 16 has no MAINTAIN privilege: the 17 captured MAINTAIN grants are conditionally omitted.",
-      "documented_normalization_matches": true,
-      "missing_live_rows": [
-        {
-          "table": "affinity_signals",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "billing_accounts",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "billing_deletion_tombstones",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "billing_event_journal",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "billing_reconciliations",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "billing_subscriptions",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "billing_transactions",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "pair_affinity_signals",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "rotation_cursors",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "saved_looks",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "slot_statuses",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "tryon_profiles",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "user_profiles",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "wardrobe_free_selections",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "wardrobe_items",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "wardrobe_photo_cleanup_receipts",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        },
-        {
-          "table": "wear_logs",
-          "grantee": "service_role",
-          "grantor": "postgres",
-          "privilege": "MAINTAIN",
-          "grantable": false
-        }
-      ],
-      "local_only_rows": []
+      "exact_match": true
     },
     {
       "class": "public_column_acl",
@@ -300,14 +644,26 @@
         "count": 7
       },
       "local": {
-        "md5": "b38bb1ebfc8a0f67e92dece7e4dbc290",
+        "md5": "d751713988987e9331980363e24189ce",
         "class": "event_triggers",
-        "count": 1
+        "count": 0
       },
       "exact_match": false,
-      "explanation": "Six Supabase-managed event triggers are deliberately not recreated; ensure_rls is reproduced.",
+      "explanation": "Six Supabase-managed event triggers are not recreated. ensure_rls creation is operator-only because hosted event-trigger authority is unverified.",
       "documented_normalization_matches": true,
       "missing_live_rows": [
+        {
+          "name": "ensure_rls",
+          "event": "ddl_command_end",
+          "tags": [
+            "CREATE TABLE",
+            "CREATE TABLE AS",
+            "SELECT INTO"
+          ],
+          "enabled": "O",
+          "function": "rls_auto_enable()",
+          "owner": "postgres"
+        },
         {
           "name": "issue_graphql_placeholder",
           "event": "sql_drop",
@@ -389,32 +745,21 @@
         "count": 5
       },
       "local": {
-        "md5": "99944cef043f0c5d0b7fb1ccb579f1f7",
+        "md5": "a6100437f6095851ec4e737403e43629",
         "class": "extensions",
         "count": 4
       },
       "exact_match": false,
-      "explanation": "supabase_vault 0.3.1 is Supabase-managed and omitted; local PostgreSQL 16 supplies pg_stat_statements 1.10 rather than live PostgreSQL 17's 1.11.",
+      "explanation": "supabase_vault 0.3.1 is Supabase-managed and omitted. All remaining extension versions match on PostgreSQL 17.",
       "documented_normalization_matches": true,
       "missing_live_rows": [
-        {
-          "name": "pg_stat_statements",
-          "version": "1.11",
-          "schema": "extensions"
-        },
         {
           "name": "supabase_vault",
           "version": "0.3.1",
           "schema": "vault"
         }
       ],
-      "local_only_rows": [
-        {
-          "name": "pg_stat_statements",
-          "schema": "extensions",
-          "version": "1.10"
-        }
-      ]
+      "local_only_rows": []
     },
     {
       "class": "storage_buckets",
@@ -452,19 +797,124 @@
         "count": 16
       },
       "local": {
-        "md5": "04ec43f1b60c97f4663eff067e51bef0",
+        "md5": "d751713988987e9331980363e24189ce",
         "class": "storage_objects_acl",
-        "count": 15
+        "count": 0
       },
       "exact_match": false,
-      "explanation": "PostgreSQL 16 has no MAINTAIN privilege: the one captured MAINTAIN grant is conditionally omitted.",
+      "explanation": "Platform-owned storage.objects ACL restoration is operator-only; the minimal local stub has no captured-principal grants.",
       "documented_normalization_matches": true,
       "missing_live_rows": [
+        {
+          "table": "objects",
+          "grantee": "anon",
+          "grantor": "supabase_storage_admin",
+          "privilege": "DELETE",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "anon",
+          "grantor": "supabase_storage_admin",
+          "privilege": "INSERT",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "anon",
+          "grantor": "supabase_storage_admin",
+          "privilege": "SELECT",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "anon",
+          "grantor": "supabase_storage_admin",
+          "privilege": "UPDATE",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "authenticated",
+          "grantor": "supabase_storage_admin",
+          "privilege": "DELETE",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "authenticated",
+          "grantor": "supabase_storage_admin",
+          "privilege": "INSERT",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "authenticated",
+          "grantor": "supabase_storage_admin",
+          "privilege": "SELECT",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "authenticated",
+          "grantor": "supabase_storage_admin",
+          "privilege": "UPDATE",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "service_role",
+          "grantor": "supabase_storage_admin",
+          "privilege": "DELETE",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "service_role",
+          "grantor": "supabase_storage_admin",
+          "privilege": "INSERT",
+          "grantable": false
+        },
         {
           "table": "objects",
           "grantee": "service_role",
           "grantor": "supabase_storage_admin",
           "privilege": "MAINTAIN",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "service_role",
+          "grantor": "supabase_storage_admin",
+          "privilege": "REFERENCES",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "service_role",
+          "grantor": "supabase_storage_admin",
+          "privilege": "SELECT",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "service_role",
+          "grantor": "supabase_storage_admin",
+          "privilege": "TRIGGER",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "service_role",
+          "grantor": "supabase_storage_admin",
+          "privilege": "TRUNCATE",
+          "grantable": false
+        },
+        {
+          "table": "objects",
+          "grantee": "service_role",
+          "grantor": "supabase_storage_admin",
+          "privilege": "UPDATE",
           "grantable": false
         }
       ],
@@ -539,11 +989,34 @@
         "count": 4
       },
       "local": {
-        "md5": "56d6f2198e77ecebc92c60796cffea6a",
+        "md5": "809c1562adc8fb1a2e20d018874da8fc",
         "class": "public_schema_acl",
-        "count": 4
+        "count": 1
       },
-      "exact_match": true
+      "exact_match": false,
+      "explanation": "Schema ACL restoration is operator-only. Local public retains its PostgreSQL default PUBLIC USAGE; the minimal Storage schema stub has no captured-principal grants. Real hosted defaults are not inferred.",
+      "documented_normalization_matches": true,
+      "missing_live_rows": [
+        {
+          "grantee": "anon",
+          "grantor": "pg_database_owner",
+          "privilege": "USAGE",
+          "grantable": false
+        },
+        {
+          "grantee": "authenticated",
+          "grantor": "pg_database_owner",
+          "privilege": "USAGE",
+          "grantable": false
+        },
+        {
+          "grantee": "service_role",
+          "grantor": "pg_database_owner",
+          "privilege": "USAGE",
+          "grantable": false
+        }
+      ],
+      "local_only_rows": []
     },
     {
       "class": "storage_schema_acl",
@@ -553,11 +1026,34 @@
         "count": 3
       },
       "local": {
-        "md5": "c24cf8db39bc65e1f11c09992c2aa7c5",
+        "md5": "d751713988987e9331980363e24189ce",
         "class": "storage_schema_acl",
-        "count": 3
+        "count": 0
       },
-      "exact_match": true
+      "exact_match": false,
+      "explanation": "Schema ACL restoration is operator-only. Local public retains its PostgreSQL default PUBLIC USAGE; the minimal Storage schema stub has no captured-principal grants. Real hosted defaults are not inferred.",
+      "documented_normalization_matches": true,
+      "missing_live_rows": [
+        {
+          "grantee": "anon",
+          "grantor": "supabase_admin",
+          "privilege": "USAGE",
+          "grantable": false
+        },
+        {
+          "grantee": "authenticated",
+          "grantor": "supabase_admin",
+          "privilege": "USAGE",
+          "grantable": false
+        },
+        {
+          "grantee": "service_role",
+          "grantor": "supabase_admin",
+          "privilege": "USAGE",
+          "grantable": false
+        }
+      ],
+      "local_only_rows": []
     },
     {
       "class": "public_default_acl",
@@ -567,28 +1063,156 @@
         "count": 64
       },
       "local": {
-        "md5": "232adb928f8aa0399f8c185fcccb3b13",
+        "md5": "632b933edf02237d89f8d2769d7e96e4",
         "class": "public_default_acl",
-        "count": 58
+        "count": 16
       },
       "exact_match": false,
-      "explanation": "PostgreSQL 16 has no MAINTAIN privilege: six captured default MAINTAIN grants are conditionally omitted.",
+      "explanation": "supabase_admin defaults are operator-only; baseline retains postgres defaults. PostgreSQL 17 preserves the captured MAINTAIN grants.",
       "documented_normalization_matches": true,
       "missing_live_rows": [
         {
-          "creator": "postgres",
+          "creator": "supabase_admin",
           "schema": "public",
-          "object_kind": "r",
-          "grantee": "postgres",
-          "privilege": "MAINTAIN",
+          "object_kind": "S",
+          "grantee": "anon",
+          "privilege": "SELECT",
           "grantable": false
         },
         {
-          "creator": "postgres",
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "S",
+          "grantee": "anon",
+          "privilege": "UPDATE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "S",
+          "grantee": "anon",
+          "privilege": "USAGE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "S",
+          "grantee": "authenticated",
+          "privilege": "SELECT",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "S",
+          "grantee": "authenticated",
+          "privilege": "UPDATE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "S",
+          "grantee": "authenticated",
+          "privilege": "USAGE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "S",
+          "grantee": "postgres",
+          "privilege": "SELECT",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "S",
+          "grantee": "postgres",
+          "privilege": "UPDATE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "S",
+          "grantee": "postgres",
+          "privilege": "USAGE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "S",
+          "grantee": "service_role",
+          "privilege": "SELECT",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "S",
+          "grantee": "service_role",
+          "privilege": "UPDATE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "S",
+          "grantee": "service_role",
+          "privilege": "USAGE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "f",
+          "grantee": "anon",
+          "privilege": "EXECUTE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "f",
+          "grantee": "authenticated",
+          "privilege": "EXECUTE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "f",
+          "grantee": "postgres",
+          "privilege": "EXECUTE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "f",
+          "grantee": "service_role",
+          "privilege": "EXECUTE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
           "schema": "public",
           "object_kind": "r",
-          "grantee": "service_role",
-          "privilege": "MAINTAIN",
+          "grantee": "anon",
+          "privilege": "DELETE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "anon",
+          "privilege": "INSERT",
           "grantable": false
         },
         {
@@ -603,8 +1227,120 @@
           "creator": "supabase_admin",
           "schema": "public",
           "object_kind": "r",
+          "grantee": "anon",
+          "privilege": "REFERENCES",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "anon",
+          "privilege": "SELECT",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "anon",
+          "privilege": "TRIGGER",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "anon",
+          "privilege": "TRUNCATE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "anon",
+          "privilege": "UPDATE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "authenticated",
+          "privilege": "DELETE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "authenticated",
+          "privilege": "INSERT",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
           "grantee": "authenticated",
           "privilege": "MAINTAIN",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "authenticated",
+          "privilege": "REFERENCES",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "authenticated",
+          "privilege": "SELECT",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "authenticated",
+          "privilege": "TRIGGER",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "authenticated",
+          "privilege": "TRUNCATE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "authenticated",
+          "privilege": "UPDATE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "postgres",
+          "privilege": "DELETE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "postgres",
+          "privilege": "INSERT",
           "grantable": false
         },
         {
@@ -619,8 +1355,104 @@
           "creator": "supabase_admin",
           "schema": "public",
           "object_kind": "r",
+          "grantee": "postgres",
+          "privilege": "REFERENCES",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "postgres",
+          "privilege": "SELECT",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "postgres",
+          "privilege": "TRIGGER",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "postgres",
+          "privilege": "TRUNCATE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "postgres",
+          "privilege": "UPDATE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "service_role",
+          "privilege": "DELETE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "service_role",
+          "privilege": "INSERT",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
           "grantee": "service_role",
           "privilege": "MAINTAIN",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "service_role",
+          "privilege": "REFERENCES",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "service_role",
+          "privilege": "SELECT",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "service_role",
+          "privilege": "TRIGGER",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "service_role",
+          "privilege": "TRUNCATE",
+          "grantable": false
+        },
+        {
+          "creator": "supabase_admin",
+          "schema": "public",
+          "object_kind": "r",
+          "grantee": "service_role",
+          "privilege": "UPDATE",
           "grantable": false
         }
       ],

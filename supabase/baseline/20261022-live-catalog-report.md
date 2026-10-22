@@ -1,5 +1,144 @@
 # Amodka schema baseline — capture, generated SQL and local replay
 
+## Current revision: hosted Supabase sectioning
+
+**This section supersedes the original single-transaction procedure and local results below.**
+The original snapshot/provenance is unchanged. No hosted connection, SQL query, migration,
+credential access, purchase, or deployment was used for this revision.
+
+### Generated files and execution order
+
+`scripts/generate-supabase-baseline.py` deterministically writes both `baseline.sql` and
+`operator-only.sql`; `--check` verifies both files. Neither SQL header contains a project ref.
+The manifest retains its original provenance.
+
+`baseline.sql` contains these independently selectable sections, in order:
+
+| Section | Contents / prerequisite |
+|---|---|
+| `01-tables` | Empty-public-table guard, non-managed extension setup, 23 tables/163 columns, identity sequences, ownership. RLS enabled and all captured client/server-role table/sequence grants revoked before commit. |
+| `02-functions` | Full 24 public function definitions/ownership, after tables. PUBLIC/anon/authenticated/service_role EXECUTE revoked before commit. |
+| `03-constraints` | Primary/unique/check constraints, standalone indexes, then foreign keys. Requires tables and functions; the semantic check depends on its function. |
+| `04-policies` | Final public RLS flags, 68 public policies and seven public table triggers. Requires preceding sections. |
+| `05-acls` | Captured public table, column, function and sequence grants; **postgres-only** creator defaults. Requires the complete public schema above. |
+| `06-storage` | **HOSTED PERMISSIONS UNVERIFIED** standalone section: two bucket upserts and 15 storage.objects policies. Requires platform Storage schema/functions/columns. No platform schema/object ACL changes. |
+
+Each section has its own `BEGIN`, `SET LOCAL` and `COMMIT`. Run on a fresh connection
+with `ON_ERROR_STOP=1`; do not wrap the file in another transaction or use `psql -1`.
+Example extraction for a separately reviewed, authorised future execution:
+
+```sh
+python3 scripts/generate-supabase-baseline.py --section 01-tables > /tmp/amodka-01-tables.sql
+# Review the extracted file and independently verify the intended EMPTY DEV target first.
+# Future operator command only; not executed in this task:
+psql 'service=amodka_dev' -X -v ON_ERROR_STOP=1 -f /tmp/amodka-01-tables.sql
+```
+
+Repeat in numeric order using the corresponding section name. Do not select operator
+sections as part of routine bootstrap. `06-storage` can be reviewed/applied independently
+only after its hosted permissions are established. There is no claim here that hosted
+postgres can perform its bucket upserts or create its policies.
+
+**Atomicity boundary:** a failed section rolls back completely, but earlier committed
+sections remain. Independent transactions cannot also provide whole-project rollback.
+Do not connect/release the app or admit users until all required sections and verification
+have succeeded. Explicit table/sequence/function grants to the four captured principals
+are absent through section 04 in the local checks; inherited/effective hosted privileges
+remain unverified. Section 05 restores the intended ACLs. After any
+failure, inspect the result and resume the failed section only—do not blindly rerun the
+full file (the first section rejects existing public tables). These are bootstrap
+sections, not routine update/replay scripts.
+
+### Manual/operator-only separation
+
+`operator-only.sql` is **optional historical snapshot restoration**, not a requirement
+to overwrite a new project's platform defaults. Its header requires explicit approval
+and Supabase-authorised authority over each relevant owner/role. Broad captured grants
+are preserved as evidence, not recommended new defaults.
+
+| Operator section | Statements removed from ordinary baseline |
+|---|---|
+| `operator-01-admin-defaults` | All ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" revokes/grants, including dynamically guarded MAINTAIN. Postgres creator defaults remain in baseline. |
+| `operator-02-public-schema-acls` | Public-schema REVOKE/GRANT statements; snapshot grantor is pg_database_owner and hosted authority has not been proven. |
+| `operator-03-storage-acls` | All REVOKE/GRANT on SCHEMA storage and TABLE storage.objects. |
+| `operator-04-event-trigger` | CREATE EVENT TRIGGER ensure_rls and ALTER EVENT TRIGGER OWNER TO postgres. Hosted event-trigger authority is not proven. The function definition remains in the public-functions section. |
+
+Moving the public-schema ACLs and event-trigger DDL too is a conservative extension of
+the same permission separation: neither should block the ordinary bootstrap based on
+an unverified hosted-role assumption. Managed event/storage triggers and Vault remain
+omitted, as before.
+
+### Re-run results and fingerprint changes
+
+Run locally:
+
+```sh
+python3 scripts/generate-supabase-baseline.py
+python3 scripts/generate-supabase-baseline.py --check
+python3 scripts/test-supabase-baseline.py
+```
+
+The current toolchain provides **PostgreSQL 17.6**, matching the captured server version.
+`20261022-local-parity-result.json` now distinguishes baseline-only fingerprints from
+an additional **local-superuser-only** operator-file verification.
+
+- Baseline only: **17 exact / 7 explained / 0 unexplained** classes.
+- Including operator file locally: **21 exact / 3 explained / 0 unexplained** classes.
+- All six baseline sections apply independently and pass injected-division-by-zero
+  rollback tests; all 24 catalog fingerprints remain unchanged after each failed attempt.
+- Fail-closed table/sequence/function boundaries before ACL restoration pass.
+- `--section` extraction, non-empty-target refusal and both generated-file checks pass.
+- Temporary cluster stopped and removed. No customer data; minimal local Auth/Storage stubs only.
+
+| Baseline-only non-exact class | Local / captured | Explanation |
+|---|---:|---|
+| public_default_acl | 16 / 64 | Only captured postgres defaults installed; 48 supabase_admin default entries intentionally left to the platform/operator. |
+| public_schema_acl | 1 / 4 | PostgreSQL's local PUBLIC USAGE remains; three explicit named-role grants moved to operator file. No live hosted defaults inferred. |
+| storage_schema_acl | 0 / 3 | Local stub has no named-role grants; platform schema ACL restoration moved to operator file. |
+| storage_objects_acl | 0 / 16 | Local stub has no captured-principal grants; platform object ACL restoration moved to operator file. |
+| event_triggers | 0 / 7 | ensure_rls moved to operator file; six platform-managed triggers still omitted. |
+| extensions | 4 / 5 | Vault remains platform-managed/omitted. All remaining versions now match on PG17.6. |
+| storage_objects_triggers | 0 / 2 | Both managed Storage triggers remain deliberately omitted. |
+
+Compared with the prior PG16 monolithic replay: public table ACLs are now exactly
+177/177 rather than 160/177 because PG17 supports MAINTAIN; postgres defaults include
+all 16 entries rather than omitting its two MAINTAIN entries. pg_stat_statements now
+matches live 1.11 instead of local PG16's 1.10. The other changed raw hashes/counts
+come from the explicitly listed operator separation. The JSON includes every missing
+catalog row and raw fingerprint; unexpected differences still fail the test.
+
+### Statements NOT verified on hosted Supabase
+
+**No SQL statement was executed or permission-tested on hosted Supabase.** Specifically:
+
+1. The complete `operator-01-admin-defaults` section requires authority for
+   supabase_admin; ordinary postgres is not assumed able to alter it.
+2. Public-schema and Storage-schema ACL statements require owner/grant authority;
+   storage.objects ACL statements require its owner's/grant authority.
+3. The two `INSERT ... ON CONFLICT DO UPDATE` bucket statements and all 15
+   `CREATE POLICY ... ON storage.objects` statements need hosted permission and Storage
+   schema-version verification. They are isolated in `06-storage`.
+4. `CREATE EVENT TRIGGER ensure_rls` and its owner change need superuser or equivalent
+   platform-authorised capability; moved to the operator file.
+5. Extension/schema creation (`extensions`, pg_stat_statements, pgcrypto, uuid-ossp),
+   public object ownership/DDL/ACL statements, and postgres creator defaults have only
+   been tested with a disposable local superuser—not a hosted postgres session.
+
+Real hosted platform defaults, Auth/Storage behaviour, effective role membership
+permissions and device behaviour remain unverified. The manual Auth checklist in the
+original capture below still applies; no settings were changed.
+
+**Files changed in this revision:** generator, local test script, both generated SQL
+files, local parity-result JSON, and this baseline report. No application, migrations,
+frozen artifacts, billing/consent implementation, environment configuration or other
+files changed.
+
+**Deviations:** no live or unrelated work. Per-section atomicity—not impossible
+cross-section all-or-nothing rollback—is provided and explicitly documented. Public
+schema ACL and event-trigger statements were also conservatively moved operator-side.
+
+## Original capture and previous single-transaction replay (historical)
+
 **Captured:** 2026-10-22
 **Connected project ref:** `garppyocfgdamdgfyfbr` (the Development/Production label was not established)
 **Database:** 17.6

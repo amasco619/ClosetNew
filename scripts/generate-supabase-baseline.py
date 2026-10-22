@@ -3,24 +3,43 @@
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--check", action="store_true", help="Fail if baseline.sql differs from deterministic output.")
+parser.add_argument("--section", help="Print one named transactional section without writing files.")
 args = parser.parse_args()
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "supabase/baseline/20261022-live-catalog.json"
 OUTPUT = ROOT / "supabase/baseline/baseline.sql"
+OPERATOR_OUTPUT = ROOT / "supabase/baseline/operator-only.sql"
 DATA = json.loads(MANIFEST.read_text())
 PUBLIC = DATA["public"]
 STORAGE = DATA["storage"]
 if PUBLIC["views"] or PUBLIC["types"]:
     raise SystemExit("This snapshot generator requires the captured empty public views/types inventories.")
 lines = []
+baseline_sections = {}
+operator_sections = {}
 
 
 def add(text=""):
     lines.append(text)
+
+
+def section(name, operator=False):
+    global lines
+    sections = operator_sections if operator else baseline_sections
+    if name in sections:
+        lines = sections[name]
+        return
+    sections[name] = []
+    lines = sections[name]
+    add(f"-- BEGIN SECTION: {name}")
+    add("BEGIN;")
+    # pg_catalog remains implicitly first, avoiding pgcrypto/core UUID binding drift.
+    add("SET LOCAL search_path = public, extensions, storage, auth;")
 
 
 def comment_origin(origin):
@@ -115,17 +134,21 @@ def policy_sql(policy, table_sql, origin):
 meta = DATA["meta"]
 add("-- GENERATED FILE: do not edit; run python3 scripts/generate-supabase-baseline.py")
 add("-- Generated from a captured snapshot; schema only; NEVER APPLY TO PRODUCTION.")
-add(f"-- Snapshot project ref: {meta['project_ref']}")
 add(f"-- Snapshot date: {meta['captured_on']}; exact catalog query time was not recorded.")
 add(f"-- Snapshot artifact mtime (UTC, not query time): {meta.get('snapshot_artifact_timestamp_utc', 'not recorded')}")
 add(f"-- Source PostgreSQL version: {meta['postgres_version']}; MAINTAIN is emitted conditionally for PG17+.")
 add("-- Requires a Supabase-initialized target with platform roles, auth.uid(), storage schema/tables,")
 add("-- and any platform-managed extensions already provisioned. This is not a Supabase bootstrap.")
 add("-- Captured ACL scope is the principals stored in the manifest; it does not reconstruct role memberships.")
+add("-- Apply sections in numeric order, each on its own connection with ON_ERROR_STOP=1.")
+add("-- Each section is atomic; earlier successful sections remain if a later section fails.")
+add("-- Keep the project unused until all required sections and verification complete.")
+add("-- Extract one section: python3 scripts/generate-supabase-baseline.py --section 01-tables")
+add("-- Hosted Storage permissions are NOT verified: 06-storage is isolated and optional pending operator review.")
+add("-- Privileged snapshot restoration is separate in operator-only.sql, never an automatic prerequisite.")
+header = "\n".join(lines) + "\n\n"
 add("")
-add("BEGIN;")
-add("-- Keep pg_catalog implicit/first so gen_random_uuid() binds to the captured core function, not pgcrypto's wrapper.")
-add("SET LOCAL search_path = public, extensions, storage, auth;")
+section("01-tables")
 add(
     "DO $baseline$\nBEGIN\n"
     "  IF EXISTS (SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n "
@@ -186,8 +209,14 @@ for table in sorted(PUBLIC["tables"], key=lambda row: row["name"]):
         column_sql.append("  " + definition)
     add(f"CREATE TABLE public.{ident(table['name'])} (\n" + ",\n".join(column_sql) + "\n);")
     add(f"ALTER TABLE public.{ident(table['name'])} OWNER TO {ident(table['owner'])};")
+    # Fail closed across section boundaries, regardless of the target's inherited defaults.
+    add(f"ALTER TABLE public.{ident(table['name'])} ENABLE ROW LEVEL SECURITY;")
+    add(f"REVOKE ALL PRIVILEGES ON TABLE public.{ident(table['name'])} FROM PUBLIC, anon, authenticated, service_role;")
+for sequence in PUBLIC["sequences"]:
+    add(f"REVOKE ALL PRIVILEGES ON SEQUENCE public.{ident(sequence['sequence_name'])} FROM PUBLIC, anon, authenticated, service_role;")
 add("")
 
+section("02-functions")
 add("-- Public functions; full captured CREATE definitions, ownership, security mode and search_path.")
 for function in sorted(PUBLIC["functions"], key=lambda row: row["identity"]):
     add(comment_origin(function["origin"]))
@@ -196,8 +225,10 @@ for function in sorted(PUBLIC["functions"], key=lambda row: row["identity"]):
     add(
         f"ALTER FUNCTION public.{function['identity']} OWNER TO {ident(function['owner'])};"
     )
+    add(f"REVOKE ALL PRIVILEGES ON FUNCTION public.{function['identity']} FROM PUBLIC, anon, authenticated, service_role;")
 add("")
 
+section("03-constraints")
 add("-- Primary, unique and check constraints")
 for table in sorted(PUBLIC["tables"], key=lambda row: row["name"]):
     for constraint in sorted(table["constraints"], key=lambda row: row["constraint_name"]):
@@ -251,7 +282,8 @@ for table in sorted(PUBLIC["tables"], key=lambda row: row["name"]):
         )
 add("")
 
-add("-- Table ownership, RLS flags and policies")
+section("04-policies")
+add("-- Final RLS flags, public policies and table triggers")
 for table in sorted(PUBLIC["tables"], key=lambda row: row["name"]):
     if table["rls"]:
         add(f"ALTER TABLE public.{ident(table['name'])} ENABLE ROW LEVEL SECURITY;")
@@ -261,8 +293,12 @@ for table in sorted(PUBLIC["tables"], key=lambda row: row["name"]):
         add(f"ALTER TABLE public.{ident(table['name'])} NO FORCE ROW LEVEL SECURITY;")
     for policy in sorted(table["policies"], key=lambda row: row["policyname"]):
         policy_sql(policy, f"public.{ident(table['name'])}", policy["origin"])
+for trigger in sorted(PUBLIC["triggers"], key=lambda row: (row["table_name"], row["trigger_name"])):
+    add(comment_origin(trigger["origin"]))
+    add(trigger["definition"] + ";")
 add("")
 
+section("05-acls")
 add("-- Public table and column ACLs. Revoke captured-principal grants first, then restore captured grants.")
 acl_roles = ["PUBLIC", "anon", "authenticated", "service_role"]
 table_acl_by_name = {}
@@ -317,7 +353,8 @@ for sequence in sorted(PUBLIC["sequences"], key=lambda row: row["sequence_name"]
     )
 add("")
 
-add("-- Public schema ACL")
+section("operator-02-public-schema-acls", operator=True)
+add("-- Public schema ACL: snapshot grantor is pg_database_owner; hosted authority is unverified.")
 schema_roles = sorted({row["grantee"] for row in PUBLIC["schema_acl"]} | {"PUBLIC", "anon", "authenticated", "service_role"})
 for role in schema_roles:
     add(f"REVOKE ALL PRIVILEGES ON SCHEMA public FROM {grantee(role)};")
@@ -329,9 +366,12 @@ for row in sorted(PUBLIC["schema_acl"], key=lambda item: (item["grantee"], item[
     )
 add("")
 
+section("05-acls")
 add("-- Schema-scoped default ACLs for captured creator roles.")
 default_roles = sorted({row["creator_role"] for row in PUBLIC["default_acl"]})
 for creator in default_roles:
+    if creator == "supabase_admin":
+        section("operator-01-admin-defaults", operator=True)
     add(f"-- Captured defaults for creator role {creator}.")
     add("-- ORIGIN: MANUAL/UNKNOWN — platform or role-level default configuration; no repo migration source.")
     for code, target in [("r", "TABLES"), ("S", "SEQUENCES"), ("f", "FUNCTIONS")]:
@@ -368,6 +408,8 @@ for creator in default_roles:
                     )
 add("")
 
+section("06-storage")
+add("-- HOSTED PERMISSIONS UNVERIFIED: apply this section independently only after operator verification.")
 add("-- Supabase Storage prerequisite: storage schema, storage.objects and storage.buckets are platform-managed.")
 add("-- Bucket rows are captured app configuration and are inserted/upserted here.")
 add("-- ORIGIN: MANUAL/UNKNOWN — bucket configuration was not found in reviewed repo migrations.")
@@ -396,6 +438,8 @@ for bucket in sorted(STORAGE["buckets"], key=lambda row: row["id"]):
     )
 add("")
 
+section("operator-03-storage-acls", operator=True)
+add("-- Requires platform object ownership/authorised grant authority; not verified for hosted postgres.")
 add("-- Storage schema ACL and storage.objects ACL (platform-managed relations are not created here).")
 storage_roles = ["PUBLIC", "anon", "authenticated", "service_role"]
 for role in storage_roles:
@@ -412,17 +456,14 @@ acl_lines(
 )
 add("")
 
+section("06-storage")
 add("-- Storage object policies; storage.objects and auth.uid() must already exist.")
 for policy in sorted(STORAGE["objects_policies"], key=lambda row: row["policyname"]):
     policy_sql(policy, "storage.objects", policy["origin"])
 add("")
 
-add("-- Public table triggers")
-for trigger in sorted(PUBLIC["triggers"], key=lambda row: (row["table_name"], row["trigger_name"])):
-    add(comment_origin(trigger["origin"]))
-    add(trigger["definition"] + ";")
-add("")
-
+section("operator-04-event-trigger", operator=True)
+add("-- CREATE EVENT TRIGGER requires superuser or equivalent platform-authorised capability; hosted execution unverified.")
 add("-- Manual/unknown event trigger; Supabase-managed event triggers are listed but not recreated.")
 managed_events = []
 for trigger in PUBLIC["event_triggers"]:
@@ -453,13 +494,35 @@ for trigger in PUBLIC["event_triggers"]:
         add(f"-- SKIPPED platform function implementation referenced by {trigger['trigger_name']}: {trigger['function_identity']}")
 add("-- Non-public Supabase-managed function definitions and platform schema internals are not in this baseline.")
 add("-- Public views/materialized views and public custom types: none captured.")
-add("COMMIT;")
 
-generated = "\n".join(lines) + "\n"
-if args.check:
-    if not OUTPUT.exists() or OUTPUT.read_text() != generated:
-        raise SystemExit("baseline.sql is stale; run the generator without --check")
-    print("baseline.sql matches deterministic generator output")
+def render_section(body):
+    return "\n".join(body) + "\nCOMMIT;\n-- END SECTION\n"
+
+
+operator_header = (
+    "-- GENERATED OPERATOR-ONLY SNAPSHOT RESTORATION; schema only; NEVER APPLY TO PRODUCTION.\n"
+    "-- Manual review only. NOT automatically required for a new Supabase project, which has its own defaults.\n"
+    "-- Only a Supabase-authorised administrator with authority over supabase_admin defaults,\n"
+    "-- public/Storage schema ownership, Storage object grants and event triggers can run corresponding sections.\n"
+    "-- Ordinary hosted postgres authority is NOT established; never bypass this role boundary.\n"
+    "-- Broad captured grants are reproduced as historical evidence, not recommended new defaults.\n"
+    "-- Each named section is independently transactional. Use ON_ERROR_STOP=1 and explicit approval.\n\n"
+)
+outputs = {
+    OUTPUT: header + "\n".join(render_section(baseline_sections[name]) for name in sorted(baseline_sections)),
+    OPERATOR_OUTPUT: operator_header + "\n".join(render_section(operator_sections[name]) for name in sorted(operator_sections)),
+}
+if args.section:
+    body = baseline_sections.get(args.section) or operator_sections.get(args.section)
+    if body is None:
+        raise SystemExit("Unknown section. Choose: " + ", ".join([*baseline_sections, *operator_sections]))
+    sys.stdout.write((operator_header if args.section in operator_sections else header) + render_section(body))
 else:
-    OUTPUT.write_text(generated)
-    print(f"Wrote {OUTPUT.relative_to(ROOT)} ({len(lines)} statements/comments)")
+    for path, generated in outputs.items():
+        if args.check:
+            if not path.exists() or path.read_text() != generated:
+                raise SystemExit(f"{path.name} is stale; run the generator without --check")
+            print(f"{path.name} matches deterministic generator output")
+        else:
+            path.write_text(generated)
+            print(f"Wrote {path.relative_to(ROOT)}")
