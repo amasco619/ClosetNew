@@ -18,13 +18,22 @@ assert.match(
 );
 assert.match(
   profile,
-  /if \(signedOut\) \{\s*\/\/ Remove the old tabs from navigation history so Android Back cannot reopen deleted account UI\.\s*router\.dismissAll\(\);\s*router\.replace\('\/sign-in'\);\s*\}/,
-  'successful deletion and sign-out clear the stale tab stack before showing sign-in',
+  /\/\/ Deletion is confirmed; never leave deleted-account screens in the navigation history\.\s*router\.dismissAll\(\);\s*router\.replace\('\/sign-in'\);/,
+  'confirmed deletion clears the stale tab stack even if local sign-out fails',
 );
 assert.match(
   appContext,
   /if \(event === 'SIGNED_OUT'\) \{\s*setAuthSessionEnded\(true\);/,
   'a confirmed Supabase sign-out records that the auth session ended',
+);
+const deletedAccountCleanup = appContext.match(
+  /const clearDeletedAccountLocalData = useCallback\(async \(\) => \{([\s\S]*?)\n  \}, \[\]\);/,
+)?.[1];
+assert.ok(deletedAccountCleanup, 'deleted-account local cleanup exists');
+assert.match(
+  deletedAccountCleanup,
+  /setAuthSessionEnded\(true\);[\s\S]*?setProfile\(defaultProfile\);[\s\S]*?setWardrobeItems\(\[\]\);[\s\S]*?let journalCleared = true;/,
+  'confirmed deletion ends the app session and clears in-memory account data before asynchronous device cleanup',
 );
 assert.match(
   appContext,
@@ -263,7 +272,7 @@ async function verifyDeletionNavigationInMountedProfile() {
       label: 'sign-out failure',
       cleanupResult: true,
       signOutFails: true,
-      navigates: false,
+      navigates: true,
       showsWarning: true,
     },
     {
@@ -306,6 +315,9 @@ async function verifyDeletionNavigationInMountedProfile() {
       retryInitialization: () => {},
       clearDeletedAccountLocalData: async () => {
         mountedMocks.localCleanupCalls++;
+        mountedMocks.appState.authSessionEnded = true;
+        mountedMocks.appState.profile = { name: '' };
+        mountedMocks.appState.wardrobeItems = [];
         return mountedMocks.localCleanupResult;
       },
     };
@@ -330,6 +342,12 @@ async function verifyDeletionNavigationInMountedProfile() {
     }], `${scenario.label}: server account deletion was confirmed successfully`);
     assert.equal(mountedMocks.localCleanupCalls, 1, `${scenario.label}: local account cleanup ran once`);
     assert.equal(mountedMocks.signOutCalls, 1, `${scenario.label}: local Supabase sign-out was attempted once`);
+    assert.equal(mountedMocks.appState.authSessionEnded, true,
+      `${scenario.label}: deleted account is marked ended independently of sign-out`);
+    assert.deepEqual(mountedMocks.appState.profile, { name: '' },
+      `${scenario.label}: cached profile data is inaccessible`);
+    assert.deepEqual(mountedMocks.appState.wardrobeItems, [],
+      `${scenario.label}: cached wardrobe data is inaccessible`);
     assert.deepEqual(
       mountedMocks.notifications,
       scenario.showsWarning ? [warning] : [],
@@ -338,7 +356,7 @@ async function verifyDeletionNavigationInMountedProfile() {
     assert.equal(
       mountedMocks.dismissAllCalls,
       scenario.navigates ? 1 : 0,
-      `${scenario.label}: old navigation stack is dismissed only after successful sign-out`,
+      `${scenario.label}: deleted-account routes are removed regardless of sign-out result`,
     );
     assert.deepEqual(
       mountedMocks.navigation,

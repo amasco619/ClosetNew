@@ -1457,30 +1457,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     accountGenerationRef.current += 1;
     currentUserIdRef.current = null;
     currentUserGenerationRef.current = null;
-    let journalCleared = true;
-    if (deletingOwner) {
-      try {
-        photoUris.push(...(await guestWardrobeSync.removeOwner(deletingOwner))
-          .map(uri => uri ? rebaseGuestPhotoUri(uri, FileSystem.documentDirectory ?? '') : uri));
-      } catch {
-        journalCleared = false;
-      }
-    }
-    wardrobeItemsRef.current = [];
-    pendingPhotoCleanupsRef.current = [];
-    await pendingPhotoCleanupQueueRef.current.catch(() => undefined);
-
-    const cacheCleared = await clearAccountDeviceData({
-      removeStorageKeys: async keys => {
-        pendingPhotoCleanupsRef.current = [];
-        await AsyncStorage.multiRemove([...keys]);
-      },
-      photoUris,
-      documentDirectory: FileSystem.documentDirectory,
-      deleteAsync: FileSystem.deleteAsync,
-      clearSignedPhotoCache: clearSignedWardrobeUrlCache,
-    });
-
+    setAuthSessionEnded(true);
     setIsAuthenticated(false);
     setAuthenticatedUserId(null);
     setProfile(defaultProfile);
@@ -1501,6 +1478,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLastAddedSuggestions([]);
     setWeather(null);
     setWeatherLoading(false);
+    setGuestWardrobeSyncState({ syncing: false, pending: 0, capacity: false, notice: null });
+    setGuestPendingWardrobeItems([]);
+    wardrobeItemsRef.current = [];
+    pendingPhotoCleanupsRef.current = [];
+
+    let journalCleared = true;
+    if (deletingOwner) {
+      try {
+        photoUris.push(...(await guestWardrobeSync.removeOwner(deletingOwner))
+          .map(uri => uri ? rebaseGuestPhotoUri(uri, FileSystem.documentDirectory ?? '') : uri));
+      } catch {
+        journalCleared = false;
+      }
+    }
+    await pendingPhotoCleanupQueueRef.current.catch(() => undefined);
+
+    const cacheCleared = await clearAccountDeviceData({
+      removeStorageKeys: async keys => {
+        pendingPhotoCleanupsRef.current = [];
+        await AsyncStorage.multiRemove([...keys]);
+      },
+      photoUris,
+      documentDirectory: FileSystem.documentDirectory,
+      deleteAsync: FileSystem.deleteAsync,
+      clearSignedPhotoCache: clearSignedWardrobeUrlCache,
+    });
 
     return cacheCleared && journalCleared;
   }, []);

@@ -227,7 +227,7 @@ On cold start, `AppContext.loadData()` is the single owner of the initialization
 Two context flags exposed to consumers:
 - `appReady: boolean` — safe to route; only `true` after full initialization
 - `isAuthenticated: boolean` — `true` when a valid Supabase session was found and DB data was loaded
-- `authSessionEnded: boolean` — `true` only after Supabase confirms `SIGNED_OUT`; the root navigator routes to sign-in and clears private history
+- `authSessionEnded: boolean` — `true` after Supabase confirms `SIGNED_OUT` or account deletion succeeds; the root navigator routes to sign-in and clears private history
 
 ### Garment Classification Flow
 
@@ -1502,7 +1502,7 @@ These features are **not yet implemented**. They are the next development priori
 | `stylingRelationships.test.ts` | Additive Phase A membership projection, owner/parent checks, all three types, pre-evaluation coordinated construction under shortlist crowding, relationship removal and renamed-garment controls, Western complements, normal alternatives, immutable canonical/shared facts, transient provenance and provider-free graph |
 | `swipeDismiss.test.ts` | Exact-top gesture capture, scroll gating during movement/release, 120 px threshold, and scroll-ref/accessible-close wiring on all three sheet routes |
 | `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, pending-receipt preservation and cleanup across partial retries |
-| `accountDeletionNavigation.test.ts` | Real Expo Router reducers and mounted Profile cases verify successful deletion/sign-out replaces stale tabs with sign-in without a cleanup warning; failure cases retain their warning behavior |
+| `accountDeletionNavigation.test.ts` | Real Expo Router reducers and mounted Profile cases verify confirmed deletion clears cached account data and removes stale routes even when sign-out fails, while preserving the incomplete-cleanup warning |
 | `accountDeletionRateLimit.test.ts` | In-app deletion's 60/hour IP and 5/hour authenticated-user limits, ordering, fixed-window Retry-After, user isolation, and failed-attempt counting |
 | `accountDeletionLocalCleanup.test.ts` | Confirmed deletion clears account cache keys, local wardrobe photos, and signed-photo cache; server failure preserves them for retry |
 | `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival and prune-interval state using isolated persistence fixtures; no live database integration |
@@ -2440,9 +2440,11 @@ Auth deletion only runs if all prior cleanup succeeds.
 Failure responses do not assert that nothing was deleted: earlier steps may
 have completed. Repeating the cleanup against an account that still exists
 is safe for empty buckets and already-removed rows. The OTP web path requires
-a new verification code to retry. The in-app client clears its local cache
-and signs out only after explicit server success; if device cleanup fails
-after confirmed deletion, it reports that separate failure truthfully.
+a new verification code to retry. After explicit server success, the in-app
+client marks the session ended and clears in-memory account data before waiting
+on persistent device cleanup. It then attempts local sign-out and always removes
+deleted-account routes; if local cleanup or sign-out fails, it reports the
+incomplete device cleanup without claiming sign-out succeeded.
 No database transaction or rollback is implied.
 `__tests__/accountDeletion.test.ts` injects
 failure at every stage for both routes and verifies partial-cleanup retries.
@@ -3613,10 +3615,12 @@ matching repository migration; local stub parity does not prove hosted parity.
 After a successful normal sign-out from Profile, clear the existing tab stack
 with `router.dismissAll()` before replacing the route with `/sign-in`. Keep both
 navigation operations after the awaited sign-out so a failure preserves the
-current screen and account state. Account deletion uses the same stack-clearing
-order after successful local sign-out. The navigation regression test builds a
-nested tabs/profile route beneath sign-in, applies Expo Router's stack and tab
-reducers, and verifies sign-in is the only remaining route and GO_BACK cannot
-reveal the deleted account screen.
+current screen and account state. Confirmed account deletion is different:
+immediately clear in-memory account data and mark the session ended before
+device cleanup awaits; remove deleted-account routes whether or not local
+sign-out succeeds. The cleanup warning must not imply sign-out succeeded. The
+navigation regression test builds a nested tabs/profile route beneath sign-in,
+applies Expo Router's stack and tab reducers, and verifies sign-in is the only
+remaining route and GO_BACK cannot reveal the deleted account screen.
 
 **Code:** `app/(tabs)/profile.tsx`, `__tests__/accountDeletionNavigation.test.ts`
