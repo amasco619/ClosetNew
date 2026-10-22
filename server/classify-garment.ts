@@ -824,6 +824,7 @@ export async function classifyGarment(req: Request, res: Response) {
   let modelVersion: string | null = null;
   let attempt = 0;
   let providerStatus: number | null = null;
+  let providerFinishReason: string | null = null;
   let imageSha256: string | null = null;
   let imageBytes: number | null = null;
   let mimeType: string | null = null;
@@ -834,7 +835,7 @@ export async function classifyGarment(req: Request, res: Response) {
     console.info(JSON.stringify({
       type: "classification", classificationId, stage, code, httpStatus,
       imageSha256, imageBytes, mimeType, promptSha256,
-      modelRequested, modelVersion, attempt, providerStatus,
+      modelRequested, modelVersion, attempt, providerStatus, providerFinishReason,
       elapsedMs: Date.now() - startedAt,
     }));
   };
@@ -906,7 +907,9 @@ export async function classifyGarment(req: Request, res: Response) {
       generationConfig: {
         responseMimeType: "application/json",
         temperature: 0.1,
-        maxOutputTokens: 512,
+        // Gemini 2.5 counts reasoning against this budget too. At 512, reasoning
+        // can consume almost everything and truncate the classification JSON.
+        maxOutputTokens: 2048,
       },
     };
 
@@ -924,7 +927,15 @@ export async function classifyGarment(req: Request, res: Response) {
       try {
         geminiRes = await axios.post(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          geminiReq,
+          {
+            ...geminiReq,
+            generationConfig: {
+              ...geminiReq.generationConfig,
+              // Reserve room for the JSON answer without disabling reasoning.
+              // Do not send 2.5-specific options to the rolling fallback model.
+              ...(model === "gemini-2.5-flash" ? { thinkingConfig: { thinkingBudget: 1024 } } : {}),
+            },
+          },
           { timeout: 20000 }
         );
         stage = "provider_response";
@@ -934,9 +945,13 @@ export async function classifyGarment(req: Request, res: Response) {
         const version = geminiRes.data?.modelVersion;
         modelVersion = typeof version === "string" && /^gemini-[a-z0-9.-]{1,80}$/.test(version)
           ? version : null;
+        const finishReason = geminiRes.data?.candidates?.[0]?.finishReason;
+        providerFinishReason = ["STOP", "MAX_TOKENS", "SAFETY", "RECITATION", "OTHER"].includes(finishReason)
+          ? finishReason : null;
         console.info(JSON.stringify({
           type: "classification_attempt", classificationId, modelRequested, modelVersion,
-          attempt, providerStatus, elapsedMs: Date.now() - attemptStartedAt, code: "PROVIDER_OK",
+          attempt, providerStatus, providerFinishReason,
+          elapsedMs: Date.now() - attemptStartedAt, code: "PROVIDER_OK",
         }));
         break;
       } catch (err: any) {
@@ -952,6 +967,11 @@ export async function classifyGarment(req: Request, res: Response) {
       }
     }
     if (!geminiRes) throw lastErr;
+
+    if (providerFinishReason === "MAX_TOKENS") {
+      trace("OUTPUT_TRUNCATED", 502);
+      return malformedClassifierResponse(res);
+    }
 
     stage = "parse";
     const rawText: string =

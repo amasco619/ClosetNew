@@ -2798,6 +2798,25 @@ unchanged; this is model selection, not a broader classifier redesign.
 The alias fallback can still time out or be unavailable when the primary is
 quota-limited; failures retain the existing retry/manual alternatives.
 
+The subsequent physical-device retest exposed a second issue: HTTP 200 provider
+responses with incomplete JSON. Controlled probes of the bundled blue shirt and
+beige slip dress with the actual prompt both returned `MAX_TOKENS` at the old
+512-token cap: reasoning consumed 489/488 tokens and the answer contained only
+22/24 characters. With a 2048-token cap both returned complete JSON and `STOP`;
+the shoe returned complete JSON at both caps. The shared handler now requests
+2048 tokens (including reasoning) and caps the default 2.5 model's reasoning at
+1024 to reserve answer space without disabling reasoning. This 2.5-specific
+option is not sent to the rolling fallback. It keeps existing deadlines and validation,
+and rejects `MAX_TOKENS` explicitly as `OUTPUT_TRUNCATED` in diagnostic traces.
+Only an allowlisted finish reason is logged—never raw provider output. There is
+no JSON repair, acceptance of partial classifications, or extra provider retry.
+The earlier single-shoe success proved liveness, not reliable completion across
+different garment images. No prompt/schema, consent, quota or storage change.
+With the final bounded-reasoning configuration, the real shared handler returned
+validated HTTP 200/STOP for the bundled blue shirt in 6.429s and, concurrently,
+beige slip dress in 7.348s and pink flats in 3.979s. These are non-customer
+sample/provider checks, not a claim of physical-device or picker-to-save testing.
+
 The earlier GU-17 reproduction explicitly
 requested `gemini-2.5-flash-lite` and returned provider 404 before classification;
 this was not a permanent production pin and does not establish the historical
