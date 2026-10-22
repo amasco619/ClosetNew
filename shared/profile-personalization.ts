@@ -49,6 +49,15 @@ export function hasRequiredOnboardingFields(p: UserProfile): boolean {
     p.undertone && p.styleGoalPrimary);
 }
 
+export function firstUnansweredOnboardingStep(p: UserProfile): number {
+  if (!p.name?.trim()) return 0;
+  if (!p.bodyType) return 1;
+  if (!p.eyeColor) return 3;
+  if (!p.skinTone || !p.undertone) return 4;
+  if (!p.styleGoalPrimary) return 5;
+  return 0;
+}
+
 export function hasMigratableGuestProfile(profile: UserProfile | null): boolean {
   return !!(profile?.isGuest && profile.bodyType && profile.eyeColor &&
     (profile.styleGoalPrimary || profile.onboardingComplete));

@@ -108,7 +108,6 @@ const modules: Record<string, string> = {
     export const LIFESTYLE_SCENARIOS = [{ key: 'work', label: 'Work', desc: '' }]
   `,
   '../lib/responsive': `export const rs = value => value`,
-  '../shared/profile-personalization': `export const onboardingStyleGoal = value => value`,
   '@/constants/colors': `export default new Proxy({}, { get: (_, key) => String(key) })`,
   'expo-image': `
     import React from 'react'
@@ -177,6 +176,30 @@ function reset(params: typeof mocks.params = {}) {
   mocks.params = params;
   mocks.routes = [];
   mocks.backCalls = 0;
+  mocks.app.profile = {
+    name: '',
+    bodyType: null,
+    faceShape: null,
+    eyeColor: null,
+    skinTone: null,
+    undertone: null,
+    styleGoalPrimary: null,
+    styleGoalSecondary: null,
+    hairColor: null,
+    heightBand: null,
+    contrastLevel: null,
+    defaultMood: null,
+    industry: 'unspecified',
+    lifePhase: null,
+    metalPreference: null,
+    constraints: { colorAversions: [] },
+    lifestyleWork: 40,
+    lifestyleCasual: 40,
+    lifestyleEvents: 20,
+    lifestyleActive: 0,
+    lifestyleBrunch: 0,
+    isGuest: false,
+  };
 }
 
 async function mount(Component: React.ComponentType): Promise<MountedTree> {
@@ -240,7 +263,36 @@ async function main() {
   assert.equal(mocks.backCalls, 0);
   await unmount(laterStep);
 
-  console.log('Onboarding navigation: replaced-route return, Welcome choices, and in-flow back passed');
+  reset();
+  Object.assign(mocks.app.profile, {
+    name: 'Ava',
+    bodyType: 'pear',
+  });
+  const returningUser = await mount(Onboarding);
+  assert.ok(returningUser.root.findAllByType('Text').some(node => words(node).includes('STEP 4 OF 9')));
+  assert.ok(returningUser.root.findAllByType('Text').some(node => words(node).includes('Eye Colour')));
+  for (let i = 0; i < 3; i++) {
+    const backButton = returningUser.root.findAllByType('Pressable').find(node => node.props.hitSlop === 12);
+    assert.ok(backButton);
+    await React.act(async () => backButton.props.onPress());
+  }
+  assert.equal(returningUser.root.findAllByType('TextInput')[0].props.value, 'Ava', 'saved answers remain prefilled when navigating back');
+  await unmount(returningUser);
+
+  reset();
+  Object.assign(mocks.app.profile, {
+    name: 'Ava',
+    bodyType: 'pear',
+    eyeColor: 'blue',
+    skinTone: 'light',
+    undertone: 'cool',
+    styleGoalPrimary: 'romantic',
+  });
+  const fullyAnswered = await mount(Onboarding);
+  assert.ok(fullyAnswered.root.findAllByType('Text').some(node => words(node).includes('STEP 1 OF 9')));
+  await unmount(fullyAnswered);
+
+  console.log('Onboarding navigation: replaced-route return, Welcome choices, in-flow back, and resume step passed');
 }
 
 void main().catch(error => { console.error(error); process.exitCode = 1; });

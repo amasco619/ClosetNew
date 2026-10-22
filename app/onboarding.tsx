@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeInRight, FadeInUp } from 'react-native-reanimated';
 import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/constants/lifestyle';
 import { rs } from '../lib/responsive';
-import { onboardingStyleGoal } from '../shared/profile-personalization';
+import { firstUnansweredOnboardingStep, onboardingStyleGoal } from '../shared/profile-personalization';
 
 const { width } = Dimensions.get('window');
 
@@ -182,7 +182,7 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { updateProfile, profile } = useApp();
   const params = useLocalSearchParams<{ guest?: string }>();
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(() => firstUnansweredOnboardingStep(profile));
   const [name, setName] = useState(profile.name || '');
   const [nameFocused, setNameFocused] = useState(false);
   const [bodyType, setBodyType] = useState<BodyType | null>(profile.bodyType);

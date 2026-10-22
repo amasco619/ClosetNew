@@ -4,6 +4,7 @@ import { transformSync } from 'esbuild';
 import {
   defaultProfile, mergeProfile, hydrateAccountProfile, hasMigratableGuestProfile,
   profileConstraints, onboardingStyleGoal, hasRequiredOnboardingFields,
+  firstUnansweredOnboardingStep,
 } from '../shared/profile-personalization';
 import { scoreItemForProfile } from '../constants/outfitScoring';
 import {
@@ -64,6 +65,20 @@ test('null/missing remote fields and missing profile reset to neutral defaults',
   assert.deepEqual(hydrateAccountProfile(null, ''), hydrateAccountProfile({}, ''));
   assert.equal(hasRequiredOnboardingFields(empty), false);
   assert.equal(empty.isGuest, false);
+});
+
+test('onboarding resumes at the earliest missing required answer', () => {
+  const complete = mergeProfile({
+    name: 'Ava', bodyType: 'pear', eyeColor: 'blue', skinTone: 'light',
+    undertone: 'cool', styleGoalPrimary: 'romantic',
+  });
+  assert.equal(firstUnansweredOnboardingStep(mergeProfile({ ...complete, name: '' })), 0);
+  assert.equal(firstUnansweredOnboardingStep(mergeProfile({ ...complete, bodyType: null })), 1);
+  assert.equal(firstUnansweredOnboardingStep(mergeProfile({ ...complete, eyeColor: null })), 3);
+  assert.equal(firstUnansweredOnboardingStep(mergeProfile({ ...complete, skinTone: null })), 4);
+  assert.equal(firstUnansweredOnboardingStep(mergeProfile({ ...complete, undertone: null })), 4);
+  assert.equal(firstUnansweredOnboardingStep(mergeProfile({ ...complete, styleGoalPrimary: null })), 5);
+  assert.equal(firstUnansweredOnboardingStep(complete), 0, 'fully answered profiles keep the existing start behavior');
 });
 
 test('current-account false, zero, empty string and explicit null are respected', () => {
