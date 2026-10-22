@@ -66,6 +66,10 @@ assert.match(appContext, /if \(!dbProfile\)[\s\S]*?await upsertUserProfile/,
   'a missing profile row is created without overwriting an existing remote profile');
 assert.match(appContext, /setGuestPendingWardrobeItems\(selectPendingGuestWardrobeItems/);
 
+const home = readFileSync('app/(tabs)/index.tsx', 'utf8');
+assert.match(home, /const handleCreateFreeAccount = \(\) => \{[\s\S]*?setShowAccountPrompt\(false\);[\s\S]*?setPromptDismissed\(true\);[\s\S]*?setTimeout\(\(\) => router\.push\('\/sign-in'\), 350\);/);
+assert.match(home, /onPress=\{handleCreateFreeAccount\}/);
+
 const bulk = readFileSync('app/bulk-review.tsx', 'utf8');
 assert.match(bulk, /isManual \? \([\s\S]*?onPress=\{\(\) => onManual\(item\.uri\)\}/,
   'the guest manual photo tile opens Add Item');

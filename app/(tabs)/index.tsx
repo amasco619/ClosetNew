@@ -161,6 +161,13 @@ export default function HomeScreen() {
     return () => clearTimeout(t);
   }, [isGuest, promptDismissed, wardrobeItems.length]);
 
+  const handleCreateFreeAccount = () => {
+    setShowAccountPrompt(false);
+    setPromptDismissed(true);
+    // Android Modal has no onDismiss callback; let its native fade finish before navigation.
+    setTimeout(() => router.push('/sign-in'), 350);
+  };
+
   const [showEmailConfirmed, setShowEmailConfirmed] = useState(false);
   const emailConfirmedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -677,7 +684,7 @@ export default function HomeScreen() {
             </Text>
             <Pressable
               style={({ pressed }) => [styles.promptPrimary, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-              onPress={() => { setShowAccountPrompt(false); router.push('/sign-in'); }}
+              onPress={handleCreateFreeAccount}
             >
               <Text style={styles.promptPrimaryText}>Create Free Account</Text>
             </Pressable>
