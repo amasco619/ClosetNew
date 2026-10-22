@@ -614,13 +614,13 @@ async function main() {
         isAuthenticated: true,
         appReady: true,
         profile: {
-          name: '',
-          bodyType: null,
-          eyeColor: null,
-          skinTone: null,
-          undertone: null,
+          name: 'Amodka User',
+          bodyType: 'hourglass',
+          eyeColor: 'brown',
+          skinTone: 'medium',
+          undertone: 'warm',
           styleGoalPrimary: null,
-          onboardingComplete: false,
+          onboardingComplete: true,
         },
       }
       signInTree.update(React.createElement(SignIn))
