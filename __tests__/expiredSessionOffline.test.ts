@@ -204,6 +204,22 @@ async function verifyOfflineRefreshKeepsAuthUntilConfirmedSignOut() {
   );
 
   await React.act(async () => {
+    await testMocks.authCallback('TOKEN_REFRESHED', {
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      user: { id: 'offline-user', user_metadata: {} },
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  assert.equal(current.isAuthenticated, true, 'a successful token refresh keeps authentication');
+  assert.equal(current.authenticatedUserId, 'offline-user');
+  assert.equal(current.authSessionEnded, false, 'a successful token refresh does not end the session');
+  assert.deepEqual(
+    routeState.routes.map((route: any) => route.name),
+    privateRoutesBeforeRefresh,
+    'private navigation history remains intact after connectivity recovers',
+  );
+
+  await React.act(async () => {
     await testMocks.authCallback('SIGNED_OUT', null);
   });
   assert.equal(current.isAuthenticated, false, 'confirmed sign-out clears authenticated state');
@@ -221,7 +237,7 @@ async function verifyOfflineRefreshKeepsAuthUntilConfirmedSignOut() {
 }
 
 void verifyOfflineRefreshKeepsAuthUntilConfirmedSignOut().then(() => {
-  console.log('Offline refresh failure preserves the mounted session until confirmed sign-out.');
+  console.log('Offline refresh recovery preserves the mounted session until confirmed sign-out.');
 }).catch(error => {
   console.error(error);
   process.exitCode = 1;
