@@ -21,7 +21,19 @@ export interface LockoutPersistenceLayer {
 
 export const _testOverrides: { client?: StoreClient } = {};
 
+// Missing fixtures must fail, not fall through to the application's live client.
+export function assertSecurityStoreTestClient(clientOverride?: StoreClient | null): void {
+  if (
+    process.env.NODE_ENV === "test" &&
+    clientOverride === undefined &&
+    !_testOverrides.client
+  ) {
+    throw new Error("Live security-store access blocked under NODE_ENV=test; inject a fake client or an explicit in-memory store");
+  }
+}
+
 async function getStoreClient(): Promise<StoreClient> {
+  assertSecurityStoreTestClient();
   if (process.env.NODE_ENV === "test" && _testOverrides.client) {
     return _testOverrides.client;
   }
@@ -108,6 +120,7 @@ export class SupabaseRateLimitStore implements Store {
   }
 
   async increment(key: string): Promise<ClientRateLimitInfo> {
+    assertSecurityStoreTestClient(this.clientOverride);
     const fullKey = this.fullKey(key);
     try {
       const client = await this.client();
@@ -138,6 +151,7 @@ export class SupabaseRateLimitStore implements Store {
   }
 
   async decrement(key: string): Promise<void> {
+    assertSecurityStoreTestClient(this.clientOverride);
     const fullKey = this.fullKey(key);
     try {
       const client = await this.client();
@@ -159,6 +173,7 @@ export class SupabaseRateLimitStore implements Store {
   }
 
   async resetKey(key: string): Promise<void> {
+    assertSecurityStoreTestClient(this.clientOverride);
     const fullKey = this.fullKey(key);
     try {
       const client = await this.client();
@@ -177,6 +192,7 @@ export class SupabaseRateLimitStore implements Store {
   }
 
   async resetAll(): Promise<void> {
+    assertSecurityStoreTestClient(this.clientOverride);
     try {
       const client = await this.client();
       if (client) {
@@ -197,6 +213,7 @@ export class SupabaseRateLimitStore implements Store {
   }
 
   async loadFromSupabase(): Promise<void> {
+    assertSecurityStoreTestClient(this.clientOverride);
     try {
       const client = await this.client();
       if (!client) return;

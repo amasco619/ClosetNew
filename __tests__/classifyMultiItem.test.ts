@@ -384,6 +384,7 @@ async function runHttpTests(): Promise<void> {
     console.log("  ✓ 32. no DB/Storage/group dependency; both routes require account AI consent");
 
     const registeredApp = express();
+    assert.equal(process.env.NODE_ENV, "test", "Run the route fixture via npm test, not against live stores");
     registeredApp.use(express.json({ limit: "10mb" }));
     __storeOverrides.client = {
       rpc: async (_name: string, args: { p_window_ms?: number }) => ({

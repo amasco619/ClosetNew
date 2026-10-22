@@ -2,6 +2,7 @@ import rateLimit, { type Options } from "express-rate-limit";
 import type { Request, Response } from "express";
 import {
   SupabaseRateLimitStore,
+  assertSecurityStoreTestClient,
   _testOverrides as storeTestOverrides,
   createSupabaseLockoutPersistence,
   pruneLockoutRows,
@@ -34,6 +35,7 @@ export let __rlPruneIntervalForTesting: ReturnType<typeof setTimeout> | null = n
 export let __lockoutPruneIntervalForTesting: ReturnType<typeof setTimeout> | null = null;
 
 function getPersistence(): LockoutPersistenceLayer {
+  if (!_isPersistenceTestOverride) assertSecurityStoreTestClient();
   if (_persistence !== null) return _persistence;
   _persistence = createSupabaseLockoutPersistence();
   return _persistence;
@@ -145,6 +147,7 @@ export async function initLockoutStore(): Promise<void> {
 const _stores = new Map<string, SupabaseRateLimitStore>();
 
 export async function initRateLimitStore(): Promise<void> {
+  assertSecurityStoreTestClient();
   try {
     const removed = await pruneRateLimitRows();
     console.log(`[rateLimiter] Supabase rate-limit store ready; pruned ${removed} expired row(s)`);

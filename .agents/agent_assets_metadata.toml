@@ -673,3 +673,17 @@ mtime_ms = 1792584908561
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/2bdba5e3-8154-4ff1-b7e1-4cf25fa7938e/6e1badd2-fbd0-42f7-b217-ee60a8d90875"
 storage_version_token = "1792585051355140"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "KdU1tIRVdaBM8V_RDWJvR"
+uri = "file://docs/reports/dependency-phase2-isolation-and-updates.md"
+type = "text"
+title = "Amodka dependency updates and test-isolation report"
+description = "Exact dependency changes, live counter evidence, three-run test proof, all remaining high/critical records, and native bundle limitations."
+logical_id = "3f0edeb4-fd75-4bdf-a1a8-31fa33ddf649"
+content_hash = "sha256:9b4eb5ddfd99e66f6dda7f528f86f6a26557319554009ba6e11ff3e657886995"
+size = 23107
+mtime_ms = 1792664491515
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/3f0edeb4-fd75-4bdf-a1a8-31fa33ddf649/78232a92-4b29-46de-9980-dd30926fcda8"
+storage_version_token = "1792664545509011"
+content_type = "text/markdown"

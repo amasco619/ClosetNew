@@ -10,6 +10,8 @@ import express from "express";
 import request from "supertest";
 import { registerRoutes, _testOverrides as routeTestOverrides } from "../server/routes";
 import { _testOverrides as entitlementTestOverrides } from "../server/entitlements";
+import { __storeOverrides } from "../server/middleware/rateLimiter";
+import { makeSecurityStoreFixture } from "./helpers/securityStoreFixture";
 
 // An isolated local PostgreSQL cluster: no application, Supabase or production data.
 const dir = mkdtempSync(join(tmpdir(), "amodka-b1-"));
@@ -204,6 +206,7 @@ async function main(): Promise<void> {
     try {
       await serverDb.query("SET ROLE service_role");
       const app = express();
+      __storeOverrides.client = makeSecurityStoreFixture().client;
       app.set("trust proxy", () => true);
       app.use(express.json());
       await registerRoutes(app);

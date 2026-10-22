@@ -18,7 +18,7 @@
  */
 
 import express from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { MemoryStore } from "express-rate-limit";
 import request from "supertest";
 import axios from "axios";
 import { classifyGarment } from "../server/classify-garment";
@@ -67,6 +67,7 @@ function buildApp(): express.Application {
  */
 function buildLimitedApp(): express.Application {
   const limiter = rateLimit({
+    store: new MemoryStore(),
     ...LIMITER_CONFIGS.aiLimiter,
     standardHeaders: true,
     legacyHeaders: true,

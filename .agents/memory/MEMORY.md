@@ -20,7 +20,7 @@
 - [Premium entitlement boundary](premium-entitlement-boundary.md) — premium is expiry-aware server state; local cache, JWT claims, and client routes can never grant it
 - [Benchmark gold-label independence](benchmark-gold-label-independence.md) — reviewer package must carry zero author-assigned evaluative metadata; two-tier fixtures + validator enforce it
 - [Track C v3.7 baseline interpretation](track-c-baseline-interpretation.md) — keep fixed-candidate scoring and full-generator support separate; baseline recommends material remediation before launch
-- [Persistent rate-limiter tests](persistent-rate-limiter-tests.md) — use distinct client IPs across test runs when exercising real persistent limiters to avoid false 429s
+- [Persistent rate-limiter tests](persistent-rate-limiter-tests.md) — inject memory/fake stores; missing test fixtures must fail before live access or fallback.
 - [Test-only npm installs](test-only-npm-installs.md) — package install callback saves npm packages as runtime deps; move test-only packages into devDependencies in both manifests.
 - [AI consent storage](ai-consent-storage.md) — no-choice displays ON but is not consent; server metadata remains authoritative and explicit OFF is never overridden.
 - [Local PostgreSQL child-process startup](local-postgres-child-process.md) — redirect daemon output when starting disposable PostgreSQL from a test with captured child-process streams.

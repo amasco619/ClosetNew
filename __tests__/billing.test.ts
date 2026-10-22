@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { __storeOverrides } from "../server/middleware/rateLimiter";
+import { makeSecurityStoreFixture } from "./helpers/securityStoreFixture";
 
 process.env.SUPABASE_URL ||= "http://127.0.0.1:54321";
 process.env.SUPABASE_SECRET_KEY ||= "test-only-service-role-key";
@@ -47,6 +49,7 @@ function payload(overrides: Record<string, unknown> = {}) {
 }
 
 async function main(): Promise<void> {
+  __storeOverrides.client = makeSecurityStoreFixture().client;
   const {
     _billingTestOverrides,
     hasRevenueCatProductConfiguration,
@@ -197,7 +200,7 @@ async function main(): Promise<void> {
   const { registerRoutes, _testOverrides: routeOverrides } = await import("../server/routes");
   const app = express();
   app.set("trust proxy", () => true);
-  const testIp = `198.51.100.${(Date.now() % 250) + 1}`;
+  const testIp = "198.51.100.1";
   app.use(
     "/api/billing/revenuecat/webhook",
     express.raw({ type: "application/json" }),
@@ -214,7 +217,7 @@ async function main(): Promise<void> {
     .send({ userId: "some-other-user" });
   assert.equal(unauthenticatedReconcile.status, 401,
     "purchase/restore reconciliation requires an authenticated Amodka identity");
-  const readinessIp = `198.51.100.${((Date.now() + 41) % 250) + 1}`;
+  const readinessIp = "198.51.100.2";
   const unauthenticatedReadiness = await request(app)
     .get("/api/user/billing/readiness")
     .set("X-Forwarded-For", readinessIp);
@@ -223,11 +226,11 @@ async function main(): Promise<void> {
   routeOverrides.authenticatedUser = { id: userId };
   const readiness = await request(app)
     .get("/api/user/billing/readiness")
-    .set("X-Forwarded-For", `198.51.100.${((Date.now() + 43) % 250) + 1}`);
+    .set("X-Forwarded-For", "198.51.100.3");
   assert.equal(readiness.status, 200);
   assert.deepEqual(readiness.body, { ready: true },
     "authenticated readiness uses billing config and the service-role migration RPC");
-  const purchaseFlowIp = `198.51.100.${((Date.now() + 61) % 250) + 1}`;
+  const purchaseFlowIp = "198.51.100.4";
   const purchaseFlowExpiry = new Date(Date.now() + 86_400_000).toISOString();
   _billingTestOverrides.fetch = async () => ({
     ok: true,
@@ -276,7 +279,7 @@ async function main(): Promise<void> {
   readinessRpcUnavailable = true;
   const notReady = await request(app)
     .get("/api/user/billing/readiness")
-    .set("X-Forwarded-For", `198.51.100.${((Date.now() + 45) % 250) + 1}`);
+    .set("X-Forwarded-For", "198.51.100.5");
   assert.equal(notReady.status, 200);
   assert.deepEqual(notReady.body, { ready: false },
     "readiness fails closed if the service-role migration RPC is unavailable");
@@ -285,7 +288,7 @@ async function main(): Promise<void> {
   delete process.env.REVENUECAT_SECRET_API_KEY;
   const missingApiKey = await request(app)
     .get("/api/user/billing/readiness")
-    .set("X-Forwarded-For", `198.51.100.${((Date.now() + 49) % 250) + 1}`);
+    .set("X-Forwarded-For", "198.51.100.6");
   assert.deepEqual(missingApiKey.body, { ready: false },
     "readiness requires the RevenueCat REST API key");
   process.env.REVENUECAT_SECRET_API_KEY = apiKey;
@@ -293,7 +296,7 @@ async function main(): Promise<void> {
   delete process.env.REVENUECAT_WEBHOOK_SECRET;
   const missingWebhookSecret = await request(app)
     .get("/api/user/billing/readiness")
-    .set("X-Forwarded-For", `198.51.100.${((Date.now() + 51) % 250) + 1}`);
+    .set("X-Forwarded-For", "198.51.100.7");
   assert.deepEqual(missingWebhookSecret.body, { ready: false },
     "readiness requires the webhook verification secret");
   process.env.REVENUECAT_WEBHOOK_SECRET = webhookSecret;
@@ -311,7 +314,7 @@ async function main(): Promise<void> {
   try {
     const partialDeletion = await request(app)
       .delete("/api/user/delete-account")
-      .set("X-Forwarded-For", `198.51.100.${((Date.now() + 47) % 250) + 1}`)
+      .set("X-Forwarded-For", "198.51.100.8")
       .send({ userId });
     assert.equal(partialDeletion.status, 500);
     assert.equal(accountTombstoned, true,

@@ -16,7 +16,7 @@
  */
 
 import express from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { MemoryStore } from "express-rate-limit";
 import request from "supertest";
 
 import {
@@ -78,6 +78,7 @@ async function sendRequests(app: express.Application, count: number): Promise<nu
  */
 function freshLimiter(key: keyof typeof LIMITER_CONFIGS): express.RequestHandler {
   return rateLimit({
+    store: new MemoryStore(),
     ...LIMITER_CONFIGS[key],
     standardHeaders: true,
     legacyHeaders: true,
@@ -452,6 +453,7 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
   section("Shared auth budget — exhausting budget on route A blocks route B");
   {
     const sharedAuthLimiter = rateLimit({
+      store: new MemoryStore(),
       ...LIMITER_CONFIGS.authLimiter,
       standardHeaders: true,
       legacyHeaders: true,
@@ -459,6 +461,7 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
     });
 
     const resetOnlyLimiter = rateLimit({
+      store: new MemoryStore(),
       ...LIMITER_CONFIGS.resetLimiter,
       standardHeaders: true,
       legacyHeaders: true,
@@ -496,6 +499,7 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
   section("Shared auth budget — reset-password resetLimiter also fires independently");
   {
     const sharedAuthLimiter2 = rateLimit({
+      store: new MemoryStore(),
       ...LIMITER_CONFIGS.authLimiter,
       standardHeaders: true,
       legacyHeaders: true,
@@ -503,6 +507,7 @@ async function assertLimiterBlocks(key: keyof typeof LIMITER_CONFIGS): Promise<v
     });
 
     const resetOnlyLimiter2 = rateLimit({
+      store: new MemoryStore(),
       ...LIMITER_CONFIGS.resetLimiter,
       standardHeaders: true,
       legacyHeaders: true,

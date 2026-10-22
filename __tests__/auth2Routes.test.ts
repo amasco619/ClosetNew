@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { randomInt } from "node:crypto";
 import express from "express";
 import request from "supertest";
 import {
@@ -19,7 +18,6 @@ let recordFailedAttempt: typeof import("../server/middleware/rateLimiter").recor
 let storeTestOverrides: typeof import("../server/middleware/rateLimiter").__storeOverrides;
 
 let ipCounter = 1;
-const ipRun = randomInt(1, 255);
 function makeRateLimitClient() {
   const counts = new Map<string, number>();
   return {
@@ -44,7 +42,8 @@ function makeRateLimitClient() {
 function uniqueIp(): string {
   // Every assertion gets its own limiter bucket.  The only intentionally
   // repeated IP in this file is the explicit limiter test.
-  return `198.${ipRun}.${Math.floor(ipCounter / 254) + 1}.${(ipCounter++ % 254) + 1}`;
+  assert(ipCounter < 255, "fixture must stay within its reserved documentation subnet");
+  return `198.51.100.${ipCounter++}`;
 }
 
 async function makeApp() {
@@ -64,6 +63,7 @@ function post(app: express.Express, path: string, body: any, origin?: string) {
 }
 
 async function main() {
+  assert.equal(process.env.NODE_ENV, "test", "Run this fixture via npm test, not against live stores");
   // Use an isolated fake RPC/table client so this route test never writes to Supabase.
   const [routes, auth, limiter] = await Promise.all([
     import("../server/routes"),
@@ -442,7 +442,7 @@ async function main() {
       "invalid credentials still trigger the per-account lockout");
 
     // Actual auth + reset limiters remain mounted (six requests from one IP).
-    const limiterIp = `203.${ipRun}.113.77`;
+    const limiterIp = "203.0.113.77";
     for (let i = 0; i < 5; i++) {
       const response = await request(app).post("/api/auth/sign-up")
         .set("X-Forwarded-For", limiterIp)
@@ -453,7 +453,7 @@ async function main() {
       .set("X-Forwarded-For", limiterIp)
       .send({ email: "limit-final@example.com", password: PASSWORD });
     assert.equal(limited.status, 429, "auth limiter is mounted");
-    const resetLimiterIp = `203.${ipRun}.113.78`;
+    const resetLimiterIp = "203.0.113.78";
     for (let i = 0; i < 3; i++) {
       const response = await request(app).post("/api/auth/reset-password")
         .set("X-Forwarded-For", resetLimiterIp)
@@ -465,7 +465,7 @@ async function main() {
       .send({ email: "reset-limit-final@example.com" });
     assert.equal(resetLimited.status, 429, "reset limiter is mounted");
 
-    const sharedIp = `203.${ipRun}.114.79`;
+    const sharedIp = "203.0.113.79";
     for (let i = 0; i < 5; i++) {
       const response = await request(app).post("/api/auth/sign-in")
         .set("X-Forwarded-For", sharedIp).send({ email: "invalid", password: PASSWORD });

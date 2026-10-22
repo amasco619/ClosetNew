@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { randomInt } from "node:crypto";
 import express from "express";
 import request from "supertest";
 import { registerRoutes, _testOverrides } from "../server/routes";
@@ -193,9 +192,9 @@ async function main() {
   await registerRoutes(app);
 
   async function attempt(route: "app" | "web") {
-    // Real limiter stays enabled; avoid persistent counters from other test runs.
+    // Real middleware, isolated fake counters; no random/live-store identities.
     rateLimitRows.clear();
-    const ip = `203.${randomInt(1, 255)}.${randomInt(1, 255)}.${randomInt(1, 255)}`;
+    const ip = "203.0.113.1";
     return route === "app"
       ? request(app).delete("/api/user/delete-account").set("X-Forwarded-For", ip).send({ userId })
       : request(app).post("/api/delete-account-confirm").set("X-Forwarded-For", ip)
@@ -302,7 +301,7 @@ async function main() {
         mock.restore();
       }
     }
-    const limitedIp = `202.${randomInt(1, 255)}.${randomInt(1, 255)}.${randomInt(1, 255)}`;
+    const limitedIp = "203.0.113.2";
     const mock = mockDeletion();
     try {
       rateLimitRows.clear();

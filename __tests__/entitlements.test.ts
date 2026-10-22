@@ -8,6 +8,8 @@ import {
   _testOverrides as entitlementTestOverrides,
 } from "../server/entitlements";
 import { normalizeEntitlement } from "../lib/entitlements";
+import { __storeOverrides } from "../server/middleware/rateLimiter";
+import { makeSecurityStoreFixture } from "./helpers/securityStoreFixture";
 
 let failed = 0;
 
@@ -38,6 +40,7 @@ function buildClient(
 }
 
 async function buildApp(): Promise<express.Application> {
+  __storeOverrides.client = makeSecurityStoreFixture().client;
   const app = express();
   app.set("trust proxy", () => true);
   app.use(express.json());
@@ -78,7 +81,7 @@ async function buildApp(): Promise<express.Application> {
 
   console.log("\nEntitlement endpoint and retired upgrade route:");
   const app = await buildApp();
-  const testIp = `198.51.100.${Math.floor(Math.random() * 250) + 1}`;
+  const testIp = "198.51.100.1";
   const anonymous = await request(app)
     .get("/api/user/entitlements")
     .set("X-Forwarded-For", testIp);

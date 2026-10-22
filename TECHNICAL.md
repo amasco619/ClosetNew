@@ -1010,6 +1010,18 @@ written after this cutover is not present in the old store.
 
 **Code:** `server/middleware/rateLimiter.ts`, `server/routes.ts`
 
+**Test isolation:** Limiter and lockout tests must inject per-fixture memory/fake
+stores. Under `NODE_ENV=test`, missing security-store clients throw before live
+Supabase access or production fallback/logging catches. Mounted route fixtures
+must run in test mode; time-derived/random IPs are not a substitute for isolated
+persistence. `securityStoreIsolation.test.ts` covers the guarded paths. The
+dependency Phase 2 report records final three-run proof (123/123 each), audit
+counts, retained Drizzle/pg optional-peer limitations and the earlier Expo
+transitive-resolution deviations, including native-bundled Radix:
+[`docs/reports/dependency-phase2-isolation-and-updates.md`](docs/reports/dependency-phase2-isolation-and-updates.md).
+`pg` is a direct devDependency, but retained runtime Drizzle can still include it
+as an optional peer. No production limiter limits, logic or response copy changed.
+
 ---
 
 ### Session Storage

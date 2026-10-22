@@ -1,5 +1,29 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
+## Dependency Phase 2 and security-test isolation
+
+Limiter/lockout fixtures now fail before live Supabase access in test mode when
+an injected store is missing. Route fixtures use isolated stores and deterministic
+documentation IPs. The final tree passed three consecutive full suites (123 test
+files each), typecheck/lint, golden set 35/35, both benchmark validators including
+53 frozen checksums, Expo compatibility check and Android export.
+
+Approved compatible leaf updates reduced the root audit from 41 records before
+Step 3 to 35, then unused http-proxy-middleware removal reduced it to 34:
+1 critical, 23 high, 10 moderate. The compatible shell-quote fix was outside the
+named update list and remains outstanding. pg moved to direct devDependencies,
+but retained Drizzle still supplies an optional runtime peer edge. Drizzle and
+db:push were retained because historical documentation claims active ORM use
+while source searches and later reports find no use.
+
+The earlier Expo install did change extra transitive entries: Android release
+source maps include changed Radix react-slot and nested compose-refs, not Vaul.
+Earlier nested worklets removal and xcode changes are also recorded deviations;
+do not claim the entire protected installed graph was unchanged. No publication
+or device validation. See
+[`docs/reports/dependency-phase2-isolation-and-updates.md`](docs/reports/dependency-phase2-isolation-and-updates.md)
+for exact versions, remaining advisories, database read evidence and limitations.
+
 ## Account-deletion readiness and legacy Replit-table removal
 
 Authenticated in-app deletion now has a 60/hour IP ceiling before `requireAuth`

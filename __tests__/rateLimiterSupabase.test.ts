@@ -134,6 +134,7 @@ function makeFakeSupabase() {
 }
 
 async function main() {
+  assert.equal(process.env.NODE_ENV, "test", "Run this fixture via npm test, not against live stores");
   const originalNow = Date.now;
   let now = 1_800_000_000_000;
   Date.now = () => now;
