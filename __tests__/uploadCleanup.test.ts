@@ -121,9 +121,9 @@ async function main() {
   for (const token of ['pickerHash=', 'stagedAtPick=', 'sincePick=']) assert(!releaseCore.includes(token));
   const modelLine = readFileSync('server/classify-garment.ts', 'utf8').match(/export const CLASSIFIER_MODELS = (.*) as const;/)![1];
   const models = (value?: string) => new Function('process', `return ${modelLine}`)({ env: { GEMINI_PRIMARY_MODEL: value } });
-  assert.deepEqual(models(), ['gemini-2.5-flash', 'gemini-flash-lite-latest']);
+  assert.deepEqual(models(), ['gemini-flash-lite-latest', 'gemini-2.5-flash']);
   assert.deepEqual(models('  '), models());
-  assert.deepEqual(models(' pinned-model '), ['pinned-model', 'gemini-flash-lite-latest']);
+  assert.deepEqual(models(' pinned-model '), ['pinned-model', 'gemini-2.5-flash']);
   console.log('Upload cleanup: cache/save failure separation, calm states, cutout reuse, serial/paced retries, opt-in sanitized logs, release paths and model configuration passed.');
 }
 void main().catch(error => { console.error(error); process.exitCode = 1; });

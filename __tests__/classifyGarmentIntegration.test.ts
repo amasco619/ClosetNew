@@ -21,7 +21,7 @@ import express from "express";
 import rateLimit, { MemoryStore } from "express-rate-limit";
 import request from "supertest";
 import axios from "axios";
-import { CLASSIFIER_MODELS, classifyGarment } from "../server/classify-garment";
+import { classifyGarment } from "../server/classify-garment";
 import { LIMITER_CONFIGS, makeLimiterHandler } from "../server/middleware/rateLimiter";
 
 type TestPng = { width: number; height: number; data: Buffer };
@@ -174,13 +174,8 @@ function buildLimitedApp(): express.Application {
     const savedPost = axios.post;
     const savedLog = console.log;
     const logs: string[] = [];
-    const providerRequests: { url: string; timeout?: number; maxOutputTokens?: number; thinkingBudget?: number }[] = [];
     process.env.GEMINI_API_KEY = "test-key";
-    axios.post = (async (url, _body: any, config) => {
-      providerRequests.push({ url, timeout: config?.timeout,
-        maxOutputTokens: _body.generationConfig.maxOutputTokens,
-        thinkingBudget: _body.generationConfig.thinkingConfig?.thinkingBudget });
-      return {
+    axios.post = (async () => ({
       data: {
         candidates: [{
           content: {
@@ -200,8 +195,7 @@ function buildLimitedApp(): express.Application {
           },
         }],
       },
-      };
-    }) as typeof axios.post;
+    })) as typeof axios.post;
     console.log = (...args: unknown[]) => { logs.push(args.join(" ")); };
 
     try {
@@ -209,14 +203,6 @@ function buildLimitedApp(): express.Application {
         .post("/api/classify-garment")
         .send({ imageBase64: "dGVzdA==", userId: "sensitive-user-id" });
       assert(res.status === 200, `successful classification returns 200 (got ${res.status})`);
-      assert(providerRequests.length === 1
-        && new URL(providerRequests[0].url).pathname.endsWith(`/models/${CLASSIFIER_MODELS[0]}:generateContent`)
-        && providerRequests[0].timeout === 20_000,
-        "classification uses the configured primary once with the bounded 20s provider deadline");
-      assert(providerRequests[0].maxOutputTokens === 2048,
-        "response budget leaves room for reasoning plus complete JSON instead of the starvation-prone 512 tokens");
-      assert(providerRequests[0].thinkingBudget === 1024,
-        "primary reasoning is bounded so it cannot consume the entire JSON response budget");
       const successLogs = logs.join("\n");
       assert(!successLogs.includes("sensitive-user-id"), "success logs contain no user ID");
       assert(!successLogs.includes("navy") && !successLogs.includes("t-shirt") && !successLogs.includes("0.91"),
@@ -256,12 +242,8 @@ function buildLimitedApp(): express.Application {
 
     try {
       let calls = 0;
-      const attemptedModels: string[] = [];
-      const attemptedThinkingBudgets: (number | undefined)[] = [];
-      axios.post = (async (url: string, body: any) => {
+      axios.post = (async () => {
         calls++;
-        attemptedModels.push(new URL(url).pathname.match(/\/models\/([^:]+):/)![1]);
-        attemptedThinkingBudgets.push(body.generationConfig.thinkingConfig?.thinkingBudget);
         if (calls === 1) {
           throw axiosError({ response: { status: 429 } });
         }
@@ -289,10 +271,6 @@ function buildLimitedApp(): express.Application {
       assert(fallbackSuccess.status === 200 && calls === 2
         && fallbackSuccess.body.category === "top",
         "first-model 429 falls back to second model and preserves success");
-      assert(JSON.stringify(attemptedModels) === JSON.stringify(CLASSIFIER_MODELS),
-        "429 fallback uses the declared model order for the shared single/bulk endpoint");
-      assert(attemptedThinkingBudgets[0] === 1024 && attemptedThinkingBudgets[1] === undefined,
-        "2.5 reasoning configuration is not sent to the rolling fallback model");
 
       const timeout = await runFailure({ code: "ECONNABORTED", message: "timeout provider secret" });
       assert(timeout.status === 504 && timeout.body.error === "classifier_timeout",

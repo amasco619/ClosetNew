@@ -2780,57 +2780,8 @@ It does not infer MIME from the original picker filename or silently label PNG
 as JPEG; an unknown format follows the existing manual-entry error recovery.
 Colour correction still operates but no longer logs image-derived values.
 
-Production defaults to `gemini-2.5-flash` with `gemini-flash-lite-latest` as
-the quota-only (HTTP 429) fallback; `GEMINI_PRIMARY_MODEL` can still explicitly
-override the primary. On 2026-10-22 the rolling lite alias resolved to
-`gemini-3.5-flash-lite`: a minimal live request took 32.464 seconds while
-the existing classifier deadline is 20 seconds. Repeated real upload logs
-showed HTTP 504 provider timeouts after successful PhotoRoom calls. The
-already-supported 2.5 model answered the same minimal request in 0.764 seconds
-and the actual garment prompt in 2.257 seconds (the schematic test drawing
-was correctly returned as a refusal, not claimed as successful recognition).
-The real shared handler then classified the bundled `ballet_pink_flats.png`
-asset as shoes/flats/pink with HTTP 200 in 4.098 seconds, including PNG
-preparation. No customer image or wardrobe record was used for this smoke test.
-Both single and bulk call this shared handler. Prompt/schema, image preparation,
-consent enforcement, rate limits and the 20s-provider/45s-client deadlines remain
-unchanged; this is model selection, not a broader classifier redesign.
-The alias fallback can still time out or be unavailable when the primary is
-quota-limited; failures retain the existing retry/manual alternatives.
-
-The subsequent physical-device retest exposed a second issue: HTTP 200 provider
-responses with incomplete JSON. Controlled probes of the bundled blue shirt and
-beige slip dress with the actual prompt both returned `MAX_TOKENS` at the old
-512-token cap: reasoning consumed 489/488 tokens and the answer contained only
-22/24 characters. With a 2048-token cap both returned complete JSON and `STOP`;
-the shoe returned complete JSON at both caps. The shared handler now requests
-2048 tokens (including reasoning) and caps the default 2.5 model's reasoning at
-1024 to reserve answer space without disabling reasoning. This 2.5-specific
-option is not sent to the rolling fallback. It keeps existing deadlines and validation,
-and rejects `MAX_TOKENS` explicitly as `OUTPUT_TRUNCATED` in diagnostic traces.
-Only an allowlisted finish reason is logged—never raw provider output. There is
-no JSON repair, acceptance of partial classifications, or extra provider retry.
-The earlier single-shoe success proved liveness, not reliable completion across
-different garment images. No prompt/schema, consent, quota or storage change.
-With the final bounded-reasoning configuration, the real shared handler returned
-validated HTTP 200/STOP for the bundled blue shirt in 6.429s and, concurrently,
-beige slip dress in 7.348s and pink flats in 3.979s. These are non-customer
-sample/provider checks, not a claim of physical-device or picker-to-save testing.
-
-**Subsequent device retest: reliable recovery is not confirmed.** New logs showed
-a successful bulk classification, another primary timeout, and primary 429s
-followed by fallback success or timeout. A live Google quota error explicitly
-identified the primary model's free-tier daily request limit (20/project/model
-at observation), with a retry delay of 49,827 seconds. Listed alternative model
-IDs returned 404, 503, or timed out; a sneaker screenshot crop completed through
-the rolling alias, but the green-top crop did not complete through the pinned
-3.5 model within 35s. No further default-model/billing/quota change was made
-based on those mixed results. Restoring adequate Google-project capacity and
-then verifying the complete single/concurrent flows is outstanding. See
-`docs/reports/gemini-upload-reliability-investigation.md` for probe results,
-input limitations, and the explicit unresolved status.
-
-The earlier GU-17 reproduction explicitly
+Production retains the rolling `gemini-flash-lite-latest` primary and its
+existing quota-only fallback. The earlier GU-17 reproduction explicitly
 requested `gemini-2.5-flash-lite` and returned provider 404 before classification;
 this was not a permanent production pin and does not establish the historical
 2026-09-10 HTTP 500 cause. See `docs/classifier-gu17-forensics.md`.

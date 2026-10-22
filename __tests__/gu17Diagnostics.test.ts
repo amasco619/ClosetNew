@@ -82,27 +82,6 @@ try {
   assert.equal(result.traces.at(-1).modelVersion, 'gemini-2.5-flash-lite');
   assert.equal(result.traces.at(-1).code, 'OK');
 
-  for (const text of ['{"category": "top"', JSON.stringify(wrapper)]) {
-    result = await run(async () => ({
-      status: 200,
-      data: { candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text }] } }] },
-    }));
-    assert.equal(result.response.status, 502, 'token exhaustion never accepts incomplete classification');
-    assert.equal(result.response.body.error, 'classifier_malformed_response');
-    assert.equal(result.traces.at(-1).code, 'OUTPUT_TRUNCATED');
-    assert.equal(result.traces.at(-1).providerFinishReason, 'MAX_TOKENS');
-    assert.ok(!lines.join('\n').includes(text), 'truncation logs contain no provider text');
-  }
-  result = await run(async () => ({
-    ...output(wrapper),
-    data: { ...output(wrapper).data, candidates: [
-      { finishReason: 'private-provider-detail', content: { parts: [{ text: JSON.stringify(wrapper) }] } },
-    ] },
-  }));
-  assert.equal(result.response.status, 200);
-  assert.equal(result.traces.at(-1).providerFinishReason, null);
-  assert.ok(!lines.join('\n').includes('private-provider-detail'), 'finish-reason telemetry is allowlisted');
-
   // The same byte-based payload builder used by Add Item reaches provider and traces.
   const pngFixture = PNG.sync.write(syntheticPng);
   for (const [bytes, mimeType] of [
@@ -153,7 +132,7 @@ try {
   assert.equal(calls, 2, '429 tries both existing models');
   assert.equal(result.response.status, 429);
   assert.equal(result.response.body.error, 'rate_limited');
-  assert.equal(result.traces.at(-1).modelRequested, 'gemini-flash-lite-latest');
+  assert.equal(result.traces.at(-1).modelRequested, 'gemini-2.5-flash');
   assert.equal(result.traces.at(-1).attempt, 2);
   assert.ok(!lines.join('\n').includes('raw-secret-provider-body'));
 
