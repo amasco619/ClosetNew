@@ -1,19 +1,23 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
-## Dependency Phase 3 — current gates incomplete
+## Dependency Phase 3 — production startup and remaining gates resolved
 
-The approved shell-quote fix and Drizzle removal are implemented. Direct esbuild
-is pinned to 0.27.7 in devDependencies and deduplicated with tsx/Vite. The latest
-suite is **120 passed / 3 failed**; typecheck, lint, golden set, both benchmark
-validators and Android export pass. Audit: **30 records (0 critical, 23 high,
-6 moderate, 1 low)**. `pg` is absent from the production tree.
+The PNG/p-limit CommonJS calls now use ESM-compatible imports. The same installed
+p-limit 3.1.0 is explicitly declared for production. The production-only server
+smoke test passes before and after moving tsx to devDependencies; `pg`, `tsx`
+and `esbuild` are absent from the production tree. The smoke test is now a
+mandatory pre-publish check.
 
-The requested clean production install succeeded, but its compiled server
-crashed before listening (`Dynamic require of "pngjs" is not supported`).
-Per the conditional approval, `tsx` was **not** moved; esbuild remains in the
-production tree through tsx. No tests or server source were changed to bypass
-these blockers. Exact evidence and lockfile summary:
-[`docs/reports/dependency-phase3.md`](docs/reports/dependency-phase3.md).
+The latest suite is **123 passed / 0 failed**. Typecheck, lint, the 35-case
+golden set, both benchmark validators (including 53 frozen checksums), and
+Android export pass. The three mounted-test bundlers now share explicit mock
+resolution context; all existing assertions remain unchanged.
+Audit remains **30 records (0 critical, 23 high, 6 moderate, 1 low)**.
+No package versions changed in this follow-up.
+
+No publication or live-service journey was performed. Exact diagnosis,
+history, production smoke evidence, deviations and record-level lockfile table:
+[`docs/reports/production-server-runtime-fix.md`](docs/reports/production-server-runtime-fix.md).
 
 ## Dependency Phase 2 and security-test isolation
 

@@ -1,3 +1,5 @@
+import pngjs from "pngjs";
+
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const MAX_PNG_DIMENSION = 4096;
 const MAX_PNG_PIXELS = 16_000_000;
@@ -11,7 +13,7 @@ type PngCodec = {
   };
 };
 
-const { PNG } = require("pngjs") as { PNG: PngCodec };
+const { PNG } = pngjs as { PNG: PngCodec };
 
 function decodePng(buffer: Buffer): PngRaster {
   if (buffer.length < 24 || !buffer.subarray(0, 8).equals(PNG_SIGNATURE)) {

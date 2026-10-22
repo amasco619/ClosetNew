@@ -53,6 +53,35 @@ assert.ok(
   'the image sent to Gemini is fully opaque',
 );
 
+const original = Buffer.from(cutout);
+trimTransparentGarmentPng(cutout);
+flattenGarmentPngOnStudio(cutout);
+assert.deepEqual(cutout, original, 'both functions leave their input bytes unchanged');
+
+const transparent = PNG.sync.write(new PNG({ width: 12, height: 8 }));
+assert.equal(trimTransparentGarmentPng(transparent), transparent,
+  'an entirely transparent image is returned unchanged');
+const opaque = new PNG({ width: 3, height: 2 });
+opaque.data.fill(255);
+const opaqueBytes = PNG.sync.write(opaque);
+assert.equal(trimTransparentGarmentPng(opaqueBytes), opaqueBytes,
+  'an image without transparent margins is returned unchanged');
+assert.deepEqual(PNG.sync.read(flattenGarmentPngOnStudio(opaqueBytes)).data, opaque.data,
+  'flattening preserves every opaque pixel');
+
+for (const processPng of [trimTransparentGarmentPng, flattenGarmentPngOnStudio]) {
+  assert.throws(() => processPng(Buffer.from('not a PNG')), /invalid_png/);
+  assert.throws(() => processPng(cutout.subarray(0, 20)), /invalid_png/);
+  const oversized = Buffer.from(cutout);
+  oversized.writeUInt32BE(4097, 16);
+  assert.throws(() => processPng(oversized), /png_dimensions_out_of_range/);
+  const zeroWidth = Buffer.from(cutout);
+  zeroWidth.writeUInt32BE(0, 16);
+  assert.throws(() => processPng(zeroWidth), /png_dimensions_out_of_range/);
+  assert.throws(() => processPng(cutout.subarray(0, 30)),
+    'a valid signature with incomplete PNG content is rejected');
+}
+
 assert.equal(isTransparentGarmentImage('https://cdn.example/item.png?token=x'), true);
 assert.equal(isTransparentGarmentImage('https://cdn.example/item.png', 'user/item.jpg'), false,
   'the persisted Storage path takes precedence over a URL guess');

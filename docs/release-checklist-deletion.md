@@ -3,6 +3,27 @@
 Use a **disposable** account in the published app. Never use an existing
 customer's account. Do not print or copy credentials into a report.
 
+## 0. Mandatory pre-publish production-server smoke test
+
+Before publishing, run from the configured workspace:
+
+```sh
+node scripts/smoke-production-server.mjs
+```
+
+This must pass. It invokes the same server compiler script/flags as deployment
+(with output redirected to its temporary directory), runs `npm ci --omit=dev`
+without borrowing workspace binaries or skipping install scripts, and starts
+the compiled server with Node on an alternate port. It requires the expected
+401 `authentication_required` JSON and security header from an unauthenticated
+API request, then removes the process and temporary installation.
+
+Workspace configuration is inherited without printing secrets. Outbound service
+requests are blocked so startup pruning cannot touch live data. This verifies
+packaging/startup, **not** Supabase readiness, billing, the full Expo static
+packaging pipeline, or the published deletion journey below. Do not bypass a
+failed smoke test or treat it as a substitute for those checks.
+
 ## 1. Confirm environment and readiness
 
 In the published environment, confirm the required secret names exist without

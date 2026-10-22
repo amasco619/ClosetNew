@@ -1019,13 +1019,28 @@ dependency Phase 2 report records final three-run proof (123/123 each), audit
 counts, then-current Drizzle/pg optional-peer limitations and the earlier Expo
 transitive-resolution deviations, including native-bundled Radix:
 [`docs/reports/dependency-phase2-isolation-and-updates.md`](docs/reports/dependency-phase2-isolation-and-updates.md).
-Dependency Phase 3 removed Drizzle and `db:push`; `pg` now has no production
-dependency path. Direct development-only esbuild is pinned to 0.27.7. The current
-suite is 120 passed / 3 failed (mounted mock-module resolution), and a clean
-production-install server smoke test failed before listening with a dynamic
-`pngjs` require in the ESM bundle. Consequently the conditional move of `tsx`
-to devDependencies was not made; esbuild still has a production path through
-`tsx`. See [`docs/reports/dependency-phase3.md`](docs/reports/dependency-phase3.md).
+Dependency Phase 3 removed Drizzle and `db:push`. The follow-up runtime fix uses
+ESM-compatible default imports for pngjs and p-limit; p-limit 3.1.0 is now an
+explicit runtime dependency rather than an undeclared development transitive.
+tsx and exact esbuild 0.27.7 are development-only; `pg`, `tsx` and `esbuild` have
+no production dependency path. Mounted mock modules share an explicit resolution
+directory; all 123 test files pass without changing existing assertions.
+The historical failure is recorded in
+[`docs/reports/dependency-phase3.md`](docs/reports/dependency-phase3.md);
+the resolution and record-level lockfile comparison are in
+[`docs/reports/production-server-runtime-fix.md`](docs/reports/production-server-runtime-fix.md).
+
+**Mandatory before publishing:** run `node scripts/smoke-production-server.mjs`.
+It invokes `server:build` with deployment's compiler flags and a temporary output
+directory, performs a clean `npm ci --omit=dev` with workspace dependency-binary
+paths removed, and starts the compiled server with Node on an alternate port.
+The unauthenticated entitlement route must return 401 `authentication_required`
+with `nosniff`. Configuration is inherited; outbound service requests are blocked
+to avoid startup pruning against live data. Cleanup runs on success/failure.
+This is not live-service readiness or full Expo static-pipeline validation.
+The postinstall runner only invokes patch-package when patch files exist;
+missing patch tooling or failed patches remain fatal rather than being ignored.
+See `docs/release-checklist-deletion.md` for the remaining release checks.
 No production limiter limits, logic or response copy changed.
 
 ---

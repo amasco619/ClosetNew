@@ -1,5 +1,9 @@
 # Dependency Phase 3 — result and conditional runtime check
 
+> Historical checkpoint. The failures and conditional tsx blocker below were
+> subsequently resolved in
+> [Production server runtime fix](production-server-runtime-fix.md).
+
 ## Outcome
 
 **Incomplete: do not treat this as a green release gate.** The approved package

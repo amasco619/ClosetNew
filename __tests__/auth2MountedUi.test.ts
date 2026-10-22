@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import React from 'react'
 import { build, type Plugin } from 'esbuild'
+import { virtualMockModule } from './helpers/virtualMockModule'
 
 // Bundle the real screens, replacing only their native and external boundaries.
 // Nothing in this test imports the live Supabase client or makes network calls.
@@ -62,10 +63,8 @@ const boundaryMocks: Plugin = {
       Object.hasOwn(modules, args.path)
         ? { path: args.path, namespace: 'auth2-mock' }
         : undefined)
-    build.onLoad({ filter: /.*/, namespace: 'auth2-mock' }, args => ({
-      contents: modules[args.path],
-      loader: 'js',
-    }))
+    build.onLoad({ filter: /.*/, namespace: 'auth2-mock' }, args =>
+      virtualMockModule(modules[args.path]))
   },
 }
 

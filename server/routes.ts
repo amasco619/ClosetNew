@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import pLimit from "p-limit";
 import { classifyGarment } from "./classify-garment";
 import { classifyMultiItem } from "./classify-multi-item";
 import { removeBackground } from "./remove-background";
@@ -43,8 +44,6 @@ import { NATIVE_PASSWORD_RECOVERY_URL } from "../lib/oauth-callback";
 // P-E: cap simultaneous AI calls so a burst cannot exhaust Gemini quota
 // or connections. Extras are queued, not rejected (the rate limiters
 // above handle outright rejection). Max 5 concurrent AI invocations.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pLimit = require("p-limit");
 const _aiSlots = pLimit(5) as <T>(fn: () => Promise<T>) => Promise<T>;
 /** Wraps an Express handler so it runs inside the AI concurrency slot pool. */
 function withAiLimit(

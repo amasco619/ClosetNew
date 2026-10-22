@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import React from 'react';
 import { build, type Plugin } from 'esbuild';
+import { virtualMockModule } from './helpers/virtualMockModule';
 
 const mocks = {
   params: {} as { guest?: string },
@@ -130,10 +131,8 @@ const boundaryMocks: Plugin = {
       Object.hasOwn(modules, args.path)
         ? { path: args.path, namespace: 'onboarding-mock' }
         : undefined);
-    build.onLoad({ filter: /.*/, namespace: 'onboarding-mock' }, args => ({
-      contents: modules[args.path],
-      loader: 'js',
-    }));
+    build.onLoad({ filter: /.*/, namespace: 'onboarding-mock' }, args =>
+      virtualMockModule(modules[args.path]));
     build.onResolve({ filter: /\.(jpg|png)$/ }, args => ({
       path: args.path,
       namespace: 'onboarding-asset',

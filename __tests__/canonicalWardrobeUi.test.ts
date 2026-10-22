@@ -5,6 +5,7 @@ import path from 'node:path';
 import { runInNewContext } from 'node:vm';
 import React from 'react';
 import { build, type Plugin } from 'esbuild';
+import { virtualMockModule } from './helpers/virtualMockModule';
 import { saveWardrobeCorrection } from '../lib/wardrobeSemantics';
 import { mapDbRowToWardrobeItem } from '../lib/wardrobeMapper';
 import type { WardrobeItem } from '../constants/types';
@@ -127,7 +128,7 @@ const modules: Record<string, string> = {
 const plugin: Plugin = { name: 'canonical-ui-boundaries', setup(bundle) {
   bundle.onResolve({ filter: /.*/ }, args => Object.hasOwn(modules, args.path)
     ? { path: args.path, namespace: 'canonical-mock' } : undefined);
-  bundle.onLoad({ filter: /.*/, namespace: 'canonical-mock' }, args => ({ contents: modules[args.path], loader: 'js' }));
+  bundle.onLoad({ filter: /.*/, namespace: 'canonical-mock' }, args => virtualMockModule(modules[args.path]));
 } };
 const requireProject = createRequire(path.join(process.cwd(), 'package.json'));
 const renderer = requireProject('react-test-renderer');
