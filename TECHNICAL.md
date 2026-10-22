@@ -325,7 +325,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               116 test suites (see §11)
+__tests__/               125 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -437,7 +437,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 116 test suites once |
+| `npm test` | Run all 125 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -1481,7 +1481,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (121 total)
+### Test Suites (125 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1499,6 +1499,7 @@ These features are **not yet implemented**. They are the next development priori
 | `stylingRelationships.test.ts` | Additive Phase A membership projection, owner/parent checks, all three types, pre-evaluation coordinated construction under shortlist crowding, relationship removal and renamed-garment controls, Western complements, normal alternatives, immutable canonical/shared facts, transient provenance and provider-free graph |
 | `swipeDismiss.test.ts` | Exact-top gesture capture, scroll gating during movement/release, 120 px threshold, and scroll-ref/accessible-close wiring on all three sheet routes |
 | `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, pending-receipt preservation and cleanup across partial retries |
+| `accountDeletionNavigation.test.ts` | Real Expo Router stack/tab reducers verify deleted-account profile is removed beneath sign-in and Android Back has no stale route |
 | `accountDeletionRateLimit.test.ts` | In-app deletion's 60/hour IP and 5/hour authenticated-user limits, ordering, fixed-window Retry-After, user isolation, and failed-attempt counting |
 | `accountDeletionLocalCleanup.test.ts` | Confirmed deletion clears account cache keys, local wardrobe photos, and signed-photo cache; server failure preserves them for retry |
 | `accountLockout.test.ts` | Account lockout lifecycle: thresholds, expiry, `initLockoutStore` restart-survival and prune-interval state using isolated persistence fixtures; no live database integration |
@@ -3610,6 +3611,9 @@ After a successful normal sign-out from Profile, clear the existing tab stack
 with `router.dismissAll()` before replacing the route with `/sign-in`. Keep both
 navigation operations after the awaited sign-out so a failure preserves the
 current screen and account state. Account deletion uses the same stack-clearing
-order after successful local sign-out.
+order after successful local sign-out. The navigation regression test builds a
+nested tabs/profile route beneath sign-in, applies Expo Router's stack and tab
+reducers, and verifies sign-in is the only remaining route and GO_BACK cannot
+reveal the deleted account screen.
 
 **Code:** `app/(tabs)/profile.tsx`, `__tests__/accountDeletionNavigation.test.ts`
