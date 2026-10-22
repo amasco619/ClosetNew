@@ -2817,6 +2817,19 @@ validated HTTP 200/STOP for the bundled blue shirt in 6.429s and, concurrently,
 beige slip dress in 7.348s and pink flats in 3.979s. These are non-customer
 sample/provider checks, not a claim of physical-device or picker-to-save testing.
 
+**Subsequent device retest: reliable recovery is not confirmed.** New logs showed
+a successful bulk classification, another primary timeout, and primary 429s
+followed by fallback success or timeout. A live Google quota error explicitly
+identified the primary model's free-tier daily request limit (20/project/model
+at observation), with a retry delay of 49,827 seconds. Listed alternative model
+IDs returned 404, 503, or timed out; a sneaker screenshot crop completed through
+the rolling alias, but the green-top crop did not complete through the pinned
+3.5 model within 35s. No further default-model/billing/quota change was made
+based on those mixed results. Restoring adequate Google-project capacity and
+then verifying the complete single/concurrent flows is outstanding. See
+`docs/reports/gemini-upload-reliability-investigation.md` for probe results,
+input limitations, and the explicit unresolved status.
+
 The earlier GU-17 reproduction explicitly
 requested `gemini-2.5-flash-lite` and returned provider 404 before classification;
 this was not a permanent production pin and does not establish the historical
