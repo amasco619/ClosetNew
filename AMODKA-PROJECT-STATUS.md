@@ -1,5 +1,20 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
+## Dependency Phase 3 — current gates incomplete
+
+The approved shell-quote fix and Drizzle removal are implemented. Direct esbuild
+is pinned to 0.27.7 in devDependencies and deduplicated with tsx/Vite. The latest
+suite is **120 passed / 3 failed**; typecheck, lint, golden set, both benchmark
+validators and Android export pass. Audit: **30 records (0 critical, 23 high,
+6 moderate, 1 low)**. `pg` is absent from the production tree.
+
+The requested clean production install succeeded, but its compiled server
+crashed before listening (`Dynamic require of "pngjs" is not supported`).
+Per the conditional approval, `tsx` was **not** moved; esbuild remains in the
+production tree through tsx. No tests or server source were changed to bypass
+these blockers. Exact evidence and lockfile summary:
+[`docs/reports/dependency-phase3.md`](docs/reports/dependency-phase3.md).
+
 ## Dependency Phase 2 and security-test isolation
 
 Limiter/lockout fixtures now fail before live Supabase access in test mode when

@@ -1016,11 +1016,17 @@ Supabase access or production fallback/logging catches. Mounted route fixtures
 must run in test mode; time-derived/random IPs are not a substitute for isolated
 persistence. `securityStoreIsolation.test.ts` covers the guarded paths. The
 dependency Phase 2 report records final three-run proof (123/123 each), audit
-counts, retained Drizzle/pg optional-peer limitations and the earlier Expo
+counts, then-current Drizzle/pg optional-peer limitations and the earlier Expo
 transitive-resolution deviations, including native-bundled Radix:
 [`docs/reports/dependency-phase2-isolation-and-updates.md`](docs/reports/dependency-phase2-isolation-and-updates.md).
-`pg` is a direct devDependency, but retained runtime Drizzle can still include it
-as an optional peer. No production limiter limits, logic or response copy changed.
+Dependency Phase 3 removed Drizzle and `db:push`; `pg` now has no production
+dependency path. Direct development-only esbuild is pinned to 0.27.7. The current
+suite is 120 passed / 3 failed (mounted mock-module resolution), and a clean
+production-install server smoke test failed before listening with a dynamic
+`pngjs` require in the ESM bundle. Consequently the conditional move of `tsx`
+to devDependencies was not made; esbuild still has a production path through
+`tsx`. See [`docs/reports/dependency-phase3.md`](docs/reports/dependency-phase3.md).
+No production limiter limits, logic or response copy changed.
 
 ---
 
