@@ -35,8 +35,9 @@ const mocks = {
       lifestyleBrunch: 0,
       isGuest: false,
     },
-    updateProfile: () => {},
+    updateProfile: (_updates: Record<string, unknown>) => {},
   },
+  savedProfile: null as Record<string, unknown> | null,
 };
 
 Object.assign(globalThis, {
@@ -176,6 +177,7 @@ function reset(params: typeof mocks.params = {}) {
   mocks.params = params;
   mocks.routes = [];
   mocks.backCalls = 0;
+  mocks.savedProfile = null;
   mocks.app.profile = {
     name: '',
     bodyType: null,
@@ -217,7 +219,9 @@ function words(node: Node | string): string {
 }
 
 function pressableWithText(tree: MountedTree, text: string): Node {
-  const found = tree.root.findAllByType('Pressable').find(node => words(node).includes(text));
+  const pressables = tree.root.findAllByType('Pressable');
+  const found = pressables.find(node => words(node).trim() === text) ??
+    pressables.find(node => words(node).includes(text));
   assert.ok(found, `button "${text}" is rendered`);
   return found;
 }
@@ -278,6 +282,83 @@ async function main() {
   }
   assert.equal(returningUser.root.findAllByType('TextInput')[0].props.value, 'Ava', 'saved answers remain prefilled when navigating back');
   await unmount(returningUser);
+
+  const requiredFieldGaps = [
+    { field: 'name', missing: '', step: 0, title: 'May we have your name?' },
+    { field: 'bodyType', missing: null, step: 1, title: 'Body Shape' },
+    { field: 'eyeColor', missing: null, step: 3, title: 'Eye Colour' },
+    { field: 'skinTone', missing: null, step: 4, title: 'Skin Tone & Undertone' },
+    { field: 'undertone', missing: null, step: 4, title: 'Skin Tone & Undertone' },
+    { field: 'styleGoalPrimary', missing: null, step: 5, title: 'Style Goals' },
+  ] as const;
+  const savedAnswers = {
+    name: 'Ava',
+    bodyType: 'pear',
+    faceShape: 'round',
+    eyeColor: 'blue',
+    skinTone: 'light',
+    undertone: 'cool',
+    styleGoalPrimary: 'romantic',
+    styleGoalSecondary: 'bold',
+    lifestyleWork: 20,
+    lifestyleCasual: 40,
+    lifestyleEvents: 20,
+    lifestyleActive: 0,
+    lifestyleBrunch: 0,
+    hairColor: 'blonde',
+    heightBand: 'tall',
+    contrastLevel: 'high',
+    defaultMood: 'joyful',
+    industry: 'tech',
+    lifePhase: 'pregnancy',
+    metalPreference: 'silver',
+    constraints: { colorAversions: ['orange'] },
+  };
+  mocks.app.updateProfile = updates => { mocks.savedProfile = updates; };
+
+  for (const { field, missing, step, title } of requiredFieldGaps) {
+    reset();
+    Object.assign(mocks.app.profile, savedAnswers, { [field]: missing });
+
+    const resumed = await mount(Onboarding);
+    assert.ok(
+      resumed.root.findAllByType('Text').some(node => words(node).includes(`STEP ${step + 1} OF 9`)),
+      `missing ${field} resumes at step ${step + 1}`,
+    );
+    assert.ok(
+      resumed.root.findAllByType('Text').some(node => words(node).includes(title)),
+      `missing ${field} displays its required question`,
+    );
+
+    if (field === 'name') {
+      const nameInput = resumed.root.findAllByType('TextInput')[0];
+      assert.equal(nameInput.props.value, '');
+      await React.act(async () => nameInput.props.onChangeText(savedAnswers.name));
+    } else if (field === 'bodyType') {
+      await React.act(async () => pressableWithText(resumed, 'Pear').props.onPress());
+    } else if (field === 'eyeColor') {
+      await React.act(async () => pressableWithText(resumed, 'Blue').props.onPress());
+    } else if (field === 'skinTone') {
+      await React.act(async () => pressableWithText(resumed, 'Light').props.onPress());
+    } else if (field === 'undertone') {
+      await React.act(async () => pressableWithText(resumed, 'Cool').props.onPress());
+    } else {
+      await React.act(async () => pressableWithText(resumed, 'Romantic').props.onPress());
+    }
+
+    while (!resumed.root.findAllByType('Text').some(node => words(node).trim() === 'Get Started')) {
+      await React.act(async () => pressableWithText(resumed, 'Continue').props.onPress());
+    }
+    await React.act(async () => pressableWithText(resumed, 'Get Started').props.onPress());
+    assert.deepEqual(
+      mocks.savedProfile && Object.fromEntries(
+        Object.keys(savedAnswers).map(key => [key, mocks.savedProfile?.[key]]),
+      ),
+      savedAnswers,
+      `resuming for missing ${field} preserves every previously saved answer`,
+    );
+    await unmount(resumed);
+  }
 
   reset();
   Object.assign(mocks.app.profile, {
