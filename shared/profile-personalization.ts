@@ -36,10 +36,6 @@ export function mergeProfile(stored: Partial<UserProfile>): UserProfile {
   return {
     ...defaultProfile,
     ...stored,
-    // Repair completed legacy quizzes that used "Skip — use defaults".
-    styleGoalPrimary: stored.onboardingComplete
-      ? onboardingStyleGoal(stored.styleGoalPrimary ?? null)
-      : stored.styleGoalPrimary ?? null,
     constraints: {
       ...defaultProfile.constraints,
       ...(stored.constraints ?? {}),

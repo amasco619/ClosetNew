@@ -172,10 +172,20 @@ test('actual skip → completion → local restart and remote restart satisfy st
   ));
 });
 
-test('legacy skipped goal repairs only completed quizzes; explicit later goal wins', () => {
+test('completed profiles with a missing required style goal remain incomplete', () => {
   const legacy = mergeProfile({ ...readyGuest, styleGoalPrimary: null });
-  assert.equal(legacy.styleGoalPrimary, 'classic');
-  assert.equal(hasRequiredOnboardingFields(legacy), true);
+  assert.equal(legacy.styleGoalPrimary, null);
+  assert.equal(hasRequiredOnboardingFields(legacy), false);
+  const hydratedLegacy = hydrateAccountProfile({
+    name: readyGuest.name,
+    body_type: readyGuest.bodyType,
+    eye_color: readyGuest.eyeColor,
+    skin_tone: readyGuest.skinTone,
+    undertone: readyGuest.undertone,
+    onboarding_complete: true,
+  }, '');
+  assert.equal(hydratedLegacy.styleGoalPrimary, null);
+  assert.equal(hasRequiredOnboardingFields(hydratedLegacy), false);
   assert.equal(mergeProfile({ styleGoalPrimary: null }).styleGoalPrimary, null);
   assert.equal(onboardingStyleGoal('bold'), 'bold');
   assert.equal(mergeProfile({ ...legacy, styleGoalPrimary: 'bold' }).styleGoalPrimary, 'bold');
