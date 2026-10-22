@@ -1,0 +1,39 @@
+AMODKA - DEPENDENCY AUDIT, PHASE 2 (APPROVED SCOPE)
+
+Approved: steps 1-3 of your plan, and a limited step 5. NOT approved:
+overrides (step 4) unless I approve them after you report step 3.
+DO NOT: run npm audit fix or --force; change Expo SDK, React Native,
+react-native-purchases(-ui), reanimated, view-shot, worklets or
+patch-package; touch Recommendation Engine v3.7, the 53 frozen files,
+billing, consent, RLS or migrations. List deviations.
+
+After EACH step run npm test, typecheck, lint, the golden set, the
+benchmark validator, and `npx expo export --platform android` (prove
+the bundle builds). Stop and report if any fails; do not proceed.
+
+1. Server runtime: update proxy-addr (>=2.0.8), ip-address and axios
+   (within 1.x) with their follow-redirects patch to the compatible
+   fixed versions, preferring updates of the parent packages. Add a
+   test proving client-IP resolution is unchanged under trust proxy = 1
+   for: a plain IPv4 request, a request with an X-Forwarded-For chain,
+   and an IPv4-mapped IPv6 address, and that the limiter keys derived
+   from them are stable and identical for the same client. Run the
+   rate-limit, account-deletion and classifier tests.
+2. Run npx expo install for ONLY expo, expo-location, expo-router and
+   expo-sharing to the versions `expo install --check` expects. Confirm
+   no other package changes.
+3. Patch/minor updates for compatible transitive leaves that npm
+   reports as fixable (vite, @xmldom/xmldom, brace-expansion, braces,
+   node-forge, http-cache-semantics, js-yaml, ws, follow-redirects via
+   http-proxy-middleware). Re-run npm audit and report the new counts.
+4. Hygiene: move pg to devDependencies. Remove drizzle-orm, drizzle-zod,
+   drizzle-kit, the db:push script and http-proxy-middleware ONLY if a
+   repo-wide search (source, scripts, config, docs) finds no use. Do not
+   remove any other unimported package.
+
+DELIVERABLE
+Report: before/after audit counts by severity; per step the packages and
+versions changed and the lockfile diff summary; test and bundle results;
+for every remaining critical/high, why it remains (no compatible fix,
+tooling-only, or downgrade-only) and the compatible-fix status; and
+"Deviations". State what is not verified on a device.
