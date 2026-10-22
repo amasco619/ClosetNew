@@ -192,6 +192,22 @@ async function verifyOfflineRefreshKeepsAuthUntilConfirmedSignOut() {
   routeState = router.getStateForAction(routeState, StackActions.push('item-detail'), options) ?? routeState;
   const privateRoutesBeforeRefresh = routeState.routes.map((route: any) => route.name);
 
+  await React.act(async () => {
+    await testMocks.authCallback('TOKEN_REFRESHED', {
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      user: { id: 'different-user', user_metadata: {} },
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  assert.equal(current.isAuthenticated, true, 'a refresh for another account cannot replace the active session');
+  assert.equal(current.authenticatedUserId, 'offline-user', 'the active account remains unchanged');
+  assert.equal(current.authSessionEnded, false, 'another account refresh does not end the active session');
+  assert.deepEqual(
+    routeState.routes.map((route: any) => route.name),
+    privateRoutesBeforeRefresh,
+    'private navigation history remains intact after a refresh for another account',
+  );
+
   const failedRefresh = await testMocks.supabase.auth.refreshSession();
   assert.match(failedRefresh.error.message, /temporary network failure/);
   assert.equal(current.isAuthenticated, true, 'a transient refresh failure preserves authentication');
@@ -253,7 +269,7 @@ async function verifyOfflineRefreshKeepsAuthUntilConfirmedSignOut() {
 }
 
 void verifyOfflineRefreshKeepsAuthUntilConfirmedSignOut().then(() => {
-  console.log('Offline refresh recovery preserves auth until sign-out and ignores delayed refresh events afterward.');
+  console.log('Offline refresh recovery preserves auth, ignores another account, and rejects delayed refreshes after sign-out.');
 }).catch(error => {
   console.error(error);
   process.exitCode = 1;

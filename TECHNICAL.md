@@ -1558,6 +1558,7 @@ These features are **not yet implemented**. They are the next development priori
 | `auth2Routes.test.ts` | Real sign-up/reset routes: unclassified provider failures, known duplicate-email privacy response, reset redirect policy, locked reset and mounted rate limits |
 | `auth2MountedUi.test.ts` | Mounted confirmation, recovery, and sign-in screens with isolated native/auth/navigation mocks: hydration-gated redirect, complete/incomplete profile destinations and Android Back history, preparation, callback errors, submit gating, and update outcomes |
 | `emailRecovery.test.ts` | Recovery code/claims preparation gating and sanitized password-update provider failures |
+| `expiredSessionOffline.test.ts` | Mounted AppContext preserves the active account and private navigation through offline/successful refreshes, ignores refreshes for another account, and rejects delayed refreshes after confirmed sign-out |
 | `supabaseUrlStability.test.ts` | Supabase Storage public URL is deterministic from (userId, itemId, ext) alone — no session token embedded, no query parameters, stable across app reinstalls |
 | `wardrobeDiagnostics.test.ts` | `computeDiagnostics` health score, category stats, scenario coverage; `ALL_SCENARIOS` export integrity and alignment with `computeDiagnostics` output |
 | `weather.test.ts` | Weather-aware outerwear rules (temperature gating, rain-friendly subtype bias) |
