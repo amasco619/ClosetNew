@@ -222,7 +222,11 @@ export default function ProfileScreen() {
               signedOut = false;
               console.warn('[profile] Deleted account local sign-out failed');
             }
-            if (signedOut) router.replace('/sign-in');
+            if (signedOut) {
+              // Remove the old tabs from navigation history so Android Back cannot reopen deleted account UI.
+              router.dismissAll();
+              router.replace('/sign-in');
+            }
             if (!cacheCleared || !signedOut) {
               dialog.notify({
                 title: 'Account deleted — device cleanup incomplete',
