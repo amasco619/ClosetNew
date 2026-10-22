@@ -85,6 +85,7 @@
     "@types/react": "~19.2.4",
     "@types/supertest": "^7.2.0",
     "babel-plugin-react-compiler": "^19.0.0-beta-e993439-20250117",
+    "esbuild": "0.27.7",
     "eslint": "^9.31.0",
     "eslint-config-expo": "~57.0.2",
     "patch-package": "^8.0.0",
