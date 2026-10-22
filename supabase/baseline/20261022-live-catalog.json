@@ -1,6 +1,7 @@
 {
   "meta": {
     "captured_on": "2026-10-22",
+    "snapshot_artifact_timestamp_utc": "2026-10-22T14:18:48Z (filesystem mtime; exact catalog-query timestamp unavailable)",
     "project_ref": "garppyocfgdamdgfyfbr",
     "environment_label": "not established; do not infer development or production",
     "postgres_version": "17.6",
