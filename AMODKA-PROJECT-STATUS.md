@@ -1,5 +1,15 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
+## wardrobe_items RLS tidy-up — approval pending, no live changes
+
+Read-only inspection confirms nine live policies; the one-policy equivalent
+proposal and exact rollback await chat approval. Authenticated direct INSERT
+remains denied; guarded insert RPCs and all grants/functions stay unchanged.
+Disposable tests pass 321 command checks across current/proposed/rollback.
+Current gates: **124 test files passed**, typecheck/lint, golden **35/35** and
+both benchmark validators including **53 frozen checksums** pass.
+See [`docs/reports/wardrobe-items-rls-preflight.md`](docs/reports/wardrobe-items-rls-preflight.md).
+
 ## Dependency Phase 3 — production startup and remaining gates resolved
 
 The PNG/p-limit CommonJS calls now use ESM-compatible imports. The same installed
@@ -8,7 +18,7 @@ smoke test passes before and after moving tsx to devDependencies; `pg`, `tsx`
 and `esbuild` are absent from the production tree. The smoke test is now a
 mandatory pre-publish check.
 
-The latest suite is **123 passed / 0 failed**. Typecheck, lint, the 35-case
+That dependency checkpoint's suite was **123 passed / 0 failed**. Typecheck, lint, the 35-case
 golden set, both benchmark validators (including 53 frozen checksums), and
 Android export pass. The three mounted-test bundlers now share explicit mock
 resolution context; all existing assertions remain unchanged.

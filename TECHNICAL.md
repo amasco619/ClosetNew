@@ -2096,6 +2096,19 @@ Objective: make Amodka safe to operate as a real commercial product — money, d
 
 Storage policies: path-prefix ownership enforcement for `wardrobe-images` and `tryon-photos` (first path segment must match `auth.uid()`).
 
+**wardrobe_items preflight (2026-10-22; NOT APPLIED):** read-only live metadata
+confirms RLS enabled, nine permissive owner policies and authenticated direct
+SELECT/UPDATE/DELETE only; direct INSERT remains revoked and uses guarded RPCs.
+The proposed tidy-up retains the PUBLIC ALL owner policy, makes WITH CHECK
+explicit and drops eight redundant policies, preserving role applicability and
+all grants. Exact transactional proposal/rollback and other-table duplicate
+inventory: `docs/reports/wardrobe-items-rls-preflight.md`. Disposable-only
+`wardrobeItemsRls.test.ts` passes 321 current/proposed/rollback command checks,
+including both users, anon, PUBLIC coverage, live-CRUD-grant versus RLS-only
+fixtures, exact rollback and drift rejection. Full suite 124/0, typecheck/lint,
+golden 35/0 and all 53 frozen checksums pass. Live migration and subsequent
+metadata verification require explicit chat approval; no version is fabricated.
+
 **Operator action required:** Apply migration to Supabase project.
 
 #### Account Deletion — Explicit Cleanup (Track E)
