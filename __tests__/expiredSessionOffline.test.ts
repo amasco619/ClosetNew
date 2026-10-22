@@ -8,6 +8,9 @@ import { virtualMockModule } from './helpers/virtualMockModule';
 
 const appContextSource = readFileSync('contexts/AppContext.tsx', 'utf8');
 const mockNames = new Map<string, string>();
+let entitlementResponseOverride: (() => Promise<{ isPremium: boolean }>) | null = null;
+let wardrobeRowsOverride: any[] | null = null;
+let entitlementCheckCount = 0;
 for (const match of appContextSource.matchAll(/\bimport\s+(?:type\s+)?\{([\s\S]*?)\}\s+from/g)) {
   for (const entry of match[1].split(',')) {
     const tokens = entry.trim().replace(/^type\s+/, '').split(/\s+as\s+/);
@@ -68,7 +71,10 @@ const testMocks: Record<string, any> = {
     completeDecision: async () => {},
   },
   getUserProfile: async () => null,
-  getWardrobeItems: async () => ({ items: [], totalCount: 0 }),
+  getWardrobeItems: async () => ({
+    items: wardrobeRowsOverride ?? [],
+    totalCount: wardrobeRowsOverride?.length ?? 0,
+  }),
   getFreeWardrobeSelection: async () => [],
   getSlotStatuses: async () => [],
   getWearLogs: async () => [],
@@ -78,7 +84,16 @@ const testMocks: Record<string, any> = {
   getWardrobePhotoCleanupReceipts: async () => [],
   getSelectedWardrobeItems: async () => [],
   getSavedLooks: async () => [],
-  fetchAuthoritativeEntitlement: async () => ({ isPremium: false }),
+  fetchAuthoritativeEntitlement: async () => {
+    entitlementCheckCount += 1;
+    return entitlementResponseOverride
+      ? entitlementResponseOverride()
+      : { isPremium: false };
+  },
+  mapDbRowToWardrobeItem: (row: { id: string; image_url: string }) => ({
+    id: row.id,
+    photoUri: row.image_url,
+  }),
   hydrateAccountProfile: (_profile: unknown, name: string) => ({
     ...testMocks.defaultProfile,
     name: name ?? '',
@@ -235,12 +250,43 @@ async function verifyOfflineRefreshKeepsAuthUntilConfirmedSignOut() {
     'private navigation history remains intact after connectivity recovers',
   );
 
+  let resolveEntitlement!: (value: { isPremium: boolean }) => void;
+  const delayedEntitlement = new Promise<{ isPremium: boolean }>(resolve => {
+    resolveEntitlement = resolve;
+  });
+  entitlementResponseOverride = () => delayedEntitlement;
+  wardrobeRowsOverride = [{
+    id: 'late-entitlement-item',
+    image_url: 'https://example.invalid/late-entitlement-item.jpg',
+    recommendation_semantics: {},
+  }];
+  const checksBeforeRefresh = entitlementCheckCount;
+  await React.act(async () => {
+    await testMocks.authCallback('TOKEN_REFRESHED', {
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      user: { id: 'offline-user', user_metadata: {} },
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  assert.equal(
+    entitlementCheckCount,
+    checksBeforeRefresh + 1,
+    'TOKEN_REFRESHED starts an entitlement check before sign-out',
+  );
+
   await React.act(async () => {
     await testMocks.authCallback('SIGNED_OUT', null);
   });
   assert.equal(current.isAuthenticated, false, 'confirmed sign-out clears authenticated state');
   assert.equal(current.authenticatedUserId, null);
   assert.equal(current.authSessionEnded, true, 'confirmed sign-out is published for navigation reset');
+  resolveEntitlement({ isPremium: true });
+  await React.act(async () => {
+    await delayedEntitlement;
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  assert.equal(current.isPremium, false, 'a late entitlement response cannot restore premium access after sign-out');
+  assert.deepEqual(current.wardrobeItems, [], 'a late entitlement response cannot repopulate the signed-out wardrobe');
 
   routeState = router.getStateForAction(routeState, StackActions.popToTop(), options);
   routeState = router.getStateForAction(routeState, StackActions.replace('sign-in'), options);
