@@ -8,40 +8,32 @@
 -- and any platform-managed extensions already provisioned. This is not a Supabase bootstrap.
 -- Captured ACL scope is the principals stored in the manifest; it does not reconstruct role memberships.
 
-SET search_path = public, extensions, storage, auth, pg_catalog;
+BEGIN;
+-- Keep pg_catalog implicit/first so gen_random_uuid() binds to the captured core function, not pgcrypto's wrapper.
+SET LOCAL search_path = public, extensions, storage, auth;
+DO $baseline$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')) THEN
+    RAISE EXCEPTION 'Baseline requires an EMPTY public application schema; never use on production';
+  END IF;
+END
+$baseline$;
 
 -- Extensions: manual/unknown provenance is retained as comments. Platform-managed extensions are skipped.
 CREATE SCHEMA IF NOT EXISTS extensions;
 -- ORIGIN: MANUAL/UNKNOWN — not created by a reviewed repo migration; platform/manual origin unknown
-DO $baseline$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_catalog.pg_available_extensions WHERE name = 'pg_stat_statements') THEN
-    EXECUTE 'CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";';
-  ELSE
-    RAISE NOTICE 'Skipping unavailable local extension: %', 'pg_stat_statements';
-  END IF;
-END
-$baseline$;
+-- Captured extension version 1.11; install the target PostgreSQL distribution's available version.
+CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";
 -- ORIGIN: MANUAL/UNKNOWN — not created by a reviewed repo migration; platform/manual origin unknown
-DO $baseline$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_catalog.pg_available_extensions WHERE name = 'pgcrypto') THEN
-    EXECUTE 'CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";';
-  ELSE
-    RAISE NOTICE 'Skipping unavailable local extension: %', 'pgcrypto';
-  END IF;
-END
-$baseline$;
+-- Captured extension version 1.3; install the target PostgreSQL distribution's available version.
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
 -- ORIGIN: MANUAL/UNKNOWN — not created by a reviewed repo migration; platform/manual origin unknown
-DO $baseline$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_catalog.pg_available_extensions WHERE name = 'uuid-ossp') THEN
-    EXECUTE 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";';
-  ELSE
-    RAISE NOTICE 'Skipping unavailable local extension: %', 'uuid-ossp';
-  END IF;
-END
-$baseline$;
+-- SKIPPED platform-managed extension: plpgsql (captured version 1.0)
+-- ORIGIN: MANUAL/UNKNOWN — not created by a reviewed repo migration; platform/manual origin unknown
+-- SKIPPED platform-managed extension: supabase_vault (captured version 0.3.1)
+-- ORIGIN: MANUAL/UNKNOWN — not created by a reviewed repo migration; platform/manual origin unknown
+-- Captured extension version 1.1; install the target PostgreSQL distribution's available version.
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 -- Skipped Supabase/platform-managed extensions: plpgsql (1.0), supabase_vault (0.3.1)
 
 -- Tables and columns
@@ -319,7 +311,7 @@ BEGIN
     AND item_id = p_item_id
     AND image_url = p_image_url;
 END;
-$function$
+$function$;
 ALTER FUNCTION public.acknowledge_wardrobe_photo_cleanup(uuid,text) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20261020231945_move_bg_removal_store_to_supabase.sql
 CREATE OR REPLACE FUNCTION public.bg_removal_increment_usage(p_user_id uuid)
@@ -333,7 +325,7 @@ AS $function$
     SET count = public.bg_removal_usage.count + 1,
         last_used_at = pg_catalog.now()
   RETURNING count;
-$function$
+$function$;
 ALTER FUNCTION public.bg_removal_increment_usage(uuid) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20261020231945_move_bg_removal_store_to_supabase.sql
 CREATE OR REPLACE FUNCTION public.bg_removal_reset_usage(p_user_id uuid)
@@ -346,7 +338,7 @@ AS $function$
   ON CONFLICT (user_id) DO UPDATE
     SET count = 0,
         last_used_at = pg_catalog.now();
-$function$
+$function$;
 ALTER FUNCTION public.bg_removal_reset_usage(uuid) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_journal_ignored_revenuecat_event(p_event_id text, p_event_type text, p_payload_hash text)
@@ -379,7 +371,7 @@ BEGIN
   END IF;
   RETURN jsonb_build_object('status', existing.status);
 END;
-$function$
+$function$;
 ALTER FUNCTION public.billing_journal_ignored_revenuecat_event(text,text,text) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_journal_revenuecat_event(p_event_id text, p_user_id uuid, p_event_type text, p_store text, p_product_id text, p_entitlement_id text, p_transaction_id text, p_original_transaction_id text, p_purchased_at timestamp with time zone, p_expires_at timestamp with time zone, p_occurred_at timestamp with time zone, p_active boolean, p_payload_hash text)
@@ -412,7 +404,7 @@ BEGIN
   END IF;
   RETURN jsonb_build_object('status', existing.status);
 END;
-$function$
+$function$;
 ALTER FUNCTION public.billing_journal_revenuecat_event(text,uuid,text,text,text,text,text,text,timestamp with time zone,timestamp with time zone,timestamp with time zone,boolean,text) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_process_revenuecat_event(p_event_id text)
@@ -563,7 +555,7 @@ BEGIN
     expires_at = EXCLUDED.expires_at, updated_at = now();
   RETURN jsonb_build_object('status', 'processed');
 END;
-$function$
+$function$;
 ALTER FUNCTION public.billing_process_revenuecat_event(text) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_readiness_check()
@@ -605,7 +597,7 @@ AS $function$
            AND column_name = 'last_webhook_at'
        )
   )
-$function$
+$function$;
 ALTER FUNCTION public.billing_readiness_check() OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_reconcile_entitlement(p_user_id uuid)
@@ -631,7 +623,7 @@ BEGIN
     WHERE id = p_user_id;
   RETURN jsonb_build_object('is_premium', coalesce(v_is_premium, false), 'expires_at', expiry);
 END;
-$function$
+$function$;
 ALTER FUNCTION public.billing_reconcile_entitlement(uuid) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_reconcile_revenuecat_snapshot(p_user_id uuid, p_event_id text, p_payload_hash text, p_provider_entitlement_active boolean, p_provider_product_id text, p_provider_store text, p_provider_expires_at timestamp with time zone, p_fetch_started_at timestamp with time zone)
@@ -759,7 +751,7 @@ BEGIN
   END IF;
   RETURN jsonb_build_object('is_premium', coalesce(v_is_premium, false), 'expires_at', expiry);
 END;
-$function$
+$function$;
 ALTER FUNCTION public.billing_reconcile_revenuecat_snapshot(uuid,text,text,boolean,text,text,timestamp with time zone,timestamp with time zone) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE OR REPLACE FUNCTION public.billing_tombstone_account(p_user_id uuid)
@@ -787,7 +779,7 @@ BEGIN
   ON CONFLICT (user_id) DO UPDATE SET source = EXCLUDED.source,
     event_id = null, is_premium = false, expires_at = null, updated_at = now();
 END;
-$function$
+$function$;
 ALTER FUNCTION public.billing_tombstone_account(uuid) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
 CREATE OR REPLACE FUNCTION public.create_garment_group(p_garment_ids uuid[], p_relationship_type text, p_relationship_confidence double precision DEFAULT NULL::double precision, p_confirmation_status text DEFAULT 'user_confirmed'::text, p_shared_attributes jsonb DEFAULT '{}'::jsonb, p_source_image_path text DEFAULT NULL::text)
@@ -855,7 +847,7 @@ BEGIN
 
   RETURN v_group;
 END;
-$function$
+$function$;
 ALTER FUNCTION public.create_garment_group(uuid[],text,double precision,text,jsonb,text) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
 CREATE OR REPLACE FUNCTION public.delete_empty_garment_group()
@@ -882,7 +874,7 @@ BEGIN
     );
   RETURN OLD;
 END;
-$function$
+$function$;
 ALTER FUNCTION public.delete_empty_garment_group() OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20261001000000_wardrobe_group_batch_insert.sql
 CREATE OR REPLACE FUNCTION public.insert_wardrobe_group_items(p_items jsonb, p_relationship_type text, p_relationship_confidence double precision, p_shared_attributes jsonb)
@@ -930,7 +922,7 @@ BEGIN
   );
   RETURN v_ids;
 END;
-$function$
+$function$;
 ALTER FUNCTION public.insert_wardrobe_group_items(jsonb,text,double precision,jsonb) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20260928000000_free_wardrobe_selection.sql
 CREATE OR REPLACE FUNCTION public.insert_wardrobe_item(p_item jsonb)
@@ -945,7 +937,7 @@ BEGIN
   v_ids := public.insert_wardrobe_items(jsonb_build_array(p_item));
   RETURN v_ids[1];
 END;
-$function$
+$function$;
 ALTER FUNCTION public.insert_wardrobe_item(jsonb) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20260928000000_free_wardrobe_selection.sql
 CREATE OR REPLACE FUNCTION public.insert_wardrobe_items(p_items jsonb)
@@ -1047,7 +1039,7 @@ BEGIN
   END IF;
   RETURN v_ids;
 END;
-$function$
+$function$;
 ALTER FUNCTION public.insert_wardrobe_items(jsonb) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql
 CREATE OR REPLACE FUNCTION public.ratelimit_decrement(p_key text)
@@ -1059,7 +1051,7 @@ AS $function$
   SET hits = CASE WHEN hits > 1 THEN hits - 1 ELSE 0 END
   WHERE key = p_key
     AND reset_time > pg_catalog.now();
-$function$
+$function$;
 ALTER FUNCTION public.ratelimit_decrement(text) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql
 CREATE OR REPLACE FUNCTION public.ratelimit_delete_key(p_key text)
@@ -1069,7 +1061,7 @@ CREATE OR REPLACE FUNCTION public.ratelimit_delete_key(p_key text)
 AS $function$
   DELETE FROM public.ratelimit_store
   WHERE key = p_key;
-$function$
+$function$;
 ALTER FUNCTION public.ratelimit_delete_key(text) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql
 CREATE OR REPLACE FUNCTION public.ratelimit_delete_prefix(p_prefix text)
@@ -1080,7 +1072,7 @@ AS $function$
   DELETE FROM public.ratelimit_store
   WHERE p_prefix IS NOT NULL AND p_prefix <> ''
     AND pg_catalog.starts_with(key, p_prefix);
-$function$
+$function$;
 ALTER FUNCTION public.ratelimit_delete_prefix(text) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql
 CREATE OR REPLACE FUNCTION public.ratelimit_increment(p_key text, p_window_ms bigint)
@@ -1108,7 +1100,7 @@ AS $function$
   RETURNING
     r.hits,
     (pg_catalog.date_part('epoch', r.reset_time) * 1000)::bigint;
-$function$
+$function$;
 ALTER FUNCTION public.ratelimit_increment(text,bigint) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20261019000000_durable_wardrobe_photo_cleanup.sql
 CREATE OR REPLACE FUNCTION public.record_wardrobe_photo_cleanup()
@@ -1140,7 +1132,7 @@ BEGIN
   END IF;
   RETURN OLD;
 END;
-$function$
+$function$;
 ALTER FUNCTION public.record_wardrobe_photo_cleanup() OWNER TO "postgres";
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
 CREATE OR REPLACE FUNCTION public.rls_auto_enable()
@@ -1171,7 +1163,7 @@ BEGIN
      END IF;
   END LOOP;
 END;
-$function$
+$function$;
 ALTER FUNCTION public.rls_auto_enable() OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20260928000000_free_wardrobe_selection.sql
 CREATE OR REPLACE FUNCTION public.set_free_wardrobe_selection(p_ids uuid[])
@@ -1217,7 +1209,7 @@ BEGIN
   SELECT v_user_id, requested.id
   FROM unnest(p_ids) AS requested(id);
 END;
-$function$
+$function$;
 ALTER FUNCTION public.set_free_wardrobe_selection(uuid[]) OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20260916000000_harden_update_updated_at.sql
 CREATE OR REPLACE FUNCTION public.update_updated_at()
@@ -1229,7 +1221,7 @@ begin
   new.updated_at = now();
   return new;
 end;
-$function$
+$function$;
 ALTER FUNCTION public.update_updated_at() OWNER TO "postgres";
 -- ORIGIN: supabase/migrations/20261012000000_canonical_wardrobe_semantics.sql
 CREATE OR REPLACE FUNCTION public.valid_wardrobe_recommendation_semantics(value jsonb)
@@ -1301,7 +1293,7 @@ BEGIN
   END LOOP;
   RETURN true;
 END;
-$function$
+$function$;
 ALTER FUNCTION public.valid_wardrobe_recommendation_semantics(jsonb) OWNER TO "postgres";
 
 -- Primary, unique and check constraints
@@ -1407,20 +1399,80 @@ ALTER TABLE public."wardrobe_photo_cleanup_receipts" ADD CONSTRAINT "wardrobe_ph
 ALTER TABLE public."wear_logs" ADD CONSTRAINT "wear_logs_pkey" PRIMARY KEY (id);
 
 -- Standalone indexes; constraint-backed indexes are created with their constraints.
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+-- Implicit constraint-backed index: public.affinity_signals_pkey
+-- ORIGIN: supabase/migrations/20261020231945_move_bg_removal_store_to_supabase.sql
+-- Implicit constraint-backed index: public.bg_removal_cache_pkey
+-- ORIGIN: supabase/migrations/20261020231945_move_bg_removal_store_to_supabase.sql
+-- Implicit constraint-backed index: public.bg_removal_usage_pkey
+-- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
+-- Implicit constraint-backed index: public.billing_accounts_pkey
+-- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
+-- Implicit constraint-backed index: public.billing_deletion_tombstones_pkey
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE INDEX billing_event_journal_pending_idx ON public.billing_event_journal USING btree (received_at) WHERE (status = 'pending'::text);
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
+-- Implicit constraint-backed index: public.billing_event_journal_pkey
+-- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
+-- Implicit constraint-backed index: public.billing_reconciliations_pkey
+-- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
+-- Implicit constraint-backed index: public.billing_subscriptions_pkey
+-- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
+-- Implicit constraint-backed index: public.billing_subscriptions_store_original_transaction_id_key
+-- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
 CREATE INDEX billing_subscriptions_user_active_idx ON public.billing_subscriptions USING btree (user_id, expires_at) WHERE is_active;
+-- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
+-- Implicit constraint-backed index: public.billing_transactions_pkey
+-- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
+-- Implicit constraint-backed index: public.billing_transactions_store_transaction_id_key
 -- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
 CREATE INDEX garment_group_members_garment_id_idx ON public.garment_group_members USING btree (garment_id);
 -- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
+-- Implicit constraint-backed index: public.garment_group_members_pkey
+-- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
 CREATE INDEX garment_group_members_user_id_idx ON public.garment_group_members USING btree (user_id);
 -- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
+-- Implicit constraint-backed index: public.garment_groups_pkey
+-- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
+-- Implicit constraint-backed index: public.garment_groups_user_id_id_key
+-- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
 CREATE INDEX garment_groups_user_id_idx ON public.garment_groups USING btree (user_id);
+-- ORIGIN: supabase/migrations/20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql
+-- Implicit constraint-backed index: public.lockout_store_pkey
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+-- Implicit constraint-backed index: public.pair_affinity_signals_pkey
+-- ORIGIN: supabase/migrations/20261021091241_move_ratelimit_and_lockout_stores_to_supabase.sql
+-- Implicit constraint-backed index: public.ratelimit_store_pkey
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+-- Implicit constraint-backed index: public.rotation_cursors_pkey
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+-- Implicit constraint-backed index: public.rotation_cursors_user_id_scenario_key
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+-- Implicit constraint-backed index: public.saved_looks_pkey
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+-- Implicit constraint-backed index: public.slot_statuses_pkey
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+-- Implicit constraint-backed index: public.slot_statuses_user_id_slot_id_key
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+-- Implicit constraint-backed index: public.tryon_profiles_pkey
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+-- Implicit constraint-backed index: public.tryon_profiles_user_id_key
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+-- Implicit constraint-backed index: public.user_profiles_pkey
+-- ORIGIN: supabase/migrations/20260928000000_free_wardrobe_selection.sql
+-- Implicit constraint-backed index: public.wardrobe_free_selections_pkey
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+-- Implicit constraint-backed index: public.wardrobe_items_pkey
 -- ORIGIN: supabase/migrations/20260928000000_free_wardrobe_selection.sql
 CREATE INDEX wardrobe_items_user_created_id_desc_idx ON public.wardrobe_items USING btree (user_id, created_at DESC, id DESC);
+-- ORIGIN: supabase/migrations/20260918000000_garment_groups.sql
+-- Implicit constraint-backed index: public.wardrobe_items_user_id_id_key
 -- ORIGIN: supabase/migrations/20261019000000_durable_wardrobe_photo_cleanup.sql
 CREATE INDEX wardrobe_photo_cleanup_receipts_owner_created_idx ON public.wardrobe_photo_cleanup_receipts USING btree (user_id, created_at);
+-- ORIGIN: supabase/migrations/20261019000000_durable_wardrobe_photo_cleanup.sql
+-- Implicit constraint-backed index: public.wardrobe_photo_cleanup_receipts_pkey
+-- ORIGIN: MANUAL/UNKNOWN — manual/unknown
+-- Implicit constraint-backed index: public.wear_logs_pkey
 
 -- Foreign keys are created after standalone unique indexes they may reference.
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
@@ -1931,129 +1983,322 @@ CREATE POLICY "Users manage own wear logs" ON public."wear_logs"
   USING ((auth.uid() = user_id));
 
 -- Public table and column ACLs. Revoke captured-principal grants first, then restore captured grants.
--- ORIGIN: live ACL state; exact source migration not established
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."affinity_signals" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."affinity_signals" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."affinity_signals" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."affinity_signals" FROM "service_role";
-GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public."affinity_signals" TO "authenticated";
-GRANT DELETE, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE ON TABLE public."affinity_signals" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."affinity_signals" TO "authenticated";
+GRANT INSERT ON TABLE public."affinity_signals" TO "authenticated";
+GRANT SELECT ON TABLE public."affinity_signals" TO "authenticated";
+GRANT UPDATE ON TABLE public."affinity_signals" TO "authenticated";
+GRANT DELETE ON TABLE public."affinity_signals" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."affinity_signals" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."affinity_signals" TO "service_role";
+GRANT SELECT ON TABLE public."affinity_signals" TO "service_role";
+GRANT TRIGGER ON TABLE public."affinity_signals" TO "service_role";
+GRANT TRUNCATE ON TABLE public."affinity_signals" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."bg_removal_cache" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."bg_removal_cache" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."bg_removal_cache" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."bg_removal_cache" FROM "service_role";
-GRANT DELETE, INSERT, SELECT ON TABLE public."bg_removal_cache" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."bg_removal_cache" TO "service_role";
+GRANT INSERT ON TABLE public."bg_removal_cache" TO "service_role";
+GRANT SELECT ON TABLE public."bg_removal_cache" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."bg_removal_usage" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."bg_removal_usage" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."bg_removal_usage" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."bg_removal_usage" FROM "service_role";
-GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public."bg_removal_usage" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."bg_removal_usage" TO "service_role";
+GRANT INSERT ON TABLE public."bg_removal_usage" TO "service_role";
+GRANT SELECT ON TABLE public."bg_removal_usage" TO "service_role";
+GRANT UPDATE ON TABLE public."bg_removal_usage" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."billing_accounts" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."billing_accounts" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."billing_accounts" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."billing_accounts" FROM "service_role";
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public."billing_accounts" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."billing_accounts" TO "service_role";
+GRANT INSERT ON TABLE public."billing_accounts" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."billing_accounts" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."billing_accounts" TO "service_role";
+GRANT SELECT ON TABLE public."billing_accounts" TO "service_role";
+GRANT TRIGGER ON TABLE public."billing_accounts" TO "service_role";
+GRANT TRUNCATE ON TABLE public."billing_accounts" TO "service_role";
+GRANT UPDATE ON TABLE public."billing_accounts" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."billing_deletion_tombstones" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."billing_deletion_tombstones" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."billing_deletion_tombstones" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."billing_deletion_tombstones" FROM "service_role";
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public."billing_deletion_tombstones" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."billing_deletion_tombstones" TO "service_role";
+GRANT INSERT ON TABLE public."billing_deletion_tombstones" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."billing_deletion_tombstones" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."billing_deletion_tombstones" TO "service_role";
+GRANT SELECT ON TABLE public."billing_deletion_tombstones" TO "service_role";
+GRANT TRIGGER ON TABLE public."billing_deletion_tombstones" TO "service_role";
+GRANT TRUNCATE ON TABLE public."billing_deletion_tombstones" TO "service_role";
+GRANT UPDATE ON TABLE public."billing_deletion_tombstones" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."billing_event_journal" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."billing_event_journal" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."billing_event_journal" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."billing_event_journal" FROM "service_role";
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public."billing_event_journal" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."billing_event_journal" TO "service_role";
+GRANT INSERT ON TABLE public."billing_event_journal" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."billing_event_journal" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."billing_event_journal" TO "service_role";
+GRANT SELECT ON TABLE public."billing_event_journal" TO "service_role";
+GRANT TRIGGER ON TABLE public."billing_event_journal" TO "service_role";
+GRANT TRUNCATE ON TABLE public."billing_event_journal" TO "service_role";
+GRANT UPDATE ON TABLE public."billing_event_journal" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."billing_reconciliations" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."billing_reconciliations" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."billing_reconciliations" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."billing_reconciliations" FROM "service_role";
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public."billing_reconciliations" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."billing_reconciliations" TO "service_role";
+GRANT INSERT ON TABLE public."billing_reconciliations" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."billing_reconciliations" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."billing_reconciliations" TO "service_role";
+GRANT SELECT ON TABLE public."billing_reconciliations" TO "service_role";
+GRANT TRIGGER ON TABLE public."billing_reconciliations" TO "service_role";
+GRANT TRUNCATE ON TABLE public."billing_reconciliations" TO "service_role";
+GRANT UPDATE ON TABLE public."billing_reconciliations" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."billing_subscriptions" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."billing_subscriptions" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."billing_subscriptions" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."billing_subscriptions" FROM "service_role";
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public."billing_subscriptions" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."billing_subscriptions" TO "service_role";
+GRANT INSERT ON TABLE public."billing_subscriptions" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."billing_subscriptions" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."billing_subscriptions" TO "service_role";
+GRANT SELECT ON TABLE public."billing_subscriptions" TO "service_role";
+GRANT TRIGGER ON TABLE public."billing_subscriptions" TO "service_role";
+GRANT TRUNCATE ON TABLE public."billing_subscriptions" TO "service_role";
+GRANT UPDATE ON TABLE public."billing_subscriptions" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."billing_transactions" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."billing_transactions" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."billing_transactions" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."billing_transactions" FROM "service_role";
-GRANT DELETE, INSERT, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public."billing_transactions" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."billing_transactions" TO "service_role";
+GRANT INSERT ON TABLE public."billing_transactions" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."billing_transactions" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."billing_transactions" TO "service_role";
+GRANT SELECT ON TABLE public."billing_transactions" TO "service_role";
+GRANT TRIGGER ON TABLE public."billing_transactions" TO "service_role";
+GRANT TRUNCATE ON TABLE public."billing_transactions" TO "service_role";
+GRANT UPDATE ON TABLE public."billing_transactions" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."garment_group_members" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."garment_group_members" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."garment_group_members" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."garment_group_members" FROM "service_role";
-GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public."garment_group_members" TO "authenticated";
-GRANT DELETE, SELECT ON TABLE public."garment_group_members" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."garment_group_members" TO "authenticated";
+GRANT INSERT ON TABLE public."garment_group_members" TO "authenticated";
+GRANT SELECT ON TABLE public."garment_group_members" TO "authenticated";
+GRANT UPDATE ON TABLE public."garment_group_members" TO "authenticated";
+GRANT DELETE ON TABLE public."garment_group_members" TO "service_role";
+GRANT SELECT ON TABLE public."garment_group_members" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."garment_groups" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."garment_groups" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."garment_groups" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."garment_groups" FROM "service_role";
-GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public."garment_groups" TO "authenticated";
-GRANT DELETE, SELECT ON TABLE public."garment_groups" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."garment_groups" TO "authenticated";
+GRANT INSERT ON TABLE public."garment_groups" TO "authenticated";
+GRANT SELECT ON TABLE public."garment_groups" TO "authenticated";
+GRANT UPDATE ON TABLE public."garment_groups" TO "authenticated";
+GRANT DELETE ON TABLE public."garment_groups" TO "service_role";
+GRANT SELECT ON TABLE public."garment_groups" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."lockout_store" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."lockout_store" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."lockout_store" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."lockout_store" FROM "service_role";
-GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public."lockout_store" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."lockout_store" TO "service_role";
+GRANT INSERT ON TABLE public."lockout_store" TO "service_role";
+GRANT SELECT ON TABLE public."lockout_store" TO "service_role";
+GRANT UPDATE ON TABLE public."lockout_store" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."pair_affinity_signals" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."pair_affinity_signals" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."pair_affinity_signals" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."pair_affinity_signals" FROM "service_role";
-GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public."pair_affinity_signals" TO "authenticated";
-GRANT DELETE, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE ON TABLE public."pair_affinity_signals" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."pair_affinity_signals" TO "authenticated";
+GRANT INSERT ON TABLE public."pair_affinity_signals" TO "authenticated";
+GRANT SELECT ON TABLE public."pair_affinity_signals" TO "authenticated";
+GRANT UPDATE ON TABLE public."pair_affinity_signals" TO "authenticated";
+GRANT DELETE ON TABLE public."pair_affinity_signals" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."pair_affinity_signals" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."pair_affinity_signals" TO "service_role";
+GRANT SELECT ON TABLE public."pair_affinity_signals" TO "service_role";
+GRANT TRIGGER ON TABLE public."pair_affinity_signals" TO "service_role";
+GRANT TRUNCATE ON TABLE public."pair_affinity_signals" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."ratelimit_store" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."ratelimit_store" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."ratelimit_store" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."ratelimit_store" FROM "service_role";
-GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public."ratelimit_store" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."ratelimit_store" TO "service_role";
+GRANT INSERT ON TABLE public."ratelimit_store" TO "service_role";
+GRANT SELECT ON TABLE public."ratelimit_store" TO "service_role";
+GRANT UPDATE ON TABLE public."ratelimit_store" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."rotation_cursors" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."rotation_cursors" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."rotation_cursors" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."rotation_cursors" FROM "service_role";
-GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public."rotation_cursors" TO "authenticated";
-GRANT DELETE, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE ON TABLE public."rotation_cursors" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."rotation_cursors" TO "authenticated";
+GRANT INSERT ON TABLE public."rotation_cursors" TO "authenticated";
+GRANT SELECT ON TABLE public."rotation_cursors" TO "authenticated";
+GRANT UPDATE ON TABLE public."rotation_cursors" TO "authenticated";
+GRANT DELETE ON TABLE public."rotation_cursors" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."rotation_cursors" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."rotation_cursors" TO "service_role";
+GRANT SELECT ON TABLE public."rotation_cursors" TO "service_role";
+GRANT TRIGGER ON TABLE public."rotation_cursors" TO "service_role";
+GRANT TRUNCATE ON TABLE public."rotation_cursors" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."saved_looks" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."saved_looks" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."saved_looks" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."saved_looks" FROM "service_role";
-GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public."saved_looks" TO "authenticated";
-GRANT DELETE, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE ON TABLE public."saved_looks" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."saved_looks" TO "authenticated";
+GRANT INSERT ON TABLE public."saved_looks" TO "authenticated";
+GRANT SELECT ON TABLE public."saved_looks" TO "authenticated";
+GRANT UPDATE ON TABLE public."saved_looks" TO "authenticated";
+GRANT DELETE ON TABLE public."saved_looks" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."saved_looks" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."saved_looks" TO "service_role";
+GRANT SELECT ON TABLE public."saved_looks" TO "service_role";
+GRANT TRIGGER ON TABLE public."saved_looks" TO "service_role";
+GRANT TRUNCATE ON TABLE public."saved_looks" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."slot_statuses" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."slot_statuses" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."slot_statuses" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."slot_statuses" FROM "service_role";
-GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public."slot_statuses" TO "authenticated";
-GRANT DELETE, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE ON TABLE public."slot_statuses" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."slot_statuses" TO "authenticated";
+GRANT INSERT ON TABLE public."slot_statuses" TO "authenticated";
+GRANT SELECT ON TABLE public."slot_statuses" TO "authenticated";
+GRANT UPDATE ON TABLE public."slot_statuses" TO "authenticated";
+GRANT DELETE ON TABLE public."slot_statuses" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."slot_statuses" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."slot_statuses" TO "service_role";
+GRANT SELECT ON TABLE public."slot_statuses" TO "service_role";
+GRANT TRIGGER ON TABLE public."slot_statuses" TO "service_role";
+GRANT TRUNCATE ON TABLE public."slot_statuses" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."tryon_profiles" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."tryon_profiles" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."tryon_profiles" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."tryon_profiles" FROM "service_role";
-GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public."tryon_profiles" TO "authenticated";
-GRANT DELETE, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE ON TABLE public."tryon_profiles" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."tryon_profiles" TO "authenticated";
+GRANT INSERT ON TABLE public."tryon_profiles" TO "authenticated";
+GRANT SELECT ON TABLE public."tryon_profiles" TO "authenticated";
+GRANT UPDATE ON TABLE public."tryon_profiles" TO "authenticated";
+GRANT DELETE ON TABLE public."tryon_profiles" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."tryon_profiles" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."tryon_profiles" TO "service_role";
+GRANT SELECT ON TABLE public."tryon_profiles" TO "service_role";
+GRANT TRIGGER ON TABLE public."tryon_profiles" TO "service_role";
+GRANT TRUNCATE ON TABLE public."tryon_profiles" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."user_profiles" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."user_profiles" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."user_profiles" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."user_profiles" FROM "service_role";
 GRANT SELECT ON TABLE public."user_profiles" TO "authenticated";
-GRANT DELETE, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public."user_profiles" TO "service_role";
+GRANT DELETE ON TABLE public."user_profiles" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."user_profiles" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."user_profiles" TO "service_role";
+GRANT SELECT ON TABLE public."user_profiles" TO "service_role";
+GRANT TRIGGER ON TABLE public."user_profiles" TO "service_role";
+GRANT TRUNCATE ON TABLE public."user_profiles" TO "service_role";
+GRANT UPDATE ON TABLE public."user_profiles" TO "service_role";
 REVOKE ALL PRIVILEGES ("body_type") ON TABLE public."user_profiles" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ("body_type") ON TABLE public."user_profiles" FROM "anon";
 REVOKE ALL PRIVILEGES ("body_type") ON TABLE public."user_profiles" FROM "authenticated";
@@ -2138,34 +2383,227 @@ REVOKE ALL PRIVILEGES ("undertone") ON TABLE public."user_profiles" FROM "authen
 REVOKE ALL PRIVILEGES ("undertone") ON TABLE public."user_profiles" FROM "service_role";
 GRANT INSERT ("undertone") ON TABLE public."user_profiles" TO "authenticated";
 GRANT UPDATE ("undertone") ON TABLE public."user_profiles" TO "authenticated";
--- ORIGIN: live ACL state; exact source migration not established
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_free_selections" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_free_selections" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_free_selections" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_free_selections" FROM "service_role";
 GRANT SELECT ON TABLE public."wardrobe_free_selections" TO "authenticated";
-GRANT DELETE, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE ON TABLE public."wardrobe_free_selections" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."wardrobe_free_selections" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."wardrobe_free_selections" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."wardrobe_free_selections" TO "service_role";
+GRANT SELECT ON TABLE public."wardrobe_free_selections" TO "service_role";
+GRANT TRIGGER ON TABLE public."wardrobe_free_selections" TO "service_role";
+GRANT TRUNCATE ON TABLE public."wardrobe_free_selections" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_items" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_items" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_items" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_items" FROM "service_role";
-GRANT DELETE, SELECT, UPDATE ON TABLE public."wardrobe_items" TO "authenticated";
-GRANT DELETE, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE ON TABLE public."wardrobe_items" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."wardrobe_items" TO "authenticated";
+GRANT SELECT ON TABLE public."wardrobe_items" TO "authenticated";
+GRANT UPDATE ON TABLE public."wardrobe_items" TO "authenticated";
+GRANT DELETE ON TABLE public."wardrobe_items" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."wardrobe_items" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."wardrobe_items" TO "service_role";
+GRANT SELECT ON TABLE public."wardrobe_items" TO "service_role";
+GRANT TRIGGER ON TABLE public."wardrobe_items" TO "service_role";
+GRANT TRUNCATE ON TABLE public."wardrobe_items" TO "service_role";
+GRANT UPDATE ON TABLE public."wardrobe_items" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_photo_cleanup_receipts" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_photo_cleanup_receipts" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_photo_cleanup_receipts" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."wardrobe_photo_cleanup_receipts" FROM "service_role";
 GRANT SELECT ON TABLE public."wardrobe_photo_cleanup_receipts" TO "authenticated";
-GRANT DELETE, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE ON TABLE public."wardrobe_photo_cleanup_receipts" TO "service_role";
--- ORIGIN: live ACL state; exact source migration not established
+GRANT DELETE ON TABLE public."wardrobe_photo_cleanup_receipts" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."wardrobe_photo_cleanup_receipts" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."wardrobe_photo_cleanup_receipts" TO "service_role";
+GRANT SELECT ON TABLE public."wardrobe_photo_cleanup_receipts" TO "service_role";
+GRANT TRIGGER ON TABLE public."wardrobe_photo_cleanup_receipts" TO "service_role";
+GRANT TRUNCATE ON TABLE public."wardrobe_photo_cleanup_receipts" TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
 REVOKE ALL PRIVILEGES ON TABLE public."wear_logs" FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON TABLE public."wear_logs" FROM "anon";
 REVOKE ALL PRIVILEGES ON TABLE public."wear_logs" FROM "authenticated";
 REVOKE ALL PRIVILEGES ON TABLE public."wear_logs" FROM "service_role";
-GRANT DELETE, INSERT, SELECT, UPDATE ON TABLE public."wear_logs" TO "authenticated";
-GRANT DELETE, MAINTAIN, REFERENCES, SELECT, TRIGGER, TRUNCATE ON TABLE public."wear_logs" TO "service_role";
+GRANT DELETE ON TABLE public."wear_logs" TO "authenticated";
+GRANT INSERT ON TABLE public."wear_logs" TO "authenticated";
+GRANT SELECT ON TABLE public."wear_logs" TO "authenticated";
+GRANT UPDATE ON TABLE public."wear_logs" TO "authenticated";
+GRANT DELETE ON TABLE public."wear_logs" TO "service_role";
+DO $baseline$
+BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE 'GRANT MAINTAIN ON TABLE public."wear_logs" TO "service_role";';
+  END IF;
+END
+$baseline$;
+GRANT REFERENCES ON TABLE public."wear_logs" TO "service_role";
+GRANT SELECT ON TABLE public."wear_logs" TO "service_role";
+GRANT TRIGGER ON TABLE public."wear_logs" TO "service_role";
+GRANT TRUNCATE ON TABLE public."wear_logs" TO "service_role";
+
+-- Public function ACLs; default PUBLIC EXECUTE is removed unless it was captured.
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.acknowledge_wardrobe_photo_cleanup(uuid,text) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.acknowledge_wardrobe_photo_cleanup(uuid,text) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.acknowledge_wardrobe_photo_cleanup(uuid,text) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.acknowledge_wardrobe_photo_cleanup(uuid,text) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.acknowledge_wardrobe_photo_cleanup(uuid,text) TO "authenticated";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.bg_removal_increment_usage(uuid) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.bg_removal_increment_usage(uuid) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.bg_removal_increment_usage(uuid) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.bg_removal_increment_usage(uuid) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.bg_removal_increment_usage(uuid) TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.bg_removal_reset_usage(uuid) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.bg_removal_reset_usage(uuid) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.bg_removal_reset_usage(uuid) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.bg_removal_reset_usage(uuid) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.bg_removal_reset_usage(uuid) TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_journal_ignored_revenuecat_event(text,text,text) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_journal_ignored_revenuecat_event(text,text,text) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_journal_ignored_revenuecat_event(text,text,text) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_journal_ignored_revenuecat_event(text,text,text) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.billing_journal_ignored_revenuecat_event(text,text,text) TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_journal_revenuecat_event(text,uuid,text,text,text,text,text,text,timestamp with time zone,timestamp with time zone,timestamp with time zone,boolean,text) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_journal_revenuecat_event(text,uuid,text,text,text,text,text,text,timestamp with time zone,timestamp with time zone,timestamp with time zone,boolean,text) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_journal_revenuecat_event(text,uuid,text,text,text,text,text,text,timestamp with time zone,timestamp with time zone,timestamp with time zone,boolean,text) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_journal_revenuecat_event(text,uuid,text,text,text,text,text,text,timestamp with time zone,timestamp with time zone,timestamp with time zone,boolean,text) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.billing_journal_revenuecat_event(text,uuid,text,text,text,text,text,text,timestamp with time zone,timestamp with time zone,timestamp with time zone,boolean,text) TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_process_revenuecat_event(text) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_process_revenuecat_event(text) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_process_revenuecat_event(text) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_process_revenuecat_event(text) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.billing_process_revenuecat_event(text) TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_readiness_check() FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_readiness_check() FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_readiness_check() FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_readiness_check() FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.billing_readiness_check() TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_reconcile_entitlement(uuid) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_reconcile_entitlement(uuid) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_reconcile_entitlement(uuid) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_reconcile_entitlement(uuid) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.billing_reconcile_entitlement(uuid) TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_reconcile_revenuecat_snapshot(uuid,text,text,boolean,text,text,timestamp with time zone,timestamp with time zone) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_reconcile_revenuecat_snapshot(uuid,text,text,boolean,text,text,timestamp with time zone,timestamp with time zone) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_reconcile_revenuecat_snapshot(uuid,text,text,boolean,text,text,timestamp with time zone,timestamp with time zone) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_reconcile_revenuecat_snapshot(uuid,text,text,boolean,text,text,timestamp with time zone,timestamp with time zone) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.billing_reconcile_revenuecat_snapshot(uuid,text,text,boolean,text,text,timestamp with time zone,timestamp with time zone) TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_tombstone_account(uuid) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_tombstone_account(uuid) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_tombstone_account(uuid) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.billing_tombstone_account(uuid) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.billing_tombstone_account(uuid) TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.create_garment_group(uuid[],text,double precision,text,jsonb,text) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.create_garment_group(uuid[],text,double precision,text,jsonb,text) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.create_garment_group(uuid[],text,double precision,text,jsonb,text) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.create_garment_group(uuid[],text,double precision,text,jsonb,text) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.create_garment_group(uuid[],text,double precision,text,jsonb,text) TO "authenticated";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.delete_empty_garment_group() FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.delete_empty_garment_group() FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.delete_empty_garment_group() FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.delete_empty_garment_group() FROM "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_group_items(jsonb,text,double precision,jsonb) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_group_items(jsonb,text,double precision,jsonb) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_group_items(jsonb,text,double precision,jsonb) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_group_items(jsonb,text,double precision,jsonb) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.insert_wardrobe_group_items(jsonb,text,double precision,jsonb) TO "authenticated";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_item(jsonb) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_item(jsonb) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_item(jsonb) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_item(jsonb) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.insert_wardrobe_item(jsonb) TO "authenticated";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_items(jsonb) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_items(jsonb) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_items(jsonb) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.insert_wardrobe_items(jsonb) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.insert_wardrobe_items(jsonb) TO "authenticated";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_decrement(text) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_decrement(text) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_decrement(text) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_decrement(text) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.ratelimit_decrement(text) TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_delete_key(text) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_delete_key(text) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_delete_key(text) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_delete_key(text) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.ratelimit_delete_key(text) TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_delete_prefix(text) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_delete_prefix(text) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_delete_prefix(text) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_delete_prefix(text) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.ratelimit_delete_prefix(text) TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_increment(text,bigint) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_increment(text,bigint) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_increment(text,bigint) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.ratelimit_increment(text,bigint) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.ratelimit_increment(text,bigint) TO "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.record_wardrobe_photo_cleanup() FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.record_wardrobe_photo_cleanup() FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.record_wardrobe_photo_cleanup() FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.record_wardrobe_photo_cleanup() FROM "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.rls_auto_enable() FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.rls_auto_enable() FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.rls_auto_enable() FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.rls_auto_enable() FROM "service_role";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.set_free_wardrobe_selection(uuid[]) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.set_free_wardrobe_selection(uuid[]) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.set_free_wardrobe_selection(uuid[]) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.set_free_wardrobe_selection(uuid[]) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.set_free_wardrobe_selection(uuid[]) TO "authenticated";
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.update_updated_at() FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.update_updated_at() FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.update_updated_at() FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.update_updated_at() FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.update_updated_at() TO PUBLIC;
+-- ORIGIN: MANUAL/UNKNOWN — live ACL state; exact source migration not established
+REVOKE ALL PRIVILEGES ON FUNCTION public.valid_wardrobe_recommendation_semantics(jsonb) FROM PUBLIC;
+REVOKE ALL PRIVILEGES ON FUNCTION public.valid_wardrobe_recommendation_semantics(jsonb) FROM "anon";
+REVOKE ALL PRIVILEGES ON FUNCTION public.valid_wardrobe_recommendation_semantics(jsonb) FROM "authenticated";
+REVOKE ALL PRIVILEGES ON FUNCTION public.valid_wardrobe_recommendation_semantics(jsonb) FROM "service_role";
+GRANT EXECUTE ON FUNCTION public.valid_wardrobe_recommendation_semantics(jsonb) TO PUBLIC;
 
 -- Public sequence settings and ACLs (identity sequences are created by their IDENTITY columns).
 -- ORIGIN: supabase/migrations/20260930000000_revenuecat_billing.sql
@@ -2190,17 +2628,18 @@ REVOKE ALL PRIVILEGES ON SCHEMA public FROM PUBLIC;
 REVOKE ALL PRIVILEGES ON SCHEMA public FROM "anon";
 REVOKE ALL PRIVILEGES ON SCHEMA public FROM "authenticated";
 REVOKE ALL PRIVILEGES ON SCHEMA public FROM "service_role";
--- ORIGIN: Supabase/platform or role-level default configuration; no repo migration source
+-- ORIGIN: MANUAL/UNKNOWN — Supabase/platform or role-level default configuration; no repo migration source
 GRANT USAGE ON SCHEMA public TO PUBLIC;
--- ORIGIN: Supabase/platform or role-level default configuration; no repo migration source
+-- ORIGIN: MANUAL/UNKNOWN — Supabase/platform or role-level default configuration; no repo migration source
 GRANT USAGE ON SCHEMA public TO "anon";
--- ORIGIN: Supabase/platform or role-level default configuration; no repo migration source
+-- ORIGIN: MANUAL/UNKNOWN — Supabase/platform or role-level default configuration; no repo migration source
 GRANT USAGE ON SCHEMA public TO "authenticated";
--- ORIGIN: Supabase/platform or role-level default configuration; no repo migration source
+-- ORIGIN: MANUAL/UNKNOWN — Supabase/platform or role-level default configuration; no repo migration source
 GRANT USAGE ON SCHEMA public TO "service_role";
 
 -- Schema-scoped default ACLs for captured creator roles.
 -- Captured defaults for creator role postgres.
+-- ORIGIN: MANUAL/UNKNOWN — platform or role-level default configuration; no repo migration source.
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC, "anon", "authenticated", "postgres", "service_role";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA public GRANT DELETE ON TABLES TO "postgres";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA public GRANT INSERT ON TABLES TO "postgres";
@@ -2233,6 +2672,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA public GRANT USAGE ON SEQ
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM PUBLIC, "anon", "authenticated", "postgres", "service_role";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO "postgres";
 -- Captured defaults for creator role supabase_admin.
+-- ORIGIN: MANUAL/UNKNOWN — platform or role-level default configuration; no repo migration source.
 ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC, "anon", "authenticated", "postgres", "service_role";
 ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT DELETE ON TABLES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "supabase_admin" IN SCHEMA public GRANT INSERT ON TABLES TO "anon";
@@ -2463,10 +2903,20 @@ CREATE TRIGGER wardrobe_photo_cleanup_receipt_after_delete AFTER DELETE ON wardr
 
 -- Manual/unknown event trigger; Supabase-managed event triggers are listed but not recreated.
 -- ORIGIN: MANUAL/UNKNOWN — manual/unknown
-CREATE EVENT TRIGGER "ensure_rls" ON ddl_command_end EXECUTE FUNCTION public.rls_auto_enable() WHEN TAG IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO');
+CREATE EVENT TRIGGER "ensure_rls" ON ddl_command_end WHEN TAG IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO') EXECUTE FUNCTION public.rls_auto_enable();
+ALTER EVENT TRIGGER "ensure_rls" OWNER TO "postgres";
 -- Skipped Supabase-managed event triggers: issue_graphql_placeholder, issue_pg_cron_access, issue_pg_graphql_access, issue_pg_net_access, pgrst_ddl_watch, pgrst_drop_watch
 
 -- Other skipped Supabase-managed objects recorded in the snapshot:
 -- auth.users, storage.objects, storage.buckets relation definitions and storage.objects triggers.
+-- SKIPPED Supabase-managed trigger: storage.objects.protect_objects_delete -> storage.protect_delete()
+-- SKIPPED Supabase-managed trigger: storage.objects.update_objects_updated_at -> storage.update_updated_at_column()
+-- SKIPPED platform function implementation referenced by issue_graphql_placeholder: set_graphql_placeholder()
+-- SKIPPED platform function implementation referenced by issue_pg_cron_access: grant_pg_cron_access()
+-- SKIPPED platform function implementation referenced by issue_pg_graphql_access: grant_pg_graphql_access()
+-- SKIPPED platform function implementation referenced by issue_pg_net_access: grant_pg_net_access()
+-- SKIPPED platform function implementation referenced by pgrst_ddl_watch: pgrst_ddl_watch()
+-- SKIPPED platform function implementation referenced by pgrst_drop_watch: pgrst_drop_watch()
 -- Non-public Supabase-managed function definitions and platform schema internals are not in this baseline.
 -- Public views/materialized views and public custom types: none captured.
+COMMIT;

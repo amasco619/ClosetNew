@@ -1,12 +1,13 @@
-# Amodka live schema baseline — read-only inspection
+# Amodka schema baseline — capture, generated SQL and local replay
 
 **Captured:** 2026-10-22
 **Connected project ref:** `garppyocfgdamdgfyfbr` (the Development/Production label was not established)
 **Database:** 17.6
+**Snapshot artifact timestamp:** `2026-10-22T14:18:48Z`, from the original file's filesystem mtime. The exact catalog-query timestamp was not recorded and cannot be recovered from this snapshot. This is not a new live capture.
 
 ## Scope and safety
 
-This is a catalog-only snapshot. No customer records, auth-user rows, storage object data, or secret values were read. No SQL, migration, permission change, or other mutation was executed. The JSON manifest is a **reference snapshot, not an apply-ready migration**. It intentionally does not attempt to recreate Supabase-managed schemas or objects.
+The original capture was catalog-only. No customer records, auth-user rows, storage object data, or secret values were read. No live SQL mutation, migration, permission change, or other live mutation was executed. The JSON manifest remains a reference snapshot. A deterministic generator now produces `baseline.sql` for an **empty, Supabase-initialized non-production project**, with the platform prerequisites and permission limits below. It does not recreate Supabase-managed Auth/Storage relation definitions or service implementations.
 
 An initial combined catalog request was blocked by the connector. Per the approved approach, I moved to separate, narrow catalog reads; all requested narrow classes completed. One first attempt to sort the storage ACL query failed because a collation was applied to an OID; the corrected narrow query succeeded. **No final catalog class is blocked or only partially captured** within the requested scope.
 
@@ -81,18 +82,85 @@ These are items for an authorised operator to inspect in the intended Supabase d
 5. **Password rules:** the app server validates 8–128 characters in `server/routes.ts`; compare this with the live Supabase password-strength and leaked-password settings, which were not captured by SQL.
 6. **Signup/profile behaviour:** confirm a newly authenticated account is followed by the client profile upsert (`lib/database.ts`); no auth.users trigger exists in this snapshot.
 
+## Generated baseline and local replay
+
+Commands, from the repository root:
+
+```sh
+python3 scripts/generate-supabase-baseline.py
+python3 scripts/generate-supabase-baseline.py --check
+python3 scripts/test-supabase-baseline.py
+```
+
+The generator uses Python's standard library, the checked-in JSON only, stable object sorting, and no clock, network, environment connection, or external service. The file header records snapshot provenance and says **schema only; NEVER APPLY TO PRODUCTION**. A transaction and an empty-public-table guard prevent partial installation and ordinary replay over an existing application schema. The guard does **not** determine whether a project is Production; operator verification is still mandatory.
+
+Order follows actual dependencies: extensions; tables/columns and identity sequences; full public function definitions; primary/unique/check constraints; standalone indexes; foreign keys; RLS/policies; captured ACLs; bucket configuration and Storage ACL/policies; table triggers; the non-managed event trigger. Functions precede the semantic check constraint, and standalone unique indexes precede foreign keys that reference them. Constraint-backed indexes are created by constraints, with their provenance noted in comments.
+
+The snapshot's function bodies, owners, security modes and search paths are preserved, including existing billing definitions; no billing logic was altered. All manual/unknown-origin objects are annotated. Captured-principal grants are explicitly revoked first and then restored, including column, sequence, function, schema and creator-default ACLs. The ACL scope is exactly what was captured: public/schema/storage ACLs for PUBLIC, anon, authenticated and service_role, plus captured creator defaults for postgres/supabase_admin. Owner rights and uncaptured role memberships/other principals are not a claim of a complete role-security dump.
+
+### Local result
+
+`scripts/test-supabase-baseline.py` creates a fresh PostgreSQL cluster under a temporary directory with `initdb --username=postgres`, TCP disabled and a private Unix socket. It accepts no connection URL and removes the cluster in `finally`. Minimal local roles, `auth.uid()`, `auth.users`, Storage relation/type/function stubs are loaded first; no customer rows are inserted. The stubs only validate schema parsing/catalog state, not Supabase service behaviour.
+
+**PostgreSQL 16.10: successful empty-database application; all 24 original fingerprint queries ran; 18 exact classes, 6 explained difference classes, zero unexplained differences.** The non-empty-target refusal test also passed. The full result, raw MD5s, file SHA-256s, and individual missing/local-only catalog rows are in `20261022-local-parity-result.json`.
+
+Exact classes: public tables (23), columns (163), constraints (69), indexes (37), policies (68), RLS flags (23), column ACL (28), full function definitions (24), function ACL (21), table triggers (7), views (0), sequences (2), sequence ACL (4), public schema ACL (4), Storage schema ACL (3), buckets/settings (2), Storage policies (15), and auth.users triggers (0).
+
+| Different class | Local / live count | Exact reason |
+|---|---:|---|
+| public_table_acl | 160 / 177 | PostgreSQL 16 lacks MAINTAIN. Seventeen service_role MAINTAIN grants are conditional PG17+ SQL. |
+| public_default_acl | 58 / 64 | Six default MAINTAIN grants are conditional PG17+ SQL. |
+| storage_objects_acl | 15 / 16 | One service_role MAINTAIN grant is conditional PG17+ SQL. All remaining grants and grantors match. |
+| event_triggers | 1 / 7 | The six Supabase-managed event triggers are omitted. The manual/unknown `ensure_rls` trigger matches. |
+| extensions | 4 / 5 | Supabase-managed `supabase_vault` 0.3.1 is omitted; local PG16 supplies `pg_stat_statements` 1.10 instead of live PG17's 1.11. pgcrypto, plpgsql and uuid-ossp match. |
+| storage_objects_triggers | 0 / 2 | Supabase-managed `protect_objects_delete` and `update_objects_updated_at` and their service implementations are omitted. |
+
+The seventeen public-table MAINTAIN differences are: affinity_signals, billing_accounts, billing_deletion_tombstones, billing_event_journal, billing_reconciliations, billing_subscriptions, billing_transactions, pair_affinity_signals, rotation_cursors, saved_looks, slot_statuses, tryon_profiles, user_profiles, wardrobe_free_selections, wardrobe_items, wardrobe_photo_cleanup_receipts, wear_logs.
+
+The six default MAINTAIN differences are creator/grantee pairs: postgres/postgres, postgres/service_role, supabase_admin/anon, supabase_admin/authenticated, supabase_admin/postgres, supabase_admin/service_role.
+
+Skipped managed event triggers: issue_graphql_placeholder, issue_pg_cron_access, issue_pg_graphql_access, issue_pg_net_access, pgrst_ddl_watch, pgrst_drop_watch. Supabase's platform must supply their non-public function implementations. Managed plpgsql is supplied by PostgreSQL initialization; Vault is a hosted-platform prerequisite. Storage schema/relation definitions and auth.users are not generated; only the requested app bucket configuration, policies and captured ACLs are restored on platform-provided relations.
+
+Every non-exact class is also compared row-for-row after **only** the listed omissions/version substitutions. The test fails if any additional difference appears. No unexplained mismatch was accepted. During development, the replay caught dependency-order errors and a search_path binding to pgcrypto's UUID wrapper; these were corrected rather than normalized away.
+
+## Procedure: build a new empty Dev Supabase project
+
+This is a documented future operator procedure only; **none of it was executed against Supabase in this task**.
+
+1. Provision a new, empty **Development** Supabase project. Independently verify its project ref and environment label in the dashboard. Do not use the snapshot source project merely because its ref is recorded here; its environment label remains unestablished. Do not copy customer data, users, Storage objects or credentials.
+2. Let Supabase provision its roles, Auth/Storage schemas, service functions, managed triggers and extensions. Confirm PostgreSQL 17 compatibility; the closest comparison target is 17.6. Check that the target Storage API/schema includes `buckettype`, `versioning_status`, `lifecycle_configuration`, and the other captured bucket columns. Do not create the local test stubs in a real Supabase project.
+3. Arrange a credential-free-to-the-repository local `psql` service entry named `amodka_dev` through the approved secret/connection process. It must connect only to that verified Dev project. Do not paste a password or connection string into a command/report/repository.
+4. Perform metadata-only preflight using that service: inspect `current_user`, `server_version`, the existence of the required roles, `auth.users`, `auth.uid()`, `storage.objects`, `storage.buckets`, `storage.foldername(text)`, extension versions, and zero ordinary/partitioned tables in public. Verify the current role can create/own public objects, manage Storage policies/ACLs, create the `ensure_rls` event trigger, and alter default privileges for **both postgres and supabase_admin**.
+   **Permission blocker:** ordinary project `postgres` access must not be assumed to have supabase_admin authority. Prior inspection established that changing supabase_admin defaults needs Supabase-authorized role access. A platform-authorized administrator must resolve this before a full hosted application is attempted. Local superuser success does not establish hosted permission availability. Do not bypass the failing statements or silently install a partial ACL baseline.
+5. Review the generated SQL and the captured broad creator defaults with that administrator. They are reproduced for snapshot fidelity, not endorsed as a new security policy. In particular, supabase_admin's captured defaults include broad anon/authenticated privileges. All new public-table migrations must still follow the documented explicit revoke/minimal-grant rule. No default-privilege hardening change is included in this task.
+6. Regenerate and validate locally with the three commands above; inspect the SHA-256 in the result. After the separate operator approval, install the exact file:
+
+   ```sh
+   psql 'service=amodka_dev' -X -v ON_ERROR_STOP=1 \
+     -f supabase/baseline/baseline.sql
+   ```
+
+   The transaction must commit completely. Any precondition/permission error means stop and investigate; the transaction rolls back. Never run on Production.
+7. Run each SELECT in `supabase/baseline/fingerprint.sql` on Dev (or `psql 'service=amodka_dev' -X -v ON_ERROR_STOP=1 -f supabase/baseline/fingerprint.sql`). Compare **all 24 classes**, not just counts, with the snapshot. On PG17 the MAINTAIN rows should be present. Review platform-managed and extension-version differences individually; do not reuse the local PG16 normalization as automatic approval of hosted differences. Capture Dev provenance and metadata-only results separately.
+8. Complete the manual Auth checklist above: email/password enabled; confirmation setting deliberately matches the current immediate-sign-in flow; Google/Apple provider/callback setup; real native/Expo/deployed redirect allow-list and Site URL; recovery/invite/confirmation templates and SMTP; password rules; client profile creation without an auth.users trigger. No Auth provider credentials or SMTP secrets belong in these files.
+9. This is a baseline install, **not** an instruction to replay `supabase/migrations/` over it. The snapshot already contains the historical schema outcomes and may include manual origins. Establish the approved migration-history/baseline registration procedure before using migration tooling for subsequent reviewed migrations; do not mark historical migrations applied or run them automatically based on this report.
+
 ## Verification boundary
 
-This baseline has **not** been replayed into an empty Supabase project or compared with a fresh rebuild. Therefore it does not prove migration replay parity. The catalog output contains full public function definitions and schema metadata, but not non-public function definitions for Supabase-managed event/storage triggers, not role-membership-derived effective privileges, and not dashboard Auth configuration. No device test, app test suite, typecheck or lint was run for this documentation/catalog-only deliverable.
+This baseline has been replayed only in the disposable local PostgreSQL 16.10 stub environment. It has **not** been applied to any Supabase project, tested locally on PG17, or validated against real Supabase Auth/Storage services or dashboard settings. It therefore does not prove hosted Supabase parity, end-to-end Auth/Storage behaviour, effective membership-derived permissions, or historical migration replay parity. The preserved snapshot is not a fresh live inspection. No app suite, typecheck, lint, device test, purchase, deployment, application change or migration-file change was performed for this schema-file/local-test-only task.
 
 ## Deviations
 
-None. The initial combined catalog request was replaced with the approved
-narrow read-only queries; no project mutations or migration-file changes were
-made.
+- Exact catalog-query time was absent from the original capture. The original snapshot file timestamp is recorded with that limitation instead of inventing a query timestamp.
+- No other scope deviation. The six local comparison differences are the explicit platform/version limits described above, not unexplained drift. The baseline is not claimed deployable with an ordinary hosted role until its admin-only permission prerequisite is resolved.
 
 ### Files
 
 - `supabase/baseline/20261022-live-catalog.json` — complete captured schema/catalog snapshot and per-object origin annotations.
 - `supabase/baseline/fingerprint.sql` — read-only per-class fingerprint SELECTs.
 - `supabase/baseline/20261022-live-catalog-report.md` — findings, manual checklist, unknown origins and limitations.
+- `scripts/generate-supabase-baseline.py` — deterministic snapshot-to-SQL generator and `--check`.
+- `supabase/baseline/baseline.sql` — generated schema-only file, with dependency order, provenance, ACL reset/restore and non-empty-target guard.
+- `scripts/test-supabase-baseline.py` — local-only disposable PostgreSQL replay and 24-class comparison.
+- `supabase/baseline/20261022-local-parity-result.json` — raw local/live hashes, exact row-level differences and test provenance.
+- `TECHNICAL.md` §51 — build procedure, limits and manual Auth checklist reference.

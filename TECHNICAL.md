@@ -3539,13 +3539,67 @@ Frozen Recommendation Engine v3.7, Phase A schema/security, P1.3, consent
 enforcement, billing/RevenueCat, auth, quota semantics, and benchmark artifacts
 remain unchanged.
 
-## 51. Read-only live Supabase catalog baseline
+## 51. Live-catalog baseline, generated SQL and local replay
 
 The connected Supabase project's schema/catalog snapshot, per-object origin
 annotations, public function definitions, grants/default privileges, storage
 metadata, Auth-settings checklist, and 24-class read-only fingerprints are
-recorded under `supabase/baseline/`. This is reference data, not an apply-ready
-migration. The connected project's environment label was not established, and
-the snapshot has not been replayed against an empty project; it does not prove
-repo migration parity. Any live DDL still needs an explicit repo migration and
-a fresh-rebuild comparison before claiming parity.
+recorded under `supabase/baseline/`. Provenance: project ref
+`garppyocfgdamdgfyfbr`, PostgreSQL 17.6, capture date 2026-10-22; the original
+snapshot artifact mtime is `2026-10-22T14:18:48Z`, not a recorded query time.
+The source project's Development/Production label was not established.
+
+Generate/check/test from the repository root:
+
+```sh
+python3 scripts/generate-supabase-baseline.py
+python3 scripts/generate-supabase-baseline.py --check
+python3 scripts/test-supabase-baseline.py
+```
+
+The generated `supabase/baseline/baseline.sql` is schema-only and **must never
+be applied to Production**. It is for an empty Supabase-initialized Dev project,
+not a platform bootstrap or a migration-history replay. It runs transactionally
+and rejects existing public application tables. The local-only test uses a
+disposable PostgreSQL 16.10 cluster with minimal Supabase stubs and no customer
+data: 18 of 24 fingerprint classes match exactly; six differ only by conditional
+PG17 MAINTAIN privileges, pg_stat_statements version, and deliberately omitted
+Supabase-managed infrastructure. Zero unexplained differences remain; full raw
+hashes and individual rows are in `20261022-local-parity-result.json`.
+
+**Exact Dev build procedure:** provision a new empty Dev project; independently
+verify its ref/environment; let Supabase initialize roles/Auth/Storage/managed
+extensions; verify PG17 and the captured Storage bucket schema; establish a
+private `psql` service entry `amodka_dev`; metadata-preflight the required
+objects, zero public tables and operator privileges; regenerate/check/test and
+review the baseline; only after separate approval run:
+
+```sh
+psql 'service=amodka_dev' -X -v ON_ERROR_STOP=1 -f supabase/baseline/baseline.sql
+psql 'service=amodka_dev' -X -v ON_ERROR_STOP=1 -f supabase/baseline/fingerprint.sql
+```
+
+Compare all 24 classes and explain every hosted difference before claiming
+parity. **Admin prerequisite:** the operator needs authority over captured
+postgres/supabase_admin defaults, public ownership/event triggers and Storage
+ACLs/policies. Ordinary project postgres access is not proof of supabase_admin
+authority; Supabase-authorized access is required for that default-ACL section.
+Do not remove statements to make a partial install pass. Do not run the local
+stubs in Supabase, replay historical migrations over the baseline, or register
+historical migration versions without a separately approved baseline-tracking
+procedure. Captured broad creator defaults are reproduced, not newly endorsed;
+the explicit revoke/minimal-grant rule for future public tables still applies.
+
+**Manual Auth checklist:** verify email/password and intentional confirmation
+setting (current app expects immediate sign-in), Google/Apple providers and
+callbacks, Site URL and actual native/Expo/deployment redirect allow-list,
+recovery/invite/confirmation templates and SMTP, password rules, and client
+profile upsert without an auth.users trigger. Credentials are never recorded
+in the repo/report. Detailed prerequisites, SQL procedure, skipped managed
+objects, ACL scope and checklist are in
+`supabase/baseline/20261022-live-catalog-report.md`.
+
+No Supabase project was changed or rebuilt during this work, and hosted
+Auth/Storage, PG17 execution, effective role memberships and device behaviour
+remain unverified. Any future live DDL still requires explicit approval and a
+matching repository migration; local stub parity does not prove hosted parity.

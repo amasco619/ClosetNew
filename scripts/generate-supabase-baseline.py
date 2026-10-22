@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 """Generate the schema-only SQL baseline from the checked-in catalog snapshot."""
 
+import argparse
 import json
 from pathlib import Path
 
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--check", action="store_true", help="Fail if baseline.sql differs from deterministic output.")
+args = parser.parse_args()
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "supabase/baseline/20261022-live-catalog.json"
 OUTPUT = ROOT / "supabase/baseline/baseline.sql"
 DATA = json.loads(MANIFEST.read_text())
 PUBLIC = DATA["public"]
 STORAGE = DATA["storage"]
+if PUBLIC["views"] or PUBLIC["types"]:
+    raise SystemExit("This snapshot generator requires the captured empty public views/types inventories.")
 lines = []
 
 
@@ -18,7 +24,7 @@ def add(text=""):
 
 
 def comment_origin(origin):
-    if origin == "manual/unknown" or "unknown" in origin.lower():
+    if any(marker in origin.lower() for marker in ("unknown", "not established", "no repo migration")):
         return f"-- ORIGIN: MANUAL/UNKNOWN — {origin}"
     if origin.startswith("supabase/migrations/"):
         return f"-- ORIGIN: {origin}"
@@ -72,8 +78,8 @@ def acl_lines(entries, key, object_sql, principals, privilege_key="privilege_typ
     for row in entries:
         if row[key] not in principals:
             continue
-        grouped.setdefault((row[key], row.get("grantable", row.get("is_grantable", False))), []).append(
-            row[privilege_key]
+        grouped.setdefault((row[key], row.get("grantable", row.get("is_grantable", False))), []).extend(
+            privilege.strip() for privilege in row[privilege_key].split(",")
         )
     for role in principals:
         add(f"REVOKE ALL PRIVILEGES ON {object_sql} FROM {grantee(role)};")
@@ -117,7 +123,16 @@ add("-- Requires a Supabase-initialized target with platform roles, auth.uid(), 
 add("-- and any platform-managed extensions already provisioned. This is not a Supabase bootstrap.")
 add("-- Captured ACL scope is the principals stored in the manifest; it does not reconstruct role memberships.")
 add("")
-add("SET search_path = public, extensions, storage, auth, pg_catalog;")
+add("BEGIN;")
+add("-- Keep pg_catalog implicit/first so gen_random_uuid() binds to the captured core function, not pgcrypto's wrapper.")
+add("SET LOCAL search_path = public, extensions, storage, auth;")
+add(
+    "DO $baseline$\nBEGIN\n"
+    "  IF EXISTS (SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n "
+    "ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')) THEN\n"
+    "    RAISE EXCEPTION 'Baseline requires an EMPTY public application schema; never use on production';\n"
+    "  END IF;\nEND\n$baseline$;"
+)
 add("")
 
 add("-- Extensions: manual/unknown provenance is retained as comments. Platform-managed extensions are skipped.")
@@ -126,24 +141,13 @@ managed_extensions = []
 for ext in sorted(PUBLIC["extensions"], key=lambda row: row["name"]):
     origin = ext["origin"]
     if ext["name"] in {"plpgsql", "supabase_vault"}:
+        add(comment_origin(origin))
+        add(f"-- SKIPPED platform-managed extension: {ext['name']} (captured version {ext['version']})")
         managed_extensions.append(ext)
         continue
     add(comment_origin(origin))
-    # Some Supabase extensions are unavailable in local PostgreSQL distributions.
-    add("DO $baseline$")
-    add("BEGIN")
-    add(
-        "  IF EXISTS (SELECT 1 FROM pg_catalog.pg_available_extensions "
-        f"WHERE name = {literal(ext['name'])}) THEN"
-    )
-    add(
-        f"    EXECUTE {literal('CREATE EXTENSION IF NOT EXISTS ' + ident(ext['name']) + ' WITH SCHEMA ' + ident(ext['schema']) + ';')};"
-    )
-    add("  ELSE")
-    add(f"    RAISE NOTICE 'Skipping unavailable local extension: %', {literal(ext['name'])};")
-    add("  END IF;")
-    add("END")
-    add("$baseline$;")
+    add(f"-- Captured extension version {ext['version']}; install the target PostgreSQL distribution's available version.")
+    add(f"CREATE EXTENSION IF NOT EXISTS {ident(ext['name'])} WITH SCHEMA {ident(ext['schema'])};")
 add("-- Skipped Supabase/platform-managed extensions: " + ", ".join(
     f"{item['name']} ({item['version']})" for item in managed_extensions
 ))
@@ -224,6 +228,8 @@ for table in sorted(PUBLIC["tables"], key=lambda row: row["name"]):
     }
     for index in sorted(table["indexes"], key=lambda row: row["index_name"]):
         if index["index_name"] in constraint_indexes:
+            add(comment_origin(index["origin"]))
+            add(f"-- Implicit constraint-backed index: public.{index['index_name']}")
             continue
         add(comment_origin(index["origin"]))
         add(index["definition"] + ";")
@@ -285,6 +291,16 @@ for table in sorted(PUBLIC["tables"], key=lambda row: row["name"]):
                 )
 add("")
 
+add("-- Public function ACLs; default PUBLIC EXECUTE is removed unless it was captured.")
+for function in sorted(PUBLIC["functions"], key=lambda row: row["identity"]):
+    add(comment_origin("live ACL state; exact source migration not established"))
+    entries = [
+        row for row in PUBLIC["function_acl"]
+        if row["function_identity"] == function["identity"]
+    ]
+    acl_lines(entries, "grantee", f"FUNCTION public.{function['identity']}", acl_roles, "privileges")
+add("")
+
 add("-- Public sequence settings and ACLs (identity sequences are created by their IDENTITY columns).")
 for sequence in sorted(PUBLIC["sequences"], key=lambda row: row["sequence_name"]):
     add(comment_origin(sequence["origin"]))
@@ -317,6 +333,7 @@ add("-- Schema-scoped default ACLs for captured creator roles.")
 default_roles = sorted({row["creator_role"] for row in PUBLIC["default_acl"]})
 for creator in default_roles:
     add(f"-- Captured defaults for creator role {creator}.")
+    add("-- ORIGIN: MANUAL/UNKNOWN — platform or role-level default configuration; no repo migration source.")
     for code, target in [("r", "TABLES"), ("S", "SEQUENCES"), ("f", "FUNCTIONS")]:
         rows = [
             row for row in PUBLIC["default_acl"]
@@ -415,12 +432,13 @@ for trigger in PUBLIC["event_triggers"]:
     add(comment_origin(trigger["origin"]))
     tags = ", ".join(literal(tag) for tag in (trigger["tags"] or []))
     sql = (
-        f"CREATE EVENT TRIGGER {ident(trigger['trigger_name'])} ON {trigger['event']} "
-        f"EXECUTE FUNCTION public.{trigger['function_identity']}"
+        f"CREATE EVENT TRIGGER {ident(trigger['trigger_name'])} ON {trigger['event']}"
     )
     if tags:
         sql += f" WHEN TAG IN ({tags})"
+    sql += f" EXECUTE FUNCTION public.{trigger['function_identity']}"
     add(sql + ";")
+    add(f"ALTER EVENT TRIGGER {ident(trigger['trigger_name'])} OWNER TO {ident(trigger['owner'])};")
     if trigger["enabled"] != "O":
         add(f"ALTER EVENT TRIGGER {ident(trigger['trigger_name'])} DISABLE;")
 add("-- Skipped Supabase-managed event triggers: " + ", ".join(managed_events))
@@ -428,8 +446,20 @@ add("")
 
 add("-- Other skipped Supabase-managed objects recorded in the snapshot:")
 add("-- auth.users, storage.objects, storage.buckets relation definitions and storage.objects triggers.")
+for trigger in STORAGE["objects_triggers"]:
+    add(f"-- SKIPPED Supabase-managed trigger: storage.objects.{trigger['trigger_name']} -> {trigger['function_identity']}")
+for trigger in PUBLIC["event_triggers"]:
+    if trigger["origin"] == "Supabase-managed":
+        add(f"-- SKIPPED platform function implementation referenced by {trigger['trigger_name']}: {trigger['function_identity']}")
 add("-- Non-public Supabase-managed function definitions and platform schema internals are not in this baseline.")
 add("-- Public views/materialized views and public custom types: none captured.")
+add("COMMIT;")
 
-OUTPUT.write_text("\n".join(lines) + "\n")
-print(f"Wrote {OUTPUT.relative_to(ROOT)} ({len(lines)} lines)")
+generated = "\n".join(lines) + "\n"
+if args.check:
+    if not OUTPUT.exists() or OUTPUT.read_text() != generated:
+        raise SystemExit("baseline.sql is stale; run the generator without --check")
+    print("baseline.sql matches deterministic generator output")
+else:
+    OUTPUT.write_text(generated)
+    print(f"Wrote {OUTPUT.relative_to(ROOT)} ({len(lines)} statements/comments)")
