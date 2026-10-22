@@ -550,7 +550,31 @@ async function main() {
     assert.deepEqual(mocks.stack, ['/'], 'sign-in history is cleared after profile hydration')
     assert.equal(mocks.dismisses, 1)
 
+    mocks.appState = {
+      ...mocks.appState,
+      appReady: false,
+      profile: {},
+    }
     const indexTree = await mount(Index)
+    assert.deepEqual(
+      mocks.routes,
+      ['/'],
+      'authenticated returning user stays on the index while profile hydration is pending',
+    )
+    assert.deepEqual(
+      mocks.stack,
+      ['/'],
+      'pending profile hydration does not restore the sign-in route',
+    )
+
+    await React.act(async () => {
+      mocks.appState = {
+        ...mocks.appState,
+        appReady: true,
+        profile,
+      }
+      indexTree.update(React.createElement(Index))
+    })
     assert.deepEqual(
       mocks.routes,
       ['/', profile.expectedRoute],
