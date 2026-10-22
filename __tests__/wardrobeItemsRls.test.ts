@@ -19,6 +19,9 @@ function reviewedSql(section: string): string {
 }
 const proposal = reviewedSql('proposed')
 const rollback = reviewedSql('rollback')
+assert.equal(readFileSync(
+  'supabase/migrations/20261022130922_wardrobe_items_rls_policy_tidy_up.sql', 'utf8'
+).trim(), proposal.trim(), 'Recorded migration must exactly mirror approved SQL')
 // Independent snapshot of the nine live policy definitions, before proposal.
 const current = `
 CREATE POLICY "Users can delete own wardrobe" ON public.wardrobe_items AS PERMISSIVE FOR DELETE TO authenticated USING (auth.uid() = user_id);
@@ -158,8 +161,28 @@ async function main(): Promise<void> {
       REVOKE ALL ON public.wardrobe_items FROM PUBLIC, anon, authenticated, policy_probe, service_role;
       GRANT SELECT, UPDATE, DELETE ON public.wardrobe_items TO authenticated, service_role;
       INSERT INTO wardrobe_items(id,user_id) VALUES('${users[0]}','${users[0]}'),('${users[1]}','${users[1]}');
-      ${current}
     `)
+    // Repository history needs an external base schema, then supplies only four policies.
+    await assert.rejects(client.query(readFileSync(
+      'supabase/migrations/20260610000000_user_profiles_rls.sql', 'utf8'
+    )), /relation "user_profiles" does not exist/)
+    const historicalWardrobeSection = readFileSync(
+      'supabase/migrations/20260814000000_rls_all_tables.sql', 'utf8'
+    ).split('-- ─── wear_logs')[0]
+    await client.query(historicalWardrobeSection)
+    const replayPolicies = (await client.query(policySnapshot)).rows[0].policies
+    assert.equal(replayPolicies.length, 4)
+    const replayHash = (await client.query(
+      `SELECT md5(policies::text) AS hash FROM (${policySnapshot}) snapshot`
+    )).rows[0].hash
+    console.log(`wardrobeItemsRls: historical four-policy snapshot=${replayHash}; strict migration correctly refuses it`)
+    await assert.rejects(client.query(proposal), /policy snapshot changed/)
+    await client.query('ROLLBACK')
+    assert.deepEqual((await client.query(policySnapshot)).rows[0].policies, replayPolicies)
+    for (const policy of replayPolicies) {
+      await client.query(`DROP POLICY "${policy.policyname.replaceAll('"', '""')}" ON public.wardrobe_items`)
+    }
+    await client.query(current)
     const original = (await client.query(policySnapshot)).rows
     assert.equal(original[0].policies.length, 9)
     for (const rlsOnly of [false, true]) {

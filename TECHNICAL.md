@@ -2096,20 +2096,27 @@ Objective: make Amodka safe to operate as a real commercial product — money, d
 
 Storage policies: path-prefix ownership enforcement for `wardrobe-images` and `tryon-photos` (first path segment must match `auth.uid()`).
 
-**wardrobe_items preflight (2026-10-22; NOT APPLIED):** read-only live metadata
-confirms RLS enabled, nine permissive owner policies and authenticated direct
-SELECT/UPDATE/DELETE only; direct INSERT remains revoked and uses guarded RPCs.
-The proposed tidy-up retains the PUBLIC ALL owner policy, makes WITH CHECK
-explicit and drops eight redundant policies, preserving role applicability and
-all grants. Exact transactional proposal/rollback and other-table duplicate
-inventory: `docs/reports/wardrobe-items-rls-preflight.md`. Disposable-only
+**wardrobe_items tidy-up (2026-10-22; APPLIED after chat approval):**
+`20261022130922_wardrobe_items_rls_policy_tidy_up.sql` exactly mirrors the
+tool-recorded production migration. Live verification confirms one PERMISSIVE
+PUBLIC ALL policy, **Users manage own wardrobe items**, with USING and explicit
+WITH CHECK `(auth.uid() = user_id)`; RLS enabled, not forced. All table/column
+ACLs, effective privileges for anon/authenticated/service_role and all 82 other
+table policies are unchanged. Authenticated direct SELECT/UPDATE/DELETE remain;
+direct INSERT remains revoked and uses guarded RPCs. No live rollback ran.
+Exact approved transaction, docs-only rollback, other-table duplicate inventory
+and verification fingerprints: `docs/reports/wardrobe-items-rls-preflight.md`. Disposable-only
 `wardrobeItemsRls.test.ts` passes 321 current/proposed/rollback command checks,
 including both users, anon, PUBLIC coverage, live-CRUD-grant versus RLS-only
-fixtures, exact rollback and drift rejection. Full suite 124/0, typecheck/lint,
-golden 35/0 and all 53 frozen checksums pass. Live migration and subsequent
-metadata verification require explicit chat approval; no version is fabricated.
+fixtures, exact rollback, drift rejection and repo/report SQL identity.
+Full suite 124/0, typecheck/lint, golden 35/0 and all 53 frozen checksums pass.
 
-**Operator action required:** Apply migration to Supabase project.
+**Fresh replay blocker:** the earliest migration assumes an external base app
+schema; the 20260814 wardrobe RLS migration creates only four policies, not the
+nine-policy live snapshot required by the approved guard. The test proves the
+four-policy replay is refused without edits. The report proposes a guarded
+fresh-install alternative; it is not applied or in the migration directory.
+Do not rewrite the applied migration or put rollback SQL in the forward chain.
 
 #### Account Deletion — Explicit Cleanup (Track E)
 

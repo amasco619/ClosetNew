@@ -687,3 +687,17 @@ mtime_ms = 1792664491515
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/3f0edeb4-fd75-4bdf-a1a8-31fa33ddf649/78232a92-4b29-46de-9980-dd30926fcda8"
 storage_version_token = "1792664545509011"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "JaiNqCqnwnmfcRbf0Nzvx"
+uri = "file://docs/reports/wardrobe-items-rls-preflight.md"
+type = "text"
+title = "Wardrobe RLS migration — application and verification report"
+description = "Approved production migration, unchanged privileges and other policies, rollback SQL, replay blocker, proposed fresh-install alternative and exact test results."
+logical_id = "1240a97d-91da-4a02-8cd4-fcd8ba263638"
+content_hash = "sha256:7f0bfda23a4001a011292fd41765f7906ecde234587a1ed9e4db2b9230019b66"
+size = 21421
+mtime_ms = 1792674907915
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/1240a97d-91da-4a02-8cd4-fcd8ba263638/74a20676-1ff0-4ce6-b8e4-d1e911385377"
+storage_version_token = "1792675007624919"
+content_type = "text/markdown"

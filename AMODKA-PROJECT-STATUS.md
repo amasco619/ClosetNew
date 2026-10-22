@@ -1,13 +1,20 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
-## wardrobe_items RLS tidy-up — approval pending, no live changes
+## wardrobe_items RLS tidy-up — approved production migration verified
 
-Read-only inspection confirms nine live policies; the one-policy equivalent
-proposal and exact rollback await chat approval. Authenticated direct INSERT
-remains denied; guarded insert RPCs and all grants/functions stay unchanged.
+Applied exactly the approved transaction as **20261022130922**, mirrored in
+`supabase/migrations/20261022130922_wardrobe_items_rls_policy_tidy_up.sql`.
+Live metadata confirms one PUBLIC ALL owner policy with explicit WITH CHECK,
+RLS enabled/not forced, unchanged role/table/column privileges and all **82**
+other table policies unchanged. No live rollback or replay variant executed.
+Authenticated direct INSERT remains denied; guarded RPCs/functions are unchanged.
 Disposable tests pass 321 command checks across current/proposed/rollback.
 Current gates: **124 test files passed**, typecheck/lint, golden **35/35** and
 both benchmark validators including **53 frozen checksums** pass.
+**Fresh replay is not ready:** the base app schema is missing from the ordered
+history, and the earlier wardrobe RLS migration supplies four policies rather
+than the guard's nine. Tests prove the guard safely refuses that history.
+A replay-safe fresh-install transition is proposed in the report, not applied.
 See [`docs/reports/wardrobe-items-rls-preflight.md`](docs/reports/wardrobe-items-rls-preflight.md).
 
 ## Dependency Phase 3 — production startup and remaining gates resolved
