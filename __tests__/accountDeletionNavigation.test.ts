@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const profile = readFileSync('app/(tabs)/profile.tsx', 'utf8');
+const appContext = readFileSync('contexts/AppContext.tsx', 'utf8');
+const layout = readFileSync('app/_layout.tsx', 'utf8');
 const normalSignOut = profile.match(/const handleSignOut = async \(\) => \{([\s\S]*?)\n  \};/)?.[1];
 assert.ok(normalSignOut, 'normal profile sign-out handler exists');
 assert.match(
@@ -15,6 +17,26 @@ assert.match(
   profile,
   /if \(signedOut\) \{\s*\/\/ Remove the old tabs from navigation history so Android Back cannot reopen deleted account UI\.\s*router\.dismissAll\(\);\s*router\.replace\('\/sign-in'\);\s*\}/,
   'successful deletion and sign-out clear the stale tab stack before showing sign-in',
+);
+assert.match(
+  appContext,
+  /if \(event === 'SIGNED_OUT'\) \{\s*setAuthSessionEnded\(true\);/,
+  'a confirmed Supabase sign-out records that the auth session ended',
+);
+assert.match(
+  appContext,
+  /if \(event === 'SIGNED_IN' && session\?\.user\) \{\s*setAuthSessionEnded\(false\);/,
+  'a new authenticated session clears the prior ended-session signal',
+);
+assert.match(
+  layout,
+  /if \(!authSessionEnded\) return;[\s\S]*?router\.dismissAll\(\);\s*router\.replace\("\/sign-in"\);/,
+  'an ended auth session resets navigation to sign-in',
+);
+assert.match(
+  appContext,
+  /const \{ data: \{ session: initSession \}, error: sessionError \} = await supabase\.auth\.getSession\(\);[\s\S]*?if \(sessionError\) throw sessionError;/,
+  'a failed session read remains a startup error rather than being treated as sign-out',
 );
 
 const requireFromProject = createRequire(path.join(process.cwd(), 'package.json'));

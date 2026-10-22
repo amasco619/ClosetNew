@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
@@ -41,6 +41,15 @@ const MODAL_OPTIONS = {
 };
 
 function RootLayoutNav() {
+  const { authSessionEnded } = useApp();
+
+  useEffect(() => {
+    if (!authSessionEnded) return;
+    // A confirmed session end must remove every private route from history.
+    router.dismissAll();
+    router.replace("/sign-in");
+  }, [authSessionEnded]);
+
   return (
     <Stack screenOptions={{ headerBackTitle: "Back", headerShown: false }}>
       <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />

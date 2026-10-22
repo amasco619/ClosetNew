@@ -129,6 +129,7 @@ interface AppContextValue {
   refreshPremiumEntitlement: (rejectUnavailable?: boolean) => Promise<boolean>;
   isAuthenticated: boolean;
   authenticatedUserId: string | null;
+  authSessionEnded: boolean;
   canAddItem: boolean;
   itemCap: number;
   recommendationSlots: WardrobeSlot[];
@@ -289,6 +290,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [entitlementUnavailable, setEntitlementUnavailable] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authenticatedUserId, setAuthenticatedUserId] = useState<string | null>(null);
+  const [authSessionEnded, setAuthSessionEnded] = useState(false);
   const [recommendationSlots, setRecommendationSlots] = useState<WardrobeSlot[]>([]);
   const [slotsInitialized, setSlotsInitialized] = useState(false);
   const [lastAddedSuggestions, setLastAddedSuggestions] = useState<OutfitSet[]>([]);
@@ -581,6 +583,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
+          setAuthSessionEnded(false);
           // INITIAL_SESSION is intentionally excluded: loadData() calls getSession()
           // internally and awaits loadUserDataFromDB before setAppReady(true), so the
           // initial session is fully settled before routing fires. Handling INITIAL_SESSION
@@ -647,6 +650,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         if (event === 'SIGNED_OUT') {
+          setAuthSessionEnded(true);
           void setRevenueCatIdentity(null).catch(error =>
             reportError(error, 'revenuecat_identity_clear', { dependency: 'revenuecat' }),
           );
@@ -2484,7 +2488,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem,
     hasPendingPhotoCleanup, retryPendingPhotoCleanup, clearDeletedAccountLocalData, updateWardrobeItem,
     isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
-    isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable,
+    isLoading, appReady, isAuthenticated, authenticatedUserId, authSessionEnded, startupError, dataUnavailable, entitlementUnavailable,
     guestWardrobeSyncState, dismissGuestWardrobeNotice,
     guestPendingWardrobeItems,
     retryInitialization: () => {
@@ -2509,7 +2513,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem,
         hasPendingPhotoCleanup, retryPendingPhotoCleanup, clearDeletedAccountLocalData, updateWardrobeItem,
        isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
-       isLoading, appReady, isAuthenticated, authenticatedUserId, startupError, dataUnavailable, entitlementUnavailable, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
+       isLoading, appReady, isAuthenticated, authenticatedUserId, authSessionEnded, startupError, dataUnavailable, entitlementUnavailable, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
        guestWardrobeSyncState, dismissGuestWardrobeNotice,
         guestPendingWardrobeItems,
        wearHistory, todaysWear, logWear, undoWear, getItemWearCount, isWornToday,
