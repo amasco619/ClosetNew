@@ -132,7 +132,7 @@ try {
   assert.equal(calls, 2, '429 tries both existing models');
   assert.equal(result.response.status, 429);
   assert.equal(result.response.body.error, 'rate_limited');
-  assert.equal(result.traces.at(-1).modelRequested, 'gemini-2.5-flash');
+  assert.equal(result.traces.at(-1).modelRequested, 'gemini-flash-lite-latest');
   assert.equal(result.traces.at(-1).attempt, 2);
   assert.ok(!lines.join('\n').includes('raw-secret-provider-body'));
 

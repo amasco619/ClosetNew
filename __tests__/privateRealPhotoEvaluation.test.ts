@@ -148,7 +148,7 @@ async function main() {
         fabric: "cotton",
       },
       modelRequested: CLASSIFIER_MODELS[0],
-      modelResolved: "gemini-2.5-flash-lite-001",
+      modelResolved: "gemini-2.5-flash-001",
       promptSha256,
       preprocessing: "none-original-bytes",
       mimeType,
@@ -175,7 +175,7 @@ async function main() {
     assert.equal(run.cases.length, 8);
     assert.equal(run.cases[7].outcome, "refusal");
     assert.equal(run.cases[0].modelRequested, CLASSIFIER_MODELS[0]);
-    assert.equal(run.cases[0].modelResolved, "gemini-2.5-flash-lite-001");
+    assert.equal(run.cases[0].modelResolved, "gemini-2.5-flash-001");
     assert.equal(run.cases[0].promptSha256, promptSha256);
     assert.equal(run.cases[0].preprocessing, "none-original-bytes");
     assert.equal(run.cases[0].mimeType, originalMime);
@@ -264,7 +264,7 @@ async function main() {
     const bytes = fixtureBytes.get("KENTE-01")!;
     const handlerResult = await handlerProvider(bytes, "image/jpeg");
     assert.equal(handlerResult.statusCode, 200);
-    assert.equal(handlerResult.modelResolved, "gemini-2.5-flash-lite-001");
+    assert.equal(handlerResult.modelResolved, "gemini-2.5-flash-001");
     assert.equal(handlerResult.promptSha256, promptSha256);
     assert.equal(providerRequest.contents[0].parts[1].inlineData.data, bytes.toString("base64"));
     assert.equal(JSON.stringify(providerRequest).includes("reviewer-only"), false);

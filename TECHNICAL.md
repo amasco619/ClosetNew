@@ -2780,8 +2780,25 @@ It does not infer MIME from the original picker filename or silently label PNG
 as JPEG; an unknown format follows the existing manual-entry error recovery.
 Colour correction still operates but no longer logs image-derived values.
 
-Production retains the rolling `gemini-flash-lite-latest` primary and its
-existing quota-only fallback. The earlier GU-17 reproduction explicitly
+Production defaults to `gemini-2.5-flash` with `gemini-flash-lite-latest` as
+the quota-only (HTTP 429) fallback; `GEMINI_PRIMARY_MODEL` can still explicitly
+override the primary. On 2026-10-22 the rolling lite alias resolved to
+`gemini-3.5-flash-lite`: a minimal live request took 32.464 seconds while
+the existing classifier deadline is 20 seconds. Repeated real upload logs
+showed HTTP 504 provider timeouts after successful PhotoRoom calls. The
+already-supported 2.5 model answered the same minimal request in 0.764 seconds
+and the actual garment prompt in 2.257 seconds (the schematic test drawing
+was correctly returned as a refusal, not claimed as successful recognition).
+The real shared handler then classified the bundled `ballet_pink_flats.png`
+asset as shoes/flats/pink with HTTP 200 in 4.098 seconds, including PNG
+preparation. No customer image or wardrobe record was used for this smoke test.
+Both single and bulk call this shared handler. Prompt/schema, image preparation,
+consent enforcement, rate limits and the 20s-provider/45s-client deadlines remain
+unchanged; this is model selection, not a broader classifier redesign.
+The alias fallback can still time out or be unavailable when the primary is
+quota-limited; failures retain the existing retry/manual alternatives.
+
+The earlier GU-17 reproduction explicitly
 requested `gemini-2.5-flash-lite` and returned provider 404 before classification;
 this was not a permanent production pin and does not establish the historical
 2026-09-10 HTTP 500 cause. See `docs/classifier-gu17-forensics.md`.
