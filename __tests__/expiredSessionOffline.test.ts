@@ -233,11 +233,27 @@ async function verifyOfflineRefreshKeepsAuthUntilConfirmedSignOut() {
     ['sign-in'],
     'confirmed sign-out leaves sign-in as the only route',
   );
+
+  await React.act(async () => {
+    await testMocks.authCallback('TOKEN_REFRESHED', {
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      user: { id: 'offline-user', user_metadata: {} },
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  assert.equal(current.isAuthenticated, false, 'a delayed token refresh cannot restore authentication after sign-out');
+  assert.equal(current.authenticatedUserId, null, 'the signed-out user remains cleared after a delayed refresh');
+  assert.equal(current.authSessionEnded, true, 'a delayed token refresh cannot clear the ended-session signal');
+  assert.deepEqual(
+    routeState.routes.map((route: any) => route.name),
+    ['sign-in'],
+    'a delayed token refresh cannot restore private navigation history',
+  );
   await React.act(async () => tree.unmount());
 }
 
 void verifyOfflineRefreshKeepsAuthUntilConfirmedSignOut().then(() => {
-  console.log('Offline refresh recovery preserves the mounted session until confirmed sign-out.');
+  console.log('Offline refresh recovery preserves auth until sign-out and ignores delayed refresh events afterward.');
 }).catch(error => {
   console.error(error);
   process.exitCode = 1;
