@@ -13,7 +13,11 @@ import {
   signTestSeal,
   verifyTestSeal,
 } from "../scripts/privateRealPhotoEvaluation";
-import { CLASSIFIER_MODELS, GEMINI_PROMPT } from "../server/classify-garment";
+import { GEMINI_PROMPT } from "../server/classify-garment";
+
+// This offline evaluator fixture intentionally uses its existing pinned allowlist,
+// independently of the runtime classifier's configurable defaults.
+const EVALUATION_FIXTURE_MODEL = "gemini-2.5-flash-lite";
 
 type TestPng = { width: number; height: number; data: Buffer };
 type TestPngCodec = {
@@ -87,6 +91,8 @@ async function main() {
   const root = await mkdtemp(path.join(os.tmpdir(), "private-photo-eval-test-"));
   const originalPost = axios.post;
   const priorApiKey = process.env.GEMINI_API_KEY;
+  const priorPrimaryModel = process.env.GEMINI_PRIMARY_MODEL;
+  process.env.GEMINI_PRIMARY_MODEL = EVALUATION_FIXTURE_MODEL;
   try {
     await mkdir(path.join(root, "images"));
     const fixtureBytes = new Map<string, Buffer>();
@@ -147,7 +153,7 @@ async function main() {
         subType: mockSubtypes[Object.keys(mockSubtypes).find(id => image.equals(fixtureBytes.get(id)!)) ?? ""] ?? "stole",
         fabric: "cotton",
       },
-      modelRequested: CLASSIFIER_MODELS[0],
+      modelRequested: EVALUATION_FIXTURE_MODEL,
       modelResolved: "gemini-2.5-flash-lite-001",
       promptSha256,
       preprocessing: "none-original-bytes",
@@ -174,7 +180,7 @@ async function main() {
     assert.equal(run.manifestSha256, checked.manifestSha256);
     assert.equal(run.cases.length, 8);
     assert.equal(run.cases[7].outcome, "refusal");
-    assert.equal(run.cases[0].modelRequested, CLASSIFIER_MODELS[0]);
+    assert.equal(run.cases[0].modelRequested, EVALUATION_FIXTURE_MODEL);
     assert.equal(run.cases[0].modelResolved, "gemini-2.5-flash-lite-001");
     assert.equal(run.cases[0].promptSha256, promptSha256);
     assert.equal(run.cases[0].preprocessing, "none-original-bytes");
@@ -387,6 +393,8 @@ async function main() {
     axios.post = originalPost;
     if (priorApiKey === undefined) delete process.env.GEMINI_API_KEY;
     else process.env.GEMINI_API_KEY = priorApiKey;
+    if (priorPrimaryModel === undefined) delete process.env.GEMINI_PRIMARY_MODEL;
+    else process.env.GEMINI_PRIMARY_MODEL = priorPrimaryModel;
     await rm(root, { recursive: true, force: true });
   }
 }

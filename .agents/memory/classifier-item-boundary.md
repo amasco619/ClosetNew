@@ -18,3 +18,9 @@ Single and bulk uploads are equivalent entry routes: the user expects the same g
 Use native decoded dimensions rather than picker/diagnostic metadata when making both preparation paths equivalent. Keep the established single-entry resolution/quality baseline until a controlled image benchmark justifies changing it; matching preprocessing is not a claim of deterministic model output.
 
 **Why:** Picker/EXIF metadata and dev-only staging diagnostics are not reliable runtime geometry authorities. The user requested the accuracy-oriented option, but no controlled evidence established that extra pixels or forced grey labels would improve colour accuracy. This milestone deliberately removes an input mismatch without changing the model, prompt or colour policy.
+
+Treat Gemini `models.get` success as availability evidence, not proof of a rolling alias's concrete target. Use the generation response's `modelVersion` to establish actual resolution.
+
+**Why:** The provider's alias metadata returned the alias unchanged and no concrete base model; its display/version metadata did not establish a resolved generation model.
+
+**How to apply:** Distinguish metadata access from generation compatibility and resolved-version evidence in reports. Do not send an image outside the approved scope just to discover an alias target.

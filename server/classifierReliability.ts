@@ -67,7 +67,7 @@ export function getThinkingConfigForModel(
   if (normalized.startsWith("gemini-2.5-")) return { thinkingBudget: 0 };
   if (
     normalized === "gemini-flash-lite-latest" ||
-    normalized.startsWith("gemini-3.5-flash-lite") ||
+    normalized.startsWith("gemini-3.5-flash") ||
     normalized.startsWith("gemini-3.8-flash")
   ) {
     return { thinkingLevel: "minimal" };
@@ -89,7 +89,7 @@ export function startClassifierTrace(
   const attempts: ClassifierAttemptLog[] = [];
   let outcomeCode = "UNSET";
   res.setHeader("x-classification-id", requestId);
-  res.once("finish", () => {
+  res.once?.("finish", () => {
     const lastAttempt = attempts.at(-1);
     console.info(JSON.stringify({
       type: "classification_request",
@@ -221,17 +221,19 @@ export async function runGeminiClassifier<T>(options: {
         throw new ClassifierDeadlineError();
       }
       const timeout = Math.max(1, Math.min(MAX_ATTEMPT_TIMEOUT_MS, remainingMs));
+      const signal = AbortSignal.timeout(timeout);
       const attemptStartedAt = now();
       let response: GeminiResponse;
       try {
         response = await post(
           `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
           buildRequestBody(options.baseRequestBody, model, outputTokens),
-          { timeout, headers: { "x-goog-api-key": options.apiKey } },
+          { timeout, signal, headers: { "x-goog-api-key": options.apiKey } },
         );
       } catch (error) {
-        const status = providerStatus(error);
-        const code = errorOutcomeCode(error);
+        const providerError = signal.aborted ? new ClassifierDeadlineError() : error;
+        const status = providerStatus(providerError);
+        const code = errorOutcomeCode(providerError);
         options.trace.recordAttempt({
           model,
           providerStatus: status,
@@ -241,11 +243,11 @@ export async function runGeminiClassifier<T>(options: {
         });
         if (status === 404) {
           options.trace.setOutcomeCode("MODEL_NOT_FOUND");
-          throw error;
+          throw providerError;
         }
-        if (!isRetryable(error)) {
+        if (!isRetryable(providerError)) {
           options.trace.setOutcomeCode(code);
-          throw error;
+          throw providerError;
         }
         if (modelIndex === 0 && !ordinaryRetryUsed) {
           ordinaryRetryUsed = true;
@@ -254,15 +256,20 @@ export async function runGeminiClassifier<T>(options: {
         }
         if (modelIndex === 0 && modelIndex + 1 < options.models.length) break;
         options.trace.setOutcomeCode(code);
-        throw error;
+        throw providerError;
       }
 
       const status = Number.isInteger(response.status) ? response.status! : 200;
       const candidate = response.data?.candidates?.[0];
-      const finishReason = typeof candidate?.finishReason === "string" ? candidate.finishReason : null;
+      const blockReason = response.data?.promptFeedback?.blockReason;
+      const promptBlocked = typeof blockReason === "string" && blockReason !== "" &&
+        blockReason !== "BLOCK_REASON_UNSPECIFIED";
+      const finishReason = typeof candidate?.finishReason === "string"
+        ? candidate.finishReason
+        : promptBlocked ? "PROMPT_BLOCKED" : null;
       const resolvedModel = modelVersion(response);
 
-      if (finishReason && GUARDRAIL_FINISH_REASONS.has(finishReason)) {
+      if (promptBlocked || (finishReason && GUARDRAIL_FINISH_REASONS.has(finishReason))) {
         options.trace.recordAttempt({
           model,
           providerStatus: status,
@@ -303,8 +310,14 @@ export async function runGeminiClassifier<T>(options: {
       let decision: ClassifierDecision<T>;
       try {
         decision = options.decode(response);
-      } catch {
-        decision = { kind: "malformed_json" };
+      } catch (error) {
+        options.trace.recordAttempt({
+          model, providerStatus: status, outcomeCode: "INTERNAL_ERROR", finishReason,
+          durationMs: Math.max(0, now() - attemptStartedAt),
+          ...(resolvedModel ? { providerModelVersion: resolvedModel } : {}),
+        });
+        options.trace.setOutcomeCode("INTERNAL_ERROR");
+        throw error;
       }
       const attemptCode = decision.kind === "success"
         ? "PROVIDER_OK"

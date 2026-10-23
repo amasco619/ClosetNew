@@ -244,7 +244,7 @@ function buildLimitedApp(): express.Application {
       let calls = 0;
       axios.post = (async () => {
         calls++;
-        if (calls === 1) {
+        if (calls <= 2) {
           throw axiosError({ response: { status: 429 } });
         }
         return {
@@ -268,9 +268,9 @@ function buildLimitedApp(): express.Application {
       const fallbackSuccess = await request(buildApp())
         .post("/api/classify-garment")
         .send({ imageBase64: "dGVzdA==" });
-      assert(fallbackSuccess.status === 200 && calls === 2
+      assert(fallbackSuccess.status === 200 && calls === 3
         && fallbackSuccess.body.category === "top",
-        "first-model 429 falls back to second model and preserves success");
+        "primary 429 retries once then falls back and preserves success");
 
       const timeout = await runFailure({ code: "ECONNABORTED", message: "timeout provider secret" });
       assert(timeout.status === 504 && timeout.body.error === "classifier_timeout",
@@ -303,8 +303,8 @@ function buildLimitedApp(): express.Application {
         .post("/api/classify-garment")
         .send({ imageBase64: "dGVzdA==" });
       assert(exhausted.status === 429 && exhausted.body.error === "rate_limited"
-        && exhaustedCalls === 2
-        , "all-model 429 is safe rate_limited after the existing two-model fallback");
+        && exhaustedCalls === 3
+        , "all-model 429 is safe rate_limited after primary retry and fallback");
       assertSafe("all-model 429", exhausted, exhaustedSecret);
 
       const upstreamSecret = "raw outage internals";

@@ -825,7 +825,7 @@ export async function classifyGarment(req: Request, res: Response) {
   let providerImageBase64: string | undefined;
   let providerImageMimeType = "image/jpeg";
   try {
-    const { imageBase64, imageUrl, imageMimeType } = req.body ?? {};
+    const { imageBase64, imageUrl, imageMimeType } = req.body;
 
     if ((!imageBase64 && !imageUrl) || (imageBase64 && imageUrl)) {
       trace.setOutcomeCode("INVALID_IMAGE_INPUT");

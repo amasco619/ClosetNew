@@ -89,7 +89,10 @@ async function runFake(
     deadlineAt: options.deadlineAt ?? Date.now() + CLASSIFIER_TOTAL_DEADLINE_MS,
     trace,
     decode: options.decode ?? decodeJson,
-    dependencies: { post, sleep: options.sleep ?? (async () => {}), random: options.random ?? (() => 0) },
+    dependencies: {
+      post, sleep: options.sleep ?? (async () => {}),
+      random: options.random ?? (() => 0), ...(options.now ? { now: options.now } : {}),
+    },
   });
 }
 
@@ -112,7 +115,7 @@ async function main() {
   );
   assert.deepEqual(getThinkingConfigForModel("gemini-3.5-flash-lite"), { thinkingLevel: "minimal" });
   assert.deepEqual(getThinkingConfigForModel("gemini-3.8-flash"), { thinkingLevel: "minimal" });
-  assert.deepEqual(getThinkingConfigForModel("gemini-3.5-flash"), { thinkingLevel: "low" });
+  assert.deepEqual(getThinkingConfigForModel("gemini-3.5-flash"), { thinkingLevel: "minimal" });
   assert.deepEqual(getThinkingConfigForModel("gemini-2.5-flash"), { thinkingBudget: 0 });
   assert.match(readFileSync("server/classify-garment.ts", "utf8"), /getClassifierModelOrder/);
   assert.match(readFileSync("server/classify-multi-item.ts", "utf8"), /getClassifierModelOrder/);
@@ -200,6 +203,53 @@ async function main() {
     assert.equal(result.decision.kind, "refused");
     assert.equal(fake.calls.length, 1);
     assert.equal(attempts[0].outcomeCode, "CONTENT_GUARDRAIL");
+  }
+
+  {
+    const fake = fakePost([{ status: 200, data: { promptFeedback: { blockReason: "SAFETY" } } }]);
+    const { trace } = makeTrace();
+    const result = await runFake(fake.post, trace);
+    assert.equal(result.decision.kind, "refused");
+    assert.equal(fake.calls.length, 1, "prompt-level refusals must not retry");
+  }
+
+  {
+    const fake = fakePost([response('{"refused":true}')]);
+    const { trace } = makeTrace();
+    const result = await runFake(fake.post, trace, { decode: () => ({ kind: "refused" }) });
+    assert.equal(result.decision.kind, "refused");
+    assert.equal(fake.calls.length, 1, "parsed refusals must not retry");
+  }
+
+  {
+    let clock = 0;
+    const timeouts: number[] = [];
+    let callCount = 0;
+    const { trace } = makeTrace();
+    const result = await runFake(async (_url, _body, config) => {
+      callCount++;
+      timeouts.push(config.timeout);
+      assert(config.signal instanceof AbortSignal, "each attempt has a wall-clock abort");
+      clock += config.timeout;
+      if (callCount === 2 || callCount === 4) return response("", "MAX_TOKENS");
+      if (callCount === 5) return response('{"ok":true}');
+      throw Object.assign(new Error("timeout"), { code: "ETIMEDOUT" });
+    }, trace, {
+      deadlineAt: CLASSIFIER_TOTAL_DEADLINE_MS,
+      now: () => clock,
+      sleep: async (milliseconds) => { clock += milliseconds; },
+    });
+    assert.equal(result.decision.kind, "success");
+    assert.equal(callCount, 5);
+    assert(clock <= 39_000 && clock < 40_000);
+    assert(timeouts.every((timeout) => timeout <= 8_500));
+    assert(timeouts.at(-1)! < 8_500, "the last attempt uses only the remaining deadline");
+    let forbiddenCalls = 0;
+    await assert.rejects(() => runFake(async () => {
+      forbiddenCalls++;
+      return response('{"ok":true}');
+    }, makeTrace().trace, { deadlineAt: 0, now: () => 1 }), { code: "ETIMEDOUT" });
+    assert.equal(forbiddenCalls, 0);
   }
 
   {
