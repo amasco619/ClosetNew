@@ -5,7 +5,8 @@ import { getGuestPhotoRelativePath } from '../constants/guestPhotoCleanup';
 import type { WardrobeItem } from '../constants/types';
 import { getFreeWardrobeSelection, getSelectedWardrobeItems, getWardrobeItems, insertWardrobeItems } from './database';
 import { fetchAuthoritativeEntitlement } from './entitlements';
-import { uploadWardrobeImage } from './storage';
+import { uploadPreparedWardrobeImage } from './storage';
+import { prepareStorageUploadImage } from './storageUploadImage';
 import { supabase } from './supabase';
 import { serializeRecommendationSemantics } from './wardrobeSemantics';
 import { rebaseGuestPhotoUri } from './rebaseGuestPhotoUri';
@@ -56,14 +57,18 @@ export const guestWardrobeSync = createGuestWardrobeMigration({
       activeCount: selected.length, totalCount: page.totalCount, premium: entitlement.isPremium,
     };
   },
-  upload: async (ownerId, entry) => {
+  prepare: async (ownerId, entry) => {
     await assertOwner(ownerId);
     const uri = rebaseGuestPhotoUri(entry.item.photoUri, FileSystem.documentDirectory ?? '');
     if (!getGuestPhotoRelativePath(uri, FileSystem.documentDirectory)) throw new Error('Guest photo is outside managed storage');
-    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+    const boundedBase64 = await prepareStorageUploadImage('', /\.png$/i.test(uri) ? 'image/png' : 'image/jpeg', uri);
     await assertOwner(ownerId);
-    const uploaded = await uploadWardrobeImage(
-      ownerId, base64, entry.migrationId, /\.png$/i.test(uri) ? 'image/png' : 'image/jpeg', uri,
+    return boundedBase64;
+  },
+  upload: async (ownerId, entry, boundedBase64, onStage) => {
+    await assertOwner(ownerId);
+    const uploaded = await uploadPreparedWardrobeImage(
+      ownerId, entry.migrationId, /\.png$/i.test(entry.item.photoUri) ? 'image/png' : 'image/jpeg', boundedBase64, onStage,
     );
     return uploaded.storagePath;
   },

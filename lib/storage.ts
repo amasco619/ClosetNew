@@ -4,7 +4,8 @@ import { stripDataUriPrefix } from './uploadArg'
 import { MissingWardrobePhotoError } from './wardrobePhotoHydration'
 import { wardrobeImageCleanupPaths } from './wardrobeImagePath'
 import {
-  StorageStageError, type GuestPhotoSyncStage, type StorageImageMimeType,
+  asPermanentStorageUploadError, storageUploadStatus, StorageStageError,
+  type GuestPhotoSyncStage, type StorageImageMimeType,
 } from './storageUploadBounds'
 import { prepareStorageUploadImage } from './storageUploadImage'
 
@@ -42,7 +43,7 @@ export async function getSignedWardrobeUrl(storagePath: string): Promise<string>
     if (error?.message?.trim().toLowerCase() === 'object not found') {
       throw new MissingWardrobePhotoError('Wardrobe photo is no longer available')
     }
-    throw new Error(`[getSignedWardrobeUrl] ${error?.message ?? 'no signed URL returned'}`)
+    throw new Error(`[getSignedWardrobeUrl] ${error?.message ?? 'no signed URL returned'}`, { cause: error })
   }
   signedUrlCache.set(storagePath, {
     url: data.signedUrl,
@@ -92,6 +93,7 @@ export async function uploadWardrobeImage(
   return uploadPreparedWardrobeImage(userId, itemId, mimeType, boundedBase64)
 }
 
+/** Network-only half; callers must first use prepareStorageUploadImage. */
 export async function uploadPreparedWardrobeImage(
   userId: string,
   itemId: string,
@@ -120,7 +122,9 @@ export async function uploadPreparedWardrobeImage(
     signedUrl = await getSignedWardrobeUrl(storagePath)
   } catch (signedUrlError) {
     await deleteWardrobeImage(userId, itemId, storagePath).catch(cleanupError =>
-      console.warn('[uploadWardrobeImage] Could not clean up unsigned upload:', cleanupError))
+      console.warn('[uploadWardrobeImage] Could not clean up unsigned upload:', {
+        code: 'CLEANUP_FAILED', status: storageUploadStatus(cleanupError),
+      }))
     throw new StorageStageError('signed-url', signedUrlError)
   }
   return { signedUrl, storagePath }

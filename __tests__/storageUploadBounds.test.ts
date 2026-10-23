@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import {
   MAX_STORAGE_UPLOAD_BYTES, MAX_STORAGE_IMAGE_EDGE, PermanentStorageUploadError,
-  base64ByteLength, prepareBoundedStorageImage, storageUploadFailureKind,
+  base64ByteLength, prepareBoundedStorageImage, storageUploadFailureKind, storageUploadStatus,
 } from '../lib/storageUploadBounds';
 import { runSaveAll, type BulkItemCore, type SaveAllDeps } from '../lib/bulkClassifyCore';
 import { createGuestWardrobeMigration, type GuestMigrationRecord } from '../lib/guestWardrobeMigration';
@@ -58,14 +58,15 @@ async function main() {
   const fixture = {
     width: 3000, height: 4500, output: small,
     uploads: [] as any[], encodes: [] as any[], resizes: [] as any[],
-    writes: [] as string[], deletes: [] as string[], error: null as any,
+    writes: [] as string[], deletes: [] as string[], error: null as any, signedError: null as any,
   };
   Object.assign(globalThis, { __storageUploadBounds: fixture });
   const mocks: Record<string, string> = {
     './supabase': `const f=globalThis.__storageUploadBounds;
       export const supabase={storage:{from:bucket=>({
         upload:async(path,body,options)=>{f.uploads.push({bucket,path,bytes:body.byteLength,options});return {error:f.error};},
-        createSignedUrl:async()=>({data:{signedUrl:'https://synthetic.test/photo'},error:null}),
+        createSignedUrl:async()=>({data:{signedUrl:'https://synthetic.test/photo'},error:f.signedError}),
+        remove:async()=>({error:null}),
       })}};`,
     'expo-file-system/legacy': `const f=globalThis.__storageUploadBounds;
       export const cacheDirectory='file:///cache/',EncodingType={Base64:'base64'};
@@ -126,6 +127,10 @@ async function main() {
       (error: any) => error.permanent === true);
   }
   fixture.error = null;
+  fixture.signedError = { status: 503, message: 'synthetic provider failure' };
+  await assert.rejects(() => mod.exports.uploadWardrobeImage('owner', small, 'signed-url-failure'),
+    (error: any) => error.stage === 'signed-url' && storageUploadStatus(error) === 503);
+  fixture.signedError = null;
   delete (globalThis as any).__storageUploadBounds;
 
   // Both bulk and multi-item save use runSaveAll; cutout/original source URIs
@@ -165,6 +170,7 @@ async function main() {
     write: async (rows: GuestMigrationRecord[]) => { journal = structuredClone(rows); },
     newId: () => 'migration-id',
     snapshot: async () => ({ confirmedIds: [], activeCount: 0, totalCount: 0, premium: false }),
+    prepare: async () => small,
     upload: async () => { guestAttempts++; if (rejectGuest) throw { statusCode: '415' }; return 'owner/photo.jpg'; },
     insert: async (_owner: string, entries: any[]) => entries.map(entry => entry.migrationId),
     confirmed: async () => { confirmed++; },
@@ -193,7 +199,7 @@ async function main() {
   for (const file of ['app/bulk-review.tsx', 'app/multi-item-review.tsx']) {
     assert.match(readFileSync(file, 'utf8'), /uploadWardrobeImage\([\s\S]*?sourceUri/);
   }
-  assert.match(readFileSync('lib/guestWardrobeSync.ts', 'utf8'), /image\/jpeg', uri/);
+  assert.match(readFileSync('lib/guestWardrobeSync.ts', 'utf8'), /prepareStorageUploadImage\('',[\s\S]*?image\/jpeg', uri/);
   assert.match(readFileSync('app/(tabs)/wardrobe.tsx', 'utf8'), /Retry failed uploads/);
   console.log('Storage bounds: helper, all six upload paths, PNG transparency, exact byte cap, permanent rejection and manual retry proofs passed.');
 }

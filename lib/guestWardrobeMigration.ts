@@ -1,7 +1,19 @@
 import type { WardrobeItem } from '../constants/types';
-import { isPermanentStorageUploadError, storageUploadFailureMessage } from './storageUploadBounds';
+import {
+  isNetworkOfflineFailure, isStorageUploadTimeout, storageUploadFailureKind, storageUploadFailureMessage,
+  storageUploadStage, storageUploadStatus, type GuestPhotoSyncStage,
+} from './storageUploadBounds';
 
 export const GUEST_MIGRATION_KEY = '@amodka_guest_wardrobe_migration';
+export const GUEST_SYNC_NETWORK_TIMEOUT_MS = 20_000;
+export const GUEST_SYNC_UNKNOWN_FAILURE_LIMIT = 3;
+export type GuestSyncFailureDiagnostic = {
+  stage: GuestPhotoSyncStage;
+  code: string;
+  status?: number;
+  elapsedMs: number;
+  attemptCount: number;
+};
 export type GuestMigrationEntry = {
   ownerId: string;
   migrationId: string;
@@ -11,6 +23,9 @@ export type GuestMigrationEntry = {
   announced: boolean;
   sourceReclaimed?: boolean;
   uploadError?: string;
+  uploadAttemptCount?: number;
+  unrecognizedFailureCount?: number;
+  lastUploadFailure?: GuestSyncFailureDiagnostic;
 };
 export type GuestDataDisposition = 'absorb' | 'discard';
 export type GuestMigrationDecision = {
@@ -65,9 +80,15 @@ export interface GuestMigrationDeps {
   write(entries: GuestMigrationRecord[]): Promise<void>;
   newId(): string;
   snapshot(ownerId: string, entries: GuestMigrationEntry[]): Promise<MigrationSnapshot>;
-  upload(ownerId: string, entry: GuestMigrationEntry): Promise<string>;
+  prepare(ownerId: string, entry: GuestMigrationEntry): Promise<string>;
+  upload(
+    ownerId: string, entry: GuestMigrationEntry, boundedBase64: string,
+    onStage: (stage: 'upload' | 'signed-url') => void,
+  ): Promise<string>;
   insert(ownerId: string, entries: GuestMigrationEntry[]): Promise<string[]>;
   confirmed(entry: GuestMigrationEntry): Promise<void>;
+  /** Shortened only by isolated tests; production uses the 20-second deadline. */
+  networkTimeoutMs?: number;
 }
 
 /** A durable owner claim is recorded before auth hydration replaces guest state.
@@ -97,7 +118,11 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       return await Promise.race([request, new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('Guest sync timed out')), 20_000);
+        timer = setTimeout(() => {
+          const error = new Error('Guest sync timed out');
+          error.name = 'GuestSyncTimeoutError';
+          reject(error);
+        }, deps.networkTimeoutMs ?? GUEST_SYNC_NETWORK_TIMEOUT_MS);
       })]);
     } finally { if (timer) clearTimeout(timer); }
   };
@@ -208,16 +233,51 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
         const prepared: GuestMigrationEntry[] = [];
         for (const entry of plan.transfer) {
           check();
+          let stage: GuestPhotoSyncStage = 'prepare';
+          const startedAt = Date.now();
           try {
-            const storagePath = entry.storagePath ?? await bounded(deps.upload(ownerId, entry));
+            let storagePath = entry.storagePath;
+            if (!storagePath) {
+              // Decode/resize/encode locally before starting the network clock.
+              const boundedBase64 = await deps.prepare(ownerId, entry);
+              check();
+              stage = 'upload';
+              storagePath = await bounded(deps.upload(ownerId, entry, boundedBase64, next => { stage = next; }));
+            }
             check();
-            await update(entry, { storagePath });
+            await update(entry, {
+              storagePath, uploadAttemptCount: 0, unrecognizedFailureCount: 0,
+              lastUploadFailure: undefined, uploadError: undefined,
+            });
             prepared.push({ ...entry, storagePath });
           } catch (error) {
             check(); // One bad/missing file must not discard the rest of the batch.
-            if (isPermanentStorageUploadError(error)) {
-              await update(entry, { uploadError: storageUploadFailureMessage(error) });
-            }
+            const kind = storageUploadFailureKind(error);
+            const offline = isNetworkOfflineFailure(error);
+            const status = storageUploadStatus(error);
+            const timedOut = isStorageUploadTimeout(error);
+            const attemptCount = (entry.uploadAttemptCount ?? 0) + 1;
+            // Known HTTP, timeout and connectivity failures retain their retry policy.
+            // Only consecutive unrecognised failures reach the manual-retry ceiling.
+            const unrecognized = !offline && !timedOut && !kind && status === undefined;
+            const unrecognizedFailureCount = unrecognized ? (entry.unrecognizedFailureCount ?? 0) + 1 : 0;
+            const diagnostic: GuestSyncFailureDiagnostic = {
+              stage: storageUploadStage(error) ?? stage,
+              code: offline ? 'NETWORK_OFFLINE' : timedOut ? 'TIMEOUT'
+                : status ? `HTTP_${status}` : kind ? kind.toUpperCase().replace(/-/g, '_') : 'UNRECOGNISED',
+              ...(status ? { status } : {}),
+              elapsedMs: Math.max(0, Date.now() - startedAt),
+              attemptCount,
+            };
+            // Only these allowlisted fields reach Expo logs, never the error or entry.
+            console.warn(`[guest-sync] Photo transfer failed ${JSON.stringify(diagnostic)}`);
+            await update(entry, {
+              uploadAttemptCount: attemptCount, unrecognizedFailureCount, lastUploadFailure: diagnostic,
+              uploadError: kind ? storageUploadFailureMessage(error)
+                : !offline && unrecognizedFailureCount >= GUEST_SYNC_UNKNOWN_FAILURE_LIMIT
+                  ? 'Upload did not complete after 3 attempts. Your local photo is safe; tap Retry failed uploads to try again.'
+                  : undefined,
+            });
           }
         }
         if (prepared.length) {
@@ -247,7 +307,11 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
     },
     clearPermanentFailures: (ownerId: string) => mutate(entries => {
       for (const entry of entries) {
-        if (isGuestMigrationEntry(entry) && entry.ownerId === ownerId) delete entry.uploadError;
+        if (isGuestMigrationEntry(entry) && entry.ownerId === ownerId) {
+          delete entry.uploadError;
+          entry.uploadAttemptCount = 0;
+          entry.unrecognizedFailureCount = 0;
+        }
       }
     }),
   };

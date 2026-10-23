@@ -53,6 +53,7 @@ async function main() {
     write: async (entries: GuestMigrationRecord[]) => { disk = JSON.parse(JSON.stringify(entries)); },
     newId: () => item(9).id,
     snapshot: async () => ({ ...snapshot, activeCount, confirmedIds: [...cloud] }),
+    prepare: async () => 'bounded-photo',
     upload: async (owner: string, entry: GuestMigrationEntry) => {
       uploads.push(entry.migrationId);
       if (entry.migrationId === failUpload) throw new Error('offline file read');
@@ -198,15 +199,23 @@ async function main() {
 
   // Exercise the production adapter with stubbed Supabase/storage/file services.
   // Any accidental provider dependency becomes a throwing stub, not a live call.
-  const fixture = { disk: new Map<string, string>(), rows: [] as any[], ai: 0, uploads: [] as string[], activeOwner: 'a' };
+  const fixture = {
+    disk: new Map<string, string>(), rows: [] as any[], ai: 0, uploads: [] as string[], activeOwner: 'a',
+    preparedUris: [] as string[], fullFileReads: 0,
+  };
   Object.assign(globalThis, { __guestSyncTest: fixture });
   const mocks: Record<string, string> = {
     '@react-native-async-storage/async-storage': `const m=globalThis.__guestSyncTest; export default {getItem:async k=>m.disk.get(k)??null,setItem:async(k,v)=>{m.disk.set(k,v);}};`,
     'expo-crypto': `export const randomUUID=()=> '00000000-0000-4000-8000-000000000009';`,
-    'expo-file-system/legacy': `export const documentDirectory='file:///docs/',EncodingType={Base64:'base64'},readAsStringAsync=async()=> 'photo';`,
+    'expo-file-system/legacy': `export const documentDirectory='file:///docs/',EncodingType={Base64:'base64'};
+      export const readAsStringAsync=async()=>{globalThis.__guestSyncTest.fullFileReads++;throw Error('Original Base64 allocation prohibited');};`,
     './supabase': `export const supabase={auth:{getSession:async()=>({data:{session:{user:{id:globalThis.__guestSyncTest.activeOwner}}}})}};`,
     './entitlements': `export const fetchAuthoritativeEntitlement=async()=>({isPremium:false});`,
-    './storage': `export const uploadWardrobeImage=async(owner,photo,id)=>{globalThis.__guestSyncTest.uploads.push(photo);return {storagePath:owner+'/'+id+'.jpg',signedUrl:'https://signed'};};`,
+    './storageUploadImage': `export const prepareStorageUploadImage=async(base64,mime,uri)=>{
+      if(base64!=='')throw Error('Original Base64 allocation prohibited');
+      globalThis.__guestSyncTest.preparedUris.push(uri);return 'bounded-photo';};`,
+    './storage': `export const uploadPreparedWardrobeImage=async(owner,id,mime,photo)=>{
+      globalThis.__guestSyncTest.uploads.push(photo);return {storagePath:owner+'/'+id+'.jpg',signedUrl:'https://signed'};};`,
     './database': `const m=globalThis.__guestSyncTest;
       export const getSelectedWardrobeItems=async()=>m.rows;
       export const getWardrobeItems=async()=>({items:m.rows,totalCount:m.rows.length});
@@ -236,6 +245,9 @@ async function main() {
   assert.equal(fixture.rows[0].image_url, `a/${item(6).id}.jpg`);
   assert.equal(fixture.rows[0].user_id, 'a');
   assert.equal(fixture.ai, 0);
+  assert.equal(fixture.fullFileReads, 0);
+  assert.deepEqual(fixture.preparedUris, [item(6).photoUri], 'managed original goes directly to the bounded codec');
+  assert.deepEqual(fixture.uploads, ['bounded-photo'], 'only bounded output reaches the network uploader');
   const uploadCount = fixture.uploads.length;
   const rowCount = fixture.rows.length;
   await adapter.claim('a', [item(7)]);

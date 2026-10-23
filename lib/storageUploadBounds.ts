@@ -8,11 +8,15 @@ export type GuestPhotoSyncStage = 'prepare' | 'upload' | 'signed-url';
 
 export class StorageStageError extends Error {
   readonly status?: number;
+  readonly kind?: StorageUploadFailureKind;
+  readonly permanent: boolean;
 
   constructor(readonly stage: Exclude<GuestPhotoSyncStage, 'prepare'>, readonly underlyingError: unknown) {
     super(`Storage ${stage} failed`);
     this.name = 'StorageStageError';
     this.status = storageUploadStatus(underlyingError);
+    this.kind = storageUploadFailureKind(underlyingError) ?? undefined;
+    this.permanent = this.kind !== undefined;
   }
 }
 
@@ -67,7 +71,7 @@ export function storageUploadFailureKind(error: unknown): StorageUploadFailureKi
   const status = storageUploadStatus(error);
   if (status === 413) return 'too-large';
   if (status === 415) return 'unsupported';
-  if ([400, 422].includes(status)) return 'rejected';
+  if (status !== undefined && [400, 422].includes(status)) return 'rejected';
 
   const details = chain.flatMap(part => {
     const value = part as { code?: unknown; message?: unknown; statusCode?: unknown };
@@ -91,7 +95,15 @@ export function isNetworkOfflineFailure(error: unknown): boolean {
     const value = part as { name?: unknown; message?: unknown; code?: unknown };
     return [value.name, value.message, value.code];
   }).filter((part): part is string => typeof part === 'string').join(' ').toLowerCase();
-  return /network request failed|failed to fetch|fetch failed|network error|unable to resolve host|unknownhostexception|no address associated with hostname|name or service not known|temporary failure in name resolution|eai_again|enotfound|network is unreachable|enetunreach|ehostunreach|econnreset|connection reset|socket hang up|sockettimeoutexception|err_internet_disconnected/.test(details);
+  return /network request failed|failed to fetch|fetch failed|network error|unable to resolve host|unknownhostexception|no address associated with hostname|name or service not known|temporary failure in name resolution|eai_again|enotfound|network is unreachable|enetunreach|ehostunreach|econnreset|connection reset|socket hang up|err_internet_disconnected/.test(details);
+}
+
+export function isStorageUploadTimeout(error: unknown): boolean {
+  const details = errorChain(error).flatMap(part => {
+    const value = part as { name?: unknown; message?: unknown; code?: unknown };
+    return [value.name, value.message, value.code];
+  }).filter((part): part is string => typeof part === 'string').join(' ').toLowerCase();
+  return /guestsynctimeouterror|timeouterror|sockettimeoutexception|etimedout|econnaborted|timed out|timeout|deadline exceeded/.test(details);
 }
 
 export function asPermanentStorageUploadError(error: unknown): PermanentStorageUploadError | null {

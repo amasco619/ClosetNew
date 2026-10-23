@@ -328,7 +328,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               129 test suites (see §11)
+__tests__/               130 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -440,7 +440,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 129 test suites once |
+| `npm test` | Run all 130 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -529,7 +529,13 @@ Storage uploads never fall back to an unbounded original. `lib/storageUploadImag
 
 `uploadWardrobeImage()` accepts an optional `mimeType` parameter (`'image/jpeg'` default, `'image/png'` supported); the file extension is derived from the MIME type. `deleteWardrobeImage()` removes both `.jpg` and `.png` variants to handle items stored under either extension.
 
-Permanent Storage rejections (including HTTP 413/415, invalid-request 400/422 and known size/MIME error codes) are distinguished from network/429/5xx failures. Bulk saves remain local-only in review with **Upload failed**, an explanation and the existing explicit **Retry save** action; no partial batch is committed. Guest migration persists a sanitised per-item `uploadError` in its existing local journal, skips that item on automatic foreground/restart sync, retains its local photo, and exposes **Retry failed uploads** in Wardrobe. Only that manual action clears permanent failure markers for the active owner. Ordinary transient retries are unchanged. Bucket settings, server code and remote database schema are unchanged.
+Permanent Storage rejections (including HTTP 413/415, invalid-request 400/422 and known size/MIME error codes) are distinguished from network/429/5xx failures. Bulk saves remain local-only in review with **Upload failed**, an explanation and the existing explicit **Retry save** action; no partial batch is committed. Guest migration persists a sanitised per-item `uploadError` in its existing local journal, skips that item on automatic foreground/restart sync, retains its local photo, and exposes **Retry failed uploads** in Wardrobe. Only that manual action clears failure markers for the active owner. Bucket settings, server code and remote database schema are unchanged.
+
+Guest sync passes the managed original URI directly to `prepareStorageUploadImage('', mime, uri)`; it does not first read the full original into Base64. Native resize/encode runs before the 20-second per-photo network deadline, which covers `uploadPreparedWardrobeImage`'s Storage upload and signed-URL step. The normal `uploadWardrobeImage` entry point uses the same preparation/network halves. Guest save-time copies and the local originals are unchanged; existing row-confirmed source reclamation remains unchanged.
+
+Every failed photo-transfer attempt records `lastUploadFailure` in the existing owner-bound journal and emits one JSON `console.warn` line with the identical allowlisted fields: `stage` (`prepare`, `upload`, `signed-url`), short `code`, optional numeric HTTP `status`, total attempt `elapsedMs` (including preparation), and `attemptCount`. No raw error, URI or account/item identity is included in that diagnostic. Three consecutive **unrecognised** failures set the existing manual-only failure marker. Known HTTP errors, known timeouts and connectivity/DNS failures do not count and break that consecutive-unknown sequence; recognised permanent rejections still stop immediately. Manual retry resets the attempt cycle and unknown counter, retaining the last diagnostic until another failure or successful upload replaces/clears it. Known transient retry behaviour is otherwise unchanged.
+
+The network deadline is still a `Promise.race`, not cancellation: late successful uploads can remain unreferenced if no garment row is committed. Retry uses the stable owner/migration-ID path with `upsert: true`, not a new object key. An idempotent finalisation/cleanup design is documented **only**, not implemented, in `docs/reports/guest-sync-large-photo-fix.md`.
 
 **Recent improvements to `app/add-item.tsx`:**
 - `gestureEnabled: false` on the add-item stack screen (set in `app/_layout.tsx`) — prevents the iOS swipe-back gesture from partially dismissing the form mid-save.
@@ -1489,11 +1495,12 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (129 total)
+### Test Suites (130 total)
 
 | Suite | What it tests |
 |-------|--------------|
 | `storageUploadBounds.test.ts` | Exact 6 MB byte boundary, JPEG quality steps, PNG transparency policy, longest-edge native-adapter wiring, both bucket uploaders and all save callers, permanent bulk/guest failure retention and explicit retry, persisted owner-bound failure markers |
+| `guestPhotoSyncFailures.test.ts` | Preparation outside the network deadline, upload/signed-URL timeout stages, identical sanitised journal/log diagnostics, unknown-only three-failure ceiling across restart, manual reset, known HTTP/timeout and offline exemptions, and retained original references |
 | `profilePersonalization.test.ts` | 19 offline groups: account-neutral hydration, null/explicit values, minimal profile creation for unnamed email accounts, guest-only migration and face-shape round trip, consumed guest cache, failed/stale migration, actual onboarding skip/completion and rotation-effect callbacks, eye/skin scoring match and no-effect cases |
 | `alertDialogAdapter.test.ts` | Branded dialog adapter preserves cancel/destructive roles, outside-cancel policy, button callbacks and default Done behavior |
 | `travelCapsule.test.ts` | Exact activity/scenario matching and source separation, owned/current IDs, stable look identity, authoritative coordinated membership/partial use, checklist deduplication, partial coverage and no write/generation imports |
