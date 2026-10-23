@@ -21,6 +21,7 @@
 - [Benchmark gold-label independence](benchmark-gold-label-independence.md) — reviewer package must carry zero author-assigned evaluative metadata; two-tier fixtures + validator enforce it
 - [Track C v3.7 baseline interpretation](track-c-baseline-interpretation.md) — keep fixed-candidate scoring and full-generator support separate; baseline recommends material remediation before launch
 - [Persistent rate-limiter tests](persistent-rate-limiter-tests.md) — inject memory/fake stores; missing test fixtures must fail before live access or fallback.
+- [tsx MJS-to-TypeScript imports](tsx-mjs-typescript-imports.md) — in .mjs scripts launched with tsx, use createRequire for TypeScript modules when named ESM imports fail.
 - [Test-only npm installs](test-only-npm-installs.md) — package install callback saves npm packages as runtime deps; move test-only packages into devDependencies in both manifests.
 - [Production smoke isolation](production-smoke-isolation.md) — scrub workspace binary paths, run compiled Node output, and prevent local startup checks from touching live services.
 - [AI consent storage](ai-consent-storage.md) — no-choice displays ON but is not consent; server metadata remains authoritative and explicit OFF is never overridden.

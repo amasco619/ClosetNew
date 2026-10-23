@@ -133,11 +133,11 @@ try {
     calls++;
     throw { isAxiosError: true, response: { status: 429, data: 'raw-secret-provider-body' } };
   });
-  assert.equal(calls, 3, '429 retries the primary once then tries the fallback');
+  assert.equal(calls, 2, '429 skips the primary retry and tries the fallback');
   assert.equal(result.response.status, 429);
   assert.equal(result.response.body.error, 'rate_limited');
-  assert.equal(result.traces.at(-1).modelAttempts.at(-1).model, 'gemini-2.5-flash');
-  assert.equal(result.traces.at(-1).attemptCount, 3);
+  assert.equal(result.traces.at(-1).modelAttempts.at(-1).model, 'gemini-3.5-flash');
+  assert.equal(result.traces.at(-1).attemptCount, 2);
   assert.ok(!lines.join('\n').includes('raw-secret-provider-body'));
 
   result = await run(async () => { throw { isAxiosError: true,

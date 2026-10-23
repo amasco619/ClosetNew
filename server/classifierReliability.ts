@@ -3,12 +3,12 @@ import { randomUUID } from "node:crypto";
 import type { Response } from "express";
 
 export const DEFAULT_CLASSIFIER_PRIMARY_MODEL = "gemini-3.5-flash-lite";
-export const DEFAULT_CLASSIFIER_FALLBACK_MODEL = "gemini-2.5-flash";
+export const DEFAULT_CLASSIFIER_FALLBACK_MODEL = "gemini-3.5-flash";
 export const CLASSIFIER_TOTAL_DEADLINE_MS = 39_000;
 const MAX_ATTEMPT_TIMEOUT_MS = 8_500;
 
 const MODEL_NAME_PATTERN = /^[a-z0-9][a-z0-9.-]{0,99}$/i;
-const RETRYABLE_PROVIDER_STATUSES = new Set([429, 500, 502, 503, 504]);
+const RETRYABLE_PROVIDER_STATUSES = new Set([500, 502, 503, 504]);
 const GUARDRAIL_FINISH_REASONS = new Set([
   "SAFETY",
   "IMAGE_SAFETY",
@@ -193,6 +193,25 @@ type GeminiDependencies = {
   now?: () => number;
 };
 
+export function buildGeminiGenerationRequest(options: {
+  model: string;
+  apiKey: string;
+  baseRequestBody: Record<string, any>;
+  maxOutputTokens: number;
+  timeout: number;
+  signal: AbortSignal;
+}): { url: string; body: Record<string, any>; config: Record<string, unknown> } {
+  return {
+    url: `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(options.model)}:generateContent`,
+    body: buildRequestBody(options.baseRequestBody, options.model, options.maxOutputTokens),
+    config: {
+      timeout: options.timeout,
+      signal: options.signal,
+      headers: { "x-goog-api-key": options.apiKey },
+    },
+  };
+}
+
 export async function runGeminiClassifier<T>(options: {
   models: readonly [string, string];
   apiKey: string;
@@ -225,11 +244,15 @@ export async function runGeminiClassifier<T>(options: {
       const attemptStartedAt = now();
       let response: GeminiResponse;
       try {
-        response = await post(
-          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-          buildRequestBody(options.baseRequestBody, model, outputTokens),
-          { timeout, signal, headers: { "x-goog-api-key": options.apiKey } },
-        );
+        const request = buildGeminiGenerationRequest({
+          model,
+          apiKey: options.apiKey,
+          baseRequestBody: options.baseRequestBody,
+          maxOutputTokens: outputTokens,
+          timeout,
+          signal,
+        });
+        response = await post(request.url, request.body, request.config);
       } catch (error) {
         const providerError = signal.aborted ? new ClassifierDeadlineError() : error;
         const status = providerStatus(providerError);
@@ -243,6 +266,11 @@ export async function runGeminiClassifier<T>(options: {
         });
         if (status === 404) {
           options.trace.setOutcomeCode("MODEL_NOT_FOUND");
+          throw providerError;
+        }
+        if (status === 429) {
+          if (modelIndex === 0 && modelIndex + 1 < options.models.length) break;
+          options.trace.setOutcomeCode(code);
           throw providerError;
         }
         if (!isRetryable(providerError)) {
@@ -393,6 +421,7 @@ export async function checkClassifierModelMetadata(
           model,
           code: "MODEL_UNAVAILABLE",
           providerStatus: status,
+          message: "Metadata availability does not prove generation. Run npx tsx scripts/check-gemini-models.mjs to test actual generation.",
         }));
       }
       return { model, available, status };
@@ -404,6 +433,7 @@ export async function checkClassifierModelMetadata(
         model,
         code: status === 404 ? "MODEL_NOT_FOUND" : "MODEL_METADATA_CHECK_FAILED",
         providerStatus: status,
+        message: "Metadata availability does not prove generation. Run npx tsx scripts/check-gemini-models.mjs to test actual generation.",
       }));
       return { model, available: false, status };
     }
@@ -417,6 +447,7 @@ if (process.env.NODE_ENV !== "test") {
     type: "classifier_model_order",
     timestamp: new Date().toISOString(),
     modelOrder: startupModelOrder,
+    metadataNote: "Metadata availability does not prove generation. Run npx tsx scripts/check-gemini-models.mjs to test actual generation.",
   }));
   if (process.env.GEMINI_API_KEY) {
     void checkClassifierModelMetadata(startupModelOrder, process.env.GEMINI_API_KEY).catch(() => {
@@ -424,6 +455,7 @@ if (process.env.NODE_ENV !== "test") {
         type: "classifier_model_warning",
         timestamp: new Date().toISOString(),
         code: "MODEL_METADATA_CHECK_FAILED",
+        message: "Metadata availability does not prove generation. Run npx tsx scripts/check-gemini-models.mjs to test actual generation.",
       }));
     });
   } else {
@@ -431,6 +463,7 @@ if (process.env.NODE_ENV !== "test") {
       type: "classifier_model_warning",
       timestamp: new Date().toISOString(),
       code: "MISSING_API_KEY",
+      message: "Metadata availability does not prove generation. Run npx tsx scripts/check-gemini-models.mjs to test actual generation.",
     }));
   }
 }

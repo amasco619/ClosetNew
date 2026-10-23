@@ -97,9 +97,10 @@ async function runFake(
 }
 
 async function main() {
+  assert.equal(DEFAULT_CLASSIFIER_FALLBACK_MODEL, "gemini-3.5-flash");
   assert.deepEqual(getClassifierModelOrder({}), [
     "gemini-3.5-flash-lite",
-    "gemini-2.5-flash",
+    "gemini-3.5-flash",
   ]);
   assert(!getClassifierModelOrder({})[0].includes("latest"));
   assert.deepEqual(
@@ -120,13 +121,27 @@ async function main() {
   assert.match(readFileSync("server/classify-garment.ts", "utf8"), /getClassifierModelOrder/);
   assert.match(readFileSync("server/classify-multi-item.ts", "utf8"), /getClassifierModelOrder/);
 
-  for (const providerStatus of [429, 500, 502, 503, 504]) {
+  for (const providerStatus of [500, 502, 503, 504]) {
     const fake = fakePost([statusError(providerStatus), response('{"ok":true}')]);
     const { trace, attempts } = makeTrace();
     const result = await runFake(fake.post, trace);
     assert.equal(result.decision.kind, "success", `status ${providerStatus} should retry`);
     assert.deepEqual(fake.calls.map((call) => decodeURIComponent(call.url.split("/models/")[1].split(":")[0])), [models[0], models[0]]);
     assert.deepEqual(attempts.map((attempt) => attempt.providerStatus), [providerStatus, 200]);
+  }
+
+  {
+    const fake = fakePost([statusError(429), response('{"ok":true}')]);
+    const { trace, attempts } = makeTrace();
+    const result = await runFake(fake.post, trace);
+    assert.equal(result.decision.kind, "success");
+    assert.equal(result.model, models[1], "primary 429 should immediately use the configured fallback");
+    assert.deepEqual(
+      fake.calls.map((call) => decodeURIComponent(call.url.split("/models/")[1].split(":")[0])),
+      [models[0], models[1]],
+      "a primary 429 must not retry the primary",
+    );
+    assert.deepEqual(attempts.map((attempt) => attempt.providerStatus), [429, 200]);
   }
 
   for (const error of [
@@ -176,14 +191,14 @@ async function main() {
     const fake = fakePost([
       statusError(503),
       statusError(503),
-      response("", "MAX_TOKENS", "gemini-2.5-flash"),
-      response('{"ok":true}', "STOP", "gemini-2.5-flash"),
+      response("", "MAX_TOKENS", "gemini-3.6-flash"),
+      response('{"ok":true}', "STOP", "gemini-3.6-flash"),
     ]);
     const { trace, attempts } = makeTrace();
     const result = await runFake(fake.post, trace);
     assert.equal(result.decision.kind, "success");
     assert.deepEqual(fake.calls.map((call) => call.body.generationConfig.maxOutputTokens), [512, 512, 512, 1024]);
-    assert.deepEqual(fake.calls[2].body.generationConfig.thinkingConfig, { thinkingBudget: 0 });
+    assert.deepEqual(fake.calls[2].body.generationConfig.thinkingConfig, { thinkingLevel: "minimal" });
     assert.equal(attempts.length, 4);
   }
 
@@ -282,6 +297,8 @@ async function main() {
       ]);
       assert.equal(warnings.length, 1);
       assert.match(warnings[0], /MODEL_NOT_FOUND/);
+      assert.match(warnings[0], /Metadata availability does not prove generation/);
+      assert.match(warnings[0], /scripts\/check-gemini-models\.mjs/);
       assert(!warnings[0].includes("unit-test-key"));
     } finally {
       console.warn = originalWarn;

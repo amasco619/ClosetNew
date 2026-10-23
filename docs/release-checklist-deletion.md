@@ -24,6 +24,21 @@ packaging/startup, **not** Supabase readiness, billing, the full Expo static
 packaging pipeline, or the published deletion journey below. Do not bypass a
 failed smoke test or treat it as a substitute for those checks.
 
+## 0.1 Verify Gemini generation for both configured models
+
+In the target release environment, run:
+
+```sh
+npx tsx scripts/check-gemini-models.mjs
+```
+
+The script sends one request per configured model using the same request builder
+as classification and a generated 16×16 synthetic image. Both models must return
+HTTP 200 with valid JSON. It prints model IDs, status, latency, JSON validity
+and provider model version, but never prints the API key or response text. This
+checks generation only; it does not establish garment-classification accuracy
+or performance under load.
+
 ## 1. Confirm environment and readiness
 
 In the published environment, confirm the required secret names exist without

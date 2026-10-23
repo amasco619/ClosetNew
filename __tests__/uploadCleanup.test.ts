@@ -120,11 +120,11 @@ async function main() {
     loader: 'ts', minifySyntax: true, define: { __DEV__: 'false' },
   })).code;
   for (const token of ['pickerHash=', 'stagedAtPick=', 'sincePick=']) assert(!releaseCore.includes(token));
-  assert.deepEqual(getClassifierModelOrder({}), ['gemini-3.5-flash-lite', 'gemini-2.5-flash']);
+  assert.deepEqual(getClassifierModelOrder({}), ['gemini-3.5-flash-lite', 'gemini-3.5-flash']);
   assert.deepEqual(getClassifierModelOrder({ GEMINI_PRIMARY_MODEL: '  ' }), getClassifierModelOrder({}));
   assert.deepEqual(
     getClassifierModelOrder({ GEMINI_PRIMARY_MODEL: ' pinned-model ' }),
-    ['pinned-model', 'gemini-2.5-flash'],
+    ['pinned-model', 'gemini-3.5-flash'],
   );
   console.log('Upload cleanup: cache/save failure separation, calm states, cutout reuse, serial/paced retries, opt-in sanitized logs, release paths and model configuration passed.');
 }

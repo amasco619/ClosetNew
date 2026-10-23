@@ -332,7 +332,7 @@ async function runHttpTests(): Promise<void> {
     let calls = 0;
     axios.post = (async () => {
       calls++;
-      if (calls <= 2) throw Object.assign(new Error("quota secret"), {
+      if (calls === 1) throw Object.assign(new Error("quota secret"), {
         isAxiosError: true,
         response: { status: 429, data: { detail: "quota secret" } },
       });
@@ -340,8 +340,8 @@ async function runHttpTests(): Promise<void> {
     }) as typeof axios.post;
     response = await request(buildApp()).post("/api/classify-garments").send({ imageBase64: "x" });
     assert.equal(response.status, 200);
-    assert.equal(calls, 3);
-    console.log("  ✓ 29. primary 429 retries once then falls back");
+    assert.equal(calls, 2);
+    console.log("  ✓ 29. primary 429 skips its retry and falls back");
 
     const failures = [
       [{ code: "ECONNABORTED", message: "timeout secret" }, 504, "classifier_timeout"],
@@ -370,7 +370,7 @@ async function runHttpTests(): Promise<void> {
     response = await request(buildApp()).post("/api/classify-garments").send({ imageBase64: "x" });
     assert.equal(response.status, 429);
     assert.equal(response.body.error, "rate_limited");
-    assert.equal(calls, 3);
+    assert.equal(calls, 2);
     assert.ok(!JSON.stringify(response.body).includes("secret"));
     console.log("  ✓ 31. exhausted two-model fallback returns safe rate_limited");
 
