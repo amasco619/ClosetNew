@@ -143,7 +143,7 @@ export default function SignInScreen() {
 
   useEffect(() => {
     if (isAuthenticated && intentionalSignIn.current) {
-      router.dismissAll()
+      if (router.canDismiss()) router.dismissAll()
       router.replace('/')
     }
   }, [isAuthenticated])

@@ -71,6 +71,7 @@ const modules: Record<string, string> = {
         if (m.stack.length) m.stack[m.stack.length - 1] = path
         else m.stack.push(path)
       },
+      canDismiss: () => m.stack.length > 1,
       dismissAll: () => { m.dismisses++; m.stack.splice(1) },
       push: path => { m.stack.push(path) },
     }
@@ -501,6 +502,31 @@ async function main() {
     assert.deepEqual(mocks.routes, ['/'])
     assert.equal(mocks.dismisses, 1, 'clears routes before entering the authenticated index')
     assert.deepEqual(mocks.stack, ['/'], `Android Back cannot reveal sign-in after ${method} auth`)
+    await unmount(tree)
+  }
+
+  reset()
+  mocks.stack = ['/sign-in']
+  {
+    const SignIn = await signInScreen()
+    const tree = await mount(SignIn)
+    const [email, password] = tree.root.findAllByType('TextInput')
+    await React.act(async () => {
+      email.props.onChangeText('user@example.com')
+      password.props.onChangeText('ValidPass1')
+    })
+    const submit = tree.root.findAllByType('TouchableOpacity')
+      .filter(node => words(node).trim() === 'Sign in')
+      .pop()
+    assert.ok(submit, 'email sign-in button is rendered for a single-route stack')
+    await React.act(async () => submit.props.onPress())
+    await React.act(async () => {
+      mocks.appState.isAuthenticated = true
+      tree.update(React.createElement(SignIn))
+    })
+    assert.deepEqual(mocks.routes, ['/'])
+    assert.equal(mocks.dismisses, 0, 'does not dispatch POP_TO_TOP when sign-in is the only route')
+    assert.deepEqual(mocks.stack, ['/'], 'replaces the sole sign-in route with the authenticated index')
     await unmount(tree)
   }
 
