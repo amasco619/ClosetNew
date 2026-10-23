@@ -23,12 +23,12 @@ export async function prepareStorageUploadImage(
     const extension = mimeType === 'image/png' ? 'png' : 'jpg';
     temporaryUri = `${FileSystem.cacheDirectory}amodka-storage-${Date.now()}-${++temporaryFileId}.${extension}`;
     uri = temporaryUri;
-    await FileSystem.writeAsStringAsync(uri, inputBase64, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
   }
 
   try {
+    if (temporaryUri) await FileSystem.writeAsStringAsync(temporaryUri, inputBase64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
     const sourceContext = ImageManipulator.manipulate(uri);
     let source: Awaited<ReturnType<typeof sourceContext.renderAsync>> | undefined;
     let width: number;
@@ -57,8 +57,8 @@ export async function prepareStorageUploadImage(
           format: mimeType === 'image/png' ? SaveFormat.PNG : SaveFormat.JPEG,
           base64: true,
         });
-        if (!result.base64) throw new PermanentStorageUploadError('invalid');
         outputUri = result.uri;
+        if (!result.base64) throw new PermanentStorageUploadError('invalid');
         return { base64: result.base64, width: result.width, height: result.height };
       } finally {
         image?.release();

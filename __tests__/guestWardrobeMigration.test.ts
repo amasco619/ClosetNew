@@ -140,7 +140,7 @@ async function main() {
   await migration.decide('a', 'absorb');
   await migration.claim('a', [item(4)]);
   const full = await migration.sync('a', () => true);
-  assert.deepEqual(full, { pending: 1, capacity: true });
+  assert.deepEqual(full, { pending: 1, capacity: true, failed: 0 });
   activeCount = 29;
   const guarded = createGuestWardrobeMigration({
     ...deps, upload: async (owner, entry) => { current = false; return `${owner}/${entry.migrationId}.jpg`; },
@@ -177,7 +177,7 @@ async function main() {
     ...deps, snapshot: async () => { throw new Error('service unavailable'); },
   });
   const beforeOffline = JSON.stringify(disk);
-  assert.deepEqual(await offline.sync('b', () => true), { pending: 1, capacity: false });
+  assert.deepEqual(await offline.sync('b', () => true), { pending: 1, capacity: false, failed: 0 });
   assert.equal(JSON.stringify(disk), beforeOffline, 'an outage neither clears nor falsely confirms a pending item');
   const blocked = createGuestWardrobeMigration({
     ...deps, write: async () => { throw new Error('disk unavailable'); },

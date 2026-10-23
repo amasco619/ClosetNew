@@ -207,7 +207,7 @@ export async function runClassifyUri(
   if (!mountedRef.current) return;
   deps.setItems(prev =>
     prev.map(it => it.uri === uri
-        ? { ...it, status: 'classifying', failureStage: undefined, diagnostic: undefined, retryable: undefined }
+      ? { ...it, status: 'classifying', failureStage: undefined, diagnostic: undefined, retryable: undefined }
       : it),
   );
 

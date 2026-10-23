@@ -1,4 +1,5 @@
-export const MAX_STORAGE_UPLOAD_BYTES = 6 * 1024 * 1024;
+// Decimal MB: a 6 MB bucket cap can therefore use this exact byte value.
+export const MAX_STORAGE_UPLOAD_BYTES = 6_000_000;
 export const MAX_STORAGE_IMAGE_EDGE = 1600;
 
 export type StorageImageMimeType = 'image/jpeg' | 'image/png';
@@ -40,8 +41,8 @@ export function storageUploadFailureKind(error: unknown): StorageUploadFailureKi
     .filter((part): part is string => typeof part === 'string')
     .join(' ')
     .toLowerCase();
-  if (/payload too large|file too large|entity too large|size limit|maximum file size/.test(details)) return 'too-large';
-  if (/unsupported media|mime.?type.*(not allowed|unsupported|invalid)|invalid file type/.test(details)) return 'unsupported';
+  if (/payload too large|file too large|entity.?too.?large|size limit|maximum.*size/.test(details)) return 'too-large';
+  if (/unsupported media|invalid.?mime.?type|mime.?type.*(not allowed|not supported|unsupported|invalid)|invalid file type/.test(details)) return 'unsupported';
   return null;
 }
 
@@ -61,7 +62,7 @@ export function storageUploadFailureMessage(error: unknown): string {
 function storageUploadFailureMessageForKind(kind: StorageUploadFailureKind): string {
   switch (kind) {
     case 'too-large':
-      return 'This photo is still over 6 MB after preparation. It remains on this device; choose a smaller photo and retry.';
+      return 'This photo was rejected as too large. The app maximum is 6 MB. It remains on this device; choose a smaller photo and retry.';
     case 'unsupported':
       return 'This photo format is not supported. Choose a JPEG or PNG; the local copy remains safe.';
     case 'invalid':
@@ -75,6 +76,9 @@ export async function prepareBoundedStorageImage(
   mimeType: StorageImageMimeType,
   encode: (quality: number) => Promise<{ base64: string; width: number; height: number }>,
 ): Promise<string> {
+  if (mimeType !== 'image/jpeg' && mimeType !== 'image/png') {
+    throw new PermanentStorageUploadError('unsupported');
+  }
   const qualities = mimeType === 'image/jpeg' ? [0.85, 0.7, 0.55, 0.4] : [1];
   for (const quality of qualities) {
     const image = await encode(quality);
@@ -85,7 +89,9 @@ export async function prepareBoundedStorageImage(
     if (Math.max(image.width, image.height) > MAX_STORAGE_IMAGE_EDGE) {
       throw new PermanentStorageUploadError('invalid');
     }
-    if (base64ByteLength(image.base64) <= MAX_STORAGE_UPLOAD_BYTES) return image.base64;
+    const bytes = base64ByteLength(image.base64);
+    if (!bytes) throw new PermanentStorageUploadError('invalid');
+    if (bytes <= MAX_STORAGE_UPLOAD_BYTES) return image.base64;
   }
   throw new PermanentStorageUploadError('too-large');
 }

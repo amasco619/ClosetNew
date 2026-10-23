@@ -237,18 +237,18 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
         // Never delete uploads on an ambiguous response: the RPC may have
         // committed. The next attempt queries owned IDs before inserting again.
       } finally { running.delete(ownerId); }
-       const finalEntries = (await list()).filter((entry): entry is GuestMigrationEntry =>
-         isGuestMigrationEntry(entry) && entry.ownerId === ownerId && !entry.synced,
-       );
-       return {
-         pending: finalEntries.length, capacity,
-         failed: finalEntries.filter(entry => entry.uploadError).length,
-       };
+      const finalEntries = (await list()).filter((entry): entry is GuestMigrationEntry =>
+        isGuestMigrationEntry(entry) && entry.ownerId === ownerId && !entry.synced,
+      );
+      return {
+        pending: finalEntries.length, capacity,
+        failed: finalEntries.filter(entry => entry.uploadError).length,
+      };
     },
-     clearPermanentFailures: (ownerId: string) => mutate(entries => {
-       for (const entry of entries) {
-         if (isGuestMigrationEntry(entry) && entry.ownerId === ownerId) delete entry.uploadError;
-       }
-     }),
+    clearPermanentFailures: (ownerId: string) => mutate(entries => {
+      for (const entry of entries) {
+        if (isGuestMigrationEntry(entry) && entry.ownerId === ownerId) delete entry.uploadError;
+      }
+    }),
   };
 }

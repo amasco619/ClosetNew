@@ -108,6 +108,7 @@ interface BulkItem {
   retryable?: boolean;
   failureKind?: 'transient' | 'unexpected';
   backgroundRemovalSucceeded?: boolean;
+  uploadError?: string;
 }
 
 // ─── Type guards (mirrors add-item.tsx) ──────────────────────────────────────

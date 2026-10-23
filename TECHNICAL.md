@@ -328,7 +328,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               125 test suites (see §11)
+__tests__/               129 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -440,7 +440,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 125 test suites once |
+| `npm test` | Run all 129 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -523,11 +523,13 @@ When onboarding reopens, it resumes at the earliest unanswered required question
 ### Wardrobe Digitisation
 Users photograph or select items from their photo library. Before any network call is made, `expo-image-manipulator` performs two on-device resize passes:
 - **Classify pass** — longest edge clamped to 1024 px, JPEG 0.8 compress → `classifyBase64` sent to Gemini (~100–300 KB)
-- **Storage pass** — longest edge clamped to 1600 px, JPEG 0.85 compress → `storageBase64` uploaded to Supabase (~300–600 KB)
+- **Storage pass** — the shared upload boundary caps the longest edge at 1600 px and verifies at most `MAX_STORAGE_UPLOAD_BYTES = 6_000_000` decoded bytes (decimal 6 MB). JPEG quality starts at 0.85 and steps through 0.7, 0.55 and 0.4 only if necessary. PNG cutouts remain PNG to preserve transparency; oversized PNGs are rejected rather than flattened.
 
-The original full-resolution asset is never sent over the network. Both resize calls fall back silently to the original base64 if `manipulateAsync` throws, so users are never blocked from adding an item. Client-side item caps: Guest = 8, Free = 30, Premium = 2,000; server-side capacity enforcement is not part of B1.
+Storage uploads never fall back to an unbounded original. `lib/storageUploadImage.ts` uses the decoder's dimensions and `lib/storageUploadBounds.ts` verifies the encoded output before either bucket uploader can send it. This covers single-item, bulk, multi-item crops, guest-to-account sync (including original guest picker files), cached PNG cutouts and the currently unused try-on helper. Small images are not upscaled. The original local source is retained; only generated codec files are cleaned up. Client-side item caps: Guest = 8, Free = 30, Premium = 2,000; server-side capacity enforcement is not part of B1.
 
 `uploadWardrobeImage()` accepts an optional `mimeType` parameter (`'image/jpeg'` default, `'image/png'` supported); the file extension is derived from the MIME type. `deleteWardrobeImage()` removes both `.jpg` and `.png` variants to handle items stored under either extension.
+
+Permanent Storage rejections (including HTTP 413/415, invalid-request 400/422 and known size/MIME error codes) are distinguished from network/429/5xx failures. Bulk saves remain local-only in review with **Upload failed**, an explanation and the existing explicit **Retry save** action; no partial batch is committed. Guest migration persists a sanitised per-item `uploadError` in its existing local journal, skips that item on automatic foreground/restart sync, retains its local photo, and exposes **Retry failed uploads** in Wardrobe. Only that manual action clears permanent failure markers for the active owner. Ordinary transient retries are unchanged. Bucket settings, server code and remote database schema are unchanged.
 
 **Recent improvements to `app/add-item.tsx`:**
 - `gestureEnabled: false` on the add-item stack screen (set in `app/_layout.tsx`) — prevents the iOS swipe-back gesture from partially dismissing the form mid-save.
@@ -1197,7 +1199,7 @@ Two-screen flow for digitising an entire wardrobe section in one session: up to 
 
 **Batch save (`Save N Items to Wardrobe` footer CTA):**
 1. Iterates over all `settled` items sequentially
-2. Per item: upload readable cutout PNG unchanged; if absent/unreadable, prepare the original JPEG via the existing storage resize and upload that instead. Upload/network failure stays distinct: no batch commit, affected items remain pending/local-only for retry.
+2. Per item: preserve a readable cutout as PNG; if absent/unreadable, prepare the original JPEG. Both pass the shared 1600-pixel-longest-edge/6 MB upload boundary before Storage. Upload/network failure stays distinct: no batch commit, affected items remain pending/local-only for explicit retry.
 3. Calls `addWardrobeItem()` with full classification payload (type guards: `asPattern`, `asFabric`, `asWeight`, `asFit`, `asNeckline`, `asSleeve`, `asRise`, `asWarmth` — re-defined locally, same logic as `add-item.tsx`)
 4. `formalityLevel` derived from `SUBTYPE_FORMALITY[subType] ?? 5` (from `constants/outfitScoring`)
 5. An authenticated upload or batch-commit failure keeps the affected items in review for retry; it does not report a successful save.
@@ -1487,10 +1489,11 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (125 total)
+### Test Suites (129 total)
 
 | Suite | What it tests |
 |-------|--------------|
+| `storageUploadBounds.test.ts` | Exact 6 MB byte boundary, JPEG quality steps, PNG transparency policy, longest-edge native-adapter wiring, both bucket uploaders and all save callers, permanent bulk/guest failure retention and explicit retry, persisted owner-bound failure markers |
 | `profilePersonalization.test.ts` | 19 offline groups: account-neutral hydration, null/explicit values, minimal profile creation for unnamed email accounts, guest-only migration and face-shape round trip, consumed guest cache, failed/stale migration, actual onboarding skip/completion and rotation-effect callbacks, eye/skin scoring match and no-effect cases |
 | `alertDialogAdapter.test.ts` | Branded dialog adapter preserves cancel/destructive roles, outside-cancel policy, button callbacks and default Done behavior |
 | `travelCapsule.test.ts` | Exact activity/scenario matching and source separation, owned/current IDs, stable look identity, authoritative coordinated membership/partial use, checklist deduplication, partial coverage and no write/generation imports |

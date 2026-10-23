@@ -1093,7 +1093,7 @@ export default function AddItemScreen() {
           setSaveStage('uploading');
           const { signedUrl: _signedUrl, storagePath: _sp } = await uploadWardrobeImage(
             session.user.id, uploadBase64, itemId, uploadMime,
-            cachedCutout ? photoUri : uploadSourceUri,
+            (cachedCutout ? photoUri : uploadSourceUri) ?? undefined,
           )
             .catch(error => { reportUploadError({ stage: 'upload', code: 'FAILED' }); throw error; });
           finalUri = _signedUrl;

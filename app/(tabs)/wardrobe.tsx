@@ -376,7 +376,7 @@ export default function WardrobeScreen() {
 const styles = StyleSheet.create({
   syncNote: { marginHorizontal: 20, marginBottom: 12, padding: 12, borderRadius: 12, backgroundColor: Colors.white, flexDirection: 'row', alignItems: 'center', gap: 12 },
   syncText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19 },
-  syncRetry: { alignSelf: 'flex-start', paddingVertical: 6, paddingRight: 8 },
+  syncRetry: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', paddingVertical: 6, paddingRight: 8 },
   syncRetryText: { color: Colors.textPrimary, fontSize: 13, fontFamily: 'Inter_600SemiBold' },
   pendingSyncPill: { backgroundColor: Colors.background, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
   pendingSyncText: { color: Colors.textSecondary, fontSize: 10, fontFamily: 'Inter_500Medium' },

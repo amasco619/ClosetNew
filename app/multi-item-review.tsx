@@ -133,7 +133,11 @@ export default function MultiItemReview() {
         setSaving,
         onItemHaptic: () => {},
         onSaveError: () => dialog.notify({ title: 'These pieces could not be saved', message: 'Nothing was added. Review the pieces and try again.' }),
-        onLocalOnlyComplete: () => dialog.notify({ title: 'Upload still pending', message: 'No pieces were saved. Sign in and retry when upload is available.', buttonLabel: 'Keep reviewing' }),
+        onLocalOnlyComplete: (_uris, permanentFailureMessage) => dialog.notify({
+          title: permanentFailureMessage ? 'Photo upload was rejected' : 'Upload still pending',
+          message: permanentFailureMessage ?? 'No pieces were saved. Sign in and retry when upload is available.',
+          buttonLabel: 'Keep reviewing',
+        }),
         onAdded: savedItems => {
           const expectedUserId = authenticatedUserId ?? (isGuest ? null : undefined);
           toast.show({
@@ -192,6 +196,7 @@ export default function MultiItemReview() {
                 <View style={styles.details}>
                   <Text style={styles.name}>{piece.classification.description}</Text>
                   <Text style={styles.help}>{wardrobeCategoryLabel(piece.classification.category, piece.classification.subType)} · {piece.classification.subType === 'stole' ? 'Stole' : piece.classification.subType}</Text>
+                  {piece.uploadError && <Text style={styles.help}>Upload failed: {piece.uploadError}</Text>}
                 </View>
                 <Text style={styles.name}>{selected.includes(piece.detectionId) ? '✓' : '○'}</Text>
               </Pressable>

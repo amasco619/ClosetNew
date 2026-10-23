@@ -24,6 +24,11 @@ async function storageHarness() {
     plugins: [{
       name: 'synthetic-storage',
       setup(builder) {
+        builder.onResolve({ filter: /^\.\/storageUploadImage$/ }, () => ({ path: 'upload-codec', namespace: 'native-upload' }));
+        builder.onLoad({ filter: /.*/, namespace: 'native-upload' }, () => ({
+          contents: 'export const prepareStorageUploadImage = async () => { throw Error("Unexpected upload in cleanup test"); };',
+          loader: 'js',
+        }));
         builder.onResolve({ filter: /^\.\/supabase$/ }, () => ({ path: 'supabase', namespace: 'fixture' }));
         builder.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({
           contents: 'export const supabase = dependencies.supabase;', loader: 'js',

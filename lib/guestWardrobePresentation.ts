@@ -20,7 +20,10 @@ export function selectPendingGuestWardrobeItems(
       seen.has(record.migrationId) || seen.has(record.item.id)) continue;
     seen.add(record.migrationId);
     seen.add(record.item.id);
-     pending.push({ item: record.item, migrationId: record.migrationId, uploadError: record.uploadError });
+     pending.push({
+       item: record.item, migrationId: record.migrationId,
+       ...(record.uploadError ? { uploadError: record.uploadError } : {}),
+     });
   }
   return pending;
 }

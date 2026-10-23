@@ -282,8 +282,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setGuestWardrobeSyncState(prev => ({ ...prev, notice: null })), []);
   const retryGuestWardrobeSync = useCallback(async () => {
     const userId = currentUserIdRef.current;
-    if (!userId) return;
-    await guestWardrobeSync.clearPermanentFailures(userId);
+    if (!userId || guestSyncRunningRef.current) return;
+    try {
+      await guestWardrobeSync.clearPermanentFailures(userId);
+    } catch {
+      if (currentUserIdRef.current === userId) setGuestWardrobeSyncState(prev => ({
+        ...prev, failureMessage: 'The retry could not be prepared. Your local photos remain safe.',
+      }));
+      return;
+    }
+    if (currentUserIdRef.current !== userId) return;
     setGuestWardrobeSyncState(prev => ({ ...prev, syncing: true, failed: 0, failureMessage: null, notice: null }));
     setGuestSyncRetryAttempt(value => value + 1);
   }, []);

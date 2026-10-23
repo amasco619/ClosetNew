@@ -229,6 +229,13 @@ async function main() {
     plugins: [{
       name: 'stub-supabase',
       setup(builder) {
+        builder.onResolve({ filter: /^\.\/storageUploadImage$/ }, () => ({
+          path: 'upload-codec', namespace: 'native-upload',
+        }));
+        builder.onLoad({ filter: /.*/, namespace: 'native-upload' }, () => ({
+          contents: 'export const prepareStorageUploadImage = async () => { throw Error("Unexpected upload in hydration test"); };',
+          loader: 'js',
+        }));
         builder.onResolve({ filter: /\/supabase$|^\.\/supabase$/ }, () => ({
           path: 'supabase', namespace: 'stub',
         }));
