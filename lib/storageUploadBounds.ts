@@ -4,6 +4,17 @@ export const MAX_STORAGE_IMAGE_EDGE = 1600;
 
 export type StorageImageMimeType = 'image/jpeg' | 'image/png';
 export type StorageUploadFailureKind = 'too-large' | 'unsupported' | 'invalid' | 'rejected';
+export type GuestPhotoSyncStage = 'prepare' | 'upload' | 'signed-url';
+
+export class StorageStageError extends Error {
+  readonly status?: number;
+
+  constructor(readonly stage: Exclude<GuestPhotoSyncStage, 'prepare'>, readonly underlyingError: unknown) {
+    super(`Storage ${stage} failed`);
+    this.name = 'StorageStageError';
+    this.status = storageUploadStatus(underlyingError);
+  }
+}
 
 export class PermanentStorageUploadError extends Error {
   readonly permanent = true;
@@ -21,29 +32,66 @@ export function base64ByteLength(value: string): number {
   return Math.max(0, Math.floor(base64.length * 3 / 4) - padding);
 }
 
-export function storageUploadFailureKind(error: unknown): StorageUploadFailureKind | null {
-  if (error instanceof PermanentStorageUploadError) return error.kind;
-  if (!error || typeof error !== 'object') return null;
+export function storageUploadStatus(error: unknown): number | undefined {
+  let current = error;
+  for (let depth = 0; depth < 5 && current && typeof current === 'object'; depth++) {
+    const value = current as {
+      status?: unknown; statusCode?: unknown; error?: unknown; cause?: unknown; underlyingError?: unknown;
+    };
+    const status = Number(value.status);
+    if (Number.isInteger(status) && status >= 100 && status <= 599) return status;
+    const statusCode = Number(value.statusCode);
+    if (Number.isInteger(statusCode) && statusCode >= 100 && statusCode <= 599) return statusCode;
+    current = value.underlyingError ?? value.cause ?? value.error;
+  }
+  return undefined;
+}
 
-  const value = error as {
-    status?: unknown;
-    statusCode?: unknown;
-    code?: unknown;
-    message?: unknown;
-    error?: { status?: unknown; statusCode?: unknown; code?: unknown; message?: unknown };
-  };
-  const status = Number(value.status ?? value.statusCode ?? value.error?.status ?? value.error?.statusCode);
+function errorChain(error: unknown): object[] {
+  const chain: object[] = [];
+  let current = error;
+  for (let depth = 0; depth < 5 && current && typeof current === 'object'; depth++) {
+    chain.push(current);
+    const value = current as { underlyingError?: unknown; cause?: unknown; error?: unknown };
+    current = value.underlyingError ?? value.cause ?? value.error;
+  }
+  return chain;
+}
+
+export function storageUploadFailureKind(error: unknown): StorageUploadFailureKind | null {
+  const chain = errorChain(error);
+  if (!chain.length) return null;
+  const permanent = chain.find((part): part is PermanentStorageUploadError =>
+    part instanceof PermanentStorageUploadError);
+  if (permanent) return permanent.kind;
+  const status = storageUploadStatus(error);
   if (status === 413) return 'too-large';
   if (status === 415) return 'unsupported';
   if ([400, 422].includes(status)) return 'rejected';
 
-  const details = [value.code, value.error?.code, value.message, value.error?.message]
-    .filter((part): part is string => typeof part === 'string')
-    .join(' ')
-    .toLowerCase();
+  const details = chain.flatMap(part => {
+    const value = part as { code?: unknown; message?: unknown; statusCode?: unknown };
+    return [value.code, value.message, value.statusCode];
+  }).filter((part): part is string => typeof part === 'string').join(' ').toLowerCase();
   if (/payload too large|file too large|entity.?too.?large|size limit|maximum.*size/.test(details)) return 'too-large';
   if (/unsupported media|invalid.?mime.?type|mime.?type.*(not allowed|not supported|unsupported|invalid)|invalid file type/.test(details)) return 'unsupported';
   return null;
+}
+
+export function storageUploadStage(error: unknown): Exclude<GuestPhotoSyncStage, 'prepare'> | undefined {
+  const value = errorChain(error).find(part => {
+    const stage = (part as { stage?: unknown }).stage;
+    return stage === 'upload' || stage === 'signed-url';
+  }) as { stage?: 'upload' | 'signed-url' } | undefined;
+  return value?.stage;
+}
+
+export function isNetworkOfflineFailure(error: unknown): boolean {
+  const details = errorChain(error).flatMap(part => {
+    const value = part as { name?: unknown; message?: unknown; code?: unknown };
+    return [value.name, value.message, value.code];
+  }).filter((part): part is string => typeof part === 'string').join(' ').toLowerCase();
+  return /network request failed|failed to fetch|fetch failed|network error|unable to resolve host|unknownhostexception|no address associated with hostname|name or service not known|temporary failure in name resolution|eai_again|enotfound|network is unreachable|enetunreach|ehostunreach|econnreset|connection reset|socket hang up|sockettimeoutexception|err_internet_disconnected/.test(details);
 }
 
 export function asPermanentStorageUploadError(error: unknown): PermanentStorageUploadError | null {

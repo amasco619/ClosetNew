@@ -3,7 +3,9 @@ import { decode } from 'base64-arraybuffer'
 import { stripDataUriPrefix } from './uploadArg'
 import { MissingWardrobePhotoError } from './wardrobePhotoHydration'
 import { wardrobeImageCleanupPaths } from './wardrobeImagePath'
-import { asPermanentStorageUploadError, type StorageImageMimeType } from './storageUploadBounds'
+import {
+  StorageStageError, type GuestPhotoSyncStage, type StorageImageMimeType,
+} from './storageUploadBounds'
 import { prepareStorageUploadImage } from './storageUploadImage'
 
 export { stripDataUriPrefix } from './uploadArg'
@@ -87,26 +89,39 @@ export async function uploadWardrobeImage(
   sourceUri?: string,
 ): Promise<{ signedUrl: string; storagePath: string }> {
   const boundedBase64 = await prepareStorageUploadImage(imageBase64, mimeType, sourceUri)
+  return uploadPreparedWardrobeImage(userId, itemId, mimeType, boundedBase64)
+}
+
+export async function uploadPreparedWardrobeImage(
+  userId: string,
+  itemId: string,
+  mimeType: StorageImageMimeType,
+  boundedBase64: string,
+  onStage?: (stage: Exclude<GuestPhotoSyncStage, 'prepare'>) => void,
+): Promise<{ signedUrl: string; storagePath: string }> {
   const ext = mimeType === 'image/jpeg' ? 'jpg' : 'png'
   const storagePath = `${userId}/${itemId}.${ext}`
-  const { error } = await supabase.storage
-    .from('wardrobe-images')
-    .upload(storagePath, decode(stripDataUriPrefix(boundedBase64)), {
-      contentType: mimeType,
-      upsert: true,
-    })
-  if (error) {
-    const rejected = asPermanentStorageUploadError(error)
-    if (rejected) throw rejected
-    throw new Error(`[uploadWardrobeImage] ${error.message}`)
+  onStage?.('upload')
+  try {
+    const { error } = await supabase.storage
+      .from('wardrobe-images')
+      .upload(storagePath, decode(stripDataUriPrefix(boundedBase64)), {
+        contentType: mimeType,
+        upsert: true,
+      })
+    if (error) throw new StorageStageError('upload', error)
+  } catch (error) {
+    if (error instanceof StorageStageError) throw error
+    throw new StorageStageError('upload', error)
   }
+  onStage?.('signed-url')
   let signedUrl: string
   try {
     signedUrl = await getSignedWardrobeUrl(storagePath)
   } catch (signedUrlError) {
     await deleteWardrobeImage(userId, itemId, storagePath).catch(cleanupError =>
       console.warn('[uploadWardrobeImage] Could not clean up unsigned upload:', cleanupError))
-    throw signedUrlError
+    throw new StorageStageError('signed-url', signedUrlError)
   }
   return { signedUrl, storagePath }
 }
