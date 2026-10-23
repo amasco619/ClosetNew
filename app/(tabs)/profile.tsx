@@ -22,6 +22,7 @@ import { signOut } from '@/lib/auth';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { supabase } from '@/lib/supabase';
 import { deleteAccountThenClearLocalData, getAccountDeletionFailure } from '@/constants/accountDeletionCleanup';
+import { dismissAllIfPossible } from '@/lib/navigation';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 import { AmodkaErrorState } from '@/components/AmodkaErrorState';
 import { useDialog } from '@/contexts/LuxuryFeedbackContext';
@@ -179,7 +180,7 @@ export default function ProfileScreen() {
   const handleSignOut = async () => {
     try {
       await signOut();
-      router.dismissAll();
+      dismissAllIfPossible(router);
       router.replace('/sign-in');
     } catch {
       dialog.notify({
@@ -224,7 +225,7 @@ export default function ProfileScreen() {
               console.warn('[profile] Deleted account local sign-out failed');
             }
             // Deletion is confirmed; never leave deleted-account screens in the navigation history.
-            router.dismissAll();
+            dismissAllIfPossible(router);
             router.replace('/sign-in');
             if (!cacheCleared || !signedOut) {
               dialog.notify({

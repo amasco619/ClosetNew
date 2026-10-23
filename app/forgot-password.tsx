@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar'
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { requestPasswordReset, isValidEmail } from '../lib/auth'
+import { dismissAllIfPossible } from '../lib/navigation'
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('')
@@ -18,13 +19,13 @@ export default function ForgotPasswordScreen() {
   const [focused, setFocused] = useState(false)
 
   const goToSignIn = () => {
-    router.dismissAll()
+    dismissAllIfPossible(router)
     router.replace('/sign-in')
   }
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      router.dismissAll()
+      dismissAllIfPossible(router)
       router.replace('/sign-in')
       return true
     })

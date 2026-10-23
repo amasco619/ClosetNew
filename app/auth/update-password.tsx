@@ -14,6 +14,7 @@ import {
 } from '../../lib/auth'
 import { supabase } from '../../lib/supabase'
 import { prepareRecoverySession } from '../../lib/emailRecovery'
+import { dismissAllIfPossible } from '../../lib/navigation'
 
 export default function UpdatePasswordScreen() {
   const callback = useLocalSearchParams<{
@@ -60,7 +61,7 @@ export default function UpdatePasswordScreen() {
   useEffect(() => {
     if (recoveryStatus !== 'invalid') return
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      router.dismissAll()
+      dismissAllIfPossible(router)
       router.replace('/sign-in')
       return true
     })
@@ -68,7 +69,7 @@ export default function UpdatePasswordScreen() {
   }, [recoveryStatus])
 
   const requestAnotherLink = () => {
-    router.dismissAll()
+    dismissAllIfPossible(router)
     router.replace('/forgot-password')
   }
 

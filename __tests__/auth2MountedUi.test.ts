@@ -330,6 +330,14 @@ function button(tree: MountedTree, label: string): Node {
   return found
 }
 
+function accessibilityButton(tree: MountedTree, label: string): Node {
+  const found = tree.root.findAllByType('Pressable')
+    .concat(tree.root.findAllByType('TouchableOpacity'))
+    .find(node => node.props.accessibilityLabel === label)
+  assert.ok(found, `button with accessibility label "${label}" is rendered`)
+  return found
+}
+
 async function main() {
   const [Confirm, UpdatePassword] = await Promise.all([
     screen('confirm.tsx'), screen('update-password.tsx'),
@@ -406,6 +414,19 @@ async function main() {
       assert.equal(mocks.backHandlers[0](), true)
     })
     assert.deepEqual(mocks.stack, ['/sign-in'], 'Android Back cannot return to authenticated routes')
+    assert.equal(mocks.dismisses, 1, 'history is dismissed when the stack has a prior route')
+    await unmount(tree)
+  }
+
+  {
+    reset({ code: 'expired-recovery-code', type: 'recovery', error: 'expired link' })
+    mocks.stack = ['/auth/update-password']
+    const tree = await mount(UpdatePassword)
+    await React.act(async () => {
+      assert.equal(mocks.backHandlers[0](), true)
+    })
+    assert.deepEqual(mocks.stack, ['/sign-in'], 'single-route recovery replaces directly with sign-in')
+    assert.equal(mocks.dismisses, 0, 'single-route recovery does not dispatch POP_TO_TOP')
     await unmount(tree)
   }
 
@@ -415,6 +436,7 @@ async function main() {
     const tree = await mount(UpdatePassword)
     await React.act(async () => button(tree, 'Request another link').props.onPress())
     assert.deepEqual(mocks.stack, ['/forgot-password'], 'requesting another link clears private history')
+    assert.equal(mocks.dismisses, 1, 'requesting another link dismisses when history exists')
     await unmount(tree)
 
     reset()
@@ -425,18 +447,43 @@ async function main() {
       assert.equal(mocks.backHandlers[0](), true)
     })
     assert.deepEqual(mocks.stack, ['/sign-in'], 'Android Back from recovery cannot reveal private routes')
+    assert.equal(mocks.dismisses, 1, 'forgot-password Back dismisses when history exists')
     await unmount(forgotTree)
   }
 
   {
     reset()
+    mocks.stack = ['/forgot-password']
+    const tree = await mount(ForgotPassword)
+    await React.act(async () => {
+      accessibilityButton(tree, 'Go back').props.onPress()
+    })
+    assert.deepEqual(mocks.stack, ['/sign-in'], 'forgot-password back button replaces a sole route')
+    assert.equal(mocks.dismisses, 0, 'forgot-password back button skips POP_TO_TOP on a sole route')
+    await unmount(tree)
+
+    reset()
+    mocks.stack = ['/forgot-password']
+    const hardwareBackTree = await mount(ForgotPassword)
+    await React.act(async () => {
+      assert.equal(mocks.backHandlers[0](), true)
+    })
+    assert.deepEqual(mocks.stack, ['/sign-in'], 'forgot-password Android Back replaces a sole route')
+    assert.equal(mocks.dismisses, 0, 'forgot-password Android Back skips POP_TO_TOP on a sole route')
+    await unmount(hardwareBackTree)
+  }
+
+  {
+    reset()
+    mocks.stack = ['/auth/update-password']
     let exchangeCalls = 0
     mocks.recover = async () => { exchangeCalls++; return {} }
     const tree = await mount(UpdatePassword)
     assert.ok(hasText(tree, 'Recovery link unavailable'))
     assert.equal(exchangeCalls, 0, 'missing code is rejected before exchange')
     await React.act(async () => button(tree, 'Request another link').props.onPress())
-    assert.deepEqual(mocks.routes, ['/forgot-password'])
+    assert.deepEqual(mocks.stack, ['/forgot-password'])
+    assert.equal(mocks.dismisses, 0, 'requesting another link from a sole route skips POP_TO_TOP')
     await unmount(tree)
   }
 

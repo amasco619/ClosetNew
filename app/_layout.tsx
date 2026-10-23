@@ -23,6 +23,7 @@ import { migrateStorage } from "@/lib/database";
 import { migrateWeatherStorage } from "@/constants/weather";
 import { reportError } from "@/shared/observability";
 import { bulkStagingDirectoryUri, sweepOldStagedPhotos } from "@/lib/bulkPhotoStaging";
+import { dismissAllIfPossible } from "@/lib/navigation";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -46,7 +47,7 @@ function RootLayoutNav() {
   useEffect(() => {
     if (!authSessionEnded) return;
     // A confirmed session end must remove every private route from history.
-    router.dismissAll();
+    dismissAllIfPossible(router);
     router.replace("/sign-in");
   }, [authSessionEnded]);
 

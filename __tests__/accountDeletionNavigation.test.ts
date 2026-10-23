@@ -13,13 +13,13 @@ const normalSignOut = profile.match(/const handleSignOut = async \(\) => \{([\s\
 assert.ok(normalSignOut, 'normal profile sign-out handler exists');
 assert.match(
   normalSignOut,
-  /try \{\s*await signOut\(\);\s*router\.dismissAll\(\);\s*router\.replace\('\/sign-in'\);\s*\} catch/,
-  'normal sign-out clears the old tab stack only after sign-out succeeds',
+  /try \{\s*await signOut\(\);\s*dismissAllIfPossible\(router\);\s*router\.replace\('\/sign-in'\);\s*\} catch/,
+  'normal sign-out safely clears history only when it can be dismissed',
 );
 assert.match(
   profile,
-  /\/\/ Deletion is confirmed; never leave deleted-account screens in the navigation history\.\s*router\.dismissAll\(\);\s*router\.replace\('\/sign-in'\);/,
-  'confirmed deletion clears the stale tab stack even if local sign-out fails',
+  /\/\/ Deletion is confirmed; never leave deleted-account screens in the navigation history\.\s*dismissAllIfPossible\(router\);\s*router\.replace\('\/sign-in'\);/,
+  'confirmed deletion safely clears history even if local sign-out fails',
 );
 assert.match(
   appContext,
@@ -42,9 +42,23 @@ assert.match(
 );
 assert.match(
   layout,
-  /if \(!authSessionEnded\) return;[\s\S]*?router\.dismissAll\(\);\s*router\.replace\("\/sign-in"\);/,
+  /if \(!authSessionEnded\) return;[\s\S]*?dismissAllIfPossible\(router\);\s*router\.replace\("\/sign-in"\);/,
   'an ended auth session resets navigation to sign-in',
 );
+const navigationDismissSites = [
+  ['app/_layout.tsx', layout, 1],
+  ['app/(tabs)/profile.tsx', profile, 2],
+  ['app/forgot-password.tsx', readFileSync('app/forgot-password.tsx', 'utf8'), 2],
+  ['app/auth/update-password.tsx', readFileSync('app/auth/update-password.tsx', 'utf8'), 2],
+] as const;
+for (const [file, source, expected] of navigationDismissSites) {
+  assert.equal(
+    source.match(/dismissAllIfPossible\(router\)/g)?.length ?? 0,
+    expected,
+    `${file} routes every history dismissal through the guarded helper`,
+  );
+  assert.doesNotMatch(source, /router\.dismissAll\(\)/, `${file} has no unguarded POP_TO_TOP dispatch`);
+}
 assert.match(
   appContext,
   /const \{ data: \{ session: initSession \}, error: sessionError \} = await supabase\.auth\.getSession\(\);[\s\S]*?if \(sessionError\) throw sessionError;/,
@@ -113,6 +127,7 @@ const mountedMocks: any = {
   notifications: [] as Array<{ title: string; message: string }>,
   navigation: [] as string[],
   dismissAllCalls: 0,
+  canDismiss: true,
   signOutCalls: 0,
   deleteRequests: [] as Array<{ method: string; path: string; body: unknown }>,
   localCleanupCalls: 0,
@@ -141,6 +156,7 @@ const mountedModules: Record<string, string> = {
   'expo-router': `
     const m = globalThis.__accountDeletionMountedMocks;
     export const router = {
+      canDismiss: () => m.canDismiss,
       dismissAll: () => { m.dismissAllCalls++; },
       replace: path => { m.navigation.push(path); },
       push: path => { m.navigation.push(path); },
@@ -265,6 +281,7 @@ async function verifyDeletionNavigationInMountedProfile() {
       label: 'successful deletion and sign-out',
       cleanupResult: true,
       signOutFails: false,
+      canDismiss: true,
       navigates: true,
       showsWarning: false,
     },
@@ -272,6 +289,7 @@ async function verifyDeletionNavigationInMountedProfile() {
       label: 'sign-out failure',
       cleanupResult: true,
       signOutFails: true,
+      canDismiss: true,
       navigates: true,
       showsWarning: true,
     },
@@ -279,8 +297,17 @@ async function verifyDeletionNavigationInMountedProfile() {
       label: 'incomplete local cleanup',
       cleanupResult: false,
       signOutFails: false,
+      canDismiss: true,
       navigates: true,
       showsWarning: true,
+    },
+    {
+      label: 'single-route deletion',
+      cleanupResult: true,
+      signOutFails: false,
+      canDismiss: false,
+      navigates: true,
+      showsWarning: false,
     },
   ]) {
     mountedMocks.alerts = [];
@@ -292,6 +319,7 @@ async function verifyDeletionNavigationInMountedProfile() {
     mountedMocks.localCleanupCalls = 0;
     mountedMocks.localCleanupResult = scenario.cleanupResult;
     mountedMocks.signOutFails = scenario.signOutFails;
+    mountedMocks.canDismiss = scenario.canDismiss;
 
     const wardrobeItems: unknown[] = [];
     const wearHistory: unknown[] = [];
@@ -355,7 +383,7 @@ async function verifyDeletionNavigationInMountedProfile() {
     );
     assert.equal(
       mountedMocks.dismissAllCalls,
-      scenario.navigates ? 1 : 0,
+      scenario.navigates && scenario.canDismiss ? 1 : 0,
       `${scenario.label}: deleted-account routes are removed regardless of sign-out result`,
     );
     assert.deepEqual(
@@ -363,6 +391,27 @@ async function verifyDeletionNavigationInMountedProfile() {
       scenario.navigates ? ['/sign-in'] : [],
       `${scenario.label}: sign-in replaces the deleted account screen`,
     );
+    await React.act(async () => tree.unmount());
+  }
+
+  for (const canDismiss of [false, true]) {
+    mountedMocks.notifications = [];
+    mountedMocks.navigation = [];
+    mountedMocks.dismissAllCalls = 0;
+    mountedMocks.signOutCalls = 0;
+    mountedMocks.signOutFails = false;
+    mountedMocks.canDismiss = canDismiss;
+    let tree!: ReturnType<typeof renderer.create>;
+    await React.act(async () => { tree = renderer.create(React.createElement(module.exports.default!)); });
+    const signOutButton = tree.root.findAllByType('Pressable')
+      .find(node => node.props.accessibilityLabel === 'Sign out of Amodka');
+    assert.ok(signOutButton, 'mounted Profile exposes its sign-out action');
+    await React.act(async () => { await signOutButton.props.onPress(); });
+    assert.equal(mountedMocks.signOutCalls, 1);
+    assert.equal(mountedMocks.dismissAllCalls, canDismiss ? 1 : 0,
+      'Profile sign-out only dismisses when navigation history exists');
+    assert.deepEqual(mountedMocks.navigation, ['/sign-in'],
+      'Profile sign-out still replaces the active route with sign-in');
     await React.act(async () => tree.unmount());
   }
 }
