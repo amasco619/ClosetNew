@@ -7,7 +7,9 @@
 In Replit, go to **Tools > Secrets** and add:
 
 - **Key**: `GEMINI_API_KEY`
-- **Value**: Your Google Gemini API key (must have access to `gemini-flash-lite-latest` and `gemini-2.5-flash`)
+- **Value**: Your Google Gemini API key (must have access to the configured primary and fallback models)
+
+Optional model settings: `GEMINI_PRIMARY_MODEL` and `GEMINI_FALLBACK_MODEL`. When unset, the concrete defaults are `gemini-3.5-flash-lite` and `gemini-2.5-flash`.
 
 ### 2. Start the Backend
 
@@ -19,7 +21,7 @@ The backend starts automatically via the **Start Backend** workflow, which runs 
 
 Classifies a garment image using Google Gemini AI and maps the result to Amodka's internal schema.
 
-**Model strategy:** The primary alias is `gemini-flash-lite-latest`. If that model returns a 429 (quota exceeded), the request is automatically retried once against `gemini-2.5-flash`. Any non-429 error from the primary model surfaces immediately without a retry. A pinned `gemini-2.5-flash-lite` probe returned HTTP 404 here, so the primary was not changed without compatibility. Evaluation must retain the provider-resolved model version; an unresolved alias cannot support reproducible scoring. Classification diagnostic logs contain only a generated classification ID, input hash/size/MIME, prompt hash, model/attempt/status, stage, elapsed time, and normalized outcome; never image bytes or provider bodies.
+**Model strategy:** Single-item and multi-item classification share the same configured model order. On HTTP 429/500/502/503/504, timeout, network failure or malformed JSON, the primary is retried once after short jitter, then the fallback is tried once. HTTP 404 is a model configuration error; HTTP 401/403 and guardrail refusals are not retried or sent to the fallback. A `MAX_TOKENS` response is retried once with twice the output-token budget. The provider sequence is capped at 39 seconds. Startup logs the configured model order and checks metadata availability. Each classification request produces one structured summary linked to the route request ID, containing attempted models, provider statuses, finish reasons, outcome code and durations; it excludes user IDs, image data/hashes and prompt content/hashes.
 
 ### Request
 

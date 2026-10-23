@@ -7,6 +7,12 @@ import {
   VALID_SUBTYPES_BY_CATEGORY,
   type ClassificationResult,
 } from "./classify-garment";
+import {
+  CLASSIFIER_TOTAL_DEADLINE_MS,
+  getClassifierModelOrder,
+  runGeminiClassifier,
+  startClassifierTrace,
+} from "./classifierReliability";
 
 export interface ProviderRegion { x: number; y: number; width: number; height: number }
 export type GarmentRelationshipType = "coordinated_set" | "multi_item" | "layered";
@@ -161,14 +167,26 @@ export function validateMultiItemResult(value: unknown): MultiItemResult | null 
 }
 
 export async function classifyMultiItem(req: Request, res: Response): Promise<void> {
-  if (process.env.MULTI_ITEM_CLASSIFIER_ENABLED === "false") { res.status(404).json({ error: "feature_disabled" }); return; }
+  const startedAt = Date.now();
+  const trace = startClassifierTrace(res, "/api/classify-garments", startedAt);
+  if (process.env.MULTI_ITEM_CLASSIFIER_ENABLED === "false") {
+    trace.setOutcomeCode("FEATURE_DISABLED");
+    res.status(404).json({ error: "feature_disabled" });
+    return;
+  }
   const body = req.body;
   if (!own(body) || typeof body.imageBase64 !== "string" || !body.imageBase64 ||
       Object.keys(body).some(k => k !== "imageBase64")) {
-    res.status(400).json({ error: "invalid_request" }); return;
+    trace.setOutcomeCode("INVALID_REQUEST");
+    res.status(400).json({ error: "invalid_request" });
+    return;
   }
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) { res.status(500).json({ error: "classifier_unavailable" }); return; }
+  if (!apiKey) {
+    trace.setOutcomeCode("MISSING_API_KEY");
+    res.status(500).json({ error: "classifier_unavailable" });
+    return;
+  }
   try {
     const request = {
       contents: [{
@@ -183,46 +201,70 @@ export async function classifyMultiItem(req: Request, res: Response): Promise<vo
         maxOutputTokens: 4096,
       },
     };
-    let response;
-    for (const model of ["gemini-flash-lite-latest", "gemini-2.5-flash"]) {
-      try {
-        response = await axios.post(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          request, { timeout: 20000 },
-        );
-        break;
-      } catch (error) {
-        if (!(axios.isAxiosError(error) && error.response?.status === 429) || model === "gemini-2.5-flash") throw error;
-      }
+    const run = await runGeminiClassifier({
+      models: getClassifierModelOrder(),
+      apiKey,
+      baseRequestBody: request,
+      initialMaxOutputTokens: 4096,
+      deadlineAt: startedAt + CLASSIFIER_TOTAL_DEADLINE_MS,
+      trace,
+      decode: (response) => {
+        const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (typeof text !== "string") return { kind: "malformed_json" };
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          return { kind: "malformed_json" };
+        }
+        if (own(parsed) && parsed.refused === true) return { kind: "refused" };
+        const result = validateMultiItemResult(parsed);
+        return result
+          ? { kind: "success", value: result }
+          : { kind: "invalid", code: "MULTI_ITEM_INVALID" };
+      },
+    });
+    if (run.decision.kind === "malformed_json") {
+      trace.setOutcomeCode("MALFORMED_RESPONSE");
+      res.status(502).json({ error: "classifier_malformed_response" });
+      return;
     }
-    if (!response) throw new Error("classifier_empty_response");
-    const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    let parsed: unknown;
-    try {
-      if (typeof text !== "string") throw new Error("not_json");
-      parsed = JSON.parse(text);
-    } catch {
-      res.status(502).json({ error: "classifier_malformed_response" }); return;
+    if (run.decision.kind === "invalid" || run.decision.kind === "refused") {
+      trace.setOutcomeCode("MULTI_ITEM_INVALID");
+      res.status(422).json({ error: "multi_item_invalid" });
+      return;
     }
-    const result = validateMultiItemResult(parsed);
-    if (!result) { res.status(422).json({ error: "multi_item_invalid" }); return; }
-    res.json(result);
+    trace.setOutcomeCode("OK");
+    res.json(run.decision.value);
   } catch (error) {
+    const providerStatus = (error as any)?.response?.status;
     let code = "classification_failed";
     let status = 500;
     const errorCode = own(error) && typeof error.code === "string" ? error.code : undefined;
-    if (errorCode === "ECONNABORTED" || errorCode === "ETIMEDOUT") {
-      code = "classifier_timeout"; status = 504;
-    } else if (axios.isAxiosError(error)) {
-      if (error.response?.status === 429) {
-        code = "rate_limited"; status = 429;
-      } else if (!error.response) {
-        code = "classifier_network_failure"; status = 503;
-      } else if ((error.response.status ?? 0) >= 500) {
-        code = "classifier_upstream_failure"; status = 502;
-      }
-    } else if (error instanceof Error && error.message === "classifier_empty_response") {
-      code = "classifier_malformed_response"; status = 502;
+    if (providerStatus === 404) {
+      code = "classifier_upstream_failure";
+      status = 502;
+      trace.setOutcomeCode("MODEL_NOT_FOUND");
+    } else if (providerStatus === 429) {
+      code = "rate_limited";
+      status = 429;
+      trace.setOutcomeCode("RATE_LIMITED");
+    } else if (providerStatus >= 500) {
+      code = "classifier_upstream_failure";
+      status = 502;
+      trace.setOutcomeCode("PROVIDER_SERVER_ERROR");
+    } else if (errorCode === "ECONNABORTED" || errorCode === "ETIMEDOUT") {
+      code = "classifier_timeout";
+      status = 504;
+      trace.setOutcomeCode("REQUEST_TIMEOUT");
+    } else if (axios.isAxiosError(error) && !error.response) {
+      code = "classifier_network_failure";
+      status = 503;
+      trace.setOutcomeCode("NETWORK_ERROR");
+    } else {
+      trace.setOutcomeCode(providerStatus === 401 || providerStatus === 403
+        ? "PROVIDER_AUTH_ERROR"
+        : "CLASSIFICATION_FAILED");
     }
     res.status(status).json({ error: code });
   }

@@ -2,6 +2,13 @@ import type { Request, Response } from "express";
 import axios from "axios";
 import { reportError } from "../shared/observability";
 import { flattenGarmentPngOnStudio } from "./garmentPng";
+import {
+  CLASSIFIER_TOTAL_DEADLINE_MS,
+  getClassifierModelOrder,
+  runGeminiClassifier,
+  startClassifierTrace,
+  type ClassifierTrace,
+} from "./classifierReliability";
 
 type ItemCategory = "top" | "bottom" | "dress" | "outerwear" | "shoes" | "bag" | "jewelry";
 type OccasionTag = "work" | "casual" | "date-casual" | "date-dressy" | "event" | "interview" | "wedding" | "traditional-event" | "travel" | "brunch" | "active" | "resort" | "night-out";
@@ -755,9 +762,7 @@ modelConfidence (required): Your confidence in the classification as a decimal b
 
 Return ONLY valid JSON. No markdown, no code fences, no commentary.`;
 
-// Keep the working primary alias: a pinned Flash-Lite ID returned 404 here.
-// Evaluation records the provider-resolved version and rejects an unknown version.
-export const CLASSIFIER_MODELS = [process.env.GEMINI_PRIMARY_MODEL?.trim() || "gemini-flash-lite-latest", "gemini-2.5-flash"] as const;
+export const CLASSIFIER_MODELS = getClassifierModelOrder();
 
 interface GeminiResult {
   refused?: boolean;
@@ -797,7 +802,8 @@ function isClassificationResponse(value: unknown): value is GeminiResult {
   return VALID_SUBTYPES_BY_CATEGORY[parsed.category]?.includes(normalizedSubType) ?? false;
 }
 
-function malformedClassifierResponse(res: Response) {
+function malformedClassifierResponse(res: Response, trace: ClassifierTrace) {
+  trace.setOutcomeCode("MALFORMED_RESPONSE");
   reportError(new Error("Malformed classifier response"), "classifier_parse", {
     category: "malformed_response",
     code: "MALFORMED_RESPONSE",
@@ -805,6 +811,7 @@ function malformedClassifierResponse(res: Response) {
     status: 502,
     retryable: false,
     route: "/api/classify-garment",
+    requestId: trace.requestId,
   });
   return res.status(502).json({
     error: "classifier_malformed_response",
@@ -813,42 +820,22 @@ function malformedClassifierResponse(res: Response) {
 }
 
 export async function classifyGarment(req: Request, res: Response) {
-  const { createHash, randomUUID } = await import("node:crypto");
-  const classificationId = randomUUID();
   const startedAt = Date.now();
-  const promptSha256 = createHash("sha256").update(GEMINI_PROMPT).digest("hex");
-  let stage = "input";
-  let modelRequested: string | null = null;
-  let modelVersion: string | null = null;
-  let attempt = 0;
-  let providerStatus: number | null = null;
-  let imageSha256: string | null = null;
-  let imageBytes: number | null = null;
-  let mimeType: string | null = null;
+  const trace = startClassifierTrace(res, "/api/classify-garment", startedAt);
   let providerImageBase64: string | undefined;
   let providerImageMimeType = "image/jpeg";
-  res.setHeader("x-classification-id", classificationId);
-  const trace = (code: string, httpStatus: number) => {
-    console.info(JSON.stringify({
-      type: "classification", classificationId, stage, code, httpStatus,
-      imageSha256, imageBytes, mimeType, promptSha256,
-      modelRequested, modelVersion, attempt, providerStatus,
-      elapsedMs: Date.now() - startedAt,
-    }));
-  };
   try {
-    const { imageBase64, imageUrl, userId, imageMimeType } = req.body;
+    const { imageBase64, imageUrl, imageMimeType } = req.body ?? {};
 
     if ((!imageBase64 && !imageUrl) || (imageBase64 && imageUrl)) {
-      trace("INVALID_IMAGE_INPUT", 400);
+      trace.setOutcomeCode("INVALID_IMAGE_INPUT");
       return res.status(400).json({ error: "imageBase64 or imageUrl required" });
     }
     if (imageMimeType !== undefined && !["image/jpeg", "image/png"].includes(imageMimeType)) {
-      trace("INVALID_MIME", 400);
+      trace.setOutcomeCode("INVALID_MIME");
       return res.status(400).json({ error: "unsupported_image_mime_type" });
     }
 
-    stage = "preprocess";
     if (imageBase64) {
       providerImageMimeType = imageMimeType ?? "image/jpeg";
       const inputBytes = Buffer.from(imageBase64, "base64");
@@ -857,21 +844,16 @@ export async function classifyGarment(req: Request, res: Response) {
         try {
           providerBytes = Buffer.from(flattenGarmentPngOnStudio(inputBytes));
         } catch {
-          trace("INVALID_PNG", 400);
+          trace.setOutcomeCode("INVALID_PNG");
           return res.status(400).json({ error: "invalid_png_image" });
         }
       }
       providerImageBase64 = providerBytes.toString("base64");
-      imageBytes = providerBytes.length;
-      imageSha256 = createHash("sha256").update(providerBytes).digest("hex");
-      mimeType = providerImageMimeType;
     }
-    if (!imageBase64) mimeType = "image/jpeg";
 
-    stage = "configuration";
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      trace("MISSING_API_KEY", 500);
+      trace.setOutcomeCode("MISSING_API_KEY");
       return res.status(500).json({ error: "missing_gemini_api_key" });
     }
 
@@ -908,82 +890,50 @@ export async function classifyGarment(req: Request, res: Response) {
       },
     };
 
-    // Preserve the existing quota fallback: the second model is only tried
-    // when the first model returns HTTP 429. Other failures are classified
-    // immediately and never retried.
-    let geminiRes: any;
-    let lastErr: any;
-    for (const model of CLASSIFIER_MODELS) {
-      stage = "provider_request";
-      modelRequested = model;
-      attempt++;
-      providerStatus = null;
-      const attemptStartedAt = Date.now();
-      try {
-        geminiRes = await axios.post(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          geminiReq,
-          { timeout: 20000 }
-        );
-        stage = "provider_response";
-        providerStatus = geminiRes.status ?? 200;
-        // The requested "-latest" alias is not a pinned version. Record only
-        // a validated provider-reported version, never arbitrary response text.
-        const version = geminiRes.data?.modelVersion;
-        modelVersion = typeof version === "string" && /^gemini-[a-z0-9.-]{1,80}$/.test(version)
-          ? version : null;
-        console.info(JSON.stringify({
-          type: "classification_attempt", classificationId, modelRequested, modelVersion,
-          attempt, providerStatus, elapsedMs: Date.now() - attemptStartedAt, code: "PROVIDER_OK",
-        }));
-        break;
-      } catch (err: any) {
-        lastErr = err;
-        providerStatus = Number.isInteger(err?.response?.status) ? err.response.status : null;
-        console.info(JSON.stringify({
-          type: "classification_attempt", classificationId, modelRequested, attempt,
-          providerStatus, elapsedMs: Date.now() - attemptStartedAt,
-          code: providerStatus === 429 ? "RATE_LIMITED" : "PROVIDER_ERROR",
-        }));
-        if (err?.response?.status === 429) continue;
-        throw err;
-      }
-    }
-    if (!geminiRes) throw lastErr;
+    const run = await runGeminiClassifier({
+      models: getClassifierModelOrder(),
+      apiKey,
+      baseRequestBody: geminiReq,
+      initialMaxOutputTokens: 512,
+      deadlineAt: startedAt + CLASSIFIER_TOTAL_DEADLINE_MS,
+      trace,
+      decode: (geminiResponse) => {
+        const rawText = geminiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (typeof rawText !== "string") return { kind: "malformed_json" };
+        let responseValue: unknown;
+        try {
+          responseValue = JSON.parse(rawText);
+        } catch {
+          return { kind: "malformed_json" };
+        }
+        if (!isClassificationResponse(responseValue)) {
+          return { kind: "invalid", code: "INVALID_SCHEMA" };
+        }
+        const parsed = responseValue as GeminiResult;
+        if (parsed.refused === true) return { kind: "refused", value: parsed };
+        return { kind: "success", value: parsed };
+      },
+    });
 
-    stage = "parse";
-    const rawText: string =
-      geminiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
-    let parsed: GeminiResult;
-    try {
-      const responseValue: unknown = JSON.parse(rawText);
-      stage = "validate";
-      if (!isClassificationResponse(responseValue)) {
-        trace("INVALID_SCHEMA", 502);
-        return malformedClassifierResponse(res);
-      }
-      parsed = responseValue;
-    } catch {
-      // Never include provider output in logs: it may contain prompt or
-      // image-derived data.  reportError emits only allow-listed metadata.
-      trace(rawText ? "INVALID_JSON" : "MISSING_JSON", 502);
-      return malformedClassifierResponse(res);
+    if (run.decision.kind === "malformed_json" || run.decision.kind === "invalid") {
+      return malformedClassifierResponse(res, trace);
     }
 
     // ── Delegate to pure processing function ─────────────────────────────────
-    stage = "process";
-    const result = processGeminiResult(parsed);
+    const parsed = run.decision.kind === "success" || run.decision.kind === "refused"
+      ? run.decision.value
+      : undefined;
+    const result = parsed ? processGeminiResult(parsed) : { refused: true as const };
 
     if ("refused" in result && result.refused) {
-      trace("CONTENT_GUARDRAIL", 422);
+      trace.setOutcomeCode("CONTENT_GUARDRAIL");
       return res.status(422).json({
         error: "content_guardrail",
-        reason: result.reason,
+        ...("reason" in result && result.reason ? { reason: result.reason } : {}),
       });
     }
 
-    trace("OK", 200);
+    trace.setOutcomeCode("OK");
     return res.json(result);
   } catch (err: any) {
     const status = err?.response?.status;
@@ -1000,8 +950,21 @@ export async function classifyGarment(req: Request, res: Response) {
       || errorMessage.includes("offline")
     );
 
+    if (status === 404) {
+      trace.setOutcomeCode("MODEL_NOT_FOUND");
+      reportError(new Error("Configured classifier model is unavailable"), "classifier_model_configuration", {
+        category: "external_dependency",
+        code: "EXTERNAL_DEPENDENCY_ERROR",
+        dependency: "gemini",
+        status,
+        retryable: false,
+        route: "/api/classify-garment",
+        requestId: trace.requestId,
+      });
+      return res.status(502).json({ error: "classifier_upstream_failure", code: "MODEL_NOT_FOUND" });
+    }
     if (isTimeout) {
-      trace("REQUEST_TIMEOUT", 504);
+      trace.setOutcomeCode("REQUEST_TIMEOUT");
       reportError(new Error("Classifier request timed out"), "classifier_request", {
         category: "timeout",
         code: "REQUEST_TIMEOUT",
@@ -1009,11 +972,12 @@ export async function classifyGarment(req: Request, res: Response) {
         status: 504,
         retryable: true,
         route: "/api/classify-garment",
+        requestId: trace.requestId,
       });
       return res.status(504).json({ error: "classifier_timeout" });
     }
     if (status === 429) {
-      trace("RATE_LIMITED", 429);
+      trace.setOutcomeCode("RATE_LIMITED");
       reportError(new Error("Classifier upstream rate limit"), "classifier_request", {
         category: "rate_limit",
         code: "RATE_LIMITED",
@@ -1021,11 +985,12 @@ export async function classifyGarment(req: Request, res: Response) {
         status,
         retryable: true,
         route: "/api/classify-garment",
+        requestId: trace.requestId,
       });
       return res.status(429).json({ error: "rate_limited" });
     }
     if (status >= 500 && status <= 599) {
-      trace("EXTERNAL_DEPENDENCY_ERROR", 502);
+      trace.setOutcomeCode("EXTERNAL_DEPENDENCY_ERROR");
       reportError(new Error("Classifier upstream failure"), "classifier_request", {
         category: "external_dependency",
         code: "EXTERNAL_DEPENDENCY_ERROR",
@@ -1033,25 +998,27 @@ export async function classifyGarment(req: Request, res: Response) {
         status,
         retryable: true,
         route: "/api/classify-garment",
+        requestId: trace.requestId,
       });
       return res.status(502).json({ error: "classifier_upstream_failure" });
     }
     if (status >= 400 && status <= 499) {
-      trace("PROVIDER_HTTP_ERROR", 502);
+      trace.setOutcomeCode("PROVIDER_HTTP_ERROR");
       return res.status(502).json({ error: "classifier_upstream_failure", code: "PROVIDER_HTTP_ERROR" });
     }
     if (isNetwork) {
-      trace("NETWORK_ERROR", 503);
+      trace.setOutcomeCode("NETWORK_ERROR");
       reportError(new Error("Classifier network failure"), "classifier_request", {
         category: "network",
         code: "NETWORK_ERROR",
         dependency: "gemini",
         retryable: true,
         route: "/api/classify-garment",
+        requestId: trace.requestId,
       });
       return res.status(503).json({ error: "classifier_network_failure" });
     }
-    trace("INTERNAL_ERROR", 500);
+    trace.setOutcomeCode("INTERNAL_ERROR");
     reportError(new Error("Unexpected classifier failure"), "classifier_request", {
       category: "internal",
       code: "INTERNAL_ERROR",
@@ -1059,6 +1026,7 @@ export async function classifyGarment(req: Request, res: Response) {
       status,
       retryable: false,
       route: "/api/classify-garment",
+      requestId: trace.requestId,
     });
     return res.status(500).json({
       error: "classification_failed",
