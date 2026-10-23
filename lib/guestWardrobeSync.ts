@@ -62,7 +62,9 @@ export const guestWardrobeSync = createGuestWardrobeMigration({
     if (!getGuestPhotoRelativePath(uri, FileSystem.documentDirectory)) throw new Error('Guest photo is outside managed storage');
     const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
     await assertOwner(ownerId);
-    const uploaded = await uploadWardrobeImage(ownerId, base64, entry.migrationId, /\.png$/i.test(uri) ? 'image/png' : 'image/jpeg');
+    const uploaded = await uploadWardrobeImage(
+      ownerId, base64, entry.migrationId, /\.png$/i.test(uri) ? 'image/png' : 'image/jpeg', uri,
+    );
     return uploaded.storagePath;
   },
   insert: async (ownerId, entries) => {

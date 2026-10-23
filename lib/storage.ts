@@ -3,6 +3,8 @@ import { decode } from 'base64-arraybuffer'
 import { stripDataUriPrefix } from './uploadArg'
 import { MissingWardrobePhotoError } from './wardrobePhotoHydration'
 import { wardrobeImageCleanupPaths } from './wardrobeImagePath'
+import { asPermanentStorageUploadError, type StorageImageMimeType } from './storageUploadBounds'
+import { prepareStorageUploadImage } from './storageUploadImage'
 
 export { stripDataUriPrefix } from './uploadArg'
 
@@ -81,17 +83,23 @@ export async function uploadWardrobeImage(
   userId: string,
   imageBase64: string,
   itemId: string,
-  mimeType: 'image/jpeg' | 'image/png' = 'image/jpeg'
+  mimeType: StorageImageMimeType = 'image/jpeg',
+  sourceUri?: string,
 ): Promise<{ signedUrl: string; storagePath: string }> {
+  const boundedBase64 = await prepareStorageUploadImage(imageBase64, mimeType, sourceUri)
   const ext = mimeType === 'image/jpeg' ? 'jpg' : 'png'
   const storagePath = `${userId}/${itemId}.${ext}`
   const { error } = await supabase.storage
     .from('wardrobe-images')
-    .upload(storagePath, decode(stripDataUriPrefix(imageBase64)), {
+    .upload(storagePath, decode(stripDataUriPrefix(boundedBase64)), {
       contentType: mimeType,
       upsert: true,
     })
-  if (error) throw new Error(`[uploadWardrobeImage] ${error.message}`)
+  if (error) {
+    const rejected = asPermanentStorageUploadError(error)
+    if (rejected) throw rejected
+    throw new Error(`[uploadWardrobeImage] ${error.message}`)
+  }
   let signedUrl: string
   try {
     signedUrl = await getSignedWardrobeUrl(storagePath)
@@ -134,16 +142,22 @@ export async function getSignedTryonPhotoUrl(storagePath: string): Promise<strin
  */
 export async function uploadTryonPhoto(
   userId: string,
-  imageBase64: string
+  imageBase64: string,
+  sourceUri?: string,
 ): Promise<string> {
+  const boundedBase64 = await prepareStorageUploadImage(imageBase64, 'image/jpeg', sourceUri)
   const storagePath = `${userId}/reference.jpg`
   const { error } = await supabase.storage
     .from('tryon-photos')
-    .upload(storagePath, decode(stripDataUriPrefix(imageBase64)), {
+    .upload(storagePath, decode(stripDataUriPrefix(boundedBase64)), {
       contentType: 'image/jpeg',
       upsert: true,
     })
-  if (error) throw new Error(`[uploadTryonPhoto] ${error.message}`)
+  if (error) {
+    const rejected = asPermanentStorageUploadError(error)
+    if (rejected) throw rejected
+    throw new Error(`[uploadTryonPhoto] ${error.message}`)
+  }
   // Return storage path, not a public URL.  Callers must use getSignedTryonPhotoUrl()
   // to generate a display URL once the bucket is set to PRIVATE.
   return storagePath

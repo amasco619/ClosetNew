@@ -15,6 +15,7 @@ import { shortUriHash, type StagedBulkPhoto } from '@/lib/bulkPhotoStaging';
 import { isContentGuardrailError, classificationFailurePresentation } from '@/lib/classificationRefusal';
 import { readCachedCutout } from './uploadPhotoSource';
 import { reportUploadError } from './uploadErrors';
+import { isPermanentStorageUploadError, storageUploadFailureMessage } from './storageUploadBounds';
 
 // ─── Types (previously local to bulk-review.tsx) ──────────────────────────────
 
@@ -51,6 +52,7 @@ export interface BulkItemCore {
   retryable?: boolean;
   failureKind?: 'transient' | 'unexpected';
   backgroundRemovalSucceeded?: boolean;
+  uploadError?: string;
 }
 
 export type ClassifyFailureStage = 'photo-preparation' | 'classification';
@@ -205,7 +207,7 @@ export async function runClassifyUri(
   if (!mountedRef.current) return;
   deps.setItems(prev =>
     prev.map(it => it.uri === uri
-      ? { ...it, status: 'classifying', failureStage: undefined, diagnostic: undefined, retryable: undefined }
+        ? { ...it, status: 'classifying', failureStage: undefined, diagnostic: undefined, retryable: undefined }
       : it),
   );
 
@@ -379,6 +381,7 @@ export interface SaveAllDeps {
     base64: string,
     itemId: string,
     mimeType: string,
+    sourceUri?: string,
   ): Promise<string>;
   /** Best-effort removal for an upload whose batch was not persisted. */
   deleteUploaded?(userId: string, itemId: string): Promise<void>;
@@ -401,7 +404,7 @@ export interface SaveAllDeps {
   /** Surface an authenticated upload fallback as local-only/pending. */
   onUploadFallback?(uri: string): void;
   /** Called when authenticated uploads fail; no batch commit occurs and review must remain visible. */
-  onLocalOnlyComplete?(uris: string[]): void;
+  onLocalOnlyComplete?(uris: string[], permanentFailureMessage?: string): void;
   /** Surface a failed atomic wardrobe commit; caller must keep review visible. */
   onSaveError?(error: unknown): void;
   /** Called only after addItems acknowledges the complete batch commit. */
@@ -444,6 +447,7 @@ export async function runSaveAll(
 ): Promise<void> {
   deps.setSaving(true);
   const localOnlyUris: string[] = [];
+  let permanentUploadFailureMessage: string | undefined;
   const uploadedItems: { userId: string; itemId: string }[] = [];
   const cleanupUploads = async () => {
     if (!deps.deleteUploaded) return;
@@ -484,7 +488,7 @@ export async function runSaveAll(
     if (!mountedRef.current) break;
 
     deps.setItems(prev =>
-      prev.map(it => it.uri === item.uri ? { ...it, status: 'saving' } : it),
+      prev.map(it => it.uri === item.uri ? { ...it, status: 'saving', uploadError: undefined } : it),
     );
 
     try {
@@ -492,6 +496,7 @@ export async function runSaveAll(
       let finalUri = item.uri;
       let itemStoragePath: string | undefined;
       let uploadFailed = false;
+      let uploadSourceUri = item.uri;
 
       if (userId) {
         try {
@@ -499,6 +504,7 @@ export async function runSaveAll(
           let cleanBase64: string | undefined = item.cleanBase64;
           if (item.cutoutUri) {
             cleanBase64 = await readCachedCutout(item.cutoutUri, deps.readPngBase64);
+            if (cleanBase64) uploadSourceUri = item.cutoutUri;
           }
           if (!cleanBase64) {
             const shrunk = await deps.resize(item.uri);
@@ -516,7 +522,7 @@ export async function runSaveAll(
             // The upload helper can fail after the object upload (e.g. while
             // generating its signed URL), so retain the key before awaiting it.
             uploadedItems.push({ userId, itemId });
-            finalUri = await deps.upload(userId, uploadArg.base64, itemId, uploadArg.mimeType);
+            finalUri = await deps.upload(userId, uploadArg.base64, itemId, uploadArg.mimeType, uploadSourceUri);
             if (!mountedRef.current) {
               await cleanupUploads();
               return;
@@ -531,8 +537,14 @@ export async function runSaveAll(
             uploadFailed = true;
             deps.onUploadFallback?.(item.uri);
           }
-        } catch {
+        } catch (error) {
           reportUploadError({ stage: 'upload', code: 'FAILED' });
+          const uploadError = isPermanentStorageUploadError(error)
+            ? storageUploadFailureMessage(error) : undefined;
+          if (uploadError) {
+            permanentUploadFailureMessage ??= uploadError;
+            deps.setItems(prev => prev.map(it => it.uri === item.uri ? { ...it, uploadError } : it));
+          }
           // Upload failed — fall back to local URI; storagePath stays undefined
           itemStoragePath = undefined;
           uploadFailed = true;
@@ -592,7 +604,7 @@ export async function runSaveAll(
       : { ...it, status: localOnlyUris.includes(it.uri) ? 'local-only' : 'settled' },
     ));
     deps.setSaving(false);
-    deps.onLocalOnlyComplete?.(localOnlyUris);
+    deps.onLocalOnlyComplete?.(localOnlyUris, permanentUploadFailureMessage);
     return;
   }
   if (payloads.length > 0) {
@@ -630,7 +642,7 @@ export async function runSaveAll(
   }
   deps.setSaving(false);
   if (localOnlyUris.length > 0) {
-    deps.onLocalOnlyComplete?.(localOnlyUris);
+    deps.onLocalOnlyComplete?.(localOnlyUris, permanentUploadFailureMessage);
     return;
   }
   deps.onDoneHaptic();

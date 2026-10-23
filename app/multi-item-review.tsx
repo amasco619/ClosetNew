@@ -117,8 +117,8 @@ export default function MultiItemReview() {
         },
         resize: async photo => ImageManipulator.manipulateAsync(photo, [],
           { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true }),
-        upload: async (userId, base64, id, mimeType) =>
-          (await uploadWardrobeImage(userId, base64, id, mimeType as 'image/jpeg' | 'image/png')).signedUrl,
+        upload: async (userId, base64, id, mimeType, sourceUri) =>
+          (await uploadWardrobeImage(userId, base64, id, mimeType as 'image/jpeg' | 'image/png', sourceUri)).signedUrl,
         deleteUploaded: deleteWardrobeImage,
         resolveUploadArg: resolveWardrobeUploadArg,
         addItems: payloads => addWardrobeGroupItems(payloads.map(({ id, photoUri, storagePath }, index) => ({

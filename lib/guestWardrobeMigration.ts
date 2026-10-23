@@ -1,4 +1,5 @@
 import type { WardrobeItem } from '../constants/types';
+import { isPermanentStorageUploadError, storageUploadFailureMessage } from './storageUploadBounds';
 
 export const GUEST_MIGRATION_KEY = '@amodka_guest_wardrobe_migration';
 export type GuestMigrationEntry = {
@@ -9,6 +10,7 @@ export type GuestMigrationEntry = {
   synced: boolean;
   announced: boolean;
   sourceReclaimed?: boolean;
+  uploadError?: string;
 };
 export type GuestDataDisposition = 'absorb' | 'discard';
 export type GuestMigrationDecision = {
@@ -48,12 +50,13 @@ export function planGuestMigration(entries: GuestMigrationEntry[], ownerId: stri
     .sort((a, b) => a.item.createdAt.localeCompare(b.item.createdAt) || a.migrationId.localeCompare(b.migrationId));
   const confirmed = new Set(snapshot.confirmedIds);
   const remaining = owned.filter(entry => !confirmed.has(entry.migrationId));
+  const eligible = remaining.filter(entry => !entry.uploadError);
   const allowance = Math.max(0, (snapshot.premium ? 2000 : 30) -
     (snapshot.premium ? snapshot.totalCount : snapshot.activeCount));
   return {
     confirmed: owned.filter(entry => confirmed.has(entry.migrationId)),
-    transfer: remaining.slice(0, allowance),
-    retained: remaining.slice(allowance),
+    transfer: eligible.slice(0, allowance),
+    retained: eligible.slice(allowance),
   };
 }
 
@@ -189,8 +192,10 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
         const entries = records.filter((entry): entry is GuestMigrationEntry =>
           isGuestMigrationEntry(entry) && entry.ownerId === ownerId && !entry.synced,
         );
-        if (decision !== 'absorb') return { pending: entries.length, capacity: false };
-        if (!entries.length) return { pending: 0, capacity: false };
+        if (decision !== 'absorb') return {
+          pending: entries.length, capacity: false, failed: entries.filter(entry => entry.uploadError).length,
+        };
+        if (!entries.length) return { pending: 0, capacity: false, failed: 0 };
         const snapshot = await bounded(deps.snapshot(ownerId, entries));
         check();
         const plan = planGuestMigration(entries, ownerId, snapshot);
@@ -208,8 +213,11 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
             check();
             await update(entry, { storagePath });
             prepared.push({ ...entry, storagePath });
-          } catch {
+          } catch (error) {
             check(); // One bad/missing file must not discard the rest of the batch.
+            if (isPermanentStorageUploadError(error)) {
+              await update(entry, { uploadError: storageUploadFailureMessage(error) });
+            }
           }
         }
         if (prepared.length) {
@@ -229,10 +237,18 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
         // Never delete uploads on an ambiguous response: the RPC may have
         // committed. The next attempt queries owned IDs before inserting again.
       } finally { running.delete(ownerId); }
-       const pending = (await list()).filter((entry): entry is GuestMigrationEntry =>
+       const finalEntries = (await list()).filter((entry): entry is GuestMigrationEntry =>
          isGuestMigrationEntry(entry) && entry.ownerId === ownerId && !entry.synced,
-       ).length;
-      return { pending, capacity };
+       );
+       return {
+         pending: finalEntries.length, capacity,
+         failed: finalEntries.filter(entry => entry.uploadError).length,
+       };
     },
+     clearPermanentFailures: (ownerId: string) => mutate(entries => {
+       for (const entry of entries) {
+         if (isGuestMigrationEntry(entry) && entry.ownerId === ownerId) delete entry.uploadError;
+       }
+     }),
   };
 }

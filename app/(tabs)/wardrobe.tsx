@@ -40,7 +40,9 @@ const colorDots: Record<string, string> = {
 const formatSeasonTag = (tag: string) =>
   tag === 'all-season' ? 'All season' : tag.charAt(0).toUpperCase() + tag.slice(1);
 
-type WardrobeDisplayItem = WardrobeItem & { pendingSync?: boolean; pendingMigrationId?: string };
+type WardrobeDisplayItem = WardrobeItem & {
+  pendingSync?: boolean; pendingMigrationId?: string; uploadError?: string;
+};
 
 export default function WardrobeScreen() {
   const insets = useSafeAreaInsets();
@@ -49,7 +51,7 @@ export default function WardrobeScreen() {
     wardrobeTotalCount, freeSelectedItemIds,
     guestPendingWardrobeItems,
     loadMoreWardrobeItems, wardrobeHasMore, dataUnavailable, retryInitialization,
-    guestWardrobeSyncState, dismissGuestWardrobeNotice,
+    guestWardrobeSyncState, dismissGuestWardrobeNotice, retryGuestWardrobeSync,
   } = useApp();
   const [filter, setFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -70,8 +72,8 @@ export default function WardrobeScreen() {
 
   const displayItems: WardrobeDisplayItem[] = [
     ...activeWardrobeItems,
-    ...guestPendingWardrobeItems.map(({ item, migrationId }) => ({
-      ...item, pendingSync: true, pendingMigrationId: migrationId,
+    ...guestPendingWardrobeItems.map(({ item, migrationId, uploadError }) => ({
+      ...item, pendingSync: true, pendingMigrationId: migrationId, uploadError,
     })),
   ];
   const filteredItems = (filter === 'all'
@@ -150,7 +152,7 @@ export default function WardrobeScreen() {
             )}
             {item.pendingSync && (
               <View style={styles.pendingSyncPill}>
-                <Text style={styles.pendingSyncText}>Waiting to sync</Text>
+                <Text style={styles.pendingSyncText}>{item.uploadError ? 'Upload failed' : 'Waiting to sync'}</Text>
               </View>
             )}
           </View>
@@ -189,7 +191,9 @@ export default function WardrobeScreen() {
                 ? `${item.fabric.charAt(0).toUpperCase() + item.fabric.slice(1)} · ${wardrobeValueLabel(item.colorFamily)}`
                 : item.subType.replace(/-/g, ' ')}
             </Text>
-            {item.pendingSync && <Text style={styles.pendingGridText}>Waiting to sync</Text>}
+            {item.pendingSync && (
+              <Text style={styles.pendingGridText}>{item.uploadError ? 'Upload failed' : 'Waiting to sync'}</Text>
+            )}
           </View>
         </Pressable>
       </Animated.View>
@@ -249,7 +253,23 @@ export default function WardrobeScreen() {
           <View style={{ flex: 1 }}>
             {guestWardrobeSyncState.syncing && <Text style={styles.syncText}>Syncing your wardrobe</Text>}
             {guestWardrobeSyncState.notice && <Text style={styles.syncText}>{guestWardrobeSyncState.notice}</Text>}
-            {!guestWardrobeSyncState.syncing && guestWardrobeSyncState.pending > 0 && (
+            {!guestWardrobeSyncState.syncing && guestWardrobeSyncState.failed > 0 && (
+              <>
+                <Text style={styles.syncText}>
+                  {guestWardrobeSyncState.failed} {guestWardrobeSyncState.failed === 1 ? 'photo was' : 'photos were'} rejected.
+                  {' '}{guestWardrobeSyncState.failureMessage ?? 'Your local copies remain safe.'}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => void retryGuestWardrobeSync()}
+                  style={styles.syncRetry}
+                >
+                  <Text style={styles.syncRetryText}>Retry failed uploads</Text>
+                </Pressable>
+              </>
+            )}
+            {!guestWardrobeSyncState.syncing && guestWardrobeSyncState.pending > 0 &&
+              guestWardrobeSyncState.failed === 0 && (
               <Text style={styles.syncText}>
                 {guestWardrobeSyncState.pending} pieces remain safely on this device. {guestWardrobeSyncState.capacity
                   ? 'They will sync when there is room in your account.'
@@ -356,6 +376,8 @@ export default function WardrobeScreen() {
 const styles = StyleSheet.create({
   syncNote: { marginHorizontal: 20, marginBottom: 12, padding: 12, borderRadius: 12, backgroundColor: Colors.white, flexDirection: 'row', alignItems: 'center', gap: 12 },
   syncText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 19 },
+  syncRetry: { alignSelf: 'flex-start', paddingVertical: 6, paddingRight: 8 },
+  syncRetryText: { color: Colors.textPrimary, fontSize: 13, fontFamily: 'Inter_600SemiBold' },
   pendingSyncPill: { backgroundColor: Colors.background, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
   pendingSyncText: { color: Colors.textSecondary, fontSize: 10, fontFamily: 'Inter_500Medium' },
   pendingGridText: { color: Colors.textSecondary, fontSize: 9, marginTop: 2 },

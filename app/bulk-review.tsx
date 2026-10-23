@@ -254,7 +254,7 @@ function BulkCard({
             pointerEvents="none"
           >
             <Ionicons name="cloud-upload-outline" size={22} color={Colors.white} />
-            <Text style={styles.savedOverlayLabel}>Upload pending</Text>
+            <Text style={styles.savedOverlayLabel}>{item.uploadError ? 'Upload failed' : 'Upload pending'}</Text>
           </Animated.View>
         )}
 
@@ -288,6 +288,9 @@ function BulkCard({
                 ? item.classification.subType.replace(/-/g, ' ')
                 : 'Item'}
             </Text>
+            {item.uploadError && (
+              <Text style={styles.uploadError} numberOfLines={3}>{item.uploadError}</Text>
+            )}
           </Animated.View>
         ) : isManual ? (
           <Pressable
@@ -904,12 +907,30 @@ export default function BulkReviewScreen() {
           },
           // Upload to Supabase Storage.
           // If background removal produced a clean PNG, use it directly.
-          // Otherwise resize the original to ≤1600 px for a smaller JPEG.
-          resize: (uri) => ImageManipulator.manipulateAsync(
-            uri,
-            [{ resize: { width: 1600 } }],
-            { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
-          ),
+          // Preserve portrait proportions too: width-only resizing can leave the
+          // longest edge well above the storage bound.
+          resize: async (uri) => {
+            const context = ImageManipulator.ImageManipulator.manipulate(uri);
+            let source: Awaited<ReturnType<typeof context.renderAsync>> | undefined;
+            let prepared: Awaited<ReturnType<typeof context.renderAsync>> | undefined;
+            try {
+              source = await context.renderAsync();
+              const { width, height } = source;
+              if (Math.max(width, height) > 1600) {
+                context.resize(width >= height ? { width: 1600 } : { height: 1600 });
+                prepared = await context.renderAsync();
+              } else {
+                prepared = source;
+              }
+              return await prepared.saveAsync({
+                compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true,
+              });
+            } finally {
+              if (prepared && prepared !== source) prepared.release();
+              source?.release();
+              context.release();
+            }
+          },
           readPngBase64: (uri) => FileSystem.readAsStringAsync(uri, {
             encoding: FileSystem.EncodingType.Base64,
           }),
@@ -922,8 +943,10 @@ export default function BulkReviewScreen() {
             });
             return dest;
           },
-          upload: async (userId, base64, itemId, mimeType) => {
-            const { signedUrl } = await uploadWardrobeImage(userId, base64, itemId, mimeType as 'image/jpeg' | 'image/png');
+          upload: async (userId, base64, itemId, mimeType, sourceUri) => {
+            const { signedUrl } = await uploadWardrobeImage(
+              userId, base64, itemId, mimeType as 'image/jpeg' | 'image/png', sourceUri,
+            );
             return signedUrl;
           },
           deleteUploaded: deleteWardrobeImage,
@@ -958,11 +981,13 @@ export default function BulkReviewScreen() {
           setItems: (updater) => setItems(prev => updater(prev) as BulkItem[]),
           setSaving,
           onItemHaptic: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
-          onLocalOnlyComplete: (uris) => {
+          onLocalOnlyComplete: (uris, permanentFailureMessage) => {
             if (!mountedRef.current) return;
             dialog.notify({
-              title: 'Upload still pending',
-              message: `${uris.length === 1 ? 'This item remains' : 'These items remain'} in review because cloud upload did not complete. Nothing from this batch was saved; check your connection and retry.`,
+              title: permanentFailureMessage ? 'Photo upload was rejected' : 'Upload still pending',
+              message: permanentFailureMessage
+                ? `${permanentFailureMessage} Nothing from this batch was saved. Retry manually from this screen when ready.`
+                : `${uris.length === 1 ? 'This item remains' : 'These items remain'} in review because cloud upload did not complete. Nothing from this batch was saved; check your connection and retry.`,
               buttonLabel: 'Keep reviewing',
             });
           },
@@ -1408,6 +1433,7 @@ const styles = StyleSheet.create({
   errorLabel: {
     fontFamily: 'Inter_500Medium', fontSize: rs(10), color: Colors.textSecondary, letterSpacing: 0.3,
   },
+  uploadError: { color: Colors.textSecondary, fontSize: rs(9), lineHeight: rs(12), marginTop: 5 },
   manualEntryButton: { minHeight: 44, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: Colors.border, borderRadius: 8, marginTop: 6 },
   prepareDiagnostic: {
     width: '96%', maxHeight: PHOTO_HEIGHT * 0.62, marginTop: 4,
