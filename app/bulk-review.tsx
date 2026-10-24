@@ -38,6 +38,7 @@ import {
   runClassifyUri,
   runRedirectSingle,
   selectBulkProgress,
+  selectRetryableClassificationUris,
   runSaveAll,
   undoSavedItems,
   runHandleRemove,
@@ -65,6 +66,10 @@ import {
   type AiProcessingPreference,
 } from '@/lib/aiProcessingPreference';
 import { bulkCardActivity } from '@/lib/aiProcessingPreferenceState';
+import {
+  classificationFailurePresentation,
+  type ClassificationFailurePresentation,
+} from '@/lib/classificationRefusal';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -107,6 +112,7 @@ interface BulkItem {
   diagnostic?: PhotoPrepareDiagnostic;
   retryable?: boolean;
   failureKind?: 'transient' | 'unexpected';
+  failurePresentation?: ClassificationFailurePresentation;
   backgroundRemovalSucceeded?: boolean;
   uploadError?: string;
 }
@@ -185,6 +191,8 @@ function BulkCard({
   const isSaving     = item.status === 'saving';
   const isError      = item.status === 'error';
   const isRefused    = item.status === 'refused';
+  const failure = item.failurePresentation ?? classificationFailurePresentation(new Error());
+  const showUnreadable = isRefused || (isError && failure.kind === 'unreadable');
 
   // Keep the clean PNG as a cache file and fall back to the source photo if the
   // cache entry is evicted. No image base64 is retained in item state.
@@ -338,18 +346,17 @@ function BulkCard({
         <View style={styles.cardBody}>{cardBody}</View>
       )}
 
-      {isError && item.retryable !== false && (
+      {isError && item.retryable !== false && failure.kind !== 'unreadable' && failure.kind !== 'consent' && (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Retry garment analysis"
-          onPress={() => onRetry(item.uri)}
+          accessibilityLabel={failure.action === 'Sign in' ? 'Sign in to continue garment analysis' : 'Retry garment analysis'}
+          onPress={() => failure.kind === 'session' ? router.push('/sign-in') : onRetry(item.uri)}
           style={[styles.errorOverlay, styles.retryOverlay, item.failureKind !== 'transient' && styles.unexpectedFailure]}
         >
           <Ionicons name="refresh-outline" size={18} color={Colors.textSecondary} />
-          <Text style={styles.errorLabel}>
-            {item.failureKind === 'transient' ? 'Connection paused' : 'Something went wrong'}
-          </Text>
-          <Text style={styles.errorLabel}>Tap to try again</Text>
+          <Text style={styles.errorLabel}>{failure.title}</Text>
+          <Text style={styles.errorHint}>{failure.hint}</Text>
+          <Text style={styles.errorLabel}>{failure.action}</Text>
           {__DEV__ && UPLOAD_DIAGNOSTICS_ENABLED && item.diagnostic && (
             <Text style={styles.prepareDiagnostic} numberOfLines={9}>
               {`${item.diagnostic.stage}: ${item.diagnostic.errorName}: ${item.diagnostic.message}\n` +
@@ -367,9 +374,9 @@ function BulkCard({
         </Pressable>
       )}
 
-      {(isRefused || (isError && item.retryable === false)) && (
+      {(showUnreadable || (isError && item.retryable === false && failure.kind !== 'consent')) && (
         <PhotoRefusalNotice
-          title={isRefused ? undefined : 'Could not analyse this photo'}
+          title={failure.kind === 'unreadable' || isRefused ? undefined : 'Could not analyse this photo'}
           onManual={() => onManual(item.uri)}
           onRemove={() => onRemove(item.uri)}
         />
@@ -461,6 +468,7 @@ export default function BulkReviewScreen() {
   const [retryingAll, setRetryingAll] = useState(false);
   const retryingAllRef = useRef(false);
   const classificationStartsRef = useRef<number[]>([]);
+  const consentRetryUrisRef = useRef(new Set<string>());
   // URI-based identity for the open panel — stable across status transitions.
   // An integer index into a dynamically-filtered list would drift as items settle.
   const [editingUri, setEditingUri] = useState<string | null>(null);
@@ -755,6 +763,14 @@ export default function BulkReviewScreen() {
         onDiagnostic: diagnostic => {
           if (__DEV__ && UPLOAD_DIAGNOSTICS_ENABLED) console.log('[bulk:prepare]', diagnostic);
         },
+        onFailure: presentation => {
+          if (presentation.kind === 'consent') {
+            consentRetryUrisRef.current.add(uri);
+            setAiPreference('not_asked');
+            setAiPreferenceError(null);
+            setShowAiConsent(true);
+          }
+        },
         removeBg: (b64) => requestForCard(() => removeBackground(b64)).then(r => {
           if (r.status === 'not-authenticated') setBgNotAuthenticated(true);
           if (r.status === 'limit-reached') setBgLimitReached(true);
@@ -803,8 +819,14 @@ export default function BulkReviewScreen() {
   // Kick off staggered classify tasks on mount
   useEffect(() => {
     if (isGuest || selectionStartedAsGuest || aiPreference !== 'allowed') return;
+    const consentRetries = consentRetryUrisRef.current;
+    const startUris = consentRetries.size
+      ? uris.filter(uri => consentRetries.has(uri) ||
+          itemsRef.current.find(item => item.uri === uri)?.status === 'pending')
+      : uris;
+    consentRetries.clear();
     const timers: ReturnType<typeof setTimeout>[] = [];
-    uris.forEach((uri, i) => {
+    startUris.forEach((uri, i) => {
       timers.push(setTimeout(() => classifyUri(uri), i * STAGGER_MS));
     });
     return () => timers.forEach(clearTimeout);
@@ -835,6 +857,15 @@ export default function BulkReviewScreen() {
   const handleRetry = (uri: string) => {
     if (savingRef.current || retryingAllRef.current) return;
     const item = itemsRef.current.find(current => current.uri === uri);
+    if (item?.failurePresentation?.kind === 'consent') {
+      setAiPreference('not_asked');
+      setShowAiConsent(true);
+      return;
+    }
+    if (item?.failurePresentation?.kind === 'session') {
+      router.push('/sign-in');
+      return;
+    }
     if (item?.status === 'refused' || item?.retryable === false) return;
     if (aiPreference !== 'allowed') {
       void enableAiForSelectedPhotos();
@@ -848,9 +879,9 @@ export default function BulkReviewScreen() {
     retryingAllRef.current = true;
     setRetryingAll(true);
     try {
-      const uris = itemsRef.current.filter(item => item.status === 'error' && item.failureKind === 'transient').map(item => item.uri);
+      const uris = selectRetryableClassificationUris(itemsRef.current);
       await runSerialUploadRetries(uris, {
-        active: uri => mountedRef.current && itemsRef.current.some(item => item.uri === uri && item.status === 'error' && item.failureKind === 'transient'),
+        active: uri => mountedRef.current && selectRetryableClassificationUris(itemsRef.current).includes(uri),
         run: classifyUri,
       });
     } finally {
@@ -1413,6 +1444,7 @@ const styles = StyleSheet.create({
   errorLabel: {
     fontFamily: 'Inter_500Medium', fontSize: rs(10), color: Colors.textSecondary, letterSpacing: 0.3,
   },
+  errorHint: { fontFamily: 'Inter_400Regular', fontSize: rs(9), color: Colors.textSecondary, textAlign: 'center' },
   uploadError: { color: Colors.textSecondary, fontSize: rs(9), lineHeight: rs(12), marginTop: 5 },
   manualEntryButton: { minHeight: 44, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: Colors.border, borderRadius: 8, marginTop: 6 },
   prepareDiagnostic: {

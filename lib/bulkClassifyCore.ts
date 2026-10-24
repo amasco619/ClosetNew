@@ -12,7 +12,12 @@
 
 import type { ItemCategory, OccasionTag, SeasonTag } from '@/constants/types';
 import { shortUriHash, type StagedBulkPhoto } from '@/lib/bulkPhotoStaging';
-import { isContentGuardrailError, classificationFailurePresentation } from '@/lib/classificationRefusal';
+import {
+  isContentGuardrailError,
+  classificationFailurePresentation,
+  isTransientClassificationError,
+  type ClassificationFailurePresentation,
+} from '@/lib/classificationRefusal';
 import { readCachedCutout } from './uploadPhotoSource';
 import { reportUploadError } from './uploadErrors';
 import { isPermanentStorageUploadError, storageUploadFailureMessage } from './storageUploadBounds';
@@ -51,6 +56,7 @@ export interface BulkItemCore {
   diagnostic?: PhotoPrepareDiagnostic;
   retryable?: boolean;
   failureKind?: 'transient' | 'unexpected';
+  failurePresentation?: ClassificationFailurePresentation;
   backgroundRemovalSucceeded?: boolean;
   uploadError?: string;
 }
@@ -68,6 +74,12 @@ export function selectBulkProgress(items: BulkItemCore[]) {
     classifiedCount, failedCount, refusedCount, transientCount, totalCount,
     progressRatio: totalCount ? (classifiedCount + failedCount + refusedCount) / totalCount : 0,
   };
+}
+
+export function selectRetryableClassificationUris(items: BulkItemCore[]): string[] {
+  return items
+    .filter(item => item.status === 'error' && item.failureKind === 'transient' && item.retryable !== false)
+    .map(item => item.uri);
 }
 
 export interface PhotoPrepareDiagnostic {
@@ -176,6 +188,7 @@ export interface ClassifyDeps {
     inspectUri?(uri: string): Promise<{ exists: boolean; size?: number }>;
   };
   onDiagnostic?(diagnostic: PhotoPrepareDiagnostic): void;
+  onFailure?(presentation: ClassificationFailurePresentation): void;
 }
 
 export interface RedirectSingleDeps {
@@ -207,7 +220,8 @@ export async function runClassifyUri(
   if (!mountedRef.current) return;
   deps.setItems(prev =>
     prev.map(it => it.uri === uri
-      ? { ...it, status: 'classifying', failureStage: undefined, diagnostic: undefined, retryable: undefined }
+      ? { ...it, status: 'classifying', failureStage: undefined, diagnostic: undefined, retryable: undefined,
+          failureKind: undefined, failurePresentation: undefined }
       : it),
   );
 
@@ -285,9 +299,13 @@ export async function runClassifyUri(
   } catch (error) {
     reportUploadError({ stage: diagnosticStage === 'image-resize' ? 'resize' : 'classify', code: 'FAILED' });
     if (!mountedRef.current) return;
+    const presentation = classificationFailurePresentation(error, {
+      localPreparation: failureStage === 'photo-preparation',
+    });
     if (diagnosticStage === 'classification' && isContentGuardrailError(error)) {
       deps.setItems(prev => prev.map(it => it.uri === uri
-        ? { ...it, status: 'refused', retryable: false, failureStage: undefined, diagnostic: undefined }
+        ? { ...it, status: 'refused', retryable: false, failureStage: undefined, diagnostic: undefined,
+          failurePresentation: presentation }
         : it));
       return;
     }
@@ -332,10 +350,13 @@ export async function runClassifyUri(
     if (diagnostic) deps.onDiagnostic?.(diagnostic);
     deps.setItems(prev =>
       prev.map(it => it.uri === uri
-        ? { ...it, status: 'error', failureStage, diagnostic, retryable: true,
-          failureKind: classificationFailurePresentation(error).kind }
+        ? { ...it, status: 'error', failureStage, diagnostic,
+          retryable: presentation.kind !== 'unreadable' && presentation.kind !== 'consent',
+          failureKind: isTransientClassificationError(error) ? 'transient' : 'unexpected',
+          failurePresentation: presentation }
         : it),
     );
+    if (presentation.kind === 'consent') deps.onFailure?.(presentation);
   }
 }
 

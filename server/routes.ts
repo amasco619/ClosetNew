@@ -248,6 +248,8 @@ export const _testOverrides: {
  * Returns 401 when the header is missing or the token is invalid.
  */
 async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const isClassificationRoute = req.path === "/api/classify-garment" || req.path === "/api/classify-garments";
+  const authCode = isClassificationRoute ? { code: "AUTH_REQUIRED" } : {};
   if (process.env.NODE_ENV === "test" && _testOverrides.authenticatedUser) {
     (req as AuthenticatedRequest).authenticatedUser = _testOverrides.authenticatedUser;
     next();
@@ -258,13 +260,13 @@ async function requireAuth(req: Request, res: Response, next: NextFunction): Pro
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
 
   if (!token) {
-    res.status(401).json({ error: "authentication_required" });
+    res.status(401).json({ error: "authentication_required", ...authCode });
     return;
   }
 
   const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
   if (error || !user) {
-    res.status(401).json({ error: "invalid_token" });
+    res.status(401).json({ error: "invalid_token", ...authCode });
     return;
   }
 

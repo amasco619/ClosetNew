@@ -9,12 +9,14 @@ import { useApp } from '@/contexts/AppContext';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
 import { authenticatedApiRequest } from '@/lib/query-client';
 import { getAiProcessingPreference, setAiProcessingPreference } from '@/lib/aiProcessingPreference';
-import { constructMultiItemDraft, type B3RelationshipType, type B3WardrobeFields, type MultiItemClassificationResult } from '@/lib/multiItemConstruction';
+import { constructMultiItemDraft, B3ConstructionError, type B3RelationshipType, type B3WardrobeFields, type MultiItemClassificationResult } from '@/lib/multiItemConstruction';
+import { classificationFailurePresentation, type ClassificationFailurePresentation } from '@/lib/classificationRefusal';
 import { runSaveAll, undoSavedItems, type BulkItemCore, type ClassifyResult } from '@/lib/bulkClassifyCore';
 import { resolveWardrobeUploadArg } from '@/lib/uploadArg';
 import { uploadWardrobeImage, deleteWardrobeImage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import { GarmentTile } from '@/components/GarmentTile';
+import { PhotoRefusalNotice } from '@/components/PhotoRefusalNotice';
 import { useDialog, useToast } from '@/contexts/LuxuryFeedbackContext';
 
 type Piece = BulkItemCore & { detectionId: string; classification: ClassifyResult; fields: B3WardrobeFields };
@@ -37,6 +39,7 @@ export default function MultiItemReview() {
   const [sharedAttributes, setSharedAttributes] = useState<Record<string, string>>({});
   const [phase, setPhase] = useState<'checking' | 'consent' | 'paused' | 'loading' | 'review' | 'error'>('checking');
   const [error, setError] = useState('');
+  const [failure, setFailure] = useState<ClassificationFailurePresentation | null>(null);
   const [saving, setSaving] = useState(false);
   const mounted = useRef(true);
   const started = useRef(false);
@@ -54,14 +57,19 @@ export default function MultiItemReview() {
     if (phase !== 'loading' || started.current || !uri) return;
     started.current = true;
     void (async () => {
+      let stage: 'prepare' | 'classification' | 'construction' | 'crop' = 'prepare';
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('Sign in to save a group of garments.');
+        if (!session) throw Object.assign(new Error('Sign in to save a group of garments.'), { status: 401 });
         const image = await ImageManipulator.manipulateAsync(uri, [{ resize: { width: 1024 } }],
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true });
         if (!image.base64) throw new Error('This photo could not be read.');
+        stage = 'classification';
         const response = await authenticatedApiRequest('POST', '/api/classify-garments', { imageBase64: image.base64 });
-        const draft = constructMultiItemDraft(await response.json() as MultiItemClassificationResult);
+        const responseBody = await response.json() as MultiItemClassificationResult;
+        stage = 'construction';
+        const draft = constructMultiItemDraft(responseBody);
+        stage = 'crop';
         const cropped = await Promise.all(draft.items.map(async item => {
           const r = item.source.region;
           const originX = Math.min(image.width - 1, Math.round(r.x * image.width));
@@ -81,10 +89,29 @@ export default function MultiItemReview() {
         setInferredRelationship(draft.group.relationshipType);
         setRelationshipConfidence(draft.group.relationshipConfidence);
         setSharedAttributes(draft.group.sharedAttributes);
+        setFailure(null);
+        setError('');
         setPhase('review');
-      } catch {
+      } catch (caughtError) {
         if (mounted.current) {
-          setError('Could not identify 2–6 separate garments in this photo. Try another photo or use the single-item flow.');
+          if (caughtError instanceof B3ConstructionError && caughtError.code === 'invalid_item_count') {
+            setFailure(null);
+            setError('Could not identify 2–6 separate garments in this photo. Try another photo or use the single-item flow.');
+            setPhase('error');
+            return;
+          }
+          const presentation = classificationFailurePresentation(caughtError, {
+            localPreparation: stage === 'prepare' || stage === 'crop',
+          });
+          if (presentation.kind === 'consent') {
+            started.current = false;
+            setError('');
+            setFailure(null);
+            setPhase('consent');
+            return;
+          }
+          setError('');
+          setFailure(presentation);
           setPhase('error');
         }
       }
@@ -173,7 +200,28 @@ export default function MultiItemReview() {
         )}
         {phase === 'error' && (
           <>
-            <Text style={styles.help}>{error}</Text>
+            {failure?.kind === 'unreadable' ? (
+              <PhotoRefusalNotice onManual={() => router.back()} onRemove={() => router.back()} />
+            ) : (
+              <>
+                <Text style={styles.name}>{failure?.title ?? error}</Text>
+                {failure?.hint ? <Text style={styles.help}>{failure.hint}</Text> : null}
+                {failure && (
+                  <Pressable style={styles.button} onPress={() => {
+                    if (failure.kind === 'session') {
+                      router.push('/sign-in');
+                      return;
+                    }
+                    started.current = false;
+                    setFailure(null);
+                    setError('');
+                    setPhase('loading');
+                  }}>
+                    <Text style={styles.buttonText}>{failure.action}</Text>
+                  </Pressable>
+                )}
+              </>
+            )}
             <Pressable style={styles.button} onPress={() => router.back()}><Text style={styles.buttonText}>Return to Add Item</Text></Pressable>
           </>
         )}

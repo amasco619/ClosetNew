@@ -855,7 +855,11 @@ export default function AddItemScreen() {
           }
         } catch (error) {
           reportUploadError({ stage: prepareStage === 'image-resize' ? 'resize' : 'background-removal', code: 'FAILED' });
-          if (prepareStage === 'image-resize') setAnalysisFailure(classificationFailurePresentation(error));
+          if (prepareStage === 'image-resize') {
+            const failure = classificationFailurePresentation(error, { localPreparation: true });
+            if (failure.kind === 'unreadable') setShowPhotoRefusal(true);
+            else setAnalysisFailure(failure);
+          }
           // Keep development-only diagnostics in memory; never include the full URI.
           if (requestId === photoRequestRef.current && __DEV__ && UPLOAD_DIAGNOSTICS_ENABLED) {
             const diagnostic = createPhotoPrepareDiagnostic(asset.uri, error, {
@@ -921,16 +925,23 @@ export default function AddItemScreen() {
 
           } catch (classifyErr: any) {
             if (requestId !== photoRequestRef.current) return;
-            if (isContentGuardrailError(classifyErr)) {
+            const failure = classificationFailurePresentation(classifyErr);
+            if (failure.kind === 'unreadable' || isContentGuardrailError(classifyErr)) {
               setClassifying(false);
               setClassifyFlash('none');
               setShowPhotoRefusal(true);
+            } else if (failure.kind === 'consent') {
+              setClassifying(false);
+              setClassifyFlash('none');
+              setAnalysisFailure(null);
+              setPendingAiAsset(retryPhotoRef.current);
+              setShowAiConsent(true);
             } else {
               // API unavailable (quota, rate-limit, or server error) —
               // show error flash, then keep the photo so the user can fill in manually.
               finishClassifying(false);
               reportUploadError({ stage: 'classify', code: 'FAILED' });
-              setAnalysisFailure(classificationFailurePresentation(classifyErr));
+              setAnalysisFailure(failure);
             }
           }
         } else {
@@ -1380,8 +1391,13 @@ export default function AddItemScreen() {
             {analysisFailure && (
               <View style={styles.aiPausedCard}>
                 <Text style={styles.aiPausedTitle}>{analysisFailure.title}</Text>
+                <Text style={styles.aiPausedCopy}>{analysisFailure.hint}</Text>
                 <Pressable accessibilityRole="button" onPress={() => {
-                  if (retryPhotoRef.current) void pickImage(false, retryPhotoRef.current);
+                  if (analysisFailure.kind === 'session') {
+                    router.push('/sign-in');
+                  } else if (retryPhotoRef.current) {
+                    void pickImage(false, retryPhotoRef.current);
+                  }
                 }} style={styles.aiPausedAction}>
                   <Text>{analysisFailure.action}</Text>
                 </Pressable>

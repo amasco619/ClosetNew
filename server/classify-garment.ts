@@ -854,7 +854,7 @@ export async function classifyGarment(req: Request, res: Response) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       trace.setOutcomeCode("MISSING_API_KEY");
-      return res.status(500).json({ error: "missing_gemini_api_key" });
+      return res.status(500).json({ error: "missing_gemini_api_key", code: "PROVIDER_UNAVAILABLE" });
     }
 
     // Build the Gemini request parts
@@ -929,6 +929,7 @@ export async function classifyGarment(req: Request, res: Response) {
       trace.setOutcomeCode("CONTENT_GUARDRAIL");
       return res.status(422).json({
         error: "content_guardrail",
+        code: "UNREADABLE_PHOTO",
         ...("reason" in result && result.reason ? { reason: result.reason } : {}),
       });
     }
@@ -961,7 +962,7 @@ export async function classifyGarment(req: Request, res: Response) {
         route: "/api/classify-garment",
         requestId: trace.requestId,
       });
-      return res.status(502).json({ error: "classifier_upstream_failure", code: "MODEL_NOT_FOUND" });
+      return res.status(502).json({ error: "classifier_upstream_failure", code: "PROVIDER_UNAVAILABLE" });
     }
     if (isTimeout) {
       trace.setOutcomeCode("REQUEST_TIMEOUT");
@@ -974,7 +975,7 @@ export async function classifyGarment(req: Request, res: Response) {
         route: "/api/classify-garment",
         requestId: trace.requestId,
       });
-      return res.status(504).json({ error: "classifier_timeout" });
+      return res.status(504).json({ error: "classifier_timeout", code: "PROVIDER_TIMEOUT" });
     }
     if (status === 429) {
       trace.setOutcomeCode("RATE_LIMITED");
@@ -987,7 +988,7 @@ export async function classifyGarment(req: Request, res: Response) {
         route: "/api/classify-garment",
         requestId: trace.requestId,
       });
-      return res.status(429).json({ error: "rate_limited" });
+      return res.status(429).json({ error: "rate_limited", code: "PROVIDER_QUOTA" });
     }
     if (status >= 500 && status <= 599) {
       trace.setOutcomeCode("EXTERNAL_DEPENDENCY_ERROR");
@@ -1000,11 +1001,11 @@ export async function classifyGarment(req: Request, res: Response) {
         route: "/api/classify-garment",
         requestId: trace.requestId,
       });
-      return res.status(502).json({ error: "classifier_upstream_failure" });
+      return res.status(502).json({ error: "classifier_upstream_failure", code: "PROVIDER_UNAVAILABLE" });
     }
     if (status >= 400 && status <= 499) {
       trace.setOutcomeCode("PROVIDER_HTTP_ERROR");
-      return res.status(502).json({ error: "classifier_upstream_failure", code: "PROVIDER_HTTP_ERROR" });
+      return res.status(502).json({ error: "classifier_upstream_failure", code: "PROVIDER_UNAVAILABLE" });
     }
     if (isNetwork) {
       trace.setOutcomeCode("NETWORK_ERROR");
@@ -1016,7 +1017,7 @@ export async function classifyGarment(req: Request, res: Response) {
         route: "/api/classify-garment",
         requestId: trace.requestId,
       });
-      return res.status(503).json({ error: "classifier_network_failure" });
+      return res.status(503).json({ error: "classifier_network_failure", code: "PROVIDER_UNAVAILABLE" });
     }
     trace.setOutcomeCode("INTERNAL_ERROR");
     reportError(new Error("Unexpected classifier failure"), "classifier_request", {

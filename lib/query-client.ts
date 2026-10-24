@@ -13,11 +13,20 @@ export class ApiRequestError extends Error {
     message: string,
     public readonly kind: ApiErrorKind,
     public readonly status?: number,
+    public readonly code?: string,
+    public readonly retryAfter?: number,
   ) {
     super(message);
     this.name = "ApiRequestError";
   }
 }
+
+type AuthClient = {
+  getSession(): Promise<{ data: { session: { access_token?: string } | null } }>;
+  refreshSession(): Promise<{ data: { session: { access_token?: string } | null }; error?: unknown }>;
+};
+
+export const _testOverrides: { auth?: AuthClient; fetch?: typeof fetch } = {};
 
 async function withDeadline<T>(
   operation: (signal: AbortSignal) => Promise<T>,
@@ -65,10 +74,27 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = await res.text();
     const detail = text || res.statusText || "Request failed.";
+    let code: string | undefined;
+    let retryAfter: number | undefined;
+    try {
+      const body = JSON.parse(text) as { code?: unknown; retryAfter?: unknown };
+      if (typeof body?.code === "string") code = body.code;
+      if (typeof body?.retryAfter === "number" && Number.isFinite(body.retryAfter)) {
+        retryAfter = Math.max(1, Math.ceil(body.retryAfter));
+      }
+    } catch {
+      // Keep the original response text as the error message when it is not JSON.
+    }
+    if (retryAfter === undefined) {
+      const header = Number(res.headers.get("Retry-After"));
+      if (Number.isFinite(header) && header > 0) retryAfter = Math.ceil(header);
+    }
     throw new ApiRequestError(
       `${res.status}: ${detail}`,
       res.status >= 500 ? "server" : "client",
       res.status,
+      code,
+      retryAfter,
     );
   }
 }
@@ -112,32 +138,45 @@ export async function authenticatedApiRequest(
   route: string,
   data?: unknown,
 ): Promise<Response> {
-  let token: string | null = null;
-
+  const isClassificationRoute = route === "/api/classify-garment" || route === "/api/classify-garments";
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
   return withDeadline(async (signal) => {
+    let token: string | null = null;
+    let auth: AuthClient | undefined;
     try {
-      const { supabase } = await import("./supabase");
-      const { data: { session } } = await supabase.auth.getSession();
+      auth = _testOverrides.auth ?? (await import("./supabase")).supabase.auth;
+      const { data: { session } } = await auth.getSession();
       token = session?.access_token ?? null;
     } catch (error) {
       // If supabase is unavailable (e.g. test environment), proceed without token.
       if (error instanceof ApiRequestError) throw error;
     }
-    const headers: Record<string, string> = {};
-    if (data) headers["Content-Type"] = "application/json";
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    const res = await fetch(url.toString(), {
-      method,
-      headers,
-      body: data ? JSON.stringify(data) : undefined,
-      credentials: "include",
-      signal,
-    });
+    const send = (accessToken: string | null) => {
+      const headers: Record<string, string> = {};
+      if (data) headers["Content-Type"] = "application/json";
+      if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+      return (_testOverrides.fetch ?? fetch)(url.toString(), {
+        method,
+        headers,
+        body: data ? JSON.stringify(data) : undefined,
+        credentials: "include",
+        signal,
+      });
+    };
+    let res = await send(token);
+    if (isClassificationRoute && res.status === 401 && auth) {
+      try {
+        const refreshed = await auth.refreshSession();
+        const refreshedToken = refreshed.error ? null : refreshed.data.session?.access_token ?? null;
+        if (refreshedToken) res = await send(refreshedToken);
+      } catch {
+        // The original 401 remains authoritative if the session cannot refresh.
+      }
+    }
     await throwIfResNotOk(res);
     return res;
-  }, route === "/api/classify-garment" || route === "/api/classify-garments"
+  }, isClassificationRoute
     ? CLASSIFICATION_REQUEST_TIMEOUT_MS : API_REQUEST_TIMEOUT_MS);
 }
 

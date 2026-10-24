@@ -229,8 +229,9 @@ export function makeLimiterHandler() {
     const info = (req as any).rateLimit;
     const resetMs = info?.resetTime instanceof Date ? info.resetTime.getTime() - Date.now() : 0;
     const retryAfter = Math.max(1, Math.ceil(resetMs / 1000));
+    const isClassificationRoute = req.path === "/api/classify-garment" || req.path === "/api/classify-garments";
     res.setHeader("Retry-After", retryAfter);
-    res.status(429).json({ error: "rate_limit", retryAfter });
+    res.status(429).json({ error: "rate_limit", ...(isClassificationRoute ? { code: "APP_RATE_LIMIT" } : {}), retryAfter });
   };
 }
 

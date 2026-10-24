@@ -184,7 +184,7 @@ export async function classifyMultiItem(req: Request, res: Response): Promise<vo
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     trace.setOutcomeCode("MISSING_API_KEY");
-    res.status(500).json({ error: "classifier_unavailable" });
+    res.status(500).json({ error: "classifier_unavailable", code: "PROVIDER_UNAVAILABLE" });
     return;
   }
   try {
@@ -226,12 +226,12 @@ export async function classifyMultiItem(req: Request, res: Response): Promise<vo
     });
     if (run.decision.kind === "malformed_json") {
       trace.setOutcomeCode("MALFORMED_RESPONSE");
-      res.status(502).json({ error: "classifier_malformed_response" });
+      res.status(502).json({ error: "classifier_malformed_response", code: "MALFORMED_RESPONSE" });
       return;
     }
     if (run.decision.kind === "invalid" || run.decision.kind === "refused") {
       trace.setOutcomeCode("MULTI_ITEM_INVALID");
-      res.status(422).json({ error: "multi_item_invalid" });
+      res.status(422).json({ error: "multi_item_invalid", code: "UNREADABLE_PHOTO" });
       return;
     }
     trace.setOutcomeCode("OK");
@@ -266,6 +266,13 @@ export async function classifyMultiItem(req: Request, res: Response): Promise<vo
         ? "PROVIDER_AUTH_ERROR"
         : "CLASSIFICATION_FAILED");
     }
-    res.status(status).json({ error: code });
+      const stableCode = providerStatus === 429
+        ? "PROVIDER_QUOTA"
+        : errorCode === "ECONNABORTED" || errorCode === "ETIMEDOUT"
+          ? "PROVIDER_TIMEOUT"
+          : providerStatus === 404 || providerStatus >= 500 || status === 503 || status === 502
+            ? "PROVIDER_UNAVAILABLE"
+            : undefined;
+      res.status(status).json({ error: code, ...(stableCode ? { code: stableCode } : {}) });
   }
 }

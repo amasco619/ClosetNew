@@ -46,15 +46,18 @@ export async function setAiProcessingState(
 export async function requireAiProcessingConsent(
   req: Request, res: Response, next: NextFunction,
 ): Promise<void> {
+  const isClassificationRoute = req.path === "/api/classify-garment" || req.path === "/api/classify-garments";
+  const authCode = isClassificationRoute ? { code: "AUTH_REQUIRED" } : {};
+  const consentCode = isClassificationRoute ? { code: "CONSENT_REQUIRED" } : {};
   const userId = (req as Request & { authenticatedUser?: { id: string } })
     .authenticatedUser?.id;
   if (!userId) {
-    res.status(401).json({ error: "authentication_required" });
+    res.status(401).json({ error: "authentication_required", ...authCode });
     return;
   }
   try {
     if (await getAiProcessingState(userId) !== "allowed") {
-      res.status(403).json({ error: "ai_processing_consent_required" });
+      res.status(403).json({ error: "ai_processing_consent_required", ...consentCode });
       return;
     }
     next();
