@@ -87,6 +87,9 @@ export interface WeatherSnapshot {
 export interface WardrobeItem {
   id: string;
   photoUri: string;
+  /** Local guest photo metadata only; never persisted to the wardrobe DB. */
+  localPhotoDimensions?: { width: number; height: number };
+  guestSyncNeedsManualRetry?: boolean;
   category: ItemCategory;
   subType: string;
   colorFamily: string;

@@ -21,3 +21,11 @@ description: How AuraCloset handles unauthenticated guest users — caps, routin
 **Why:** The user specified that established accounts must not be overwritten by guest data, while truly blank new accounts may absorb saved guest data.
 
 **How to apply:** Decide from the signed-in server profile and exact wardrobe count before any guest claim/profile write. Keep guest photo selection and manual saves local; never infer AI consent from signup or transfer guest data into an existing account.
+
+## Interrupted guest transfers
+
+One surviving preparation marker permits one automatic retry; a second consecutive interruption pauses that photo for manual retry. Reconcile confirmed account rows first. Caught offline/HTTP failures are not crashes, and manual retry resets the interruption count. A guest photo retained after save-time preparation failure must start in the manual retry state rather than automatic preparation.
+
+**Why:** The user specified this policy to prevent repeated Android process-kill loops while still allowing one interruption caused by simply closing the app.
+
+**How to apply:** Preserve original local photos and the existing owner-bound absorb/discard rules; interruption protection must never turn a failed transfer into data loss.

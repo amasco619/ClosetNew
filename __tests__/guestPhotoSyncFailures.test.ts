@@ -85,6 +85,8 @@ async function main() {
       assert.equal(saved().lastUploadFailure?.status, status);
       assert.equal(saved().lastUploadFailure?.code, `HTTP_${status}`);
       assert.equal(saved().uploadError, undefined);
+      assert.equal(saved().consecutiveCrashCount, 0);
+      assert.equal(saved().preparationInFlight, undefined, 'caught HTTP errors clear the marker');
     }
     for (const error of [
       new Error('Network request failed'),
@@ -97,6 +99,8 @@ async function main() {
       assert.equal(saved().unrecognizedFailureCount, 0, 'airplane-mode/DNS failures never count');
       assert.equal(saved().uploadError, undefined, 'offline is never marked permanent or manual-only');
       assert.equal(saved().lastUploadFailure?.code, 'NETWORK_OFFLINE');
+      assert.equal(saved().consecutiveCrashCount, 0);
+      assert.equal(saved().preparationInFlight, undefined, 'offline is a caught failure, not a survived marker');
     }
     hangDuringSignedUrl = true;
     await migration.sync('synthetic-owner', () => true);

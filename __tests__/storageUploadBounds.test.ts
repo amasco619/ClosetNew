@@ -62,6 +62,8 @@ async function main() {
   };
   Object.assign(globalThis, { __storageUploadBounds: fixture });
   const mocks: Record<string, string> = {
+    'react-native': `const f=globalThis.__storageUploadBounds;
+      export const Image={getSize:async()=>({width:f.width,height:f.height})};`,
     './supabase': `const f=globalThis.__storageUploadBounds;
       export const supabase={storage:{from:bucket=>({
         upload:async(path,body,options)=>{f.uploads.push({bucket,path,bytes:body.byteLength,options});return {error:f.error};},
@@ -79,10 +81,12 @@ async function main() {
         return {release(){},resize(size){
           f.resizes.push(size); const scale=(size.width??size.height)/(size.width?width:height);
           width=Math.round(width*scale);height=Math.round(height*scale);
-        },renderAsync:async()=>({width,height,release(){},saveAsync:async options=>{
+        },renderAsync:async()=>{
+          if(Math.max(width,height)>1600)throw Error('unresized source render');
+          return {width,height,release(){},saveAsync:async options=>{
           f.encodes.push({uri,...options});
           return {uri:'file:///cache/output',base64:f.output,width,height};
-        }})};
+        }};}};
       }};`,
   };
   const bundled = await build({
@@ -199,7 +203,8 @@ async function main() {
   for (const file of ['app/bulk-review.tsx', 'app/multi-item-review.tsx']) {
     assert.match(readFileSync(file, 'utf8'), /uploadWardrobeImage\([\s\S]*?sourceUri/);
   }
-  assert.match(readFileSync('lib/guestWardrobeSync.ts', 'utf8'), /prepareStorageUploadImage\('',[\s\S]*?image\/jpeg', uri/);
+  assert.match(readFileSync('lib/guestWardrobeSync.ts', 'utf8'),
+    /prepareStorageUploadImage\(\s*'',[\s\S]*?image\/jpeg', uri, entry.item.localPhotoDimensions/);
   assert.match(readFileSync('app/(tabs)/wardrobe.tsx', 'utf8'), /Retry failed uploads/);
   console.log('Storage bounds: helper, all six upload paths, PNG transparency, exact byte cap, permanent rejection and manual retry proofs passed.');
 }

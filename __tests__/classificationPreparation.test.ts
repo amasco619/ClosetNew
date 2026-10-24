@@ -17,9 +17,13 @@ async function main() {
     plugins: [{
       name: 'native-image-boundary',
       setup(builder) {
+        builder.onResolve({ filter: /^react-native$/ }, () => ({ path: 'metadata', namespace: 'mock' }));
         builder.onResolve({ filter: /^expo-image-manipulator$/ }, () => ({ path: 'native', namespace: 'mock' }));
-        builder.onLoad({ filter: /.*/, namespace: 'mock' }, () => ({
-          contents: `
+        builder.onLoad({ filter: /.*/, namespace: 'mock' }, args => ({
+          contents: args.path === 'metadata' ? `
+            const s=globalThis.__classificationPrepNative;
+            exports.Image={getSize:async()=>({width:s.width,height:s.height})};
+          ` : `
             const s=globalThis.__classificationPrepNative;
             exports.SaveFormat={JPEG:'jpeg'};
             exports.ImageManipulator={manipulate(uri) {
@@ -28,10 +32,11 @@ async function main() {
                 resize(size) { axis=size; s.actions.push(size); return this; },
                 async renderAsync() {
                   renders++;
-                  if(s.fail==='decode'||(s.fail==='resize'&&renders===2))throw Error(s.fail);
+                  if(Math.max(s.width,s.height)>1024&&!axis)throw Error('unresized source render');
+                  if(s.fail==='decode'||(s.fail==='resize'&&axis))throw Error(s.fail);
                   const scale=axis ? (axis.width||axis.height)/Math.max(s.width,s.height) : 1;
                   const width=Math.round(s.width*scale),height=Math.round(s.height*scale);
-                  const label=renders===1?'source':'resized';
+                  const label=axis?'resized':'source';
                   return {
                     width,height,
                     async saveAsync(options) {
@@ -79,7 +84,7 @@ async function main() {
     assert.deepEqual(classificationImagePayload(single.base64!), classificationImagePayload(bulk.base64!));
     assert.deepEqual(state.options, [{ compress: 0.8, format: 'jpeg', base64: true }], 'one final encoding');
     assert.deepEqual(state.releases.sort(), expectedAxis
-      ? ['context', 'resized', 'source'] : ['context', 'source']);
+      ? ['context', 'resized'] : ['context', 'source']);
   }
   // Exercise the actual bulk controller's payload selection against the single-entry contract.
   state.width = 3000; state.height = 4000;
@@ -109,8 +114,8 @@ async function main() {
     reset(); state.width = fail === 'invalid-dimensions' ? 0 : 3000;
     state.fail = fail; state.missingBase64 = fail === 'missing-data';
     await assert.rejects(prepareClassificationImage('file:///photo.jpg'));
-    assert.equal(state.releases.filter(value => value === 'context').length, 1);
-    if (fail !== 'decode') assert.equal(state.releases.filter(value => value === 'source').length, 1);
+    assert.equal(state.releases.filter(value => value === 'context').length, fail === 'invalid-dimensions' ? 0 : 1);
+    assert.equal(state.releases.filter(value => value === 'source').length, 0, 'no full-source ImageRef is materialised');
     if (fail === 'save' || fail === 'missing-data') assert(state.releases.includes('resized'));
   }
   const singleSource = readFileSync('app/add-item.tsx', 'utf8');

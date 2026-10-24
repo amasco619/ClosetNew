@@ -26,6 +26,8 @@ export type GuestMigrationEntry = {
   uploadAttemptCount?: number;
   unrecognizedFailureCount?: number;
   lastUploadFailure?: GuestSyncFailureDiagnostic;
+  preparationInFlight?: boolean;
+  consecutiveCrashCount?: number;
 };
 export type GuestDataDisposition = 'absorb' | 'discard';
 export type GuestMigrationDecision = {
@@ -171,6 +173,9 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
           ownerId, item: { ...item },
           migrationId: uuid.test(item.id) ? item.id : deps.newId(),
           synced: false, announced: false,
+          ...(item.guestSyncNeedsManualRetry ? {
+            uploadError: 'This photo could not be safely prepared. Your local photo is safe; tap Retry failed uploads to try again.',
+          } : {}),
         });
       }
     }),
@@ -223,13 +228,28 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
         if (!entries.length) return { pending: 0, capacity: false, failed: 0 };
         const snapshot = await bounded(deps.snapshot(ownerId, entries));
         check();
+        const confirmedIds = new Set(snapshot.confirmedIds);
+        for (const entry of entries) {
+          check();
+          if (confirmedIds.has(entry.migrationId)) {
+            // A committed row wins over a surviving marker (lost insert response).
+            await update(entry, { synced: true, preparationInFlight: undefined, consecutiveCrashCount: 0, uploadError: undefined });
+            entry.synced = true;
+            await deps.confirmed(entry);
+          } else if (entry.preparationInFlight) {
+            const consecutiveCrashCount = (entry.consecutiveCrashCount ?? 0) + 1;
+            const patch = {
+              preparationInFlight: undefined, consecutiveCrashCount,
+              uploadError: consecutiveCrashCount >= 2
+                ? 'Photo preparation was interrupted twice. Your local photo is safe; tap Retry failed uploads to try again.'
+                : undefined,
+            };
+            await update(entry, patch);
+            Object.assign(entry, patch);
+          }
+        }
         const plan = planGuestMigration(entries, ownerId, snapshot);
         capacity = plan.retained.length > 0;
-        for (const entry of plan.confirmed) {
-          check();
-          await update(entry, { synced: true });
-          await deps.confirmed(entry);
-        }
         const prepared: GuestMigrationEntry[] = [];
         for (const entry of plan.transfer) {
           check();
@@ -238,6 +258,9 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
           try {
             let storagePath = entry.storagePath;
             if (!storagePath) {
+              // Persist before native work: an OS kill cannot run a JS catch/finally.
+              await update(entry, { preparationInFlight: true });
+              check();
               // Decode/resize/encode locally before starting the network clock.
               const boundedBase64 = await deps.prepare(ownerId, entry);
               check();
@@ -248,9 +271,13 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
             await update(entry, {
               storagePath, uploadAttemptCount: 0, unrecognizedFailureCount: 0,
               lastUploadFailure: undefined, uploadError: undefined,
+              preparationInFlight: undefined, consecutiveCrashCount: 0,
             });
             prepared.push({ ...entry, storagePath });
           } catch (error) {
+            if (!isCurrent()) {
+              await update(entry, { preparationInFlight: undefined, consecutiveCrashCount: 0 });
+            }
             check(); // One bad/missing file must not discard the rest of the batch.
             const kind = storageUploadFailureKind(error);
             const offline = isNetworkOfflineFailure(error);
@@ -273,6 +300,7 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
             console.warn(`[guest-sync] Photo transfer failed ${JSON.stringify(diagnostic)}`);
             await update(entry, {
               uploadAttemptCount: attemptCount, unrecognizedFailureCount, lastUploadFailure: diagnostic,
+              preparationInFlight: undefined, consecutiveCrashCount: 0,
               uploadError: kind ? storageUploadFailureMessage(error)
                 : !offline && unrecognizedFailureCount >= GUEST_SYNC_UNKNOWN_FAILURE_LIMIT
                   ? 'Upload did not complete after 3 attempts. Your local photo is safe; tap Retry failed uploads to try again.'
@@ -311,6 +339,9 @@ export function createGuestWardrobeMigration(deps: GuestMigrationDeps) {
           delete entry.uploadError;
           entry.uploadAttemptCount = 0;
           entry.unrecognizedFailureCount = 0;
+          entry.consecutiveCrashCount = 0;
+          delete entry.preparationInFlight;
+          delete entry.item.guestSyncNeedsManualRetry;
         }
       }
     }),

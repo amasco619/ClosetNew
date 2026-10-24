@@ -21,7 +21,8 @@ import { classificationImagePayload } from '@/lib/classifyPath';
 import { prepareClassificationImage } from '@/lib/prepareClassificationImage';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system/legacy';
-import { buildGuestPhotoDestPath, getGuestPhotoRelativePath } from '../constants/guestPhotoCleanup';
+import { getGuestPhotoRelativePath } from '../constants/guestPhotoCleanup';
+import { saveGuestPhoto } from '@/lib/saveGuestPhoto';
 import { uploadWardrobeImage, deleteWardrobeImage } from '../lib/storage';
 import { supabase } from '../lib/supabase';
 import { rebaseGuestPhotoUri } from '../lib/rebaseGuestPhotoUri';
@@ -1039,6 +1040,7 @@ export default function AddItemScreen() {
       const itemId = Crypto.randomUUID();
       let finalUri = photoUri;
       let finalStoragePath: string | undefined;
+      let guestPhotoMetadata: Pick<WardrobeItem, 'localPhotoDimensions' | 'guestSyncNeedsManualRetry'> = {};
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user || !isGuest) {
         if (!session?.user || !photoUri) {
@@ -1100,32 +1102,23 @@ export default function AddItemScreen() {
           finalStoragePath = _sp;
           uploadedPhoto = { userId: session.user.id, itemId, storagePath: _sp };
       } else {
-        // Guest user — copy the photo from the temp cache to the document directory
-        // so the thumbnail survives an app restart (temp files are purged by the OS).
-        // buildGuestPhotoDestPath produces a path under documentDirectory so that
-        // the deleteGuestPhoto cleanup guard (startsWith check) will always match.
-        const ext = photoBgRemoved ? 'png' : 'jpg';
-        const dest = buildGuestPhotoDestPath(FileSystem.documentDirectory!, itemId, ext);
-        try {
-          await FileSystem.copyAsync({ from: photoUri, to: dest });
-          finalUri = dest;
-        } catch {
-          const original = currentPhotoUriRef.current ?? stagedSourceUriRef.current;
-          if (!photoBgRemoved || !original || original === photoUri) {
-            reportUploadError({ stage: 'save', code: 'FAILED' });
-            throw new Error('Could not save photo to device storage — please try again.');
-          }
-          reportUploadError({ stage: 'cutout-write', code: 'CACHE_UNAVAILABLE' });
-          const fallbackDest = buildGuestPhotoDestPath(FileSystem.documentDirectory!, itemId, 'jpg');
-          await FileSystem.copyAsync({ from: original, to: fallbackDest });
-          finalUri = fallbackDest;
-        }
+        const saved = await saveGuestPhoto(
+          photoUri, itemId, photoBgRemoved ? 'image/png' : 'image/jpeg',
+          photoWidth > 0 && photoHeight > 0 ? { width: photoWidth, height: photoHeight } : undefined,
+          currentPhotoUriRef.current ?? stagedSourceUriRef.current ?? undefined,
+        );
+        finalUri = saved.photoUri;
+        guestPhotoMetadata = {
+          localPhotoDimensions: saved.localPhotoDimensions,
+          guestSyncNeedsManualRetry: saved.guestSyncNeedsManualRetry,
+        };
       }
       if (uploadedPhoto && !saveMountedRef.current) throw new Error('Save cancelled before wardrobe persistence.');
       setSaveStage('saving');
       const wardrobeItem: Omit<WardrobeItem, 'id' | 'createdAt'> = {
         photoUri: finalUri,
         storagePath: finalStoragePath,
+        ...guestPhotoMetadata,
         category,
         subType,
         colorFamily,

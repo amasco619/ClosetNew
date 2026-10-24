@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { stripDataUriPrefix } from './uploadArg';
+import { readImageDimensions, type ImageDimensions } from './imageDimensions';
 import {
   MAX_STORAGE_IMAGE_EDGE,
   PermanentStorageUploadError,
@@ -14,6 +15,7 @@ export async function prepareStorageUploadImage(
   base64: string,
   mimeType: StorageImageMimeType,
   sourceUri?: string,
+  sourceDimensions?: ImageDimensions,
 ): Promise<string> {
   const inputBase64 = stripDataUriPrefix(base64);
   let temporaryUri: string | undefined;
@@ -29,18 +31,7 @@ export async function prepareStorageUploadImage(
     if (temporaryUri) await FileSystem.writeAsStringAsync(temporaryUri, inputBase64, {
       encoding: FileSystem.EncodingType.Base64,
     });
-    const sourceContext = ImageManipulator.manipulate(uri);
-    let source: Awaited<ReturnType<typeof sourceContext.renderAsync>> | undefined;
-    let width: number;
-    let height: number;
-    try {
-      source = await sourceContext.renderAsync();
-      width = source.width;
-      height = source.height;
-    } finally {
-      source?.release();
-      sourceContext.release();
-    }
+    const { width, height } = await readImageDimensions(uri, sourceDimensions);
     const resize = Math.max(width, height) > MAX_STORAGE_IMAGE_EDGE
       ? width >= height ? { width: MAX_STORAGE_IMAGE_EDGE } : { height: MAX_STORAGE_IMAGE_EDGE }
       : undefined;
