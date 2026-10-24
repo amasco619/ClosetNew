@@ -8,6 +8,11 @@ import { hydrateAccountProfile, mergeProfile, profileConstraints } from '../shar
 async function main() {
   const store = new Map<string, string>();
   let region: string | null = 'GB', gps = true, offline = false;
+  let hangLastGps = false, noLastGps = false, hangCurrentGps = false;
+  let hangIp = false, hangIpJson = false;
+  let hangForecast = false, hangForecastJson = false;
+  let timeoutsToFire = 0;
+  let abortedRequests = 0;
   const requests: string[] = [];
   const mocks = {
     '@react-native-async-storage/async-storage': {
@@ -16,8 +21,16 @@ async function main() {
       removeItem: async (key: string) => { store.delete(key); },
     },
     'expo-location': {
+      Accuracy: { Lowest: 1 },
       getForegroundPermissionsAsync: async () => ({ granted: gps, canAskAgain: false }),
-      getLastKnownPositionAsync: async () => ({ coords: { latitude: 51.5, longitude: -0.1 } }),
+      getLastKnownPositionAsync: async () => hangLastGps
+        ? new Promise(() => {})
+        : noLastGps
+        ? null
+        : ({ coords: { latitude: 51.5, longitude: -0.1 } }),
+      getCurrentPositionAsync: async () => hangCurrentGps
+        ? new Promise(() => {})
+        : ({ coords: { latitude: 51.5, longitude: -0.1 } }),
     },
     'expo-localization': { getLocales: () => [{ regionCode: region }] },
   };
@@ -34,8 +47,21 @@ async function main() {
     }],
   });
   const module = { exports: {} };
-  const fetchFixture = async (url: string) => {
+  const fetchFixture = async (url: string, init?: { signal?: AbortSignal }) => {
     requests.push(url);
+    const hangsOnBody = (url.includes('ipapi.co') && hangIpJson) ||
+      (url.includes('open-meteo') && hangForecastJson);
+    if ((url.includes('ipapi.co') && hangIp) || (url.includes('open-meteo') && hangForecast)) {
+      init?.signal?.addEventListener('abort', () => { abortedRequests++; });
+      return new Promise(() => {});
+    }
+    if (hangsOnBody) {
+      init?.signal?.addEventListener('abort', () => { abortedRequests++; });
+      return {
+        ok: true,
+        json: async () => new Promise(() => {}),
+      };
+    }
     if (url.includes('ipapi.co')) return {
       ok: true, json: async () => ({ latitude: 51.5, longitude: -0.1, city: 'London', country_code: 'GB' }),
     };
@@ -46,9 +72,18 @@ async function main() {
       daily: { temperature_2m_max: [24], temperature_2m_min: [12], precipitation_probability_max: [10] },
     }) };
   };
-  new Function('module', 'exports', '__mocks', 'fetch', 'Intl', bundle.outputFiles[0].text)(
+  const setTimeoutFixture = (callback: (...args: any[]) => void, delay?: number) => {
+    const hangingRequest = (hangLastGps || hangCurrentGps || hangIp || hangIpJson || hangForecast || hangForecastJson);
+    if (delay === 8_000 && hangingRequest && timeoutsToFire > 0) {
+      timeoutsToFire--;
+      queueMicrotask(() => callback());
+    }
+    return 1 as any;
+  };
+  new Function('module', 'exports', '__mocks', 'fetch', 'Intl', 'setTimeout', 'clearTimeout', bundle.outputFiles[0].text)(
     module, module.exports, mocks, fetchFixture,
     { DateTimeFormat: () => ({ resolvedOptions: () => ({ locale: 'en-US' }) }) },
+    setTimeoutFixture, () => {},
   );
   const weather = module.exports as typeof import('../constants/weather');
   const effectiveUnit = (profile: { tempUnit?: TempUnit | null }) => profile.tempUnit ?? weather.defaultTempUnit();
@@ -99,8 +134,56 @@ async function main() {
   }
   offline = true;
   assert.equal(await weather.loadWeather(true), null, 'unavailable forecast stays absent, never fabricates or converts fallback data');
+  offline = false;
+
+  gps = true;
+  hangLastGps = true;
+  timeoutsToFire = 1;
+  const gpsTimeoutResult = await weather.loadWeather(true);
+  assert.equal(gpsTimeoutResult?.source, 'ip', 'a stalled GPS lookup times out and falls back to IP location');
+  assert.equal(timeoutsToFire, 0);
+  hangLastGps = false;
+
+  noLastGps = true;
+  hangCurrentGps = true;
+  timeoutsToFire = 1;
+  const currentGpsTimeoutResult = await weather.loadWeather(true);
+  assert.equal(currentGpsTimeoutResult?.source, 'ip', 'a stalled current-position request also falls back to IP');
+  assert.equal(timeoutsToFire, 0);
+  noLastGps = false;
+  hangCurrentGps = false;
+
+  gps = false;
+  hangIp = true;
+  timeoutsToFire = 1;
+  const ipTimeoutResult = await weather.loadWeather(true);
+  assert.equal(ipTimeoutResult, null, 'a stalled IP geolocation request resolves as unavailable');
+  assert.equal(abortedRequests, 1, 'timed-out IP fetch is aborted');
+  hangIp = false;
+
+  hangIpJson = true;
+  timeoutsToFire = 1;
+  assert.equal(await weather.loadWeather(true), null, 'a stalled IP response body also times out');
+  assert.equal(abortedRequests, 2, 'timed-out IP response body is aborted');
+  hangIpJson = false;
+
+  gps = true;
+  hangForecast = true;
+  timeoutsToFire = 1;
+  const forecastTimeoutResult = await weather.loadWeather(true);
+  assert.equal(forecastTimeoutResult, null, 'a stalled forecast resolves as unavailable');
+  assert.equal(abortedRequests, 3, 'timed-out forecast fetch is aborted');
+  hangForecast = false;
+
+  hangForecastJson = true;
+  timeoutsToFire = 1;
+  assert.equal(await weather.loadWeather(true), null, 'a stalled forecast response body also times out');
+  assert.equal(abortedRequests, 4, 'timed-out forecast response body is aborted');
+  hangForecastJson = false;
+  const weatherSource = readFileSync('constants/weather.ts', 'utf8');
+  assert.match(weatherSource, /const REQUEST_TIMEOUT_MS = 8_000/);
   assert.equal(formatTemp(-40, 'C'), '-40°C');
   assert.equal(formatTemp(-40, 'F'), '-40°F');
-  console.log('Global Celsius default, explicit choices, UK/US/unknown locale, GPS/IP forecasts and cached one-time display conversion passed');
+  console.log('Global Celsius default, explicit choices, UK/US/unknown locale, GPS/IP forecasts, cache and GPS/IP/forecast timeouts passed');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

@@ -353,6 +353,8 @@ export default function AddItemScreen() {
   const [showAiConsent, setShowAiConsent] = useState(false);
   const [savingAiPreference, setSavingAiPreference] = useState(false);
   const [aiPreferenceError, setAiPreferenceError] = useState<string | null>(null);
+  const [retryingClassification, setRetryingClassification] = useState(false);
+  const retryingClassificationRef = useRef(false);
   const [pendingAiAsset, setPendingAiAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const saveInFlightRef = useRef(false);
   const saveMountedRef = useRef(true);
@@ -797,14 +799,20 @@ export default function AddItemScreen() {
             if (preference !== 'allowed') {
               setPendingAiAsset(asset);
               if (preference === 'not_asked') setShowAiConsent(true);
+              setRetryingClassification(false);
+              retryingClassificationRef.current = false;
               return;
             }
           } catch {
             setPendingAiAsset(asset);
             setAiPreferenceError('Your AI preference could not be checked. This photo has not been sent.');
+            setRetryingClassification(false);
+            retryingClassificationRef.current = false;
             return;
           }
         }
+        setRetryingClassification(false);
+        retryingClassificationRef.current = false;
         setClassifying(true);
         setPhotoPrepareDiagnostic(null);
         const prepareStartedAt = diagnosticNow();
@@ -1005,6 +1013,20 @@ export default function AddItemScreen() {
       }
     } catch {
       setAiPreferenceError('Your AI preference could not be checked. This photo has not been sent.');
+    }
+  };
+
+  const retryClassification = async () => {
+    const asset = retryPhotoRef.current;
+    if (!asset || retryingClassificationRef.current) return;
+    retryingClassificationRef.current = true;
+    setRetryingClassification(true);
+    setAiPreferenceError(null);
+    try {
+      await pickImage(false, asset);
+    } finally {
+      retryingClassificationRef.current = false;
+      setRetryingClassification(false);
     }
   };
 
@@ -1392,14 +1414,14 @@ export default function AddItemScreen() {
               <View style={styles.aiPausedCard}>
                 <Text style={styles.aiPausedTitle}>{analysisFailure.title}</Text>
                 <Text style={styles.aiPausedCopy}>{analysisFailure.hint}</Text>
-                <Pressable accessibilityRole="button" onPress={() => {
+                <Pressable accessibilityRole="button" disabled={retryingClassification} onPress={() => {
                   if (analysisFailure.kind === 'session') {
                     router.push('/sign-in');
                   } else if (retryPhotoRef.current) {
-                    void pickImage(false, retryPhotoRef.current);
+                    void retryClassification();
                   }
-                }} style={styles.aiPausedAction}>
-                  <Text>{analysisFailure.action}</Text>
+                }} style={[styles.aiPausedAction, retryingClassification && { opacity: 0.55 }]}>
+                  <Text>{retryingClassification ? 'Checking AI preference…' : analysisFailure.action}</Text>
                 </Pressable>
                 <Pressable accessibilityRole="button" onPress={() => setAnalysisFailure(null)} style={styles.aiPausedAction}>
                   <Text>Add details manually</Text>
@@ -1407,7 +1429,7 @@ export default function AddItemScreen() {
               </View>
             )}
 
-            {photoUri && !replaceItemId && aiPreference !== 'allowed' && !classifying && manualOnly !== 'true' && (
+            {photoUri && !replaceItemId && (aiPreference !== 'allowed' || !!aiPreferenceError) && !classifying && manualOnly !== 'true' && (
               <View style={styles.aiPausedCard}>
                 <Text style={styles.aiPausedTitle}>AI processing is paused</Text>
                 <Text style={styles.aiPausedCopy}>
@@ -1484,10 +1506,10 @@ export default function AddItemScreen() {
             )}
 
             {/* Classifier status / description */}
-            {(classifying || classifyFlash !== 'none') ? (
+            {(classifying || retryingClassification || classifyFlash !== 'none') ? (
               <Animated.View style={[styles.classifyingCard, cardFadeStyle]}>
                 <View style={styles.classifyingRow}>
-                  {classifying ? (
+                  {classifying || retryingClassification ? (
                     <ActivityIndicator size="small" color={Colors.secondary} />
                   ) : classifyFlash === 'success' ? (
                     <Ionicons name="checkmark-circle" size={18} color={Colors.secondary} />
@@ -1495,7 +1517,9 @@ export default function AddItemScreen() {
                     <Ionicons name="alert-circle" size={18} color="#B94040" />
                   )}
                   <Text style={styles.classifyingText}>
-                    {classifying
+                    {retryingClassification
+                      ? 'Checking AI preference…'
+                      : classifying
                       ? 'Analysing photo…'
                       : classifyFlash === 'success'
                       ? 'Analysis complete'
@@ -1506,14 +1530,16 @@ export default function AddItemScreen() {
                   style={styles.classifyingTrack}
                   onLayout={e => { classifyingTrackWidth.value = e.nativeEvent.layout.width; }}
                 >
-                  {classifying ? (
+                  {classifying || retryingClassification ? (
                     <Animated.View style={[styles.classifyingFill, shimmerStyle]} />
                   ) : (
                     <Animated.View style={completionFillStyle} />
                   )}
                 </View>
                 <Text style={styles.classifyingHint}>
-                  {classifying
+                  {retryingClassification
+                    ? 'Your photo has not been sent'
+                    : classifying
                     ? 'Reading colour, fabric and style details'
                     : classifyFlash === 'success'
                     ? 'Details filled in below'

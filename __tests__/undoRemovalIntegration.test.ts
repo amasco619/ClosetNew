@@ -58,6 +58,7 @@ const appState = {
   pendingDbDelete: null as (() => void) | null,
   lastPagination: { total: 0, loaded: 0 },
   cachedItems: [] as Array<{ id: string; photoUri?: string }>,
+  suggestions: [] as Array<{ heroId?: string }>,
 };
 
 const deps = {
@@ -157,6 +158,11 @@ const deps = {
       ? itemsOrUpdater(appState.cachedItems)
       : itemsOrUpdater;
   },
+  setLastAddedSuggestions: (suggestionsOrUpdater: typeof appState.suggestions | ((suggestions: typeof appState.suggestions) => typeof appState.suggestions)) => {
+    appState.suggestions = typeof suggestionsOrUpdater === 'function'
+      ? suggestionsOrUpdater(appState.suggestions)
+      : suggestionsOrUpdater;
+  },
   setRecommendationSlots: () => undefined,
 };
 
@@ -200,6 +206,7 @@ function resetState(userId: string | null, items: Array<{ id: string; photoUri?:
   appState.holdDbDelete = null;
   appState.pendingDbDelete = null;
   appState.lastPagination = { total: items.length, loaded: items.length };
+  appState.suggestions = [];
   removeCalls.length = 0;
   storageCalls.length = 0;
   guestFileCalls.length = 0;
@@ -209,6 +216,7 @@ function resetState(userId: string | null, items: Array<{ id: string; photoUri?:
 
 async function testAuthenticatedCleanup(): Promise<void> {
   resetState('owner-a', [{ id: 'auth-1', photoUri: 'https://signed.example/auth-1' }]);
+  appState.suggestions = [{ heroId: 'auth-1' }];
   const done = await removeWardrobeItem('auth-1', undefined, 'owner-a');
 
   assert.equal(done, true);
@@ -222,6 +230,7 @@ async function testAuthenticatedCleanup(): Promise<void> {
   assert.deepEqual(appState.pendingCleanups, [], 'successful photo cleanup does not leave a retry record');
   assert.deepEqual(appState.photoReceipts, [], 'successful Storage removal acknowledges its durable receipt');
   assert.equal(appState.photoObjects.has('owner-a/auth-1-photo.png'), false);
+  assert.deepEqual(appState.suggestions, [], 'deleting the suggestion anchor clears its transient banner data');
   await removeWardrobeItem('auth-1', undefined, 'owner-a');
   assert.equal(storageCalls.length, 1, 'a missing row returns no receipt and cannot trigger another Storage deletion');
 }

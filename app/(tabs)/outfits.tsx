@@ -9,7 +9,7 @@ import { useApp, OutfitSet, OutfitComponent } from '@/contexts/AppContext';
 import { usesConfirmedCoordinatedSet } from '../../lib/stylingRelationships';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { OccasionTag, WearEntry, MoodGoal, ReactionType, WardrobeItem } from '@/constants/types';
 import * as Haptics from 'expo-haptics';
 import { captureRef } from 'react-native-view-shot';
@@ -24,6 +24,7 @@ import TravelPlanner from '../../components/TravelPlanner';
 import { CONCIERGE_OCCASIONS, conciergeReadiness, parseConciergeIntent, type ConciergeIntent } from '../../lib/concierge';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
+import { filterLastAddedSuggestions } from '../../lib/lastAddedSuggestions';
 
 const MOOD_OPTIONS: { id: MoodGoal; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
   { id: 'confident', label: 'Confident', icon: 'flash-outline' },
@@ -504,6 +505,10 @@ export default function OutfitsScreen() {
     missingDimensions,
     getItemWearCount,
   } = useApp();
+  const visibleLastAddedSuggestions = useMemo(() => filterLastAddedSuggestions(
+    lastAddedSuggestions,
+    new Set(wardrobeItems.map(item => item.id)),
+  ), [lastAddedSuggestions, wardrobeItems]);
   const [cpwToast, setCpwToast] = useState<{ text: string } | null>(null);
   const [wardrobeLoadFailureKey, setWardrobeLoadFailureKey] = useState<string | null>(null);
   const [loadedWardrobeKey, setLoadedWardrobeKey] = useState<string | null>(null);
@@ -1012,9 +1017,9 @@ export default function OutfitsScreen() {
         )}
 
         {/* Just-added banner */}
-        {!conciergePlan && lastAddedSuggestions.length > 0 && (
+        {!conciergePlan && visibleLastAddedSuggestions.length > 0 && (
           <JustAddedBanner
-            suggestions={lastAddedSuggestions}
+            suggestions={visibleLastAddedSuggestions}
             onDismiss={clearLastAddedSuggestions}
           />
         )}

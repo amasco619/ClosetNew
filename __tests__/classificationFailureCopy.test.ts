@@ -110,7 +110,10 @@ async function main() {
       continue; // Existing mounted notice/dialog assertions live in classifierRefusal.test.ts.
     }
     for (const [name, jsx, extra] of [
-      ['single', addJsx, { analysisFailure: singleFailure, retryPhotoRef, pickImage: noop, setAnalysisFailure: noop }],
+      ['single', addJsx, {
+        analysisFailure: singleFailure, retryPhotoRef, pickImage: noop, setAnalysisFailure: noop,
+        retryingClassification: false, retryClassification: noop,
+      }],
       ['bulk', bulkJsx, { isError: true, item: items[0], failure: items[0].failurePresentation, onRetry: noop }],
       ['multi', multiJsx, { phase, failure: multiFailure, error: countError, started: { current: true },
         setPhase: noop, setFailure: noop, setError: noop }],

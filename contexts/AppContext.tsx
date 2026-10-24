@@ -2187,6 +2187,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const remaining = currentItems.filter(loaded => loaded.id !== id);
         wardrobeItemsRef.current = remaining;
         setWardrobeItems(remaining);
+        setLastAddedSuggestions(prev => prev.some(suggestion => suggestion.heroId === id) ? [] : prev);
         const nextLoadedCount = Math.max(
           0,
           wardrobeLoadedCountRef.current - (currentItemWasLoaded ? 1 : 0),
@@ -2246,6 +2247,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           startupGenerationRef.current !== startupGeneration) return false;
       wardrobeItemsRef.current = remaining;
       setWardrobeItems(remaining);
+      setLastAddedSuggestions(prev => prev.some(suggestion => suggestion.heroId === id) ? [] : prev);
       updateWardrobePagination(
         Math.max(0, wardrobeTotalCountRef.current - 1),
         Math.max(0, wardrobeLoadedCountRef.current - 1),

@@ -90,7 +90,8 @@ function removalHarness(storage: any, options: {
     const getWardrobeItems = async () => ({ totalCount: 0, items: [] });
     const getFreeWardrobeSelection = async () => [];
     const persistFreeWardrobeSelection = async () => {};
-    const setWardrobeItems = () => {}, updateWardrobePagination = () => {}, setFreeSelectedItemIds = () => {};
+    const setWardrobeItems = () => {}, setLastAddedSuggestions = () => {},
+      updateWardrobePagination = () => {}, setFreeSelectedItemIds = () => {};
     const console = { warn: () => {}, error: () => {} };
     ${source.slice(start, end)}
     return { removeWardrobeItem, queued, deletions };

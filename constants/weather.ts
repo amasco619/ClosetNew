@@ -37,6 +37,37 @@ export {
 const CACHE_KEY = '@amodka_weather_v1';
 const PERM_ASKED_KEY = '@amodka_weather_perm_asked_v1';
 const TTL_MS = 6 * 60 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 8_000;
+
+function withWeatherTimeout<T>(request: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return new Promise<T>((resolve, reject) => {
+    timer = setTimeout(() => reject(new Error('Weather request timed out')), REQUEST_TIMEOUT_MS);
+    request.then(resolve, reject);
+  }).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+async function fetchJsonWithWeatherTimeout(url: string): Promise<{ response: Response; body?: unknown }> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error('Weather request timed out'));
+    }, REQUEST_TIMEOUT_MS);
+  });
+  const request = (async () => {
+    const response = await fetch(url, { signal: controller.signal });
+    return { response, ...(response.ok ? { body: await response.json() } : {}) };
+  })();
+  try {
+    return await Promise.race([request, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 interface OpenMeteoResponse {
   current?: { temperature_2m?: number; precipitation?: number };
@@ -71,9 +102,11 @@ async function getCoordsViaGps(): Promise<{ lat: number; lon: number } | null> {
       granted = req.granted;
       if (!granted) return null;
     }
-    const last = await Location.getLastKnownPositionAsync().catch(() => null);
-    const loc = last ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Lowest }));
-    return { lat: loc.coords.latitude, lon: loc.coords.longitude };
+    return await withWeatherTimeout((async () => {
+      const last = await Location.getLastKnownPositionAsync().catch(() => null);
+      const loc = last ?? (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Lowest }));
+      return { lat: loc.coords.latitude, lon: loc.coords.longitude };
+    })());
   } catch {
     return null;
   }
@@ -81,9 +114,9 @@ async function getCoordsViaGps(): Promise<{ lat: number; lon: number } | null> {
 
 async function getCoordsViaIp(): Promise<{ lat: number; lon: number; label?: string } | null> {
   try {
-    const r = await fetch('https://ipapi.co/json/');
-    if (!r.ok) return null;
-    const j = await r.json();
+    const { response, body } = await fetchJsonWithWeatherTimeout('https://ipapi.co/json/');
+    if (!response.ok) return null;
+    const j = body as any;
     if (typeof j?.latitude !== 'number' || typeof j?.longitude !== 'number') return null;
     return { lat: j.latitude, lon: j.longitude, label: typeof j.city === 'string' ? j.city : undefined };
   } catch {
@@ -97,9 +130,9 @@ async function fetchOpenMeteo(lat: number, lon: number): Promise<OpenMeteoRespon
     `&current=temperature_2m,precipitation` +
     `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
     `&forecast_days=1&timezone=auto`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`Open-Meteo ${r.status}`);
-  return (await r.json()) as OpenMeteoResponse;
+  const { response, body } = await fetchJsonWithWeatherTimeout(url);
+  if (!response.ok) throw new Error(`Open-Meteo ${response.status}`);
+  return body as OpenMeteoResponse;
 }
 
 export async function getCachedWeather(): Promise<WeatherSnapshot | null> {
