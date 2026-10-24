@@ -7,7 +7,6 @@ import { StatusBar } from 'expo-status-bar';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
@@ -30,6 +29,7 @@ import { UPLOAD_DIAGNOSTICS_ENABLED, reportUploadError } from '@/lib/uploadError
 import { readCachedCutout } from '@/lib/uploadPhotoSource';
 import { classificationWaitMs, runSerialUploadRetries } from '@/lib/uploadRetry';
 import { prepareClassificationImage } from '@/lib/prepareClassificationImage';
+import { prepareBulkSaveImage } from '@/lib/prepareBulkSaveImage';
 import { buildGuestPhotoDestPath } from '@/constants/guestPhotoCleanup';
 import { deleteWardrobeImage, uploadWardrobeImage } from '@/lib/storage';
 import { resolveWardrobeUploadArg } from '@/lib/uploadArg';
@@ -910,28 +910,7 @@ export default function BulkReviewScreen() {
           // If background removal produced a clean PNG, use it directly.
           // Preserve portrait proportions too: width-only resizing can leave the
           // longest edge well above the storage bound.
-          resize: async (uri) => {
-            const context = ImageManipulator.ImageManipulator.manipulate(uri);
-            let source: Awaited<ReturnType<typeof context.renderAsync>> | undefined;
-            let prepared: Awaited<ReturnType<typeof context.renderAsync>> | undefined;
-            try {
-              source = await context.renderAsync();
-              const { width, height } = source;
-              if (Math.max(width, height) > 1600) {
-                context.resize(width >= height ? { width: 1600 } : { height: 1600 });
-                prepared = await context.renderAsync();
-              } else {
-                prepared = source;
-              }
-              return await prepared.saveAsync({
-                compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true,
-              });
-            } finally {
-              if (prepared && prepared !== source) prepared.release();
-              source?.release();
-              context.release();
-            }
-          },
+          resize: prepareBulkSaveImage,
           readPngBase64: (uri) => FileSystem.readAsStringAsync(uri, {
             encoding: FileSystem.EncodingType.Base64,
           }),

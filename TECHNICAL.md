@@ -328,7 +328,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               130 test suites (see §11)
+__tests__/               133 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -440,7 +440,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 130 test suites once |
+| `npm test` | Run all 133 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -1497,7 +1497,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (130 total)
+### Test Suites (133 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1530,6 +1530,7 @@ These features are **not yet implemented**. They are the next development priori
 | `bulkAutoPersist.test.ts` | Legacy auto-persist helper contract; the B2.8 review UI now commits Save All atomically instead |
 | `addItemReplacementContract.test.ts` | Actual Home route, no-initial-photo metadata initialization, single-photo picker cancellation, failed upload and successful retry; controlled I/O fixtures, not live/device evidence |
 | `bulkSaveAtomic.test.ts` | Bulk Save All uploads before a single acknowledged commit; failed uploads and rejected commits do not navigate or report success |
+| `bulkSaveResize.test.ts` | Bulk-save metadata probe and longest-edge resize precede first render; no-upscale behavior, JPEG encoding, source retention and image/context release on success and save failure |
 | `freeWardrobeSelectionDb.test.ts` | Disposable PostgreSQL verification of capacity, expiry, role privileges, ownership, selection, concurrency, rollback, cascading deletion, durable photo-cleanup receipts, partial account-deletion retry, Auth cascade, shared-photo protection and receipt RLS |
 | `freeWardrobeSelectionSql.test.ts` | Static contract checks for authenticated insert RPCs, selection, and ordering index |
 | `wardrobeDatabaseContract.test.ts` | Acknowledged item persistence, deterministic pagination, account isolation, selected-row loading, and deferred token-refresh entitlement reads |

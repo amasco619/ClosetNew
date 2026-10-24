@@ -175,6 +175,7 @@ const mountedScreenMocks: Record<string, string> = {
       return React.createElement('FlatList',props,[header,...cards]);
     };
     export const Dimensions={get:()=>({width:400,height:800})};
+    export const Image={getSize:async()=>({width:100,height:100})};
     export const StyleSheet={create:styles=>styles,absoluteFill:{}};
     export const Platform={OS:'web'};
     export const BackHandler={addEventListener:()=>({remove(){}})};
@@ -190,7 +191,7 @@ const mountedScreenMocks: Record<string, string> = {
   `,
   'react-native-safe-area-context': `export const useSafeAreaInsets=()=>({top:0,bottom:0});`,
   '@expo/vector-icons': `export const Ionicons=()=>null;`,
-  'expo-image-manipulator': `export const manipulateAsync=async()=>({uri:'file:///resized.jpg',base64:'resized'}),SaveFormat={JPEG:'jpeg'};`,
+  'expo-image-manipulator': `export const manipulateAsync=async()=>({uri:'file:///resized.jpg',base64:'resized'}),ImageManipulator={manipulate:()=>({})},SaveFormat={JPEG:'jpeg'};`,
   'expo-file-system/legacy': `
     export const cacheDirectory='file:///cache/',documentDirectory='file:///documents/';
     export const EncodingType={Base64:'base64'};
