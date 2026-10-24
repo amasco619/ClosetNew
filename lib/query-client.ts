@@ -166,13 +166,14 @@ export async function authenticatedApiRequest(
     };
     let res = await send(token);
     if (isClassificationRoute && res.status === 401 && auth) {
+      let refreshedToken: string | null = null;
       try {
         const refreshed = await auth.refreshSession();
-        const refreshedToken = refreshed.error ? null : refreshed.data.session?.access_token ?? null;
-        if (refreshedToken) res = await send(refreshedToken);
+        refreshedToken = refreshed.error ? null : refreshed.data.session?.access_token ?? null;
       } catch {
         // The original 401 remains authoritative if the session cannot refresh.
       }
+      if (refreshedToken) res = await send(refreshedToken);
     }
     await throwIfResNotOk(res);
     return res;

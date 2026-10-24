@@ -44,12 +44,13 @@ async function main() {
 
   for (const status of [408, 429, 500, 503]) {
     assert.deepEqual(classificationFailurePresentation({ status }), {
-      kind: 'transient', title: 'Connection paused', action: 'Tap to try again',
+      kind: 'busy', title: 'The stylist is busy right now',
+      hint: 'Your photo is still here. Try again in a moment.', action: 'Try again',
     });
   }
-  assert.equal(classificationFailurePresentation({ kind: 'network' }).kind, 'transient');
-  assert.equal(classificationFailurePresentation({ kind: 'timeout' }).kind, 'transient');
-  assert.equal(classificationFailurePresentation(new Error('unknown')).title, 'Something went wrong');
+  assert.equal(classificationFailurePresentation({ kind: 'network' }).kind, 'network');
+  assert.equal(classificationFailurePresentation({ kind: 'timeout' }).kind, 'busy');
+  assert.equal(classificationFailurePresentation(new Error('unknown')).title, "We couldn't analyse this photo");
   const refusal = Object.assign(new Error('422: {"error":"content_guardrail"}'), { status: 422 });
   assert(isContentGuardrailError(refusal));
   for (const cache of ['present', 'missing']) {

@@ -266,13 +266,13 @@ export async function classifyMultiItem(req: Request, res: Response): Promise<vo
         ? "PROVIDER_AUTH_ERROR"
         : "CLASSIFICATION_FAILED");
     }
-      const stableCode = providerStatus === 429
+    const stableCode = providerStatus === 429
         ? "PROVIDER_QUOTA"
         : errorCode === "ECONNABORTED" || errorCode === "ETIMEDOUT"
           ? "PROVIDER_TIMEOUT"
           : providerStatus === 404 || providerStatus >= 500 || status === 503 || status === 502
             ? "PROVIDER_UNAVAILABLE"
             : undefined;
-      res.status(status).json({ error: code, ...(stableCode ? { code: stableCode } : {}) });
+    res.status(status).json({ error: code, ...(stableCode ? { code: stableCode } : {}) });
   }
 }

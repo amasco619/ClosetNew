@@ -744,9 +744,12 @@ an unavailable cutout cache from the retained original; real upload failures sta
 failed/pending rather than claiming a database save. Shared preparation from §24
 is unchanged. Free background-removal copy now explicitly means 20 lifetime uses.
 
-Transient classification errors use “Connection paused / Tap to try again,”
-unexpected errors use “Something went wrong / Tap to try again,” and confirmed
-content refusals retain their existing manual-only handling. Photos remain
+Classification errors now use shared, code-first copy distinguishing connection
+failure, provider busy, app rate limiting, session expiry and generic failure.
+Both classification endpoints refresh/retry once on 401 before showing Sign in.
+Consent errors retain the existing consent flow, and confirmed content refusals
+retain their existing manual-only handling. Multi-item errors are no longer
+discarded or described as a garment-count problem. Photos remain
 visible. Two or more transient batch errors expose an explicit serial “Try all
 again,” with local 10/min start-window pacing and no repeated successful PhotoRoom
 work. No automatic retry loop or NetInfo dependency was added.

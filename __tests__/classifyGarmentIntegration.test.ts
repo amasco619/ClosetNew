@@ -109,6 +109,7 @@ function buildLimitedApp(): express.Application {
         .post("/api/classify-garment")
         .send({ imageBase64: "dGVzdA==" }); // base64("test")
       assert(res.status === 500, `missing API key → 500 (got ${res.status})`);
+      assert(res.body?.code === "PROVIDER_UNAVAILABLE", "missing API key has stable unavailable code");
       assert(
         res.body?.error === "missing_gemini_api_key",
         `body.error === "missing_gemini_api_key" (got "${res.body?.error}")`,
@@ -139,6 +140,8 @@ function buildLimitedApp(): express.Application {
         .post("/api/classify-garment")
         .send({ imageBase64: "dGVzdA==" });
       assert(blocked.status === 429, `request ${max + 1}: blocked with 429 (got ${blocked.status})`);
+      assert(blocked.body?.code === "APP_RATE_LIMIT", "app limiter is distinguishable from provider quota");
+      assert(blocked.body?.retryAfter >= 1, "app limiter includes retryAfter");
       assert(
         blocked.body?.error === "rate_limit",
         `429 body has error=rate_limit (got "${blocked.body?.error}")`,
@@ -275,12 +278,14 @@ function buildLimitedApp(): express.Application {
       const timeout = await runFailure({ code: "ECONNABORTED", message: "timeout provider secret" });
       assert(timeout.status === 504 && timeout.body.error === "classifier_timeout",
         "timeout returns stable classifier_timeout code");
+      assert(timeout.body.code === "PROVIDER_TIMEOUT", "timeout includes stable provider code");
       assertSafe("timeout", timeout, "timeout provider secret");
 
       const networkSecret = "network provider secret";
       const network = await runFailure(axiosError({ message: `Network Error: ${networkSecret}` }));
       assert(network.status === 503 && network.body.error === "classifier_network_failure",
         "network failure returns stable classifier_network_failure code");
+      assert(network.body.code === "PROVIDER_UNAVAILABLE", "network failure includes stable provider code");
       assertSafe("network failure", network, networkSecret);
 
       const rateLimitSecret = "raw quota internals";
@@ -289,6 +294,7 @@ function buildLimitedApp(): express.Application {
       }));
       assert(rateLimited.status === 429 && rateLimited.body.error === "rate_limited"
         , "429 response has safe code");
+      assert(rateLimited.body.code === "PROVIDER_QUOTA", "provider quota differs from app limiter");
       assertSafe("429", rateLimited, rateLimitSecret);
 
       let exhaustedCalls = 0;
@@ -320,7 +326,7 @@ function buildLimitedApp(): express.Application {
         response: { status: 400, data: { error: { message: unexpectedSecret } } },
       }));
       assert(unexpected.status === 502 && unexpected.body.error === "classifier_upstream_failure"
-        && unexpected.body.code === "PROVIDER_HTTP_ERROR",
+        && unexpected.body.code === "PROVIDER_UNAVAILABLE",
         "provider 400 is identified as an upstream error, not an internal or garment refusal");
       assertSafe("unexpected failure", unexpected, unexpectedSecret);
 
@@ -382,7 +388,8 @@ function buildLimitedApp(): express.Application {
       assert(sanitizedRefusal.status === 422
         && typeof sanitizedRefusal.body.reason === "string"
         && sanitizedRefusal.body.reason === "This image could not be classified as a clothing item."
-        && Object.keys(sanitizedRefusal.body).sort().join(",") === "error,reason",
+        && sanitizedRefusal.body.code === "UNREADABLE_PHOTO"
+        && Object.keys(sanitizedRefusal.body).sort().join(",") === "code,error,reason",
         "guardrail returns only a sanitized refusal reason string");
 
       let forwardedMimeType: unknown;

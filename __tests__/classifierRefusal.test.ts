@@ -47,11 +47,11 @@ async function main() {
     assert.equal(item.retryable, true);
   }
   assert.equal(isTransientClassificationError(new Error('image_mime_mismatch')), false);
-  assert.equal(isTransientClassificationError(new SyntaxError('Invalid JSON')), false);
+  assert.equal(isTransientClassificationError(new SyntaxError('Invalid JSON')), true);
   for (const status of [400, 401, 403, 422]) {
     const { item } = await analyse(Object.assign(new Error(`${status}: {"error":"other"}`), { status }));
     assert.equal(item.status, 'error');
-    assert.equal(item.retryable, true, 'unexpected errors now have an explicit manual retry action');
+    assert.equal(item.retryable, status !== 403, 'consent uses its existing prompt; other errors retain a manual action');
     assert.equal(item.failureKind, 'unexpected');
   }
   assert.equal((await analyse(new Error('Loading bitmap failed'), true)).item.failureKind, 'unexpected');

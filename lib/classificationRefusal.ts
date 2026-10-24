@@ -50,6 +50,7 @@ export function isTransientClassificationError(error: unknown): boolean {
     return true;
   }
   if (['AUTH_REQUIRED', 'CONSENT_REQUIRED', 'UNREADABLE_PHOTO'].includes(code ?? '')) return false;
+  if (error instanceof SyntaxError) return true;
   if (status !== undefined) return status === 408 || status === 429 || status >= 500;
   if (kind) return ['network', 'timeout', 'abort', 'non_json'].includes(kind) || error instanceof SyntaxError;
   return error instanceof Error && /network|failed to fetch|timed out|timeout|offline/i.test(error.message);
@@ -59,7 +60,14 @@ export function classificationFailurePresentation(
   error: unknown,
   options: { localPreparation?: boolean } = {},
 ): ClassificationFailurePresentation {
-  const { status, code, kind, retryAfter } = errorDetails(error);
+  const details = errorDetails(error);
+  const { code, retryAfter } = details;
+  const stableCode = [
+    'APP_RATE_LIMIT', 'AUTH_REQUIRED', 'CONSENT_REQUIRED', 'UNREADABLE_PHOTO',
+    'PROVIDER_QUOTA', 'PROVIDER_UNAVAILABLE', 'PROVIDER_TIMEOUT', 'MALFORMED_RESPONSE',
+  ].includes(code ?? '');
+  const status = stableCode ? undefined : details.status;
+  const kind = stableCode ? undefined : details.kind;
 
   // Stable server codes take precedence over ambiguous HTTP statuses.
   if (code === 'APP_RATE_LIMIT') {
@@ -72,13 +80,14 @@ export function classificationFailurePresentation(
   if (code === 'CONSENT_REQUIRED' || status === 403) {
     return { kind: 'consent', title: '', hint: '', action: '' };
   }
-  if (code === 'UNREADABLE_PHOTO' || options.localPreparation || kind === 'unreadable' || isContentGuardrailError(error)) {
+  if (code === 'UNREADABLE_PHOTO' || (!stableCode && (options.localPreparation || kind === 'unreadable' || isContentGuardrailError(error)))) {
     return { kind: 'unreadable', title: PHOTO_REFUSAL_TITLE, hint: PHOTO_REFUSAL_BODY, action: 'Add manually' };
   }
   if (code === 'PROVIDER_QUOTA' || code === 'PROVIDER_UNAVAILABLE' ||
       code === 'PROVIDER_TIMEOUT' || code === 'MALFORMED_RESPONSE' ||
       status === 408 || status === 429 || (status !== undefined && status >= 500) ||
-      kind === 'timeout' || kind === 'abort' || kind === 'non_json' || error instanceof SyntaxError) {
+      kind === 'timeout' || kind === 'abort' || kind === 'non_json' || error instanceof SyntaxError ||
+      (error instanceof Error && /timed out|timeout/i.test(error.message))) {
     return { kind: 'busy', title: 'The stylist is busy right now', hint: 'Your photo is still here. Try again in a moment.', action: 'Try again' };
   }
   if (kind === 'network' || (error instanceof Error && /network|failed to fetch|offline/i.test(error.message))) {

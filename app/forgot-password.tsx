@@ -53,7 +53,7 @@ export default function ForgotPasswordScreen() {
       await requestPasswordReset(email)
       setSuccess(true)
     } catch (err: any) {
-      setAuthError(err.message?.replace('[requestPasswordReset] ', '') ?? "We couldn't complete that request.")
+      setAuthError(err.message?.replace('[requestPasswordReset] ', '') ?? 'Something went wrong.')
     } finally {
       setLoading(false)
     }

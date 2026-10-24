@@ -166,7 +166,7 @@ export function authErrorCopy(error: AuthError): {
       }
     case 'unknown':
       return {
-        title: "We couldn't complete that request",
+        title: 'Something went wrong',
         message: 'Please try again in a moment.',
         informational: false,
       }

@@ -326,8 +326,15 @@ async function runHttpTests(): Promise<void> {
     response = await request(buildApp()).post("/api/classify-garments").send({ imageBase64: "x" });
     assert.equal(response.status, 502);
     assert.equal(response.body.error, "classifier_malformed_response");
+    assert.equal(response.body.code, "MALFORMED_RESPONSE");
     assert.ok(!JSON.stringify(response.body).includes(rawSecret));
     console.log("  ✓ 28. malformed provider response is safely classified");
+
+    axios.post = (async () => providerResponse({ ...twoItems(), items: [] })) as typeof axios.post;
+    response = await request(buildApp()).post("/api/classify-garments").send({ imageBase64: "x" });
+    assert.equal(response.status, 422);
+    assert.equal(response.body.error, "multi_item_invalid");
+    assert.equal(response.body.code, "UNREADABLE_PHOTO");
 
     let calls = 0;
     axios.post = (async () => {
@@ -354,6 +361,7 @@ async function runHttpTests(): Promise<void> {
       axios.post = (async () => { throw Object.assign(new Error(message), failure); }) as typeof axios.post;
       response = await request(buildApp()).post("/api/classify-garments").send({ imageBase64: "x" });
       assert.equal(response.status, status);
+      assert.equal(response.body.code, status === 504 ? "PROVIDER_TIMEOUT" : status === 502 || status === 503 ? "PROVIDER_UNAVAILABLE" : undefined);
       assert.equal(response.body.error, code);
       assert.ok(!JSON.stringify(response.body).includes("secret"));
     }
@@ -369,6 +377,7 @@ async function runHttpTests(): Promise<void> {
     }) as typeof axios.post;
     response = await request(buildApp()).post("/api/classify-garments").send({ imageBase64: "x" });
     assert.equal(response.status, 429);
+    assert.equal(response.body.code, "PROVIDER_QUOTA");
     assert.equal(response.body.error, "rate_limited");
     assert.equal(calls, 2);
     assert.ok(!JSON.stringify(response.body).includes("secret"));
@@ -404,6 +413,7 @@ async function runHttpTests(): Promise<void> {
       .post("/api/classify-garments")
       .send({ imageBase64: "x" });
     assert.equal(response.status, 401);
+    assert.equal(response.body.code, "AUTH_REQUIRED");
     assert.equal(providerCalls, 0);
 
     let forbiddenCalls = 0;
@@ -425,6 +435,14 @@ async function runHttpTests(): Promise<void> {
     routeTestOverrides.authenticatedUser = { id: "b1b2-test-user" };
     consentTestOverrides.load = async () => ({ [AI_PROCESSING_KEY]: "allowed" });
     try {
+      consentTestOverrides.load = async () => ({ [AI_PROCESSING_KEY]: "declined" });
+      for (const route of ["/api/classify-garment", "/api/classify-garments"]) {
+        const denied = await request(registeredApp).post(route).send({ imageBase64: "x" });
+        assert.equal(denied.status, 403);
+        assert.equal(denied.body.code, "CONSENT_REQUIRED");
+        assert.equal(providerCalls, 0);
+      }
+      consentTestOverrides.load = async () => ({ [AI_PROCESSING_KEY]: "allowed" });
       response = await request(registeredApp)
         .post("/api/classify-garments")
         .send({ imageBase64: "x" });
