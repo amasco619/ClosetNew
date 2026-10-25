@@ -24,9 +24,17 @@ import { useToast } from '@/contexts/LuxuryFeedbackContext';
 import TravelPlanner from '../../components/TravelPlanner';
 import { CONCIERGE_OCCASIONS, conciergeReadiness, parseConciergeIntent, type ConciergeIntent } from '../../lib/concierge';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
-import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
+import { wardrobeItemDisplayName, wardrobeValueLabel } from '@/constants/wardrobeLabels';
 import { usesConfirmedCoordinatedSet } from '../../lib/stylingRelationships';
 import { filterLastAddedSuggestions } from '../../lib/lastAddedSuggestions';
+import {
+  accessoryDisplayLabel,
+  displayRationaleWithoutHeroColour,
+  lookAccessoryComponents,
+  lookAccessoryOverflow,
+  onePieceLayoutComponents,
+  visibleLookAccessories,
+} from '../../lib/lookCardPresentation';
 import {
   buildLookPages, lockedLookCount, lockedLookTitle, pageIndexForDot,
   pageIndexFromOffset, runLookOverflowAction,
@@ -95,13 +103,9 @@ const categoryIcons: Record<string, React.ComponentProps<typeof Ionicons>['name'
   bag: 'bag-handle-outline', jewelry: 'diamond-outline',
 };
 
-function OutfitItemPhoto({ component, size = 80, isHero = false }: {
-  component: OutfitComponent; size?: number; isHero?: boolean;
+function OutfitItemPhoto({ component, size = 80 }: {
+  component: OutfitComponent; size?: number;
 }) {
-  const heroBorder = isHero
-    ? { borderWidth: 2, borderColor: Colors.secondary }
-    : { borderWidth: 1, borderColor: Colors.border };
-
   if (component.photoUri) {
     return (
       <GarmentTile
@@ -111,7 +115,6 @@ function OutfitItemPhoto({ component, size = 80, isHero = false }: {
         style={[
           styles.itemPhoto,
           { width: size, height: size * 1.25, borderRadius: 14 },
-          heroBorder,
         ]}
       />
     );
@@ -120,7 +123,7 @@ function OutfitItemPhoto({ component, size = 80, isHero = false }: {
     <View style={[
       styles.itemPhotoFallback,
       { width: size, height: size * 1.25, borderRadius: 14 },
-      heroBorder,
+      { borderWidth: 1, borderColor: Colors.border },
     ]}>
       <Ionicons
         name={categoryIcons[component.category] || 'ellipse-outline'}
@@ -140,7 +143,6 @@ function OutfitCard({
   onUndoWear,
   reaction,
   onReact,
-  isPremium,
 }: {
   outfit: OutfitSet;
   index: number;
@@ -150,14 +152,12 @@ function OutfitCard({
   onUndoWear: (entryId: string) => void;
   reaction: ReactionType | null;
   onReact: (outfit: OutfitSet, type: ReactionType) => void;
-  isPremium: boolean;
 }) {
   const toast = useToast();
   const scenario = scenarioLabels[outfit.scenario];
   const hasOwnedItems = outfit.components.some(c => c.owned && c.matchedItemId);
 
-  // Keep the existing Premium boundary for generated rationale.
-  const lookName = isPremium ? (outfit.rationale || scenario?.mood) : scenario?.mood;
+  const lookName = displayRationaleWithoutHeroColour(outfit) || scenario?.mood;
   const storyRef = useRef<View>(null);
   const [exporting, setExporting] = useState(false);
   const [overflowVisible, setOverflowVisible] = useState(false);
@@ -185,19 +185,19 @@ function OutfitCard({
     }
   };
 
-  const pieceName = (component: OutfitComponent) =>
-    component.subType.replace(/-/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
-  const onePiece = outfit.components.some(component =>
-    component.category === 'dress' || /gown|kaftan/i.test(component.subType),
-  );
+  const onePieceSlots = onePieceLayoutComponents(outfit.components);
+  const onePiece = !!onePieceSlots.dress;
   const slotCategories = ['top', 'bottom', 'shoes', 'outerwear'];
   const knownCategories = ['top', 'bottom', 'dress', 'outerwear', 'shoes', 'bag', 'jewelry'];
   const unknownItems = outfit.components.filter(component => !knownCategories.includes(component.category));
   const slots = onePiece
-    ? [outfit.components.find(component => component.category === 'dress' || /gown|kaftan/i.test(component.subType))]
+    ? []
     : unknownItems.length
       ? [...outfit.components].slice(0, 4)
       : slotCategories.map(category => outfit.components.find(component => component.category === category));
+  const accessories = lookAccessoryComponents(outfit.components);
+  const displayedAccessories = visibleLookAccessories(outfit.components);
+  const accessoryOverflow = lookAccessoryOverflow(outfit.components);
   const handleOverflowAction = (action: 'not-today' | 'export') => {
     setOverflowVisible(false);
     runLookOverflowAction(action, {
@@ -210,30 +210,92 @@ function OutfitCard({
     <Animated.View entering={FadeInDown.delay(index * 70).duration(280)} style={styles.lookPage}>
       <View style={styles.lookCard}>
         <View style={[styles.lookMat, onePiece && styles.lookMatOnePiece, unknownItems.length > 0 && styles.lookMatUnknown]}>
-          {slots.map((component, slotIndex) => (
-            <View key={`${component?.category ?? 'empty'}-${slotIndex}`} style={[
-              styles.lookSlot,
-              onePiece && styles.lookSlotOnePiece,
-              !component && styles.lookSlotEmpty,
-            ]}>
-              {component ? (
-                <>
-                  <View style={styles.lookSlotPhotoShadow}>
-                    <OutfitItemPhoto component={component} size={onePiece ? 190 : 112} />
+          {onePiece ? (
+            <>
+              <View testID="one-piece-dress" style={styles.onePieceHeroSlot}>
+                <View style={styles.lookSlotPhotoShadow}>
+                  <OutfitItemPhoto component={onePieceSlots.dress!} size={140} />
+                </View>
+                <Text style={styles.slotLabel}>Dress</Text>
+              </View>
+              <View style={styles.onePieceSupportColumn}>
+                {([
+                  { component: onePieceSlots.shoes, label: 'Shoes' },
+                  { component: onePieceSlots.layer, label: 'Layer' },
+                ] as const).map(({ component, label }) => (
+                  <View key={label} testID={`one-piece-${label.toLowerCase()}`} style={styles.onePieceSupportSlot}>
+                    {component ? (
+                      <View style={styles.lookSlotPhotoShadow}>
+                        <OutfitItemPhoto component={component} size={68} />
+                      </View>
+                    ) : (
+                      <View style={[styles.emptyGarmentSlot, styles.onePieceEmptySlot]} />
+                    )}
+                    <Text style={styles.slotLabel}>{label}</Text>
                   </View>
-                  {!onePiece && <Text style={styles.slotLabel}>{categoryLabels[component.category] || component.category}</Text>}
-                </>
-              ) : <View style={styles.emptyGarmentSlot} />}
-            </View>
-          ))}
+                ))}
+              </View>
+            </>
+          ) : slots.map((component, slotIndex) => (
+              <View key={`${component?.category ?? 'empty'}-${slotIndex}`} style={[
+                styles.lookSlot,
+                !component && styles.lookSlotEmpty,
+              ]}>
+                {component ? (
+                  <>
+                    <View style={styles.lookSlotPhotoShadow}>
+                      <OutfitItemPhoto component={component} size={112} />
+                    </View>
+                    <Text style={styles.slotLabel}>{categoryLabels[component.category] || component.category}</Text>
+                  </>
+                ) : <View style={styles.emptyGarmentSlot} />}
+              </View>
+            ))}
         </View>
         <View style={styles.lookCaption}>
           <Text style={styles.lookName} numberOfLines={1}>{lookName || scenario?.mood || scenario?.label}</Text>
           <Text style={styles.lookMeta} numberOfLines={1}>
             {scenario?.label}  ·  {wornToday ? 'Worn today' : 'Ready to wear'}{usesConfirmedCoordinatedSet(outfit) ? ' · Styled as a set' : ''}
           </Text>
-          <Text style={styles.lookPieces} numberOfLines={1}>{outfit.components.map(pieceName).join(', ')}</Text>
         </View>
+        {accessories.length > 0 && (
+          <View testID="look-accessories" style={styles.accessoryRow}>
+            {displayedAccessories.map((component, accessoryIndex) => {
+              const label = accessoryDisplayLabel(component.subType);
+              const itemId = component.matchedItemId;
+              return (
+                <Pressable
+                  key={`${itemId ?? component.subType}-${accessoryIndex}`}
+                  testID={`look-accessory-${accessoryIndex}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${label}`}
+                  disabled={!itemId}
+                  onPress={() => itemId && router.push({ pathname: '/item-detail', params: { id: itemId } })}
+                  style={({ pressed }) => [styles.accessory, pressed && styles.accessoryPressed]}
+                >
+                  {component.photoUri ? (
+                    <GarmentTile
+                      uri={component.photoUri}
+                      variant="card"
+                      accessibilityLabel={`${label} in outfit`}
+                      style={styles.accessoryPhoto}
+                    />
+                  ) : (
+                    <View style={styles.accessoryPhotoFallback}>
+                      <Ionicons name={categoryIcons[component.category] || 'sparkles-outline'} size={18} color={Colors.secondary} />
+                    </View>
+                  )}
+                  <Text style={styles.accessoryLabel} numberOfLines={1}>{label}</Text>
+                </Pressable>
+              );
+            })}
+            {accessoryOverflow > 0 && (
+              <View testID="look-accessory-overflow" accessibilityLabel={`${accessoryOverflow} more accessories`} style={styles.accessoryMore}>
+                <Text style={styles.accessoryMoreText}>+{accessoryOverflow}</Text>
+              </View>
+            )}
+          </View>
+        )}
       </View>
       {hasOwnedItems && (
         <View style={styles.lookActions}>
@@ -318,69 +380,6 @@ function OutfitCard({
   );
 }
 
-function JustAddedBanner({ suggestions, onDismiss }: {
-  suggestions: OutfitSet[];
-  onDismiss: () => void;
-}) {
-  const firstNewItem = suggestions[0]?.components[0];
-  const label = firstNewItem
-    ? `${wardrobeValueLabel(firstNewItem.colorFamily)} ${firstNewItem.subType.replace(/-/g, ' ')}`
-    : 'new item';
-
-  return (
-    <Animated.View entering={FadeInUp.duration(280)} style={styles.bannerWrap}>
-      <View style={styles.bannerHeader}>
-        <View style={styles.bannerTitleRow}>
-          <View style={styles.bannerIconWrap}>
-            <Ionicons name="sparkles" size={14} color={Colors.secondary} />
-          </View>
-          <Text style={styles.bannerTitle}>Styled for your {label}</Text>
-        </View>
-        <Pressable onPress={onDismiss} hitSlop={10} style={styles.bannerDismiss}>
-          <Ionicons name="close" size={16} color={Colors.textLight} />
-        </Pressable>
-      </View>
-      <Text style={styles.bannerSubtitle}>How to wear it with what you already own</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.bannerScroll}
-      >
-        {suggestions.map((outfit) => (
-          <View key={outfit.id} style={styles.bannerCard}>
-            <View style={styles.bannerCardHeader}>
-              <Ionicons
-                name={scenarioLabels[outfit.scenario]?.icon || 'ellipse'}
-                size={11}
-                color={SCENARIO_ACCENT[outfit.scenario]}
-              />
-              <Text style={[styles.bannerCardScenario, { color: SCENARIO_ACCENT[outfit.scenario] }]}>
-                {scenarioLabels[outfit.scenario]?.label}
-              </Text>
-            </View>
-            <View style={styles.bannerPhotos}>
-              {outfit.components.slice(0, 4).map((comp, j) => {
-                const isHero = !!outfit.heroId && comp.matchedItemId === outfit.heroId;
-                return (
-                  <View key={j} style={styles.bannerPhotoWrap}>
-                    <OutfitItemPhoto component={comp} size={52} isHero={isHero} />
-                    {isHero && (
-                      <Text style={styles.bannerHeroLabel}>Focal</Text>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-            <Text style={styles.bannerItemCount}>
-              {outfit.components.length}-piece look
-            </Text>
-          </View>
-        ))}
-      </ScrollView>
-    </Animated.View>
-  );
-}
-
 export default function OutfitsScreen() {
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
@@ -397,6 +396,8 @@ export default function OutfitsScreen() {
     activeWardrobeItems,
     isPremium,
     lastAddedSuggestions,
+    lastAddedAnchorId,
+    activeLastAddedAnchorId,
     clearLastAddedSuggestions,
     todaysWear,
     logWear,
@@ -410,10 +411,17 @@ export default function OutfitsScreen() {
     missingDimensions,
     getItemWearCount,
   } = useApp();
-  const visibleLastAddedSuggestions = useMemo(() => filterLastAddedSuggestions(
+  const validLastAddedSuggestions = useMemo(() => filterLastAddedSuggestions(
     lastAddedSuggestions,
     new Set(wardrobeItems.map(item => item.id)),
   ), [lastAddedSuggestions, wardrobeItems]);
+  const builtAroundItem = activeLastAddedAnchorId && activeLastAddedAnchorId === lastAddedAnchorId
+    ? wardrobeItems.find(item => item.id === activeLastAddedAnchorId)
+    : undefined;
+  const builtAroundActive = !!builtAroundItem;
+  const focusedSuggestions = builtAroundActive
+    ? validLastAddedSuggestions.filter(look => look.heroId === activeLastAddedAnchorId)
+    : [];
   const [cpwToast, setCpwToast] = useState<{ text: string } | null>(null);
   const [wardrobeLoadFailureKey, setWardrobeLoadFailureKey] = useState<string | null>(null);
   const [loadedWardrobeKey, setLoadedWardrobeKey] = useState<string | null>(null);
@@ -596,9 +604,11 @@ export default function OutfitsScreen() {
     traditionalRetry,
   ]);
 
-  const filtered = conciergePlan && !conciergeAuthorized ? [] : selectedScenario === 'traditional-event'
-    ? traditionalOutfits.filter(o => o.scenario === 'traditional-event')
-    : outfitSets.filter(o => o.scenario === selectedScenario);
+  const filtered = conciergePlan && !conciergeAuthorized ? [] : builtAroundActive
+    ? focusedSuggestions
+    : selectedScenario === 'traditional-event'
+      ? traditionalOutfits.filter(o => o.scenario === 'traditional-event')
+      : outfitSets.filter(o => o.scenario === selectedScenario);
   const hasWardrobe = activeWardrobeItems.length > 0;
   const lockedPages = lockedLookCount(
     isAuthenticated,
@@ -612,6 +622,7 @@ export default function OutfitsScreen() {
 
   function handleScenarioPress(scenario: OccasionTag) {
     clearConcierge();
+    if (builtAroundActive) clearLastAddedSuggestions();
     if (PREMIUM_SCENARIOS.includes(scenario) && !isPremium) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       router.push('/premium');
@@ -754,7 +765,9 @@ export default function OutfitsScreen() {
       >
         {[...FREE_SCENARIOS, ...PREMIUM_SCENARIOS].map(s => {
           const isLocked = PREMIUM_SCENARIOS.includes(s) && !isPremium;
-          const isActive = selectedScenario === s;
+          const isActive = builtAroundActive
+            ? focusedSuggestions[0]?.scenario === s
+            : selectedScenario === s;
           return (
             <Pressable
               key={s}
@@ -833,12 +846,23 @@ export default function OutfitsScreen() {
         )}
 
 
-        {/* Just-added banner */}
-        {!conciergePlan && visibleLastAddedSuggestions.length > 0 && (
-          <JustAddedBanner
-            suggestions={visibleLastAddedSuggestions}
-            onDismiss={clearLastAddedSuggestions}
-          />
+        {!conciergePlan && builtAroundActive && (
+          <View testID="built-around-chip" style={styles.builtAroundChip}>
+            <Text style={styles.builtAroundLabel}>Built around ·</Text>
+            <Text style={styles.builtAroundName} numberOfLines={1}>
+              {wardrobeItemDisplayName(builtAroundItem.colorFamily, builtAroundItem.subType)}
+            </Text>
+            <Pressable
+              testID="built-around-close"
+              accessibilityRole="button"
+              accessibilityLabel="Show all looks"
+              hitSlop={8}
+              style={styles.builtAroundClose}
+              onPress={clearLastAddedSuggestions}
+            >
+              <Ionicons name="close" size={17} color={Colors.primary} />
+            </Pressable>
+          </View>
         )}
 
         {cpwToast && (
@@ -886,6 +910,10 @@ export default function OutfitsScreen() {
               <Ionicons name="refresh-outline" size={14} color={Colors.primary} />
               <Text style={styles.traditionalRetryText}>Try again</Text>
             </Pressable>
+          </View>
+        ) : builtAroundActive && filtered.length === 0 ? (
+          <View testID="built-around-empty" accessibilityRole="text" style={styles.builtAroundEmpty}>
+            <Text style={styles.builtAroundEmptyText}>No looks yet with this piece.</Text>
           </View>
         ) : filtered.length === 0 ? (
           <Animated.View entering={FadeInDown.delay(120).duration(280)} style={styles.emptyState}>
@@ -951,7 +979,7 @@ export default function OutfitsScreen() {
                           wornTodayEntryId={isWornToday(item) ? getTodayEntryId(item) : undefined}
                           onLogWear={handleLogWear} onUndoWear={undoWear}
                           reaction={getOutfitReaction(item)}
-                          onReact={reactToOutfit} isPremium={isPremium}
+                          onReact={reactToOutfit}
                         />
                       </View>
                     ) : (
@@ -1059,17 +1087,34 @@ const styles = StyleSheet.create({
     height: 340, padding: 18, backgroundColor: '#F4F1EC',
     flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center',
   },
-  lookMatOnePiece: { height: 340 },
+  lookMatOnePiece: { height: 340, flexWrap: 'nowrap', padding: 12, justifyContent: 'space-between' },
   lookMatUnknown: { height: 340 },
   lookSlot: { width: '50%', height: '50%', alignItems: 'center', justifyContent: 'center' },
-  lookSlotOnePiece: { width: '100%', height: '100%' },
   lookSlotEmpty: { opacity: 0.36 },
   emptyGarmentSlot: { width: 94, height: 108, borderRadius: 14, borderWidth: 1, borderColor: '#D7D0C5', backgroundColor: '#F8F6F2' },
+  onePieceHeroSlot: { width: '56%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  onePieceSupportColumn: { width: '44%', height: '100%', justifyContent: 'space-around', alignItems: 'center' },
+  onePieceSupportSlot: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' },
+  onePieceEmptySlot: { width: 62, height: 76 },
   slotLabel: { marginTop: 2, fontFamily: 'Inter_500Medium', fontSize: rs(9), color: Colors.textLight, letterSpacing: 0.8, textTransform: 'uppercase' },
   lookCaption: { paddingHorizontal: 22, paddingTop: 15, paddingBottom: 18 },
   lookName: { fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }), fontSize: rs(25), lineHeight: rs(31), fontStyle: 'italic', color: Colors.primary },
   lookMeta: { marginTop: 5, fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary },
-  lookPieces: { marginTop: 5, fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary },
+  accessoryRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingHorizontal: 18, paddingBottom: 14 },
+  accessory: { width: 64, alignItems: 'center', minHeight: 68 },
+  accessoryPressed: { opacity: 0.85, transform: [{ scale: 0.97 }] },
+  accessoryPhoto: { width: 44, height: 44, borderRadius: 22 },
+  accessoryPhotoFallback: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.background,
+    borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center',
+  },
+  accessoryLabel: { maxWidth: 64, marginTop: 4, fontFamily: 'Inter_400Regular', fontSize: rs(10), color: Colors.textSecondary, textAlign: 'center' },
+  accessoryMore: {
+    width: 44, height: 44, marginTop: 0, borderRadius: 22, borderWidth: 1,
+    borderColor: Colors.border, backgroundColor: Colors.background,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  accessoryMoreText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: Colors.textSecondary },
   lookActions: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
   lookWearButton: {
     flex: 1, minHeight: 56, borderRadius: 28, backgroundColor: '#101522',
@@ -1179,33 +1224,18 @@ const styles = StyleSheet.create({
 
   premiumStripTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.primary, letterSpacing: -0.1 },
 
-  // ── Just-added banner ─────────────────────────────────────────────────────
-  bannerWrap: {
-    backgroundColor: Colors.secondary + '10',
-    borderRadius: 18, padding: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: Colors.secondary + '28',
+  builtAroundChip: {
+    minHeight: 48, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
+    gap: 7, paddingLeft: 16, paddingRight: 6, marginBottom: 14, borderRadius: 24,
+    backgroundColor: '#FFFEFC', borderWidth: 1, borderColor: Colors.secondary,
   },
-  bannerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  bannerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  bannerIconWrap: {
-    width: 26, height: 26, borderRadius: 8,
-    backgroundColor: Colors.secondary + '18', alignItems: 'center', justifyContent: 'center',
+  builtAroundLabel: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: '#8B7354' },
+  builtAroundName: { maxWidth: 190, fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.primary },
+  builtAroundClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  builtAroundEmpty: {
+    minHeight: 108, justifyContent: 'center', paddingHorizontal: 20, marginBottom: 12,
   },
-  bannerTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.primary, flex: 1 },
-  bannerDismiss: { padding: 4 },
-  bannerSubtitle: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginBottom: 14, lineHeight: 17 },
-  bannerScroll: { gap: 10 },
-  bannerCard: {
-    width: 156, backgroundColor: Colors.white, borderRadius: 14,
-    padding: 12, borderWidth: 1, borderColor: Colors.border,
-    shadowColor: Colors.primary, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1,
-  },
-  bannerCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10 },
-  bannerCardScenario: { fontFamily: 'Inter_600SemiBold', fontSize: rs(11), textTransform: 'capitalize', letterSpacing: 0.1 },
-  bannerPhotos: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 8 },
-  bannerPhotoWrap: {},
-  bannerHeroLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(9), color: Colors.secondary, textAlign: 'center', marginTop: 2 },
-  bannerItemCount: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textLight },
+  builtAroundEmptyText: { fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textLight, textAlign: 'center' },
 
   // ── Garment photo fallback shared with the just-added strip ────────────────
   itemPhoto: { marginBottom: 7 },

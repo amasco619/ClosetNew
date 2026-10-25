@@ -163,6 +163,9 @@ const deps = {
       ? suggestionsOrUpdater(appState.suggestions)
       : suggestionsOrUpdater;
   },
+  setLastAddedAnchorId: () => undefined,
+  setActiveLastAddedAnchorId: () => undefined,
+  setAddedLooksPrompt: () => undefined,
   setRecommendationSlots: () => undefined,
 };
 

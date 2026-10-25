@@ -91,6 +91,8 @@ function removalHarness(storage: any, options: {
     const getFreeWardrobeSelection = async () => [];
     const persistFreeWardrobeSelection = async () => {};
     const setWardrobeItems = () => {}, setLastAddedSuggestions = () => {},
+      setLastAddedAnchorId = () => {}, setActiveLastAddedAnchorId = () => {},
+      setAddedLooksPrompt = () => {},
       updateWardrobePagination = () => {}, setFreeSelectedItemIds = () => {};
     const console = { warn: () => {}, error: () => {} };
     ${source.slice(start, end)}

@@ -28,7 +28,7 @@ const RELATIONSHIPS: { type: B3RelationshipType; label: string }[] = [
 
 export default function MultiItemReview() {
   const { uri } = useLocalSearchParams<{ uri: string }>();
-  const { addWardrobeGroupItems, removeWardrobeItem, authenticatedUserId, isGuest } = useApp();
+  const { addWardrobeGroupItems, removeWardrobeItem, queueAddedLooksPrompt, authenticatedUserId, isGuest } = useApp();
   const dialog = useDialog();
   const toast = useToast();
   const [pieces, setPieces] = useState<Piece[]>([]);
@@ -166,6 +166,14 @@ export default function MultiItemReview() {
           buttonLabel: 'Keep reviewing',
         }),
         onAdded: savedItems => {
+          const latest = savedItems[savedItems.length - 1];
+          if (latest) {
+            queueAddedLooksPrompt({
+              count: savedItems.length,
+              anchorItemId: latest.id,
+              photoUri: savedItems[0]?.photoUri,
+            });
+          }
           const expectedUserId = authenticatedUserId ?? (isGuest ? null : undefined);
           toast.show({
             message: `${savedItems.length} pieces added to your wardrobe`,

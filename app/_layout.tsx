@@ -24,6 +24,7 @@ import { migrateWeatherStorage } from "@/constants/weather";
 import { reportError } from "@/shared/observability";
 import { bulkStagingDirectoryUri, sweepOldStagedPhotos } from "@/lib/bulkPhotoStaging";
 import { dismissAllIfPossible } from "@/lib/navigation";
+import { AddedLooksSheetHost } from "@/components/AddedLooksSheet";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -52,25 +53,28 @@ function RootLayoutNav() {
   }, [authSessionEnded]);
 
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back", headerShown: false }}>
-      <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
-      <Stack.Screen name="welcome" options={{ headerShown: false, ...FADE_OPTIONS }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false, ...FADE_OPTIONS }} />
-      <Stack.Screen name="refinements" options={{ headerShown: false, ...FADE_OPTIONS }} />
-      <Stack.Screen name="personal-intelligence" options={{ headerShown: false, ...FADE_OPTIONS }} />
-      <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false, ...FADE_OPTIONS }} />
-      <Stack.Screen name="add-item" options={{ headerShown: false, gestureEnabled: false, ...MODAL_OPTIONS }} />
-      <Stack.Screen name="bulk-review" options={{ headerShown: false, gestureEnabled: false, ...FADE_OPTIONS }} />
-      <Stack.Screen name="premium" options={{ headerShown: false, ...MODAL_OPTIONS }} />
-      <Stack.Screen name="item-detail" options={{ headerShown: false, ...MODAL_OPTIONS }} />
-      <Stack.Screen name="choose-30" options={{ headerShown: false, ...MODAL_OPTIONS }} />
-      <Stack.Screen name="outfit-ideas" options={{ headerShown: false, ...FADE_OPTIONS }} />
-      <Stack.Screen name="sign-in" options={{ headerShown: false, ...FADE_OPTIONS }} />
-      <Stack.Screen name="forgot-password" options={{ headerShown: false, ...FADE_OPTIONS }} />
-      <Stack.Screen name="auth/callback" options={{ headerShown: false, ...FADE_OPTIONS }} />
-      <Stack.Screen name="auth/confirm" options={{ headerShown: false, ...FADE_OPTIONS }} />
-      <Stack.Screen name="auth/update-password" options={{ headerShown: false, ...FADE_OPTIONS }} />
-    </Stack>
+    <>
+      <Stack screenOptions={{ headerBackTitle: "Back", headerShown: false }}>
+        <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
+        <Stack.Screen name="welcome" options={{ headerShown: false, ...FADE_OPTIONS }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, ...FADE_OPTIONS }} />
+        <Stack.Screen name="refinements" options={{ headerShown: false, ...FADE_OPTIONS }} />
+        <Stack.Screen name="personal-intelligence" options={{ headerShown: false, ...FADE_OPTIONS }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false, ...FADE_OPTIONS }} />
+        <Stack.Screen name="add-item" options={{ headerShown: false, gestureEnabled: false, ...MODAL_OPTIONS }} />
+        <Stack.Screen name="bulk-review" options={{ headerShown: false, gestureEnabled: false, ...FADE_OPTIONS }} />
+        <Stack.Screen name="premium" options={{ headerShown: false, ...MODAL_OPTIONS }} />
+        <Stack.Screen name="item-detail" options={{ headerShown: false, ...MODAL_OPTIONS }} />
+        <Stack.Screen name="choose-30" options={{ headerShown: false, ...MODAL_OPTIONS }} />
+        <Stack.Screen name="outfit-ideas" options={{ headerShown: false, ...FADE_OPTIONS }} />
+        <Stack.Screen name="sign-in" options={{ headerShown: false, ...FADE_OPTIONS }} />
+        <Stack.Screen name="forgot-password" options={{ headerShown: false, ...FADE_OPTIONS }} />
+        <Stack.Screen name="auth/callback" options={{ headerShown: false, ...FADE_OPTIONS }} />
+        <Stack.Screen name="auth/confirm" options={{ headerShown: false, ...FADE_OPTIONS }} />
+        <Stack.Screen name="auth/update-password" options={{ headerShown: false, ...FADE_OPTIONS }} />
+      </Stack>
+      <AddedLooksSheetHost />
+    </>
   );
 }
 

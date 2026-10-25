@@ -401,7 +401,10 @@ function BulkCard({
 
 export default function BulkReviewScreen() {
   const insets = useSafeAreaInsets();
-  const { addWardrobeItems, removeWardrobeItem, isPremium, wardrobeItems, authenticatedUserId, isGuest } = useApp();
+  const {
+    addWardrobeItems, removeWardrobeItem, queueAddedLooksPrompt,
+    isPremium, wardrobeItems, authenticatedUserId, isGuest,
+  } = useApp();
   const dialog = useDialog();
   const toast = useToast();
 
@@ -1017,6 +1020,14 @@ export default function BulkReviewScreen() {
             });
           },
           onAdded: savedItems => {
+            const latest = savedItems[savedItems.length - 1];
+            if (latest) {
+              queueAddedLooksPrompt({
+                count: savedItems.length,
+                anchorItemId: latest.id,
+                photoUri: savedItems[0]?.photoUri,
+              });
+            }
             const expectedUserId = authenticatedUserId ?? (isGuest ? null : undefined);
             toast.show({
               message: `${savedItems.length} ${savedItems.length === 1 ? 'piece' : 'pieces'} added to your wardrobe`,

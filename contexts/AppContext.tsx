@@ -81,6 +81,13 @@ export type {
   MoodGoal, OutfitReaction, ReactionType,
 } from '@/constants/types';
 
+export interface AddedLooksPrompt {
+  count: number;
+  anchorItemId: string;
+  itemName?: string;
+  photoUri?: string;
+}
+
 type WardrobeItemReplacement = Omit<WardrobeItem, 'id' | 'createdAt'> & {
   cleanedImageUrl?: string | null;
 };
@@ -115,6 +122,12 @@ interface AppContextValue {
   isPremium: boolean;
   outfitSets: OutfitSet[];
   lastAddedSuggestions: OutfitSet[];
+  lastAddedAnchorId: string | null;
+  activeLastAddedAnchorId: string | null;
+  addedLooksPrompt: AddedLooksPrompt | null;
+  queueAddedLooksPrompt: (prompt: AddedLooksPrompt) => void;
+  dismissAddedLooksPrompt: () => void;
+  activateLastAddedSuggestions: (anchorItemId: string) => void;
   getStylingRecommendations: (context: 'traditional') => Promise<{ outfits: OutfitSet[]; notice?: string }>;
   clearLastAddedSuggestions: () => void;
   isLoading: boolean;
@@ -315,6 +328,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [recommendationSlots, setRecommendationSlots] = useState<WardrobeSlot[]>([]);
   const [slotsInitialized, setSlotsInitialized] = useState(false);
   const [lastAddedSuggestions, setLastAddedSuggestions] = useState<OutfitSet[]>([]);
+  const [lastAddedAnchorId, setLastAddedAnchorId] = useState<string | null>(null);
+  const [activeLastAddedAnchorId, setActiveLastAddedAnchorId] = useState<string | null>(null);
+  const [addedLooksPrompt, setAddedLooksPrompt] = useState<AddedLooksPrompt | null>(null);
   const [rotationState, setRotationState] = useState<RotationState>(INITIAL_ROTATION_STATE);
   const [wearHistory, setWearHistory] = useState<WearEntry[]>([]);
   const [reactions, setReactions] = useState<OutfitReaction[]>([]);
@@ -645,6 +661,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setRecommendationSlots([]);
             setSlotsInitialized(false);
             setLastAddedSuggestions([]);
+            setLastAddedAnchorId(null);
+            setActiveLastAddedAnchorId(null);
+            setAddedLooksPrompt(null);
             setGuestPendingWardrobeItems([]);
           }
           currentUserIdRef.current = userId;
@@ -1099,6 +1118,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setRecommendationSlots([]);
             setSlotsInitialized(false);
             setLastAddedSuggestions([]);
+            setLastAddedAnchorId(null);
+            setActiveLastAddedAnchorId(null);
+            setAddedLooksPrompt(null);
             setGuestPendingWardrobeItems([]);
           }
           currentUserIdRef.current = initUserId;
@@ -1473,7 +1495,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const clearLastAddedSuggestions = useCallback(() => setLastAddedSuggestions([]), []);
+  const queueAddedLooksPrompt = useCallback((prompt: AddedLooksPrompt) => {
+    setAddedLooksPrompt({ ...prompt });
+  }, []);
+  const dismissAddedLooksPrompt = useCallback(() => setAddedLooksPrompt(null), []);
+  const activateLastAddedSuggestions = useCallback((anchorItemId: string) => {
+    setActiveLastAddedAnchorId(anchorItemId);
+    setAddedLooksPrompt(null);
+  }, []);
+  const clearLastAddedSuggestions = useCallback(() => {
+    setLastAddedSuggestions([]);
+    setLastAddedAnchorId(null);
+    setActiveLastAddedAnchorId(null);
+  }, []);
 
   const clearDeletedAccountLocalData = useCallback(async () => {
     const photoUris = wardrobeItemsRef.current.map(item => item.photoUri);
@@ -1501,6 +1535,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRecommendationSlots([]);
     setSlotsInitialized(false);
     setLastAddedSuggestions([]);
+    setLastAddedAnchorId(null);
+    setActiveLastAddedAnchorId(null);
+    setAddedLooksPrompt(null);
     setWeather(null);
     setWeatherLoading(false);
     setGuestWardrobeSyncState({
@@ -1961,6 +1998,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const latest = items[items.length - 1];
     if (latest) {
       const styling = projectWardrobeForStyling([...items, ...wardrobeItems]);
+      setLastAddedAnchorId(latest.id);
+      setActiveLastAddedAnchorId(null);
       setLastAddedSuggestions(generateOutfitsForItem(styling.v37Items[items.length - 1], styling.v37Items, profile, weather));
     }
   }, [profile, weather, wardrobeItems]);
@@ -2188,6 +2227,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         wardrobeItemsRef.current = remaining;
         setWardrobeItems(remaining);
         setLastAddedSuggestions(prev => prev.some(suggestion => suggestion.heroId === id) ? [] : prev);
+        setLastAddedAnchorId(prev => prev === id ? null : prev);
+        setActiveLastAddedAnchorId(prev => prev === id ? null : prev);
+        setAddedLooksPrompt(prev => prev?.anchorItemId === id ? null : prev);
         const nextLoadedCount = Math.max(
           0,
           wardrobeLoadedCountRef.current - (currentItemWasLoaded ? 1 : 0),
@@ -2248,6 +2290,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       wardrobeItemsRef.current = remaining;
       setWardrobeItems(remaining);
       setLastAddedSuggestions(prev => prev.some(suggestion => suggestion.heroId === id) ? [] : prev);
+      setLastAddedAnchorId(prev => prev === id ? null : prev);
+      setActiveLastAddedAnchorId(prev => prev === id ? null : prev);
+      setAddedLooksPrompt(prev => prev?.anchorItemId === id ? null : prev);
       updateWardrobePagination(
         Math.max(0, wardrobeTotalCountRef.current - 1),
         Math.max(0, wardrobeLoadedCountRef.current - 1),
@@ -2527,7 +2572,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection, getStylingRecommendations,
     addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem,
     hasPendingPhotoCleanup, retryPendingPhotoCleanup, clearDeletedAccountLocalData, updateWardrobeItem,
-    isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
+    isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, lastAddedAnchorId,
+    activeLastAddedAnchorId, addedLooksPrompt, queueAddedLooksPrompt, dismissAddedLooksPrompt,
+    activateLastAddedSuggestions, clearLastAddedSuggestions,
     isLoading, appReady, isAuthenticated, authenticatedUserId, authSessionEnded, startupError, dataUnavailable, entitlementUnavailable,
     guestWardrobeSyncState, dismissGuestWardrobeNotice, retryGuestWardrobeSync,
     guestPendingWardrobeItems,
@@ -2552,7 +2599,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
        loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection, getStylingRecommendations,
         addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem,
         hasPendingPhotoCleanup, retryPendingPhotoCleanup, clearDeletedAccountLocalData, updateWardrobeItem,
-       isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, clearLastAddedSuggestions,
+       isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, lastAddedAnchorId,
+       activeLastAddedAnchorId, addedLooksPrompt, queueAddedLooksPrompt, dismissAddedLooksPrompt,
+       activateLastAddedSuggestions, clearLastAddedSuggestions,
        isLoading, appReady, isAuthenticated, authenticatedUserId, authSessionEnded, startupError, dataUnavailable, entitlementUnavailable, canAddItem, itemCap, recommendationSlots, starterRecommendations, lifestyleSlotGroups,
         guestWardrobeSyncState, dismissGuestWardrobeNotice, retryGuestWardrobeSync,
         guestPendingWardrobeItems,

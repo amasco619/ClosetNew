@@ -12,7 +12,7 @@ import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, Sleeve
 import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
 import { centroidHsl, centroidLab } from '@/constants/colorPerceptual';
 import Colors from '@/constants/colors';
-import { wardrobeCategoryLabel, wardrobeValueLabel } from '@/constants/wardrobeLabels';
+import { wardrobeCategoryLabel, wardrobeItemDisplayName, wardrobeValueLabel } from '@/constants/wardrobeLabels';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
 import { authenticatedApiRequest } from '@/lib/query-client';
@@ -173,7 +173,10 @@ function AnimatedSegment({ isActive }: { isActive: boolean }) {
 export default function AddItemScreen() {
   const insets = useSafeAreaInsets();
   const sheetScrollTopRef = useRef(0);
-  const { addWardrobeItem, replaceWardrobeItem, removeWardrobeItem, isPremium, isGuest, wardrobeItems, wardrobeTotalCount, itemCap, authenticatedUserId } = useApp();
+  const {
+    addWardrobeItem, replaceWardrobeItem, removeWardrobeItem, queueAddedLooksPrompt,
+    isPremium, isGuest, wardrobeItems, wardrobeTotalCount, itemCap, authenticatedUserId,
+  } = useApp();
   const dialog = useDialog();
   const toast = useToast();
   const {
@@ -1223,6 +1226,12 @@ export default function AddItemScreen() {
           onAction: () => expectedUserId === undefined
             ? Promise.resolve(false)
             : removeWardrobeItem(itemId, finalUri, expectedUserId),
+        });
+        queueAddedLooksPrompt({
+          count: 1,
+          anchorItemId: itemId,
+          itemName: wardrobeItemDisplayName(colorFamily, subType),
+          photoUri: finalUri,
         });
       }
       router.back();

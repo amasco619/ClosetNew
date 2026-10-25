@@ -86,7 +86,9 @@ function testStaleSuggestions() {
   assert.deepEqual(filterLastAddedSuggestions(suggestions, new Set(['bottom-1'])), [],
     'removing the anchor hides every suggestion');
   assert.match(outfits, /filterLastAddedSuggestions\(\s*lastAddedSuggestions,\s*new Set\(wardrobeItems\.map\(item => item\.id\)\)/);
-  assert.match(outfits, /visibleLastAddedSuggestions\.length > 0/);
+  assert.match(outfits, /builtAroundActive && filtered\.length === 0/);
+  assert.match(outfits, /testID="built-around-chip"/);
+  assert.match(outfits, /onPress=\{clearLastAddedSuggestions\}/);
   assert.equal((appContext.match(/setLastAddedSuggestions\(prev => prev\.some\(suggestion => suggestion\.heroId === id\) \? \[\] : prev\)/g) ?? []).length, 2,
     'deleting an anchor clears the transient suggestions in both account and guest paths');
 }
