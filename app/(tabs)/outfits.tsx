@@ -1,16 +1,16 @@
 import {
-  StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator,
+  StyleSheet, Text, View, ScrollView, Pressable, ActivityIndicator, FlatList,
+  Modal, useWindowDimensions,
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useApp, OutfitSet, OutfitComponent } from '@/contexts/AppContext';
-import { usesConfirmedCoordinatedSet } from '../../lib/stylingRelationships';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
-import { OccasionTag, WearEntry, MoodGoal, ReactionType, WardrobeItem } from '@/constants/types';
+import { OccasionTag, ReactionType, WardrobeItem } from '@/constants/types';
 import * as Haptics from 'expo-haptics';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -19,42 +19,23 @@ import { computeItemCpw, formatCpw } from '@/constants/cpw';
 import { rs } from '../../lib/responsive';
 import OccasionPlanner, { type ConciergeAccess } from '../../components/OccasionPlanner';
 import { GarmentTile } from '@/components/GarmentTile';
+import LockedLookSilhouettes from '../../components/LockedLookSilhouettes';
 import { useToast } from '@/contexts/LuxuryFeedbackContext';
 import TravelPlanner from '../../components/TravelPlanner';
 import { CONCIERGE_OCCASIONS, conciergeReadiness, parseConciergeIntent, type ConciergeIntent } from '../../lib/concierge';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
 import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
+import { usesConfirmedCoordinatedSet } from '../../lib/stylingRelationships';
 import { filterLastAddedSuggestions } from '../../lib/lastAddedSuggestions';
-
-const MOOD_OPTIONS: { id: MoodGoal; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }[] = [
-  { id: 'confident', label: 'Confident', icon: 'flash-outline' },
-  { id: 'soft',      label: 'Soft',      icon: 'cloud-outline' },
-  { id: 'joyful',    label: 'Joyful',    icon: 'sunny-outline' },
-  { id: 'grounded',  label: 'Grounded',  icon: 'leaf-outline' },
-  { id: 'romantic',  label: 'Romantic',  icon: 'rose-outline' },
-  { id: 'powerful',  label: 'Powerful',  icon: 'trophy-outline' },
-];
+import {
+  buildLookPages, lockedLookCount, lockedLookTitle, pageIndexForDot,
+  pageIndexFromOffset, runLookOverflowAction,
+} from '../../lib/lookCarousel';
 
 const FREE_SCENARIOS: OccasionTag[] = ['work', 'casual', 'date-casual', 'date-dressy', 'event', 'brunch', 'active'];
 const PREMIUM_SCENARIOS: OccasionTag[] = ['interview', 'wedding', 'traditional-event', 'travel', 'resort', 'night-out'];
 
-const REWEAR_THRESHOLDS: Record<OccasionTag, number> = {
-  work:          7,
-  casual:        7,
-  'date-casual': 7,
-  'date-dressy': 14,
-  event:         14,
-  interview:     21,
-  wedding:             21,
-  'traditional-event': 21,
-  travel:              0,
-  brunch:        7,
-  active:        3,
-  resort:        14,
-  'night-out':   7,
-} satisfies Record<OccasionTag, number>;
-
-// Accent colours per scenario — drives the left card border + subtle tint
+// Scenario accents remain in use for the just-added look banner and Traditional context.
 const SCENARIO_ACCENT: Record<OccasionTag, string> = {
   work:          Colors.primary,
   casual:        Colors.sage,
@@ -70,28 +51,6 @@ const SCENARIO_ACCENT: Record<OccasionTag, string> = {
   resort:        '#6BA3BE',
   'night-out':   '#7B5EA7',
 } satisfies Record<OccasionTag, string>;
-
-function getLastWornInfo(
-  outfit: OutfitSet,
-  wearHistory: WearEntry[],
-): { daysAgo: number; date: string } | null {
-  const fp = outfit.components
-    .map(c => c.matchedItemId)
-    .filter(Boolean)
-    .sort()
-    .join('|');
-  if (!fp) return null;
-  const today = new Date().toISOString().slice(0, 10);
-  const matches = wearHistory
-    .filter(e => e.outfitFingerprint === fp && e.date < today)
-    .sort((a, b) => b.date.localeCompare(a.date));
-  if (matches.length === 0) return null;
-  const lastDate = matches[0].date;
-  const daysAgo = Math.round(
-    (Date.now() - new Date(lastDate + 'T12:00:00').getTime()) / (1000 * 60 * 60 * 24),
-  );
-  return { daysAgo, date: lastDate };
-}
 
 const scenarioLabels: Record<OccasionTag, { label: string; icon: React.ComponentProps<typeof Ionicons>['name']; mood: string }> = {
   work:          { label: 'Work',       icon: 'briefcase-outline',   mood: 'Sharp & polished' },
@@ -175,52 +134,33 @@ function OutfitItemPhoto({ component, size = 80, isHero = false }: {
 function OutfitCard({
   outfit,
   index,
-  highlight = false,
   wornToday,
   wornTodayEntryId,
   onLogWear,
   onUndoWear,
-  wearHistory,
   reaction,
   onReact,
   isPremium,
 }: {
   outfit: OutfitSet;
   index: number;
-  highlight?: boolean;
   wornToday: boolean;
   wornTodayEntryId?: string;
   onLogWear: (outfit: OutfitSet) => void;
   onUndoWear: (entryId: string) => void;
-  wearHistory: WearEntry[];
   reaction: ReactionType | null;
   onReact: (outfit: OutfitSet, type: ReactionType) => void;
   isPremium: boolean;
 }) {
   const toast = useToast();
   const scenario = scenarioLabels[outfit.scenario];
-  const accent = SCENARIO_ACCENT[outfit.scenario] ?? Colors.secondary;
-  const coreItems = outfit.components.filter(c =>
-    ['top', 'bottom', 'dress'].includes(c.category)
-  );
-  const accessories = outfit.components.filter(c =>
-    ['shoes', 'bag', 'jewelry', 'outerwear'].includes(c.category)
-  );
   const hasOwnedItems = outfit.components.some(c => c.owned && c.matchedItemId);
 
-  const lastWorn = getLastWornInfo(outfit, wearHistory);
-  const threshold = REWEAR_THRESHOLDS[outfit.scenario];
-  const showRewearAdvisor = lastWorn !== null && threshold > 0 && lastWorn.daysAgo < threshold;
-  const halfThreshold = Math.ceil(threshold / 2);
-  const rewearUrgent = lastWorn !== null && lastWorn.daysAgo < halfThreshold;
-
-  // Premium: show the AI-generated rationale ("why this works for your
-  // body type and palette"). Free: show only the short mood descriptor.
-  const moodText = isPremium
-    ? (outfit.rationale || scenario?.mood)
-    : scenario?.mood;
+  // Keep the existing Premium boundary for generated rationale.
+  const lookName = isPremium ? (outfit.rationale || scenario?.mood) : scenario?.mood;
   const storyRef = useRef<View>(null);
   const [exporting, setExporting] = useState(false);
+  const [overflowVisible, setOverflowVisible] = useState(false);
 
   const handleExport = async () => {
     Haptics.selectionAsync();
@@ -245,168 +185,135 @@ function OutfitCard({
     }
   };
 
+  const pieceName = (component: OutfitComponent) =>
+    component.subType.replace(/-/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+  const onePiece = outfit.components.some(component =>
+    component.category === 'dress' || /gown|kaftan/i.test(component.subType),
+  );
+  const slotCategories = ['top', 'bottom', 'shoes', 'outerwear'];
+  const knownCategories = ['top', 'bottom', 'dress', 'outerwear', 'shoes', 'bag', 'jewelry'];
+  const unknownItems = outfit.components.filter(component => !knownCategories.includes(component.category));
+  const slots = onePiece
+    ? [outfit.components.find(component => component.category === 'dress' || /gown|kaftan/i.test(component.subType))]
+    : unknownItems.length
+      ? [...outfit.components].slice(0, 4)
+      : slotCategories.map(category => outfit.components.find(component => component.category === category));
+  const handleOverflowAction = (action: 'not-today' | 'export') => {
+    setOverflowVisible(false);
+    runLookOverflowAction(action, {
+      notToday: () => { Haptics.selectionAsync(); onReact(outfit, 'not-today'); },
+      exportLook: () => { void handleExport(); },
+    });
+  };
+
   return (
-    <Animated.View entering={FadeInDown.delay(index * 70).duration(280)}>
-      <View style={[
-        styles.outfitCard,
-        { borderLeftColor: accent },
-        highlight && styles.outfitCardHighlight,
-        wornToday && styles.outfitCardWorn,
-      ]}>
-
-        {/* ── Card header ─────────────────────────────────────────── */}
-        <View style={styles.cardHeader}>
-          <View style={[styles.scenarioPill, { backgroundColor: accent + '14', borderColor: accent + '30' }]}>
-            <Ionicons name={scenario?.icon || 'ellipse'} size={12} color={accent} />
-            <Text style={[styles.scenarioPillText, { color: accent }]}>{scenario?.label}</Text>
-          </View>
-          {wornToday ? (
-            <View style={styles.wornBadge}>
-              <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
-              <Text style={styles.wornBadgeText}>Worn today</Text>
-            </View>
-          ) : (
-            <View style={styles.readyBadge}>
-              <View style={styles.readyDot} />
-              <Text style={styles.readyText}>Ready to wear</Text>
-            </View>
-          )}
-        </View>
-
-        {/* ── Mood phrase ─────────────────────────────────────────── */}
-        {moodText ? (
-          <Text style={styles.moodText}>{moodText}</Text>
-        ) : null}
-
-        {usesConfirmedCoordinatedSet(outfit) && (
-          <View style={{ marginBottom: 12 }} accessible accessibilityRole="text" accessibilityLabel="Styled as a coordinated set">
-            <Text style={[styles.scenarioPillText, { color: accent }]}>Styled as a set</Text>
-          </View>
-        )}
-
-        {/* ── Rewear advisor ──────────────────────────────────────── */}
-        {showRewearAdvisor && !wornToday && (
-          <View style={[styles.rewearAdvisor, rewearUrgent && styles.rewearAdvisorUrgent]}>
-            <Ionicons
-              name={rewearUrgent ? 'time-outline' : 'refresh-circle-outline'}
-              size={12}
-              color={rewearUrgent ? '#92400E' : Colors.secondary}
-            />
-            <Text style={[styles.rewearAdvisorText, rewearUrgent && styles.rewearAdvisorTextUrgent]}>
-              {rewearUrgent
-                ? `Worn ${lastWorn!.daysAgo === 1 ? 'yesterday' : `${lastWorn!.daysAgo} days ago`} — let it breathe a little longer`
-                : `Worn ${lastWorn!.daysAgo} days ago — almost ready to re-wear`}
-            </Text>
-          </View>
-        )}
-
-        {/* ── Core item photos ────────────────────────────────────── */}
-        <View style={styles.photosRow}>
-          {coreItems.map((comp, i) => {
-            const isHero = !!outfit.heroId && comp.matchedItemId === outfit.heroId;
-            return (
-              <View key={`core-${i}`} style={styles.photoWrap}>
-                <OutfitItemPhoto component={comp} size={86} isHero={isHero} />
-                <Text style={styles.itemLabel} numberOfLines={1}>
-                  {categoryLabels[comp.category] || comp.category}
-                </Text>
-                <Text style={styles.itemColor} numberOfLines={1}>{wardrobeValueLabel(comp.colorFamily)}</Text>
-                {isHero && (
-                  <View style={[styles.focalBadge, { borderColor: accent + '40' }]}>
-                    <Text style={[styles.focalBadgeText, { color: accent }]}>Focal</Text>
+    <Animated.View entering={FadeInDown.delay(index * 70).duration(280)} style={styles.lookPage}>
+      <View style={styles.lookCard}>
+        <View style={[styles.lookMat, onePiece && styles.lookMatOnePiece, unknownItems.length > 0 && styles.lookMatUnknown]}>
+          {slots.map((component, slotIndex) => (
+            <View key={`${component?.category ?? 'empty'}-${slotIndex}`} style={[
+              styles.lookSlot,
+              onePiece && styles.lookSlotOnePiece,
+              !component && styles.lookSlotEmpty,
+            ]}>
+              {component ? (
+                <>
+                  <View style={styles.lookSlotPhotoShadow}>
+                    <OutfitItemPhoto component={component} size={onePiece ? 190 : 112} />
                   </View>
-                )}
-              </View>
-            );
-          })}
+                  {!onePiece && <Text style={styles.slotLabel}>{categoryLabels[component.category] || component.category}</Text>}
+                </>
+              ) : <View style={styles.emptyGarmentSlot} />}
+            </View>
+          ))}
         </View>
-
-        {/* ── Accessories ─────────────────────────────────────────── */}
-        {accessories.length > 0 && (
-          <View style={styles.accessoriesWrap}>
-            <Text style={styles.accessoriesLabel}>Accessories</Text>
-            <View style={styles.accessoriesRow}>
-              {accessories.map((comp, i) => {
-                const isHero = !!outfit.heroId && comp.matchedItemId === outfit.heroId;
-                return (
-                  <View key={`acc-${i}`} style={styles.accessoryWrap}>
-                    <OutfitItemPhoto component={comp} size={50} isHero={isHero} />
-                    <Text style={styles.accessoryLabel} numberOfLines={1}>
-                      {categoryLabels[comp.category] || comp.category}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        {/* ── Actions ─────────────────────────────────────────────── */}
-        {hasOwnedItems && (
-          <View style={styles.actionsArea}>
-            {wornToday ? (
-              <Pressable
-                style={({ pressed }) => [styles.undoWearBtn, pressed && { opacity: 0.7 }]}
-                onPress={() => wornTodayEntryId && onUndoWear(wornTodayEntryId)}
-              >
-                <Ionicons name="return-up-back-outline" size={14} color={Colors.textSecondary} />
-                <Text style={styles.undoWearText}>Undo</Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                style={({ pressed }) => [styles.logWearBtn, pressed && { opacity: 0.88, transform: [{ scale: 0.98 }] }]}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onLogWear(outfit); }}
-              >
-                <Ionicons name="calendar-outline" size={15} color={Colors.white} />
-                <Text style={styles.logWearText}>Wearing this today</Text>
-              </Pressable>
-            )}
-            <View style={styles.reactionRow}>
-              <Pressable
-                style={[styles.reactionBtn, reaction === 'love' && styles.reactionBtnLove]}
-                onPress={() => { Haptics.selectionAsync(); onReact(outfit, 'love'); }}
-                hitSlop={8}
-              >
-                <Ionicons
-                  name={reaction === 'love' ? 'heart' : 'heart-outline'}
-                  size={15}
-                  color={reaction === 'love' ? '#DC2626' : Colors.textSecondary}
-                />
-                <Text style={[styles.reactionText, reaction === 'love' && { color: '#DC2626' }]}>Love</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.reactionBtn, reaction === 'not-today' && styles.reactionBtnSkip]}
-                onPress={() => { Haptics.selectionAsync(); onReact(outfit, 'not-today'); }}
-                hitSlop={8}
-              >
-                <Ionicons
-                  name={reaction === 'not-today' ? 'close-circle' : 'close-circle-outline'}
-                  size={15}
-                  color={reaction === 'not-today' ? Colors.textSecondary : Colors.textLight}
-                />
-                <Text style={styles.reactionText}>Not today</Text>
-              </Pressable>
-            </View>
-            <Pressable
-              style={({ pressed }) => [styles.exportBtn, pressed && { opacity: 0.7 }]}
-              onPress={handleExport}
-              disabled={exporting}
-            >
-              <Ionicons name="share-outline" size={12} color={Colors.textSecondary} />
-              <Text style={styles.exportBtnText}>
-                {exporting ? 'Preparing...' : 'Export look'}
-              </Text>
-            </Pressable>
-          </View>
-        )}
-        <View
-          ref={storyRef}
-          collapsable={false}
-          style={{ position: 'absolute', left: -900, top: 0 }}
-        >
-          <OOTDStoryCard outfit={outfit} />
+        <View style={styles.lookCaption}>
+          <Text style={styles.lookName} numberOfLines={1}>{lookName || scenario?.mood || scenario?.label}</Text>
+          <Text style={styles.lookMeta} numberOfLines={1}>
+            {scenario?.label}  ·  {wornToday ? 'Worn today' : 'Ready to wear'}{usesConfirmedCoordinatedSet(outfit) ? ' · Styled as a set' : ''}
+          </Text>
+          <Text style={styles.lookPieces} numberOfLines={1}>{outfit.components.map(pieceName).join(', ')}</Text>
         </View>
       </View>
+      {hasOwnedItems && (
+        <View style={styles.lookActions}>
+          {wornToday ? (
+            <Pressable testID={`look-wear-${outfit.id}`} accessibilityRole="button" accessibilityLabel="Undo wearing this look today"
+              style={styles.lookWearButton} onPress={() => wornTodayEntryId && onUndoWear(wornTodayEntryId)}>
+              <Ionicons name="return-up-back-outline" size={18} color={Colors.white} />
+              <Text style={styles.lookWearText}>Undo</Text>
+            </Pressable>
+          ) : (
+            <Pressable testID={`look-wear-${outfit.id}`} accessibilityRole="button" accessibilityLabel="Wear today"
+              style={styles.lookWearButton} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onLogWear(outfit); }}>
+              <Ionicons name="calendar-outline" size={18} color={Colors.white} />
+              <Text style={styles.lookWearText}>Wear today</Text>
+            </Pressable>
+          )}
+          <Pressable testID={`look-love-${outfit.id}`} accessibilityRole="button" accessibilityLabel={reaction === 'love' ? 'Remove Love reaction' : 'Love this look'}
+            accessibilityState={{ selected: reaction === 'love' }} style={styles.lookIconButton}
+            onPress={() => { Haptics.selectionAsync(); onReact(outfit, 'love'); }}>
+            <Ionicons name={reaction === 'love' ? 'heart' : 'heart-outline'} size={22} color={reaction === 'love' ? '#A94955' : Colors.primary} />
+          </Pressable>
+          <Pressable testID={`look-overflow-${outfit.id}`} accessibilityRole="button" accessibilityLabel="More look actions"
+            style={styles.lookIconButton} onPress={() => setOverflowVisible(true)}>
+            <Ionicons name="ellipsis-horizontal" size={22} color={Colors.primary} />
+          </Pressable>
+        </View>
+      )}
+      <View ref={storyRef} collapsable={false} style={{ position: 'absolute', left: -900, top: 0 }}>
+        <OOTDStoryCard outfit={outfit} />
+      </View>
+      <Modal
+        testID={`look-action-modal-${outfit.id}`}
+        visible={overflowVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setOverflowVisible(false)}
+      >
+        <View style={styles.actionSheetBackdrop}>
+          <Pressable
+            testID={`look-action-backdrop-${outfit.id}`}
+            accessibilityRole="button"
+            accessibilityLabel="Close look actions"
+            style={StyleSheet.absoluteFill}
+            onPress={() => setOverflowVisible(false)}
+          />
+          <View testID={`look-action-sheet-${outfit.id}`} accessibilityViewIsModal style={styles.actionSheet}>
+            <View style={styles.actionSheetHandle} />
+            <Text style={styles.actionSheetTitle}>Look options</Text>
+            <Pressable
+              testID={`look-action-not-today-${outfit.id}`}
+              accessibilityRole="button"
+              accessibilityLabel="Not today"
+              style={styles.actionSheetButton}
+              onPress={() => handleOverflowAction('not-today')}
+            >
+              <Text style={styles.actionSheetButtonText}>Not today</Text>
+            </Pressable>
+            <Pressable
+              testID={`look-action-export-${outfit.id}`}
+              accessibilityRole="button"
+              accessibilityLabel="Export look"
+              accessibilityState={{ disabled: exporting }}
+              disabled={exporting}
+              style={styles.actionSheetButton}
+              onPress={() => handleOverflowAction('export')}
+            >
+              <Text style={styles.actionSheetButtonText}>{exporting ? 'Preparing…' : 'Export look'}</Text>
+            </Pressable>
+            <Pressable
+              testID={`look-action-cancel-${outfit.id}`}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+              style={styles.actionSheetCancel}
+              onPress={() => setOverflowVisible(false)}
+            >
+              <Text style={styles.actionSheetCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </Animated.View>
   );
 }
@@ -476,6 +383,7 @@ function JustAddedBanner({ suggestions, onDismiss }: {
 
 export default function OutfitsScreen() {
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const {
     outfitSets,
     profile, weather, isAuthenticated, authenticatedUserId,
@@ -494,9 +402,6 @@ export default function OutfitsScreen() {
     logWear,
     undoWear,
     isWornToday,
-    wearHistory,
-    todayMood,
-    setTodayMood,
     reactToOutfit,
     getOutfitReaction,
     profileCompleteness,
@@ -555,6 +460,8 @@ export default function OutfitsScreen() {
   }
 
   const [selectedScenario, setSelectedScenario] = useState<OccasionTag>('casual');
+  const [carouselPage, setCarouselPage] = useState(0);
+  const carouselRef = useRef<FlatList<OutfitSet | null>>(null);
   const [traditionalOutfits, setTraditionalOutfits] = useState<OutfitSet[]>([]);
   const [traditionalNotice, setTraditionalNotice] = useState<string | null>(null);
   const [traditionalLoading, setTraditionalLoading] = useState(false);
@@ -577,6 +484,8 @@ export default function OutfitsScreen() {
   const clearConcierge = useCallback(() => {
     requestVersion.current += 1;
     if (intentRef.current) setSelectedScenario('casual');
+    setCarouselPage(0);
+    carouselRef.current?.scrollToOffset?.({ offset: 0, animated: false });
     intentRef.current = null;
     setConciergePlan(null);
     setPlannerOpen(false);
@@ -616,6 +525,8 @@ export default function OutfitsScreen() {
       if (!validated) { setPlannerAccess('choose'); return; }
       intentRef.current = validated;
       setConciergePlan({ ...validated, owner });
+      setCarouselPage(0);
+      carouselRef.current?.scrollToOffset?.({ offset: 0, animated: false });
       setSelectedScenario(validated.occasion);
       // A repeated Traditional brief is a new request, not a relabelled old card.
       setTraditionalOutfits([]);
@@ -688,8 +599,16 @@ export default function OutfitsScreen() {
   const filtered = conciergePlan && !conciergeAuthorized ? [] : selectedScenario === 'traditional-event'
     ? traditionalOutfits.filter(o => o.scenario === 'traditional-event')
     : outfitSets.filter(o => o.scenario === selectedScenario);
-  const isPremiumScenario = PREMIUM_SCENARIOS.includes(selectedScenario);
   const hasWardrobe = activeWardrobeItems.length > 0;
+  const lockedPages = lockedLookCount(
+    isAuthenticated,
+    !!profile?.isGuest,
+    isPremium,
+    entitlementUnavailable,
+    filtered.length,
+  );
+  const lookPages = buildLookPages(filtered, lockedPages);
+  const carouselKey = `${selectedScenario}:${activeWardrobeItems.map(item => item.id).join(',')}:${filtered.map(look => look.id).join(',')}:${lockedPages}:${screenWidth}`;
 
   function handleScenarioPress(scenario: OccasionTag) {
     clearConcierge();
@@ -698,6 +617,8 @@ export default function OutfitsScreen() {
       router.push('/premium');
     } else {
       Haptics.selectionAsync();
+      setCarouselPage(0);
+      carouselRef.current?.scrollToOffset?.({ offset: 0, animated: false });
       setSelectedScenario(scenario);
     }
   }
@@ -712,7 +633,6 @@ export default function OutfitsScreen() {
     return todaysWear.find(e => e.date === today && e.outfitFingerprint === fp)?.id;
   }
 
-  const activeAccent = SCENARIO_ACCENT[selectedScenario] ?? Colors.secondary;
   const planningState = conciergePlan ? conciergeReadiness({
     failed: wardrobeLoadError || dataUnavailable === true || startupError === true ||
       (selectedScenario === 'traditional-event' && traditionalError),
@@ -759,20 +679,19 @@ export default function OutfitsScreen() {
         </View>
       );
   const conciergeControls = (
-    <View style={{ marginHorizontal: 20, marginBottom: 12 }}>
-      <Pressable testID="concierge-entry" accessibilityRole="button" accessibilityLabel="Plan an occasion today"
-        onPress={openPlanner} style={({ pressed }) => [styles.premiumStrip, { minHeight: 44, marginHorizontal: 0 }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}>
-        <Ionicons name="sparkles-outline" size={18} color={Colors.secondary} />
-        <Text style={styles.premiumStripTitle}>Plan an occasion</Text>
-        <Text style={styles.premiumStripSub}>Today · Premium</Text>
-      </Pressable>
-      <Pressable testID="travel-entry" accessibilityRole="button" accessibilityLabel="Plan a temporary travel capsule"
-        onPress={() => { clearConcierge(); setTravelOpen(true); }}
-        style={({ pressed }) => [styles.premiumStrip, { minHeight: 44, marginHorizontal: 0, marginTop: 8 }, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}>
-        <Ionicons name="bag-handle-outline" size={18} color={Colors.secondary} />
-        <Text style={styles.premiumStripTitle}>Plan a travel capsule</Text>
-        <Text style={styles.premiumStripSub}>Temporary · Premium</Text>
-      </Pressable>
+    <View style={{ marginBottom: 12 }}>
+      <View style={styles.planningRow}>
+        <Ionicons name="sparkles-outline" size={17} color={Colors.secondary} />
+        <Pressable testID="concierge-entry" accessibilityRole="button" accessibilityLabel="Plan an occasion or a travel capsule"
+          onPress={openPlanner} style={({ pressed }) => [styles.planningMain, pressed && { opacity: 0.75 }]}>
+          <Text style={styles.planningTitle}>Plan an occasion or a travel capsule</Text>
+        </Pressable>
+        <Text style={styles.planningPremium}>PREMIUM</Text>
+        <Pressable testID="travel-entry" accessibilityRole="button" accessibilityLabel="Open travel capsule planner"
+          onPress={() => { clearConcierge(); setTravelOpen(true); }} style={styles.planningTravel}>
+          <Ionicons name="chevron-forward" size={16} color={Colors.textSecondary} />
+        </Pressable>
+      </View>
       {travelOpen && <TravelPlanner onClose={closeTravel} />}
       {plannerOpen && <OccasionPlanner
         access={plannerAccess === 'denied' ? (entitlementUnavailable ? 'unavailable' : 'not-entitled') : plannerAccess}
@@ -793,7 +712,6 @@ export default function OutfitsScreen() {
             <Text style={styles.title}>Your Looks</Text>
           </View>
         </View>
-        {conciergeControls}
         {conciergeSummary}
         {wardrobeLoading ? (
           <View style={styles.wardrobeLoading}>
@@ -803,14 +721,16 @@ export default function OutfitsScreen() {
         ) : (
           <Pressable
             accessibilityRole="button"
+            accessibilityLabel={wardrobeLoadError ? 'Retry loading your full wardrobe' : 'Load your full wardrobe'}
             onPress={() => { setLoadRetry(count => count + 1); }}
-            style={styles.wardrobeLoadError}
+            style={[styles.wardrobeLoadError, { minHeight: 44, justifyContent: 'center' }]}
           >
             <Text style={styles.wardrobeLoadErrorText}>
               {wardrobeLoadError ? 'Your full wardrobe could not be loaded. Tap to retry.' : 'Your full wardrobe is not available yet. Tap to retry.'}
             </Text>
           </Pressable>
         )}
+        <View style={{ marginHorizontal: 16, marginTop: 'auto' }}>{conciergeControls}</View>
       </View>
     );
   }
@@ -823,16 +743,8 @@ export default function OutfitsScreen() {
           <Text style={styles.headerLabel}>STYLED FOR YOU</Text>
           <Text style={styles.title}>Your Looks</Text>
         </View>
-        {hasWardrobe && (
-          <View style={[styles.outfitCountBadge, { backgroundColor: activeAccent + '14', borderColor: activeAccent + '30' }]}>
-            <Text style={[styles.outfitCountText, { color: activeAccent }]}>
-              {filtered.length} {filtered.length === 1 ? 'look' : 'looks'}
-            </Text>
-          </View>
-        )}
       </View>
 
-      {conciergeControls}
       {/* ── Scenario chips ──────────────────────────────────────────────── */}
       <ScrollView
         horizontal
@@ -840,37 +752,9 @@ export default function OutfitsScreen() {
         style={styles.scenarioScroll}
         contentContainerStyle={styles.scenarioScrollContent}
       >
-        {FREE_SCENARIOS.map(s => {
+        {[...FREE_SCENARIOS, ...PREMIUM_SCENARIOS].map(s => {
+          const isLocked = PREMIUM_SCENARIOS.includes(s) && !isPremium;
           const isActive = selectedScenario === s;
-          const accent = SCENARIO_ACCENT[s];
-          return (
-            <Pressable
-              key={s}
-              style={({ pressed }) => [
-                styles.scenarioChip,
-                isActive && [styles.scenarioChipActive, { backgroundColor: accent, borderColor: accent }],
-                pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] },
-              ]}
-              onPress={() => handleScenarioPress(s)}
-            >
-              <Ionicons
-                name={scenarioLabels[s].icon}
-                size={13}
-                color={isActive ? Colors.white : Colors.textSecondary}
-              />
-              <Text style={[styles.scenarioText, isActive && styles.scenarioTextActive]}>
-                {scenarioLabels[s].label}
-              </Text>
-            </Pressable>
-          );
-        })}
-
-        <View style={styles.scenarioDivider} />
-
-        {PREMIUM_SCENARIOS.map(s => {
-          const isLocked = !isPremium;
-          const isActive = selectedScenario === s;
-          const accent = SCENARIO_ACCENT[s];
           return (
             <Pressable
               key={s}
@@ -878,19 +762,12 @@ export default function OutfitsScreen() {
               accessibilityLabel={s === 'traditional-event' ? 'Traditional styling' : scenarioLabels[s].label}
               accessibilityState={{ selected: isActive }}
               style={({ pressed }) => [
-                styles.scenarioChip,
-                styles.scenarioChipPremium,
-                isActive && [styles.scenarioChipActive, { backgroundColor: accent, borderColor: accent }],
+                styles.scenarioTab,
                 isLocked && styles.scenarioChipLocked,
-                pressed && { opacity: 0.8 },
+                pressed && { opacity: 0.7 },
               ]}
               onPress={() => handleScenarioPress(s)}
             >
-              <Ionicons
-                name={scenarioLabels[s].icon}
-                size={13}
-                color={isActive ? Colors.white : isLocked ? Colors.textLight : Colors.secondary}
-              />
               <Text style={[
                 styles.scenarioText,
                 isActive && styles.scenarioTextActive,
@@ -898,56 +775,12 @@ export default function OutfitsScreen() {
               ]}>
                 {scenarioLabels[s].label}
               </Text>
-              {isLocked && (
-                <Ionicons name="lock-closed" size={9} color={Colors.textLight} />
-              )}
+              {isLocked && <Ionicons name="lock-closed" size={11} color={Colors.textLight} />}
+              <View style={[styles.scenarioUnderline, !isActive && styles.scenarioUnderlineHidden]} />
             </Pressable>
           );
         })}
       </ScrollView>
-
-      {/* ── Mood picker (premium) ────────────────────────────────────────── */}
-      {hasWardrobe && isPremium && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.moodScroll}
-          contentContainerStyle={styles.moodScrollContent}
-        >
-          <Text style={styles.moodPrompt}>Feeling</Text>
-          {MOOD_OPTIONS.map(m => {
-            const active = todayMood === m.id;
-            return (
-              <Pressable
-                key={m.id}
-                style={({ pressed }) => [
-                  styles.moodChip,
-                  active && styles.moodChipActive,
-                  pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
-                ]}
-                onPress={() => { Haptics.selectionAsync(); setTodayMood(active ? null : m.id); }}
-              >
-                <Ionicons name={m.icon} size={12} color={active ? Colors.white : Colors.secondary} />
-                <Text style={[styles.moodChipText, active && styles.moodChipTextActive]}>
-                  {m.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      )}
-
-      {/* ── Mood locked teaser (free) ────────────────────────────────────── */}
-      {hasWardrobe && !isPremium && (
-        <Pressable
-          style={({ pressed }) => [styles.moodLockedStrip, pressed && { opacity: 0.75 }]}
-          onPress={() => router.push('/premium')}
-        >
-          <Ionicons name="lock-closed" size={11} color={Colors.secondary} />
-          <Text style={styles.moodLockedText}>Unlock mood filtering with Premium</Text>
-          <Ionicons name="chevron-forward" size={12} color={Colors.secondary} />
-        </Pressable>
-      )}
 
       {/* ── Main scroll ─────────────────────────────────────────────────── */}
       <ScrollView
@@ -985,11 +818,13 @@ export default function OutfitsScreen() {
                   : 'A few more details sharpen every look.'}
               </Text>
               <View style={styles.nudgeActions}>
-                <Pressable onPress={() => router.push('/(tabs)/profile?focus=refinements')} style={styles.nudgeCta}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Refine your style profile"
+                  onPress={() => router.push('/(tabs)/profile?focus=refinements')} style={[styles.nudgeCta, { minHeight: 44 }]}>
                   <Text style={styles.nudgeCtaText}>Refine</Text>
                   <Ionicons name="arrow-forward" size={11} color={Colors.secondary} />
                 </Pressable>
-                <Pressable onPress={dismissProfileNudge} hitSlop={8}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Dismiss style profile reminder"
+                  onPress={dismissProfileNudge} hitSlop={8} style={{ minHeight: 44, justifyContent: 'center' }}>
                   <Text style={styles.nudgeDismiss}>Not now</Text>
                 </Pressable>
               </View>
@@ -997,24 +832,6 @@ export default function OutfitsScreen() {
           </Animated.View>
         )}
 
-        {/* Premium upsell — shown at the top, never buried below outfit cards */}
-        {!isPremium && hasWardrobe && !isPremiumScenario && (
-          <Animated.View entering={FadeInDown.delay(80).duration(280)}>
-            <Pressable
-              style={({ pressed }) => [styles.premiumStrip, pressed && { opacity: 0.85 }]}
-              onPress={() => router.push('/premium')}
-            >
-              <View style={styles.premiumStripIcon}>
-                <Ionicons name="star" size={14} color={Colors.secondary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.premiumStripTitle}>Unlock Resort, Night Out & more</Text>
-                <Text style={styles.premiumStripSub}>Interview, Wedding, Travel — curated for every occasion</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={15} color={Colors.secondary} />
-            </Pressable>
-          </Animated.View>
-        )}
 
         {/* Just-added banner */}
         {!conciergePlan && visibleLastAddedSuggestions.length > 0 && (
@@ -1092,6 +909,8 @@ export default function OutfitsScreen() {
                 : 'Start adding clothing and the app will build complete outfit suggestions from your wardrobe.'}
             </Text>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add clothing item"
               style={({ pressed }) => [styles.emptyAction, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
               onPress={() => router.push('/add-item')}
             >
@@ -1100,27 +919,87 @@ export default function OutfitsScreen() {
             </Pressable>
           </Animated.View>
         ) : (
-          filtered.map((outfit, i) => {
-            const worn = isWornToday(outfit);
-            const entryId = worn ? getTodayEntryId(outfit) : undefined;
-            return (
-              <OutfitCard
-                key={outfit.id}
-                outfit={outfit}
-                index={i}
-                wornToday={worn}
-                wornTodayEntryId={entryId}
-                onLogWear={handleLogWear}
-                onUndoWear={undoWear}
-                wearHistory={wearHistory}
-                reaction={getOutfitReaction(outfit)}
-                onReact={reactToOutfit}
-                isPremium={isPremium}
-              />
-            );
-          })
+          <>
+            {(() => {
+              const pageWidth = screenWidth;
+              const cardWidth = screenWidth - 32;
+              return (
+                <>
+                  <FlatList
+                    ref={carouselRef}
+                    key={carouselKey}
+                    testID="looks-pager"
+                    horizontal
+                    pagingEnabled
+                    snapToInterval={pageWidth}
+                    decelerationRate="fast"
+                    disableIntervalMomentum
+                    nestedScrollEnabled
+                    directionalLockEnabled
+                    showsHorizontalScrollIndicator={false}
+                    scrollEnabled={lookPages.length > 1}
+                    data={lookPages}
+                    keyExtractor={(item, index) => item?.id ?? `locked-${index}`}
+                    contentContainerStyle={styles.lookPagerContent}
+                    style={styles.lookPager}
+                    onLayout={() => setCarouselPage(0)}
+                    onMomentumScrollEnd={event => setCarouselPage(pageIndexFromOffset(event.nativeEvent.contentOffset.x, pageWidth))}
+                    renderItem={({ item, index }) => item ? (
+                      <View testID={`look-page-${index}`} style={[styles.lookPageFrame, { width: pageWidth, paddingHorizontal: 16 }]}>
+                        <OutfitCard
+                          outfit={item} index={index} wornToday={isWornToday(item)}
+                          wornTodayEntryId={isWornToday(item) ? getTodayEntryId(item) : undefined}
+                          onLogWear={handleLogWear} onUndoWear={undoWear}
+                          reaction={getOutfitReaction(item)}
+                          onReact={reactToOutfit} isPremium={isPremium}
+                        />
+                      </View>
+                    ) : (
+                      <View testID="locked-look-page-frame" style={{ width: pageWidth, paddingHorizontal: 16 }}>
+                      <View testID="locked-look-page" style={[styles.lockedLookCard, { width: cardWidth }]}>
+                        <View style={styles.silhouetteArt} accessible={false}>
+                          <LockedLookSilhouettes />
+                          <View style={styles.lockMedallion}><Ionicons name="lock-closed" size={20} color={Colors.secondary} /></View>
+                        </View>
+                        <Text style={styles.lockedLookTitle}>{lockedLookTitle(lockedPages, scenarioLabels[selectedScenario].label)}</Text>
+                        <Text style={styles.lockedLookBody}>Premium shows four looks for every occasion, built from the pieces you already own.</Text>
+                        <Pressable testID="locked-look-upgrade" accessibilityRole="button" accessibilityLabel="Unlock with Premium"
+                          style={({ pressed }) => [styles.lockedLookButton, pressed && { opacity: 0.82 }]}
+                          onPress={() => router.push('/premium')}>
+                          <Text style={styles.lockedLookButtonText}>Unlock with Premium</Text>
+                        </Pressable>
+                      </View>
+                      </View>
+                    )}
+                  />
+                  <View testID="look-page-indicators" style={styles.lookDots} accessibilityLabel={`${filtered.length + lockedPages} looks`}>
+                    {Array.from({ length: filtered.length + lockedPages }, (_, dotIndex) => {
+                      const pageIndex = pageIndexForDot(dotIndex, filtered.length);
+                      const isLockedDot = dotIndex >= filtered.length;
+                      const isActive = carouselPage === pageIndex && (!isLockedDot || dotIndex === filtered.length);
+                      return (
+                      <Pressable key={dotIndex} testID={`look-dot-${dotIndex}`} accessibilityRole="button"
+                        accessibilityLabel={isLockedDot ? `Show Premium look ${dotIndex - filtered.length + 1}` : `Show look ${dotIndex + 1}`}
+                        accessibilityState={{ selected: isActive }}
+                        style={styles.lookDotTap}
+                        onPress={() => {
+                          setCarouselPage(pageIndex);
+                          carouselRef.current?.scrollToOffset?.({ offset: pageIndex * pageWidth, animated: true });
+                        }}>
+                        <View style={[
+                          styles.lookDot,
+                          isActive && (isLockedDot ? styles.lookDotLockedActive : styles.lookDotActive),
+                          isLockedDot && styles.lookDotLocked,
+                        ]} />
+                      </Pressable>
+                    );})}
+                  </View>
+                </>
+              );
+            })()}
+          </>
         )}
-
+        {conciergeControls}
         <View style={{ height: 120 }} />
       </ScrollView>
     </View>
@@ -1143,60 +1022,99 @@ const styles = StyleSheet.create({
     letterSpacing: 0.9, textTransform: 'uppercase', marginBottom: 4,
   },
   title: {
-    fontFamily: 'Inter_700Bold', fontSize: rs(30), color: Colors.primary, letterSpacing: -0.8,
+    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
+    fontSize: rs(38), color: Colors.primary, letterSpacing: -1.1, lineHeight: rs(44),
   },
-  outfitCountBadge: {
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
-    borderWidth: 1, marginBottom: 4,
-  },
-  outfitCountText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), letterSpacing: 0.1 },
-
   // ── Scenario chips ────────────────────────────────────────────────────────
-  scenarioScroll: { flexGrow: 0, marginBottom: 12, minHeight: 42 },
-  scenarioScrollContent: { paddingHorizontal: 20, gap: 7, alignItems: 'flex-start' },
-  scenarioDivider: { width: 1, height: 24, backgroundColor: Colors.border, marginHorizontal: 2 },
-
-  scenarioChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingVertical: 9, paddingHorizontal: 14, borderRadius: 20,
-    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border,
-    minHeight: 38,
-  },
-  scenarioChipActive: {},
-  scenarioChipPremium: { borderColor: Colors.secondary + '55' },
+  scenarioScroll: { flexGrow: 0, marginBottom: 10, minHeight: 48 },
+  scenarioScrollContent: { paddingHorizontal: 16, gap: 22, alignItems: 'center' },
+  scenarioTab: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 5, position: 'relative', paddingHorizontal: 1 },
   scenarioChipLocked: { opacity: 0.55 },
-  scenarioText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary },
-  scenarioTextActive: { color: Colors.white, fontFamily: 'Inter_600SemiBold' },
+  scenarioUnderline: { position: 'absolute', height: 2, bottom: 0, left: 0, right: 0, backgroundColor: Colors.primary },
+  scenarioUnderlineHidden: { opacity: 0 },
+  scenarioText: { fontFamily: 'Inter_500Medium', fontSize: rs(14), color: Colors.textSecondary },
+  scenarioTextActive: { color: Colors.primary, fontFamily: 'Inter_600SemiBold' },
   scenarioTextLocked: { color: Colors.textLight },
 
-  // ── Mood row ──────────────────────────────────────────────────────────────
-  moodScroll: { flexGrow: 0, marginBottom: 12, minHeight: 42 },
-  moodScrollContent: { paddingHorizontal: 20, gap: 8, alignItems: 'flex-start' },
-  moodPrompt: {
-    fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginRight: 2,
-    lineHeight: 36, alignSelf: 'center',
-  },
-  moodChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingVertical: 7, paddingHorizontal: 12, borderRadius: 20,
-    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.secondary + '40',
-    minHeight: 36,
-  },
-  moodChipActive: { backgroundColor: Colors.secondary, borderColor: Colors.secondary },
-  moodChipText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.secondary },
-  moodChipTextActive: { color: Colors.white },
-
-  moodLockedStrip: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginHorizontal: 20, marginBottom: 12,
-    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12,
-    backgroundColor: Colors.secondary + '08',
-    borderWidth: 1, borderColor: Colors.secondary + '20',
-  },
-  moodLockedText: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.secondary },
-
   // ── Main scroll ───────────────────────────────────────────────────────────
-  scrollContent: { paddingHorizontal: 20 },
+  scrollContent: { paddingHorizontal: 16 },
+  planningRow: {
+    minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 12, borderRadius: 16, borderWidth: 1,
+    borderColor: Colors.border, backgroundColor: Colors.background,
+  },
+  planningMain: { flex: 1, minHeight: 48, justifyContent: 'center' },
+  planningTitle: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textPrimary },
+  planningPremium: { fontFamily: 'Inter_600SemiBold', fontSize: rs(9), letterSpacing: 1, color: '#8B7354' },
+  planningTravel: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  lookPager: { marginHorizontal: -16, overflow: 'visible' },
+  lookPagerContent: {},
+  lookPageFrame: { paddingHorizontal: 0 },
+  lookPage: { marginBottom: 6 },
+  lookCard: {
+    overflow: 'hidden', borderRadius: 28, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: '#FFFEFC',
+  },
+  lookMat: {
+    height: 340, padding: 18, backgroundColor: '#F4F1EC',
+    flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center',
+  },
+  lookMatOnePiece: { height: 340 },
+  lookMatUnknown: { height: 340 },
+  lookSlot: { width: '50%', height: '50%', alignItems: 'center', justifyContent: 'center' },
+  lookSlotOnePiece: { width: '100%', height: '100%' },
+  lookSlotEmpty: { opacity: 0.36 },
+  emptyGarmentSlot: { width: 94, height: 108, borderRadius: 14, borderWidth: 1, borderColor: '#D7D0C5', backgroundColor: '#F8F6F2' },
+  slotLabel: { marginTop: 2, fontFamily: 'Inter_500Medium', fontSize: rs(9), color: Colors.textLight, letterSpacing: 0.8, textTransform: 'uppercase' },
+  lookCaption: { paddingHorizontal: 22, paddingTop: 15, paddingBottom: 18 },
+  lookName: { fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }), fontSize: rs(25), lineHeight: rs(31), fontStyle: 'italic', color: Colors.primary },
+  lookMeta: { marginTop: 5, fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary },
+  lookPieces: { marginTop: 5, fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary },
+  lookActions: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
+  lookWearButton: {
+    flex: 1, minHeight: 56, borderRadius: 28, backgroundColor: '#101522',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9,
+  },
+  lookWearText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.white },
+  lookIconButton: {
+    width: 56, height: 56, minWidth: 44, minHeight: 44, borderRadius: 28,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFEFC',
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  lookDots: { minHeight: 38, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  lookDotTap: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  lookDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#D3CEC5' },
+  lookDotActive: { width: 22, backgroundColor: '#101522' },
+  lookDotLocked: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.secondary },
+  lookDotLockedActive: { width: 22, backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.secondary },
+  lookSlotPhotoShadow: {
+    shadowColor: Colors.primary, shadowOpacity: 0.13, shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 }, elevation: 2,
+  },
+  actionSheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(16, 24, 38, 0.32)' },
+  actionSheet: {
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: Colors.white,
+    shadowColor: Colors.primary, shadowOpacity: 0.14, shadowRadius: 20,
+    shadowOffset: { width: 0, height: -4 }, elevation: 12,
+  },
+  actionSheetHandle: { alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: Colors.border, marginBottom: 14 },
+  actionSheetTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(16), color: Colors.primary, marginBottom: 8 },
+  actionSheetButton: { minHeight: 52, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: Colors.border },
+  actionSheetButtonText: { fontFamily: 'Inter_500Medium', fontSize: rs(14), color: Colors.primary },
+  actionSheetCancel: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  actionSheetCancelText: { fontFamily: 'Inter_500Medium', fontSize: rs(14), color: Colors.textSecondary },
+  lockedLookCard: {
+    minHeight: 510, justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 30, paddingVertical: 32, borderRadius: 28,
+    borderWidth: 1, borderColor: '#E2D7C4', backgroundColor: '#FFFEFC',
+  },
+  silhouetteArt: { width: 226, height: 138, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 28, marginBottom: 18 },
+  lockMedallion: { position: 'absolute', width: 56, height: 56, borderRadius: 28, backgroundColor: '#FFFEFC', borderWidth: 1, borderColor: '#D8C8A8', alignItems: 'center', justifyContent: 'center' },
+  lockedLookTitle: { fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }), fontStyle: 'italic', fontSize: rs(27), color: Colors.primary, textAlign: 'center' },
+  lockedLookBody: { marginTop: 12, fontFamily: 'Inter_400Regular', fontSize: rs(13), lineHeight: 20, color: Colors.textSecondary, textAlign: 'center' },
+  lockedLookButton: { minHeight: 54, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 26, marginTop: 22, borderRadius: 28, backgroundColor: '#101522' },
+  lockedLookButtonText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(14), color: Colors.secondary },
   traditionalContext: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 9,
     paddingHorizontal: 13, paddingVertical: 11, marginBottom: 14,
@@ -1259,20 +1177,7 @@ const styles = StyleSheet.create({
   nudgeCtaText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: Colors.secondary },
   nudgeDismiss: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textLight },
 
-  // ── Premium strip (top of scroll) ─────────────────────────────────────────
-  premiumStrip: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: Colors.secondary + '10',
-    borderRadius: 16, padding: 14, marginBottom: 14,
-    borderWidth: 1, borderColor: Colors.secondary + '30',
-  },
-  premiumStripIcon: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: Colors.secondary + '18',
-    alignItems: 'center', justifyContent: 'center',
-  },
   premiumStripTitle: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.primary, letterSpacing: -0.1 },
-  premiumStripSub: { fontFamily: 'Inter_400Regular', fontSize: rs(12), color: Colors.textSecondary, marginTop: 2 },
 
   // ── Just-added banner ─────────────────────────────────────────────────────
   bannerWrap: {
@@ -1302,136 +1207,27 @@ const styles = StyleSheet.create({
   bannerHeroLabel: { fontFamily: 'Inter_500Medium', fontSize: rs(9), color: Colors.secondary, textAlign: 'center', marginTop: 2 },
   bannerItemCount: { fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.textLight },
 
-  // ── Outfit card ───────────────────────────────────────────────────────────
-  outfitCard: {
-    backgroundColor: Colors.white,
-    borderRadius: 20, borderLeftWidth: 4,
-    borderWidth: 1, borderColor: Colors.border,
-    padding: 18, marginBottom: 14,
-    shadowColor: Colors.primary, shadowOpacity: 0.05, shadowRadius: 14,
-    shadowOffset: { width: 0, height: 4 }, elevation: 2,
-    overflow: 'hidden',
-  },
-  outfitCardHighlight: {
-    borderColor: Colors.secondary + '40',
-    shadowColor: Colors.secondary, shadowOpacity: 0.1,
-  },
-  outfitCardWorn: {
-    borderColor: Colors.success + '35',
-    shadowColor: Colors.success, shadowOpacity: 0.07,
-  },
-
-  cardHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 12,
-  },
-  scenarioPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10,
-    borderWidth: 1,
-  },
-  scenarioPillText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(11), letterSpacing: 0.1 },
-
-  readyBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  readyDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.success },
-  readyText: { fontFamily: 'Inter_500Medium', fontSize: rs(11), color: Colors.success },
-
-  wornBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.success + '12', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10,
-  },
-  wornBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(11), color: Colors.success },
-
-  moodText: {
-    fontFamily: 'Inter_400Regular', fontSize: rs(13), color: Colors.textSecondary,
-    fontStyle: 'italic', lineHeight: 18, marginBottom: 14, letterSpacing: 0.1,
-  },
-
-  rewearAdvisor: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.secondary + '10', borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 7, marginBottom: 14,
-    borderWidth: 1, borderColor: Colors.secondary + '25',
-  },
-  rewearAdvisorUrgent: { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' },
-  rewearAdvisorText: {
-    fontFamily: 'Inter_400Regular', fontSize: rs(11), color: Colors.secondary, flex: 1, lineHeight: 15,
-  },
-  rewearAdvisorTextUrgent: { color: '#92400E' },
-
-  photosRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  photoWrap: { alignItems: 'center', flex: 1 },
+  // ── Garment photo fallback shared with the just-added strip ────────────────
   itemPhoto: { marginBottom: 7 },
   itemPhotoFallback: {
     backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', marginBottom: 7,
   },
-  itemLabel: {
-    fontFamily: 'Inter_600SemiBold', fontSize: rs(11), color: Colors.primary,
-    textTransform: 'capitalize', textAlign: 'center',
-  },
-  itemColor: {
-    fontFamily: 'Inter_400Regular', fontSize: rs(10), color: Colors.textSecondary,
-    textTransform: 'capitalize', marginTop: 2, textAlign: 'center',
-  },
-  focalBadge: {
-    marginTop: 5, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6,
-    borderWidth: 1, backgroundColor: 'transparent',
-  },
-  focalBadgeText: { fontFamily: 'Inter_500Medium', fontSize: rs(9), textTransform: 'uppercase', letterSpacing: 0.5 },
-
-  accessoriesWrap: {
-    borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 14, marginBottom: 4,
-  },
-  accessoriesLabel: {
-    fontFamily: 'Inter_400Regular', fontSize: rs(10), color: Colors.textLight,
-    textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10,
-  },
-  accessoriesRow: { flexDirection: 'row', gap: 12 },
-  accessoryWrap: { alignItems: 'center' },
-  accessoryLabel: {
-    fontFamily: 'Inter_400Regular', fontSize: rs(10), color: Colors.textSecondary,
-    textTransform: 'capitalize', marginTop: 4, textAlign: 'center',
-  },
-
-  // ── Actions ───────────────────────────────────────────────────────────────
-  actionsArea: {
-    borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 14, marginTop: 14, gap: 10,
-  },
-  logWearBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    backgroundColor: Colors.primary, borderRadius: 14,
-    paddingVertical: 12, paddingHorizontal: 16,
-    shadowColor: Colors.primary, shadowOpacity: 0.2, shadowRadius: 6, elevation: 2,
-  },
-  logWearText: { fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.white },
-  undoWearBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: Colors.background, borderRadius: 14, borderWidth: 1,
-    borderColor: Colors.border, paddingVertical: 11,
-  },
-  undoWearText: { fontFamily: 'Inter_500Medium', fontSize: rs(13), color: Colors.textSecondary },
-
-  reactionRow: {
-    flexDirection: 'row', gap: 10, alignItems: 'center',
-  },
-  reactionBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
-    paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: Colors.border,
-    backgroundColor: Colors.background,
-  },
-  reactionBtnLove: { backgroundColor: '#FEE2E2', borderColor: '#FECACA' },
-  reactionBtnSkip: { backgroundColor: Colors.border, borderColor: Colors.border },
-  reactionText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary },
 
   // ── Empty state ───────────────────────────────────────────────────────────
-  emptyState: { alignItems: 'center', paddingTop: 56, paddingHorizontal: 32 },
+  emptyState: {
+    alignItems: 'center', justifyContent: 'center', minHeight: 360,
+    marginHorizontal: 0, paddingHorizontal: 28, paddingVertical: 38,
+    borderRadius: 28, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border,
+    shadowColor: Colors.primary, shadowOpacity: 0.035, shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 }, elevation: 1,
+  },
   emptyIconWrap: {
-    width: 80, height: 80, borderRadius: 24,
-    backgroundColor: Colors.secondary + '12', alignItems: 'center', justifyContent: 'center',
-    marginBottom: 6, borderWidth: 1, borderColor: Colors.secondary + '20',
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center',
+    marginBottom: 6, borderWidth: 1, borderColor: Colors.border,
   },
   emptyTitle: {
-    fontFamily: 'Inter_600SemiBold', fontSize: rs(18), color: Colors.primary,
+    fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }), fontSize: rs(23), color: Colors.primary,
     marginTop: 16, textAlign: 'center', letterSpacing: -0.2,
   },
   emptySub: {
@@ -1439,8 +1235,8 @@ const styles = StyleSheet.create({
     marginTop: 8, textAlign: 'center', lineHeight: 20,
   },
   emptyAction: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    backgroundColor: Colors.primary, borderRadius: 14,
+    minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: Colors.primary, borderRadius: 28,
     paddingHorizontal: 22, paddingVertical: 13, marginTop: 24,
     shadowColor: Colors.primary, shadowOpacity: 0.25, shadowRadius: 8, elevation: 3,
   },
@@ -1456,11 +1252,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold', fontSize: rs(12), color: Colors.secondary, flex: 1, lineHeight: 17,
   },
 
-  exportBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    paddingVertical: 9, borderRadius: 12,
-    borderWidth: 1, borderColor: Colors.border,
-    backgroundColor: Colors.background,
-  },
-  exportBtnText: { fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary },
 });

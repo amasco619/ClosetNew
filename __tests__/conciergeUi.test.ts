@@ -25,6 +25,7 @@ let authority: 'premium' | 'denied' | 'unavailable' = 'premium';
 let entitlementPending: Promise<void> | undefined, stylingPending: Promise<void> | undefined, wardrobePending: Promise<void> | undefined;
 let checks = 0, groupReads = 0;
 const mutations: string[] = [], navigation: unknown[] = [];
+const exportEvents: string[] = [];
 let blur: (() => void) | undefined;
 const generic = () => applyDailyRotation(
   generateOutfitPool(projectWardrobeForStyling(model.items).v37Items, model.profile, null, [], date, [], EMPTY_AFFINITY, model.weather, model.premium),
@@ -69,15 +70,18 @@ const fixture = {
     missingDimensions: [], getItemWearCount: () => 0,
   }),
 };
-Object.assign(globalThis, { __conciergeUi: fixture, IS_REACT_ACT_ENVIRONMENT: true });
+Object.assign(globalThis, { __conciergeUi: fixture, __lookExportEvents: exportEvents, IS_REACT_ACT_ENVIRONMENT: true });
 const mocks: Record<string, string> = {
   '../../components/TravelPlanner': `export default ()=>null;`,
+  '../../components/LockedLookSilhouettes': `import React from 'react';export default ()=>React.createElement('Svg');`,
   '@/contexts/LuxuryFeedbackContext': `export const useDialog=()=>({confirm:async()=>false,notify:()=>{},alert:()=>{}});export const useToast=()=>({show:()=>{}});`,
   '@/components/GarmentTile': `import React from 'react';export const GarmentTile=({uri,...props})=>React.createElement('Image',{...props,source:{uri}});`,
   'react-native': `import React from 'react';const host=n=>({children,...p})=>React.createElement(n,p,children);
+    const FlatListMock=({data=[],renderItem,...props})=>React.createElement('FlatList',props,data.map((item,index)=>React.cloneElement(renderItem({item,index}),{key:index})));
     export const View=host('View'),Text=host('Text'),Pressable=host('Pressable'),Image=host('Image'),
-    ScrollView=host('ScrollView'),ActivityIndicator=host('ActivityIndicator'),Modal=host('Modal');
-    export const Platform={OS:'web'},StyleSheet={create:s=>s},Alert={alert:()=>{}};`,
+    ScrollView=host('ScrollView'),ActivityIndicator=host('ActivityIndicator'),Modal=host('Modal'),FlatList=FlatListMock,
+    useWindowDimensions=()=>({width:400,height:800});
+    export const Platform={OS:'web',select:o=>o.default},StyleSheet={create:s=>s},Alert={alert:()=>{}};`,
   'react-native-reanimated': `import React from 'react';const chain={delay:()=>chain,duration:()=>chain};
     export const FadeInDown=chain,FadeInUp=chain;export default {View:({children,...p})=>React.createElement('View',p,children)};`,
   'react-native-safe-area-context': `export const useSafeAreaInsets=()=>({top:24,bottom:20});`,
@@ -86,8 +90,8 @@ const mocks: Record<string, string> = {
   '@expo/vector-icons': `export const Ionicons=()=>null;`,
   'expo-haptics': `export const selectionAsync=async()=>{},notificationAsync=async()=>{},impactAsync=async()=>{};
     export const NotificationFeedbackType={Warning:'warning',Success:'success'},ImpactFeedbackStyle={Light:'light'};`,
-  'react-native-view-shot': `export const captureRef=async()=>'';`,
-  'expo-sharing': `export const isAvailableAsync=async()=>false,shareAsync=async()=>{};`,
+  'react-native-view-shot': `export const captureRef=async()=>{globalThis.__lookExportEvents.push('capture');return 'file://look.png';};`,
+  'expo-sharing': `export const isAvailableAsync=async()=>false,shareAsync=async()=>{globalThis.__lookExportEvents.push('share');};`,
   '@/components/OOTDStoryCard': `export default ()=>null;`,
   '../../lib/responsive': `export const rs=x=>x;`, '@/lib/responsive': `export const rs=x=>x;`,
   '@/constants/weather': `export const defaultTempUnit=()=>'C';export {formatTemp,formatTempValue} from '${path.join(process.cwd(), 'constants/weatherPure.ts')}';`,
@@ -124,7 +128,7 @@ async function main() {
   const plan = async (occasion: string) => {
     await click('concierge-entry');
     assert.equal(ids('concierge-submit')[0].props.disabled, true);
-    assert.equal(screen.root.findAllByType('Modal')[0].props['aria-label'], 'Plan an occasion today');
+    assert.ok(screen.root.findAllByType('Modal').some(node => node.props['aria-label'] === 'Plan an occasion today'));
     assert.ok(screen.root.findAllByType('Text').some(node => node.props.role === 'heading' && words(node) === 'What’s the occasion?'));
     await click(`concierge-option-${occasion}`);
     assert.deepEqual(ids(`concierge-option-${occasion}`)[0].props.accessibilityState, { checked: true });
@@ -140,7 +144,10 @@ async function main() {
     const images = screen.root.findAllByType('Image').map(node => (node.props.source as { uri: string })?.uri).sort();
     if (option.id !== 'traditional-event') {
       const expected = generic().filter(outfit => outfit.scenario === option.id).flatMap(outfit => outfit.components.map(component => component.photoUri)).filter(Boolean).sort();
-      assert.deepEqual(images, expected, `${option.id} shows exact existing selected-scenario results, not previous cards`);
+        const pages = screen.root.findAllByType('View').filter(node => /^look-page-\d+$/.test(String(node.props.testID)));
+        assert.equal(pages.length, generic().filter(outfit => outfit.scenario === option.id).length,
+          `${option.id} has one page for each existing selected-scenario look`);
+        assert.ok(images.every(uri => expected.includes(uri)), `${option.id} renders only garments from its selected-scenario looks`);
       assert.equal(groupReads, beforeReads);
       assert.ok(status(expected.length ? 'ready' : 'empty'));
     } else {
@@ -235,6 +242,21 @@ async function main() {
   await React.act(async () => { blur?.(); });
   assert.ok(!status('ready'), 'tab exit discards transient plan');
   assert.deepEqual(mutations, []);
+  const overflow = screen.root.findAllByType('Pressable').find(node =>
+    String(node.props.testID).startsWith('look-overflow-'),
+  );
+  assert.ok(overflow, 'each look exposes its overflow action');
+  const lookId = String(overflow.props.testID).slice('look-overflow-'.length);
+  await click(`look-overflow-${lookId}`);
+  const sheetModal = screen.root.findAllByType('Modal').find(node => node.props.testID === `look-action-modal-${lookId}`);
+  assert.equal(sheetModal?.props.visible, true, 'overflow opens the native action sheet');
+  assert.ok(screen.root.findAllByType('View').some(node => node.props.testID === `look-action-sheet-${lookId}`));
+  await click(`look-action-not-today-${lookId}`);
+  assert.equal(mutations.at(-1), 'reaction', 'Not today invokes the existing reaction callback');
+  await click(`look-overflow-${lookId}`);
+  await click(`look-action-export-${lookId}`);
+  await React.act(async () => { await new Promise(resolve => setTimeout(resolve, 180)); });
+  assert.deepEqual(exportEvents, ['capture', 'share'], 'Export look invokes the existing capture/share path');
   await React.act(async () => screen.unmount());
   console.log('Real mounted planner/Outfits: five exact handoffs, fresh dual gates, ownership, pending/retry/empty/insufficient/failure, same-request refresh, blur, C/F and no incidental mutations passed');
 }

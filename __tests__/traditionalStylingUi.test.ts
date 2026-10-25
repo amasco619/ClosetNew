@@ -42,13 +42,16 @@ const m = {
 Object.assign(globalThis, { __traditionalUi: m, IS_REACT_ACT_ENVIRONMENT: true });
 const modules: Record<string, string> = {
   '../../components/TravelPlanner': `export default ()=>null;`,
+  '../../components/LockedLookSilhouettes': `import React from 'react';export default ()=>React.createElement('Svg');`,
   '@/contexts/LuxuryFeedbackContext': `export const useDialog=()=>({confirm:async()=>false,notify:()=>{},alert:()=>{}});export const useToast=()=>({show:()=>{}});`,
   '@/components/GarmentTile': `import React from 'react';export const GarmentTile=({uri,...props})=>React.createElement('Image',{...props,source:{uri}});`,
   'react-native': `
     import React from 'react';const host=n=>({children,...p})=>React.createElement(n,p,children);
+    const FlatListMock=({data=[],renderItem,...props})=>React.createElement('FlatList',props,data.map((item,index)=>React.cloneElement(renderItem({item,index}),{key:index})));
     export const View=host('View'),Text=host('Text'),Pressable=host('Pressable'),Image=host('Image'),
-      ScrollView=host('ScrollView'),ActivityIndicator=host('ActivityIndicator'),Modal=host('Modal');
-    export const Platform={OS:'web'},StyleSheet={create:s=>s},Alert={alert:()=>{}};
+      ScrollView=host('ScrollView'),ActivityIndicator=host('ActivityIndicator'),Modal=host('Modal'),FlatList=FlatListMock,
+      useWindowDimensions=()=>({width:400,height:800});
+    export const Platform={OS:'web',select:o=>o.default},StyleSheet={create:s=>s},Alert={alert:()=>{}};
   `,
   'react-native-reanimated': `
     import React from 'react';const chain={delay:()=>chain,duration:()=>chain};

@@ -97,7 +97,8 @@ const hostMocks: Record<string, string> = {
     export const View=host('View'), Text=host('Text'), ScrollView=host('ScrollView'),
       Pressable=host('Pressable'), Image=host('Image'), FlatList=host('FlatList'),
       Modal=host('Modal'), ActivityIndicator=host('ActivityIndicator');
-    export const Platform={OS:'web'}, StyleSheet={create:styles=>styles},
+    export const useWindowDimensions=()=>({width:400,height:800});
+    export const Platform={OS:'web',select:options=>options.default}, StyleSheet={create:styles=>styles},
       Alert={alert:()=>{}};
   `,
   'react-native-safe-area-context': `export const useSafeAreaInsets=()=>({top:0,bottom:0});`,
@@ -131,6 +132,7 @@ const hostMocks: Record<string, string> = {
   '@/components/OOTDStoryCard': `export default ()=>null;`,
   '../../components/OccasionPlanner': `export default ()=>null;`,
   '../../components/TravelPlanner': `export default ()=>null;`,
+  '../../components/LockedLookSilhouettes': `import React from 'react';export default ()=>React.createElement('Svg');`,
   '../components/OccasionPlanner': `export default ()=>null;`,
   '../components/TravelPlanner': `export default ()=>null;`,
   '@/lib/responsive': `export const rs=value=>value;`,
