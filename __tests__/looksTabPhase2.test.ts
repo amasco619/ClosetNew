@@ -4,7 +4,7 @@ import type { OutfitComponent, OutfitSet } from '../constants/types';
 import { addedLooksPromptCopy } from '../lib/addedLooksPromptCopy';
 import {
   accessoryDisplayLabel,
-  displayRationaleWithoutHeroColour,
+  getLookRationale,
   lookAccessoryOverflow,
   onePieceLayoutComponents,
   visibleLookAccessories,
@@ -57,9 +57,9 @@ function testFreeTierRationaleHasNoHeroColour() {
     rationale: 'Built around your beige gown.',
     components: [dress, shoe, layer],
   } as OutfitSet;
-  assert.equal(displayRationaleWithoutHeroColour(outfit), 'Built around your gown.');
+  assert.equal(getLookRationale(outfit), 'Built around your gown.');
   assert.equal(
-    displayRationaleWithoutHeroColour({
+    getLookRationale({
       ...outfit,
       heroId: undefined,
       rationale: 'Built around your navy wide-leg trouser.',
@@ -106,6 +106,14 @@ function testPromptAndFocusLifecycleWiring() {
   assert.match(outfits, /onePieceSlots\.layer/);
   assert.match(outfits, /visibleLookAccessories\(outfit\.components\)/);
   assert.match(outfits, /lookAccessoryOverflow\(outfit\.components\)/);
+  assert.match(outfits, /testID="look-title" style=\{styles\.lookName\} numberOfLines=\{1\}/);
+  assert.match(outfits, /testID="look-rationale" style=\{styles\.lookRationale\}/);
+  assert.doesNotMatch(outfits, /testID="look-rationale"[^>]*numberOfLines/);
+  assert.doesNotMatch(outfits.slice(outfits.indexOf('function OutfitCard'), outfits.indexOf('export default function OutfitsScreen')), /isPremium/,
+    'look-card text is not conditional on Premium tier');
+  assert.match(outfits, /size=\{100\}/, 'smaller grid photos leave room for the TOP/BOTTOM labels');
+  assert.match(outfits, /paddingBottom: Platform\.OS === 'ios' \? IOS_TAB_BAR_HEIGHT \+ insets\.bottom \+ 24 : 120/,
+    'iOS adds tab-bar and safe-area clearance while Android retains its original 120px');
   assert.match(outfits, /onPress=\{clearLastAddedSuggestions\}/, 'closing the chip restores the regular feed');
   assert.match(outfits, /router\.push\(\{ pathname: '\/item-detail', params: \{ id: itemId \} \}\)/);
   assert.match(context, /setActiveLastAddedAnchorId\(null\);[\s\S]*?setAddedLooksPrompt\(null\);/);

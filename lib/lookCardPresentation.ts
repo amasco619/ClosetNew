@@ -52,7 +52,7 @@ export function accessoryDisplayLabel(subType: string): string {
   return words.map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }
 
-export function displayRationaleWithoutHeroColour(outfit: OutfitSet): string {
+export function getLookRationale(outfit: OutfitSet): string {
   const rationale = outfit.rationale ?? '';
   const hero = outfit.components.find(component => component.matchedItemId === outfit.heroId);
   if (!rationale) return rationale;

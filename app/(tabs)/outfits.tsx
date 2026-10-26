@@ -29,7 +29,7 @@ import { usesConfirmedCoordinatedSet } from '../../lib/stylingRelationships';
 import { filterLastAddedSuggestions } from '../../lib/lastAddedSuggestions';
 import {
   accessoryDisplayLabel,
-  displayRationaleWithoutHeroColour,
+  getLookRationale,
   lookAccessoryComponents,
   lookAccessoryOverflow,
   onePieceLayoutComponents,
@@ -42,6 +42,7 @@ import {
 
 const FREE_SCENARIOS: OccasionTag[] = ['work', 'casual', 'date-casual', 'date-dressy', 'event', 'brunch', 'active'];
 const PREMIUM_SCENARIOS: OccasionTag[] = ['interview', 'wedding', 'traditional-event', 'travel', 'resort', 'night-out'];
+const IOS_TAB_BAR_HEIGHT = 49;
 
 // Scenario accents remain in use for the just-added look banner and Traditional context.
 const SCENARIO_ACCENT: Record<OccasionTag, string> = {
@@ -157,7 +158,7 @@ function OutfitCard({
   const scenario = scenarioLabels[outfit.scenario];
   const hasOwnedItems = outfit.components.some(c => c.owned && c.matchedItemId);
 
-  const lookName = displayRationaleWithoutHeroColour(outfit) || scenario?.mood;
+  const lookRationale = getLookRationale(outfit);
   const storyRef = useRef<View>(null);
   const [exporting, setExporting] = useState(false);
   const [overflowVisible, setOverflowVisible] = useState(false);
@@ -244,7 +245,7 @@ function OutfitCard({
                 {component ? (
                   <>
                     <View style={styles.lookSlotPhotoShadow}>
-                      <OutfitItemPhoto component={component} size={112} />
+                      <OutfitItemPhoto component={component} size={100} />
                     </View>
                     <Text style={styles.slotLabel}>{categoryLabels[component.category] || component.category}</Text>
                   </>
@@ -253,7 +254,12 @@ function OutfitCard({
             ))}
         </View>
         <View style={styles.lookCaption}>
-          <Text style={styles.lookName} numberOfLines={1}>{lookName || scenario?.mood || scenario?.label}</Text>
+          <Text testID="look-title" style={styles.lookName} numberOfLines={1}>
+            {scenario?.mood || scenario?.label}
+          </Text>
+          <Text testID="look-rationale" style={styles.lookRationale}>
+            {lookRationale}
+          </Text>
           <Text style={styles.lookMeta} numberOfLines={1}>
             {scenario?.label}  ·  {wornToday ? 'Worn today' : 'Ready to wear'}{usesConfirmedCoordinatedSet(outfit) ? ' · Styled as a set' : ''}
           </Text>
@@ -798,7 +804,10 @@ export default function OutfitsScreen() {
       {/* ── Main scroll ─────────────────────────────────────────────────── */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Platform.OS === 'ios' ? IOS_TAB_BAR_HEIGHT + insets.bottom + 24 : 120 },
+        ]}
       >
         {conciergeSummary}
         {selectedScenario === 'traditional-event' && (
@@ -1028,7 +1037,6 @@ export default function OutfitsScreen() {
           </>
         )}
         {conciergeControls}
-        <View style={{ height: 120 }} />
       </ScrollView>
     </View>
   );
@@ -1099,6 +1107,7 @@ const styles = StyleSheet.create({
   slotLabel: { marginTop: 2, fontFamily: 'Inter_500Medium', fontSize: rs(9), color: Colors.textLight, letterSpacing: 0.8, textTransform: 'uppercase' },
   lookCaption: { paddingHorizontal: 22, paddingTop: 15, paddingBottom: 18 },
   lookName: { fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }), fontSize: rs(25), lineHeight: rs(31), fontStyle: 'italic', color: Colors.primary },
+  lookRationale: { marginTop: 5, fontFamily: 'Inter_400Regular', fontSize: rs(13), lineHeight: rs(18), color: Colors.textSecondary },
   lookMeta: { marginTop: 5, fontFamily: 'Inter_500Medium', fontSize: rs(12), color: Colors.textSecondary },
   accessoryRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingHorizontal: 18, paddingBottom: 14 },
   accessory: { width: 64, alignItems: 'center', minHeight: 68 },
