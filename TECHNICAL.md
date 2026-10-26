@@ -3678,3 +3678,19 @@ swaps, confirmed-set handling, Premium-only membership loading and timeout,
 configurable local allowance and concurrent quota consumption.
 `__tests__/checkLookUi.test.ts` covers Free verdict presentation and the
 zero-allowance Premium route.
+
+## 54. Look explanation copy
+
+`constants/rationale.ts` keeps the existing palette classification and outfit
+fingerprint seed. Palette phrases carry singular/plural metadata and matching
+predicates. Palette, body, mood, focal-piece/fabric and complexion observations
+are complete sentences rather than clauses joined with “that” or “and”.
+The palette is always retained; the existing complexion observation is reserved
+when applicable, then optional complete sentences are included within a
+120-character bound. Hero labels omit colours, including for printed pieces.
+No scoring, ranking, weights or candidate-generation logic changes.
+
+`__tests__/lookCardTextLayout.test.ts` retains the grammar audit and checks all
+49 phrase templates, the length bound, deterministic output, representative
+hero labels and colour stripping. A separate balanced sample requires every
+template to appear and none to exceed 20% of generated displays.

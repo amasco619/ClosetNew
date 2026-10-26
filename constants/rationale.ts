@@ -1,5 +1,5 @@
 /**
- * Rationale generator — produces one-sentence explanations of why an outfit works.
+ * Rationale generator — produces short explanations of why an outfit works.
  * Pulls from the strongest signals in the score breakdown (palette type, mood,
  * formality cohesion, complexion harmony).
  */
@@ -68,12 +68,12 @@ const FABRIC_SENTENCES: Record<string, string> = {
 };
 
 const MOOD_PHRASES: Record<MoodGoal, string[]> = {
-  confident: ['reads confident', 'gives presence', 'lands with authority'],
-  soft:      ['feels softly put-together', 'reads gentle and intentional', 'has a quiet ease'],
-  joyful:    ['brings a lift', 'reads playful', 'feels bright and easy'],
-  grounded:  ['feels grounded', 'reads steady and calm', 'is quietly anchored'],
-  romantic:  ['feels romantic', 'has a quiet femininity', 'reads softly romantic'],
-  powerful:  ['feels powerful', 'gives command', 'reads strong'],
+  confident: ['looks confident', 'has presence', 'feels quietly authoritative'],
+  soft:      ['feels softly put-together', 'feels gentle and considered', 'has a quiet ease'],
+  joyful:    ['feels uplifting', 'looks playful', 'feels bright and easy'],
+  grounded:  ['feels grounded', 'feels steady and calm', 'feels quietly anchored'],
+  romantic:  ['feels romantic', 'has a quiet femininity', 'feels softly romantic'],
+  powerful:  ['feels powerful', 'has quiet authority', 'looks strong'],
 };
 
 const BODY_FLATTERING_NOTE: Record<string, string> = {
@@ -127,7 +127,7 @@ function describeHero(item: WardrobeItem): string {
  * Deterministic given the outfit fingerprint so copy is stable day to day.
  *
  * `heroId` (optional) names the focal piece the look was built around so the
- * copy can read like a stylist's note ("built around your camel trench").
+ * copy can read like a stylist's note ("The focus is your trench.").
  */
 export function generateRationale(
   components: OutfitComponent[],
@@ -168,7 +168,7 @@ export function generateRationale(
   const heroItem = heroId ? resolved.find(i => i.id === heroId) : undefined;
   let focalSentence: string | undefined;
   if (heroItem) {
-    focalSentence = `Your ${describeHero(heroItem)} leads.`;
+    focalSentence = `The focus is your ${describeHero(heroItem)}.`;
   } else {
     const statementItems = resolved.filter(i => {
       const f = effectiveFabric(i);

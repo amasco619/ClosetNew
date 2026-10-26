@@ -77,7 +77,7 @@ function grammarIssues(text: string): string[] {
   if (/ {2,}/.test(text)) issues.push('double spaces');
   if (/,\s*(?:[.!?]|$)|[,;:]\s*[.!?]/.test(text)) issues.push('dangling punctuation');
   if (/\b(?:that|and)\s+(?:with|letting)\b/i.test(text)) issues.push('statement-fabric phrase has an invalid connector');
-  if (/^(?:Quiet neutrals|Understated neutrals|Analogous tones|Closely related tones|Neutral anchors|Two tones in balance|Three tones in quiet balance)\s+that\s+(?:cinches|balances|skims|adds|softens|reads|feels|gives|lands|is|has|brings)\b/i.test(text)) {
+  if (/^(?:Quiet neutrals|Understated neutrals|Analogous tones|Closely related colours|Neutrals anchoring the colour|Two colours that play off each other|Three colours in quiet balance|Closely related tones|Neutral anchors|Two tones in balance|Three tones in quiet balance)\s+that\s+(?:cinches|balances|skims|adds|softens|reads|feels|gives|lands|is|has|brings)\b/i.test(text)) {
     issues.push('plural palette has a singular predicate');
   }
   if (/^[^.!?]+,\s*built around your [^.]+\.$/i.test(text) && !/\b(?:is|are|has|have|reads|feels|brings|gives|lands|balances|softens|cinches)\b/i.test(text.split(', built around')[0])) {
@@ -86,7 +86,7 @@ function grammarIssues(text: string): string[] {
   return issues;
 }
 
-  function testTemplateCoverageAndGrammar(extraDisplays: string[] = []) {
+function testTemplateCoverageAndGrammar(extraDisplays: string[] = []) {
   const observed = new Set<string>();
   const rationaleOutputs: string[] = [];
   let longestDisplayed = '';
@@ -229,7 +229,8 @@ function grammarIssues(text: string): string[] {
   const pluralPalettePhrases = [
     'quiet neutrals', 'analogous tones', 'closely related colours',
     'neutrals anchoring the colour', 'two colours that play off each other',
-    'three colours in quiet balance',
+    'three colours in quiet balance', 'understated neutrals', 'closely related tones',
+    'neutral anchors', 'two tones in balance', 'three tones in quiet balance',
   ];
   for (const text of rationaleOutputs) {
     const phrase = pluralPalettePhrases.find(value => text.toLowerCase().startsWith(value));
@@ -266,7 +267,7 @@ function testTemplateVariety(): string[] {
     const template = PALETTE_TEMPLATES[seed % PALETTE_TEMPLATES.length];
     const useFabric = seed % 8 === 0;
     const items = template.colors.map((color, index) =>
-      wardrobeItem(`variety-${seed}-${index}`, color, useFabric && index === 0
+      wardrobeItem(`variety-${index}-${index === template.colors.length - 1 ? seed : 0}`, color, useFabric && index === 0
         ? fabrics[Math.floor(seed / 8) % fabrics.length]
         : undefined),
     );
@@ -296,7 +297,8 @@ function testTemplateVariety(): string[] {
   ];
   assert.equal(templates.length, 49, 'variety check covers all 49 rationale templates');
   for (const template of templates) {
-    const uses = displays.filter(display => display.includes(template)).length;
+    const uses = displays.filter(display => display.toLowerCase().includes(template.toLowerCase())).length;
+    assert.ok(uses > 0, `variety sample includes ${template}`);
     assert.ok(
       uses <= displays.length * 0.2,
       `sentence template "${template}" appears in ${uses}/${displays.length} displays`,
@@ -308,6 +310,26 @@ function testTemplateVariety(): string[] {
   }
   console.log(`Template variety: ${templates.length} templates across ${displays.length} displays; none exceeds 20%.`);
   return displays;
+}
+
+function testDeterminismAndPrintedHeroes() {
+  for (const subType of ['wrap-dress', 'wide-leg', 'heels', 'boots', 'shoulder-bag', 'double-breasted-blazer']) {
+    const item = { ...wardrobeItem(`printed-${subType}`, 'red', 'silk'), subType, pattern: 'floral' as const };
+    const components = [{
+      category: item.category,
+      subType,
+      colorFamily: item.colorFamily,
+      owned: true,
+      matchedItemId: item.id,
+    }];
+    const args: Parameters<typeof generateRationale> = [components, [item], profile(), null, item.id];
+    const text = generateRationale(...args);
+    assert.equal(generateRationale(...args), text, 'the same outfit produces the same explanation');
+    assert.ok(text.length <= 120);
+    assert.doesNotMatch(text, /\bred\b/i, 'printed heroes never acquire a colour label');
+    assert.match(text, /The focus is your /, 'hero notes are complete sentences, including plural garment names');
+    assert.deepEqual(grammarIssues(text), []);
+  }
 }
 
 function testTierIndependentTextAndSourceLayout() {
@@ -349,4 +371,5 @@ function testTierIndependentTextAndSourceLayout() {
 }
 
 testTierIndependentTextAndSourceLayout();
+testDeterminismAndPrintedHeroes();
 testTemplateCoverageAndGrammar(testTemplateVariety());

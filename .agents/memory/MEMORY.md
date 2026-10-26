@@ -48,3 +48,4 @@
 - [Disposable recovery verification](disposable-recovery-verification.md) — use disposable accounts/synthetic photos; distinguish fixture, live browser and physical-device evidence.
 - [Background-removal quota approval](bg-removal-quota-policy.md) — concurrency verification does not authorize a quota fix; preserve Premium counting and seek separate approval.
 - [Supabase admin default privileges](supabase-admin-default-acls.md) — changing `supabase_admin` defaults requires Supabase-authorized role access; the project SQL/migration role cannot do it.
+- [Deterministic copy audits](deterministic-copy-audits.md) — require phrase presence as well as frequency; correlated synthetic IDs can silently omit variants.
