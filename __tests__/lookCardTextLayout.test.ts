@@ -7,33 +7,33 @@ import { getLookRationale } from '../lib/lookCardPresentation';
 const PALETTE_TEMPLATES = [
   { colors: ['red'], phrases: ['a quiet monochrome', 'a single-tone palette', 'tonal layering'] },
   { colors: ['black', 'white'], phrases: ['quiet neutrals', 'a soft neutral palette', 'understated neutrals'] },
-  { colors: ['red', 'coral'], phrases: ['analogous tones', 'closely related colours', 'a calm colour family'] },
-  { colors: ['black', 'red'], phrases: ['a neutral-bridged palette', 'a grounded neutral base', 'neutrals anchoring the colour'] },
-  { colors: ['red', 'blue'], phrases: ['a balanced complementary palette', 'two colours that play off each other', 'contrast that holds'] },
-  { colors: ['red', 'green', 'blue'], phrases: ['a triadic accent', 'three colours in quiet balance', 'a considered triad'] },
+  { colors: ['red', 'coral'], phrases: ['analogous tones', 'closely related tones', 'a calm palette'] },
+  { colors: ['black', 'red'], phrases: ['a neutral-bridged palette', 'a grounded neutral base', 'neutral anchors'] },
+  { colors: ['red', 'blue'], phrases: ['a balanced complementary palette', 'two tones in balance', 'steady contrast'] },
+  { colors: ['red', 'green', 'blue'], phrases: ['a triadic accent', 'three tones in quiet balance', 'a considered triad'] },
   { colors: ['red', 'lavender'], phrases: ['an unexpected mix', 'a brave palette'] },
 ];
 const MOOD_TEMPLATES: Record<MoodGoal, string[]> = {
-  confident: ['reads confident', 'gives presence', 'lands with authority'],
-  soft: ['feels softly put-together', 'reads gentle and intentional', 'has a quiet ease'],
-  joyful: ['brings a lift', 'reads playful', 'feels bright and easy'],
-  grounded: ['feels grounded', 'reads steady and calm', 'is quietly anchored'],
-  romantic: ['feels romantic', 'has a quiet femininity', 'reads softly romantic'],
-  powerful: ['feels powerful', 'gives command', 'reads strong'],
+  confident: ['looks confident', 'has presence', 'feels quietly authoritative'],
+  soft: ['feels softly put-together', 'feels gentle and considered', 'has a quiet ease'],
+  joyful: ['feels uplifting', 'looks playful', 'feels bright and easy'],
+  grounded: ['feels grounded', 'feels steady and calm', 'feels quietly anchored'],
+  romantic: ['feels romantic', 'has a quiet femininity', 'feels softly romantic'],
+  powerful: ['feels powerful', 'has quiet authority', 'looks strong'],
 };
 const BODY_TEMPLATES: Record<NonNullable<UserProfile['bodyType']>, string> = {
-  hourglass: 'cinches and flows where it should',
-  pear: 'balances your shoulders and hips',
-  apple: 'skims your midsection with ease',
-  rectangle: 'adds gentle shape and movement',
-  'inverted-triangle': 'softens the shoulders and widens the line',
-  athletic: 'softens and drapes beautifully',
+  hourglass: 'The cut follows your shape.',
+  pear: 'The cut balances your frame.',
+  apple: 'The cut skims with ease.',
+  rectangle: 'The cut adds gentle shape.',
+  'inverted-triangle': 'The cut softens the line.',
+  athletic: 'The fabric falls softly.',
 };
 const FABRIC_TEMPLATES: Record<string, string> = {
-  leather: 'with the leather as the anchor',
-  silk: 'letting the silk do the talking',
-  satin: 'with the satin catching the light',
-  cashmere: 'with the cashmere softening the line',
+  leather: 'Leather gives the look a clear anchor.',
+  silk: 'Silk softens the finish.',
+  satin: 'Satin catches the light.',
+  cashmere: 'Cashmere softens the line.',
 };
 const BODY_TYPES = Object.keys(BODY_TEMPLATES) as NonNullable<UserProfile['bodyType']>[];
 const MOODS = Object.keys(MOOD_TEMPLATES) as MoodGoal[];
@@ -77,7 +77,7 @@ function grammarIssues(text: string): string[] {
   if (/ {2,}/.test(text)) issues.push('double spaces');
   if (/,\s*(?:[.!?]|$)|[,;:]\s*[.!?]/.test(text)) issues.push('dangling punctuation');
   if (/\b(?:that|and)\s+(?:with|letting)\b/i.test(text)) issues.push('statement-fabric phrase has an invalid connector');
-  if (/^(?:Quiet neutrals|Analogous tones|Closely related colours|Neutrals anchoring the colour|Two colours that play off each other|Three colours in quiet balance)\s+that\s+(?:cinches|balances|skims|adds|softens|reads|feels|gives|lands|is|has|brings)\b/i.test(text)) {
+  if (/^(?:Quiet neutrals|Understated neutrals|Analogous tones|Closely related tones|Neutral anchors|Two tones in balance|Three tones in quiet balance)\s+that\s+(?:cinches|balances|skims|adds|softens|reads|feels|gives|lands|is|has|brings)\b/i.test(text)) {
     issues.push('plural palette has a singular predicate');
   }
   if (/^[^.!?]+,\s*built around your [^.]+\.$/i.test(text) && !/\b(?:is|are|has|have|reads|feels|brings|gives|lands|balances|softens|cinches)\b/i.test(text.split(', built around')[0])) {
@@ -86,7 +86,7 @@ function grammarIssues(text: string): string[] {
   return issues;
 }
 
-function testTemplateCoverageAndGrammar() {
+  function testTemplateCoverageAndGrammar(extraDisplays: string[] = []) {
   const observed = new Set<string>();
   const rationaleOutputs: string[] = [];
   let longestDisplayed = '';
@@ -188,6 +188,11 @@ function testTemplateCoverageAndGrammar() {
     }
   }
 
+  for (const text of extraDisplays) {
+    observed.add(text);
+    rationaleOutputs.push(text);
+  }
+
   const expectedPhrases = [
     ...PALETTE_TEMPLATES.flatMap(template => template.phrases),
     ...Object.values(MOOD_TEMPLATES).flat(),
@@ -195,6 +200,7 @@ function testTemplateCoverageAndGrammar() {
     ...Object.values(FABRIC_TEMPLATES),
     'in tones that work with your complexion',
   ];
+  assert.equal(expectedPhrases.length, 49, 'the audit covers all 49 rationale templates');
   const missing = expectedPhrases.filter(phrase =>
     ![...observed].some(text => text.toLowerCase().includes(phrase.toLowerCase())),
   );
@@ -205,6 +211,7 @@ function testTemplateCoverageAndGrammar() {
       issue === 'not a punctuated sentence' || issue === 'double spaces' || issue === 'dangling punctuation',
     );
     assert.deepEqual(mechanicalIssues, [], `rationale formatting: ${text}`);
+    assert.ok(text.length <= 120, `rationale length ${text.length} exceeds 120 characters: ${text}`);
   }
   const grammarFailureExamples = new Map<string, string>();
   for (const text of rationaleOutputs) {
@@ -250,6 +257,59 @@ function testTemplateCoverageAndGrammar() {
   assert.ok(longestDisplayed.length > 0);
 }
 
+function testTemplateVariety(): string[] {
+  const fabrics = Object.keys(FABRIC_TEMPLATES) as NonNullable<WardrobeItem['fabric']>[];
+  const displays: string[] = [];
+  const sampleCount = 300;
+
+  for (let seed = 0; seed < sampleCount; seed += 1) {
+    const template = PALETTE_TEMPLATES[seed % PALETTE_TEMPLATES.length];
+    const useFabric = seed % 8 === 0;
+    const items = template.colors.map((color, index) =>
+      wardrobeItem(`variety-${seed}-${index}`, color, useFabric && index === 0
+        ? fabrics[Math.floor(seed / 8) % fabrics.length]
+        : undefined),
+    );
+    const components = items.map(item => ({
+      category: item.category,
+      subType: item.subType,
+      colorFamily: item.colorFamily,
+      owned: true,
+      matchedItemId: item.id,
+    }));
+    displays.push(generateRationale(
+      components,
+      items,
+      profile(useFabric ? null : BODY_TYPES[seed % BODY_TYPES.length], seed % 10 === 0 ? 'warm' : null),
+      MOODS[seed % MOODS.length],
+      useFabric ? undefined : items[0].id,
+      seed % 10 === 0 ? 2 : undefined,
+    ));
+  }
+
+  const templates = [
+    ...PALETTE_TEMPLATES.flatMap(template => template.phrases),
+    ...Object.values(MOOD_TEMPLATES).flat(),
+    ...Object.values(BODY_TEMPLATES),
+    ...Object.values(FABRIC_TEMPLATES),
+    'in tones that work with your complexion',
+  ];
+  assert.equal(templates.length, 49, 'variety check covers all 49 rationale templates');
+  for (const template of templates) {
+    const uses = displays.filter(display => display.includes(template)).length;
+    assert.ok(
+      uses <= displays.length * 0.2,
+      `sentence template "${template}" appears in ${uses}/${displays.length} displays`,
+    );
+  }
+  for (const display of displays) {
+    assert.ok(display.length <= 120, `variety sample exceeds 120 characters: ${display}`);
+    assert.deepEqual(grammarIssues(display), [], `variety sample is grammatical: ${display}`);
+  }
+  console.log(`Template variety: ${templates.length} templates across ${displays.length} displays; none exceeds 20%.`);
+  return displays;
+}
+
 function testTierIndependentTextAndSourceLayout() {
   const item = wardrobeItem('hero', 'beige');
   const component = {
@@ -289,4 +349,4 @@ function testTierIndependentTextAndSourceLayout() {
 }
 
 testTierIndependentTextAndSourceLayout();
-testTemplateCoverageAndGrammar();
+testTemplateCoverageAndGrammar(testTemplateVariety());

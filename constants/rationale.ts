@@ -8,14 +8,63 @@ import { WardrobeItem, OutfitComponent, UserProfile, MoodGoal, Fabric } from './
 import { classifyPalette } from './colorTheory';
 import { inferFabric } from './outfitScoring';
 
-const PALETTE_PHRASES: Record<string, string[]> = {
-  'mono':           ['a quiet monochrome', 'a single-tone palette', 'tonal layering'],
-  'neutral-only':   ['quiet neutrals', 'a soft neutral palette', 'understated neutrals'],
-  'analogous':      ['analogous tones', 'closely related colours', 'a calm colour family'],
-  'neutral-bridge': ['a neutral-bridged palette', 'a grounded neutral base', 'neutrals anchoring the colour'],
-  'complementary':  ['a balanced complementary palette', 'two colours that play off each other', 'contrast that holds'],
-  'triadic':        ['a triadic accent', 'three colours in quiet balance', 'a considered triad'],
-  'clash':          ['an unexpected mix', 'a brave palette'],
+type PalettePhrase = { text: string; number: 'singular' | 'plural' };
+
+const PALETTE_PHRASES: Record<string, PalettePhrase[]> = {
+  mono: [
+    { text: 'a quiet monochrome', number: 'singular' },
+    { text: 'a single-tone palette', number: 'singular' },
+    { text: 'tonal layering', number: 'singular' },
+  ],
+  'neutral-only': [
+    { text: 'quiet neutrals', number: 'plural' },
+    { text: 'a soft neutral palette', number: 'singular' },
+    { text: 'understated neutrals', number: 'plural' },
+  ],
+  analogous: [
+    { text: 'analogous tones', number: 'plural' },
+    { text: 'closely related tones', number: 'plural' },
+    { text: 'a calm palette', number: 'singular' },
+  ],
+  'neutral-bridge': [
+    { text: 'a neutral-bridged palette', number: 'singular' },
+    { text: 'a grounded neutral base', number: 'singular' },
+    { text: 'neutral anchors', number: 'plural' },
+  ],
+  complementary: [
+    { text: 'a balanced complementary palette', number: 'singular' },
+    { text: 'two tones in balance', number: 'plural' },
+    { text: 'steady contrast', number: 'singular' },
+  ],
+  triadic: [
+    { text: 'a triadic accent', number: 'singular' },
+    { text: 'three tones in quiet balance', number: 'plural' },
+    { text: 'a considered triad', number: 'singular' },
+  ],
+  clash: [
+    { text: 'an unexpected mix', number: 'singular' },
+    { text: 'a brave palette', number: 'singular' },
+  ],
+};
+
+const PALETTE_SINGULAR_ENDINGS = [
+  'suits the look.',
+  'keeps things balanced.',
+  'brings the pieces together.',
+];
+const PALETTE_PLURAL_ENDINGS = [
+  'sit well together.',
+  'keep things balanced.',
+  'bring the pieces together.',
+];
+
+const MAX_RATIONALE_LENGTH = 120;
+
+const FABRIC_SENTENCES: Record<string, string> = {
+  leather: 'Leather gives the look a clear anchor.',
+  silk: 'Silk softens the finish.',
+  satin: 'Satin catches the light.',
+  cashmere: 'Cashmere softens the line.',
 };
 
 const MOOD_PHRASES: Record<MoodGoal, string[]> = {
@@ -28,12 +77,12 @@ const MOOD_PHRASES: Record<MoodGoal, string[]> = {
 };
 
 const BODY_FLATTERING_NOTE: Record<string, string> = {
-  hourglass:            'cinches and flows where it should',
-  pear:                 'balances your shoulders and hips',
-  apple:                'skims your midsection with ease',
-  rectangle:            'adds gentle shape and movement',
-  'inverted-triangle':  'softens the shoulders and widens the line',
-  athletic:             'softens and drapes beautifully',
+  hourglass: 'The cut follows your shape.',
+  pear: 'The cut balances your frame.',
+  apple: 'The cut skims with ease.',
+  rectangle: 'The cut adds gentle shape.',
+  'inverted-triangle': 'The cut softens the line.',
+  athletic: 'The fabric falls softly.',
 };
 
 function pick<T>(arr: T[], seed: number): T {
@@ -47,20 +96,10 @@ function stringHash(s: string): number {
 }
 
 /**
- * Friendly description for naming the hero in copy. Prefers a colour + sub-type
- * pair ("camel trench", "burgundy slip dress") because that's what a stylist
- * actually says aloud — never "your top.id 7f3" or raw enum values.
+ * Friendly subtype label for the focal piece. Avoids naming a colour that may
+ * not describe a printed garment.
  */
 function describeHero(item: WardrobeItem): string {
-  const COLOR_LABELS: Record<string, string> = {
-    'cream': 'cream', 'beige': 'beige', 'camel': 'camel', 'brown': 'brown',
-    'olive': 'olive', 'navy': 'navy', 'black': 'black', 'white': 'white',
-    'grey': 'grey', 'burgundy': 'burgundy', 'red': 'red', 'pink': 'pink',
-    'blush': 'blush', 'coral': 'coral', 'orange': 'orange', 'yellow': 'yellow',
-    'mustard': 'mustard', 'green': 'green', 'emerald': 'emerald', 'blue': 'blue',
-    'lavender': 'lavender', 'purple': 'purple', 'rose': 'rose',
-    'terracotta': 'terracotta', 'gold': 'gold', 'peach': 'peach',
-  };
   const SUBTYPE_LABELS: Record<string, string> = {
     'leather-jacket': 'leather jacket', 'denim-jacket': 'denim jacket',
     'bomber-jacket': 'bomber', 'trench': 'trench', 'blazer': 'blazer',
@@ -69,7 +108,7 @@ function describeHero(item: WardrobeItem): string {
     'wrap-dress': 'wrap dress', 'midi-dress': 'midi dress',
     'maxi-dress': 'maxi dress', 'mini-dress': 'mini dress',
     'shirt-dress': 'shirt dress', 'knit-dress': 'knit dress',
-    'wide-leg': 'wide-leg trouser', 'pencil-skirt': 'pencil skirt',
+    'wide-leg': 'wide-leg trousers', 'pencil-skirt': 'pencil skirt',
     'midi-skirt': 'midi skirt', 'maxi-skirt': 'maxi skirt',
     'mini-skirt': 'mini skirt', 'turtleneck': 'turtleneck',
     'camisole': 'camisole', 'blouse': 'blouse', 'shirt': 'shirt',
@@ -79,9 +118,8 @@ function describeHero(item: WardrobeItem): string {
     'clutch': 'clutch', 'tote': 'tote', 'shoulder-bag': 'shoulder bag',
     'mini-bag': 'mini bag', 'crossbody': 'crossbody',
   };
-  const color = COLOR_LABELS[item.colorFamily] ?? item.colorFamily.replace(/-/g, ' ');
   const sub = SUBTYPE_LABELS[item.subType] ?? item.subType.replace(/-/g, ' ');
-  return `${color} ${sub}`;
+  return sub;
 }
 
 /**
@@ -109,43 +147,28 @@ export function generateRationale(
   const seed = stringHash(fingerprint);
 
   const palettePhrase = pick(PALETTE_PHRASES[paletteType] ?? PALETTE_PHRASES['neutral-bridge'], seed);
-
-  const parts: string[] = [palettePhrase];
+  const paletteEndings = palettePhrase.number === 'plural'
+    ? PALETTE_PLURAL_ENDINGS
+    : PALETTE_SINGULAR_ENDINGS;
+  const paletteSentence = `${cap(palettePhrase.text)} ${pick(paletteEndings, seed + 3)}`;
 
   // Body-type note if we have a flattering silhouette
   const bodyNote = profile.bodyType ? BODY_FLATTERING_NOTE[profile.bodyType] : null;
-  if (bodyNote && resolved.some(i =>
+  const bodySentence = bodyNote && resolved.some(i =>
     i.category === 'dress' || i.subType === 'wrap-dress' || i.subType === 'wide-leg' ||
     i.subType === 'midi-skirt' || i.subType === 'blazer'
-  )) {
-    parts.push(bodyNote);
-  }
+  ) ? bodyNote : undefined;
 
   // Mood phrase, if mood applied
-  if (mood) {
-    parts.push(pick(MOOD_PHRASES[mood], seed + 7));
-  }
+  const moodSentence = mood ? `The look ${pick(MOOD_PHRASES[mood], seed + 7)}.` : undefined;
 
-  // Hero / texture observation. When a heroId is provided we name the hero
-  // explicitly ("built around your camel trench") — that's the language a
-  // stylist actually uses. Falls back to the older statement-fabric phrase
-  // when no hero is supplied (legacy callers, generator-driven previews
-  // that haven't passed heroId yet) so existing copy still reads naturally.
-  const STATEMENT_FABRIC_PHRASE: Record<string, string> = {
-    leather:  'with the leather as the anchor',
-    silk:     'letting the silk do the talking',
-    satin:    'with the satin catching the light',
-    cashmere: 'with the cashmere softening the line',
-  };
+  // Hero and fabric are separate sentence slots; a focal piece remains the
+  // preferred observation when present.
   const effectiveFabric = (i: WardrobeItem): Fabric | undefined => i.fabric ?? inferFabric(i.subType);
-
-  // The hero phrase reads as a coda ("..., built around your camel trench.")
-  // rather than a clause ("X that built around Y" — ungrammatical), so we keep
-  // it out of the parts array and append it at the end.
   const heroItem = heroId ? resolved.find(i => i.id === heroId) : undefined;
-  let heroCoda = '';
+  let focalSentence: string | undefined;
   if (heroItem) {
-    heroCoda = `built around your ${describeHero(heroItem)}`;
+    focalSentence = `Your ${describeHero(heroItem)} leads.`;
   } else {
     const statementItems = resolved.filter(i => {
       const f = effectiveFabric(i);
@@ -153,41 +176,33 @@ export function generateRationale(
     });
     if (statementItems.length === 1) {
       const f = effectiveFabric(statementItems[0]) as string;
-      parts.push(STATEMENT_FABRIC_PHRASE[f]);
+      focalSentence = FABRIC_SENTENCES[f];
     }
   }
 
-  // Undertone note — kept as a dedicated coda (not a part) so it is always
-  // appended when the score warrants it, regardless of how many parts exist.
-  const undertoneCoda =
+  const undertoneSentence =
     undertoneScore !== undefined && undertoneScore >= 2 &&
     profile.undertone && profile.undertone !== 'neutral'
-      ? 'in tones that work with your complexion'
-      : '';
+      ? 'The look is in tones that work with your complexion.'
+      : undefined;
 
-  let body: string;
-  if (parts.length === 1) {
-    body = heroCoda
-      ? `${cap(parts[0])}, ${heroCoda}.`
-      : `${cap(parts[0])} — an easy, polished look.`;
-  } else if (parts.length === 2) {
-    body = heroCoda
-      ? `${cap(parts[0])} that ${parts[1]}, ${heroCoda}.`
-      : `${cap(parts[0])} that ${parts[1]}.`;
-  } else {
-    // 3+ parts
-    body = heroCoda
-      ? `${cap(parts[0])} that ${parts[1]} and ${parts[2]}, ${heroCoda}.`
-      : `${cap(parts[0])} that ${parts[1]} and ${parts[2]}.`;
+  const sentences = [paletteSentence];
+  // Keep the undertone observation when warranted, then add optional notes
+  // only while the complete, deterministic copy remains within the limit.
+  const required = undertoneSentence ? [undertoneSentence] : [];
+  for (const sentence of required) {
+    if (`${sentences.join(' ')} ${sentence}`.length <= MAX_RATIONALE_LENGTH) {
+      sentences.push(sentence);
+    }
+  }
+  for (const sentence of [bodySentence, moodSentence, focalSentence]) {
+    if (!sentence) continue;
+    if (`${sentences.join(' ')} ${sentence}`.length <= MAX_RATIONALE_LENGTH) {
+      sentences.push(sentence);
+    }
   }
 
-  // Splice the undertone coda in before the final period so it is always
-  // present when warranted, even when palette/body/mood fill all three slots.
-  if (undertoneCoda) {
-    body = `${body.slice(0, -1)}, ${undertoneCoda}.`;
-  }
-
-  return body;
+  return sentences.join(' ');
 }
 
 function cap(s: string): string {
