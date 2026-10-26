@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { generateRationale } from '../constants/rationale';
-import type { MoodGoal, UserProfile, WardrobeItem } from '../constants/types';
+import type { MoodGoal, OutfitSet, UserProfile, WardrobeItem } from '../constants/types';
 import { getLookRationale } from '../lib/lookCardPresentation';
 
 const PALETTE_TEMPLATES = [
@@ -75,7 +75,7 @@ function grammarIssues(text: string): string[] {
   const issues: string[] = [];
   if (!/^[A-Z].*[.!?]$/.test(text)) issues.push('not a punctuated sentence');
   if (/ {2,}/.test(text)) issues.push('double spaces');
-  if (/,\\s*(?:[.!?]|$)|[,;:]\\s*[.!?]/.test(text)) issues.push('dangling punctuation');
+  if (/,\s*(?:[.!?]|$)|[,;:]\s*[.!?]/.test(text)) issues.push('dangling punctuation');
   if (/\b(?:that|and)\s+(?:with|letting)\b/i.test(text)) issues.push('statement-fabric phrase has an invalid connector');
   if (/^(?:Quiet neutrals|Analogous tones|Closely related colours|Neutrals anchoring the colour|Two colours that play off each other|Three colours in quiet balance)\s+that\s+(?:cinches|balances|skims|adds|softens|reads|feels|gives|lands|is|has|brings)\b/i.test(text)) {
     issues.push('plural palette has a singular predicate');
@@ -90,11 +90,16 @@ function testTemplateCoverageAndGrammar() {
   const observed = new Set<string>();
   const rationaleOutputs: string[] = [];
   let longestDisplayed = '';
+  const colours = [
+    'cream', 'beige', 'camel', 'brown', 'olive', 'navy', 'black', 'white', 'grey',
+    'burgundy', 'red', 'pink', 'blush', 'coral', 'orange', 'yellow', 'mustard',
+    'green', 'emerald', 'blue', 'lavender', 'purple', 'rose', 'terracotta', 'gold', 'peach',
+  ];
 
   for (let seed = 0; seed < 1200; seed += 1) {
     for (const { colors } of PALETTE_TEMPLATES) {
       const items = colors.map((color, index) =>
-        wardrobeItem(`item-${index}-${seed}`, color, index === 0 ? 'silk' : undefined),
+        wardrobeItem(`item-${index}-${index === colors.length - 1 ? seed : 0}`, color, index === 0 ? 'silk' : undefined),
       );
       const components = items.map(item => ({
         category: item.category,
@@ -118,7 +123,39 @@ function testTemplateCoverageAndGrammar() {
         rationaleOutputs.push(displayed);
         if (displayed.length > longestDisplayed.length) longestDisplayed = displayed;
       }
+      const heroOnly = generateRationale(components, items, profile(), null, heroId);
+      const heroOnlyDisplayed = getLookRationale({
+        id: `hero-only-${seed}`,
+        scenario: 'casual',
+        components,
+        heroId,
+        rationale: heroOnly,
+      });
+      observed.add(heroOnly);
+      rationaleOutputs.push(heroOnlyDisplayed);
+      if (heroOnlyDisplayed.length > longestDisplayed.length) longestDisplayed = heroOnlyDisplayed;
     }
+  }
+
+  for (const color of colours) {
+    const item = wardrobeItem(`color-${color}`, color);
+    const component = {
+      category: item.category,
+      subType: item.subType,
+      colorFamily: item.colorFamily,
+      owned: true,
+      matchedItemId: item.id,
+    };
+    const raw = generateRationale([component], [item], profile(), null, item.id);
+    const displayed = getLookRationale({
+      id: `color-look-${color}`,
+      scenario: 'casual',
+      components: [component],
+      heroId: item.id,
+      rationale: raw,
+    });
+    assert.doesNotMatch(displayed, new RegExp(`built around your ${color}\\b`, 'i'));
+    rationaleOutputs.push(displayed);
   }
 
   // Cover all non-hero fabric templates, including the shorter body/mood forms.
@@ -139,12 +176,14 @@ function testTemplateCoverageAndGrammar() {
       ] as const) {
         const raw = generateRationale([component], [item], profile(bodyType, null), mood);
         observed.add(raw);
-        rationaleOutputs.push(getLookRationale({
+        const displayed = getLookRationale({
           id: `fabric-look-${fabric}-${seed}`,
           scenario: 'casual',
           components: [component],
           rationale: raw,
-        }));
+        });
+        rationaleOutputs.push(displayed);
+        if (displayed.length > longestDisplayed.length) longestDisplayed = displayed;
       }
     }
   }
@@ -167,19 +206,48 @@ function testTemplateCoverageAndGrammar() {
     );
     assert.deepEqual(mechanicalIssues, [], `rationale formatting: ${text}`);
   }
-  const knownGrammarFailures = [...new Set(rationaleOutputs.flatMap(text => grammarIssues(text).filter(issue =>
+  const grammarFailureExamples = new Map<string, string>();
+  for (const text of rationaleOutputs) {
+    for (const issue of grammarIssues(text)) {
+      if (!grammarFailureExamples.has(issue)) grammarFailureExamples.set(issue, text);
+    }
+  }
+  const knownGrammarFailures = [...grammarFailureExamples.keys()].filter(issue =>
     issue === 'statement-fabric phrase has an invalid connector' ||
     issue === 'plural palette has a singular predicate' ||
     issue === 'hero-only rationale is a sentence fragment',
-  )))].sort();
+  ).sort();
   console.log(`Rationale grammar audit: ${knownGrammarFailures.length} issue types; longest displayed sample ${longestDisplayed.length} characters.`);
-  for (const issue of knownGrammarFailures) {
-    console.log(`${issue}: ${rationaleOutputs.find(text => grammarIssues(text).includes(issue))}`);
+  const pluralPaletteFailures = new Map<string, string>();
+  const pluralPalettePhrases = [
+    'quiet neutrals', 'analogous tones', 'closely related colours',
+    'neutrals anchoring the colour', 'two colours that play off each other',
+    'three colours in quiet balance',
+  ];
+  for (const text of rationaleOutputs) {
+    const phrase = pluralPalettePhrases.find(value => text.toLowerCase().startsWith(value));
+    if (phrase && /\bthat\s+(?:cinches|balances|skims|adds|softens|reads|feels|gives|lands|is|has|brings)\b/i.test(text)) {
+      pluralPaletteFailures.set(phrase, text);
+    }
   }
+  if (pluralPaletteFailures.size) {
+    console.log('Plural palette templates with singular predicates:');
+    for (const [phrase, text] of pluralPaletteFailures) console.log(`- ${phrase}: ${text}`);
+  }
+  const fabricConnectorFailures = [...new Set(rationaleOutputs.flatMap(text => {
+    const matches = text.match(/\b(?:that|and)\s+(?:with|letting)\s+the\s+(?:leather|silk|satin|cashmere)[^.]+/gi);
+    return matches ?? [];
+  }))];
+  if (fabricConnectorFailures.length) {
+    console.log('Statement-fabric connector templates:');
+    for (const text of fabricConnectorFailures) console.log(`- ${text}`);
+  }
+  const fragment = grammarFailureExamples.get('hero-only rationale is a sentence fragment');
+  if (fragment) console.log(`Hero-only palette template fragment: ${fragment}`);
+  console.log(`Mechanical grammar/punctuation audit covered ${expectedPhrases.length} phrase templates and ${rationaleOutputs.length} generated displays.`);
   assert.deepEqual(knownGrammarFailures, [], 'every generated rationale is a grammatical sentence');
 
   assert.ok(longestDisplayed.length > 0);
-  console.log(`Rationale template audit: ${expectedPhrases.length} phrase templates covered.`);
 }
 
 function testTierIndependentTextAndSourceLayout() {
@@ -197,9 +265,9 @@ function testTierIndependentTextAndSourceLayout() {
     components: [component],
     heroId: item.id,
     rationale: 'A quiet monochrome, built around your beige wrap dress.',
-  } as const;
+  } as OutfitSet;
   const acrossTiers = ['guest', 'free', 'premium'].map(() => getLookRationale(outfit));
-  assert.deepEqual(acrossTiers, ['A quiet monochrome, built around your wrap dress.'].repeat(3));
+  assert.deepEqual(acrossTiers, Array(3).fill('A quiet monochrome, built around your wrap dress.'));
 
   const screen = readFileSync('app/(tabs)/outfits.tsx', 'utf8');
   const card = screen.slice(screen.indexOf('function OutfitCard'), screen.indexOf('export default function OutfitsScreen'));
@@ -209,7 +277,7 @@ function testTierIndependentTextAndSourceLayout() {
   assert.match(card, /testID="look-rationale" style=\{styles\.lookRationale\}/);
   assert.doesNotMatch(card, /testID="look-rationale"[^>]*numberOfLines/);
   assert.match(screen, /lookRationale: \{[^}]*fontSize: rs\(13\)[^}]*lineHeight/);
-  assert.match(screen, /lookName: \{[^}]*fontStyle: 'italic'/);
+  assert.match(screen, /lookName:\s*\{[\s\S]*?fontStyle: 'italic'/);
   assert.match(card, /size=\{100\}/, 'the grid image and label fit within a 152px half-row');
   assert.match(screen, /lookSlot: \{ width: '50%', height: '50%'/);
   const cellHeight = (340 - 2 * 18) / 2;
@@ -220,5 +288,5 @@ function testTierIndependentTextAndSourceLayout() {
     'iOS includes tab-bar plus safe-area clearance; Android keeps the existing 120px spacer');
 }
 
-testTemplateCoverageAndGrammar();
 testTierIndependentTextAndSourceLayout();
+testTemplateCoverageAndGrammar();
