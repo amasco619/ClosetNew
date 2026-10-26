@@ -73,6 +73,7 @@ const fixture = {
 Object.assign(globalThis, { __conciergeUi: fixture, __lookExportEvents: exportEvents, IS_REACT_ACT_ENVIRONMENT: true });
 const mocks: Record<string, string> = {
   '../../components/TravelPlanner': `export default ()=>null;`,
+  '@/components/CheckMyLookSheet': `export const CheckMyLookSheet=()=>null;`,
   '../../components/LockedLookSilhouettes': `import React from 'react';export default ()=>React.createElement('Svg');`,
   '@/contexts/LuxuryFeedbackContext': `export const useDialog=()=>({confirm:async()=>false,notify:()=>{},alert:()=>{}});export const useToast=()=>({show:()=>{}});`,
   '@/components/GarmentTile': `import React from 'react';export const GarmentTile=({uri,...props})=>React.createElement('Image',{...props,source:{uri}});`,
@@ -96,6 +97,7 @@ const mocks: Record<string, string> = {
   '../../lib/responsive': `export const rs=x=>x;`, '@/lib/responsive': `export const rs=x=>x;`,
   '@/constants/weather': `export const defaultTempUnit=()=>'C';export {formatTemp,formatTempValue} from '${path.join(process.cwd(), 'constants/weatherPure.ts')}';`,
   '@/contexts/AppContext': `export const useApp=()=>globalThis.__conciergeUi.state();`,
+  '@/lib/database': `export const getGarmentGroups=async()=>[];`,
 };
 const plugin: Plugin = { name: 'concierge-native-fixtures', setup(bundle) {
   bundle.onResolve({ filter: /.*/ }, args => Object.hasOwn(mocks, args.path) ? { path: args.path, namespace: 'fixture' } : undefined);

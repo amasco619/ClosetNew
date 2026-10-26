@@ -7,6 +7,9 @@ const ONE_PIECE_SUBTYPES = new Set([
 const HEADWEAR_SUBTYPES = new Set([
   'gele', 'headwrap', 'head-scarf', 'headscarf', 'stole', 'hat', 'sunhat', 'cap',
 ]);
+export function isHeadwearSubtype(subType: string): boolean {
+  return HEADWEAR_SUBTYPES.has(subType.toLowerCase());
+}
 const COLOUR_WORDS = [
   'cream', 'beige', 'camel', 'brown', 'olive', 'navy', 'black', 'white', 'grey',
   'burgundy', 'red', 'pink', 'blush', 'coral', 'orange', 'yellow', 'mustard',
@@ -31,7 +34,7 @@ export function lookAccessoryComponents(components: OutfitComponent[]): OutfitCo
   return components.filter(component =>
     component.category === 'bag' ||
     component.category === 'jewelry' ||
-    HEADWEAR_SUBTYPES.has(component.subType.toLowerCase()),
+    isHeadwearSubtype(component.subType),
   );
 }
 

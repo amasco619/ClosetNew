@@ -1,0 +1,95 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { build, type Plugin } from 'esbuild';
+import React from 'react';
+import type { WardrobeItem } from '../constants/types';
+
+Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
+
+const mocks: Record<string, string> = {
+  'react-native': `import React from 'react';
+    const host=name=>({children,...props})=>React.createElement(name,props,children);
+    export const View=host('View'),Text=host('Text'),Pressable=host('Pressable'),
+      ScrollView=host('ScrollView'),Modal=host('Modal'),TextInput=host('TextInput');
+    export const Keyboard={dismiss(){}};
+    export const StyleSheet={create:value=>value,absoluteFill:{position:'absolute',top:0,right:0,bottom:0,left:0}};`,
+  'react-native-safe-area-context': `export const useSafeAreaInsets=()=>({top:0,bottom:0,left:0,right:0});`,
+  '@/constants/colors': `const Colors={primary:'#101826',secondary:'#D0B892',sage:'#8AA39B',background:'#F5F3F0',cardBackground:'#FFFFFF',textSecondary:'#626A73',textLight:'#9CA3AF',textOnDark:'#F5F3F0',border:'#E8E5E0',garmentStudioTop:'#F3F0EB',overlay:'rgba(16,24,38,.5)',success:'#6AAF7B',warning:'#E0A84D',error:'#D4605A'};export default Colors;`,
+  '@/constants/wardrobeLabels': `export const wardrobeItemDisplayName=(colour,subtype)=>colour+' '+subtype;export const wardrobeValueLabel=value=>value;`,
+  '@/lib/lookCardPresentation': `export const isHeadwearSubtype=value=>value==='gele';`,
+};
+const plugin: Plugin = {
+  name: 'check-look-native-fixtures',
+  setup(bundle) {
+    bundle.onResolve({ filter: /.*/ }, args =>
+      Object.hasOwn(mocks, args.path) ? { path: args.path, namespace: 'fixture' } : undefined,
+    );
+    bundle.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({
+      contents: mocks[args.path], loader: 'js', resolveDir: process.cwd(),
+    }));
+  },
+};
+
+async function main() {
+  const bundled = await build({
+    entryPoints: ['components/CheckMyLookSheet.tsx'],
+    bundle: true, platform: 'node', format: 'cjs', write: false, jsx: 'automatic',
+    plugins: [plugin], external: ['react', 'react/jsx-runtime'],
+  });
+  const requireProject = createRequire(path.join(process.cwd(), 'package.json'));
+  const module = { exports: {} as Record<string, unknown> };
+  new Function('require', 'module', 'exports', bundled.outputFiles[0].text)(
+    requireProject, module, module.exports,
+  );
+  const Component = module.exports.CheckMyLookSheet as React.ComponentType<{
+    visible: boolean;
+    items: WardrobeItem[];
+    isPremium: boolean;
+    freeRemaining: number;
+    allowanceLoading: boolean;
+    membershipLoading: boolean;
+    membershipUnavailable: boolean;
+    checking: boolean;
+    result: { tier: 'free'; verdict: 'Works' | 'Almost' | 'Rethink' } | null;
+    onOpen(): void;
+    onClose(): void;
+    onCheck(): void;
+    onUpgrade(): void;
+    onClearResult(): void;
+  }>;
+  const renderer = requireProject('react-test-renderer');
+  let upgradeCalls = 0;
+  let checkCalls = 0;
+  let screen!: { root: { findAllByType(type: string): Array<{ props: Record<string, unknown>; children: unknown[] }> }; unmount(): void };
+  await React.act(async () => {
+    screen = renderer.create(React.createElement(Component, {
+      visible: true, items: [], isPremium: false, freeRemaining: 0,
+      allowanceLoading: false, membershipLoading: false, membershipUnavailable: false,
+      checking: false, result: { tier: 'free', verdict: 'Almost' },
+      onOpen() {}, onClose() {}, onCheck() { checkCalls++; },
+      onUpgrade() { upgradeCalls++; }, onClearResult() {},
+    }));
+  });
+  const pressable = (id: string) => screen.root.findAllByType('Pressable')
+    .find(node => node.props.testID === id);
+  const paywall = pressable('check-my-look-paywall');
+  assert.ok(paywall, 'zero free allowance renders the paywall action');
+  assert.notEqual(paywall.props.disabled, true);
+  await React.act(async () => { (paywall.props.onPress as () => void)(); });
+  assert.equal(upgradeCalls, 1);
+  assert.equal(checkCalls, 0, 'zero allowance cannot compute another verdict');
+  const text = screen.root.findAllByType('Text').map(node =>
+    node.children.map(child => typeof child === 'string' ? child : '').join(''),
+  ).join(' ');
+  assert.match(text, /Your verdict/);
+  assert.match(text, /Premium offers a fuller review/);
+  assert.doesNotMatch(text, /What works|Worth reconsidering|Possible swaps/);
+  await React.act(async () => { screen.unmount(); });
+  console.log('Check My Look free verdict visibility and zero-allowance paywall passed.');
+}
+
+void main().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

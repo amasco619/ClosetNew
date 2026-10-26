@@ -1,10 +1,10 @@
 ---
 name: Mounted screen test fixture stability
-description: Stable identity rules for mocked React context values in mounted screen tests.
+description: Stable mocked context values and isolated module boundaries in mounted screen tests.
 ---
 
-Mounted screen tests should keep mock context arrays, objects, and callbacks referentially stable across renders unless the scenario intentionally changes them.
+Mounted screen tests should keep mock context arrays, objects, and callbacks referentially stable across renders unless the scenario intentionally changes them. When a screen gains a new native sheet or service import, stub that leaf and the direct data boundary in screen-level bundles instead of pulling native or Supabase modules into the fixture.
 
-**Why:** Screens often include context callbacks and collections in effect dependencies. Recreating empty values on every render can retrigger effects that set state and produce a render loop unrelated to production behavior.
+**Why:** Screens often include context callbacks and collections in effect dependencies, while esbuild test bundles resolve the full static import graph. Unstable values cause unrelated effect loops; unstubbed native/data dependencies make a screen test load platform code it does not exercise.
 
-**How to apply:** Define shared fixture arrays, objects, and no-op functions once; return those references from the mocked context and replace only the values under test.
+**How to apply:** Define shared fixture arrays, objects, and no-op functions once; return those references from the mocked context and replace only the values under test. Give screen-level bundles small named-export mocks for new leaf UI and data modules; test the real leaf separately.

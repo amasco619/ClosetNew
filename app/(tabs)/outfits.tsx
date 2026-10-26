@@ -5,12 +5,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 import { useApp, OutfitSet, OutfitComponent } from '@/contexts/AppContext';
 import Colors from '@/constants/colors';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useState, useCallback, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
-import { OccasionTag, ReactionType, WardrobeItem } from '@/constants/types';
+import { GarmentGroup, OccasionTag, ReactionType, WardrobeItem } from '@/constants/types';
 import * as Haptics from 'expo-haptics';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -27,6 +28,13 @@ import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weathe
 import { wardrobeItemDisplayName, wardrobeValueLabel } from '@/constants/wardrobeLabels';
 import { usesConfirmedCoordinatedSet } from '../../lib/stylingRelationships';
 import { filterLastAddedSuggestions } from '../../lib/lastAddedSuggestions';
+import { getGarmentGroups } from '@/lib/database';
+import { CHECK_LOOK_FREE_VERDICTS_PER_DAY } from '../../constants/checkLookConfig';
+import { consumeCheckLookAllowance, readCheckLookAllowance } from '../../lib/checkLookAllowance';
+import { evaluateCheckLook, isValidCheckLookSelection } from '../../lib/checkLook';
+import type { CheckLookResult, CheckLookSelection } from '../../lib/checkLook';
+import { loadCheckLookMembershipsOnOpen } from '../../lib/checkLookMembership';
+import { CheckMyLookSheet } from '@/components/CheckMyLookSheet';
 import {
   accessoryDisplayLabel,
   getLookRationale,
@@ -417,6 +425,163 @@ export default function OutfitsScreen() {
     missingDimensions,
     getItemWearCount,
   } = useApp();
+  const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
+  const checkLookPremium = isAuthenticated && !!authenticatedUserId && isPremium && !entitlementUnavailable;
+  const [checkLookVisible, setCheckLookVisible] = useState(false);
+  const [checkLookOwner, setCheckLookOwner] = useState<string | null>(null);
+  const [checkLookGroups, setCheckLookGroups] = useState<GarmentGroup[] | undefined>();
+  const [checkLookMembershipLoading, setCheckLookMembershipLoading] = useState(false);
+  const [checkLookMembershipUnavailable, setCheckLookMembershipUnavailable] = useState(false);
+  const [checkLookFreeRemaining, setCheckLookFreeRemaining] = useState(CHECK_LOOK_FREE_VERDICTS_PER_DAY);
+  const [checkLookAllowanceLoading, setCheckLookAllowanceLoading] = useState(false);
+  const [checkLookChecking, setCheckLookChecking] = useState(false);
+  const [checkLookResult, setCheckLookResult] = useState<CheckLookResult | null>(null);
+  const checkLookRequest = useRef(0);
+  const checkLookVisibleRef = useRef(false);
+  const checkLookOwnerRef = useRef<string | null>(null);
+  const checkLookBusyRequest = useRef<number | null>(null);
+  const checkLookToast = useToast();
+
+  const openCheckMyLook = useCallback(() => {
+    if (checkLookVisibleRef.current) return;
+    const requestId = ++checkLookRequest.current;
+    const ownerId = authenticatedUserId;
+    checkLookOwnerRef.current = ownerId;
+    checkLookVisibleRef.current = true;
+    setCheckLookOwner(ownerId);
+    setCheckLookVisible(true);
+    setCheckLookResult(null);
+    setCheckLookGroups(undefined);
+    setCheckLookMembershipUnavailable(false);
+    setCheckLookFreeRemaining(CHECK_LOOK_FREE_VERDICTS_PER_DAY);
+
+    if (!checkLookPremium || !ownerId) {
+      setCheckLookMembershipLoading(false);
+      setCheckLookAllowanceLoading(true);
+      void readCheckLookAllowance(
+        AsyncStorage, CHECK_LOOK_FREE_VERDICTS_PER_DAY,
+      ).then(remaining => {
+        if (checkLookRequest.current === requestId && checkLookVisibleRef.current) {
+          setCheckLookFreeRemaining(remaining);
+        }
+      }).catch(() => {
+        // A failed local read never grants a verdict; consumeCheckLookAllowance
+        // will fail closed when the user requests a check.
+      }).finally(() => {
+        if (checkLookRequest.current === requestId && checkLookVisibleRef.current) {
+          setCheckLookAllowanceLoading(false);
+        }
+      });
+      return;
+    }
+
+    setCheckLookAllowanceLoading(false);
+    setCheckLookMembershipLoading(true);
+    void loadCheckLookMembershipsOnOpen(checkLookPremium, ownerId, getGarmentGroups).then(groups => {
+      if (checkLookRequest.current === requestId && checkLookVisibleRef.current &&
+          checkLookOwnerRef.current === ownerId) {
+        setCheckLookGroups(groups);
+        setCheckLookMembershipUnavailable(!groups);
+      }
+    }).catch(() => {
+      if (checkLookRequest.current === requestId && checkLookVisibleRef.current &&
+          checkLookOwnerRef.current === ownerId) {
+        setCheckLookMembershipUnavailable(true);
+      }
+    }).finally(() => {
+      if (checkLookRequest.current === requestId && checkLookVisibleRef.current) {
+        setCheckLookMembershipLoading(false);
+      }
+    });
+  }, [authenticatedUserId, checkLookPremium]);
+
+  const closeCheckMyLook = useCallback(() => {
+    ++checkLookRequest.current;
+    checkLookVisibleRef.current = false;
+    checkLookOwnerRef.current = null;
+    checkLookBusyRequest.current = null;
+    setCheckLookVisible(false);
+    setCheckLookOwner(null);
+    setCheckLookGroups(undefined);
+    setCheckLookMembershipLoading(false);
+    setCheckLookMembershipUnavailable(false);
+    setCheckLookAllowanceLoading(false);
+    setCheckLookChecking(false);
+    setCheckLookResult(null);
+  }, []);
+
+  const clearCheckLookResult = useCallback(() => setCheckLookResult(null), []);
+
+  const runCheckMyLook = useCallback(async (selection: CheckLookSelection) => {
+    const requestId = checkLookRequest.current;
+    if (checkLookBusyRequest.current === requestId || checkLookChecking || checkLookAllowanceLoading ||
+        checkLookMembershipLoading ||
+        !isValidCheckLookSelection(wardrobeItems, selection.itemIds)) return;
+    if (!wardrobeDataComplete || dataUnavailable || startupError) {
+      checkLookToast.show({ message: 'Your full wardrobe is still loading. Try again shortly.' });
+      return;
+    }
+    checkLookBusyRequest.current = requestId;
+    setCheckLookChecking(true);
+    try {
+      if (!checkLookPremium) {
+        const allowance = await consumeCheckLookAllowance(
+          AsyncStorage, CHECK_LOOK_FREE_VERDICTS_PER_DAY,
+        );
+        setCheckLookFreeRemaining(allowance.remaining);
+        if (!allowance.allowed) {
+          router.push('/premium');
+          return;
+        }
+      }
+      if (!checkLookVisibleRef.current || checkLookRequest.current !== requestId) return;
+      const result = evaluateCheckLook(wardrobeItems, selection, {
+        premium: checkLookPremium,
+        profile,
+        ...(checkLookPremium && {
+          groups: checkLookMembershipUnavailable ? undefined : checkLookGroups,
+          ownerId: authenticatedUserId ?? undefined,
+          membershipUnavailable: checkLookMembershipUnavailable,
+        }),
+      });
+      setCheckLookResult(result);
+    } catch {
+      checkLookToast.show({ message: 'Your look could not be checked. Your wardrobe remains unchanged; please try again.' });
+    } finally {
+      if (checkLookBusyRequest.current === requestId) {
+        checkLookBusyRequest.current = null;
+        setCheckLookChecking(false);
+      }
+    }
+  }, [
+    checkLookChecking, checkLookAllowanceLoading, checkLookMembershipLoading,
+    wardrobeItems, wardrobeDataComplete, dataUnavailable, startupError,
+    checkLookToast, checkLookPremium, authenticatedUserId, profile,
+    checkLookMembershipUnavailable, checkLookGroups,
+  ]);
+
+  useEffect(() => {
+    if (checkLookVisible && (
+      checkLookOwner !== authenticatedUserId ||
+      (!checkLookPremium && (checkLookGroups !== undefined || checkLookMembershipLoading ||
+        checkLookMembershipUnavailable || checkLookResult?.tier === 'premium'))
+    )) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Account changes must discard the previous owner's transient check.
+      closeCheckMyLook();
+    }
+  }, [
+    authenticatedUserId, checkLookOwner, checkLookPremium, checkLookVisible,
+    checkLookGroups, checkLookMembershipLoading, checkLookMembershipUnavailable, checkLookResult,
+    closeCheckMyLook,
+  ]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Any wardrobe refresh may invalidate this transient result or its swap candidates.
+    setCheckLookResult(null);
+  }, [wardrobeItems]);
+  useEffect(() => () => {
+    ++checkLookRequest.current;
+    checkLookVisibleRef.current = false;
+  }, []);
   const validLastAddedSuggestions = useMemo(() => filterLastAddedSuggestions(
     lastAddedSuggestions,
     new Set(wardrobeItems.map(item => item.id)),
@@ -433,7 +598,6 @@ export default function OutfitsScreen() {
   const [loadedWardrobeKey, setLoadedWardrobeKey] = useState<string | null>(null);
   const [loadRetry, setLoadRetry] = useState(0);
   const cpwToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
   const wardrobeLoadKey = JSON.stringify([authenticatedUserId, wardrobeItems.length, wardrobeTotalCount, wardrobeHasMore, loadRetry]);
   const wardrobeLoading = !wardrobeDataComplete && loadedWardrobeKey !== wardrobeLoadKey;
   const wardrobeLoadError = wardrobeLoadFailureKey === wardrobeLoadKey;
@@ -504,7 +668,10 @@ export default function OutfitsScreen() {
     setConciergePlan(null);
     setPlannerOpen(false);
   }, []);
-  useFocusEffect(useCallback(() => () => { clearConcierge(); }, [clearConcierge]));
+  useFocusEffect(useCallback(
+    () => () => { clearConcierge(); closeCheckMyLook(); },
+    [clearConcierge, closeCheckMyLook],
+  ));
   useEffect(() => {
     // Clear account-specific planning state after the identity changes; the
     // render-time authorization gate already hides it before this cleanup.
@@ -697,6 +864,22 @@ export default function OutfitsScreen() {
       );
   const conciergeControls = (
     <View style={{ marginBottom: 12 }}>
+      <CheckMyLookSheet
+        visible={checkLookVisible && checkLookOwner === authenticatedUserId}
+        items={wardrobeItems}
+        isPremium={checkLookPremium}
+        freeRemaining={checkLookFreeRemaining}
+        allowanceLoading={checkLookAllowanceLoading}
+        membershipLoading={checkLookMembershipLoading}
+        membershipUnavailable={checkLookMembershipUnavailable}
+        checking={checkLookChecking}
+        result={checkLookPremium || checkLookResult?.tier === 'free' ? checkLookResult : null}
+        onOpen={openCheckMyLook}
+        onClose={closeCheckMyLook}
+        onCheck={selection => { void runCheckMyLook(selection); }}
+        onUpgrade={() => router.push('/premium')}
+        onClearResult={clearCheckLookResult}
+      />
       <View style={styles.planningRow}>
         <Ionicons name="sparkles-outline" size={17} color={Colors.secondary} />
         <Pressable testID="concierge-entry" accessibilityRole="button" accessibilityLabel="Plan an occasion or a travel capsule"

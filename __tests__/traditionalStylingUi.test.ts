@@ -42,6 +42,7 @@ const m = {
 Object.assign(globalThis, { __traditionalUi: m, IS_REACT_ACT_ENVIRONMENT: true });
 const modules: Record<string, string> = {
   '../../components/TravelPlanner': `export default ()=>null;`,
+  '@/components/CheckMyLookSheet': `export const CheckMyLookSheet=()=>null;`,
   '../../components/LockedLookSilhouettes': `import React from 'react';export default ()=>React.createElement('Svg');`,
   '@/contexts/LuxuryFeedbackContext': `export const useDialog=()=>({confirm:async()=>false,notify:()=>{},alert:()=>{}});export const useToast=()=>({show:()=>{}});`,
   '@/components/GarmentTile': `import React from 'react';export const GarmentTile=({uri,...props})=>React.createElement('Image',{...props,source:{uri}});`,
@@ -70,6 +71,7 @@ const modules: Record<string, string> = {
   '@/lib/responsive': `export const rs=x=>x;`,
   '@/constants/weather': `export const defaultTempUnit=()=>'C';export {formatTemp,formatTempValue} from '${path.join(process.cwd(), 'constants/weatherPure.ts')}';`,
   '@/contexts/AppContext': `export const useApp=()=>globalThis.__traditionalUi.state();`,
+  '@/lib/database': `export const getGarmentGroups=async()=>[];`,
 };
 const plugin: Plugin = { name: 'traditional-native-boundaries', setup(bundle) {
   bundle.onResolve({ filter: /.*/ }, args => Object.hasOwn(modules, args.path)

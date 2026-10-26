@@ -3644,3 +3644,37 @@ applies Expo Router's stack and tab reducers, and verifies sign-in is the only
 remaining route and GO_BACK cannot reveal the deleted account screen.
 
 **Code:** `app/(tabs)/profile.tsx`, `__tests__/accountDeletionNavigation.test.ts`
+
+## 53. Check My Look — local verdicts and Premium review
+
+The Outfits tab's Check my look sheet accepts pieces already present in the
+current wardrobe: a dress or a top and bottom, plus optional shoes, layer, bag,
+jewellery and headwear. Occasion and a manually entered Celsius temperature are
+optional inputs. The adapter reuses the exported, synchronous scoring helpers
+(`scoreOutfitCombo`, `effectiveFormality`, `getScenarioFormality` and
+`warmthMatchScore`) without changing Recommendation Engine v3.7. Its checks
+cover formality spread, multiple/large prints, occasion tags, shoe/bag formality
+and optional weather suitability.
+
+There is no AI, image upload, wardrobe mutation or server/database write. Free
+accounts receive only a verdict; the per-local-day allowance defaults to five
+and can be configured at build time with
+`EXPO_PUBLIC_CHECK_LOOK_FREE_VERDICTS_PER_DAY` (zero is valid). Its counter is
+stored locally per device and local calendar day. Premium is determined by the
+existing entitlement state. Only when an eligible Premium user opens the sheet
+does the screen make one read-only `getGarmentGroups` request, with an eight
+second UI timeout; membership is not persisted locally. If the read fails or
+times out, the verdict and reasons remain available but swaps are withheld.
+Confirmed coordinated sets are indivisible for replacement: their members are
+not offered as individual swap sources or replacements. Partial-set wording
+matches Travel Capsule.
+
+**Code:** `app/(tabs)/outfits.tsx`, `components/CheckMyLookSheet.tsx`,
+`lib/checkLook.ts`, `lib/checkLookAllowance.ts`, `lib/checkLookMembership.ts`,
+`constants/checkLookConfig.ts`.
+
+**Tests:** `__tests__/checkLook.test.ts` covers verdict rules, category-matched
+swaps, confirmed-set handling, Premium-only membership loading and timeout,
+configurable local allowance and concurrent quota consumption.
+`__tests__/checkLookUi.test.ts` covers Free verdict presentation and the
+zero-allowance Premium route.
