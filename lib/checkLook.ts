@@ -5,8 +5,10 @@ import {
 import { projectRelationshipsForStyling } from './stylingRelationships';
 import { projectWardrobeForStyling } from './stylingWardrobe';
 import { warmthMatchScore } from '../constants/weatherPure';
+import { isHeadwearSubtype } from './lookCardPresentation';
 
-export type CheckLookVerdict = 'Works' | 'Almost' | 'Rethink';
+export type CheckLookVerdict = 'Works' | 'Almost' | 'Rethink' | 'Not judged';
+export const CHECK_LOOK_NOT_JUDGED_COPY = "Traditional looks need a stylist's eye. We are still learning these.";
 
 export interface CheckLookSelection {
   itemIds: string[];
@@ -15,10 +17,12 @@ export interface CheckLookSelection {
 }
 
 export type CheckLookResult =
-  | { tier: 'free'; verdict: CheckLookVerdict }
+  | { tier: 'free'; verdict: Exclude<CheckLookVerdict, 'Not judged'> }
+  | { tier: 'free'; verdict: 'Not judged'; message: typeof CHECK_LOOK_NOT_JUDGED_COPY }
+  | { tier: 'premium'; verdict: 'Not judged'; message: typeof CHECK_LOOK_NOT_JUDGED_COPY }
   | {
       tier: 'premium';
-      verdict: CheckLookVerdict;
+      verdict: Exclude<CheckLookVerdict, 'Not judged'>;
       working: string[];
       clashes: string[];
       swaps: Array<{ replacesId: string; replacement: WardrobeItem }>;
@@ -39,6 +43,10 @@ interface CheckLookSignals {
 
 const PATTERNED = new Set(['stripe', 'floral', 'check', 'print', 'wax-print', 'geometric', 'animal']);
 const LARGE_PATTERNS = new Set(['floral', 'animal']);
+const TRADITIONAL_CORE = new Set(['top', 'bottom', 'dress']);
+const TRADITIONAL_SUBTYPES = new Set([
+  'buba', 'iro', 'wrapper', 'iro-and-buba', 'boubou', 'aso-ebi', 'kaftan',
+]);
 
 export function isValidCheckLookSelection(items: readonly WardrobeItem[], ids: readonly string[]): boolean {
   const selected = ids.map(id => items.find(item => item.id === id)).filter((item): item is WardrobeItem => !!item);
@@ -94,7 +102,7 @@ function signalsForLook(
   };
 }
 
-function verdictFor(signals: CheckLookSignals): CheckLookVerdict {
+function verdictFor(signals: CheckLookSignals): Exclude<CheckLookVerdict, 'Not judged'> {
   if (signals.occasionMismatch || signals.largePrintCount >= 3 ||
       signals.spread >= 5 || signals.shoeMismatch || signals.bagMismatch ||
       signals.score < 2) return 'Rethink';
@@ -112,6 +120,23 @@ function confirmedCoordinatedUnits(items: WardrobeItem[], groups: readonly Garme
     unit.confirmationStatus === 'user_confirmed' &&
     unit.memberIds.length > 1,
   );
+}
+
+function needsStylistReview(
+  selected: WardrobeItem[],
+  groups: readonly GarmentGroup[] | undefined,
+  ownerId: string | undefined,
+): boolean {
+  if (selected.some(item =>
+    item.occasionTags.includes('traditional-event') ||
+    isHeadwearSubtype(item.subType) ||
+    (TRADITIONAL_CORE.has(item.category) &&
+      (TRADITIONAL_SUBTYPES.has(item.subType) || item.pattern === 'wax-print')),
+  )) return true;
+  if (!groups) return false;
+  const selectedIds = new Set(selected.map(item => item.id));
+  return confirmedCoordinatedUnits(selected, groups, ownerId)
+    .some(unit => unit.memberIds.some(id => selectedIds.has(id)));
 }
 
 function premiumDetails(
@@ -203,6 +228,13 @@ export function evaluateCheckLook(
     throw new Error('Choose a dress or both a top and bottom from your wardrobe.');
   }
   const selected = selection.itemIds.map(id => allItems.find(item => item.id === id)!);
+  if (needsStylistReview(selected, options.groups, options.ownerId)) {
+    return {
+      tier: options.premium ? 'premium' : 'free',
+      verdict: 'Not judged',
+      message: CHECK_LOOK_NOT_JUDGED_COPY,
+    };
+  }
   const signals = signalsForLook(selected, selection.occasion, selection.temperatureC, options.profile);
   if (!options.premium) return { tier: 'free', verdict: verdictFor(signals) };
   return premiumDetails(

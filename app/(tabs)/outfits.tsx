@@ -456,7 +456,6 @@ export default function OutfitsScreen() {
     setCheckLookFreeRemaining(CHECK_LOOK_FREE_VERDICTS_PER_DAY);
 
     if (!checkLookPremium || !ownerId) {
-      setCheckLookMembershipLoading(false);
       setCheckLookAllowanceLoading(true);
       void readCheckLookAllowance(
         AsyncStorage, CHECK_LOOK_FREE_VERDICTS_PER_DAY,
@@ -472,12 +471,15 @@ export default function OutfitsScreen() {
           setCheckLookAllowanceLoading(false);
         }
       });
-      return;
+      if (!ownerId) {
+        setCheckLookMembershipLoading(false);
+        return;
+      }
     }
 
-    setCheckLookAllowanceLoading(false);
+    if (checkLookPremium) setCheckLookAllowanceLoading(false);
     setCheckLookMembershipLoading(true);
-    void loadCheckLookMembershipsOnOpen(checkLookPremium, ownerId, getGarmentGroups).then(groups => {
+    void loadCheckLookMembershipsOnOpen(ownerId, getGarmentGroups).then(groups => {
       if (checkLookRequest.current === requestId && checkLookVisibleRef.current &&
           checkLookOwnerRef.current === ownerId) {
         setCheckLookGroups(groups);
@@ -538,11 +540,9 @@ export default function OutfitsScreen() {
       const result = evaluateCheckLook(wardrobeItems, selection, {
         premium: checkLookPremium,
         profile,
-        ...(checkLookPremium && {
-          groups: checkLookMembershipUnavailable ? undefined : checkLookGroups,
-          ownerId: authenticatedUserId ?? undefined,
-          membershipUnavailable: checkLookMembershipUnavailable,
-        }),
+        groups: checkLookMembershipUnavailable ? undefined : checkLookGroups,
+        ownerId: authenticatedUserId ?? undefined,
+        membershipUnavailable: checkLookMembershipUnavailable,
       });
       setCheckLookResult(result);
     } catch {
@@ -563,8 +563,7 @@ export default function OutfitsScreen() {
   useEffect(() => {
     if (checkLookVisible && (
       checkLookOwner !== authenticatedUserId ||
-      (!checkLookPremium && (checkLookGroups !== undefined || checkLookMembershipLoading ||
-        checkLookMembershipUnavailable || checkLookResult?.tier === 'premium'))
+      (!checkLookPremium && checkLookResult?.tier === 'premium')
     )) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Account changes must discard the previous owner's transient check.
       closeCheckMyLook();
@@ -872,6 +871,7 @@ export default function OutfitsScreen() {
         allowanceLoading={checkLookAllowanceLoading}
         membershipLoading={checkLookMembershipLoading}
         membershipUnavailable={checkLookMembershipUnavailable}
+        weatherTemperatureC={weather?.currentTempC}
         checking={checkLookChecking}
         result={checkLookPremium || checkLookResult?.tier === 'free' ? checkLookResult : null}
         onOpen={openCheckMyLook}

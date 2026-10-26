@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import type { GarmentGroup, OccasionTag, WardrobeItem } from '../constants/types';
 import { evaluateCheckLook, isValidCheckLookSelection } from '../lib/checkLook';
+import { CHECK_LOOK_NOT_JUDGED_COPY } from '../lib/checkLook';
 import {
   consumeCheckLookAllowance, readCheckLookAllowance,
   type CheckLookAllowanceStore,
@@ -52,6 +53,64 @@ assert.equal(isValidCheckLookSelection(
 const goodFree = evaluateCheckLook(good, selection(['top', 'bottom', 'shoes']), { premium: false });
 assert.deepEqual(Object.keys(goodFree).sort(), ['tier', 'verdict']);
 assert.equal(goodFree.verdict, 'Works');
+assert.equal('working' in goodFree || 'clashes' in goodFree || 'swaps' in goodFree, false,
+  'free results never contain reasons or swaps');
+
+function assertTraditionalNotJudged(
+  items: WardrobeItem[],
+  groups?: GarmentGroup[],
+): void {
+  const result = evaluateCheckLook(items, selection(items.map(value => value.id)), {
+    premium: false,
+    groups,
+    ownerId: 'owner',
+  });
+  assert.deepEqual(result, {
+    tier: 'free',
+    verdict: 'Not judged',
+    message: CHECK_LOOK_NOT_JUDGED_COPY,
+  });
+}
+
+const iroBuba = [
+  item('iro', 'top', 'iro', { occasionTags: ['traditional-event'] }),
+  item('buba', 'bottom', 'buba'),
+];
+assertTraditionalNotJudged(iroBuba);
+
+const ankaraWrapper = [
+  item('ankara', 'top', 'blouse', { pattern: 'wax-print' }),
+  item('wrapper', 'bottom', 'wrapper'),
+];
+assertTraditionalNotJudged(ankaraWrapper);
+
+for (const headwear of ['gele', 'headwrap']) {
+  assertTraditionalNotJudged([
+    item('top', 'top', 'blouse'),
+    item('bottom', 'bottom', 'trousers'),
+    item(headwear, 'jewelry', headwear),
+  ]);
+}
+
+assertTraditionalNotJudged([
+  item('tagged-top', 'top', 'blouse', { occasionTags: ['traditional-event'] }),
+  item('tagged-bottom', 'bottom', 'trousers'),
+]);
+
+const knownSetLook = [
+  item('known-top', 'top', 'blouse'),
+  item('known-bottom', 'bottom', 'trousers'),
+];
+assertTraditionalNotJudged(knownSetLook, [group(['known-top', 'known-bottom'])]);
+
+const premiumTraditional = evaluateCheckLook(iroBuba, selection(['iro', 'buba']), {
+  premium: true,
+});
+assert.deepEqual(premiumTraditional, {
+  tier: 'premium',
+  verdict: 'Not judged',
+  message: CHECK_LOOK_NOT_JUDGED_COPY,
+});
 
 const wrongOccasion = [
   item('top', 'top', 't-shirt', { formalityLevel: 2, occasionTags: ['casual'] }),
@@ -86,7 +145,7 @@ const premiumSwap = evaluateCheckLook(swapItems, selection(['top', 'bottom']), {
   premium: true, groups: [], ownerId: 'owner',
 });
 assert.equal(premiumSwap.tier, 'premium');
-if (premiumSwap.tier === 'premium') {
+if (premiumSwap.tier === 'premium' && premiumSwap.verdict !== 'Not judged') {
   assert.ok(premiumSwap.swaps.length <= 2);
   assert.ok(premiumSwap.swaps.every(swap =>
     swap.replacement.category === swapItems.find(item => item.id === swap.replacesId)?.category,
@@ -103,26 +162,18 @@ const setRecord = group(['set-top', 'set-bottom']);
 const fullSetResult = evaluateCheckLook(setItems, selection(['set-top', 'set-bottom']), {
   premium: true, groups: [setRecord], ownerId: 'owner',
 });
-assert.equal(fullSetResult.tier, 'premium');
-if (fullSetResult.tier === 'premium') {
-  assert.ok(fullSetResult.swaps.every(swap => swap.replacesId !== 'set-top' && swap.replacesId !== 'set-bottom'));
-  assert.ok(fullSetResult.swaps.every(swap => swap.replacement.id !== 'set-top' && swap.replacement.id !== 'set-bottom'));
-}
+assert.equal(fullSetResult.verdict, 'Not judged');
 const partialSetRecord = group(['set-top', 'solo-top']);
 const partialSetResult = evaluateCheckLook(setItems, selection(['set-top', 'set-bottom']), {
   premium: true, groups: [partialSetRecord], ownerId: 'owner',
 });
-assert.equal(partialSetResult.tier, 'premium');
-if (partialSetResult.tier === 'premium') {
-  assert.ok(partialSetResult.notes.some(note => note ===
-    'Partial confirmed coordinated set: 1 of 2 pieces; the other pieces are not included.'));
-}
+assert.equal(partialSetResult.verdict, 'Not judged');
 
 const groupsUnavailable = evaluateCheckLook(good, selection(['top', 'bottom']), {
   premium: true, membershipUnavailable: true,
 });
 assert.equal(groupsUnavailable.tier, 'premium');
-if (groupsUnavailable.tier === 'premium') {
+if (groupsUnavailable.tier === 'premium' && groupsUnavailable.verdict !== 'Not judged') {
   assert.ok(groupsUnavailable.working.length > 0);
   assert.equal(groupsUnavailable.swaps.length, 0);
   assert.ok(groupsUnavailable.notes.some(note => note.includes('membership could not be checked')));
@@ -156,17 +207,16 @@ assert.equal(CHECK_LOOK_GROUP_READ_TIMEOUT_MS, 8_000);
 await assert.rejects(withCheckLookGroupTimeout(new Promise(() => {}), 5), /timed out/);
 assert.deepEqual(await withCheckLookGroupTimeout(Promise.resolve(['group']), 100), ['group']);
 let groupFetches = 0;
-assert.equal(await loadCheckLookMembershipsOnOpen(false, 'owner', async () => {
+assert.equal(await loadCheckLookMembershipsOnOpen(null, async () => {
   groupFetches++;
   return ['group'];
 }), undefined);
-assert.equal(groupFetches, 0, 'free users never trigger the group read');
-assert.deepEqual(await loadCheckLookMembershipsOnOpen(true, 'owner', async id => {
+assert.deepEqual(await loadCheckLookMembershipsOnOpen('owner', async id => {
   assert.equal(id, 'owner');
   groupFetches++;
   return ['group'];
 }), ['group']);
-assert.equal(groupFetches, 1, 'Premium opening triggers one relationship read');
+assert.equal(groupFetches, 1, 'signed-in users load set membership so either tier can avoid an unsupported verdict');
 
 console.log('Check My Look rules, swaps, membership timeout and local free allowance passed.');
 }

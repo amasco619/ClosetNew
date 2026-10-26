@@ -17,7 +17,7 @@ const mocks: Record<string, string> = {
   'react-native-safe-area-context': `export const useSafeAreaInsets=()=>({top:0,bottom:0,left:0,right:0});`,
   '@/constants/colors': `const Colors={primary:'#101826',secondary:'#D0B892',sage:'#8AA39B',background:'#F5F3F0',cardBackground:'#FFFFFF',textSecondary:'#626A73',textLight:'#9CA3AF',textOnDark:'#F5F3F0',border:'#E8E5E0',garmentStudioTop:'#F3F0EB',overlay:'rgba(16,24,38,.5)',success:'#6AAF7B',warning:'#E0A84D',error:'#D4605A'};export default Colors;`,
   '@/constants/wardrobeLabels': `export const wardrobeItemDisplayName=(colour,subtype)=>colour+' '+subtype;export const wardrobeValueLabel=value=>value;`,
-  '@/lib/lookCardPresentation': `export const isHeadwearSubtype=value=>value==='gele';`,
+  '@/lib/lookCardPresentation': `export const isHeadwearSubtype=value=>['gele','headwrap','head-scarf','headscarf','stole','hat','sunhat','cap'].includes(value);`,
 };
 const plugin: Plugin = {
   name: 'check-look-native-fixtures',
@@ -51,7 +51,9 @@ async function main() {
     membershipLoading: boolean;
     membershipUnavailable: boolean;
     checking: boolean;
-    result: { tier: 'free'; verdict: 'Works' | 'Almost' | 'Rethink' } | null;
+    weatherTemperatureC?: number | null;
+    result: { tier: 'free'; verdict: 'Works' | 'Almost' | 'Rethink' }
+      | { tier: 'free'; verdict: 'Not judged'; message: string } | null;
     onOpen(): void;
     onClose(): void;
     onCheck(): void;
@@ -61,16 +63,19 @@ async function main() {
   const renderer = requireProject('react-test-renderer');
   let upgradeCalls = 0;
   let checkCalls = 0;
-  let screen!: { root: { findAllByType(type: string): Array<{ props: Record<string, unknown>; children: unknown[] }> }; unmount(): void };
-  await React.act(async () => {
-    screen = renderer.create(React.createElement(Component, {
+  let screen!: {
+    root: { findAllByType(type: string): Array<{ props: Record<string, unknown>; children: unknown[] }> };
+    update(element: React.ReactElement): void;
+    unmount(): void;
+  };
+  const props: React.ComponentProps<typeof Component> = {
       visible: true, items: [], isPremium: false, freeRemaining: 0,
       allowanceLoading: false, membershipLoading: false, membershipUnavailable: false,
-      checking: false, result: { tier: 'free', verdict: 'Almost' },
+      checking: false, weatherTemperatureC: null as number | null, result: { tier: 'free' as const, verdict: 'Almost' as const },
       onOpen() {}, onClose() {}, onCheck() { checkCalls++; },
       onUpgrade() { upgradeCalls++; }, onClearResult() {},
-    }));
-  });
+  };
+  await React.act(async () => { screen = renderer.create(React.createElement(Component, props)); });
   const pressable = (id: string) => screen.root.findAllByType('Pressable')
     .find(node => node.props.testID === id);
   const paywall = pressable('check-my-look-paywall');
@@ -85,6 +90,28 @@ async function main() {
   assert.match(text, /Your verdict/);
   assert.match(text, /Premium offers a fuller review/);
   assert.doesNotMatch(text, /What works|Worth reconsidering|Possible swaps/);
+  const temperatureInput = () => screen.root.findAllByType('TextInput')
+    .find(node => node.props.accessibilityLabel === 'Temperature in degrees Celsius');
+  assert.equal(temperatureInput()?.props.value, '', 'no forecast leaves the field empty');
+  assert.equal(temperatureInput()?.props.placeholder, 'e.g. 18', 'empty temperature field has a useful placeholder');
+  await React.act(async () => {
+    screen.update(React.createElement(Component, { ...props, weatherTemperatureC: 19 }));
+  });
+  assert.equal(temperatureInput()?.props.value, '19', 'cached forecast temperature prefills the editable input');
+  await React.act(async () => { (temperatureInput()?.props.onChangeText as (value: string) => void)('22'); });
+  assert.equal(temperatureInput()?.props.value, '22', 'manual temperature edits replace the forecast value');
+  await React.act(async () => {
+    screen.update(React.createElement(Component, {
+      ...props,
+      weatherTemperatureC: null,
+      result: { tier: 'free', verdict: 'Not judged', message: "Traditional looks need a stylist's eye. We are still learning these." },
+    }));
+  });
+  const notJudgedText = screen.root.findAllByType('Text').map(node =>
+    node.children.map(child => typeof child === 'string' ? child : '').join(''),
+  ).join(' ');
+  assert.match(notJudgedText, /Traditional looks need a stylist's eye\. We are still learning these\./);
+  assert.doesNotMatch(notJudgedText, /What works|Worth reconsidering|Possible swaps/);
   await React.act(async () => { screen.unmount(); });
   console.log('Check My Look free verdict visibility and zero-allowance paywall passed.');
 }

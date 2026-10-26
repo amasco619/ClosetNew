@@ -16,10 +16,9 @@ export function withCheckLookGroupTimeout<T>(
 }
 
 export function loadCheckLookMembershipsOnOpen<T>(
-  premium: boolean,
   ownerId: string | null,
   fetchGroups: (ownerId: string) => Promise<T>,
 ): Promise<T | undefined> {
-  if (!premium || !ownerId) return Promise.resolve(undefined);
+  if (!ownerId) return Promise.resolve(undefined);
   return withCheckLookGroupTimeout(fetchGroups(ownerId));
 }

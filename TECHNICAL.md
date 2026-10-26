@@ -3661,10 +3661,11 @@ accounts receive only a verdict; the per-local-day allowance defaults to five
 and can be configured at build time with
 `EXPO_PUBLIC_CHECK_LOOK_FREE_VERDICTS_PER_DAY` (zero is valid). Its counter is
 stored locally per device and local calendar day. Premium is determined by the
-existing entitlement state. Only when an eligible Premium user opens the sheet
-does the screen make one read-only `getGarmentGroups` request, with an eight
-second UI timeout; membership is not persisted locally. If the read fails or
-times out, the verdict and reasons remain available but swaps are withheld.
+existing entitlement state. A signed-in user opening the sheet makes one
+read-only `getGarmentGroups` request, with an eight second UI timeout, so the
+traditional-look guard can recognise known coordinated-set members on either
+tier. Membership is not persisted locally. If the read fails or times out,
+the verdict and reasons remain available but swaps are withheld for Premium.
 Confirmed coordinated sets are indivisible for replacement: their members are
 not offered as individual swap sources or replacements. Partial-set wording
 matches Travel Capsule.
@@ -3674,10 +3675,9 @@ matches Travel Capsule.
 `constants/checkLookConfig.ts`.
 
 **Tests:** `__tests__/checkLook.test.ts` covers verdict rules, category-matched
-swaps, confirmed-set handling, Premium-only membership loading and timeout,
-configurable local allowance and concurrent quota consumption.
-`__tests__/checkLookUi.test.ts` covers Free verdict presentation and the
-zero-allowance Premium route.
+swaps, confirmed-set handling, membership loading and timeout, configurable
+local allowance and concurrent quota consumption. `__tests__/checkLookUi.test.ts`
+covers Free verdict presentation and the zero-allowance Premium route.
 
 ## 54. Look explanation copy
 
@@ -3694,3 +3694,24 @@ No scoring, ranking, weights or candidate-generation logic changes.
 49 phrase templates, the length bound, deterministic output, representative
 hero labels and colour stripping. A separate balanced sample requires every
 template to appear and none to exceed 20% of generated displays.
+
+## 55. Check My Look — traditional guard and forecast temperature
+
+`evaluateCheckLook` returns a fourth, non-scoring `Not judged` result for
+explicit Traditional occasion tags, existing Traditional-style core anchors,
+headwear and members of confirmed coordinated sets. The displayed message is
+“Traditional looks need a stylist's eye. We are still learning these.” No
+scoring or swap logic runs for that result. Signed-in users load their own set
+memberships read-only when opening the sheet so the guard applies on the Free
+tier too; guests use local wardrobe data only.
+
+The temperature input starts from the cached weather snapshot's current
+Celsius temperature when available, remains editable, and uses a sample-value
+placeholder when no forecast is cached.
+
+**Code:** `lib/checkLook.ts`, `lib/checkLookMembership.ts`,
+`app/(tabs)/outfits.tsx`, `components/CheckMyLookSheet.tsx`.
+
+**Tests:** `__tests__/checkLook.test.ts` covers Traditional anchors, headwear,
+confirmed set members and Free-tier result shape. `__tests__/checkLookUi.test.ts`
+covers the message presentation and forecast-prefilled editable temperature.

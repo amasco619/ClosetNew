@@ -26,6 +26,7 @@ export interface CheckMyLookSheetProps {
   allowanceLoading: boolean;
   membershipLoading: boolean;
   membershipUnavailable: boolean;
+  weatherTemperatureC?: number | null;
   checking: boolean;
   result: CheckLookResult | null;
   onOpen(): void;
@@ -88,7 +89,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   const insets = useSafeAreaInsets();
   const [selection, setSelection] = useState<LocalSelection>(EMPTY_SELECTION);
   const [occasion, setOccasion] = useState<OccasionTag>('casual');
-  const [temperatureText, setTemperatureText] = useState('');
+  const [temperatureOverride, setTemperatureOverride] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<SlotKey | null>(null);
 
   const selectedIds = useMemo(
@@ -103,6 +104,8 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   const selectedCategories = new Set(selectedItems.map(item => item.category));
   const hasBaseLook = selectedCategories.has('dress') ||
     (selectedCategories.has('top') && selectedCategories.has('bottom'));
+  const temperatureText = temperatureOverride ??
+    (props.weatherTemperatureC == null ? '' : String(props.weatherTemperatureC));
   const parsedTemperature = temperatureText.trim() === '' ? undefined : Number(temperatureText);
   const validTemperature = parsedTemperature === undefined || Number.isFinite(parsedTemperature);
   const selectionSummary = selectedItems.map(item => itemName(item)).join(', ');
@@ -144,7 +147,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
 
   const handleTemperature = (value: string) => {
     const cleaned = value.replace(/[^\d.-]/g, '').replace(/(?!^)-/g, '');
-    setTemperatureText(cleaned);
+    setTemperatureOverride(cleaned);
     props.onClearResult();
   };
 
@@ -168,7 +171,9 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
     ? Colors.success
     : props.result?.verdict === 'Almost'
       ? Colors.warning
-      : Colors.error;
+      : props.result?.verdict === 'Not judged'
+        ? Colors.textSecondary
+        : Colors.error;
 
   return (
     <>
@@ -337,7 +342,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                     keyboardType="numbers-and-punctuation"
                     value={temperatureText}
                     onChangeText={handleTemperature}
-                    placeholder="—"
+                    placeholder="e.g. 18"
                     placeholderTextColor={Colors.textLight}
                     maxLength={5}
                     returnKeyType="done"
@@ -355,7 +360,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
 
               {props.membershipLoading && (
                 <View accessibilityLiveRegion="polite" style={styles.notice}>
-                  <Text style={styles.noticeText}>Checking confirmed set membership before swaps are shown.</Text>
+                  <Text style={styles.noticeText}>Checking confirmed coordinated-set membership.</Text>
                 </View>
               )}
               {props.allowanceLoading && (
@@ -368,7 +373,9 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                 <View accessibilityLiveRegion="polite" style={styles.resultCard}>
                   <Text style={styles.resultEyebrow}>{props.result.tier === 'premium' ? 'Amodka’s review' : 'Your verdict'}</Text>
                   <Text style={[styles.verdict, { color: verdictColor }]}>{props.result.verdict}</Text>
-                  {props.result.tier === 'free' ? (
+                  {props.result.verdict === 'Not judged' ? (
+                    <Text style={styles.premiumQuiet}>{props.result.message}</Text>
+                  ) : props.result.tier === 'free' ? (
                     <Text style={styles.premiumQuiet}>Premium offers a fuller review of what works and what to refine.</Text>
                   ) : (
                     <>
