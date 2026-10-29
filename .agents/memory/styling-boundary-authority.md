@@ -38,3 +38,26 @@ complete set. Layered/multi-item links do not imply coordinated styling.
 
 **How to apply:** Keep coherence constraints context-specific. Preserve all
 relationship types without inventing compatibility, layer order or durable links.
+
+Set integrity is strict in Traditional context and for sets explicitly marked
+aso-ebi for an Event; set members remain independently wearable elsewhere.
+Head-covering preference is separate from style headwear: absent a preference,
+owned coverings are added only to Traditional wrapper-based looks; `always`,
+`events` and `never` are explicit user constraints, and `always` overrides
+pairing exclusions.
+
+**Why:** The user narrowed set integrity to contexts where coordinated identity
+is explicit and chose `always` as an override rather than an automatic default.
+
+**How to apply:** Carry event-level aso-ebi intent by set ID. Do not infer it
+from garment labels or coordinated membership. Keep head-covering preference
+independent of textile identity and style-headwear choices.
+
+Proposed textile identity values may be stored as suggestions, but only values
+explicitly confirmed for `textileIdentity` may drive future styling rules.
+
+**Why:** The user specified that unconfirmed textile classification must not
+shape outfit decisions.
+
+**How to apply:** Gate any textile-specific rule on `confirmedFields` containing
+`textileIdentity`; absent or unconfirmed values stay neutral.
