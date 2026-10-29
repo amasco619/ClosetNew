@@ -1,17 +1,19 @@
-import type { GarmentGroup, OutfitComponent, OutfitSet, WardrobeItem } from '../../../constants/types';
+import type {
+  GarmentGroup, HeadCoveringPreference, OutfitComponent, OutfitSet, WardrobeItem,
+} from '../../../constants/types';
+export type { HeadCoveringPreference } from '../../../constants/types';
 
 export type StructuralRole =
   | 'base-top'
   | 'base-bottom'
   | 'one-piece'
   | 'layer'
-  | 'headwear'
-  | 'head-covering'
+  | 'style-headwear'
+  | 'covering-item'
   | 'accessory'
   | 'unknown';
 
 export type NigerianStylingContext = 'work' | 'casual' | 'event' | 'traditional';
-export type HeadCoveringPreference = 'always' | 'events' | 'never';
 
 export interface NigerianStylingV1Input {
   wardrobe: readonly WardrobeItem[];
@@ -33,22 +35,20 @@ export interface NigerianStylingV1Decision {
   outputOutfitId: string;
   status: 'eligible' | 'unknown' | 'rejected';
   reason?: string;
-  removedHeadwearIds: string[];
-  addedHeadwearIds: string[];
+  removedStyleHeadwearIds: string[];
+  removedCoveringItemIds: string[];
+  addedCoveringItemIds: string[];
   headCoveringSatisfied: boolean;
 }
 
 export interface NigerianStylingV1Result {
   outfits: OutfitSet[];
   decisions: NigerianStylingV1Decision[];
+  gapNotes: string[];
 }
 
-const HEAD_COVERING_SUBTYPES = new Set([
-  'gele', 'ichafu', 'gyale', 'kallabi', 'turban',
-]);
-const STYLE_HEADWEAR_SUBTYPES = new Set([
-  'head-scarf', 'headwrap', 'structured-headpiece', 'sunhat',
-]);
+const STYLE_HEADWEAR_SUBTYPES = new Set(['gele', 'ichafu']);
+const COVERING_ITEM_SUBTYPES = new Set(['gyale', 'kallabi', 'mayafi', 'hijab', 'scarf', 'turban']);
 const WRAPPER_SUBTYPES = new Set(['wrapper', 'iro']);
 
 function normaliseSubtype(value: string): string {
@@ -63,8 +63,8 @@ function roleFor(
   const explicit = rolesByItemId?.[item.id];
   if (explicit) return explicit;
   const subtype = normaliseSubtype(item.subType);
-  if (HEAD_COVERING_SUBTYPES.has(subtype)) return 'head-covering';
-  if (STYLE_HEADWEAR_SUBTYPES.has(subtype)) return 'headwear';
+  if (STYLE_HEADWEAR_SUBTYPES.has(subtype)) return 'style-headwear';
+  if (COVERING_ITEM_SUBTYPES.has(subtype)) return 'covering-item';
   switch (item.category) {
     case 'top': return 'base-top';
     case 'bottom': return 'base-bottom';
@@ -172,33 +172,34 @@ function isWrapperBased(
   });
 }
 
-function wantsHeadCovering(
+const MISSING_COVERING_GAP_NOTE = 'Add a covering item to your wardrobe to complete this preference.';
+
+function coveringItemsWanted(
   components: readonly OutfitComponent[],
   wardrobeById: ReadonlyMap<string, WardrobeItem>,
-  input: NigerianStylingV1Input,
+  preference: HeadCoveringPreference | undefined,
+  context: NigerianStylingContext,
 ): boolean {
-  const preference = input.headCoveringPreference;
   if (preference === 'never') return false;
   if (preference === 'always') return true;
-  if (preference === 'events') {
-    return input.context === 'event' || input.context === 'traditional';
-  }
-  return input.context === 'traditional' && isWrapperBased(components, wardrobeById);
-}
-
-function headCoveringAllowed(
-  components: readonly OutfitComponent[],
-  wardrobeById: ReadonlyMap<string, WardrobeItem>,
-  input: NigerianStylingV1Input,
-): boolean {
-  // The explicit "always" preference overrides these pairing exclusions.
-  if (input.headCoveringPreference === 'always') return true;
-  return input.context !== 'casual'
+  if (preference === 'events') return context === 'event' || context === 'traditional';
+  return context === 'traditional'
+    && isWrapperBased(components, wardrobeById)
     && !hasSubtype(components, wardrobeById, 'blazer')
     && !hasSubtype(components, wardrobeById, 'jeans');
 }
 
-function asHeadwearComponent(item: WardrobeItem): OutfitComponent {
+function styleHeadwearIsAllowed(
+  components: readonly OutfitComponent[],
+  wardrobeById: ReadonlyMap<string, WardrobeItem>,
+  input: NigerianStylingV1Input,
+): boolean {
+  return input.context !== 'casual' &&
+    !hasSubtype(components, wardrobeById, 'blazer') &&
+    !hasSubtype(components, wardrobeById, 'jeans');
+}
+
+function asCoveringItemComponent(item: WardrobeItem): OutfitComponent {
   return {
     category: item.category,
     subType: item.subType,
@@ -211,45 +212,56 @@ function asHeadwearComponent(item: WardrobeItem): OutfitComponent {
 
 /**
  * Structural-only pass over v3.7 candidates. It does not score or generate base looks.
- * Owned head coverings can add deterministic variants under the stated context rules.
+ * Owned covering items can add deterministic variants; gele and ichafu remain
+ * separately classified style headwear and are never substituted for coverings.
  */
 export function applyNigerianStylingV1(
   candidates: readonly OutfitSet[],
   input: NigerianStylingV1Input,
 ): NigerianStylingV1Result {
   const wardrobeById = new Map(input.wardrobe.map(item => [item.id, item]));
-  const ownedHeadCoverings = input.wardrobe.filter(item =>
-    roleFor(item, input.rolesByItemId) === 'head-covering',
+  const ownedCoveringItems = input.wardrobe.filter(item =>
+    roleFor(item, input.rolesByItemId) === 'covering-item',
   );
   const decisions: NigerianStylingV1Decision[] = [];
   const outfits: OutfitSet[] = [];
+  const gapNotes = new Set<string>();
 
   for (const source of candidates) {
-    const removedHeadwearIds: string[] = [];
+    const removedStyleHeadwearIds: string[] = [];
+    const removedCoveringItemIds: string[] = [];
     const baseComponents = source.components.filter(component => {
       const id = component.matchedItemId;
       const role = roleFor(id ? wardrobeById.get(id) : undefined, input.rolesByItemId);
-      if (role === 'head-covering'
-        || (role === 'headwear' && input.includeStyleHeadwear !== true)) {
-        if (id) removedHeadwearIds.push(id);
+      const itemAllowed = role !== 'style-headwear' ||
+        (input.includeStyleHeadwear === true &&
+          styleHeadwearIsAllowed(source.components, wardrobeById, input));
+      if (role === 'covering-item' || !itemAllowed) {
+        if (id && role === 'style-headwear') removedStyleHeadwearIds.push(id);
+        if (id && role === 'covering-item') removedCoveringItemIds.push(id);
         return false;
       }
       return true;
     });
 
-    const wantsCovering = wantsHeadCovering(baseComponents, wardrobeById, input);
-    const allowed = wantsCovering && headCoveringAllowed(baseComponents, wardrobeById, input);
-    const coverings = allowed ? ownedHeadCoverings : [];
-    const selectedCoverings: Array<WardrobeItem | undefined> = coverings.length > 0
-      ? coverings
+    const wantsCovering = coveringItemsWanted(
+      baseComponents, wardrobeById, input.headCoveringPreference, input.context,
+    );
+    const selectedCoverings: Array<WardrobeItem | undefined> = wantsCovering && ownedCoveringItems.length > 0
+      ? ownedCoveringItems
       : [undefined];
-    const headCoveringSatisfied = !wantsCovering || (allowed && coverings.length > 0);
+    const headCoveringSatisfied = !wantsCovering || ownedCoveringItems.length > 0;
+    const coveringReason = wantsCovering && ownedCoveringItems.length === 0
+      ? 'requested covering item is not owned'
+      : undefined;
+    if (coveringReason) gapNotes.add(MISSING_COVERING_GAP_NOTE);
 
     for (const covering of selectedCoverings) {
       const components = covering
-        ? [...baseComponents, asHeadwearComponent(covering)]
+        ? [...baseComponents, asCoveringItemComponent(covering)]
         : baseComponents;
-      const changed = removedHeadwearIds.length > 0 || covering !== undefined;
+      const changed = removedStyleHeadwearIds.length > 0 ||
+        removedCoveringItemIds.length > 0 || covering !== undefined;
       const remainingIds = itemIds(components);
       const outputId = changed
         ? `nigerian-v1-${source.id}-${covering?.id ?? 'no-covering'}`
@@ -264,9 +276,6 @@ export function applyNigerianStylingV1(
         }
         : source;
       const status = structuralStatus(outfit.components, wardrobeById, input);
-      const coveringReason = wantsCovering && !allowed
-        ? 'head covering is excluded by the context or outfit'
-        : (wantsCovering && coverings.length === 0 ? 'requested head covering is not owned' : undefined);
       const reason = status.reason ?? coveringReason;
 
       decisions.push({
@@ -274,13 +283,14 @@ export function applyNigerianStylingV1(
         outputOutfitId: outfit.id,
         ...status,
         reason,
-        removedHeadwearIds,
-        addedHeadwearIds: covering ? [covering.id] : [],
+        removedStyleHeadwearIds,
+        removedCoveringItemIds,
+        addedCoveringItemIds: covering ? [covering.id] : [],
         headCoveringSatisfied,
       });
       if (status.status !== 'rejected') outfits.push(outfit);
     }
   }
 
-  return { outfits, decisions };
+  return { outfits, decisions, gapNotes: [...gapNotes] };
 }

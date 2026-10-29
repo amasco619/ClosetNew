@@ -403,6 +403,7 @@ export default function OutfitsScreen() {
     refreshPremiumEntitlement, entitlementUnavailable,
     isLoading, appReady, dataUnavailable, startupError, retryInitialization,
     getStylingRecommendations,
+    getEventStylingRecommendations, outfitStylingGapNotes,
     wardrobeItems,
     wardrobeTotalCount,
     wardrobeHasMore,
@@ -425,6 +426,7 @@ export default function OutfitsScreen() {
     missingDimensions,
     getItemWearCount,
   } = useApp();
+  const stylingGapNotes = outfitStylingGapNotes ?? [];
   const wardrobeDataComplete = !wardrobeHasMore && wardrobeItems.length >= wardrobeTotalCount;
   const checkLookPremium = isAuthenticated && !!authenticatedUserId && isPremium && !entitlementUnavailable;
   const [checkLookVisible, setCheckLookVisible] = useState(false);
@@ -637,6 +639,13 @@ export default function OutfitsScreen() {
   }
 
   const [selectedScenario, setSelectedScenario] = useState<OccasionTag>('casual');
+  const [eventOutfits, setEventOutfits] = useState<OutfitSet[]>([]);
+  const [eventSetGroups, setEventSetGroups] = useState<GarmentGroup[]>([]);
+  const [eventGapNotes, setEventGapNotes] = useState<string[]>([]);
+  const [markedAsoEbiSetIds, setMarkedAsoEbiSetIds] = useState<string[]>([]);
+  const [eventStylingLoading, setEventStylingLoading] = useState(false);
+  const [eventStylingError, setEventStylingError] = useState(false);
+  const eventStylingRequest = useRef(0);
   const [carouselPage, setCarouselPage] = useState(0);
   const carouselRef = useRef<FlatList<OutfitSet | null>>(null);
   const [traditionalOutfits, setTraditionalOutfits] = useState<OutfitSet[]>([]);
@@ -776,11 +785,91 @@ export default function OutfitsScreen() {
     traditionalRetry,
   ]);
 
+  useEffect(() => {
+    if (selectedScenario !== 'event' || builtAroundActive) {
+      eventStylingRequest.current += 1;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Event set choices are screen-session state and must clear when leaving Event.
+      setEventOutfits([]);
+      setEventSetGroups([]);
+      setEventGapNotes([]);
+      setMarkedAsoEbiSetIds([]);
+      setEventStylingLoading(false);
+      setEventStylingError(false);
+      return;
+    }
+
+    let active = true;
+    const request = ++eventStylingRequest.current;
+    setEventStylingLoading(true);
+    setEventStylingError(false);
+    setEventOutfits([]);
+    setEventGapNotes([]);
+    setMarkedAsoEbiSetIds([]);
+    getEventStylingRecommendations([])
+      .then(result => {
+        if (!active || request !== eventStylingRequest.current) return;
+        setEventOutfits(result.outfits);
+        setEventSetGroups(result.groups);
+        setEventGapNotes(result.gapNotes);
+      })
+      .catch(() => {
+        if (active && request === eventStylingRequest.current) setEventStylingError(true);
+      })
+      .finally(() => {
+        if (active && request === eventStylingRequest.current) setEventStylingLoading(false);
+      });
+    return () => {
+      active = false;
+      if (eventStylingRequest.current === request) eventStylingRequest.current += 1;
+    };
+  }, [selectedScenario, builtAroundActive, getEventStylingRecommendations]);
+
+  const eventAsoEbiGroups = useMemo(() => {
+    const activeIds = new Set(activeWardrobeItems.map(item => item.id));
+    return eventSetGroups.filter(group =>
+      group.relationshipType === 'coordinated_set'
+      && group.confirmationStatus === 'user_confirmed'
+      && group.members.length > 0
+      && group.members.every(member => activeIds.has(member.garmentId)),
+    );
+  }, [eventSetGroups, activeWardrobeItems]);
+
+  async function toggleAsoEbiSet(groupId: string) {
+    const nextIds = markedAsoEbiSetIds.includes(groupId)
+      ? markedAsoEbiSetIds.filter(id => id !== groupId)
+      : [...markedAsoEbiSetIds, groupId];
+    const request = ++eventStylingRequest.current;
+    setMarkedAsoEbiSetIds(nextIds);
+    setEventStylingLoading(true);
+    setEventStylingError(false);
+    try {
+      const result = await getEventStylingRecommendations(nextIds, eventSetGroups);
+      if (request !== eventStylingRequest.current) return;
+      setEventOutfits(result.outfits);
+      setEventGapNotes(result.gapNotes);
+    } catch {
+      if (request === eventStylingRequest.current) setEventStylingError(true);
+    } finally {
+      if (request === eventStylingRequest.current) setEventStylingLoading(false);
+    }
+  }
+
   const filtered = conciergePlan && !conciergeAuthorized ? [] : builtAroundActive
     ? focusedSuggestions
     : selectedScenario === 'traditional-event'
       ? traditionalOutfits.filter(o => o.scenario === 'traditional-event')
+      : selectedScenario === 'event'
+        ? eventOutfits
       : outfitSets.filter(o => o.scenario === selectedScenario);
+  const visibleStylingGapNotes = selectedScenario === 'event'
+    ? eventGapNotes
+    : stylingGapNotes
+      .filter(note => note.scenario === selectedScenario)
+      .map(note => note.message);
+  const noCompleteAsoEbiLook = selectedScenario === 'event'
+    && markedAsoEbiSetIds.length > 0
+    && !eventStylingLoading
+    && eventOutfits.length === 0;
   const hasWardrobe = activeWardrobeItems.length > 0;
   const lockedPages = lockedLookCount(
     isAuthenticated,
@@ -1063,6 +1152,90 @@ export default function OutfitsScreen() {
             <Text style={styles.cpwToastText}>{cpwToast.text}</Text>
           </Animated.View>
         )}
+
+        {selectedScenario === 'event' && !builtAroundActive && !conciergePlan && (
+          <View style={styles.eventAsoEbiPanel} testID="event-aso-ebi-panel">
+            <Text style={styles.eventAsoEbiTitle}>Aso-ebi for this event</Text>
+            <Text style={styles.eventAsoEbiDescription}>
+              Mark a confirmed coordinated set to keep it together for this event.
+            </Text>
+            {eventStylingLoading ? (
+              <View style={styles.eventAsoEbiStatus} accessibilityRole="progressbar">
+                <ActivityIndicator size="small" color={Colors.secondary} />
+                <Text style={styles.eventAsoEbiDescription}>Updating event looks</Text>
+              </View>
+            ) : eventStylingError ? (
+              <Text style={styles.eventAsoEbiDescription} accessibilityLiveRegion="polite">
+                Confirmed set details are unavailable right now.
+              </Text>
+            ) : eventAsoEbiGroups.length > 0 ? (
+              <View style={styles.eventAsoEbiOptions}>
+                {eventAsoEbiGroups.map(group => {
+                  const selected = markedAsoEbiSetIds.includes(group.id);
+                  const label = group.members
+                    .map(member => activeWardrobeItems.find(item => item.id === member.garmentId))
+                    .filter((item): item is WardrobeItem => !!item)
+                    .map(item => wardrobeItemDisplayName(item.colorFamily, item.subType))
+                    .join(' + ');
+                  return (
+                    <Pressable
+                      key={group.id}
+                      accessibilityRole="checkbox"
+                      accessibilityLabel={`Mark ${label || 'coordinated set'} as aso-ebi for this event`}
+                      accessibilityState={{ checked: selected, disabled: eventStylingLoading }}
+                      testID={`aso-ebi-set-${group.id}`}
+                      disabled={eventStylingLoading}
+                      onPress={() => {
+                        void Haptics.selectionAsync();
+                        void toggleAsoEbiSet(group.id);
+                      }}
+                      style={({ pressed }) => [
+                        styles.eventAsoEbiOption,
+                        selected && styles.eventAsoEbiOptionSelected,
+                        pressed && { opacity: 0.8 },
+                      ]}
+                    >
+                      <Ionicons
+                        name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={16}
+                        color={selected ? Colors.white : Colors.secondary}
+                      />
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.eventAsoEbiOptionText,
+                          selected && styles.eventAsoEbiOptionTextSelected,
+                        ]}
+                      >
+                        {label || 'Coordinated set'}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={styles.eventAsoEbiDescription}>
+                No confirmed coordinated sets are available in this wardrobe.
+              </Text>
+            )}
+          </View>
+        )}
+
+        {selectedScenario !== 'traditional-event' &&
+          (visibleStylingGapNotes.length > 0 || noCompleteAsoEbiLook) && (
+            <View
+              style={styles.traditionalNotice}
+              accessibilityLiveRegion="polite"
+              accessibilityRole="text"
+            >
+              <Ionicons name="information-circle-outline" size={15} color={Colors.secondary} />
+              <Text style={styles.traditionalNoticeText}>
+                {[...visibleStylingGapNotes, ...(noCompleteAsoEbiLook
+                  ? ['A complete look with this set is not available yet.']
+                  : [])].join(' ')}
+              </Text>
+            </View>
+          )}
 
         {selectedScenario === 'traditional-event' && traditionalNotice && (
           <View
@@ -1372,6 +1545,38 @@ const styles = StyleSheet.create({
     flex: 1, fontFamily: 'Inter_400Regular', fontSize: rs(12),
     color: Colors.textSecondary, lineHeight: 17,
   },
+  eventAsoEbiPanel: {
+    gap: 8,
+    padding: 14,
+    marginBottom: 12,
+    borderRadius: 14,
+    backgroundColor: '#FFFEFC',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  eventAsoEbiTitle: {
+    fontFamily: 'Inter_600SemiBold', fontSize: rs(13), color: Colors.primary,
+  },
+  eventAsoEbiDescription: {
+    fontFamily: 'Inter_400Regular', fontSize: rs(12),
+    color: Colors.textSecondary, lineHeight: 17,
+  },
+  eventAsoEbiStatus: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 4 },
+  eventAsoEbiOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 },
+  eventAsoEbiOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    maxWidth: '100%', minHeight: 40, paddingHorizontal: 12,
+    borderRadius: 22, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: 'transparent',
+  },
+  eventAsoEbiOptionSelected: {
+    backgroundColor: Colors.primary, borderColor: Colors.primary,
+  },
+  eventAsoEbiOptionText: {
+    flexShrink: 1, fontFamily: 'Inter_500Medium', fontSize: rs(11),
+    color: Colors.textSecondary,
+  },
+  eventAsoEbiOptionTextSelected: { color: Colors.white },
   traditionalStatus: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     paddingVertical: 24, marginTop: 8,

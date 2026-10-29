@@ -33,12 +33,15 @@ export type MetalTone = 'gold' | 'silver' | 'rose-gold' | 'mixed' | 'none';
 export type FaceShape = 'round' | 'oval' | 'square' | 'heart' | 'oblong';
 
 export type ColorAversion = string; // e.g. 'yellow', 'orange', 'neon'
+export type HeadCoveringPreference = 'always' | 'events' | 'never';
 
 export interface Constraints {
   noSleeveless: boolean;
   noShortSkirts: boolean;
   maxHeelHeight: 'any' | 'low' | 'medium' | 'flat';
   colorAversions?: ColorAversion[];
+  /** Optional profile JSON preference; absent keeps the current default styling. */
+  headCoveringPreference?: HeadCoveringPreference;
 }
 
 export interface UserProfile {

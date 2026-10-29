@@ -6,7 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { WardrobeSlot, initializeSlots, updateSlotsAfterAdd, getFirstNeededByCategory, getProfileBlueprint, BLUEPRINT_SUBTYPES_BY_CATEGORY, getLifestyleGatedSlots, LifestyleSlotGroup } from '@/constants/wardrobeBlueprint';
 import {
   BodyType, EyeColor, SkinTone, Undertone, StyleGoal, ItemCategory, OccasionTag, SeasonTag,
-  Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet, WearEntry,
+  Constraints, UserProfile, WardrobeItem, OutfitComponent, OutfitSet, WearEntry, GarmentGroup,
   MoodGoal, OutfitReaction, ReactionType, MoodOfDay, SavedLook, WeatherSnapshot, GarmentRelationshipType,
 } from '@/constants/types';
 import { generateOutfitsForItem } from '@/constants/outfitGenerator';
@@ -45,6 +45,7 @@ import { serializeRecommendationSemantics, saveWardrobeCorrection } from '../lib
 import { projectWardrobeForStyling } from '../lib/stylingWardrobe';
 import { buildStylingContextCandidates, asTraditionalOutfits } from '../lib/traditionalStyling';
 import { annotateStylingRelationships, projectRelationshipsForStyling } from '../lib/stylingRelationships';
+import { applyNigerianStylingV1, type NigerianStylingContext } from '../lib/nigerianStyling/v1';
 import { supabase } from '../lib/supabase';
 import { guestWardrobeSync } from '../lib/guestWardrobeSync';
 import {
@@ -88,6 +89,23 @@ export interface AddedLooksPrompt {
   photoUri?: string;
 }
 
+function nigerianContextForScenario(scenario: OccasionTag): NigerianStylingContext {
+  switch (scenario) {
+    case 'work':
+    case 'interview':
+      return 'work';
+    case 'event':
+    case 'date-dressy':
+    case 'wedding':
+    case 'night-out':
+      return 'event';
+    case 'traditional-event':
+      return 'traditional';
+    default:
+      return 'casual';
+  }
+}
+
 type WardrobeItemReplacement = Omit<WardrobeItem, 'id' | 'createdAt'> & {
   cleanedImageUrl?: string | null;
 };
@@ -121,6 +139,7 @@ interface AppContextValue {
   updateWardrobeItem: (id: string, updates: Partial<Omit<WardrobeItem, 'id' | 'createdAt'>>) => Promise<void>;
   isPremium: boolean;
   outfitSets: OutfitSet[];
+  outfitStylingGapNotes: Array<{ scenario: OccasionTag; message: string }>;
   lastAddedSuggestions: OutfitSet[];
   lastAddedAnchorId: string | null;
   activeLastAddedAnchorId: string | null;
@@ -129,6 +148,10 @@ interface AppContextValue {
   dismissAddedLooksPrompt: () => void;
   activateLastAddedSuggestions: (anchorItemId: string) => void;
   getStylingRecommendations: (context: 'traditional') => Promise<{ outfits: OutfitSet[]; notice?: string }>;
+  getEventStylingRecommendations: (
+    asoEbiSetIds: string[],
+    knownGroups?: GarmentGroup[],
+  ) => Promise<{ outfits: OutfitSet[]; gapNotes: string[]; groups: GarmentGroup[] }>;
   clearLastAddedSuggestions: () => void;
   isLoading: boolean;
   appReady: boolean;
@@ -2402,12 +2425,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return set;
   }, [wearHistory]);
 
-  const outfitSets = useMemo(() => {
+  const rotatedOutfits = useMemo(() => {
     if (activeWardrobeItems.length === 0) return [];
     const today = todayString();
     const { outfits } = applyDailyRotation(outfitPool, rotationState, today, recentWornFingerprints, isPremium, profile.isGuest);
     return outfits;
   }, [outfitPool, rotationState, activeWardrobeItems.length, recentWornFingerprints, isPremium]);
+
+  const outfitPresentation = useMemo(() => {
+    const outfits: OutfitSet[] = [];
+    const gapNotes: Array<{ scenario: OccasionTag; message: string }> = [];
+    const scenarios = [...new Set(rotatedOutfits.map(outfit => outfit.scenario))];
+    for (const scenario of scenarios) {
+      const candidates = rotatedOutfits.filter(outfit => outfit.scenario === scenario);
+      const result = applyNigerianStylingV1(candidates, {
+        wardrobe: activeWardrobeItems,
+        relationships: [],
+        context: nigerianContextForScenario(scenario),
+        headCoveringPreference: profile.constraints.headCoveringPreference,
+      });
+      outfits.push(...result.outfits);
+      for (const message of result.gapNotes) gapNotes.push({ scenario, message });
+    }
+    return { outfits, gapNotes };
+  }, [rotatedOutfits, activeWardrobeItems, profile.constraints.headCoveringPreference]);
+  const outfitSets = outfitPresentation.outfits;
+  const outfitStylingGapNotes = outfitPresentation.gapNotes;
 
   const getStylingRecommendations = useCallback(async (context: 'traditional') => {
     if (!isPremium) throw new Error('Traditional styling requires Premium.');
@@ -2431,16 +2474,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const rotated = applyDailyRotation(
       result.pool, rotationState, today, recentWornFingerprints, isPremium, profile.isGuest,
     );
+    const traditionalCandidates = asTraditionalOutfits(
+      rotated.outfits.filter(outfit => outfit.scenario === result.sourceScenario),
+    );
+    const styled = applyNigerianStylingV1(traditionalCandidates, {
+      wardrobe: activeWardrobeItems,
+      relationships: groups,
+      context: 'traditional',
+      headCoveringPreference: profile.constraints.headCoveringPreference,
+    });
+    const notices = [result.notice, ...styled.gapNotes].filter(Boolean);
     // Reuse the existing daily selector without adding Traditional to the
     // frozen rotation loop or persisting a competing cursor system.
     return {
       outfits: annotateStylingRelationships(
-        asTraditionalOutfits(rotated.outfits.filter(outfit => outfit.scenario === result.sourceScenario)),
+        styled.outfits,
         result.relationshipUnits ?? [],
       ),
-      notice: result.notice,
+      notice: notices.length > 0 ? notices.join(' ') : undefined,
     };
   }, [activeWardrobeItems, profile, todayMood, reactions, wearHistory, affinityState, weather, isPremium, rotationState, recentWornFingerprints]);
+
+  const getEventStylingRecommendations = useCallback(async (
+    asoEbiSetIds: string[],
+    knownGroups?: GarmentGroup[],
+  ) => {
+    const userId = currentUserIdRef.current;
+    const accountGeneration = accountGenerationRef.current;
+    const startupGeneration = startupGenerationRef.current;
+    const fetchedGroups = knownGroups ?? (userId ? await getGarmentGroups(userId) : []);
+    if (currentUserIdRef.current !== userId ||
+        accountGenerationRef.current !== accountGeneration ||
+        !isCurrentStartupGeneration(startupGenerationRef.current, startupGeneration)) {
+      throw new Error('Your wardrobe changed accounts. Please try again.');
+    }
+    const groups = fetchedGroups.filter(group => group.userId === userId);
+    const result = applyNigerianStylingV1(
+      rotatedOutfits.filter(outfit => outfit.scenario === 'event'),
+      {
+        wardrobe: activeWardrobeItems,
+        relationships: groups,
+        context: 'event',
+        asoEbiSetIds,
+        headCoveringPreference: profile.constraints.headCoveringPreference,
+      },
+    );
+    return { ...result, groups };
+  }, [rotatedOutfits, activeWardrobeItems, profile.constraints.headCoveringPreference]);
 
   useEffect(() => {
     if (isLoading || activeWardrobeItems.length === 0) return;
@@ -2570,6 +2650,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     profile, updateProfile, wardrobeItems, activeWardrobeItems,
     wardrobeTotalCount, wardrobeHasMore: wardrobeLoadedCount < wardrobeTotalCount, freeSelectedItemIds,
     loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection, getStylingRecommendations,
+    getEventStylingRecommendations, outfitStylingGapNotes,
     addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem,
     hasPendingPhotoCleanup, retryPendingPhotoCleanup, clearDeletedAccountLocalData, updateWardrobeItem,
     isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, lastAddedAnchorId,
@@ -2596,7 +2677,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isGuest: profile.isGuest === true,
     orphanedItems, resolveOrphan,
   }), [profile, updateProfile, wardrobeItems, activeWardrobeItems, wardrobeTotalCount, wardrobeLoadedCount, freeSelectedItemIds,
-       loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection, getStylingRecommendations,
+        loadMoreWardrobeItems, loadAllWardrobeItems, setFreeWardrobeSelection, getStylingRecommendations,
+        getEventStylingRecommendations, outfitStylingGapNotes,
         addWardrobeItem, addWardrobeItems, addWardrobeGroupItems, replaceWardrobeItem, removeWardrobeItem,
         hasPendingPhotoCleanup, retryPendingPhotoCleanup, clearDeletedAccountLocalData, updateWardrobeItem,
        isPremium, refreshPremiumEntitlement, outfitSets, lastAddedSuggestions, lastAddedAnchorId,

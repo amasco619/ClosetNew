@@ -24,6 +24,7 @@ import { supabase } from '@/lib/supabase';
 import { deleteAccountThenClearLocalData, getAccountDeletionFailure } from '@/constants/accountDeletionCleanup';
 import { dismissAllIfPossible } from '@/lib/navigation';
 import { defaultTempUnit, formatTemp, formatTempValue } from '@/constants/weather';
+import type { HeadCoveringPreference } from '@/constants/types';
 import { AmodkaErrorState } from '@/components/AmodkaErrorState';
 import { useDialog } from '@/contexts/LuxuryFeedbackContext';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
@@ -39,6 +40,15 @@ import {
 } from '@/lib/profilePresentation';
 
 const DESTRUCTIVE_TEXT = '#B3433D';
+const COVERING_PREFERENCE_OPTIONS: {
+  value: HeadCoveringPreference | undefined;
+  label: string;
+}[] = [
+  { value: undefined, label: 'Default' },
+  { value: 'always', label: 'Always' },
+  { value: 'events', label: 'Events' },
+  { value: 'never', label: 'Never' },
+];
 
 function SectionLabel({ children }: { children: string }) {
   return <Text accessibilityRole="header" style={styles.sectionLabel}>{children}</Text>;
@@ -474,6 +484,46 @@ export default function ProfileScreen() {
               />
             </View>
             <View style={styles.insetDivider} />
+            <View style={styles.coveringPreference}>
+              <Text style={styles.rowTitle}>Covering items</Text>
+              <Text style={styles.rowSubtitle}>
+                Choose when owned gyales, scarves or turbans are included. Default keeps current styling behaviour.
+              </Text>
+              <View style={styles.coveringOptionGrid}>
+                {COVERING_PREFERENCE_OPTIONS.map(option => {
+                  const selected = profile.constraints?.headCoveringPreference === option.value;
+                  return (
+                    <Pressable
+                      key={option.label}
+                      accessibilityRole="radio"
+                      accessibilityLabel={`${option.label} covering items`}
+                      accessibilityState={{ selected }}
+                      testID={`covering-preference-${option.label.toLowerCase()}`}
+                      onPress={() => {
+                        void Haptics.selectionAsync();
+                        const constraints = { ...(profile.constraints ?? {}) };
+                        if (option.value === undefined) delete constraints.headCoveringPreference;
+                        else constraints.headCoveringPreference = option.value;
+                        updateProfile({ constraints });
+                      }}
+                      style={({ pressed }) => [
+                        styles.coveringOption,
+                        selected && styles.coveringOptionSelected,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text style={[
+                        styles.coveringOptionText,
+                        selected && styles.coveringOptionTextSelected,
+                      ]}>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+            <View style={styles.insetDivider} />
             <View style={styles.unitRow}>
               <Text style={styles.rowTitle}>Temperature unit</Text>
               <View style={styles.unitSegment}>
@@ -831,6 +881,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 8,
   },
+  coveringPreference: { gap: 8, paddingHorizontal: 20, paddingVertical: 16 },
+  coveringOptionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 },
+  coveringOption: {
+    flexGrow: 1,
+    flexBasis: '40%',
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: 'transparent',
+  },
+  coveringOptionSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  coveringOptionText: { color: Colors.textSecondary, fontFamily: 'Inter_500Medium', fontSize: 14 },
+  coveringOptionTextSelected: { color: Colors.white },
   unitSegment: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   unitChoice: {
     minWidth: 48,

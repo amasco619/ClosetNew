@@ -31,6 +31,11 @@ const generic = () => applyDailyRotation(
   generateOutfitPool(projectWardrobeForStyling(model.items).v37Items, model.profile, null, [], date, [], EMPTY_AFFINITY, model.weather, model.premium),
   INITIAL_ROTATION_STATE, date, new Set(), model.premium, false,
 ).outfits;
+const getEventStyling = async () => ({
+  outfits: generic().filter(outfit => outfit.scenario === 'event'),
+  gapNotes: [],
+  groups: [],
+});
 const getTraditional = async () => {
   groupReads++;
   const result = buildStylingContextCandidates(
@@ -59,6 +64,7 @@ const fixture = {
       return model.premium;
     },
     outfitSets: generic(), getStylingRecommendations: getTraditional,
+    getEventStylingRecommendations: getEventStyling, outfitStylingGapNotes: [],
     wardrobeItems: model.items, activeWardrobeItems: model.items,
     wardrobeTotalCount: model.total, wardrobeHasMore: model.more,
     loadAllWardrobeItems: async () => { if (wardrobePending) await wardrobePending; },

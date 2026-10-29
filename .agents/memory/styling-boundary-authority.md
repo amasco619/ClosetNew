@@ -41,17 +41,23 @@ relationship types without inventing compatibility, layer order or durable links
 
 Set integrity is strict in Traditional context and for sets explicitly marked
 aso-ebi for an Event; set members remain independently wearable elsewhere.
-Head-covering preference is separate from style headwear: absent a preference,
-owned coverings are added only to Traditional wrapper-based looks; `always`,
-`events` and `never` are explicit user constraints, and `always` overrides
-pairing exclusions.
+Style headwear (gele, ichafu) is never added automatically and remains excluded
+from Casual, blazer and jeans looks even when a covering preference is `always`.
+Covering items (gyale, kallabi, mayafi, hijab, scarf, turban) use an optional
+preference in existing profile constraints JSON: absent keeps the current
+Traditional wrapper default; `always` applies in every context; `events` applies
+to Event and Traditional; `never` excludes them. A missing owned covering item
+must not be replaced with style headwear; mark the constraint unsatisfied and
+surface a gap note. Aso-ebi set IDs are transient event intent, not profile data.
 
 **Why:** The user narrowed set integrity to contexts where coordinated identity
-is explicit and chose `always` as an override rather than an automatic default.
+is explicit, separated style headwear from covering items, and approved the
+optional profile preference without a migration.
 
 **How to apply:** Carry event-level aso-ebi intent by set ID. Do not infer it
 from garment labels or coordinated membership. Keep head-covering preference
-independent of textile identity and style-headwear choices.
+independent of textile identity and style-headwear choices. Do not let `always`
+make gele or ichafu automatic or bypass their pairing exclusions.
 
 Proposed textile identity values may be stored as suggestions, but only values
 explicitly confirmed for `textileIdentity` may drive future styling rules.

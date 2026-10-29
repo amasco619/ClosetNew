@@ -21,6 +21,8 @@ function test(name: string, run: () => void) {
 
 const contextSource = readFileSync('contexts/AppContext.tsx', 'utf8');
 const onboardingSource = readFileSync('app/onboarding.tsx', 'utf8');
+const profileSource = readFileSync('app/(tabs)/profile.tsx', 'utf8');
+const outfitsSource = readFileSync('app/(tabs)/outfits.tsx', 'utf8');
 const readyGuest = mergeProfile({
   name: 'Guest', isGuest: true, bodyType: 'pear', eyeColor: 'blue',
   skinTone: 'light', undertone: 'cool', faceShape: 'round',
@@ -160,6 +162,39 @@ test('face shape and other profile/constraint values survive guest DB round trip
   assert.equal(remote.faceShape, 'round');
   assert.equal(remote.hairColor, 'blonde');
   assert.equal(guest.constraints._profile.faceShape, 'square', 'serialization does not mutate guest');
+});
+
+test('optional covering preference round-trips in constraints JSON and aso-ebi stays transient', () => {
+  assert.equal(defaultProfile.constraints.headCoveringPreference, undefined);
+  const profile = mergeProfile({
+    ...readyGuest,
+    constraints: { ...readyGuest.constraints, headCoveringPreference: 'always' },
+  });
+  const saved = profileConstraints(profile);
+  assert.equal(saved.headCoveringPreference, 'always');
+  assert.equal('asoEbiSetIds' in saved, false);
+  const restored = hydrateAccountProfile({ constraints: saved }, '');
+  assert.equal(restored.constraints.headCoveringPreference, 'always');
+  assert.equal('asoEbiSetIds' in restored.constraints, false);
+  const unset = hydrateAccountProfile({ constraints: { noSleeveless: false } }, '');
+  assert.equal(unset.constraints.headCoveringPreference, undefined);
+});
+
+test('profile exposes all optional covering choices and clears the stored preference for Default', () => {
+  for (const label of ['Default', 'Always', 'Events', 'Never']) {
+    assert.ok(profileSource.includes(`label: '${label}'`), `missing ${label} choice`);
+  }
+  assert.ok(profileSource.includes('delete constraints.headCoveringPreference'));
+  assert.ok(profileSource.includes('updateProfile({ constraints })'));
+  assert.ok(profileSource.includes('testID={`covering-preference-'));
+});
+
+test('aso-ebi selection is an event-screen marker, not a persisted profile field', () => {
+  assert.ok(outfitsSource.includes('const [markedAsoEbiSetIds, setMarkedAsoEbiSetIds] = useState<string[]>([])'));
+  assert.ok(outfitsSource.includes('getEventStylingRecommendations(nextIds, eventSetGroups)'));
+  assert.ok(contextSource.includes('asoEbiSetIds,'));
+  const saved = profileConstraints(mergeProfile({}));
+  assert.equal('asoEbiSetIds' in saved, false);
 });
 
 test('actual hydration and update paths use the tested account/migration helpers', () => {

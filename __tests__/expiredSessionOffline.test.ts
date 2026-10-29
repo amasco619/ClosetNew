@@ -122,7 +122,7 @@ const testMocks: Record<string, any> = {
   topAffinityPairs: () => [],
   MIN_SIGNALS_TO_APPLY: 5,
   generateOutfitPool: () => [],
-  applyDailyRotation: () => [],
+  applyDailyRotation: () => ({ outfits: [] }),
   computePoolHash: () => '',
   todayString: () => '2026-10-22',
   reportError: () => {},

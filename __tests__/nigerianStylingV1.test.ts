@@ -43,8 +43,10 @@ const run = (
   context, wardrobe, relationships, ...options,
 });
 
-const coveringTypes = ['gele', 'ichafu', 'gyale', 'kallabi', 'turban'] as const;
+const coveringTypes = ['gyale', 'kallabi', 'mayafi', 'hijab', 'scarf', 'turban'] as const;
+const styleHeadwearTypes = ['gele', 'ichafu'] as const;
 const ownedCoverings = coveringTypes.map(type => item(type, 'jewelry', type));
+const ownedStyleHeadwear = styleHeadwearTypes.map(type => item(type, 'jewelry', type));
 
 // Base structure stays structural and preserves the v3.7 score.
 const basic = run([topBottom], 'work', topBottomWardrobe);
@@ -103,12 +105,12 @@ assert.equal(run([partialSet], 'traditional', setWardrobe, [{
   ...set, confirmationStatus: 'ai_inferred',
 }]).outfits.length, 1);
 
-// Traditional wrapper looks get one owned head covering per variant by default.
+// The unset preference retains the default: owned covering items on Traditional wrapper looks.
 const wrapper = item('wrapper', 'bottom', 'wrapper');
 const wrapperLook = outfit('wrapper-look', [
   component('top', 'top'), component('wrapper', 'bottom', 'wrapper'), component('shoes', 'shoes'),
 ]);
-const wrapperWardrobe = [top, wrapper, shoes, ...ownedCoverings];
+const wrapperWardrobe = [top, wrapper, shoes, ...ownedCoverings, ...ownedStyleHeadwear];
 const traditionalWrapper = run([wrapperLook], 'traditional', wrapperWardrobe);
 assert.equal(traditionalWrapper.outfits.length, coveringTypes.length);
 assert.deepEqual(
@@ -118,9 +120,9 @@ assert.deepEqual(
   [...coveringTypes],
 );
 assert.ok(traditionalWrapper.outfits.every(look => look.confidenceScore === wrapperLook.confidenceScore));
-assert.ok(traditionalWrapper.decisions.every(decision => decision.addedHeadwearIds.length === 1));
+assert.ok(traditionalWrapper.decisions.every(decision => decision.addedCoveringItemIds.length === 1));
 
-// No automatic headwear for Work, Casual, non-wrapper Traditional, or a Traditional blazer look.
+// Default does not add coverings in Work, Casual, or non-wrapper Traditional looks.
 for (const context of ['work', 'casual'] as const) {
   assert.equal(run([wrapperLook], context, wrapperWardrobe).outfits[0].components
     .some(part => coveringTypes.includes(part.subType as typeof coveringTypes[number])), false);
@@ -133,7 +135,7 @@ const blazerWrapper = outfit('blazer-wrapper', [
 assert.equal(run([blazerWrapper], 'traditional', [...wrapperWardrobe, item('blazer', 'outerwear')])
   .outfits[0].components.some(part => coveringTypes.includes(part.subType as typeof coveringTypes[number])), false);
 
-// "Events" applies in event contexts but respects the blazer/jeans exclusions.
+// "Events" applies to owned covering items in Event and Traditional, including jeans/blazer looks.
 const eventPreference = run([topBottom], 'event', [...topBottomWardrobe, ...ownedCoverings], noGroups, {
   headCoveringPreference: 'events',
 });
@@ -146,10 +148,19 @@ const eventJeans = run([jeansLook], 'event', jeansWardrobe, noGroups, {
   headCoveringPreference: 'events',
 });
 assert.equal(eventJeans.outfits[0].components
-  .some(part => coveringTypes.includes(part.subType as typeof coveringTypes[number])), false);
-assert.equal(eventJeans.decisions[0].headCoveringSatisfied, false);
+  .some(part => coveringTypes.includes(part.subType as typeof coveringTypes[number])), true);
+assert.equal(eventJeans.decisions[0].headCoveringSatisfied, true);
+assert.equal(run([topBottom], 'casual', [...topBottomWardrobe, ...ownedCoverings], noGroups, {
+  headCoveringPreference: 'events',
+}).outfits.length, 1);
+for (const context of ['work', 'casual', 'event', 'traditional'] as const) {
+  const always = run([wrapperLook], context, wrapperWardrobe, noGroups, {
+    headCoveringPreference: 'always',
+  });
+  assert.equal(always.outfits.length, coveringTypes.length, `always applies in ${context}`);
+}
 
-// "Always" is explicit and overrides the exclusions; "never" blocks even Traditional.
+// "Always" applies to coverings in any context; "never" blocks even Traditional.
 const jeansBlazerLook = outfit('jeans-blazer-look', [
   ...jeansLook.components, component('blazer', 'outerwear'),
 ]);
@@ -170,17 +181,56 @@ const unavailable = run([topBottom], 'work', topBottomWardrobe, noGroups, {
 });
 assert.equal(unavailable.outfits.length, 1);
 assert.equal(unavailable.decisions[0].headCoveringSatisfied, false);
-assert.equal(unavailable.decisions[0].addedHeadwearIds.length, 0);
+assert.equal(unavailable.decisions[0].addedCoveringItemIds.length, 0);
+assert.deepEqual(unavailable.gapNotes, [
+  'Add a covering item to your wardrobe to complete this preference.',
+]);
 
-// Style headwear is separate from head-covering preferences.
-const sunhat = item('sunhat', 'jewelry', 'sunhat');
-const sunhatLook = outfit('sunhat-look', [...topBottom.components, component('sunhat', 'jewelry', 'sunhat')]);
-assert.equal(run([sunhatLook], 'work', [...topBottomWardrobe, sunhat], noGroups, {
+// Style headwear is never automatic and is not a substitute for a missing covering item.
+const gele = item('gele', 'jewelry', 'gele');
+const geleLook = outfit('gele-look', [...topBottom.components, component('gele', 'jewelry', 'gele')]);
+const noCoveringWithGele = run([wrapperLook], 'traditional', [top, wrapper, shoes, gele]);
+assert.equal(noCoveringWithGele.outfits[0].components.some(part => part.matchedItemId === 'gele'), false);
+assert.equal(noCoveringWithGele.decisions[0].headCoveringSatisfied, false);
+assert.deepEqual(noCoveringWithGele.gapNotes, [
+  'Add a covering item to your wardrobe to complete this preference.',
+]);
+assert.equal(run([geleLook], 'work', [...topBottomWardrobe, gele], noGroups, {
   headCoveringPreference: 'always',
-}).outfits[0].components.some(part => part.matchedItemId === 'sunhat'), false);
-assert.equal(run([sunhatLook], 'work', [...topBottomWardrobe, sunhat], noGroups, {
+}).outfits[0].components.some(part => part.matchedItemId === 'gele'), false);
+assert.equal(run([geleLook], 'work', [...topBottomWardrobe, gele], noGroups, {
   includeStyleHeadwear: true,
-}).outfits[0].components.some(part => part.matchedItemId === 'sunhat'), true);
+}).outfits[0].components.some(part => part.matchedItemId === 'gele'), true);
+
+// Explicit style headwear remains excluded from Casual, blazer and jeans looks,
+// even when the covering preference is "always".
+for (const headwear of ownedStyleHeadwear) {
+  const headwearLook = outfit(`look-${headwear.id}`, [
+    ...topBottom.components, component(headwear.id, 'jewelry', headwear.subType),
+  ]);
+  const headwearWardrobe = [...topBottomWardrobe, headwear];
+  for (const context of ['casual', 'work', 'event'] as const) {
+    const excluded = context === 'casual';
+    const candidate = excluded
+      ? headwearLook
+      : outfit(`look-${headwear.id}-blazer`, [
+        ...headwearLook.components, component('blazer', 'outerwear'),
+      ]);
+    const wardrobe = excluded ? headwearWardrobe : [...headwearWardrobe, item('blazer', 'outerwear')];
+    assert.equal(run([candidate], context, wardrobe, noGroups, {
+      includeStyleHeadwear: true, headCoveringPreference: 'always',
+    }).outfits[0].components.some(part => part.matchedItemId === headwear.id), false);
+  }
+  const jeansCandidate = outfit(`look-${headwear.id}-jeans`, [
+    component('top', 'top'), component('jeans', 'bottom', 'jeans'),
+    component('shoes', 'shoes'), component(headwear.id, 'jewelry', headwear.subType),
+  ]);
+  assert.equal(run([jeansCandidate], 'event', [
+    ...topBottomWardrobe, item('jeans', 'bottom', 'jeans'), headwear,
+  ], noGroups, {
+    includeStyleHeadwear: true, headCoveringPreference: 'always',
+  }).outfits[0].components.some(part => part.matchedItemId === headwear.id), false);
+}
 
 // Unknown roles remain unjudged and retain the original score.
 const unknownComponent: OutfitComponent = {
