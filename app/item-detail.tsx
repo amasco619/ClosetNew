@@ -11,6 +11,7 @@ import { useDialog } from '@/contexts/LuxuryFeedbackContext';
 import type { Neckline } from '@/constants/types';
 import Colors from '@/constants/colors';
 import { wardrobeCategoryLabel, wardrobeValueLabel } from '@/constants/wardrobeLabels';
+import { manualSubtypeOptions } from '@/constants/manualSubtypeOptions';
 import * as Haptics from 'expo-haptics';
 import { rs } from '../lib/responsive';
 
@@ -224,7 +225,7 @@ export default function ItemDetailScreen() {
           </Pressable>
           {editingType && (
             <View style={styles.editChipsWrap}>
-              {subTypes[item.category].map(st => (
+              {manualSubtypeOptions(item.category, subTypes[item.category]).map(st => (
                 <Pressable
                   key={st}
                   disabled={savingCorrection}

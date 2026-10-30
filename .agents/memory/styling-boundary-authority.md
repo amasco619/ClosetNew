@@ -67,3 +67,14 @@ shape outfit decisions.
 
 **How to apply:** Gate any textile-specific rule on `confirmedFields` containing
 `textileIdentity`; absent or unconfirmed values stay neutral.
+
+Manual-only covering subtypes (`gyale`, `kallabi`, `mayafi`, `hijab`) stay
+separate from the classifier vocabulary. V1 also treats `scarf`, `head-scarf`,
+`headwrap` and `turban` as covering items.
+
+**Why:** The user approved manual correction for those four labels while
+explicitly excluding them from classifier output.
+
+**How to apply:** Offer these labels only in manual subtype editing until the
+user separately approves classifier recognition. Keep the manual picker list
+separate from any list used to validate classifier output.

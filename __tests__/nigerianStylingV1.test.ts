@@ -43,7 +43,9 @@ const run = (
   context, wardrobe, relationships, ...options,
 });
 
-const coveringTypes = ['gyale', 'kallabi', 'mayafi', 'hijab', 'scarf', 'turban'] as const;
+const coveringTypes = [
+  'gyale', 'kallabi', 'mayafi', 'hijab', 'scarf', 'head-scarf', 'headwrap', 'turban',
+] as const;
 const styleHeadwearTypes = ['gele', 'ichafu'] as const;
 const ownedCoverings = coveringTypes.map(type => item(type, 'jewelry', type));
 const ownedStyleHeadwear = styleHeadwearTypes.map(type => item(type, 'jewelry', type));

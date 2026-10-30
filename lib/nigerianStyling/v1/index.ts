@@ -48,7 +48,9 @@ export interface NigerianStylingV1Result {
 }
 
 const STYLE_HEADWEAR_SUBTYPES = new Set(['gele', 'ichafu']);
-const COVERING_ITEM_SUBTYPES = new Set(['gyale', 'kallabi', 'mayafi', 'hijab', 'scarf', 'turban']);
+const COVERING_ITEM_SUBTYPES = new Set([
+  'gyale', 'kallabi', 'mayafi', 'hijab', 'scarf', 'head-scarf', 'headwrap', 'turban',
+]);
 const WRAPPER_SUBTYPES = new Set(['wrapper', 'iro']);
 
 function normaliseSubtype(value: string): string {

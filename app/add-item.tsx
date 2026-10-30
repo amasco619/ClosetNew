@@ -13,6 +13,7 @@ import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FAB
 import { centroidHsl, centroidLab } from '@/constants/colorPerceptual';
 import Colors from '@/constants/colors';
 import { wardrobeCategoryLabel, wardrobeItemDisplayName, wardrobeValueLabel } from '@/constants/wardrobeLabels';
+import { manualSubtypeOptions } from '@/constants/manualSubtypeOptions';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, withRepeat, withDelay, cancelAnimation, runOnJS, interpolateColor } from 'react-native-reanimated';
 import { authenticatedApiRequest } from '@/lib/query-client';
@@ -1607,7 +1608,7 @@ export default function AddItemScreen() {
             )}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                {subTypes[category].map(st => (
+                {manualSubtypeOptions(category, subTypes[category]).map(st => (
                   <Pressable
                     key={st}
                     style={[styles.chipSmall, subType === st && styles.chipSmallActive]}
