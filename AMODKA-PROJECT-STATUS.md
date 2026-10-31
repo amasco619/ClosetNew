@@ -1,5 +1,19 @@
 # AMODKA — CURRENT PROJECT STATUS & ENGINEERING SOURCE OF TRUTH
 
+## Covering items and textile identity — approved migration applied
+
+Migration **20261031184917** (`add_textile_identity_validation`) is applied to
+the connected Amodka Supabase project. Its repository filename now matches the
+recorded version; SQL is identical to the approved file and migration history.
+A rolled-back read-only transaction confirmed george/confirmed george accepted,
+invalid textile/atampa rejected and legacy empty-object validation unchanged.
+Function ownership, ACL and security attributes are unchanged. No customer
+data was accessed or modified; no rollback function was executed.
+
+Manual covering labels remain separate from classifier vocabulary.
+Engine v3.7, its types and the 53 frozen files were not changed. No restart,
+publish or physical-device verification was performed for this application.
+
 ## wardrobe_items RLS tidy-up — approved production migration verified
 
 Applied exactly the approved transaction as **20261022130922**, mirrored in

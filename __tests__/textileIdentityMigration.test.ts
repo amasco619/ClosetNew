@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const migration = readFileSync(
-  'supabase/migrations/20261030120000_add_textile_identity_validation.sql',
+  'supabase/migrations/20261031184917_add_textile_identity_validation.sql',
   'utf8',
 );
 const values = [

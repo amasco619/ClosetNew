@@ -3715,3 +3715,29 @@ placeholder when no forecast is cached.
 **Tests:** `__tests__/checkLook.test.ts` covers Traditional anchors, headwear,
 confirmed set members and Free-tier result shape. `__tests__/checkLookUi.test.ts`
 covers the message presentation and forecast-prefilled editable temperature.
+
+## 56. Covering items and textile identity validator
+
+The manual subtype pickers in Add Item and Item Detail offer gyale, kallabi,
+mayafi and hijab using a separate manual-options list. These labels are not
+added to classifier vocabulary. Nigerian Styling V1 recognises these four,
+scarf, head-scarf, headwrap and turban as covering items; style-headwear
+exclusions remain separate. No engine v3.7 types or frozen files were changed.
+
+After explicit approval, the exact validator replacement was applied to the
+connected Amodka Supabase project as migration **20261031184917**, mirrored in
+`supabase/migrations/20261031184917_add_textile_identity_validation.sql`.
+The initially proposed filename was renamed to match the recorded version,
+without changing SQL. Migration history matches the repository SQL exactly.
+The function allows `textileIdentity` and its confirmation key with the twelve
+approved values (excluding atampa). Owner, ACL, security mode, volatility and
+search_path are unchanged.
+
+Live verification used `BEGIN READ ONLY` / `ROLLBACK` with synthetic JSON only:
+george and confirmed george were accepted; an invalid value and atampa were
+rejected; the legacy empty object remained accepted. No customer rows were
+read or changed, and the rollback function definition was not executed.
+Tests: `__tests__/manualCoveringSubtypes.test.ts`,
+`__tests__/nigerianStylingV1.test.ts` and
+`__tests__/textileIdentityMigration.test.ts`. Physical-device behaviour remains
+unverified.
