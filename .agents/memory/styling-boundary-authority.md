@@ -78,3 +78,17 @@ explicitly excluding them from classifier output.
 **How to apply:** Offer these labels only in manual subtype editing until the
 user separately approves classifier recognition. Keep the manual picker list
 separate from any list used to validate classifier output.
+
+Nigerian Styling V2 must consume supplied facts, not infer them from app records.
+Register-band mismatches and explicitly poor-quality polyester are independent
+verdict failure groups; clutch/box-bag and print dominance are advisory only,
+with no score deltas. Style-headwear exclusions form one failure group and
+never govern covering items. Only red is an encoded funeral colour; festive
+brightness and church coverage thresholds await reviewer definitions.
+
+**Why:** The user approved a bounded rule-data evaluator with these amendments,
+not app integration, cultural inference or numeric tuning.
+
+**How to apply:** Keep V1 and frozen v3.7 separate, require supplied event bands,
+keep absent/unassessed facts explicit, and never count Not judged as correct.
+Double wrapper remains a pending V1 decision, not a V2 rule.

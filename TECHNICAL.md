@@ -328,7 +328,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               133 test suites (see §11)
+__tests__/               146 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -440,7 +440,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 133 test suites once |
+| `npm test` | Run all 146 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -1500,7 +1500,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (133 total)
+### Test Suites (146 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -3741,3 +3741,32 @@ Tests: `__tests__/manualCoveringSubtypes.test.ts`,
 `__tests__/nigerianStylingV1.test.ts` and
 `__tests__/textileIdentityMigration.test.ts`. Physical-device behaviour remains
 unverified.
+
+## 57. Nigerian Styling V2 rule-data evaluator
+
+`lib/nigerianStyling/v2/` is an isolated, deterministic evaluator, not an app
+integration. It accepts supplied, confirmed `LookFacts`, a transient event brief
+and a caller-supplied V1 decision. No app mappings, editor changes, storage,
+server calls or scoring changes are introduced. V1 remains responsible for set
+integrity and the covering preference; V2 does not reconstruct either.
+
+Rules are declarative data in `rules.ts`, interpreted by `evaluate.ts`.
+Distinct failure groups, not hit counts or numeric scores, determine the verdict:
+one group gives Almost; two or more give Rethink. Register and explicit poor
+polyester quality count as groups. Style-headwear exclusions have one group and
+never apply to covering items. Unknown key vocabulary or unknown V1 structure
+gives Not judged. Unresolved required facts/questions prevent a clean Works
+verdict; missing advisory-only facts do not. `judged: false` identifies every
+Not judged result and must never be treated as a correct judgement in metrics.
+
+Only supplied textile and event bands are compared, by interval overlap.
+Unqualified George is not inferred to be Indian George. Aso-oke's band applies
+only with a supplied Yoruba community. Community rules never infer identity.
+Funeral red is the only encoded funeral colour; festive-bright definitions and
+church coverage thresholds remain questions. Double wrapper remains a pending
+V1 decision. Clutch/box-bag and print-dominance guidance is advisory only.
+
+Tests: `__tests__/nigerianStylingV2.test.ts` uses synthetic, independently authored
+facts for all 24 rule clauses and verdict, missing-fact, band, community, V1
+handoff, covering-item and deterministic/non-mutating boundaries.
+Implementation report: `docs/reports/nigerian-styling-v2-rule-data-layer.md`.
