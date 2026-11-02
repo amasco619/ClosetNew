@@ -41,7 +41,8 @@ function category(title: string, observation: BlindObservation): Category {
   if (/\btravel\b/i.test(title)) return 'travel';
   if (/\b(?:weather|heat)\b/i.test(title)) return 'weather';
   if (/\bdate\b/i.test(title)) return 'date';
-  if (/\b(?:office|interview|campus presentation)\b/i.test(title)) return 'work';
+  if (observation.brief.occasion === 'work'
+    || /\b(?:office|interview|campus presentation)\b/i.test(title)) return 'work';
   if (['owambe', 'traditionalWedding', 'whiteWedding', 'funeral', 'naming',
     'traditionalEvent', 'church'].includes(observation.brief.occasion ?? '')) return 'Nigerian event';
   return 'other';

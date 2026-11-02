@@ -1,0 +1,2376 @@
+{
+  "categories": {
+    "Nigerian event": {
+      "judged": 0,
+      "not judged": 60
+    },
+    "work": {
+      "judged": 0,
+      "not judged": 20
+    },
+    "travel": {
+      "judged": 0,
+      "not judged": 4
+    },
+    "weather": {
+      "judged": 0,
+      "not judged": 4
+    },
+    "date": {
+      "judged": 0,
+      "not judged": 4
+    },
+    "other": {
+      "judged": 0,
+      "not judged": 8
+    }
+  },
+  "fixtures": [
+    {
+      "fixture": "S01-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S01-A-item-01.quality, items.S01-A-item-02.quality, items.S01-A-item-03.quality, items.S01-A-item-04.quality, items.S01-A-item-05.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S01-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S01-B-item-01.quality, items.S01-B-item-02.quality, items.S01-B-item-03.quality, items.S01-B-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm items.S01-B-item-01.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S01-B-item-01.textileIdentity. This textile is above the supplied event band; it is not a register failure."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": [
+        "items.S01-B-item-01.textileIdentity"
+      ]
+    },
+    {
+      "fixture": "S01-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S01-C-item-01.quality, items.S01-C-item-02.quality, items.S01-C-item-03.quality, items.S01-C-item-04.quality, items.S01-C-item-05.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S01-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm traditionalWear. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S01-D-item-01.quality, items.S01-D-item-02.quality, items.S01-D-item-03.quality, items.S01-D-item-04.quality, items.S01-D-item-05.quality, items.S01-D-item-06.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm traditionalWear, items.S01-D-item-03.headwearHeight. Would you like a tall gele with the iro and buba?"
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S02-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S02-A-item-01.quality, items.S02-A-item-02.quality, items.S02-A-item-03.quality, items.S02-A-item-04.quality, items.S02-A-item-05.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought. Choose a textile whose band reaches the supplied event band."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S02-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S02-B-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S02-B-item-01.quality, items.S02-B-item-02.quality, items.S02-B-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S02-B-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S02-B-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S02-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S02-C-item-01.textileIdentity, items.S02-C-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S02-C-item-01.quality, items.S02-C-item-02.quality, items.S02-C-item-03.quality, items.S02-C-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm items.S02-C-item-01.textileIdentity, items.S02-C-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S02-C-item-01.textileIdentity, items.S02-C-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S02-C-item-03.headwearHeight. Would you like a tall gele with the iro and buba?"
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S02-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S02-D-item-01.quality, items.S02-D-item-02.quality, items.S02-D-item-03.quality, items.S02-D-item-04.quality, items.S02-D-item-05.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S02-D-item-03.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S02-D-item-03.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S02-D-item-04.headwearHeight. Would you like a tall gele with the iro and buba?"
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": [
+        "items.S02-D-item-03.textileIdentity"
+      ]
+    },
+    {
+      "fixture": "S03-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S03-A-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm items.S03-A-item-01.quality, items.S03-A-item-02.quality, items.S03-A-item-03.quality, items.S03-A-item-04.quality, items.S03-A-item-05.quality, items.S03-A-item-06.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S03-A-item-02.colour. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S03-A-item-02.colour. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear. George is included in the supplied Igbo guidance.",
+        "Please confirm traditionalWear, items.S03-A-item-04.headwearShape. Would you like the ichafu lower and wider?"
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S03-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S03-B-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm items.S03-B-item-01.quality, items.S03-B-item-02.quality, items.S03-B-item-03.quality, items.S03-B-item-04.quality, items.S03-B-item-05.quality, items.S03-B-item-06.quality, items.S03-B-item-07.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S03-B-item-02.colour. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S03-B-item-02.colour. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear. George is included in the supplied Igbo guidance.",
+        "Please confirm traditionalWear, items.S03-B-item-04.headwearShape. Would you like the ichafu lower and wider?",
+        "Please confirm traditionalWear. Ivory odu requires a confirmed title."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S03-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S03-C-item-01.quality, items.S03-C-item-02.quality, items.S03-C-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S03-C-item-02.textileIdentity, items.S03-C-item-03.textileIdentity. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S03-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S03-D-item-01.colour, brief.asoEbiColour, items.S03-D-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S03-D-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S03-D-item-01.quality, items.S03-D-item-02.quality, items.S03-D-item-03.quality, items.S03-D-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S03-D-item-01.colour, brief.asoEbiColour, items.S03-D-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S03-D-item-02.colour. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S03-D-item-01.colour, brief.asoEbiColour, items.S03-D-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S03-D-item-02.colour. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S03-D-item-01.textileIdentity, items.S03-D-item-03.textileIdentity, items.S03-D-item-04.textileIdentity. George is included in the supplied Igbo guidance.",
+        "Please confirm traditionalWear, items.S03-D-item-04.headwearShape. Would you like the ichafu lower and wider?"
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S04-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.brideColours. Choose a colour outside the bride’s supplied colours.",
+        "Please confirm brief.familyTextiles. Choose a textile outside the families’ supplied fabrics.",
+        "Please confirm items.S04-A-item-01.quality, items.S04-A-item-02.quality, items.S04-A-item-03.quality, items.S04-A-item-04.quality, items.S04-A-item-05.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm traditionalWear, items.S04-A-item-02.textileIdentity, items.S04-A-item-03.textileIdentity, items.S04-A-item-04.textileIdentity, items.S04-A-item-05.textileIdentity. George is included in the supplied Igbo guidance.",
+        "Please confirm traditionalWear, items.S04-A-item-02.headwearShape. Would you like the ichafu lower and wider?"
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S04-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S04-B-item-01.colour, brief.brideColours, items.S04-B-item-02.colour. Choose a colour outside the bride’s supplied colours.",
+        "Please confirm brief.familyTextiles. Choose a textile outside the families’ supplied fabrics.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S04-B-item-01.quality, items.S04-B-item-02.quality, items.S04-B-item-03.quality, items.S04-B-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm items.S04-B-item-01.textileIdentity, items.S04-B-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S04-B-item-01.textileIdentity, items.S04-B-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear. George is included in the supplied Igbo guidance.",
+        "Please confirm traditionalWear, items.S04-B-item-03.coralStrands. Keep guest coral to one strand."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": [
+        "items.S04-B-item-01.textileIdentity",
+        "items.S04-B-item-02.textileIdentity"
+      ]
+    },
+    {
+      "fixture": "S04-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.brideColours. Choose a colour outside the bride’s supplied colours.",
+        "Please confirm brief.familyTextiles. Choose a textile outside the families’ supplied fabrics.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S04-C-item-01.quality, items.S04-C-item-02.quality, items.S04-C-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm traditionalWear, items.S04-C-item-02.textileIdentity, items.S04-C-item-03.textileIdentity. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S04-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.brideColours. Choose a colour outside the bride’s supplied colours.",
+        "Please confirm brief.familyTextiles. Choose a textile outside the families’ supplied fabrics.",
+        "Please confirm items.S04-D-item-01.quality, items.S04-D-item-02.quality, items.S04-D-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm items.S04-D-item-01.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S04-D-item-01.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S04-D-item-02.textileIdentity, items.S04-D-item-03.textileIdentity. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": [
+        "items.S04-D-item-01.textileIdentity"
+      ]
+    },
+    {
+      "fixture": "S05-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.brideColours. Choose a colour outside the bride’s supplied colours.",
+        "Please confirm brief.familyTextiles. Choose a textile outside the families’ supplied fabrics.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear, items.S05-A-item-04.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm items.S05-A-item-01.quality, items.S05-A-item-02.quality, items.S05-A-item-03.quality, items.S05-A-item-04.quality, items.S05-A-item-05.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, items.S05-A-item-01.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, items.S05-A-item-01.textileIdentity. This textile is above the supplied event band; it is not a register failure."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": [
+        "items.S05-A-item-01.textileIdentity"
+      ]
+    },
+    {
+      "fixture": "S05-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.brideColours. Choose a colour outside the bride’s supplied colours.",
+        "Please confirm brief.familyTextiles. Choose a textile outside the families’ supplied fabrics.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S05-B-item-01.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, items.S05-B-item-01.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, items.S05-B-item-01.textileIdentity. This textile is above the supplied event band; it is not a register failure."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": [
+        "items.S05-B-item-01.textileIdentity"
+      ]
+    },
+    {
+      "fixture": "S05-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.brideColours. Choose a colour outside the bride’s supplied colours.",
+        "Please confirm brief.familyTextiles. Choose a textile outside the families’ supplied fabrics.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S05-C-item-01.quality, items.S05-C-item-02.quality, items.S05-C-item-03.quality, items.S05-C-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm traditionalWear. Gyale, hijab or kallabi are options, subject to your V1 covering preference."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S05-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S05-D-item-01.colour, brief.brideColours. Choose a colour outside the bride’s supplied colours.",
+        "Please confirm brief.familyTextiles. Choose a textile outside the families’ supplied fabrics.",
+        "Please confirm brief.asoEbiBought, items.S05-D-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear, items.S05-D-item-04.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S05-D-item-01.quality, items.S05-D-item-02.quality, items.S05-D-item-03.quality, items.S05-D-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S05-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, items.S05-D-item-01.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S05-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, items.S05-D-item-01.textileIdentity. This textile is above the supplied event band; it is not a register failure."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": [
+        "items.S05-D-item-01.textileIdentity"
+      ]
+    },
+    {
+      "fixture": "S06-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S06-A-item-01.quality, items.S06-A-item-02.quality, items.S06-A-item-03.quality, items.S06-A-item-04.quality, items.S06-A-item-05.quality, items.S06-A-item-06.quality, items.S06-A-item-07.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S06-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S06-B-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S06-B-item-01.quality, items.S06-B-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S06-B-item-01.textileIdentity, brief.asoEbiTextile. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S06-B-item-01.textileIdentity, brief.asoEbiTextile. This textile is above the supplied event band; it is not a register failure."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S06-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S06-C-item-01.quality, items.S06-C-item-02.quality, items.S06-C-item-03.quality, items.S06-C-item-04.quality, items.S06-C-item-05.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, items.S06-C-item-01.textileIdentity, items.S06-C-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, items.S06-C-item-01.textileIdentity, items.S06-C-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S06-C-item-03.headwearHeight. Would you like a tall gele with the iro and buba?"
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": [
+        "items.S06-C-item-01.textileIdentity",
+        "items.S06-C-item-02.textileIdentity"
+      ]
+    },
+    {
+      "fixture": "S06-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S06-D-item-01.colour, brief.asoEbiColour, items.S06-D-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S06-D-item-01.quality, items.S06-D-item-02.quality, items.S06-D-item-03.quality, items.S06-D-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S06-D-item-02.colour, brief.asoEbiColour, brief.asoEbiTextile. Choose a textile whose band reaches the supplied event band."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S07-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S07-A-item-01.quality, items.S07-A-item-02.quality, items.S07-A-item-03.quality, items.S07-A-item-04.quality, items.S07-A-item-05.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S07-A-item-03.textileIdentity, items.S07-A-item-04.textileIdentity, items.S07-A-item-05.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S07-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S07-B-item-01.quality, items.S07-B-item-02.quality, items.S07-B-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S07-B-item-02.textileIdentity, items.S07-B-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S07-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S07-C-item-01.quality, items.S07-C-item-02.quality, items.S07-C-item-03.quality, items.S07-C-item-04.quality, items.S07-C-item-05.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm items.S07-C-item-01.textileIdentity, brief.formalityBand, items.S07-C-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S07-C-item-01.textileIdentity, brief.formalityBand, items.S07-C-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, brief.community. Would you like a tall gele with the iro and buba?",
+        "Please confirm traditionalWear, items.S07-C-item-01.textileIdentity, items.S07-C-item-02.textileIdentity, items.S07-C-item-03.textileIdentity, items.S07-C-item-04.textileIdentity, items.S07-C-item-05.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S07-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S07-D-item-01.quality, items.S07-D-item-02.quality, items.S07-D-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm items.S07-D-item-01.textileIdentity, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S07-D-item-01.textileIdentity, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S07-D-item-01.textileIdentity, items.S07-D-item-02.textileIdentity, items.S07-D-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S08-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear, items.S08-A-item-03.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S08-A-item-01.quality, items.S08-A-item-02.quality, items.S08-A-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, items.S08-A-item-01.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, items.S08-A-item-01.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S08-A-item-02.textileIdentity, items.S08-A-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": [
+        "items.S08-A-item-01.textileIdentity"
+      ]
+    },
+    {
+      "fixture": "S08-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S08-B-item-01.colour, brief.asoEbiColour, items.S08-B-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile, items.S08-B-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S08-B-item-01.quality, items.S08-B-item-02.quality, items.S08-B-item-03.quality, items.S08-B-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S08-B-item-02.colour, brief.asoEbiColour, items.S08-B-item-02.textileIdentity, brief.asoEbiTextile. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S08-B-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, items.S08-B-item-02.colour, items.S08-B-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, brief.community. George is included in the supplied Igbo guidance.",
+        "Please confirm traditionalWear, items.S08-B-item-03.headwearShape, brief.community. Would you like the ichafu lower and wider?"
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S08-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S08-C-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile, items.S08-C-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S08-C-item-01.quality, items.S08-C-item-02.quality, items.S08-C-item-03.quality, items.S08-C-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, items.S08-C-item-02.colour, items.S08-C-item-02.textileIdentity, items.S08-C-item-01.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, items.S08-C-item-02.colour, items.S08-C-item-02.textileIdentity, items.S08-C-item-01.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S08-C-item-02.textileIdentity, items.S08-C-item-03.textileIdentity, items.S08-C-item-04.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": [
+        "items.S08-C-item-01.textileIdentity"
+      ]
+    },
+    {
+      "fixture": "S08-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S08-D-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S08-D-item-01.quality, items.S08-D-item-02.quality, items.S08-D-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S08-D-item-01.textileIdentity, brief.asoEbiTextile. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S08-D-item-01.textileIdentity, brief.asoEbiTextile. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, brief.community. Gyale, hijab or kallabi are options, subject to your V1 covering preference.",
+        "Please confirm traditionalWear, items.S08-D-item-01.textileIdentity, items.S08-D-item-02.textileIdentity, items.S08-D-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S09-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S09-A-item-03.colour, items.S09-A-item-04.colour, items.S09-A-item-05.colour. Choose a colour other than red for this funeral.",
+        "Which colours does this funeral ask guests to avoid?",
+        "Please confirm traditionalWear, items.S09-A-item-03.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S09-A-item-01.quality, items.S09-A-item-02.quality, items.S09-A-item-03.quality, items.S09-A-item-04.quality, items.S09-A-item-05.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm items.S09-A-item-01.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S09-A-item-01.textileIdentity. This textile is above the supplied event band; it is not a register failure."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": [
+        "items.S09-A-item-01.textileIdentity"
+      ]
+    },
+    {
+      "fixture": "S09-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S09-B-item-03.colour, items.S09-B-item-04.colour. Choose a colour other than red for this funeral.",
+        "Which colours does this funeral ask guests to avoid?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S09-B-item-01.quality, items.S09-B-item-02.quality, items.S09-B-item-03.quality, items.S09-B-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm items.S09-B-item-01.textileIdentity, items.S09-B-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S09-B-item-01.textileIdentity, items.S09-B-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S09-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S09-C-item-02.colour, items.S09-C-item-03.colour, items.S09-C-item-04.colour. Choose a colour other than red for this funeral.",
+        "Which colours does this funeral ask guests to avoid?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S09-C-item-01.quality, items.S09-C-item-02.quality, items.S09-C-item-03.quality, items.S09-C-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm items.S09-C-item-01.textileIdentity, items.S09-C-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S09-C-item-01.textileIdentity, items.S09-C-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S09-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S09-D-item-02.colour, items.S09-D-item-03.colour. Choose a colour other than red for this funeral.",
+        "Which colours does this funeral ask guests to avoid?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S09-D-item-01.quality, items.S09-D-item-02.quality, items.S09-D-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm items.S09-D-item-01.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S09-D-item-01.textileIdentity. This textile is above the supplied event band; it is not a register failure."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": [
+        "items.S09-D-item-01.textileIdentity"
+      ]
+    },
+    {
+      "fixture": "S10-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm items.S10-A-item-03.colour, items.S10-A-item-04.colour. Choose a colour other than red for this funeral.",
+        "Which colours does this funeral ask guests to avoid?",
+        "Please confirm traditionalWear, items.S10-A-item-04.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S10-A-item-01.quality, items.S10-A-item-02.quality, items.S10-A-item-03.quality, items.S10-A-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S10-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm items.S10-B-item-03.colour. Choose a colour other than red for this funeral.",
+        "Which colours does this funeral ask guests to avoid?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S10-B-item-01.quality, items.S10-B-item-02.quality, items.S10-B-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S10-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm items.S10-C-item-02.colour. Choose a colour other than red for this funeral.",
+        "Which colours does this funeral ask guests to avoid?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S10-C-item-01.quality, items.S10-C-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S10-C-item-02.textileIdentity. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S10-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile, items.S10-D-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm items.S10-D-item-03.colour, items.S10-D-item-04.colour. Choose a colour other than red for this funeral.",
+        "Which colours does this funeral ask guests to avoid?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S10-D-item-01.quality, items.S10-D-item-02.quality, items.S10-D-item-03.quality, items.S10-D-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S10-D-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S10-D-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S11-A",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S11-A-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile, items.S11-A-item-03.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S11-A-item-01.quality, items.S11-A-item-02.quality, items.S11-A-item-03.quality, items.S11-A-item-04.quality, items.S11-A-item-05.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S11-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S11-A-item-03.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S11-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S11-A-item-03.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S11-A-item-03.textileIdentity, items.S11-A-item-04.textileIdentity, items.S11-A-item-05.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S11-B",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S11-B-item-01.quality, items.S11-B-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S11-B-item-02.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S11-C",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S11-C-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S11-C-item-01.quality, items.S11-C-item-02.quality, items.S11-C-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S11-C-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S11-C-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S11-C-item-01.textileIdentity, items.S11-C-item-02.textileIdentity, items.S11-C-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S11-D",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S11-D-item-01.colour, brief.asoEbiColour, items.S11-D-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S11-D-item-01.quality, items.S11-D-item-02.quality, items.S11-D-item-03.quality, items.S11-D-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S11-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S11-D-item-02.colour. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S11-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S11-D-item-02.colour. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S11-D-item-03.textileIdentity, items.S11-D-item-04.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S12-A",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S12-A-item-01.colour, brief.asoEbiColour, items.S12-A-item-03.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile, items.S12-A-item-02.textileIdentity, items.S12-A-item-03.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S12-A-item-01.quality, items.S12-A-item-02.quality, items.S12-A-item-03.quality, items.S12-A-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S12-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S12-A-item-02.textileIdentity, items.S12-A-item-03.colour, items.S12-A-item-03.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S12-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S12-A-item-02.textileIdentity, items.S12-A-item-03.colour, items.S12-A-item-03.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S12-A-item-02.textileIdentity, items.S12-A-item-03.textileIdentity, items.S12-A-item-04.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S12-B",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S12-B-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S12-B-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S12-B-item-01.quality, items.S12-B-item-02.quality, items.S12-B-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S12-B-item-01.colour, brief.asoEbiColour, items.S12-B-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S12-B-item-01.colour, brief.asoEbiColour, items.S12-B-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S12-B-item-01.textileIdentity, items.S12-B-item-02.textileIdentity, items.S12-B-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S12-C",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S12-C-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S12-C-item-01.quality, items.S12-C-item-02.quality, items.S12-C-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S12-C-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S12-C-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S12-C-item-02.textileIdentity, items.S12-C-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S12-D",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S12-D-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S12-D-item-01.quality, items.S12-D-item-02.quality, items.S12-D-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S12-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S12-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S12-D-item-02.textileIdentity, items.S12-D-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S13-A",
+      "category": "other",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S13-A-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S13-A-item-01.quality, items.S13-A-item-02.quality, items.S13-A-item-03.quality, items.S13-A-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S13-A-item-02.colour. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S13-A-item-02.colour. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S13-A-item-03.textileIdentity, items.S13-A-item-04.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S13-B",
+      "category": "other",
+      "status": "not judged",
+      "missingFacts": [
+        "items.S13-B-item-01.key",
+        "items.S13-B-item-01.kind",
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S13-B-item-01.key, items.S13-B-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S13-B-item-01.key, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear, items.S13-B-item-01.kind, items.S13-B-item-01.footwearType, items.S13-B-item-03.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm items.S13-B-item-01.kind. Keep gele and ichafu apart from blazers, jeans and Casual looks.",
+        "Please confirm traditionalWear, items.S13-B-item-01.kind. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S13-B-item-01.quality, items.S13-B-item-02.quality, items.S13-B-item-03.quality, items.S13-B-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm items.S13-B-item-01.key, brief.asoEbiBought, items.S13-B-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S13-B-item-01.key, brief.asoEbiBought, items.S13-B-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S13-B-item-01.kind, items.S13-B-item-01.headwearHeight, brief.community. Would you like a tall gele with the iro and buba?",
+        "Please confirm traditionalWear, items.S13-B-item-01.kind, brief.community. Gyale, hijab or kallabi are options, subject to your V1 covering preference.",
+        "Please confirm traditionalWear, items.S13-B-item-02.textileIdentity, items.S13-B-item-03.textileIdentity, items.S13-B-item-04.textileIdentity, brief.community. George is included in the supplied Igbo guidance.",
+        "Please confirm traditionalWear, items.S13-B-item-01.kind, items.S13-B-item-01.headwearShape, brief.community. Would you like the ichafu lower and wider?",
+        "Please confirm traditionalWear, brief.role, items.S13-B-item-01.kind, items.S13-B-item-01.coralStrands, brief.community. Keep guest coral to one strand.",
+        "Please confirm traditionalWear, items.S13-B-item-01.kind, brief.titledWoman, brief.community. Ivory odu requires a confirmed title."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S13-C",
+      "category": "other",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S13-C-item-01.quality, items.S13-C-item-02.quality, items.S13-C-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S13-C-item-02.textileIdentity, items.S13-C-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S13-D",
+      "category": "other",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S13-D-item-01.colour, brief.asoEbiColour, items.S13-D-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile, items.S13-D-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear, items.S13-D-item-03.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S13-D-item-01.quality, items.S13-D-item-02.quality, items.S13-D-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S13-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S13-D-item-02.colour, items.S13-D-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S13-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S13-D-item-02.colour, items.S13-D-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S13-D-item-02.textileIdentity, items.S13-D-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S14-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S14-A-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "What shoulder coverage and hem does this church require?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S14-A-item-01.quality, items.S14-A-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S14-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S14-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S14-A-item-02.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S14-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S14-B-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "What shoulder coverage and hem does this church require?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S14-B-item-01.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S14-B-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S14-B-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S14-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S14-C-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S14-C-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "What shoulder coverage and hem does this church require?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S14-C-item-01.quality, items.S14-C-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S14-C-item-01.colour, brief.asoEbiColour, items.S14-C-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S14-C-item-01.colour, brief.asoEbiColour, items.S14-C-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S14-C-item-01.textileIdentity, items.S14-C-item-02.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S14-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S14-D-item-01.colour, brief.asoEbiColour, items.S14-D-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "What shoulder coverage and hem does this church require?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S14-D-item-01.quality, items.S14-D-item-02.quality, items.S14-D-item-03.quality, items.S14-D-item-04.quality, items.S14-D-item-05.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S14-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S14-D-item-02.colour. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S14-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S14-D-item-02.colour. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S14-D-item-03.textileIdentity, items.S14-D-item-04.textileIdentity, items.S14-D-item-05.textileIdentity, brief.community. George is included in the supplied Igbo guidance.",
+        "Please confirm traditionalWear, items.S14-D-item-03.headwearShape, brief.community. Would you like the ichafu lower and wider?"
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S15-A",
+      "category": "other",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S15-A-item-01.colour, brief.asoEbiColour, items.S15-A-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear, items.S15-A-item-03.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm items.S15-A-item-01.quality, items.S15-A-item-02.quality, items.S15-A-item-03.quality, items.S15-A-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S15-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S15-A-item-02.colour. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S15-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S15-A-item-02.colour. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S15-A-item-03.textileIdentity, items.S15-A-item-04.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S15-B",
+      "category": "other",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S15-B-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S15-B-item-01.quality, items.S15-B-item-02.quality, items.S15-B-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S15-B-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S15-B-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, brief.community. Gyale, hijab or kallabi are options, subject to your V1 covering preference.",
+        "Please confirm traditionalWear, items.S15-B-item-02.textileIdentity, items.S15-B-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S15-C",
+      "category": "other",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S15-C-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear, items.S15-C-item-03.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S15-C-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S15-C-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S15-C-item-02.textileIdentity, items.S15-C-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S15-D",
+      "category": "other",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S15-D-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile, items.S15-D-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S15-D-item-01.quality, items.S15-D-item-02.quality, items.S15-D-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S15-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S15-D-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S15-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S15-D-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S15-D-item-02.textileIdentity, items.S15-D-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S16-A",
+      "category": "travel",
+      "status": "not judged",
+      "missingFacts": [
+        "items.S16-A-item-03.key",
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S16-A-item-01.colour, brief.asoEbiColour, items.S16-A-item-02.colour, items.S16-A-item-03.key, items.S16-A-item-03.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile, items.S16-A-item-03.key, items.S16-A-item-03.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear, items.S16-A-item-04.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S16-A-item-01.quality, items.S16-A-item-02.quality, items.S16-A-item-03.quality, items.S16-A-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S16-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S16-A-item-02.colour, items.S16-A-item-03.key, items.S16-A-item-03.colour, items.S16-A-item-03.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S16-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S16-A-item-02.colour, items.S16-A-item-03.key, items.S16-A-item-03.colour, items.S16-A-item-03.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S16-A-item-03.textileIdentity, items.S16-A-item-04.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S16-B",
+      "category": "travel",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S16-B-item-01.colour, brief.asoEbiColour, items.S16-B-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile, items.S16-B-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S16-B-item-01.quality, items.S16-B-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S16-B-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S16-B-item-02.colour, items.S16-B-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S16-B-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S16-B-item-02.colour, items.S16-B-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S16-C",
+      "category": "travel",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S16-C-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S16-C-item-01.quality, items.S16-C-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S16-C-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S16-C-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S16-C-item-02.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S16-D",
+      "category": "travel",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S16-D-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S16-D-item-01.quality, items.S16-D-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S16-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S16-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S16-D-item-02.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S17-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S17-A-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "What shoulder coverage and hem does this church require?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S17-A-item-01.quality, items.S17-A-item-02.quality, items.S17-A-item-03.quality, items.S17-A-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S17-A-item-02.colour. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S17-A-item-02.colour. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S17-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "What shoulder coverage and hem does this church require?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S17-B-item-01.quality, items.S17-B-item-02.quality, items.S17-B-item-03.quality, items.S17-B-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S17-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S17-C-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile, items.S17-C-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "What shoulder coverage and hem does this church require?",
+        "Please confirm traditionalWear, items.S17-C-item-03.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S17-C-item-01.quality, items.S17-C-item-02.quality, items.S17-C-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S17-C-item-02.colour, items.S17-C-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S17-C-item-02.colour, items.S17-C-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S17-C-item-02.textileIdentity, items.S17-C-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S17-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile, items.S17-D-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "What shoulder coverage and hem does this church require?",
+        "Please confirm traditionalWear. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S17-D-item-01.quality, items.S17-D-item-02.quality, items.S17-D-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S17-D-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S17-D-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S18-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S18-A-item-01.quality, items.S18-A-item-02.quality, items.S18-A-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S18-A-item-02.textileIdentity, items.S18-A-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S18-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm items.S18-B-item-01.quality, items.S18-B-item-02.quality, items.S18-B-item-03.quality, items.S18-B-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S18-B-item-02.textileIdentity, items.S18-B-item-03.textileIdentity, items.S18-B-item-04.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S18-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S18-C-item-01.quality, items.S18-C-item-02.quality, items.S18-C-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S18-C-item-02.textileIdentity, items.S18-C-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S18-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S18-D-item-01.colour. Keep white, ivory and cream for the bride.",
+        "Please confirm brief.asoEbiBought, items.S18-D-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm items.S18-D-item-01.quality, items.S18-D-item-02.quality, items.S18-D-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S18-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S18-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S18-D-item-02.textileIdentity, items.S18-D-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S19-A",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S19-A-item-01.textileIdentity, brief.asoEbiTextile, items.S19-A-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S19-A-item-01.quality, items.S19-A-item-02.quality, items.S19-A-item-03.quality, items.S19-A-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S19-A-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S19-A-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S19-A-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S19-A-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S19-A-item-01.textileIdentity, items.S19-A-item-02.textileIdentity, items.S19-A-item-03.textileIdentity, items.S19-A-item-04.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S19-B",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S19-B-item-01.quality, items.S19-B-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S19-B-item-02.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S19-C",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S19-C-item-03.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S19-C-item-01.textileIdentity, brief.asoEbiTextile, items.S19-C-item-03.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S19-C-item-01.quality, items.S19-C-item-02.quality, items.S19-C-item-03.quality, items.S19-C-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S19-C-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S19-C-item-03.colour, items.S19-C-item-03.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S19-C-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S19-C-item-03.colour, items.S19-C-item-03.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S19-C-item-01.textileIdentity, items.S19-C-item-03.textileIdentity, items.S19-C-item-04.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S19-D",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S19-D-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S19-D-item-01.quality, items.S19-D-item-02.quality, items.S19-D-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S19-D-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S19-D-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S19-D-item-01.textileIdentity, items.S19-D-item-02.textileIdentity, items.S19-D-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S20-A",
+      "category": "weather",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S20-A-item-01.colour, brief.asoEbiColour, items.S20-A-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear, items.S20-A-item-03.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S20-A-item-01.quality, items.S20-A-item-02.quality, items.S20-A-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S20-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S20-A-item-02.colour. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S20-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S20-A-item-02.colour. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S20-A-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S20-B",
+      "category": "weather",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S20-B-item-01.colour, brief.asoEbiColour, items.S20-B-item-02.colour, items.S20-B-item-03.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S20-B-item-01.textileIdentity, brief.asoEbiTextile, items.S20-B-item-02.textileIdentity, items.S20-B-item-03.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S20-B-item-01.quality, items.S20-B-item-02.quality, items.S20-B-item-03.quality, items.S20-B-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S20-B-item-01.colour, brief.asoEbiColour, items.S20-B-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S20-B-item-02.colour, items.S20-B-item-02.textileIdentity, items.S20-B-item-03.colour, items.S20-B-item-03.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S20-B-item-01.colour, brief.asoEbiColour, items.S20-B-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S20-B-item-02.colour, items.S20-B-item-02.textileIdentity, items.S20-B-item-03.colour, items.S20-B-item-03.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S20-B-item-01.textileIdentity, items.S20-B-item-02.textileIdentity, items.S20-B-item-03.textileIdentity, items.S20-B-item-04.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S20-C",
+      "category": "weather",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S20-C-item-01.colour, brief.asoEbiColour, items.S20-C-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile, items.S20-C-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S20-C-item-01.quality, items.S20-C-item-02.quality, items.S20-C-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S20-C-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S20-C-item-02.colour, items.S20-C-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S20-C-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand, items.S20-C-item-02.colour, items.S20-C-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S20-C-item-02.textileIdentity, items.S20-C-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S20-D",
+      "category": "weather",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S20-D-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear, items.S20-D-item-02.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S20-D-item-01.quality, items.S20-D-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S20-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S20-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S20-D-item-02.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S21-A",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S21-A-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S21-A-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear, items.S21-A-item-02.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S21-A-item-01.quality, items.S21-A-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S21-A-item-01.colour, brief.asoEbiColour, items.S21-A-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S21-A-item-01.colour, brief.asoEbiColour, items.S21-A-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S21-A-item-01.textileIdentity, items.S21-A-item-02.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S21-B",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S21-B-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S21-B-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S21-B-item-01.quality, items.S21-B-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S21-B-item-01.colour, brief.asoEbiColour, items.S21-B-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S21-B-item-01.colour, brief.asoEbiColour, items.S21-B-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S21-B-item-01.textileIdentity, items.S21-B-item-02.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S21-C",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S21-C-item-01.colour, brief.asoEbiColour, items.S21-C-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S21-C-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear, items.S21-C-item-03.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S21-C-item-01.quality, items.S21-C-item-02.quality, items.S21-C-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S21-C-item-01.colour, brief.asoEbiColour, items.S21-C-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S21-C-item-02.colour. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S21-C-item-01.colour, brief.asoEbiColour, items.S21-C-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S21-C-item-02.colour. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S21-C-item-01.textileIdentity, items.S21-C-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S21-D",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S21-D-item-01.colour, brief.asoEbiColour, items.S21-D-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S21-D-item-01.textileIdentity, brief.asoEbiTextile, items.S21-D-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S21-D-item-01.quality, items.S21-D-item-02.quality, items.S21-D-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S21-D-item-01.colour, brief.asoEbiColour, items.S21-D-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S21-D-item-02.colour, items.S21-D-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S21-D-item-01.colour, brief.asoEbiColour, items.S21-D-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S21-D-item-02.colour, items.S21-D-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S21-D-item-01.textileIdentity, items.S21-D-item-02.textileIdentity, items.S21-D-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S22-A",
+      "category": "date",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S22-A-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S22-A-item-01.quality, items.S22-A-item-02.quality, items.S22-A-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S22-A-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S22-A-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S22-A-item-01.textileIdentity, items.S22-A-item-02.textileIdentity, items.S22-A-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S22-B",
+      "category": "date",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S22-B-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S22-B-item-01.quality, items.S22-B-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S22-B-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S22-B-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S22-B-item-02.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S22-C",
+      "category": "date",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S22-C-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S22-C-item-01.quality, items.S22-C-item-02.quality, items.S22-C-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S22-C-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S22-C-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S22-C-item-02.textileIdentity, items.S22-C-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S22-D",
+      "category": "date",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S22-D-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S22-D-item-01.textileIdentity, brief.asoEbiTextile, items.S22-D-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S22-D-item-01.quality, items.S22-D-item-02.quality, items.S22-D-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S22-D-item-01.colour, brief.asoEbiColour, items.S22-D-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S22-D-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S22-D-item-01.colour, brief.asoEbiColour, items.S22-D-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S22-D-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S22-D-item-01.textileIdentity, items.S22-D-item-02.textileIdentity, items.S22-D-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S23-A",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S23-A-item-01.textileIdentity, brief.asoEbiTextile, items.S23-A-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear, items.S23-A-item-04.footwearType. Choose footwear other than trainers, flip-flops or sports sandals.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S23-A-item-01.quality, items.S23-A-item-02.quality, items.S23-A-item-03.quality, items.S23-A-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S23-A-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S23-A-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S23-A-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S23-A-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S23-A-item-01.textileIdentity, items.S23-A-item-02.textileIdentity, items.S23-A-item-03.textileIdentity, items.S23-A-item-04.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S23-B",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S23-B-item-01.textileIdentity, brief.asoEbiTextile, items.S23-B-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S23-B-item-01.quality, items.S23-B-item-02.quality, items.S23-B-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S23-B-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S23-B-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S23-B-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S23-B-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S23-B-item-01.textileIdentity, items.S23-B-item-02.textileIdentity, items.S23-B-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S23-C",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S23-C-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S23-C-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S23-C-item-01.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S23-C-item-01.colour, brief.asoEbiColour, items.S23-C-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S23-C-item-01.colour, brief.asoEbiColour, items.S23-C-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S23-C-item-01.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S23-D",
+      "category": "work",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S23-D-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S23-D-item-01.textileIdentity, brief.asoEbiTextile, items.S23-D-item-02.textileIdentity. Use the exact supplied aso-ebi textile.",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S23-D-item-01.quality, items.S23-D-item-02.quality, items.S23-D-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S23-D-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S23-D-item-02.colour, items.S23-D-item-02.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiColour, items.S23-D-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S23-D-item-02.colour, items.S23-D-item-02.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, brief.community. Gyale, hijab or kallabi are options, subject to your V1 covering preference.",
+        "Please confirm traditionalWear, items.S23-D-item-01.textileIdentity, items.S23-D-item-02.textileIdentity, items.S23-D-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S24-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S24-A-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "What shoulder coverage and hem does this church require?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S24-A-item-01.quality, items.S24-A-item-02.quality, items.S24-A-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S24-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S24-A-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S24-A-item-02.textileIdentity, items.S24-A-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S24-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S24-B-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S24-B-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "What shoulder coverage and hem does this church require?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S24-B-item-01.quality, items.S24-B-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S24-B-item-01.colour, brief.asoEbiColour, items.S24-B-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S24-B-item-01.colour, brief.asoEbiColour, items.S24-B-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S24-B-item-01.textileIdentity, items.S24-B-item-02.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S24-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S24-C-item-01.colour, brief.asoEbiColour, items.S24-C-item-02.colour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, items.S24-C-item-01.textileIdentity, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "What shoulder coverage and hem does this church require?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S24-C-item-01.quality, items.S24-C-item-02.quality, items.S24-C-item-03.quality, items.S24-C-item-04.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S24-C-item-01.colour, brief.asoEbiColour, items.S24-C-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S24-C-item-02.colour. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S24-C-item-01.colour, brief.asoEbiColour, items.S24-C-item-01.textileIdentity, brief.asoEbiTextile, brief.formalityBand, items.S24-C-item-02.colour. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S24-C-item-01.textileIdentity, items.S24-C-item-03.textileIdentity, items.S24-C-item-04.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S24-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm brief.asoEbiBought, items.S24-D-item-01.colour, brief.asoEbiColour. Use the exact supplied aso-ebi colour.",
+        "Please confirm brief.asoEbiBought, brief.asoEbiTextile. Use the exact supplied aso-ebi textile.",
+        "What shoulder coverage and hem does this church require?",
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S24-D-item-01.quality, items.S24-D-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm brief.asoEbiBought, items.S24-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm brief.asoEbiBought, items.S24-D-item-01.colour, brief.asoEbiColour, brief.asoEbiTextile, brief.formalityBand. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S24-D-item-02.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S25-A",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S25-A-item-01.quality, items.S25-A-item-02.quality, items.S25-A-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm items.S25-A-item-01.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S25-A-item-01.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S25-A-item-01.textileIdentity, items.S25-A-item-02.textileIdentity, items.S25-A-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S25-B",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S25-B-item-01.quality, items.S25-B-item-02.quality, items.S25-B-item-03.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm traditionalWear, items.S25-B-item-02.textileIdentity, items.S25-B-item-03.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S25-C",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm traditionalWear. A clutch or box bag is an option for this traditional look.",
+        "Please confirm items.S25-C-item-01.quality, items.S25-C-item-02.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm items.S25-C-item-01.textileIdentity. Choose a textile whose band reaches the supplied event band.",
+        "Please confirm items.S25-C-item-01.textileIdentity. This textile is above the supplied event band; it is not a register failure.",
+        "Please confirm traditionalWear, items.S25-C-item-01.textileIdentity, items.S25-C-item-02.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.",
+        "A key piece is outside this version’s vocabulary."
+      ],
+      "unassessedFacts": []
+    },
+    {
+      "fixture": "S25-D",
+      "category": "Nigerian event",
+      "status": "not judged",
+      "missingFacts": [
+        "v1.decision.status",
+        "v1.decision.headCoveringSatisfied"
+      ],
+      "questions": [
+        "Please confirm items.S25-D-item-01.quality, items.S25-D-item-02.quality, items.S25-D-item-03.quality, items.S25-D-item-04.quality, items.S25-D-item-05.quality. Consider an alternative to the explicitly poor-quality polyester piece.",
+        "Please confirm printDominance. Let one print lead the look.",
+        "Please confirm traditionalWear, items.S25-D-item-02.textileIdentity, items.S25-D-item-03.textileIdentity, items.S25-D-item-04.textileIdentity, items.S25-D-item-05.textileIdentity, brief.community. George is included in the supplied Igbo guidance."
+      ],
+      "gaps": [
+        "V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied."
+      ],
+      "unassessedFacts": []
+    }
+  ]
+}

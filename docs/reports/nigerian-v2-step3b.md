@@ -58,22 +58,56 @@ node_modules/.bin/tsx scripts/nigerian-v2-coverage.ts \
   > docs/reports/nigerian-v2-step3b-coverage.json
 ```
 
+Pre-run commit: `ee490bb`. The adapter SHA-256 printed before the first
+coverage evaluation was:
+
+```text
+e248d749dd261b6d0a429002c7d17e5a7d0dcec0c472cc1aef9a30bf5e6fcfe6
+```
+
 The runner verifies all 100 frozen hashes **before** the first evaluation,
 projects only judged/not judged and missing-fact/question/gap information,
 and refuses output containing any prohibited verdict label. It neither
 persists nor logs scores, hits, failure groups or verdict bands.
 
 Category precedence is travel, explicitly titled weather/heat, date, work
-(office/interview/campus presentation), then named Nigerian/religious event,
+(explicit work occasion or office/interview/campus presentation), then named Nigerian/religious event,
 then other. Categories summarise coverage, not correctness or inferred intent.
 The raw per-fixture causes and category counts are in
 `nigerian-v2-step3b-coverage.json` after the committed-adapter run.
+
+## Coverage result
+
+| Category | Judged | Not judged |
+|---|---:|---:|
+| Nigerian event | 0 | 60 |
+| Work | 0 | 20 |
+| Travel | 0 | 4 |
+| Weather | 0 | 4 |
+| Date | 0 | 4 |
+| Other | 0 | 8 |
+| **Total** | **0** | **100** |
+
+Every fixture lacks a fact-backed V1 structural decision. This is an input
+coverage result, not evidence that any look is unsuitable, and not an accuracy
+result. The JSON includes all 100 individual statuses and their structural
+unknowns, additional rule questions, gap notes and unassessed facts.
+No structural eligibility or covering satisfaction was fabricated.
+
+The initial report-only category function omitted explicit work briefs unless
+the title named an office/interview/presentation. This misgrouped the corporate
+bank scenario. The reporting function was corrected to include explicit work
+briefs; no adapter, rule, fixture or test was changed after the run.
 
 ## Verification and boundaries
 
 Synthetic tests cover the table, key convention, unknown structure, immutable
 inputs, exact/per-garment exemptions, non-bought/missing/mismatched aso-ebi,
 under/over/touching bands, and fitted-rule exclusion.
+The pre-run commit hook passed typecheck and all 147 test files (zero failures).
+Lint passed. The 53 frozen-file checksums passed independently. The fixture
+encoder's read-only check reproduced all 100 frozen JSON files and their
+original fixture-set digest. The run itself verifies all fixture hashes again.
 
 V1, v3.7, frozen fixtures/checksums, application integration and migrations are
 outside this change. Double wrapper remains a pending V1 decision. No device
