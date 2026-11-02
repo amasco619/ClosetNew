@@ -92,3 +92,15 @@ not app integration, cultural inference or numeric tuning.
 **How to apply:** Keep V1 and frozen v3.7 separate, require supplied event bands,
 keep absent/unassessed facts explicit, and never count Not judged as correct.
 Double wrapper remains a pending V1 decision, not a V2 rule.
+
+Blind scenario fixtures must be fixed with phrase-level evidence before gold
+labels are received. Unstated required booleans and V1 decisions remain unknown;
+never invent eligible structure, key flags, numerical bands or satisfied
+coverage to make descriptions executable. No fixture, rule or test changes
+may be driven by subsequent scoring mismatches.
+
+**Why:** The user requires independent blind encoding, a committed fixture-set
+checksum before labels, and reviewer-led rather than benchmark-led rule changes.
+
+**How to apply:** Verify the frozen fixture manifest before later scoring,
+preserve abstentions as misses, and report any input-adapter limitation openly.

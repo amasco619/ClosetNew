@@ -1,0 +1,264 @@
+{
+  "schemaVersion": 1,
+  "id": "S05-B",
+  "source": {
+    "document": "attached_assets/Amodka_Look_Scenario_1793628651200.docx",
+    "sha256": "ab1ca44752c0559ceee3f97955a5e2e53e5060eafda5d8674154ec1b0485cb5f",
+    "passages": {
+      "S05.title": "S05 · Hausa traditional wedding (aure), guest",
+      "S05.context": "She is 31, from Kano. She always covers her hair and arms and wears long hems. She is a guest at the wedding.",
+      "S05-B": "The same gown cut with short sleeves and no head covering.",
+      "S05-A": "A long, embroidered lace gown in soft mint, fully lined, long sleeves. A matching gyale over her head. Gold jewellery. Closed embellished shoes. A clutch."
+    }
+  },
+  "lookFacts": {
+    "items": [
+      {
+        "id": "S05-B-item-01",
+        "key": null,
+        "kind": "dress",
+        "colour": "soft mint",
+        "textileIdentity": "lace",
+        "quality": null,
+        "footwearType": null,
+        "shoulderCoverage": null,
+        "hem": null,
+        "headwearHeight": null,
+        "headwearShape": null,
+        "coralStrands": null
+      }
+    ],
+    "brief": {
+      "occasion": "traditionalWedding",
+      "role": "guest",
+      "whoseEvent": null,
+      "community": "hausa",
+      "denomination": null,
+      "asoEbiBought": null,
+      "asoEbiColour": null,
+      "asoEbiTextile": null,
+      "brideColours": null,
+      "familyTextiles": null,
+      "timeOfDay": null,
+      "formalityBand": null,
+      "titledWoman": null
+    },
+    "traditionalWear": null,
+    "printDominance": null,
+    "v1": null
+  },
+  "evidence": {
+    "/brief/occasion": [
+      {
+        "source": "S05.title",
+        "quote": "traditional wedding"
+      }
+    ],
+    "/brief/role": [
+      {
+        "source": "S05.title",
+        "quote": "guest"
+      }
+    ],
+    "/brief/community": [
+      {
+        "source": "S05.title",
+        "quote": "Hausa"
+      }
+    ],
+    "/items/0/kind": [
+      {
+        "source": "S05-A",
+        "quote": "A long, embroidered lace gown in soft mint, fully lined, long sleeves"
+      },
+      {
+        "source": "S05-B",
+        "quote": "The same gown"
+      }
+    ],
+    "/items/0/colour": [
+      {
+        "source": "S05-A",
+        "quote": "soft mint"
+      },
+      {
+        "source": "S05-B",
+        "quote": "The same gown"
+      }
+    ],
+    "/items/0/textileIdentity": [
+      {
+        "source": "S05-A",
+        "quote": "lace"
+      },
+      {
+        "source": "S05-B",
+        "quote": "The same gown"
+      }
+    ]
+  },
+  "gaps": [
+    {
+      "path": "/brief/whoseEvent",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": []
+    },
+    {
+      "path": "/brief/denomination",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "H05"
+      ]
+    },
+    {
+      "path": "/brief/asoEbiBought",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "H03a",
+        "H03b"
+      ]
+    },
+    {
+      "path": "/brief/asoEbiColour",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "H03a"
+      ]
+    },
+    {
+      "path": "/brief/asoEbiTextile",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "H03b"
+      ]
+    },
+    {
+      "path": "/brief/brideColours",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "H02a"
+      ]
+    },
+    {
+      "path": "/brief/familyTextiles",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "H02b"
+      ]
+    },
+    {
+      "path": "/brief/timeOfDay",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "S06"
+      ]
+    },
+    {
+      "path": "/brief/formalityBand",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "S04",
+        "C07"
+      ]
+    },
+    {
+      "path": "/brief/titledWoman",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "C06"
+      ]
+    },
+    {
+      "path": "/traditionalWear",
+      "reason": "No explicit look-level traditional-wear intent; an event or garment label is not intent.",
+      "blocksRules": [
+        "H06",
+        "S01",
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C06"
+      ]
+    },
+    {
+      "path": "/printDominance",
+      "reason": "No explicit oneDominates/competing/noPrint fact; visual busyness is not converted into a judgement.",
+      "blocksRules": [
+        "S03"
+      ]
+    },
+    {
+      "path": "/v1",
+      "reason": "No V1 decision, set-membership records or confirmed covering-preference evaluation supplied.",
+      "blocksRules": [
+        "V1 set/covering handoff",
+        "verdict"
+      ]
+    },
+    {
+      "path": "/items/0/key",
+      "reason": "The description does not explicitly supply the evaluator's key-garment boolean.",
+      "blocksRules": [
+        "H01",
+        "H02a",
+        "H02b",
+        "H03a",
+        "H03b",
+        "S04",
+        "S06",
+        "vocabulary"
+      ]
+    },
+    {
+      "path": "/items/0/quality",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "S02"
+      ]
+    },
+    {
+      "path": "/items/0/footwearType",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H06"
+      ]
+    },
+    {
+      "path": "/items/0/shoulderCoverage",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H05"
+      ]
+    },
+    {
+      "path": "/items/0/hem",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H05"
+      ]
+    },
+    {
+      "path": "/items/0/headwearHeight",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "C01"
+      ]
+    },
+    {
+      "path": "/items/0/headwearShape",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "C04"
+      ]
+    },
+    {
+      "path": "/items/0/coralStrands",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "C05"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,470 @@
+{
+  "schemaVersion": 1,
+  "id": "S08-D",
+  "source": {
+    "document": "attached_assets/Amodka_Look_Scenario_1793628651200.docx",
+    "sha256": "ab1ca44752c0559ceee3f97955a5e2e53e5060eafda5d8674154ec1b0485cb5f",
+    "passages": {
+      "S08.title": "S08 · Naming ceremony, mother",
+      "S08.context": "She is 30, from Anambra. This is her baby's naming. She is nursing and will be standing, sitting and greeting for about five hours. The ceremony is in the family compound in the afternoon.",
+      "S08-D": "A soft gold kaftan with a turban and stiletto heels."
+    }
+  },
+  "lookFacts": {
+    "items": [
+      {
+        "id": "S08-D-item-01",
+        "key": null,
+        "kind": "kaftan",
+        "colour": "gold",
+        "textileIdentity": null,
+        "quality": null,
+        "footwearType": null,
+        "shoulderCoverage": null,
+        "hem": null,
+        "headwearHeight": null,
+        "headwearShape": null,
+        "coralStrands": null
+      },
+      {
+        "id": "S08-D-item-02",
+        "key": null,
+        "kind": "turban",
+        "colour": null,
+        "textileIdentity": null,
+        "quality": null,
+        "footwearType": null,
+        "shoulderCoverage": null,
+        "hem": null,
+        "headwearHeight": null,
+        "headwearShape": null,
+        "coralStrands": null
+      },
+      {
+        "id": "S08-D-item-03",
+        "key": null,
+        "kind": "shoes",
+        "colour": null,
+        "textileIdentity": null,
+        "quality": null,
+        "footwearType": "other",
+        "shoulderCoverage": null,
+        "hem": null,
+        "headwearHeight": null,
+        "headwearShape": null,
+        "coralStrands": null
+      }
+    ],
+    "brief": {
+      "occasion": "naming",
+      "role": "mother",
+      "whoseEvent": "her baby's naming",
+      "community": null,
+      "denomination": null,
+      "asoEbiBought": null,
+      "asoEbiColour": null,
+      "asoEbiTextile": null,
+      "brideColours": null,
+      "familyTextiles": null,
+      "timeOfDay": "day",
+      "formalityBand": null,
+      "titledWoman": null
+    },
+    "traditionalWear": null,
+    "printDominance": null,
+    "v1": null
+  },
+  "evidence": {
+    "/brief/occasion": [
+      {
+        "source": "S08.title",
+        "quote": "Naming ceremony"
+      }
+    ],
+    "/brief/role": [
+      {
+        "source": "S08.title",
+        "quote": "mother"
+      }
+    ],
+    "/brief/timeOfDay": [
+      {
+        "source": "S08.context",
+        "quote": "in the afternoon"
+      }
+    ],
+    "/brief/whoseEvent": [
+      {
+        "source": "S08.context",
+        "quote": "her baby's naming"
+      }
+    ],
+    "/items/0/kind": [
+      {
+        "source": "S08-D",
+        "quote": "A soft gold kaftan"
+      }
+    ],
+    "/items/0/colour": [
+      {
+        "source": "S08-D",
+        "quote": "gold"
+      }
+    ],
+    "/items/1/kind": [
+      {
+        "source": "S08-D",
+        "quote": "a turban"
+      }
+    ],
+    "/items/2/kind": [
+      {
+        "source": "S08-D",
+        "quote": "stiletto heels"
+      }
+    ],
+    "/items/2/footwearType": [
+      {
+        "source": "S08-D",
+        "quote": "heels"
+      }
+    ]
+  },
+  "gaps": [
+    {
+      "path": "/brief/community",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "S04",
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C06"
+      ]
+    },
+    {
+      "path": "/brief/denomination",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "H05"
+      ]
+    },
+    {
+      "path": "/brief/asoEbiBought",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "H03a",
+        "H03b"
+      ]
+    },
+    {
+      "path": "/brief/asoEbiColour",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "H03a"
+      ]
+    },
+    {
+      "path": "/brief/asoEbiTextile",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "H03b"
+      ]
+    },
+    {
+      "path": "/brief/brideColours",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "H02a"
+      ]
+    },
+    {
+      "path": "/brief/familyTextiles",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "H02b"
+      ]
+    },
+    {
+      "path": "/brief/formalityBand",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "S04",
+        "C07"
+      ]
+    },
+    {
+      "path": "/brief/titledWoman",
+      "reason": "Not explicitly supplied for the current event.",
+      "blocksRules": [
+        "C06"
+      ]
+    },
+    {
+      "path": "/traditionalWear",
+      "reason": "No explicit look-level traditional-wear intent; an event or garment label is not intent.",
+      "blocksRules": [
+        "H06",
+        "S01",
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C06"
+      ]
+    },
+    {
+      "path": "/printDominance",
+      "reason": "No explicit oneDominates/competing/noPrint fact; visual busyness is not converted into a judgement.",
+      "blocksRules": [
+        "S03"
+      ]
+    },
+    {
+      "path": "/v1",
+      "reason": "No V1 decision, set-membership records or confirmed covering-preference evaluation supplied.",
+      "blocksRules": [
+        "V1 set/covering handoff",
+        "verdict"
+      ]
+    },
+    {
+      "path": "/items/0/key",
+      "reason": "The description does not explicitly supply the evaluator's key-garment boolean.",
+      "blocksRules": [
+        "H01",
+        "H02a",
+        "H02b",
+        "H03a",
+        "H03b",
+        "S04",
+        "S06",
+        "vocabulary"
+      ]
+    },
+    {
+      "path": "/items/0/textileIdentity",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H02b",
+        "H03b",
+        "S04",
+        "S06",
+        "C03"
+      ]
+    },
+    {
+      "path": "/items/0/quality",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "S02"
+      ]
+    },
+    {
+      "path": "/items/0/footwearType",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H06"
+      ]
+    },
+    {
+      "path": "/items/0/shoulderCoverage",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H05"
+      ]
+    },
+    {
+      "path": "/items/0/hem",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H05"
+      ]
+    },
+    {
+      "path": "/items/0/headwearHeight",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "C01"
+      ]
+    },
+    {
+      "path": "/items/0/headwearShape",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "C04"
+      ]
+    },
+    {
+      "path": "/items/0/coralStrands",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "C05"
+      ]
+    },
+    {
+      "path": "/items/1/key",
+      "reason": "The description does not explicitly supply the evaluator's key-garment boolean.",
+      "blocksRules": [
+        "H01",
+        "H02a",
+        "H02b",
+        "H03a",
+        "H03b",
+        "S04",
+        "S06",
+        "vocabulary"
+      ]
+    },
+    {
+      "path": "/items/1/colour",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H01",
+        "H02a",
+        "H03a",
+        "H04"
+      ]
+    },
+    {
+      "path": "/items/1/textileIdentity",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H02b",
+        "H03b",
+        "S04",
+        "S06",
+        "C03"
+      ]
+    },
+    {
+      "path": "/items/1/quality",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "S02"
+      ]
+    },
+    {
+      "path": "/items/1/footwearType",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H06"
+      ]
+    },
+    {
+      "path": "/items/1/shoulderCoverage",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H05"
+      ]
+    },
+    {
+      "path": "/items/1/hem",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H05"
+      ]
+    },
+    {
+      "path": "/items/1/headwearHeight",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "C01"
+      ]
+    },
+    {
+      "path": "/items/1/headwearShape",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "C04"
+      ]
+    },
+    {
+      "path": "/items/1/coralStrands",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "C05"
+      ]
+    },
+    {
+      "path": "/items/2/key",
+      "reason": "The description does not explicitly supply the evaluator's key-garment boolean.",
+      "blocksRules": [
+        "H01",
+        "H02a",
+        "H02b",
+        "H03a",
+        "H03b",
+        "S04",
+        "S06",
+        "vocabulary"
+      ]
+    },
+    {
+      "path": "/items/2/colour",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H01",
+        "H02a",
+        "H03a",
+        "H04"
+      ]
+    },
+    {
+      "path": "/items/2/textileIdentity",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H02b",
+        "H03b",
+        "S04",
+        "S06",
+        "C03"
+      ]
+    },
+    {
+      "path": "/items/2/quality",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "S02"
+      ]
+    },
+    {
+      "path": "/items/2/shoulderCoverage",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H05"
+      ]
+    },
+    {
+      "path": "/items/2/hem",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "H05"
+      ]
+    },
+    {
+      "path": "/items/2/headwearHeight",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "C01"
+      ]
+    },
+    {
+      "path": "/items/2/headwearShape",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "C04"
+      ]
+    },
+    {
+      "path": "/items/2/coralStrands",
+      "reason": "Not explicitly stated for this item, or not expressible at the required precision.",
+      "blocksRules": [
+        "C05"
+      ]
+    }
+  ]
+}

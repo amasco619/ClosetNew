@@ -3770,3 +3770,22 @@ Tests: `__tests__/nigerianStylingV2.test.ts` uses synthetic, independently autho
 facts for all 24 rule clauses and verdict, missing-fact, band, community, V1
 handoff, covering-item and deterministic/non-mutating boundaries.
 Implementation report: `docs/reports/nigerian-styling-v2-rule-data-layer.md`.
+
+## 58. Nigerian Styling V2 blind fixtures
+
+Step 3 encodes the supplied 25 scenarios and 100 look descriptions in
+`__tests__/fixtures/nigerian-v2-rating-set/`, with exact-phrase provenance for
+every known domain fact and per-fixture null/gap inventories. No gold labels
+or expected verdicts are included, and no V2 scoring was run.
+`SHA256SUMS` freezes the 100 JSON files; `FIXTURE_SET_SHA256` is the SHA-256 of
+that sorted manifest. The encoder's `--check` mode verifies source provenance,
+coverage and byte-for-byte reproduction without writing or evaluating looks.
+
+The fixture type is an unknown-preserving observation envelope, not fabricated
+complete runtime LookFacts. In particular, key booleans, V1 decisions and
+numerical event bands are not supplied. No runtime adapter was added; the
+subsequent scoring harness must not fill those gaps from labels or default to
+eligible. Null V1 cannot be passed directly to the current evaluator.
+See the fixture README and GAPS inventory. Step 4 is gated on the user's later
+gold-label upload; rules, fixtures and tests must not be altered to improve
+observed results. V1, v3.7 and all frozen files remain untouched.
