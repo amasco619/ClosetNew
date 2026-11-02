@@ -104,3 +104,15 @@ checksum before labels, and reviewer-led rather than benchmark-led rule changes.
 
 **How to apply:** Verify the frozen fixture manifest before later scoring,
 preserve abstentions as misses, and report any input-adapter limitation openly.
+
+Blind evaluation may derive keys and event bands only by the user's approved
+role convention and reviewer table. Missing structural relationships are not
+an eligible V1 decision. The reviewer explicitly classified S06 as fitted,
+source "review of rating results"; it must be excluded from reported accuracy,
+including any unanswered questions it introduces.
+
+**Why:** The user approved these pre-run amendments while preserving blind
+fixtures, and forbids treating fitted behaviour as independent validation.
+
+**How to apply:** Keep fixtures unchanged, retain structural abstentions,
+and use accuracy-mode evaluation for coverage or later accuracy reporting.

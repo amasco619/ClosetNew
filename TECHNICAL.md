@@ -3789,3 +3789,23 @@ eligible. Null V1 cannot be passed directly to the current evaluator.
 See the fixture README and GAPS inventory. Step 4 is gated on the user's later
 gold-label upload; rules, fixtures and tests must not be altered to improve
 observed results. V1, v3.7 and all frozen files remain untouched.
+
+### Blind coverage adapter (Step 3b)
+
+`lib/nigerianStyling/v2/blindAdapter.ts` applies the explicitly approved key-role
+convention and event/role band table, without reading scenario IDs or inferring
+set membership from matching garments. Null V1 stays unknown. V2 accepts this
+absence rather than inventing eligible structure or satisfied coverage.
+Fixtures remain byte-identical.
+
+Reviewed S04 is underdressing only; S04a is an above-band advisory. A key piece
+exactly matching bought aso-ebi colour and textile is exempt from S04/S06.
+S06 is a fitted rule, source `review of rating results`, not a matrix rule;
+accuracy evaluation must pass `{ mode: 'accuracy' }` to exclude it, including
+any missing-fact questions it would create.
+
+`scripts/nigerian-v2-coverage.ts` verifies every fixture hash before evaluating,
+then emits only judged/not judged and unknown-fact/question/gap information,
+with counts by category. The adapter must be committed and its SHA-256 printed
+before the first coverage run. No fixture-level verdict bands or accuracy
+metrics are emitted. See `docs/reports/nigerian-v2-step3b.md`.

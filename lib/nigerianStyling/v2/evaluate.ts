@@ -54,7 +54,8 @@ function evaluate(condition: Condition, input: LookFacts, item?: ItemFacts): Ans
     case 'gt': return yes(typeof value === 'number' && typeof other === 'number' && value > other);
     case 'excludesPoint': return yes(Array.isArray(value) && typeof other === 'number'
       && (value[0] > other || value[1] < other));
-    case 'outsideBand': {
+    case 'belowBand':
+    case 'aboveBand': {
       let band = TEXTILE_BANDS[String(value)];
       const communityBand = COMMUNITY_TEXTILE_BANDS[String(value)];
       if (communityBand) {
@@ -69,7 +70,7 @@ function evaluate(condition: Condition, input: LookFacts, item?: ItemFacts): Ans
       if (!target || target[0] > target[1] || target.some(n => !Number.isFinite(n))) {
         return { value: undefined, missing: [], unassessed: ['brief.formalityBand'] };
       }
-      return yes(band[1] < target[0] || band[0] > target[1]);
+      return yes(condition.op === 'belowBand' ? band[1] < target[0] : band[0] > target[1]);
     }
   }
 }
@@ -84,7 +85,9 @@ const BRIEF_FIELDS: readonly (keyof LookFacts['brief'])[] = [
   'formalityBand', 'titledWoman',
 ];
 
-export function evaluateNigerianStylingV2(input: LookFacts): StylingResult {
+export function evaluateNigerianStylingV2(
+  input: LookFacts, options: { mode?: 'styling' | 'accuracy' } = {},
+): StylingResult {
   const missingFacts: Record<string, boolean> = {};
   for (const field of BRIEF_FIELDS) missingFacts[`brief.${field}`] = input.brief[field] == null;
   for (const field of ['traditionalWear', 'printDominance'] as const) {
@@ -96,12 +99,21 @@ export function evaluateNigerianStylingV2(input: LookFacts): StylingResult {
 
   const hits: RuleHit[] = [];
   const questions: string[] = [];
-  const gapNotes = [...input.v1.gapNotes];
+  missingFacts['v1.decision.status'] = input.v1 == null || input.v1.decision.status === 'unknown';
+  missingFacts['v1.decision.headCoveringSatisfied'] = input.v1 == null;
+  const gapNotes = [...(input.v1?.gapNotes ?? [
+    'V1 structure is unknown: confirmed set membership, relationships and aso-ebi marking were not supplied.',
+  ])];
   const advisoryNotes: string[] = [];
   const failureGroups: FailureGroup[] = [];
   const unassessedFacts: string[] = [];
   let unresolved = false;
+  const excludedRuleIds: string[] = [];
   for (const rule of RULES) {
+    if (options.mode === 'accuracy' && rule.provenance === 'fitted') {
+      excludedRuleIds.push(rule.id);
+      continue;
+    }
     const scope = evaluate(rule.appliesWhen, input);
     if (scope.value === false) continue;
     if (rule.communityTag && input.brief.community != null
@@ -132,19 +144,20 @@ export function evaluateNigerianStylingV2(input: LookFacts): StylingResult {
   }
 
   const keyItems = input.items.filter(item => item.key);
-  const unknownVocabulary = keyItems.length === 0 || keyItems.some(item =>
-    !(KEY_VOCABULARY as readonly string[]).includes(item.kind),
+  const unknownVocabulary = input.items.some(item => item.key == null)
+    || keyItems.length === 0 || keyItems.some(item =>
+    !(KEY_VOCABULARY as readonly string[]).includes(item.kind ?? ''),
   );
   if (unknownVocabulary) gapNotes.push('A key piece is outside this version’s vocabulary.');
-  if (input.v1.decision.status === 'rejected') {
+  if (input.v1?.decision.status === 'rejected') {
     failureGroups.push('structure');
     gapNotes.push(input.v1.decision.reason ?? 'V1 could not confirm the look’s structure.');
   }
-  if (!input.v1.decision.headCoveringSatisfied) {
+  if (input.v1?.decision.headCoveringSatisfied === false) {
     gapNotes.push('The V1 head-covering constraint is not satisfied.');
   }
   const groups = unique(failureGroups);
-  const verdict = unknownVocabulary || input.v1.decision.status === 'unknown'
+  const verdict = unknownVocabulary || input.v1 == null || input.v1.decision.status === 'unknown'
     ? 'Not judged'
     : groups.length >= 2 ? 'Rethink'
       : groups.length === 1 ? 'Almost'
@@ -152,6 +165,6 @@ export function evaluateNigerianStylingV2(input: LookFacts): StylingResult {
   return {
     version: 2, verdict, judged: verdict !== 'Not judged', failureGroups: groups, hits,
     questions: unique(questions), gapNotes: unique(gapNotes), advisoryNotes: unique(advisoryNotes),
-    missingFacts, unassessedFacts: unique(unassessedFacts),
+    missingFacts, unassessedFacts: unique(unassessedFacts), excludedRuleIds,
   };
 }

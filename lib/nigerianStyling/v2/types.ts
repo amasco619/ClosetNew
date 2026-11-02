@@ -11,10 +11,10 @@ export type Verdict = 'Works' | 'Almost' | 'Rethink' | 'Not judged';
 /** Supplied, confirmed facts only. Absence is unknown, never false or inferred. */
 export interface ItemFacts {
   id: string;
-  /** Explicitly supplied key garment, not inferred from a name or app category. */
-  key: boolean;
+  /** Supplied explicitly or derived by the approved blind-adapter convention. */
+  key?: boolean;
   /** Canonical lower-case tokens. Unknown tokens remain outside the vocabulary. */
-  kind: string;
+  kind?: string;
   /** Canonical lower-case colour token, also used verbatim in brief lists. */
   colour?: string;
   textileIdentity?: string;
@@ -30,7 +30,7 @@ export interface ItemFacts {
 export interface EventBrief {
   occasion?: 'work' | 'casual' | 'whiteWedding' | 'traditionalWedding'
     | 'funeral' | 'church' | 'owambe' | 'naming' | 'traditionalEvent' | 'other';
-  role?: 'guest' | 'family' | 'host' | 'bride' | 'mother' | 'motherOfBride'
+  role?: 'guest' | 'family' | 'closeFamily' | 'host' | 'bride' | 'mother' | 'motherOfBride'
     | 'motherOfGroom' | 'other';
   whoseEvent?: string;
   community?: Community;
@@ -41,7 +41,7 @@ export interface EventBrief {
   brideColours?: readonly string[];
   familyTextiles?: readonly string[];
   timeOfDay?: 'day' | 'evening';
-  /** No role-derived or inferred threshold. */
+  /** Supplied directly or from the approved reviewer event/role table only. */
   formalityBand?: Band;
   titledWoman?: boolean;
 }
@@ -51,11 +51,11 @@ export interface LookFacts {
   brief: EventBrief;
   traditionalWear?: boolean;
   printDominance?: 'oneDominates' | 'competing' | 'noPrint';
-  /** Reuse the caller's V1 result; V2 never rebuilds sets or covering logic. */
+  /** Null means structure was not supplied; never default it to eligible. */
   v1: {
     decision: Pick<NigerianStylingV1Decision, 'status' | 'reason' | 'headCoveringSatisfied'>;
     gapNotes: readonly string[];
-  };
+  } | null;
 }
 
 export type FactPath = `brief.${keyof EventBrief}` | `item.${keyof ItemFacts}`
@@ -68,7 +68,7 @@ export type Condition =
   | { some: Condition }
   | { path: FactPath; op: 'eq' | 'in' | 'gt' | 'excludesPoint'; value: Value }
   | { path: FactPath; op: 'eqRef' | 'inRef'; ref: FactPath }
-  | { path: 'item.textileIdentity'; op: 'outsideBand'; ref: 'brief.formalityBand' };
+  | { path: 'item.textileIdentity'; op: 'belowBand' | 'aboveBand'; ref: 'brief.formalityBand' };
 
 export interface Rule {
   id: string;
@@ -82,6 +82,8 @@ export interface Rule {
   effect: 'failure' | 'question' | 'advisory';
   failureGroup?: FailureGroup;
   sourceReviewers: readonly ['R1', 'R2', 'R3'];
+  provenance: 'matrix' | 'fitted';
+  source: 'reviewer matrix' | 'review of rating results';
   reasonText: string;
 }
 
@@ -106,4 +108,6 @@ export interface StylingResult {
   missingFacts: Record<string, boolean>;
   /** Supplied values with no applicable rule data, not mislabelled as absent. */
   unassessedFacts: string[];
+  /** Accuracy mode excludes fitted rules, including their unanswered questions. */
+  excludedRuleIds: string[];
 }

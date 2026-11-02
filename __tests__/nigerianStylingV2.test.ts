@@ -45,6 +45,10 @@ const perRuleCases: Record<string, LookFacts> = {
   S02: look({ items: [dress({ quality: 'poorPolyester' })] }),
   S03: look({ printDominance: 'competing' }),
   S04: look({ brief: brief({ formalityBand: [9, 10] }) }),
+  S04a: look({
+    items: [dress({ textileIdentity: 'lace-beaded' })],
+    brief: brief({ formalityBand: [4, 7] }),
+  }),
   S05: look(),
   S06: look({ brief: brief({ occasion: 'owambe', timeOfDay: 'evening' }) }),
   C01: look({
@@ -88,7 +92,7 @@ for (const rule of RULES) {
   if (rule.failureGroup) assert.ok(result.failureGroups.includes(rule.failureGroup));
   // A known non-matching scope must never hit, including community rules.
   const neutral = assess(look({ items: [dress()], brief: brief({ occasion: 'other' }) }));
-  if (!['S02', 'S03', 'S04'].includes(rule.id)) {
+  if (!['S02', 'S03', 'S04', 'S04a'].includes(rule.id)) {
     assert.ok(!neutral.hits.some(hit => hit.ruleId === rule.id), `${rule.id}: non-match`);
   }
 }
@@ -150,6 +154,11 @@ for (const [textileIdentity, band] of Object.entries(TEXTILE_BANDS)) {
   assert.ok(assess(look({
     items, brief: brief({ formalityBand: [band[1] + 1, band[1] + 1] }),
   })).failureGroups.includes('register'));
+  const above = assess(look({
+    items, brief: brief({ formalityBand: [band[0] - 1, band[0] - 1] }),
+  }));
+  assert.ok(!above.failureGroups.includes('register'), 'above band is advisory, never failure');
+  assert.ok(above.hits.some(hit => hit.ruleId === 'S04a'));
 }
 assert.ok(!assess(look({
   items: [dress({ textileIdentity: 'adire' })], brief: brief({ formalityBand: [6, 7] }),

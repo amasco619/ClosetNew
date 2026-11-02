@@ -9,6 +9,12 @@ const kind = (...values: string[]): Condition => some(inside('item.kind', values
 const occasion = (...values: string[]): Condition => inside('brief.occasion', values);
 const key = eq('item.key', true);
 const traditional = eq('traditionalWear', true);
+const matchesBoughtAsoEbi = all(
+  eq('brief.asoEbiBought', true),
+  { path: 'item.colour', op: 'eqRef', ref: 'brief.asoEbiColour' },
+  { path: 'item.textileIdentity', op: 'eqRef', ref: 'brief.asoEbiTextile' },
+);
+const notExempt = { not: matchesBoughtAsoEbi } satisfies Condition;
 
 export const STYLE_HEADWEAR = ['gele', 'ichafu'] as const;
 export const COVERING_ITEMS = [
@@ -39,6 +45,7 @@ function rule(
   return {
     id, version: 2, description, strength, type, appliesWhen, effect, reasonText,
     violation, failureGroup, communityTag, sourceReviewers: ['R1', 'R2', 'R3'],
+    provenance: 'matrix', source: 'reviewer matrix',
   };
 }
 
@@ -83,16 +90,22 @@ export const RULES: readonly Rule[] = [
     undefined, 'quality'),
   rule('S03', 'Print dominance', 'likely', 'explainOnly',
     eq('printDominance', 'competing'), 'advisory', 'Let one print lead the look.'),
-  rule('S04', 'Textile outside supplied event band', 'strong', 'hardFilter',
-    some(key), 'failure', 'Choose a textile whose band overlaps the supplied event band.',
-    some(all(key, { path: 'item.textileIdentity', op: 'outsideBand', ref: 'brief.formalityBand' })), 'register'),
+  rule('S04', 'Textile below supplied event band', 'strong', 'hardFilter',
+    some(key), 'failure', 'Choose a textile whose band reaches the supplied event band.',
+    some(all(key, notExempt,
+      { path: 'item.textileIdentity', op: 'belowBand', ref: 'brief.formalityBand' })), 'register'),
+  rule('S04a', 'Textile above supplied event band', 'likely', 'explainOnly',
+    some(key), 'advisory', 'This textile is above the supplied event band; it is not a register failure.',
+    some(all(key, notExempt,
+      { path: 'item.textileIdentity', op: 'aboveBand', ref: 'brief.formalityBand' }))),
   rule('S05', 'Set re-pairing away from the original event', 'likely', 'explainOnly',
     occasion('work', 'casual'), 'advisory',
     'Set pieces may be worn separately when V1 confirms this context allows it.'),
-  rule('S06', 'Ankara at an evening owambe', 'likely', 'hardFilter',
+  { ...rule('S06', 'Ankara at an evening owambe', 'likely', 'hardFilter',
     all(occasion('owambe'), eq('brief.timeOfDay', 'evening')), 'failure',
     'The supplied guidance places Ankara below an evening owambe.',
-    some(all(key, inside('item.textileIdentity', ['ankara', 'premium-ankara']))), 'register'),
+    some(all(key, notExempt, inside('item.textileIdentity', ['ankara', 'premium-ankara']))), 'register'),
+  provenance: 'fitted', source: 'review of rating results' },
   rule('C01', 'Yoruba iro and buba gele', 'community', 'askFirst',
     all(traditional, kind('iro'), kind('buba')), 'question',
     'Would you like a tall gele with the iro and buba?',
