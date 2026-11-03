@@ -43,8 +43,30 @@ contains synthetic tests only.
 Pre-run fixture-set manifest SHA-256:
 `e1e72cc776bf107f5f9cf7385814daecef8b526b1b8e35f21baffb6dca882775`.
 
-Adapter and evaluator checksums are published in the conversation immediately
-before the count-only rerun. Results are appended after it.
+## Committed hashes and count-only rerun
+
+Implementation commit: `2448d12aef5419f35ef151357678fc7ff89c3c42`.
+Both checksums were published before the single coverage rerun:
+
+- Adapter SHA-256: `a79d2a3cd2ae5f34308269bdc9ee3c525ab04dc9b7a5272665253b5c916ef5ec`
+- Evaluator SHA-256: `169d53a0e539804191cdc1b35d47393532ddbae418c54b9a30c55fee1005e4b9`
+
+| Category | Final | worksWithUnchecked | Floor-only | Abstained |
+|---|---:|---:|---:|---:|
+| Nigerian event | 1 | 41 | 0 | 18 |
+| Work | 1 | 12 | 1 | 6 |
+| Travel | 0 | 2 | 0 | 2 |
+| Weather | 0 | 3 | 0 | 1 |
+| Date | 0 | 4 | 0 | 0 |
+| Other | 1 | 5 | 0 | 2 |
+| **Total** | **3** | **67** | **1** | **29** |
+
+The coverage JSON is [available here](nigerian-v2-step3f-coverage.json).
+No verdict bands, failure groups, or accuracy were emitted.
+
+Tests: 149 passed; typecheck, lint, golden set and benchmark validator passed.
+The 53 frozen-file checksums and the 100 fixture bytes remained unchanged.
+Deviations: none.
 
 Deviations: none. No accuracy calculation, per-fixture verdict, or rule result
 is produced in this report.
