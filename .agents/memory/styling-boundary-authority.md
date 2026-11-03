@@ -83,8 +83,9 @@ Nigerian Styling V2 must consume supplied facts, not infer them from app records
 Register-band mismatches and explicitly poor-quality polyester are independent
 verdict failure groups; clutch/box-bag and print dominance are advisory only,
 with no score deltas. Style-headwear exclusions form one failure group and
-never govern covering items. Only red is an encoded funeral colour; festive
-brightness and church coverage thresholds await reviewer definitions.
+never govern covering items. Church coverage and funeral colour rules require
+the user's explicit reviewer answers and per-rule attribution; do not infer
+unprovided cultural thresholds or treat contested advice as consensus.
 
 **Why:** The user approved a bounded rule-data evaluator with these amendments,
 not app integration, cultural inference or numeric tuning.
@@ -106,13 +107,19 @@ checksum before labels, and reviewer-led rather than benchmark-led rule changes.
 preserve abstentions as misses, and report any input-adapter limitation openly.
 
 Blind evaluation may derive keys and event bands only by the user's approved
-role convention and reviewer table. Missing structural relationships are not
-an eligible V1 decision. The reviewer explicitly classified S06 as fitted,
+role convention and reviewer table. The user later authorised the blind adapter
+to call actual V1 with described items, empty relationships and default covering
+preference; this is not authority to invent confirmed app relationships or
+default unmappable descriptions to eligible. The reviewer classified S06 as fitted,
 source "review of rating results"; it must be excluded from reported accuracy,
 including any unanswered questions it introduces.
 
 **Why:** The user approved these pre-run amendments while preserving blind
 fixtures, and forbids treating fitted behaviour as independent validation.
 
-**How to apply:** Keep fixtures unchanged, retain structural abstentions,
-and use accuracy-mode evaluation for coverage or later accuracy reporting.
+**How to apply:** Keep fixtures unchanged, retain unmappable structural
+abstentions, and use accuracy-mode evaluation for coverage or later accuracy
+reporting. Reviewer-led church and funeral additions must preserve unknowns:
+generic above-knee is not clearly above, small is not low/close/unsculpted, and
+community practice is not a wearer's stated coverage. Poor-quality material
+markers remain vocabulary only, never an inferred flag.

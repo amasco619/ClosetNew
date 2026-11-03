@@ -5,7 +5,7 @@ export type Community = 'yoruba' | 'igbo' | 'hausa' | 'other';
 export type FailureGroup =
   | 'weddingIdentity' | 'asoEbi' | 'funeralColour' | 'footwear'
   | 'styleHeadwear' | 'register' | 'quality' | 'communityDress'
-  | 'roleAdornment' | 'structure';
+  | 'roleAdornment' | 'structure' | 'churchCoverage' | 'statedCoverage';
 export type Verdict = 'Works' | 'Almost' | 'Rethink' | 'Not judged';
 
 /** Supplied, confirmed facts only. Absence is unknown, never false or inferred. */
@@ -21,9 +21,14 @@ export interface ItemFacts {
   quality?: 'poorPolyester' | 'notPoorPolyester';
   footwearType?: 'trainer' | 'flipFlop' | 'sportsSandal' | 'other';
   shoulderCoverage?: 'covered' | 'uncovered';
-  hem?: 'aboveKnee' | 'knee' | 'belowKnee' | 'ankle' | 'floor';
+  backless?: boolean;
+  strapless?: boolean;
+  sleeveLength?: 'none' | 'short' | 'elbow' | 'long';
+  modest?: boolean;
+  finish?: 'metallicGold' | 'metallicSilver' | 'sequins' | 'highSheenGold' | 'other';
+  hem?: 'aboveKnee' | 'clearlyAboveKnee' | 'slightlyAboveKnee' | 'knee' | 'belowKnee' | 'ankle' | 'floor';
   headwearHeight?: 'tall' | 'notTall';
-  headwearShape?: 'lowerWider' | 'other';
+  headwearShape?: 'lowerWider' | 'lowCloseUnsculpted' | 'other';
   coralStrands?: number;
 }
 
@@ -44,6 +49,10 @@ export interface EventBrief {
   /** Supplied directly or from the approved reviewer event/role table only. */
   formalityBand?: Band;
   titledWoman?: boolean;
+  /** Optional wearer rule, not a community or venue assumption. */
+  statedCoverage?: readonly ('arms' | 'shoulders' | 'knees' | 'head')[];
+  /** Exact announced family colours; absence supplies no override. */
+  familyColours?: readonly string[];
 }
 
 export interface LookFacts {
@@ -51,6 +60,11 @@ export interface LookFacts {
   brief: EventBrief;
   traditionalWear?: boolean;
   printDominance?: 'oneDominates' | 'competing' | 'noPrint';
+  wornCover?: boolean;
+  armsCovered?: boolean;
+  shouldersCovered?: boolean;
+  kneesCovered?: boolean;
+  headCovered?: boolean;
   /** Null means structure was not supplied; never default it to eligible. */
   v1: {
     decision: Pick<NigerianStylingV1Decision, 'status' | 'reason' | 'headCoveringSatisfied'>;
@@ -59,15 +73,18 @@ export interface LookFacts {
 }
 
 export type FactPath = `brief.${keyof EventBrief}` | `item.${keyof ItemFacts}`
-  | 'traditionalWear' | 'printDominance';
+  | 'traditionalWear' | 'printDominance' | 'wornCover'
+  | 'armsCovered' | 'shouldersCovered' | 'kneesCovered' | 'headCovered';
 type Value = string | boolean | number | readonly string[];
 export type Condition =
   | { all: readonly Condition[] }
   | { any: readonly Condition[] }
   | { not: Condition }
   | { some: Condition }
-  | { path: FactPath; op: 'eq' | 'in' | 'gt' | 'excludesPoint'; value: Value }
+  | { path: FactPath; op: 'present' }
+  | { path: FactPath; op: 'eq' | 'in' | 'includes' | 'gt' | 'excludesPoint'; value: Value }
   | { path: FactPath; op: 'eqRef' | 'inRef'; ref: FactPath }
+  | { path: 'item.colour'; op: 'familyOverride'; ref: 'brief.familyColours' }
   | { path: 'item.textileIdentity'; op: 'belowBand' | 'aboveBand'; ref: 'brief.formalityBand' };
 
 export interface Rule {
@@ -81,9 +98,9 @@ export interface Rule {
   violation?: Condition;
   effect: 'failure' | 'question' | 'advisory';
   failureGroup?: FailureGroup;
-  sourceReviewers: readonly ['R1', 'R2', 'R3'];
+  sourceReviewers: readonly ('R1' | 'R2' | 'R3')[];
   provenance: 'matrix' | 'fitted';
-  source: 'reviewer matrix' | 'review of rating results';
+  source: 'reviewer matrix' | 'review of rating results' | 'reviewer answer';
   reasonText: string;
 }
 

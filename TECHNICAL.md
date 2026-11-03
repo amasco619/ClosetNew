@@ -3794,9 +3794,10 @@ observed results. V1, v3.7 and all frozen files remain untouched.
 
 `lib/nigerianStyling/v2/blindAdapter.ts` applies the explicitly approved key-role
 convention and event/role band table, without reading scenario IDs or inferring
-set membership from matching garments. Null V1 stays unknown. V2 accepts this
-absence rather than inventing eligible structure or satisfied coverage.
-Fixtures remain byte-identical.
+set membership from matching garments. Step 3b kept null V1 unknown; Step 3c
+supersedes that experimental adapter behaviour with an actual V1 call using
+the described items, empty relationships and the default covering preference.
+Unmappable subtypes still abstain. Fixtures remain byte-identical.
 
 Reviewed S04 is underdressing only; S04a is an above-band advisory. A key piece
 exactly matching bought aso-ebi colour and textile is exempt from S04/S06.
@@ -3809,3 +3810,23 @@ then emits only judged/not judged and unknown-fact/question/gap information,
 with counts by category. The adapter must be committed and its SHA-256 printed
 before the first coverage run. No fixture-level verdict bands or accuracy
 metrics are emitted. See `docs/reports/nigerian-v2-step3b.md`.
+
+### Reviewer answers and actual-V1 coverage (Step 3c)
+
+V2 now records per-rule reviewer attribution for church coverage, the wearer's
+optional stated coverage, the supplied funeral colour lists and exact announced
+family-colour exemptions. Overdressing remains advisory; small-wrap guidance
+uses shape and height facts without numerical thresholds. Quality markers are
+vocabulary only and cannot create a poor-polyester flag. S06 remains excluded
+from accuracy-mode runs.
+
+The blind adapter reads exact supporting item phrases and explicit contextual
+statements, never ratings or scenario-specific branches. It does not equate
+generic above-knee hems with clearly short hems, generic small headwear with
+low/close/unsculpted shape, or a community practice with a personal requirement.
+V1 transformations do not rewrite the described look submitted to V2. No
+confirmed set relationship is manufactured. This is a blind experiment only,
+not a replacement for the app's confirmed-relationship boundary.
+
+See `docs/reports/nigerian-v2-step3c.md` and its coverage-only JSON for the
+committed adapter digest, provenance, mapping limitations and verification.

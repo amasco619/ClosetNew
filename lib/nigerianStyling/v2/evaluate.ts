@@ -40,7 +40,15 @@ function evaluate(condition: Condition, input: LookFacts, item?: ItemFacts): Ans
     return combine(input.items.map(i => evaluate(condition.some, input, i)), false);
   }
   const value = fact(input, condition.path, item);
+  if (condition.op === 'present') return yes(value != null);
   const other = 'ref' in condition ? fact(input, condition.ref, item) : condition.value;
+  // This brief field is an optional override, not a required announced palette.
+  if (condition.op === 'familyOverride') {
+    return yes(value != null && Array.isArray(other) && other.includes(value));
+  }
+  if (condition.op === 'includes' && condition.path === 'brief.statedCoverage' && value == null) {
+    return yes(false); // Optional personal rule: no answer imposes no requirement.
+  }
   const missing = [
     ...(value == null ? [flagPath(condition.path, item)] : []),
     ...(other == null && 'ref' in condition ? [flagPath(condition.ref, item)] : []),
@@ -51,6 +59,7 @@ function evaluate(condition: Condition, input: LookFacts, item?: ItemFacts): Ans
     case 'eqRef': return yes(value === other);
     case 'in':
     case 'inRef': return yes(Array.isArray(other) && other.includes(value));
+    case 'includes': return yes(Array.isArray(value) && value.includes(other));
     case 'gt': return yes(typeof value === 'number' && typeof other === 'number' && value > other);
     case 'excludesPoint': return yes(Array.isArray(value) && typeof other === 'number'
       && (value[0] > other || value[1] < other));
@@ -78,11 +87,12 @@ function evaluate(condition: Condition, input: LookFacts, item?: ItemFacts): Ans
 const ITEM_FIELDS: readonly (keyof ItemFacts)[] = [
   'id', 'key', 'kind', 'colour', 'textileIdentity', 'quality', 'footwearType',
   'shoulderCoverage', 'hem', 'headwearHeight', 'headwearShape', 'coralStrands',
+  'backless', 'strapless', 'sleeveLength', 'modest', 'finish',
 ];
 const BRIEF_FIELDS: readonly (keyof LookFacts['brief'])[] = [
   'occasion', 'role', 'whoseEvent', 'community', 'denomination', 'asoEbiBought',
   'asoEbiColour', 'asoEbiTextile', 'brideColours', 'familyTextiles', 'timeOfDay',
-  'formalityBand', 'titledWoman',
+  'formalityBand', 'titledWoman', 'statedCoverage', 'familyColours',
 ];
 
 export function evaluateNigerianStylingV2(
@@ -90,7 +100,10 @@ export function evaluateNigerianStylingV2(
 ): StylingResult {
   const missingFacts: Record<string, boolean> = {};
   for (const field of BRIEF_FIELDS) missingFacts[`brief.${field}`] = input.brief[field] == null;
-  for (const field of ['traditionalWear', 'printDominance'] as const) {
+  for (const field of [
+    'traditionalWear', 'printDominance', 'wornCover',
+    'armsCovered', 'shouldersCovered', 'kneesCovered', 'headCovered',
+  ] as const) {
     missingFacts[field] = input[field] == null;
   }
   for (const item of input.items) {

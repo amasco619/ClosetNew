@@ -37,8 +37,28 @@ const perRuleCases: Record<string, LookFacts> = {
   H03a: look({ brief: brief({ asoEbiBought: true, asoEbiColour: 'blue', asoEbiTextile: 'premium-ankara' }) }),
   H03b: look({ brief: brief({ asoEbiBought: true, asoEbiColour: 'navy', asoEbiTextile: 'adire' }) }),
   H04: look({ brief: brief({ occasion: 'funeral' }), items: [dress({ colour: 'red' })] }),
-  H04q: look({ brief: brief({ occasion: 'funeral' }) }),
-  H05: look({ brief: brief({ occasion: 'church' }) }),
+  H04q: look({ brief: brief({ occasion: 'funeral' }), items: [dress({ colour: 'white' })] }),
+  H04l: look({ brief: brief({ occasion: 'funeral' }), items: [dress({ colour: 'turquoise' })] }),
+  H04a: look({ brief: brief({ occasion: 'funeral' }), items: [dress({ colour: 'coral' })] }),
+  H04b: look({ brief: brief({ occasion: 'funeral' }), items: [dress({ colour: 'bright-purple' })] }),
+  H04c: look({ brief: brief({ occasion: 'funeral' }), items: [dress({ colour: 'wine' })] }),
+  H05back: look({ brief: brief({ occasion: 'church' }), wornCover: false, items: [dress({ backless: true })] }),
+  H05strap: look({ brief: brief({ occasion: 'church' }), wornCover: false, items: [dress({ strapless: true })] }),
+  H05sleeve: look({ brief: brief({ occasion: 'church', denomination: 'catholic' }),
+    wornCover: false, items: [dress({ sleeveLength: 'none' })] }),
+  H05modest: look({ brief: brief({ occasion: 'church', denomination: 'pentecostal' }),
+    wornCover: false, items: [dress({ sleeveLength: 'none', modest: false })] }),
+  H05denom: look({ brief: brief({ occasion: 'church', denomination: 'unspecified' }),
+    wornCover: false, items: [dress({ sleeveLength: 'none' })] }),
+  H05hem: look({ brief: brief({ occasion: 'church', denomination: 'catholic' }),
+    items: [dress({ hem: 'clearlyAboveKnee' })] }),
+  H05hemP: look({ brief: brief({ occasion: 'church', denomination: 'pentecostal' }),
+    items: [dress({ hem: 'clearlyAboveKnee' })] }),
+  H05hemQ: look({ brief: brief({ occasion: 'church' }), items: [dress({ hem: 'slightlyAboveKnee' })] }),
+  'U01-arms': look({ brief: brief({ statedCoverage: ['arms'] }), armsCovered: false }),
+  'U01-shoulders': look({ brief: brief({ statedCoverage: ['shoulders'] }), shouldersCovered: false }),
+  'U01-knees': look({ brief: brief({ statedCoverage: ['knees'] }), kneesCovered: false }),
+  'U01-head': look({ brief: brief({ statedCoverage: ['head'] }), headCovered: false }),
   H06: look({ traditionalWear: true, items: [dress(), piece('shoes', { footwearType: 'trainer' })] }),
   H07: look({ items: [dress(), piece('gele'), piece('blazer')] }),
   S01: look({ traditionalWear: true }),
@@ -193,18 +213,17 @@ assert.ok(!assess({
   ...perRuleCases.C07, brief: brief({ occasion: 'naming', role: 'mother', formalityBand: [8, 8] }),
 }).hits.some(hit => hit.ruleId === 'C07'));
 
-for (const colour of ['pink', 'orange', 'yellow', 'green', 'blue']) {
+for (const colour of ['pink', 'yellow', 'green', 'blue']) {
   const result = assess(look({ brief: brief({ occasion: 'funeral' }), items: [dress({ colour })] }));
   assert.ok(!result.failureGroups.includes('funeralColour'));
-  assert.ok(result.questions.length > 0);
 }
 for (const hem of ['aboveKnee', 'knee', 'belowKnee', 'ankle', 'floor'] as const) {
   for (const shoulderCoverage of ['covered', 'uncovered'] as const) {
     const result = assess(look({
       brief: brief({ occasion: 'church' }), items: [dress({ hem, shoulderCoverage })],
     }));
-    assert.equal(result.verdict, 'Not judged');
-    assert.equal(result.failureGroups.length, 0, 'no invented church threshold');
+    assert.equal(result.verdict, 'Not judged', 'unstated neckline and sleeve facts remain unknown');
+    assert.equal(result.failureGroups.length, 0, 'ambiguous above-knee wording is not clearly above');
   }
 }
 for (const kind of ['agbada', 'fila', 'okpu', 'zanna', 'senator', 'dashiki', 'unknown']) {

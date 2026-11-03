@@ -66,22 +66,22 @@ for (const brief of [
 const input = observed();
 const before = JSON.stringify(input);
 const output = adaptBlindLookFacts(input);
-assert.equal(output.v1, null, 'no default eligible decision or satisfied covering');
+assert.equal(output.v1?.decision.status, 'eligible', 'actual V1 accepts one dress');
 assert.equal(output.items[0].key, true);
 assert.equal(output.items[0].colour, undefined);
 assert.equal(output.traditionalWear, undefined, 'never infer cultural intent from garments');
 assert.equal(assess(output).judged, false);
-assert.equal(assess(output).missingFacts['v1.decision.status'], true);
+assert.equal(assess(output).missingFacts['v1.decision.status'], false);
 assert.deepEqual(adaptBlindLookFacts(input), output);
 assert.equal(JSON.stringify(input), before, 'adapter must not mutate observations');
 input.items[0].kind = 'set';
-assert.equal(adaptBlindLookFacts(input).v1, null, 'a set name does not prove membership');
+assert.equal(adaptBlindLookFacts(input).v1?.decision.status, 'unknown', 'a set name does not prove its components');
 input.items[0].kind = null;
 assert.equal(adaptBlindLookFacts(input).items[0].key, undefined);
 assert.equal(adaptBlindLookFacts(input).items[0].kind, undefined);
 assert.equal(assess(adaptBlindLookFacts(input)).judged, false);
 input.v1 = synthetic().v1;
-assert.deepEqual(adaptBlindLookFacts(input).v1, input.v1, 'preserve fact-backed supplied structure');
+assert.equal(adaptBlindLookFacts(input).v1?.decision.status, 'unknown', 'a supplied shortcut cannot bypass V1 mapping');
 assert.deepEqual(adaptBlindLookFacts(observed({ formalityBand: [3, 4] })).brief.formalityBand, [3, 4]);
 
 const matched = synthetic();

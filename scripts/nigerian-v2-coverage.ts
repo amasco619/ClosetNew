@@ -54,12 +54,20 @@ const fixtures = records.map(record => {
   if (sha(bytes) !== record.checksum) throw new Error(`Frozen bytes changed: ${record.file}`);
   const fixture = JSON.parse(bytes.toString()) as {
     id: string; source: { passages: Record<string, string> }; lookFacts: BlindObservation;
+    evidence: Record<string, { source: string; quote: string }[]>;
   };
   if (`${fixture.id}.json` !== record.file) throw new Error('Fixture ID mismatch.');
   return fixture;
 });
 const coverage = fixtures.map(fixture => {
-  const input = adaptBlindLookFacts(fixture.lookFacts);
+  const passages = fixture.source.passages;
+  const input = adaptBlindLookFacts(fixture.lookFacts, {
+    context: Object.entries(passages).filter(([key]) => key.endsWith('.context'))
+      .map(([, text]) => text).join('\n'),
+    look: passages[fixture.id],
+    itemPhrases: fixture.lookFacts.items.map((_, index) =>
+      (fixture.evidence[`/items/${index}/kind`] ?? []).map(e => e.quote).join('; ')),
+  });
   const result = evaluateNigerianStylingV2(input, { mode: 'accuracy' });
   const status = result.judged ? 'judged' : 'not judged';
   const group = category(fixture.source.passages[`${fixture.id.slice(0, 3)}.title`], fixture.lookFacts);
