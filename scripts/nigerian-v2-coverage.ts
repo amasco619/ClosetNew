@@ -30,13 +30,15 @@ if (JSON.stringify(records.map(record => record.file)) !== JSON.stringify(expect
 }
 
 type Category = 'Nigerian event' | 'work' | 'travel' | 'weather' | 'date' | 'other';
-const categories: Record<Category, { final: number; 'floor-only': number; abstained: number }> = {
-  'Nigerian event': { final: 0, 'floor-only': 0, abstained: 0 },
-  work: { final: 0, 'floor-only': 0, abstained: 0 },
-  travel: { final: 0, 'floor-only': 0, abstained: 0 },
-  weather: { final: 0, 'floor-only': 0, abstained: 0 },
-  date: { final: 0, 'floor-only': 0, abstained: 0 },
-  other: { final: 0, 'floor-only': 0, abstained: 0 },
+const categories: Record<Category, {
+  final: number; worksWithUnchecked: number; 'floor-only': number; abstained: number;
+}> = {
+  'Nigerian event': { final: 0, worksWithUnchecked: 0, 'floor-only': 0, abstained: 0 },
+  work: { final: 0, worksWithUnchecked: 0, 'floor-only': 0, abstained: 0 },
+  travel: { final: 0, worksWithUnchecked: 0, 'floor-only': 0, abstained: 0 },
+  weather: { final: 0, worksWithUnchecked: 0, 'floor-only': 0, abstained: 0 },
+  date: { final: 0, worksWithUnchecked: 0, 'floor-only': 0, abstained: 0 },
+  other: { final: 0, worksWithUnchecked: 0, 'floor-only': 0, abstained: 0 },
 };
 
 function category(title: string, observation: BlindObservation): Category {
@@ -72,7 +74,9 @@ for (const fixture of fixtures) {
   });
   const result = evaluateNigerianStylingV2(input, { mode: 'accuracy' });
   const group = category(fixture.source.passages[`${fixture.id.slice(0, 3)}.title`], fixture.lookFacts);
-  categories[group][result.status]++;
+  if (result.status === 'final' && result.worksWithUnchecked) {
+    categories[group].worksWithUnchecked++;
+  } else categories[group][result.status]++;
 }
 // Count-only allowlist: no fixture-level result, floor value, questions or hits.
 const output = JSON.stringify({ categories }, null, 2);

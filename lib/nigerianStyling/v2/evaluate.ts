@@ -121,7 +121,15 @@ export function evaluateNigerianStylingV2(
   const failureGroups: FailureGroup[] = [];
   const unassessedFacts: string[] = [];
   const unresolvedReasons: string[] = [];
+  const uncheckedRules: StylingResult['uncheckedRules'] = [];
   const excludedRuleIds: string[] = [];
+  const addUnchecked = (id: string, facts: readonly string[]) => {
+    for (const missingFact of unique(facts.length ? facts : ['rule premises'])) {
+      if (!uncheckedRules.some(entry => entry.id === id && entry.missingFact === missingFact)) {
+        uncheckedRules.push({ id, missingFact });
+      }
+    }
+  };
   for (const rule of RULES) {
     if (options.mode === 'accuracy' && rule.provenance === 'fitted') {
       excludedRuleIds.push(rule.id);
@@ -133,7 +141,6 @@ export function evaluateNigerianStylingV2(
       && input.brief.community !== rule.communityTag) continue;
     const missingCommunity = rule.communityTag != null && input.brief.community == null;
     const violation = rule.violation ? evaluate(rule.violation, input) : yes(true);
-    if (violation.value === false) continue;
     if (scope.value === undefined || violation.value === undefined || missingCommunity) {
       const paths = unique([
         ...scope.missing, ...violation.missing, ...(missingCommunity ? ['brief.community'] : []),
@@ -142,15 +149,21 @@ export function evaluateNigerianStylingV2(
       const unassessed = unique([...(scope.unassessed ?? []), ...(violation.unassessed ?? [])]);
       unassessedFacts.push(...unassessed);
       questions.push(`Please confirm ${[...paths, ...unassessed].join(', ')}. ${rule.reasonText}`);
-      if (rule.type === 'hardFilter' || rule.answerRequired) unresolvedReasons.push(rule.id);
+      addUnchecked(rule.id, [...paths, ...unassessed]);
+      if (rule.answerRequired && (scope.value === true
+        || (rule.id === 'H05denom' && input.brief.occasion === 'church'))) {
+        unresolvedReasons.push(rule.id);
+      }
       continue;
     }
+    if (violation.value === false) continue;
     hits.push({
       ruleId: rule.id, effect: rule.effect, failureGroup: rule.failureGroup, reason: rule.reasonText,
     });
     if (rule.effect === 'failure' && rule.failureGroup) failureGroups.push(rule.failureGroup);
     if (rule.effect === 'question') {
       questions.push(rule.reasonText);
+      addUnchecked(rule.id, ['answer']);
       if (rule.answerRequired) unresolvedReasons.push(rule.id);
     }
     if (rule.effect === 'advisory') advisoryNotes.push(rule.reasonText);
@@ -163,26 +176,28 @@ export function evaluateNigerianStylingV2(
   );
   if (unknownVocabulary) gapNotes.push('A key piece is outside this version’s vocabulary.');
   if (input.v1?.decision.status === 'rejected') {
-    failureGroups.push('structure');
     gapNotes.push(input.v1.decision.reason ?? 'V1 could not confirm the look’s structure.');
   }
   if (input.v1?.decision.headCoveringSatisfied === false) {
     gapNotes.push('The V1 head-covering constraint is not satisfied.');
   }
   if (unknownVocabulary) unresolvedReasons.push('vocabulary');
-  if (input.v1 == null || input.v1.decision.status === 'unknown') unresolvedReasons.push('v1');
-  if (input.v1?.decision.headCoveringSatisfied === false) unresolvedReasons.push('covering');
+  if (input.v1 == null || input.v1.decision.status === 'unknown'
+    || input.v1.decision.status === 'rejected') unresolvedReasons.push('v1');
   const groups = unique(failureGroups);
-  // Known independent failures cannot be undone by resolving missing facts.
-  const unresolved = unresolvedReasons.length > 0;
+  const unresolved = unique(unresolvedReasons).length > 0;
   const status = groups.length >= 2 || !unresolved
     ? 'final' : groups.length === 1 ? 'floor-only' : 'abstained';
-  const verdict = status !== 'final' ? 'Not judged'
-    : groups.length >= 2 ? 'Rethink' : groups.length === 1 ? 'Almost' : 'Works';
+  const verdict = groups.length >= 2 ? 'Rethink'
+    : groups.length === 1 && !unresolved ? 'Almost'
+      : groups.length === 1 || unresolved ? 'Not judged' : 'Works';
+  const judged = status === 'final';
   return {
-    version: 2, verdict, judged: status === 'final', status,
+    version: 2, verdict, judged, status,
     floor: status === 'floor-only' ? 'Almost' : null,
-    unresolvedReasons: unique(unresolvedReasons), failureGroups: groups, hits,
+    unresolvedReasons: unique(unresolvedReasons), uncheckedRules,
+    worksWithUnchecked: verdict === 'Works' && uncheckedRules.length > 0,
+    failureGroups: groups, hits,
     questions: unique(questions), gapNotes: unique(gapNotes), advisoryNotes: unique(advisoryNotes),
     missingFacts, unassessedFacts: unique(unassessedFacts), excludedRuleIds,
   };

@@ -190,18 +190,20 @@ assert.ok(!assess(look({
 const unknownAsoOke = assess(look({
   items: [dress({ textileIdentity: 'aso-oke' })], brief: brief({ community: undefined }),
 }));
-assert.equal(unknownAsoOke.verdict, 'Not judged');
+assert.equal(unknownAsoOke.verdict, 'Works');
+assert.equal(unknownAsoOke.worksWithUnchecked, true);
 assert.equal(unknownAsoOke.missingFacts['brief.community'], true);
 assert.equal(assess(look({
   items: [dress({ textileIdentity: 'aso-oke' })], brief: brief({ community: 'igbo' }),
-})).verdict, 'Not judged', 'never apply the Yoruba band to another community');
+})).verdict, 'Works', 'never apply the Yoruba band to another community');
 
 const unknownCommunity = assess({
   ...perRuleCases.C05, brief: brief({ community: undefined }),
 });
 assert.ok(!unknownCommunity.failureGroups.includes('roleAdornment'));
 assert.ok(unknownCommunity.questions.length > 0);
-assert.equal(unknownCommunity.verdict, 'Not judged');
+assert.equal(unknownCommunity.verdict, 'Works');
+assert.equal(unknownCommunity.worksWithUnchecked, true);
 const differentCommunity = assess({
   ...perRuleCases.C05, brief: brief({ community: 'hausa' }),
 });
@@ -220,9 +222,13 @@ for (const colour of ['pink', 'yellow', 'green', 'blue']) {
 for (const hem of ['aboveKnee', 'knee', 'belowKnee', 'ankle', 'floor'] as const) {
   for (const shoulderCoverage of ['covered', 'uncovered'] as const) {
     const result = assess(look({
-      brief: brief({ occasion: 'church' }), items: [dress({ hem, shoulderCoverage })],
+      brief: brief({ occasion: 'church', denomination: 'catholic' }),
+      items: [dress({
+        hem, shoulderCoverage, backless: false, strapless: false, sleeveLength: 'long',
+      })],
     }));
-    assert.equal(result.verdict, 'Not judged', 'unstated neckline and sleeve facts remain unknown');
+    assert.equal(result.verdict, hem === 'aboveKnee' ? 'Not judged' : 'Works',
+      'only an applicable required church question remains a verdict blocker');
     assert.equal(result.failureGroups.length, 0, 'ambiguous above-knee wording is not clearly above');
   }
 }
@@ -239,13 +245,16 @@ assert.ok(!absentTextile.failureGroups.includes('register'));
 const unmappedTextile = assess(look({ items: [dress({ textileIdentity: 'george' })] }));
 assert.equal(unmappedTextile.missingFacts['items.dress.textileIdentity'], false);
 assert.ok(unmappedTextile.unassessedFacts.includes('items.dress.textileIdentity'));
-assert.equal(unmappedTextile.verdict, 'Not judged', 'George is not inferred to be Indian George');
+assert.equal(unmappedTextile.verdict, 'Works', 'George is not inferred to be Indian George');
+assert.equal(unmappedTextile.worksWithUnchecked, true);
 const absentBand = assess(look({ brief: brief({ formalityBand: undefined }) }));
 assert.equal(absentBand.missingFacts['brief.formalityBand'], true);
 assert.ok(!absentBand.failureGroups.includes('register'), 'never infer a band from a role or occasion');
-assert.equal(assess(look({
+const invalidBand = assess(look({
   brief: brief({ formalityBand: [10, 4] }),
-})).verdict, 'Not judged');
+}));
+assert.equal(invalidBand.verdict, 'Works');
+assert.equal(invalidBand.worksWithUnchecked, true);
 
 const advisory = assess(look({ traditionalWear: true, printDominance: 'competing' }));
 assert.equal(advisory.verdict, 'Works');
@@ -276,13 +285,15 @@ assert.ok(!assess({
   ...perRuleCases.C09, items: [...perRuleCases.C09.items, piece('blazer')],
 }).hits.some(hit => hit.ruleId === 'C09'));
 
-assert.ok(assess(look({
+const rejectedV1 = assess(look({
   v1: { decision: { status: 'rejected', headCoveringSatisfied: true, reason: 'incomplete set' }, gapNotes: [] },
-})).failureGroups.includes('structure'));
+}));
+assert.equal(rejectedV1.verdict, 'Not judged');
+assert.ok(!rejectedV1.failureGroups.includes('structure'));
 const unsatisfied = assess(look({
   v1: { decision: { status: 'eligible', headCoveringSatisfied: false }, gapNotes: ['V1 covering gap'] },
 }));
-assert.equal(unsatisfied.verdict, 'Not judged');
+assert.equal(unsatisfied.verdict, 'Works');
 assert.ok(unsatisfied.gapNotes.includes('V1 covering gap'));
 assert.equal(unsatisfied.failureGroups.length, 0);
 assert.equal(assess(look({

@@ -121,8 +121,12 @@ export interface StylingResult {
   status: 'final' | 'floor-only' | 'abstained';
   /** One proven group with unresolved requirements: at least this band, not final. */
   floor: 'Almost' | null;
-  /** Blocking rule IDs or structural predicates; excludes optional/advisory prompts. */
+  /** Structural or required-church blockers; unknown rule facts are listed separately. */
   unresolvedReasons: string[];
+  /** Applicable rule facts or answers that remain unknown; never blocks by itself. */
+  uncheckedRules: { id: string; missingFact: string }[];
+  /** True only for a final Works result with at least one unchecked rule. */
+  worksWithUnchecked: boolean;
   failureGroups: FailureGroup[];
   hits: RuleHit[];
   questions: string[];
