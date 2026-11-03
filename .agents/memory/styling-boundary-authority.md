@@ -123,3 +123,13 @@ reporting. Reviewer-led church and funeral additions must preserve unknowns:
 generic above-knee is not clearly above, small is not low/close/unsculpted, and
 community practice is not a wearer's stated coverage. Poor-quality material
 markers remain vocabulary only, never an inferred flag.
+
+Keep blind coverage's final, floor-only and abstained populations separate;
+floor-only is never correct in any metric. Do not treat a coverage increase as
+accuracy evidence or use it to fill missing facts or tune reviewer rules.
+
+**Why:** The user authorised a verdict-floor experiment before gold labels,
+not additional evidence about any look's suitability.
+
+**How to apply:** Publish the committed evaluator checksum before count-only
+reruns; do not expose per-fixture bands or failure groups in those runs.

@@ -3830,3 +3830,13 @@ not a replacement for the app's confirmed-relationship boundary.
 
 See `docs/reports/nigerian-v2-step3c.md` and its coverage-only JSON for the
 committed adapter digest, provenance, mapping limitations and verification.
+
+Step 3d separates final judgements, floor-only results and abstentions. Two
+known independent groups are final despite unresolved facts; one group with
+unresolved requirements reports a separate floor and `judged: false`. Optional
+askFirst prompts remain visible without blocking; the three church coverage
+questions explicitly require answers. Missing hard-rule facts remain unknown.
+Accuracy mode still excludes fitted S06. The coverage runner emits category
+counts only, never fixture bands or failure groups. See
+`docs/reports/nigerian-v2-step3d.md` for the pre-edit 95-fixture diagnosis,
+verification and committed evaluator checksum.

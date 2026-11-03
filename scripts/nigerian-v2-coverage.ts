@@ -30,11 +30,13 @@ if (JSON.stringify(records.map(record => record.file)) !== JSON.stringify(expect
 }
 
 type Category = 'Nigerian event' | 'work' | 'travel' | 'weather' | 'date' | 'other';
-const categories: Record<Category, { judged: number; 'not judged': number }> = {
-  'Nigerian event': { judged: 0, 'not judged': 0 },
-  work: { judged: 0, 'not judged': 0 }, travel: { judged: 0, 'not judged': 0 },
-  weather: { judged: 0, 'not judged': 0 }, date: { judged: 0, 'not judged': 0 },
-  other: { judged: 0, 'not judged': 0 },
+const categories: Record<Category, { final: number; 'floor-only': number; abstained: number }> = {
+  'Nigerian event': { final: 0, 'floor-only': 0, abstained: 0 },
+  work: { final: 0, 'floor-only': 0, abstained: 0 },
+  travel: { final: 0, 'floor-only': 0, abstained: 0 },
+  weather: { final: 0, 'floor-only': 0, abstained: 0 },
+  date: { final: 0, 'floor-only': 0, abstained: 0 },
+  other: { final: 0, 'floor-only': 0, abstained: 0 },
 };
 
 function category(title: string, observation: BlindObservation): Category {
@@ -59,7 +61,7 @@ const fixtures = records.map(record => {
   if (`${fixture.id}.json` !== record.file) throw new Error('Fixture ID mismatch.');
   return fixture;
 });
-const coverage = fixtures.map(fixture => {
+for (const fixture of fixtures) {
   const passages = fixture.source.passages;
   const input = adaptBlindLookFacts(fixture.lookFacts, {
     context: Object.entries(passages).filter(([key]) => key.endsWith('.context'))
@@ -69,23 +71,11 @@ const coverage = fixtures.map(fixture => {
       (fixture.evidence[`/items/${index}/kind`] ?? []).map(e => e.quote).join('; ')),
   });
   const result = evaluateNigerianStylingV2(input, { mode: 'accuracy' });
-  const status = result.judged ? 'judged' : 'not judged';
   const group = category(fixture.source.passages[`${fixture.id.slice(0, 3)}.title`], fixture.lookFacts);
-  categories[group][status]++;
-  // Allowlist projection only. Never spread the evaluator result.
-  return result.judged
-    ? { fixture: fixture.id, category: group, status }
-    : {
-      fixture: fixture.id, category: group, status,
-      missingFacts: Object.keys(result.missingFacts).filter(path =>
-        result.missingFacts[path] && (path.startsWith('v1.')
-          || path.endsWith('.key') || path.endsWith('.kind'))),
-      questions: result.questions,
-      gaps: result.gapNotes,
-      unassessedFacts: result.unassessedFacts,
-    };
-});
-const output = JSON.stringify({ categories, fixtures: coverage }, null, 2);
+  categories[group][result.status]++;
+}
+// Count-only allowlist: no fixture-level result, floor value, questions or hits.
+const output = JSON.stringify({ categories }, null, 2);
 // Fail closed if any future evaluator message would expose a verdict label.
 if (/\b(?:Works|Almost|Rethink)\b/i.test(output)) {
   throw new Error('Coverage output refused: contains a prohibited verdict label.');

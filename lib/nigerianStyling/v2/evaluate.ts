@@ -120,7 +120,7 @@ export function evaluateNigerianStylingV2(
   const advisoryNotes: string[] = [];
   const failureGroups: FailureGroup[] = [];
   const unassessedFacts: string[] = [];
-  let unresolved = false;
+  const unresolvedReasons: string[] = [];
   const excludedRuleIds: string[] = [];
   for (const rule of RULES) {
     if (options.mode === 'accuracy' && rule.provenance === 'fitted') {
@@ -142,7 +142,7 @@ export function evaluateNigerianStylingV2(
       const unassessed = unique([...(scope.unassessed ?? []), ...(violation.unassessed ?? [])]);
       unassessedFacts.push(...unassessed);
       questions.push(`Please confirm ${[...paths, ...unassessed].join(', ')}. ${rule.reasonText}`);
-      if (rule.type !== 'explainOnly') unresolved = true;
+      if (rule.type === 'hardFilter' || rule.answerRequired) unresolvedReasons.push(rule.id);
       continue;
     }
     hits.push({
@@ -151,7 +151,7 @@ export function evaluateNigerianStylingV2(
     if (rule.effect === 'failure' && rule.failureGroup) failureGroups.push(rule.failureGroup);
     if (rule.effect === 'question') {
       questions.push(rule.reasonText);
-      unresolved = true;
+      if (rule.answerRequired) unresolvedReasons.push(rule.id);
     }
     if (rule.effect === 'advisory') advisoryNotes.push(rule.reasonText);
   }
@@ -169,14 +169,20 @@ export function evaluateNigerianStylingV2(
   if (input.v1?.decision.headCoveringSatisfied === false) {
     gapNotes.push('The V1 head-covering constraint is not satisfied.');
   }
+  if (unknownVocabulary) unresolvedReasons.push('vocabulary');
+  if (input.v1 == null || input.v1.decision.status === 'unknown') unresolvedReasons.push('v1');
+  if (input.v1?.decision.headCoveringSatisfied === false) unresolvedReasons.push('covering');
   const groups = unique(failureGroups);
-  const verdict = unknownVocabulary || input.v1 == null || input.v1.decision.status === 'unknown'
-    ? 'Not judged'
-    : groups.length >= 2 ? 'Rethink'
-      : groups.length === 1 ? 'Almost'
-        : unresolved || !input.v1.decision.headCoveringSatisfied ? 'Not judged' : 'Works';
+  // Known independent failures cannot be undone by resolving missing facts.
+  const unresolved = unresolvedReasons.length > 0;
+  const status = groups.length >= 2 || !unresolved
+    ? 'final' : groups.length === 1 ? 'floor-only' : 'abstained';
+  const verdict = status !== 'final' ? 'Not judged'
+    : groups.length >= 2 ? 'Rethink' : groups.length === 1 ? 'Almost' : 'Works';
   return {
-    version: 2, verdict, judged: verdict !== 'Not judged', failureGroups: groups, hits,
+    version: 2, verdict, judged: status === 'final', status,
+    floor: status === 'floor-only' ? 'Almost' : null,
+    unresolvedReasons: unique(unresolvedReasons), failureGroups: groups, hits,
     questions: unique(questions), gapNotes: unique(gapNotes), advisoryNotes: unique(advisoryNotes),
     missingFacts, unassessedFacts: unique(unassessedFacts), excludedRuleIds,
   };

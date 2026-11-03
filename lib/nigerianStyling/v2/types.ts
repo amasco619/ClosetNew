@@ -97,6 +97,8 @@ export interface Rule {
   appliesWhen: Condition;
   violation?: Condition;
   effect: 'failure' | 'question' | 'advisory';
+  /** askFirst is optional unless its answer is needed to settle a failure rule. */
+  answerRequired?: boolean;
   failureGroup?: FailureGroup;
   sourceReviewers: readonly ('R1' | 'R2' | 'R3')[];
   provenance: 'matrix' | 'fitted';
@@ -114,8 +116,13 @@ export interface RuleHit {
 export interface StylingResult {
   version: 2;
   verdict: Verdict;
-  /** False for Not judged; it must never be counted as a correct judgement. */
+  /** Only final results are eligible for accuracy; floor-only is never correct. */
   judged: boolean;
+  status: 'final' | 'floor-only' | 'abstained';
+  /** One proven group with unresolved requirements: at least this band, not final. */
+  floor: 'Almost' | null;
+  /** Blocking rule IDs or structural predicates; excludes optional/advisory prompts. */
+  unresolvedReasons: string[];
   failureGroups: FailureGroup[];
   hits: RuleHit[];
   questions: string[];

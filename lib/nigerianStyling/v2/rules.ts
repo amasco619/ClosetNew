@@ -51,7 +51,11 @@ function rule(
 
 const reviewers = ['R1', 'R2', 'R3'] as const;
 function answer(value: Rule, sourceReviewers: Rule['sourceReviewers'] = reviewers): Rule {
-  return { ...value, source: 'reviewer answer', sourceReviewers };
+  return {
+    ...value, source: 'reviewer answer', sourceReviewers,
+    // These questions settle church coverage, rather than an optional style choice.
+    ...(['H05modest', 'H05denom', 'H05hemQ'].includes(value.id) ? { answerRequired: true } : {}),
+  };
 }
 const church = any(occasion('church'), all(
   { path: 'brief.denomination', op: 'present' },
