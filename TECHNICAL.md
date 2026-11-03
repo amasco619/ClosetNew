@@ -3840,3 +3840,14 @@ Accuracy mode still excludes fitted S06. The coverage runner emits category
 counts only, never fixture bands or failure groups. See
 `docs/reports/nigerian-v2-step3d.md` for the pre-edit 95-fixture diagnosis,
 verification and committed evaluator checksum.
+
+Step 3e makes unknown rule premises non-blocking and records each rule/fact pair
+in `uncheckedRules`. Structural gaps (no recognised key piece, unmappable key
+vocabulary, unknown/rejected V1 structure) and applicable unanswered required
+church questions remain the only abstention grounds. Two known independent
+failure groups still produce a final judgement; one with a structural/question
+blocker retains a separate, unjudged floor. `worksWithUnchecked` flags final
+zero-group results with unchecked rules. Category coverage separates those
+results from other final results, floor-only results and abstentions; it is not
+accuracy evidence. Fixtures, adapter conventions and reviewer rules are unchanged.
+See `docs/reports/nigerian-v2-step3e.md`.

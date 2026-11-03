@@ -133,3 +133,15 @@ not additional evidence about any look's suitability.
 
 **How to apply:** Publish the committed evaluator checksum before count-only
 reruns; do not expose per-fixture bands or failure groups in those runs.
+
+Unknown V2 rule facts are unchecked, not negative evidence or automatic
+abstentions. Only structural uncertainty and applicable required church
+questions may block; a potential denomination-specific question is not itself
+applicable until that denomination is known.
+
+**Why:** The user replaced general missing-fact abstention with an explicit
+unchecked policy while retaining required church checks and blind input integrity.
+
+**How to apply:** Keep unchecked coverage separate, never fill missing facts to
+increase coverage, and never treat a final result with unchecked rules as proof
+of accuracy or of those rules having passed.

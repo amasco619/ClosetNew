@@ -70,7 +70,9 @@ assert.equal(output.v1?.decision.status, 'eligible', 'actual V1 accepts one dres
 assert.equal(output.items[0].key, true);
 assert.equal(output.items[0].colour, undefined);
 assert.equal(output.traditionalWear, undefined, 'never infer cultural intent from garments');
-assert.equal(assess(output).judged, false);
+assert.equal(assess(output).judged, true, 'known dress structure is judged despite unchecked rule facts');
+assert.equal(assess(output).worksWithUnchecked, true);
+assert.ok(assess(output).uncheckedRules.length > 0);
 assert.equal(assess(output).missingFacts['v1.decision.status'], false);
 assert.deepEqual(adaptBlindLookFacts(input), output);
 assert.equal(JSON.stringify(input), before, 'adapter must not mutate observations');

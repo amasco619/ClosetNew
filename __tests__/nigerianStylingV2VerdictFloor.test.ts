@@ -125,6 +125,17 @@ assert.ok(assess(church).uncheckedRules.some(rule => rule.id === 'H05modest'));
 church.items = [{ ...church.items[0], quality: 'poorPolyester' }];
 assert.equal(assess(church).status, 'floor-only', 'required church question preserves a floor');
 
+const unknownDenomination = look();
+unknownDenomination.brief = { ...unknownDenomination.brief, occasion: 'church' };
+assert.ok(assess(unknownDenomination).unresolvedReasons.includes('H05denom'),
+  'church with no denomination retains its applicable required question');
+assert.ok(!assess(unknownDenomination).unresolvedReasons.includes('H05modest'),
+  'a Pentecostal-only question is not established applicable without a denomination');
+const unknownOccasion = look();
+unknownOccasion.brief = { ...unknownOccasion.brief, occasion: undefined };
+assert.equal(assess(unknownOccasion).status, 'final',
+  'potential church questions do not block an unknown occasion');
+
 const advisory = look();
 advisory.printDominance = undefined;
 assert.equal(assess(advisory).status, 'final');
