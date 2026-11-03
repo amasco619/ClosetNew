@@ -729,3 +729,59 @@ mtime_ms = 1793741923825
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/d383da5b-edfb-46d7-b132-b78ca1dbb377/8fe3a3d8-f805-4418-9778-e3a576288267"
 storage_version_token = "1793742002426226"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "YY3iP--D2hUjYNLTg2ku9"
+uri = "file://docs/reports/judge-experiment/plain-primary.csv"
+type = "table"
+title = "Plain-text judgments — primary model"
+description = "100 CSV rows for plain-text scenario and look prompts."
+logical_id = "21002f1c-2f64-4da1-98cc-51910a3454e4"
+content_hash = "sha256:87bd21d6bbe2694433e17929755834e47280414980a1f6166e958970e76abf96"
+size = 4931
+mtime_ms = 1793747347366
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/21002f1c-2f64-4da1-98cc-51910a3454e4/e32095e1-2c5b-492e-ac31-486ed9ab153c"
+storage_version_token = "1793747453668602"
+content_type = "text/csv"
+
+[[outputs]]
+id = "KSmVtdEXvrsCY_tJbgRxm"
+uri = "file://docs/reports/judge-experiment/plain-fallback.csv"
+type = "table"
+title = "Plain-text judgments — fallback model"
+description = "100 CSV rows for plain-text scenario and look prompts."
+logical_id = "07829374-03f2-4bc4-a97f-d7b4d9bcf691"
+content_hash = "sha256:9431fda2cd111b6e190d97cc48626c4ec411a3d69a0772481f91fac318ba99a5"
+size = 4511
+mtime_ms = 1793747358637
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/07829374-03f2-4bc4-a97f-d7b4d9bcf691/e716fd25-9e59-42b4-bba2-d75796b29ded"
+storage_version_token = "1793747454685110"
+content_type = "text/csv"
+
+[[outputs]]
+id = "LwR2tZMQHD3SxECnkhL3-"
+uri = "file://docs/reports/judge-experiment/structured-primary.csv"
+type = "table"
+title = "Structured judgments — primary model"
+description = "100 CSV rows using frozen structured facts."
+logical_id = "c3a26820-1c08-4071-aae8-ad6d431dee7d"
+content_hash = "sha256:fbf5b82521b22bf89ba835d200a2f8912ee2ed227cce1d38bb25a69d18ad6cff"
+size = 4123
+mtime_ms = 1793747362337
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/c3a26820-1c08-4071-aae8-ad6d431dee7d/a40f729d-02b7-489d-90e8-64098815ebec"
+storage_version_token = "1793747455312081"
+content_type = "text/csv"
+
+[[outputs]]
+id = "RhdSm-VXZlbtmfUJeJ_mP"
+uri = "file://docs/reports/judge-experiment/structured-fallback.csv"
+type = "table"
+title = "Structured judgments — fallback model"
+description = "100 CSV rows using frozen structured facts."
+logical_id = "533332db-4acf-49db-9a23-e05c0bc919df"
+content_hash = "sha256:fbf5b82521b22bf89ba835d200a2f8912ee2ed227cce1d38bb25a69d18ad6cff"
+size = 4123
+mtime_ms = 1793747366150
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/533332db-4acf-49db-9a23-e05c0bc919df/98f1df2d-7c29-47ba-91e1-4d2dfcf24c83"
+storage_version_token = "1793747455999346"
+content_type = "text/csv"
