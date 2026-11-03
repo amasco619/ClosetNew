@@ -715,3 +715,17 @@ mtime_ms = 1793739953638
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/4d546120-f90f-4aaa-aef2-9560362c5db4/69b9f754-922a-4352-b514-6313ffc06411"
 storage_version_token = "1793739976569028"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "VmIHvgmcQNFdgNdtzQBam"
+uri = "file://docs/reports/nigerian-v2-step3f.md"
+type = "text"
+title = "Nigerian Styling V2 — Step 3f report"
+description = "Fixture impact inventory, pre-rerun adapter/evaluator checksums, and count-only coverage results."
+logical_id = "d383da5b-edfb-46d7-b132-b78ca1dbb377"
+content_hash = "sha256:587f2df8c6a9e8472a94ea084058e1256aa8746633ddaa8f76494e77893b1b90"
+size = 3283
+mtime_ms = 1793741923825
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/d383da5b-edfb-46d7-b132-b78ca1dbb377/8fe3a3d8-f805-4418-9778-e3a576288267"
+storage_version_token = "1793742002426226"
+content_type = "text/markdown"
