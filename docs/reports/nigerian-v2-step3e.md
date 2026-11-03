@@ -120,8 +120,48 @@ information, not a rejected Nigerian garment word.
 - Existing evaluator and adapter assertions were updated for the new policy.
   No test was removed, and no fixture was opened by the synthetic evaluator tests.
 
-The committed evaluator checksum and count-only results are recorded below
-after the single coverage rerun.
+## Committed evaluator and single coverage rerun
+
+Implementation commit: `cb28d60`.
+Completed tests and pre-rerun inventory commit:
+`abc4aed527d02e35c485eb99221243712f7cd0d8`.
+Both preceded the single real coverage rerun.
+
+Evaluator SHA-256, published in chat before running:
+`169d53a0e539804191cdc1b35d47393532ddbae418c54b9a30c55fee1005e4b9`.
+
+Unchanged fixture-set manifest SHA-256:
+`e1e72cc776bf107f5f9cf7385814daecef8b526b1b8e35f21baffb6dca882775`.
+The runner verifies every fixture against that manifest before any evaluation.
+
+| Category | Final total | Of which worksWithUnchecked | Floor-only | Abstained |
+|---|---:|---:|---:|---:|
+| Nigerian event | 28 | 27 | 0 | 32 |
+| Work | 11 | 10 | 1 | 8 |
+| Travel | 0 | 0 | 0 | 4 |
+| Weather | 3 | 3 | 0 | 1 |
+| Date | 3 | 3 | 0 | 1 |
+| Other | 6 | 5 | 0 | 2 |
+| **Total** | **51** | **48** | **1** | **48** |
+
+The flag column is a subset of the final total, not an additional population.
+The raw [coverage JSON](nigerian-v2-step3e-coverage.json) instead uses exclusive
+buckets: `final` means other final results, and `worksWithUnchecked` means
+flagged final results. Those four raw buckets sum to 100.
+No per-fixture verdict bands, failure groups or accuracy were printed.
+
+## Files changed
+
+- `lib/nigerianStyling/v2/evaluate.ts`: unchecked tracking and narrower blockers.
+- `lib/nigerianStyling/v2/types.ts`: result fields and their contract.
+- `scripts/nigerian-v2-coverage.ts`: count-only split of flagged final results.
+- `__tests__/nigerianStylingV2VerdictFloor.test.ts`: policy and output-boundary tests.
+- `__tests__/nigerianStylingV2.test.ts`: existing assertions aligned with the
+  expressly changed abstention policy, preserving checks against inferred facts.
+- `__tests__/nigerianStylingV2BlindAdapter.test.ts`: existing result expectation
+  aligned with unchecked facts; adapter implementation unchanged.
+- `TECHNICAL.md`, this report and its coverage JSON.
+- `.agents/memory/styling-boundary-authority.md`: durable blind-evaluation boundary.
 
 ## Deviations and limits
 

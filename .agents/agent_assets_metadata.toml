@@ -701,3 +701,17 @@ mtime_ms = 1792674907915
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/1240a97d-91da-4a02-8cd4-fcd8ba263638/74a20676-1ff0-4ce6-b8e4-d1e911385377"
 storage_version_token = "1792675007624919"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "S-fkkhJakWoGhHL_SDnhd"
+uri = "file://docs/reports/nigerian-v2-step3e.md"
+type = "text"
+title = "Nigerian Styling V2 — Step 3e report"
+description = "Pre-rerun inventory of all 28 V1 and 26 vocabulary gaps, committed evaluator checksum, tests and count-only coverage results."
+logical_id = "4d546120-f90f-4aaa-aef2-9560362c5db4"
+content_hash = "sha256:fb908881f11f44b09f31fb21e5ebc44649e6b572942d3bc7578fdf5a458f5e3c"
+size = 7144
+mtime_ms = 1793739953638
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/4d546120-f90f-4aaa-aef2-9560362c5db4/69b9f754-922a-4352-b514-6313ffc06411"
+storage_version_token = "1793739976569028"
+content_type = "text/markdown"

@@ -1,0 +1,40 @@
+{
+  "categories": {
+    "Nigerian event": {
+      "final": 1,
+      "worksWithUnchecked": 27,
+      "floor-only": 0,
+      "abstained": 32
+    },
+    "work": {
+      "final": 1,
+      "worksWithUnchecked": 10,
+      "floor-only": 1,
+      "abstained": 8
+    },
+    "travel": {
+      "final": 0,
+      "worksWithUnchecked": 0,
+      "floor-only": 0,
+      "abstained": 4
+    },
+    "weather": {
+      "final": 0,
+      "worksWithUnchecked": 3,
+      "floor-only": 0,
+      "abstained": 1
+    },
+    "date": {
+      "final": 0,
+      "worksWithUnchecked": 3,
+      "floor-only": 0,
+      "abstained": 1
+    },
+    "other": {
+      "final": 1,
+      "worksWithUnchecked": 5,
+      "floor-only": 0,
+      "abstained": 2
+    }
+  }
+}
