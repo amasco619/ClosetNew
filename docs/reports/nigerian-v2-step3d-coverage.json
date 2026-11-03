@@ -1,0 +1,34 @@
+{
+  "categories": {
+    "Nigerian event": {
+      "final": 0,
+      "floor-only": 1,
+      "abstained": 59
+    },
+    "work": {
+      "final": 1,
+      "floor-only": 3,
+      "abstained": 16
+    },
+    "travel": {
+      "final": 0,
+      "floor-only": 0,
+      "abstained": 4
+    },
+    "weather": {
+      "final": 0,
+      "floor-only": 1,
+      "abstained": 3
+    },
+    "date": {
+      "final": 0,
+      "floor-only": 0,
+      "abstained": 4
+    },
+    "other": {
+      "final": 0,
+      "floor-only": 1,
+      "abstained": 7
+    }
+  }
+}

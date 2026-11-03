@@ -234,5 +234,57 @@ advisory unknowns; fitted-rule exclusion. The actual runner is executed with
 extra result fields: only category counts survive, with final/floor-only/
 abstained counted separately. It does not open or evaluate the rating fixtures.
 
-Verification and pre-run commit/checksum will be recorded before the real run;
-count-only results will be appended afterwards.
+### Verification and pre-run commitment
+
+Implementation commit: `b300c8c0f9898736da5261b36a201eeb0bdedac5`.
+
+Evaluator SHA-256, printed in chat **before** the real rerun:
+
+```text
+2c5272d306ab9eee2621fb878fb615f875021868bf95c73971117d4e51c9ddd8
+```
+
+- Full suite: 149 test files passed, zero failed (normal commit hook).
+- Typecheck and lint passed.
+- Golden set: 35 passed, zero failed.
+- Benchmark validator passed, including all 53 frozen-file checksums.
+- All 95 diagnosis rows mechanically matched the pre-edit in-memory trace.
+- Rating fixture manifest digest remains
+  `e1e72cc776bf107f5f9cf7385814daecef8b526b1b8e35f21baffb6dca882775`;
+  the runner verified all 100 individual file hashes before evaluation.
+- No diff from the pre-task commit in constants, V1, app, server, Supabase,
+  or the rating fixture directory. The blind adapter is unchanged.
+
+### C. One count-only rerun
+
+Command: `node_modules/.bin/tsx scripts/nigerian-v2-coverage.ts`.
+Executed once after committing and printing the evaluator digest. The saved
+[count-only output](nigerian-v2-step3d-coverage.json) contains category totals
+only; no per-fixture bands, failure groups or accuracy.
+
+| Category | Final | Floor-only | Abstained |
+|---|---:|---:|---:|
+| Nigerian event | 0 | 1 | 59 |
+| work | 1 | 3 | 16 |
+| travel | 0 | 0 | 4 |
+| weather | 0 | 1 | 3 |
+| date | 0 | 0 | 4 |
+| other | 0 | 1 | 7 |
+| **Total** | **1** | **6** | **93** |
+
+No code, rules, adapter or fixtures were changed after this run. Only this
+report and the count-only result file were completed afterwards. These are
+coverage populations, not accuracy evidence.
+
+## Deviations
+
+None. No labels requested or accessed, no inferred replacement facts, no
+fixture edits, no V1/v3.7 changes, no app integration, no migrations or live DDL,
+no server, billing, consent, limiter or secret changes.
+
+## Not verified
+
+No stylist-labelled accuracy assessment, physical-device testing, app
+integration or live-service verification was performed. None was required
+for this standalone blind rule-layer change. The remaining missing facts,
+unmapped vocabulary and rule-data gaps were diagnosed, not repaired.
