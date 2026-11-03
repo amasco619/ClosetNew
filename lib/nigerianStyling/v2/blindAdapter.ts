@@ -41,6 +41,12 @@ const NON_KEY_KINDS = new Set([
   'hat', 'fascinator', 'baseball-cap', 'veil', 'ipele', 'hand-fan',
 ]);
 
+const V1_KIND_ALIASES: Readonly<Record<string, string>> = {
+  'head-tie': 'headwrap',
+  ipele: 'layer',
+  'double-wrapper': 'wrapper',
+};
+
 function known<T extends object>(value: T): { [K in keyof T]?: NonNullable<T[K]> } {
   return Object.fromEntries(Object.entries(value).filter(([, fact]) => fact != null)) as {
     [K in keyof T]?: NonNullable<T[K]>;
@@ -58,7 +64,7 @@ const V1_CATEGORIES: Readonly<Record<string, WardrobeItem['category']>> = {
   dress: 'dress', jumpsuit: 'dress', abaya: 'dress', kaftan: 'dress', bubu: 'dress',
   top: 'top', 'ankara-top': 'top', buba: 'top',
   bottom: 'bottom', trousers: 'bottom', skirt: 'bottom', 'ankara-skirt': 'bottom',
-  iro: 'bottom', wrapper: 'bottom', jeans: 'bottom', shorts: 'bottom',
+  iro: 'bottom', wrapper: 'bottom', 'double-wrapper': 'bottom', jeans: 'bottom', shorts: 'bottom',
   outerwear: 'outerwear', blazer: 'outerwear', jacket: 'outerwear', layer: 'outerwear',
   shoes: 'shoes', footwear: 'shoes', bag: 'bag', clutch: 'bag', 'box-bag': 'bag',
   jewellery: 'jewelry', earrings: 'jewelry', necklace: 'jewelry', coral: 'jewelry',
@@ -70,7 +76,12 @@ const V1_CATEGORIES: Readonly<Record<string, WardrobeItem['category']>> = {
 };
 
 function actualV1(items: readonly ItemFacts[], brief: EventBrief): LookFacts['v1'] {
-  const unmapped = items.filter(item => !item.kind || !V1_CATEGORIES[item.kind]);
+  const v1Kind = (item: ItemFacts) => item.kind
+    ? V1_KIND_ALIASES[item.kind] ?? item.kind : undefined;
+  const unmapped = items.filter(item => {
+    const kind = v1Kind(item);
+    return !kind || !V1_CATEGORIES[kind];
+  });
   if (unmapped.length) return {
     decision: {
       status: 'unknown', headCoveringSatisfied: false,
@@ -82,12 +93,15 @@ function actualV1(items: readonly ItemFacts[], brief: EventBrief): LookFacts['v1
     : brief.occasion === 'casual' ? 'casual'
       : ['traditionalWedding', 'traditionalEvent', 'owambe', 'naming'].includes(brief.occasion ?? '')
         ? 'traditional' : 'event';
-  const wardrobe: WardrobeItem[] = items.map(item => ({
-    id: item.id, category: V1_CATEGORIES[item.kind!], subType: item.kind!,
-    // Mechanical fields required by the V1 type, never used as styling facts.
-    colorFamily: item.colour ?? 'unknown', photoUri: '', occasionTags: [], seasonTags: [],
-    createdAt: '1970-01-01T00:00:00.000Z',
-  }));
+  const wardrobe: WardrobeItem[] = items.map(item => {
+    const subType = v1Kind(item)!;
+    return {
+      id: item.id, category: V1_CATEGORIES[subType], subType,
+      // Mechanical fields required by the V1 type, never used as styling facts.
+      colorFamily: item.colour ?? 'unknown', photoUri: '', occasionTags: [], seasonTags: [],
+      createdAt: '1970-01-01T00:00:00.000Z',
+    };
+  });
   const outfit: OutfitSet = {
     id: 'blind-described-look', scenario: context === 'traditional' ? 'traditional-event' : context,
     components: wardrobe.map(item => ({
@@ -149,6 +163,10 @@ export function adaptBlindLookFacts(
       if (item.id == null) throw new Error('A blind item needs a stable identifier.');
       return {
         ...known(item), ...(source ? sourceItemFacts(source.itemPhrases[index] ?? '') : {}),
+        ...(item.kind === 'head-tie' ? {
+          kind: 'headwrap', headwearHeight: 'notTall' as const,
+          headwearShape: 'lowCloseUnsculpted' as const,
+        } : {}),
         id: item.id, key: keyGarment(item.kind),
       };
     });

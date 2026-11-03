@@ -24,6 +24,8 @@ export const COVERING_ITEMS = [
 export const KEY_VOCABULARY = [
   'iro', 'buba', 'wrapper', 'ankara-top', 'ankara-skirt', 'top', 'skirt', 'trousers',
   'dress', 'blazer', 'jeans', 'layer', 'abaya', 'kaftan', 'zani', 'bubu',
+  'ipele', 'double-wrapper', 'jacket', 'jumpsuit', 'shorts',
+  'suit', 'skirt-suit', 'trouser-suit', 'co-ord', 'two-piece-set', 'set',
   ...STYLE_HEADWEAR, ...COVERING_ITEMS,
 ] as const;
 

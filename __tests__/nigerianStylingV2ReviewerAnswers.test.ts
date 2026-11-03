@@ -157,7 +157,12 @@ const direct = applyNigerianStylingV1([{
 assert.deepEqual(actual.v1?.decision, direct.decisions[0]);
 assert.equal(adaptBlindLookFacts(observation(['top', 'top', 'trousers'])).v1?.decision.status, 'rejected');
 assert.equal(adaptBlindLookFacts(observation(['top'])).v1?.decision.status, 'rejected');
-for (const kind of ['double-wrapper', 'co-ord', 'set', 'head-tie', 'wrap', null]) {
+for (const kind of ['double-wrapper', 'head-tie']) {
+  const result = adaptBlindLookFacts(observation(['dress', kind]));
+  assert.ok(!result.v1?.gapNotes.some(note => note.startsWith('V1 mapping unknown:')),
+    `${kind} uses its approved V1 alias`);
+}
+for (const kind of ['co-ord', 'set', 'wrap', null]) {
   const result = adaptBlindLookFacts(observation(['dress', kind]));
   assert.equal(result.v1?.decision.status, 'unknown');
   assert.ok(result.v1?.gapNotes.some(note => note.includes(kind ?? 'unknown kind')));

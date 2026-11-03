@@ -92,7 +92,10 @@ not app integration, cultural inference or numeric tuning.
 
 **How to apply:** Keep V1 and frozen v3.7 separate, require supplied event bands,
 keep absent/unassessed facts explicit, and never count Not judged as correct.
-Double wrapper remains a pending V1 decision, not a V2 rule.
+Step 3f approves only blind-adapter aliases: head-tie maps to covering headwrap,
+ipele maps to a non-base layer, and double-wrapper maps to one V1 wrapper bottom.
+Aggregate suit/set labels remain single facts and unmapped in V1 when V1 cannot
+accept them as one item; never decompose them into inferred components.
 
 Blind scenario fixtures must be fixed with phrase-level evidence before gold
 labels are received. Unstated required booleans and V1 decisions remain unknown;
