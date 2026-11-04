@@ -1,7 +1,7 @@
 import axios from "axios";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
-import { readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const require = createRequire(import.meta.url);
@@ -33,7 +33,7 @@ const OUTPUT_INSTRUCTIONS = [
   "Judge only the supplied scenario and look. Treat null or absent facts as unknown; do not infer them.",
   "Return exactly one JSON object with exactly two keys: verdict and reason.",
   'verdict must be exactly "Works", "Almost", or "Rethink".',
-  "reason must be a plain-language explanation of no more than 15 words, using UK spelling.",
+  "reason must be a plain-language explanation of no more than 15 words.",
   "Do not include any other text.",
 ].join("\n");
 
@@ -44,6 +44,7 @@ type LookInput = {
 };
 
 type CsvRow = { look_id: string; verdict: string; reason: string };
+type CsvRecord = CsvRow & { raw: string };
 
 function sha256(text: string | Buffer): string {
   return createHash("sha256").update(text).digest("hex");
@@ -60,6 +61,81 @@ function asCsv(rows: CsvRow[]): string {
       [row.look_id, row.verdict, row.reason].map(csvCell).join(","),
     ),
   ].join("\n") + "\n";
+}
+
+function csvRecord(row: CsvRow): string {
+  return [row.look_id, row.verdict, row.reason].map(csvCell).join(",");
+}
+
+function parseCsv(text: string): { header: string; rows: CsvRecord[] } {
+  const records: Array<{ fields: string[]; raw: string }> = [];
+  let fields: string[] = [];
+  let field = "";
+  let quoted = false;
+  let start = 0;
+
+  for (let i = 0; i < text.length; i++) {
+    const character = text[i];
+    if (quoted) {
+      if (character === '"' && text[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (character === '"') {
+        quoted = false;
+      } else {
+        field += character;
+      }
+    } else if (character === '"') {
+      quoted = true;
+    } else if (character === ",") {
+      fields.push(field);
+      field = "";
+    } else if (character === "\n") {
+      fields.push(field);
+      records.push({ fields, raw: text.slice(start, i) });
+      fields = [];
+      field = "";
+      start = i + 1;
+    } else {
+      field += character;
+    }
+  }
+  if (quoted) throw new Error("An existing CSV has an unterminated quoted field.");
+  if (start < text.length || field || fields.length) {
+    fields.push(field);
+    records.push({ fields, raw: text.slice(start) });
+  }
+
+  const headerRecord = records.shift();
+  if (!headerRecord || headerRecord.fields.join(",") !== "look_id,verdict,reason") {
+    throw new Error("An existing CSV has an unexpected header.");
+  }
+  const rows = records.map(({ fields: cells, raw }) => {
+    if (cells.length !== 3) throw new Error("An existing CSV row has an unexpected column count.");
+    return { look_id: cells[0], verdict: cells[1], reason: cells[2], raw };
+  });
+  return { header: headerRecord.raw, rows };
+}
+
+async function writeCsvSnapshot(
+  filePath: string,
+  header: string,
+  rows: CsvRecord[],
+): Promise<void> {
+  await writeFile(filePath, [header, ...rows.map((row) => row.raw)].join("\n") + "\n", "utf8");
+}
+
+async function readExistingCsv(filePath: string, looks: LookInput[]): Promise<{
+  header: string;
+  rows: CsvRecord[];
+}> {
+  const text = await readFile(filePath, "utf8");
+  const parsed = parseCsv(text);
+  if (parsed.rows.length !== looks.length ||
+      parsed.rows.some((row, index) => row.look_id !== looks[index]?.id)) {
+    throw new Error("Existing CSV rows do not match the current look order.");
+  }
+  return parsed;
 }
 
 function parsePlainLooks(text: string): Map<string, string> {
@@ -178,6 +254,60 @@ function providerFailureCode(error: any): string {
   return Number.isInteger(status) ? `PROVIDER_HTTP_${status}` : "NETWORK_ERROR";
 }
 
+function headerValue(headers: any, name: string): string | null {
+  const value = typeof headers?.get === "function" ? headers.get(name) : headers?.[name];
+  if (value === undefined || value === null) return null;
+  return String(value).replace(/[^\x20-\x7e]/g, "").slice(0, 120);
+}
+
+function rateLimitEvidence(error: any): {
+  headers: Record<string, string>;
+  quotaDetails: Array<Record<string, string>>;
+  retryAfterMs: number;
+} {
+  const response = error?.response;
+  const headers: Record<string, string> = {};
+  for (const name of [
+    "retry-after",
+    "ratelimit-limit",
+    "ratelimit-remaining",
+    "ratelimit-reset",
+    "x-ratelimit-limit",
+    "x-ratelimit-remaining",
+    "x-ratelimit-reset",
+  ]) {
+    const value = headerValue(response?.headers, name);
+    if (value !== null) headers[name] = value;
+  }
+
+  const retryAfter = headers["retry-after"];
+  const numericRetry = retryAfter && Number.isFinite(Number(retryAfter))
+    ? Number(retryAfter) * 1000
+    : retryAfter ? Math.max(0, Date.parse(retryAfter) - Date.now()) : 0;
+  const details = response?.data?.error?.details;
+  const quotaDetails: Array<Record<string, string>> = [];
+  if (Array.isArray(details)) {
+    for (const detail of details) {
+      if (!Array.isArray(detail?.violations)) continue;
+      for (const violation of detail.violations) {
+        const safe: Record<string, string> = {};
+        for (const key of ["quotaId", "quotaMetric", "quotaValue"]) {
+          const value = violation?.[key];
+          if (typeof value === "string" || typeof value === "number") {
+            safe[key] = String(value).slice(0, 160);
+          }
+        }
+        if (Object.keys(safe).length) quotaDetails.push(safe);
+      }
+    }
+  }
+  return {
+    headers,
+    quotaDetails,
+    retryAfterMs: Number.isFinite(numericRetry) ? Math.max(0, numericRetry) : 0,
+  };
+}
+
 function tokenUsage(response: any): { prompt: number; candidate: number; total: number } {
   const usage = response?.data?.usageMetadata ?? {};
   return {
@@ -187,88 +317,163 @@ function tokenUsage(response: any): { prompt: number; candidate: number; total: 
   };
 }
 
+const CALL_SPACING_MS = 5_000;
+const INITIAL_BACKOFF_MS = 5_000;
+const MAX_BACKOFF_MS = 60_000;
+const MAX_CONSECUTIVE_FAILURES = 10;
+
+function retryDelay(retryNumber: number, retryAfterMs: number): number {
+  const exponential = Math.min(MAX_BACKOFF_MS, INITIAL_BACKOFF_MS * 2 ** (retryNumber - 1));
+  return Math.min(MAX_BACKOFF_MS, Math.max(CALL_SPACING_MS, exponential, retryAfterMs));
+}
+
 async function runOne(
   mode: "plain" | "structured",
   model: string,
   looks: LookInput[],
   systemText: string,
   apiKey: string,
-): Promise<void> {
-  const rows: CsvRow[] = [];
+): Promise<{ rowCount: number; failures: number; stoppedAfterConsecutiveFailures: boolean }> {
+  const filename = `${mode}-${model === getClassifierModelOrder()[0] ? "primary" : "fallback"}.csv`;
+  const filePath = path.join(OUTPUT_DIR, filename);
+  const { header, rows } = await readExistingCsv(filePath, looks);
   const tokens = { prompt: 0, candidate: 0, total: 0, unreported: 0 };
   let refusals = 0;
   let parseFailures = 0;
   const requestFailures: Record<string, number> = {};
+  const rateLimitObservations = new Map<string, {
+    headers: Record<string, string>;
+    quotaDetails: Array<Record<string, string>>;
+  }>();
+  let calls = 0;
+  let successfulResponses = 0;
+  let consecutiveFailures = 0;
+  let stoppedAfterConsecutiveFailures = false;
+  let waitBeforeNextCall = 0;
+  let lastCallAt = 0;
 
-  for (const look of looks) {
-    const userText = mode === "plain"
-      ? look.plainText
-      : `Look ID: ${look.id}\nStructured facts (null means unknown):\n${JSON.stringify(look.structuredFacts)}`;
-    const request = buildGeminiGenerationRequest({
-      model,
-      apiKey,
-      baseRequestBody: {
-        systemInstruction: { parts: [{ text: systemText }] },
-        contents: [{ role: "user", parts: [{ text: userText }] }],
-        generationConfig: {
-          temperature: 0,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: {
-              verdict: { type: "STRING", enum: ["Works", "Almost", "Rethink"] },
-              reason: { type: "STRING" },
+  for (let index = 0; index < looks.length; index++) {
+    if (!rows[index].reason.startsWith("REQUEST_FAILED_")) continue;
+    const look = looks[index];
+    let retriesForRow = 0;
+
+    while (true) {
+      const waitMs = Math.max(waitBeforeNextCall, lastCallAt ? CALL_SPACING_MS - (Date.now() - lastCallAt) : 0);
+      if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+      waitBeforeNextCall = 0;
+
+      const userText = mode === "plain"
+        ? look.plainText
+        : `Look ID: ${look.id}\nStructured facts (null means unknown):\n${JSON.stringify(look.structuredFacts)}`;
+      const request = buildGeminiGenerationRequest({
+        model,
+        apiKey,
+        baseRequestBody: {
+          systemInstruction: { parts: [{ text: systemText }] },
+          contents: [{ role: "user", parts: [{ text: userText }] }],
+          generationConfig: {
+            temperature: 0,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                verdict: { type: "STRING", enum: ["Works", "Almost", "Rethink"] },
+                reason: { type: "STRING" },
+              },
+              required: ["verdict", "reason"],
             },
-            required: ["verdict", "reason"],
           },
         },
-      },
-      maxOutputTokens: 128,
-      timeout: REQUEST_TIMEOUT_MS,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+        maxOutputTokens: 128,
+        timeout: REQUEST_TIMEOUT_MS,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      calls++;
+      lastCallAt = Date.now();
 
-    try {
-      const response = await axios.post(request.url, request.body, request.config);
-      const usage = tokenUsage(response);
-      tokens.prompt += usage.prompt;
-      tokens.candidate += usage.candidate;
-      tokens.total += usage.total;
-      if (!usage.total) tokens.unreported++;
+      try {
+        const response = await axios.post(request.url, request.body, request.config);
+        successfulResponses++;
+        consecutiveFailures = 0;
+        const usage = tokenUsage(response);
+        tokens.prompt += usage.prompt;
+        tokens.candidate += usage.candidate;
+        tokens.total += usage.total;
+        if (!usage.total) tokens.unreported++;
 
-      if (refusal(response)) {
-        refusals++;
-        rows.push({ look_id: look.id, verdict: "", reason: "REFUSAL" });
-        continue;
+        if (refusal(response)) {
+          refusals++;
+          rows[index] = { ...rows[index], verdict: "", reason: "REFUSAL", raw: csvRecord({
+            look_id: look.id, verdict: "", reason: "REFUSAL",
+          }) };
+        } else {
+          const parsed = decode(response);
+          if (!parsed) {
+            parseFailures++;
+            rows[index] = { ...rows[index], verdict: "", reason: "PARSE_FAILURE", raw: csvRecord({
+              look_id: look.id, verdict: "", reason: "PARSE_FAILURE",
+            }) };
+          } else {
+            rows[index] = { ...rows[index], ...parsed, raw: csvRecord({
+              look_id: look.id, ...parsed,
+            }) };
+          }
+        }
+        await writeCsvSnapshot(filePath, header, rows);
+        break;
+      } catch (error) {
+        tokens.unreported++;
+        consecutiveFailures++;
+        const code = providerFailureCode(error);
+        requestFailures[code] = (requestFailures[code] ?? 0) + 1;
+        const row = { look_id: look.id, verdict: "", reason: `REQUEST_FAILED_${code}` };
+        rows[index] = { ...rows[index], ...row, raw: csvRecord(row) };
+        await writeCsvSnapshot(filePath, header, rows);
+
+        const evidence = rateLimitEvidence(error);
+        if (Object.keys(evidence.headers).length || evidence.quotaDetails.length) {
+          rateLimitObservations.set(JSON.stringify(evidence), {
+            headers: evidence.headers,
+            quotaDetails: evidence.quotaDetails,
+          });
+        }
+        const status = error?.response?.status;
+        if ((status === 429 || (Number.isInteger(status) && status >= 500)) &&
+            consecutiveFailures <= MAX_CONSECUTIVE_FAILURES) {
+          retriesForRow++;
+          waitBeforeNextCall = retryDelay(retriesForRow, evidence.retryAfterMs);
+        } else {
+          if (consecutiveFailures > MAX_CONSECUTIVE_FAILURES) {
+            stoppedAfterConsecutiveFailures = true;
+            break;
+          }
+          break;
+        }
       }
 
-      const parsed = decode(response);
-      if (!parsed) {
-        parseFailures++;
-        rows.push({ look_id: look.id, verdict: "", reason: "PARSE_FAILURE" });
-        continue;
-      }
-      rows.push({ look_id: look.id, ...parsed });
-    } catch (error) {
-      tokens.unreported++;
-      const code = providerFailureCode(error);
-      requestFailures[code] = (requestFailures[code] ?? 0) + 1;
-      rows.push({ look_id: look.id, verdict: "", reason: `REQUEST_FAILED_${code}` });
+      if (stoppedAfterConsecutiveFailures) break;
     }
+    if (stoppedAfterConsecutiveFailures) break;
   }
 
-  const filename = `${mode}-${model === getClassifierModelOrder()[0] ? "primary" : "fallback"}.csv`;
-  await writeFile(path.join(OUTPUT_DIR, filename), asCsv(rows), "utf8");
+  const failures = rows.filter((row) => !row.verdict).length;
   console.log(JSON.stringify({
     run: `${mode}-${model === getClassifierModelOrder()[0] ? "primary" : "fallback"}`,
     model,
-    calls: rows.length,
+    rowCount: rows.length,
+    callsThisResume: calls,
+    successfulResponsesThisResume: successfulResponses,
+    remainingFailures: failures,
     tokens,
     refusals,
     parseFailures,
     requestFailures,
+    consecutiveFailures,
+    stoppedAfterConsecutiveFailures,
+    rateLimitObservations: [...rateLimitObservations.values()],
     csv: path.join("docs/reports/judge-experiment", filename),
   }));
+  return { rowCount: rows.length, failures, stoppedAfterConsecutiveFailures };
 }
 
 async function main(): Promise<void> {
@@ -279,7 +484,6 @@ async function main(): Promise<void> {
   const [primary, fallback] = getClassifierModelOrder();
   const systemText = `${rulesText}\n\n${OUTPUT_INSTRUCTIONS}`;
   const promptHash = sha256(systemText);
-  const { mkdir } = await import("node:fs/promises");
   await mkdir(OUTPUT_DIR, { recursive: true });
 
   console.log(JSON.stringify({
@@ -290,10 +494,15 @@ async function main(): Promise<void> {
     fallbackModel: fallback,
   }));
 
-  for (const mode of ["plain", "structured"] as const) {
-    for (const model of [primary, fallback]) {
-      await runOne(mode, model, looks, systemText, apiKey);
-    }
+  const orderedBatches = [
+    ["plain", primary],
+    ["plain", fallback],
+    ["structured", primary],
+    ["structured", fallback],
+  ] as const;
+  for (const [mode, model] of orderedBatches) {
+    const result = await runOne(mode, model, looks, systemText, apiKey);
+    if (result.failures > 0 || result.stoppedAfterConsecutiveFailures) break;
   }
 }
 

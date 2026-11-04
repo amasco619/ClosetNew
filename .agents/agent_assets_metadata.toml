@@ -734,14 +734,14 @@ content_type = "text/markdown"
 id = "YY3iP--D2hUjYNLTg2ku9"
 uri = "file://docs/reports/judge-experiment/plain-primary.csv"
 type = "table"
-title = "Plain-text judgments — primary model"
-description = "100 CSV rows for plain-text scenario and look prompts."
+title = "Updated plain-primary judge CSV"
+description = "100 rows: 99 valid responses and one remaining network-failed row. Prior successful records preserved."
 logical_id = "21002f1c-2f64-4da1-98cc-51910a3454e4"
-content_hash = "sha256:87bd21d6bbe2694433e17929755834e47280414980a1f6166e958970e76abf96"
-size = 4931
-mtime_ms = 1793747347366
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/21002f1c-2f64-4da1-98cc-51910a3454e4/e32095e1-2c5b-492e-ac31-486ed9ab153c"
-storage_version_token = "1793747453668602"
+content_hash = "sha256:57446ae6ec42e236b49129d8cd06e4c16391b41f43600ec5a4b96bfd2901f542"
+size = 9493
+mtime_ms = 1793801882255
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/21002f1c-2f64-4da1-98cc-51910a3454e4/aa7684d7-c113-4702-b028-e254e8056954"
+storage_version_token = "1793802054206438"
 content_type = "text/csv"
 
 [[outputs]]
