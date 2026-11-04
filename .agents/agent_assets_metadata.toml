@@ -734,28 +734,28 @@ content_type = "text/markdown"
 id = "YY3iP--D2hUjYNLTg2ku9"
 uri = "file://docs/reports/judge-experiment/plain-primary.csv"
 type = "table"
-title = "Updated plain-primary judge CSV"
-description = "100 rows: 99 valid responses and one remaining network-failed row. Prior successful records preserved."
+title = "Plain-primary CSV — complete"
+description = "100 valid rows; existing successful rows preserved byte-identically."
 logical_id = "21002f1c-2f64-4da1-98cc-51910a3454e4"
-content_hash = "sha256:57446ae6ec42e236b49129d8cd06e4c16391b41f43600ec5a4b96bfd2901f542"
-size = 9493
-mtime_ms = 1793801882255
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/21002f1c-2f64-4da1-98cc-51910a3454e4/aa7684d7-c113-4702-b028-e254e8056954"
-storage_version_token = "1793802054206438"
+content_hash = "sha256:0fe203ca71ad8db5e792d312f91fe5d20aa4c0e948a1ebdfe2dbae21dbac0130"
+size = 9544
+mtime_ms = 1793807475510
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/21002f1c-2f64-4da1-98cc-51910a3454e4/f46ead66-a710-48eb-8f64-2a3abac5125b"
+storage_version_token = "1793808148839210"
 content_type = "text/csv"
 
 [[outputs]]
 id = "KSmVtdEXvrsCY_tJbgRxm"
 uri = "file://docs/reports/judge-experiment/plain-fallback.csv"
 type = "table"
-title = "Plain-text judgments — fallback model"
-description = "100 CSV rows for plain-text scenario and look prompts."
+title = "Plain-fallback CSV — partial"
+description = "24 valid rows; 76 request-failure markers remain. Stopped at the consecutive-failure limit."
 logical_id = "07829374-03f2-4bc4-a97f-d7b4d9bcf691"
-content_hash = "sha256:9431fda2cd111b6e190d97cc48626c4ec411a3d69a0772481f91fac318ba99a5"
-size = 4511
-mtime_ms = 1793747358637
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/07829374-03f2-4bc4-a97f-d7b4d9bcf691/e716fd25-9e59-42b4-bba2-d75796b29ded"
-storage_version_token = "1793747454685110"
+content_hash = "sha256:17dc20df190e19c1ab8db5aa05ffda6b813dd9acf50520678aeee148a016e112"
+size = 5658
+mtime_ms = 1793808123286
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/07829374-03f2-4bc4-a97f-d7b4d9bcf691/edfedd9d-c133-4650-bd8a-ab59fb7f99b9"
+storage_version_token = "1793808153696012"
 content_type = "text/csv"
 
 [[outputs]]
