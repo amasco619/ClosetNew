@@ -92,7 +92,7 @@ export function AiProcessingConsent({
             <Text style={styles.eyebrow}>A NOTE ON YOUR PHOTOS</Text>
             <Text style={styles.title}>AI-powered wardrobe digitisation</Text>
             <Text style={styles.body}>
-              To automatically identify and prepare your garment, your selected photo will be processed by Amodka and third-party AI services, including <Text style={styles.bold}>PhotoRoom and Google Gemini</Text>.
+              To automatically identify and prepare your garment, your selected photo will be processed by Amodka and third-party AI models and image-processing services.
             </Text>
             <Text style={styles.body}>
               By selecting <Text style={styles.bold}>Allow AI processing</Text>, you give Amodka permission to send your selected photo to these services for this purpose.
@@ -119,21 +119,21 @@ export function AiProcessingConsent({
                 <Text style={styles.detailBody}>
                   When you allow AI processing, your selected garment photo is sent from Amodka to third-party service providers that process the photo on Amodka&apos;s behalf.
                 </Text>
-                <Text style={styles.detailTitle}>Which services process my photo?</Text>
+                <Text style={styles.detailTitle}>How is my photo processed?</Text>
                 <Text style={styles.detailBody}>
-                  <Text style={styles.bold}>PhotoRoom</Text>{'\n'}
-                  PhotoRoom is used to prepare your garment image, including removing or replacing the background so that the garment can be digitised for your Amodka wardrobe.
+                  <Text style={styles.bold}>Image preparation</Text>{'\n'}
+                  An AI image-processing service prepares your garment photo, including removing or replacing the background so the garment can be digitised for your Amodka wardrobe.
                 </Text>
                 <Text style={styles.detailBody}>
-                  <Text style={styles.bold}>Google Gemini</Text>{'\n'}
-                  Google Gemini is used to analyse the garment and help identify characteristics such as its clothing type and other relevant attributes used by Amodka&apos;s wardrobe and styling features.
+                  <Text style={styles.bold}>Garment identification</Text>{'\n'}
+                  An AI model analyses the garment and helps identify its clothing type and other relevant attributes used by Amodka&apos;s wardrobe and styling features.
                 </Text>
                 <Text style={styles.detailTitle}>What information is sent?</Text>
                 <Text style={styles.detailBody}>The selected photograph of your garment is sent for the AI processing described above.</Text>
                 <Text style={styles.detailBody}>Amodka does not send your photo to these services for unrelated purposes.</Text>
                 <Text style={styles.detailTitle}>Do I have to allow AI processing?</Text>
                 <Text style={styles.detailBody}>No. You can decline AI processing.</Text>
-                <Text style={styles.detailBody}>If you decline, Amodka will not send the selected photo to PhotoRoom or Google Gemini for this AI wardrobe-digitisation process.</Text>
+                <Text style={styles.detailBody}>If you decline, Amodka will not send the selected photo to third-party AI models or image-processing services for this wardrobe-digitisation process.</Text>
                 <Text style={styles.detailTitle}>Can I withdraw my permission?</Text>
                 <Text style={styles.detailBody}>Yes. You can withdraw your AI-processing permission through the privacy settings in the Amodka app.</Text>
                 <Text style={styles.detailBody}>Withdrawing permission does not affect processing that was lawfully carried out before you withdrew it.</Text>

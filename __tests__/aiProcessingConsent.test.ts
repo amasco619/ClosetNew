@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import express from "express";
 import request from "supertest";
 import {
@@ -8,6 +9,12 @@ import {
 
 async function main() {
   assert.equal(process.env.NODE_ENV, "test", "Run this fixture via npm test, not directly against live stores");
+  const consentCopy = readFileSync("components/AiProcessingConsent.tsx", "utf8");
+  assert.doesNotMatch(consentCopy, /PhotoRoom|Google Gemini/,
+    "the user-facing disclosure must not expose provider names");
+  assert.match(consentCopy, /third-party AI models and image-processing services/);
+  assert.match(consentCopy, /Allow AI processing/);
+  assert.match(consentCopy, /You can decline and continue without AI processing/);
   // The limiter uses Supabase now; removing DATABASE_URL no longer isolates it.
   const [routes, consent, limiter] = await Promise.all([
     import("../server/routes"),
