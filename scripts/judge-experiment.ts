@@ -36,6 +36,20 @@ const OUTPUT_INSTRUCTIONS = [
   "reason must be a plain-language explanation of no more than 15 words.",
   "Do not include any other text.",
 ].join("\n");
+const SET2_PATHS = {
+  looks: path.join(ROOT, "attached_assets/looks2_1793925449136.txt"),
+  structured: path.join(ROOT, "attached_assets/looks2_1793925449136.json"),
+  rules: path.join(ROOT, "attached_assets/rules_brief2_1793925434333.md"),
+};
+const SET2_VERDICTS = new Set([...VERDICTS, "Ask"]);
+const SET2_INSTRUCTIONS = [
+  "Judge only the supplied scenario and look. Treat null or absent facts as unknown; do not infer them.",
+  "Return exactly one JSON object with exactly two keys: verdict and reason.",
+  'verdict must be exactly "Works", "Almost", "Rethink", or "Ask".',
+  "reason must be a plain-language explanation of no more than 15 words, using UK spelling.",
+  "For Ask, the reason must name the missing decisive fact.",
+  "Do not include any other text.",
+].join("\n");
 
 type LookInput = {
   id: string;
@@ -125,11 +139,20 @@ async function writeCsvSnapshot(
   await writeFile(filePath, [header, ...rows.map((row) => row.raw)].join("\n") + "\n", "utf8");
 }
 
-async function readExistingCsv(filePath: string, looks: LookInput[]): Promise<{
+async function readExistingCsv(filePath: string, looks: LookInput[], createMissing = false): Promise<{
   header: string;
   rows: CsvRecord[];
 }> {
-  const text = await readFile(filePath, "utf8");
+  let text: string;
+  try {
+    text = await readFile(filePath, "utf8");
+  } catch (error: any) {
+    if (!createMissing || error?.code !== "ENOENT") throw error;
+    text = asCsv(looks.map((look) => ({
+      look_id: look.id, verdict: "", reason: "REQUEST_FAILED_NOT_ATTEMPTED",
+    })));
+    await writeFile(filePath, text, { encoding: "utf8", flag: "wx" });
+  }
   const parsed = parseCsv(text);
   if (parsed.rows.length !== looks.length ||
       parsed.rows.some((row, index) => row.look_id !== looks[index]?.id)) {
@@ -138,20 +161,20 @@ async function readExistingCsv(filePath: string, looks: LookInput[]): Promise<{
   return parsed;
 }
 
-function parsePlainLooks(text: string): Map<string, string> {
+function parsePlainLooks(text: string, prefix = "S"): Map<string, string> {
   const result = new Map<string, string>();
   let scenarioTitle = "";
   let scenarioParagraph = "";
 
   for (const line of text.split(/\r?\n/)) {
-    const heading = line.match(/^(S\d{2}) · (.+)$/);
+    const heading = line.match(new RegExp(`^(${prefix}\\d{2}) · (.+)$`));
     if (heading) {
       scenarioTitle = `${heading[1]} · ${heading[2]}`;
       scenarioParagraph = "";
       continue;
     }
 
-    const look = line.match(/^\s+(S\d{2}-[A-D]):\s*(.+)$/);
+    const look = line.match(new RegExp(`^\\s+(${prefix}\\d{2}-[A-D]):\\s*(.+)$`));
     if (look) {
       if (!scenarioTitle || !scenarioParagraph) {
         throw new Error(`Missing scenario paragraph for ${look[1]}.`);
@@ -212,6 +235,42 @@ async function loadInputs(): Promise<{
   };
 }
 
+async function loadSet2Inputs() {
+  const [plainBuffer, structuredBuffer, rulesBuffer] = await Promise.all([
+    readFile(SET2_PATHS.looks), readFile(SET2_PATHS.structured), readFile(SET2_PATHS.rules),
+  ]);
+  const plain = parsePlainLooks(plainBuffer.toString("utf8"), "T");
+  const entries = JSON.parse(structuredBuffer.toString("utf8"));
+  if (!Array.isArray(entries) || entries.length !== 100) {
+    throw new Error("Set 2 must contain exactly 100 structured entries.");
+  }
+  const structured = new Map<string, Record<string, unknown>>();
+  for (const entry of entries) {
+    if (!/^T\d{2}-[A-D]$/.test(entry.look_id) || structured.has(entry.look_id) ||
+        entry.scenario !== entry.look_id.slice(0, 3) ||
+        typeof entry.brief !== "string" || !Array.isArray(entry.items) ||
+        Object.keys(entry).sort().join(",") !== "brief,items,look_id,scenario") {
+      throw new Error("Invalid or duplicate Set 2 structured entry.");
+    }
+    structured.set(entry.look_id, entry);
+  }
+  const ids = Array.from({ length: 25 }, (_, index) =>
+    ["A", "B", "C", "D"].map((letter) => `T${String(index + 1).padStart(2, "0")}-${letter}`),
+  ).flat();
+  if (ids.some((id) => !plain.has(id) || !structured.has(id))) {
+    throw new Error("Set 2 plain and structured IDs must match T01-A through T25-D.");
+  }
+  return {
+    looks: ids.map((id) => ({
+      id, plainText: plain.get(id)!, structuredFacts: structured.get(id)!,
+    })),
+    rulesText: rulesBuffer.toString("utf8").trim(),
+    looksTextSha256: sha256(plainBuffer),
+    looksJsonSha256: sha256(structuredBuffer),
+    rulesBriefSha256: sha256(rulesBuffer),
+  };
+}
+
 function responseText(response: any): string | null {
   const parts = response?.data?.candidates?.[0]?.content?.parts;
   if (!Array.isArray(parts)) return null;
@@ -226,7 +285,7 @@ function refusal(response: any): boolean {
     ["SAFETY", "IMAGE_SAFETY", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"].includes(finishReason);
 }
 
-function decode(response: any): { verdict: string; reason: string } | null {
+function decode(response: any, verdicts = VERDICTS): { verdict: string; reason: string } | null {
   const text = responseText(response);
   if (!text) return null;
   try {
@@ -234,7 +293,7 @@ function decode(response: any): { verdict: string; reason: string } | null {
     if (
       !value || typeof value !== "object" || Array.isArray(value) ||
       Object.keys(value).sort().join(",") !== "reason,verdict" ||
-      !VERDICTS.has(value.verdict) ||
+      !verdicts.has(value.verdict) ||
       typeof value.reason !== "string" ||
       value.reason.trim().split(/\s+/).filter(Boolean).length > 15
     ) return null;
@@ -333,10 +392,14 @@ async function runOne(
   looks: LookInput[],
   systemText: string,
   apiKey: string,
+  set2 = false,
 ): Promise<{ rowCount: number; failures: number; stoppedAfterConsecutiveFailures: boolean }> {
-  const filename = `${mode}-${model === getClassifierModelOrder()[0] ? "primary" : "fallback"}.csv`;
+  const role = model === (set2 ? "gemini-3.5-flash-lite" : getClassifierModelOrder()[0])
+    ? "primary" : "fallback";
+  const filename = `${set2 ? "set2-" : ""}${mode}-${role}.csv`;
   const filePath = path.join(OUTPUT_DIR, filename);
-  const { header, rows } = await readExistingCsv(filePath, looks);
+  const { header, rows } = await readExistingCsv(filePath, looks, set2);
+  const verdicts = set2 ? SET2_VERDICTS : VERDICTS;
   const tokens = { prompt: 0, candidate: 0, total: 0, unreported: 0 };
   let refusals = 0;
   let parseFailures = 0;
@@ -353,7 +416,7 @@ async function runOne(
   let lastCallAt = 0;
 
   for (let index = 0; index < looks.length; index++) {
-    if (!rows[index].reason.startsWith("REQUEST_FAILED_")) continue;
+    if (set2 ? Boolean(rows[index].verdict) : !rows[index].reason.startsWith("REQUEST_FAILED_")) continue;
     const look = looks[index];
     let retriesForRow = 0;
 
@@ -377,7 +440,7 @@ async function runOne(
             responseSchema: {
               type: "OBJECT",
               properties: {
-                verdict: { type: "STRING", enum: ["Works", "Almost", "Rethink"] },
+                verdict: { type: "STRING", enum: [...verdicts] },
                 reason: { type: "STRING" },
               },
               required: ["verdict", "reason"],
@@ -393,6 +456,12 @@ async function runOne(
 
       try {
         const response = await axios.post(request.url, request.body, request.config);
+        const successEvidence = rateLimitEvidence({ response });
+        if (Object.keys(successEvidence.headers).length) {
+          rateLimitObservations.set(JSON.stringify(successEvidence.headers), {
+            headers: successEvidence.headers, quotaDetails: [],
+          });
+        }
         successfulResponses++;
         consecutiveFailures = 0;
         const usage = tokenUsage(response);
@@ -407,7 +476,7 @@ async function runOne(
             look_id: look.id, verdict: "", reason: "REFUSAL",
           }) };
         } else {
-          const parsed = decode(response);
+          const parsed = decode(response, verdicts);
           if (!parsed) {
             parseFailures++;
             rows[index] = { ...rows[index], verdict: "", reason: "PARSE_FAILURE", raw: csvRecord({
@@ -421,7 +490,7 @@ async function runOne(
         }
         await writeCsvSnapshot(filePath, header, rows);
         break;
-      } catch (error) {
+      } catch (error: any) {
         tokens.unreported++;
         consecutiveFailures++;
         const code = providerFailureCode(error);
@@ -458,7 +527,7 @@ async function runOne(
 
   const failures = rows.filter((row) => !row.verdict).length;
   console.log(JSON.stringify({
-    run: `${mode}-${model === getClassifierModelOrder()[0] ? "primary" : "fallback"}`,
+    run: `${set2 ? "set2-" : ""}${mode}-${role}`,
     model,
     rowCount: rows.length,
     callsThisResume: calls,
@@ -476,9 +545,43 @@ async function runOne(
   return { rowCount: rows.length, failures, stoppedAfterConsecutiveFailures };
 }
 
+async function runSet2AndResume(apiKey: string): Promise<void> {
+  const set1 = await loadInputs();
+  const set2 = await loadSet2Inputs();
+  const [primary, fallback] = ["gemini-3.5-flash-lite", "gemini-3.5-flash"];
+  if (getClassifierModelOrder()[1] !== fallback) {
+    throw new Error("Set 1 fallback configuration no longer matches gemini-3.5-flash.");
+  }
+  await mkdir(OUTPUT_DIR, { recursive: true });
+  console.log(JSON.stringify({
+    set: 1, primaryModel: getClassifierModelOrder()[0], fallbackModel: fallback,
+    looksSha256: set1.looksHash, rulesBriefSha256: set1.rulesHash,
+    promptTextSha256: sha256(`${set1.rulesText}\n\n${OUTPUT_INSTRUCTIONS}`),
+    scope: "plain-fallback only",
+  }));
+  const resumed = await runOne(
+    "plain", fallback, set1.looks, `${set1.rulesText}\n\n${OUTPUT_INSTRUCTIONS}`, apiKey,
+  );
+  if (resumed.failures || resumed.stoppedAfterConsecutiveFailures) return;
+  const systemText = `${set2.rulesText}\n\n${SET2_INSTRUCTIONS}`;
+  console.log(JSON.stringify({
+    set: 2, primaryModel: primary, fallbackModel: fallback,
+    looksTextSha256: set2.looksTextSha256, looksJsonSha256: set2.looksJsonSha256,
+    rulesBriefSha256: set2.rulesBriefSha256, promptTextSha256: sha256(systemText),
+  }));
+  for (const [mode, model] of [
+    ["plain", primary], ["plain", fallback],
+    ["structured", primary], ["structured", fallback],
+  ] as const) {
+    const result = await runOne(mode, model, set2.looks, systemText, apiKey, true);
+    if (result.failures || result.stoppedAfterConsecutiveFailures) break;
+  }
+}
+
 async function main(): Promise<void> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is required; its value is never printed.");
+  if (process.argv.includes("--set2-and-resume")) return runSet2AndResume(apiKey);
 
   const { looks, rulesText, looksHash, rulesHash } = await loadInputs();
   const [primary, fallback] = getClassifierModelOrder();

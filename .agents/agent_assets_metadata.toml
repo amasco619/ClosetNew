@@ -748,14 +748,14 @@ content_type = "text/csv"
 id = "KSmVtdEXvrsCY_tJbgRxm"
 uri = "file://docs/reports/judge-experiment/plain-fallback.csv"
 type = "table"
-title = "Plain-fallback CSV — partial"
-description = "24 valid rows; 76 request-failure markers remain. Stopped at the consecutive-failure limit."
+title = "Set 1 plain-fallback — complete"
+description = "100 valid rows; no remaining request or validation failures."
 logical_id = "07829374-03f2-4bc4-a97f-d7b4d9bcf691"
-content_hash = "sha256:17dc20df190e19c1ab8db5aa05ffda6b813dd9acf50520678aeee148a016e112"
-size = 5658
-mtime_ms = 1793808123286
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/07829374-03f2-4bc4-a97f-d7b4d9bcf691/edfedd9d-c133-4650-bd8a-ab59fb7f99b9"
-storage_version_token = "1793808153696012"
+content_hash = "sha256:90b49764ed5e5a72cece1c761e2ffe9fefd809c1b1c76b0aee31deea933a7d6b"
+size = 10378
+mtime_ms = 1793926493612
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/07829374-03f2-4bc4-a97f-d7b4d9bcf691/3e4d1afb-99b6-481b-961a-4a55ae0fa19b"
+storage_version_token = "1793928572774494"
 content_type = "text/csv"
 
 [[outputs]]
@@ -785,3 +785,73 @@ mtime_ms = 1793747366150
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/533332db-4acf-49db-9a23-e05c0bc919df/98f1df2d-7c29-47ba-91e1-4d2dfcf24c83"
 storage_version_token = "1793747455999346"
 content_type = "text/csv"
+
+[[outputs]]
+id = "AR-KQlf9RdkcJR7SDfKcK"
+uri = "file://docs/reports/judge-experiment/set2-plain-primary.csv"
+type = "table"
+title = "Set 2 plain — primary"
+description = "100 valid rows; no remaining request or validation failures."
+logical_id = "a5f09d08-999e-4b4c-b1ac-679854c5aa16"
+content_hash = "sha256:32074d71011a79029b16076770cce61e8723289144a33085d6d4365ed5a3d8ec"
+size = 9260
+mtime_ms = 1793927011300
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/a5f09d08-999e-4b4c-b1ac-679854c5aa16/ecc6a27f-b2ee-4f4e-b238-2ca2ed4dca28"
+storage_version_token = "1793928573460875"
+content_type = "text/csv"
+
+[[outputs]]
+id = "kCNcWbZB4h9OXKVIoY_EY"
+uri = "file://docs/reports/judge-experiment/set2-plain-fallback.csv"
+type = "table"
+title = "Set 2 plain — fallback"
+description = "100 valid rows; no remaining request or validation failures."
+logical_id = "374dcc76-7337-4b7f-9051-26e05c1d7af5"
+content_hash = "sha256:cf02c0e59184d552c13e1d5b13341f34f8ef147fb55f9d75366c6a5dbcfe0f10"
+size = 10089
+mtime_ms = 1793927507395
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/374dcc76-7337-4b7f-9051-26e05c1d7af5/4569bb6d-18d5-43a2-80fb-278211e096e1"
+storage_version_token = "1793928574055314"
+content_type = "text/csv"
+
+[[outputs]]
+id = "g_kQm8srShNgW8vI75B-Z"
+uri = "file://docs/reports/judge-experiment/set2-structured-primary.csv"
+type = "table"
+title = "Set 2 structured — primary"
+description = "100 valid rows; no remaining request or validation failures."
+logical_id = "7b7112d2-8995-4f45-989c-0b185380409b"
+content_hash = "sha256:3c1888ceb17083fd74406f99eb3ad5735c5c9a2a02f7b68ac5738d45fc14e26c"
+size = 9157
+mtime_ms = 1793928027154
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/7b7112d2-8995-4f45-989c-0b185380409b/cf047643-e12a-4c8f-8b7d-54712b783820"
+storage_version_token = "1793928574688203"
+content_type = "text/csv"
+
+[[outputs]]
+id = "G9ByAdz3vr71vPqm50hN1"
+uri = "file://docs/reports/judge-experiment/set2-structured-fallback.csv"
+type = "table"
+title = "Set 2 structured — fallback"
+description = "100 valid rows; no remaining request or validation failures."
+logical_id = "d56e07cd-d30c-4340-a363-46c6b3277daa"
+content_hash = "sha256:844094e2b24703d2f2755275480098604e07c09f9a3f98c8857bf14818ccdd58"
+size = 10173
+mtime_ms = 1793928523342
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/d56e07cd-d30c-4340-a363-46c6b3277daa/bc4a288d-a1ab-46e1-bf82-9faaaf70cbb2"
+storage_version_token = "1793928575321927"
+content_type = "text/csv"
+
+[[outputs]]
+id = "o4yucAK2vaZHEPRPbjVwT"
+uri = "file://docs/reports/judge-experiment/set2-resume-report.md"
+type = "text"
+title = "Judge experiment — final report"
+description = "Calls, tokens, hashes, retries, preservation checks and verification."
+logical_id = "5b9e2860-b524-499f-bf17-7e97c8c91e80"
+content_hash = "sha256:d203d986d7a8e9eda76723717194c751eee2e0d05e041fc8b96a9c141ceb21f5"
+size = 5383
+mtime_ms = 1793928566005
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/5b9e2860-b524-499f-bf17-7e97c8c91e80/9151f913-f3f5-4c4d-98ab-45727928ab21"
+storage_version_token = "1793928575913899"
+content_type = "text/markdown"
