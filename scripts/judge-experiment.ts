@@ -27,6 +27,14 @@ const LOOKS_PATH = path.join(ROOT, "attached_assets/looks_1793747164690.txt");
 const RULES_PATH = path.join(ROOT, "attached_assets/rules_brief_1793747164689.md");
 const FIXTURES_PATH = path.join(ROOT, "__tests__/fixtures/nigerian-v2-rating-set");
 const OUTPUT_DIR = path.join(ROOT, "docs/reports/judge-experiment");
+const PERSONA_SET1_PATHS = {
+  persona: path.join(ROOT, "attached_assets/persona_prompt_1793963385991.md"),
+  looks: path.join(ROOT, "attached_assets/looks_1793963398343.txt"),
+  rules: path.join(ROOT, "attached_assets/rules_brief2_1793963421270.md"),
+};
+const PERSONA_SET1_QUALITY_SENTENCE =
+  "Descriptions that say thin or shiny mean poor quality; premium or heavy mean good quality.";
+const PERSONA_VERDICTS = new Set(["Works", "Almost", "Rethink", "Ask"]);
 const REQUEST_TIMEOUT_MS = 60_000;
 const VERDICTS = new Set(["Works", "Almost", "Rethink"]);
 const OUTPUT_INSTRUCTIONS = [
@@ -235,6 +243,77 @@ async function loadInputs(): Promise<{
   };
 }
 
+function buildPersonaSystemPrompt(personaText: string, rulesText: string): string {
+  return `${personaText.trim()}\n\n${rulesText.trim()}\n\n${PERSONA_SET1_QUALITY_SENTENCE}`;
+}
+
+async function loadPersonaSet1Inputs(): Promise<{
+  looks: LookInput[];
+  systemPrompt: string;
+  hashes: { persona: string; looks: string; rules: string; systemPrompt: string };
+}> {
+  const [personaBuffer, looksBuffer, rulesBuffer] = await Promise.all([
+    readFile(PERSONA_SET1_PATHS.persona),
+    readFile(PERSONA_SET1_PATHS.looks),
+    readFile(PERSONA_SET1_PATHS.rules),
+  ]);
+  const plainLooks = parsePlainLooks(looksBuffer.toString("utf8"));
+  const systemPrompt = buildPersonaSystemPrompt(
+    personaBuffer.toString("utf8"),
+    rulesBuffer.toString("utf8"),
+  );
+  return {
+    looks: [...plainLooks].map(([id, plainText]) => ({
+      id, plainText, structuredFacts: {},
+    })),
+    systemPrompt,
+    hashes: {
+      persona: sha256(personaBuffer),
+      looks: sha256(looksBuffer),
+      rules: sha256(rulesBuffer),
+      systemPrompt: sha256(systemPrompt),
+    },
+  };
+}
+
+function isGeneralTextGenerationModel(model: any): boolean {
+  const name = typeof model?.name === "string" ? model.name.replace(/^models\//, "") : "";
+  return /^gemini-/i.test(name) &&
+    (model.supportedGenerationMethods ?? []).includes("generateContent") &&
+    Number.isFinite(model.inputTokenLimit) &&
+    !/(?:image|tts|transcrib|computer-use|robotics|nano-banana)/i.test(`${name} ${model.displayName ?? ""}`);
+}
+
+function isLargerTextTier(name: string): boolean {
+  const model = name.toLowerCase();
+  return /(?:^gemini-(?:2\.5|3\.1)-pro(?:-|$)|^gemini-(?:3\.[6-9]|[4-9])(?:\.|-)|^gemini-(?:flash|pro)-latest$|^gemini-omni-)/.test(model);
+}
+
+async function listPersonaModels(apiKey: string): Promise<{
+  name: string; inputTokenLimit: number; outputTokenLimit: number;
+}[]> {
+  const models: any[] = [];
+  let pageToken: string | undefined;
+  do {
+    const response = await axios.get("https://generativelanguage.googleapis.com/v1beta/models", {
+      params: { pageSize: 1000, ...(pageToken ? { pageToken } : {}) },
+      headers: { "x-goog-api-key": apiKey },
+      timeout: REQUEST_TIMEOUT_MS,
+    });
+    models.push(...(response.data?.models ?? []));
+    pageToken = typeof response.data?.nextPageToken === "string"
+      ? response.data.nextPageToken : undefined;
+  } while (pageToken);
+  return models
+    .filter(isGeneralTextGenerationModel)
+    .map((model: any) => ({
+      name: model.name.replace(/^models\//, ""),
+      inputTokenLimit: model.inputTokenLimit,
+      outputTokenLimit: model.outputTokenLimit,
+    }))
+    .sort((left: any, right: any) => left.name.localeCompare(right.name));
+}
+
 async function loadSet2Inputs() {
   const [plainBuffer, structuredBuffer, rulesBuffer] = await Promise.all([
     readFile(SET2_PATHS.looks), readFile(SET2_PATHS.structured), readFile(SET2_PATHS.rules),
@@ -393,13 +472,25 @@ async function runOne(
   systemText: string,
   apiKey: string,
   set2 = false,
-): Promise<{ rowCount: number; failures: number; stoppedAfterConsecutiveFailures: boolean }> {
+  filenameOverride?: string,
+  retryAllFailed = false,
+  batchLabel?: string,
+  stopOnAccessFailure = false,
+  personaMode = false,
+): Promise<{
+  rowCount: number;
+  failures: number;
+  stoppedAfterConsecutiveFailures: boolean;
+  stoppedForAccessFailure: boolean;
+  stoppedForProviderError: boolean;
+  unresolvedRequestFailures: number;
+}> {
   const role = model === (set2 ? "gemini-3.5-flash-lite" : getClassifierModelOrder()[0])
     ? "primary" : "fallback";
-  const filename = `${set2 ? "set2-" : ""}${mode}-${role}.csv`;
+  const filename = filenameOverride ?? `${set2 ? "set2-" : ""}${mode}-${role}.csv`;
   const filePath = path.join(OUTPUT_DIR, filename);
-  const { header, rows } = await readExistingCsv(filePath, looks, set2);
-  const verdicts = set2 ? SET2_VERDICTS : VERDICTS;
+  const { header, rows } = await readExistingCsv(filePath, looks, set2 || retryAllFailed);
+  const verdicts = set2 ? SET2_VERDICTS : personaMode ? PERSONA_VERDICTS : VERDICTS;
   const tokens = { prompt: 0, candidate: 0, total: 0, unreported: 0 };
   let refusals = 0;
   let parseFailures = 0;
@@ -412,11 +503,15 @@ async function runOne(
   let successfulResponses = 0;
   let consecutiveFailures = 0;
   let stoppedAfterConsecutiveFailures = false;
+  let stoppedForAccessFailure = false;
+  let stoppedForProviderError = false;
   let waitBeforeNextCall = 0;
   let lastCallAt = 0;
 
   for (let index = 0; index < looks.length; index++) {
-    if (set2 ? Boolean(rows[index].verdict) : !rows[index].reason.startsWith("REQUEST_FAILED_")) continue;
+    if ((set2 || retryAllFailed)
+      ? Boolean(rows[index].verdict)
+      : !rows[index].reason.startsWith("REQUEST_FAILED_")) continue;
     const look = looks[index];
     let retriesForRow = 0;
 
@@ -507,6 +602,15 @@ async function runOne(
           });
         }
         const status = error?.response?.status;
+        if (stopOnAccessFailure && [401, 403, 404].includes(status)) {
+          stoppedForAccessFailure = true;
+          break;
+        }
+        if (stopOnAccessFailure && Number.isInteger(status) &&
+            status >= 400 && status < 500 && status !== 429) {
+          stoppedForProviderError = true;
+          break;
+        }
         if ((status === 429 || (Number.isInteger(status) && status >= 500)) &&
             consecutiveFailures <= MAX_CONSECUTIVE_FAILURES) {
           retriesForRow++;
@@ -522,12 +626,14 @@ async function runOne(
 
       if (stoppedAfterConsecutiveFailures) break;
     }
-    if (stoppedAfterConsecutiveFailures) break;
+    if (stoppedAfterConsecutiveFailures || stoppedForAccessFailure || stoppedForProviderError) break;
   }
 
   const failures = rows.filter((row) => !row.verdict).length;
+  const unresolvedRequestFailures = rows.filter((row) =>
+    row.reason.startsWith("REQUEST_FAILED_")).length;
   console.log(JSON.stringify({
-    run: `${set2 ? "set2-" : ""}${mode}-${role}`,
+    run: batchLabel ?? `${set2 ? "set2-" : ""}${mode}-${role}`,
     model,
     rowCount: rows.length,
     callsThisResume: calls,
@@ -539,10 +645,69 @@ async function runOne(
     requestFailures,
     consecutiveFailures,
     stoppedAfterConsecutiveFailures,
+    stoppedForAccessFailure,
+    stoppedForProviderError,
+    unresolvedRequestFailures,
     rateLimitObservations: [...rateLimitObservations.values()],
     csv: path.join("docs/reports/judge-experiment", filename),
   }));
-  return { rowCount: rows.length, failures, stoppedAfterConsecutiveFailures };
+  return {
+    rowCount: rows.length,
+    failures,
+    stoppedAfterConsecutiveFailures,
+    stoppedForAccessFailure,
+    stoppedForProviderError,
+    unresolvedRequestFailures,
+  };
+}
+
+async function runPersonaSet1Plain(apiKey: string): Promise<void> {
+  const { looks, systemPrompt, hashes } = await loadPersonaSet1Inputs();
+  const catalog = await listPersonaModels(apiKey);
+  const available = new Set(catalog.map((entry) => entry.name));
+  const [configuredPrimary, configuredFallback] = getClassifierModelOrder();
+  const requestedModels = [
+    "gemini-3.5-flash-lite",
+    "gemini-3.5-flash",
+    ...catalog.filter((entry) => isLargerTextTier(entry.name)).map((entry) => entry.name),
+  ].filter((name, index, models) => models.indexOf(name) === index);
+  await mkdir(OUTPUT_DIR, { recursive: true });
+  console.log(JSON.stringify({
+    type: "persona-set1-inputs",
+    configuredPrimary,
+    configuredFallback,
+    inputSha256: hashes,
+    systemPromptText: systemPrompt,
+    catalogueGeneralTextModels: catalog,
+    plannedModels: requestedModels,
+  }));
+
+  for (const model of requestedModels) {
+    if (!available.has(model)) {
+      console.log(JSON.stringify({
+        type: "persona-set1-model-unavailable",
+        model,
+        reason: "Not listed with generateContent support for this key.",
+      }));
+      break;
+    }
+    const safeModelName = model.replace(/[^A-Za-z0-9.-]/g, "-");
+    const result = await runOne(
+      "plain",
+      model,
+      looks,
+      systemPrompt,
+      apiKey,
+      false,
+      `persona-set1-${safeModelName}.csv`,
+      true,
+      `persona-set1-plain:${model}`,
+      true,
+      true,
+    );
+    if (result.stoppedAfterConsecutiveFailures || result.stoppedForAccessFailure ||
+        result.stoppedForProviderError || result.unresolvedRequestFailures > 0) break;
+  }
 }
 
 async function runSet2AndResume(apiKey: string): Promise<void> {
@@ -581,6 +746,7 @@ async function runSet2AndResume(apiKey: string): Promise<void> {
 async function main(): Promise<void> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is required; its value is never printed.");
+  if (process.argv.includes("--persona-set1-plain")) return runPersonaSet1Plain(apiKey);
   if (process.argv.includes("--set2-and-resume")) return runSet2AndResume(apiKey);
 
   const { looks, rulesText, looksHash, rulesHash } = await loadInputs();

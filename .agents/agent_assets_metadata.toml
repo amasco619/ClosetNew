@@ -855,3 +855,73 @@ mtime_ms = 1793928566005
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/5b9e2860-b524-499f-bf17-7e97c8c91e80/9151f913-f3f5-4c4d-98ab-45727928ab21"
 storage_version_token = "1793928575913899"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "riuHy9QfXirgD2XmJXeEA"
+uri = "file://docs/reports/judge-experiment/persona-set1-report.md"
+type = "text"
+title = "Persona Set 1 model-ladder report"
+description = "Model catalogue, generation status, token counts, hashes and verification."
+logical_id = "818c9ee6-2c5f-4831-96f6-2612ed1f02b0"
+content_hash = "sha256:50140c3e1877f6699c25f03949c82c0ec95c500774a3f95030fff3d7f3888a3d"
+size = 5379
+mtime_ms = 1793965283701
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/818c9ee6-2c5f-4831-96f6-2612ed1f02b0/58062493-5e5c-4332-8523-9836b6638e1b"
+storage_version_token = "1793965296398077"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "ZTLQFuafQV6U1Qp2dtRc4"
+uri = "file://docs/reports/judge-experiment/persona-set1-run.jsonl"
+type = "unspecified"
+title = "Persona Set 1 run manifest"
+description = "Exact system prompt, source hashes, catalogue and per-model run summaries."
+logical_id = "ffe344a3-256c-4b51-bd62-930bb9b19501"
+content_hash = "sha256:879f11bfaeee03221c24559fa4f22c2f9061bd40556aea1e6c3937ce604899e2"
+size = 9259
+mtime_ms = 1793964991108
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/ffe344a3-256c-4b51-bd62-930bb9b19501/b7efe892-f5d2-4d26-80f6-5e057410f89c"
+storage_version_token = "1793965297018223"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "0CrtG066qbASAgUqfBSEg"
+uri = "file://docs/reports/judge-experiment/persona-set1-gemini-3.5-flash-lite.csv"
+type = "table"
+title = "Persona Set 1 — Gemini 3.5 Flash Lite"
+description = "100 rows; 99 valid judgements and one parse-failure marker."
+logical_id = "a89a3d52-1354-4ad5-b238-760ae258a3f8"
+content_hash = "sha256:637fd0d5702ccd34f56fbb35b545178fd2fbbbcc57cd58c53cc0624a6db7b27d"
+size = 8574
+mtime_ms = 1793964494395
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/a89a3d52-1354-4ad5-b238-760ae258a3f8/070a03d3-f3e8-4fc1-8a76-723d502e84ce"
+storage_version_token = "1793965297650918"
+content_type = "text/csv"
+
+[[outputs]]
+id = "7uqzeEzm4Gn7aTffNKL9f"
+uri = "file://docs/reports/judge-experiment/persona-set1-gemini-3.5-flash.csv"
+type = "table"
+title = "Persona Set 1 — Gemini 3.5 Flash"
+description = "100 valid rows."
+logical_id = "f9845d8b-06ce-45f8-8014-0ba223a7ceb3"
+content_hash = "sha256:18ad80820f5e344950ddae7ed147cf393e6b5e535a39ac60d556190ed5131b35"
+size = 9810
+mtime_ms = 1793964991044
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/f9845d8b-06ce-45f8-8014-0ba223a7ceb3/64a759db-b8ff-4e56-a7fc-ac269487e324"
+storage_version_token = "1793965298303932"
+content_type = "text/csv"
+
+[[outputs]]
+id = "8TQBbh_0w6SzlZ-3f7i9t"
+uri = "file://docs/reports/judge-experiment/persona-set1-gemini-2.5-pro.csv"
+type = "table"
+title = "Persona Set 1 — Gemini 2.5 Pro attempt"
+description = "Partial status CSV: model returned 404; no judgements were produced."
+logical_id = "f24e2fb9-d141-49a7-a504-60d0e670b081"
+content_hash = "sha256:25cc6d5516566b3ccfba7a9ff81b31d256f379c24f12df0e82d10e4dee3035a6"
+size = 4225
+mtime_ms = 1793964991108
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/f24e2fb9-d141-49a7-a504-60d0e670b081/f4727337-6c58-4ee0-be1f-bf13691a73b5"
+storage_version_token = "1793965299190172"
+content_type = "text/csv"
