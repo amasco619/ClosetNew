@@ -14,7 +14,7 @@ const testSource = source
   .replace(/const require = createRequire\(import\.meta\.url\);[\s\S]*?const \{ buildGeminiGenerationRequest, getClassifierModelOrder \} = classifierReliability;/,
     "const { buildGeminiGenerationRequest, getClassifierModelOrder } = globalThis.classifier;")
   .replace(/main\(\)\.catch\([\s\S]*$/, "")
-  + "\nexport { loadInputs, loadSet2Inputs, loadSet2PlainConfirmationInputs, loadSet2ConfirmationPrompts, loadPersonaSet1Inputs, loadPersonaSet1TuningInputs, priorPromptTuningUsage, buildPersonaSystemPrompt, buildTuningSystemPrompts, buildTuningSchema, buildSet2ConfirmationSchema, decodeSet2Confirmation, decodeTuning, tuningUsage, tuningCostUsd, tuningCsv, tuningExampleFlag, modelThinkingLevel, runTuningCalls, newTuningMetrics, isGeneralTextGenerationModel, isLargerTextTier, listPersonaModels, decode, probeModel, percentile, runOne, runSet2AndResume, runSet2ConfirmationBatch, set2ConfirmationCsv, SET2_CONFIRMATION_PROMPT_HASHES, SET2_CONFIRMATION_RUNS, parseCsv, sha256, OUTPUT_INSTRUCTIONS, SET2_INSTRUCTIONS, SET2_VERDICTS, PERSONA_VERDICTS, PERSONA_SET1_QUALITY_SENTENCE, PERSONA_SET1_MODEL_LADDER, PERSONA_SET1_TOKEN_CAP, PERSONA_SET1_TUNING_EXAMPLE_IDS, PERSONA_SET1_TUNING_THINKING_LEVELS, PERSONA_SET1_TUNING_PRICES };";
+  + "\nexport { loadInputs, loadSet2Inputs, loadSet2PlainConfirmationInputs, loadSet2ConfirmationPrompts, loadPersonaSet1Inputs, loadPersonaSet1TuningInputs, priorPromptTuningUsage, buildPersonaSystemPrompt, buildTuningSystemPrompts, buildTuningSchema, buildSet2ConfirmationSchema, decodeSet2Confirmation, decodeTuning, tuningUsage, tuningCostUsd, tuningCsv, tuningExampleFlag, modelThinkingLevel, runTuningCalls, newTuningMetrics, isGeneralTextGenerationModel, isLargerTextTier, listPersonaModels, decode, probeModel, percentile, runOne, runSet2AndResume, runSet2ConfirmationBatch, set2ConfirmationCsv, SET2_CONFIRMATION_PROMPT_HASHES, SET2_CONFIRMATION_RUNS, SET2_CONFIRMATION_TOKEN_CAP, parseCsv, sha256, OUTPUT_INSTRUCTIONS, SET2_INSTRUCTIONS, SET2_VERDICTS, PERSONA_VERDICTS, PERSONA_SET1_QUALITY_SENTENCE, PERSONA_SET1_MODEL_LADDER, PERSONA_SET1_TOKEN_CAP, PERSONA_SET1_TUNING_EXAMPLE_IDS, PERSONA_SET1_TUNING_THINKING_LEVELS, PERSONA_SET1_TUNING_PRICES };";
 const code = transformSync(testSource, { loader: "ts", format: "cjs" }).code;
 
 function harness(responses = [], cataloguePages = []) {
@@ -186,6 +186,80 @@ test("Set 2 confirmation retries one parse failure and records served model vers
   assert.ok(log.includes('"requestedModel":"gemini-3.5-flash"'));
   assert.ok(log.includes('"modelVersion":"gemini-3.6-flash"'));
   assert.ok(log.includes('"rejectedResponseText":"not JSON"'));
+});
+
+test("Set 2 confirmation does not start a request without its token reserve", async () => {
+  const { api, calls, files } = harness();
+  const run = {
+    id: "test-b-ask",
+    filename: "set2-confirmation-token-reserve-test.csv",
+    model: "gemini-3.5-flash",
+    arm: "B",
+    includeAsk: true,
+  };
+  const result = await api.runSet2ConfirmationBatch(
+    run, [look, { ...look, id: "T01-B" }], "Recorded arm B prompt", "synthetic",
+    {
+      reportedTokens: api.SET2_CONFIRMATION_TOKEN_CAP - 100,
+      lastCallAt: 0,
+      tokenCapReached: false,
+    },
+  );
+  assert.equal(calls.length, 0);
+  assert.equal(result.stoppedForTokenCap, true);
+  assert.ok(files.get(output(run.filename)).includes("NOT_RUN"));
+});
+
+test("Set 2 confirmation checks actual usage and sends no further request at the cap", async () => {
+  const nearCapResponse = textResponse(JSON.stringify({
+    verdict: "Works",
+    reason: "The look suits the stated setting.",
+  }));
+  nearCapResponse.data.usageMetadata = {
+    promptTokenCount: 48_000,
+    candidatesTokenCount: 2_000,
+    thoughtsTokenCount: 0,
+    totalTokenCount: 50_000,
+  };
+  const { api, calls } = harness([nearCapResponse]);
+  const run = {
+    id: "test-b-ask",
+    filename: "set2-confirmation-actual-usage-test.csv",
+    model: "gemini-3.5-flash",
+    arm: "B",
+    includeAsk: true,
+  };
+  const result = await api.runSet2ConfirmationBatch(
+    run, [look, { ...look, id: "T01-B" }], "Recorded arm B prompt", "synthetic",
+    { reportedTokens: 950_000, lastCallAt: 0, tokenCapReached: false },
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(result.totalReportedTokensAfterRun, api.SET2_CONFIRMATION_TOKEN_CAP);
+  assert.equal(result.stoppedForTokenCap, true);
+  assert.equal(result.validRows, 1);
+});
+
+test("Set 2 confirmation stops when a response omits token usage", async () => {
+  const unreportedResponse = textResponse(JSON.stringify({
+    verdict: "Works",
+    reason: "The look suits the stated setting.",
+  }));
+  delete unreportedResponse.data.usageMetadata;
+  const { api, calls } = harness([unreportedResponse]);
+  const run = {
+    id: "test-b-ask",
+    filename: "set2-confirmation-unreported-usage-test.csv",
+    model: "gemini-3.5-flash",
+    arm: "B",
+    includeAsk: true,
+  };
+  const result = await api.runSet2ConfirmationBatch(
+    run, [look, { ...look, id: "T01-B" }], "Recorded arm B prompt", "synthetic",
+    { reportedTokens: 0, lastCallAt: 0, tokenCapReached: false },
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(result.tokens.unreported, 1);
+  assert.equal(result.stoppedForTokenCap, true);
 });
 
 test("Set 2 confirmation stops one run after five consecutive request failures", async () => {

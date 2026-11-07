@@ -130,6 +130,8 @@ const SET2_CONFIRMATION_PROMPT_HASHES = {
   C: "eedf6445cfb017e793ebe0451df5649d239cf918e8ae83bca4f7ee32f97a6368",
 };
 const SET2_CONFIRMATION_TOKEN_CAP = 1_000_000;
+const SET2_CONFIRMATION_MAX_OUTPUT_TOKENS = 1024;
+const SET2_CONFIRMATION_REQUEST_OVERHEAD_RESERVE = 1024;
 const SET2_CONFIRMATION_PRICE_SOURCE =
   "https://ai.google.dev/gemini-api/docs/pricing (Standard paid-tier prices retrieved 2026-11-07)";
 const SET2_CONFIRMATION_PRICES = {
@@ -1324,7 +1326,27 @@ async function runSet2ConfirmationBatch(
     let waitBeforeNextCall = 0;
 
     while (true) {
-      if (runtime.reportedTokens >= SET2_CONFIRMATION_TOKEN_CAP) {
+      const request = buildGeminiGenerationRequest({
+        model: run.model,
+        apiKey,
+        baseRequestBody: {
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: "user", parts: [{ text: look.plainText }] }],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: SET2_CONFIRMATION_MAX_OUTPUT_TOKENS,
+            responseMimeType: "application/json",
+            responseSchema: schema,
+            thinkingConfig: { thinkingLevel: "minimal" },
+          },
+        },
+        maxOutputTokens: SET2_CONFIRMATION_MAX_OUTPUT_TOKENS,
+        timeout: REQUEST_TIMEOUT_MS,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      const tokenReserve = Buffer.byteLength(JSON.stringify(request.body), "utf8") +
+        SET2_CONFIRMATION_MAX_OUTPUT_TOKENS + SET2_CONFIRMATION_REQUEST_OVERHEAD_RESERVE;
+      if (SET2_CONFIRMATION_TOKEN_CAP - runtime.reportedTokens < tokenReserve) {
         runtime.tokenCapReached = true;
         stoppedForTokenCap = true;
         break;
@@ -1335,24 +1357,6 @@ async function runSet2ConfirmationBatch(
       if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
       waitBeforeNextCall = 0;
 
-      const request = buildGeminiGenerationRequest({
-        model: run.model,
-        apiKey,
-        baseRequestBody: {
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: "user", parts: [{ text: look.plainText }] }],
-          generationConfig: {
-            temperature: 0,
-            maxOutputTokens: 1024,
-            responseMimeType: "application/json",
-            responseSchema: schema,
-            thinkingConfig: { thinkingLevel: "minimal" },
-          },
-        },
-        maxOutputTokens: 1024,
-        timeout: REQUEST_TIMEOUT_MS,
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
       const startedAt = Date.now();
       runtime.lastCallAt = startedAt;
       calls++;
@@ -1366,10 +1370,18 @@ async function runSet2ConfirmationBatch(
         inputTokens.prompt += usage.input;
         inputTokens.candidate += usage.output;
         inputTokens.thinking += usage.thinking;
-        if (usage.total === null) inputTokens.unreported++;
+        if (usage.total === null) {
+          inputTokens.unreported++;
+          runtime.tokenCapReached = true;
+          stoppedForTokenCap = true;
+        }
         else {
           inputTokens.total += usage.total;
           runtime.reportedTokens += usage.total;
+          if (runtime.reportedTokens >= SET2_CONFIRMATION_TOKEN_CAP) {
+            runtime.tokenCapReached = true;
+            stoppedForTokenCap = true;
+          }
         }
         const finishReason = tuningFinishReason(response);
         const modelVersion = typeof response?.data?.modelVersion === "string"
