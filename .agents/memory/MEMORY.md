@@ -3,6 +3,7 @@
 - [Supabase getClaims null safety](supabase-getclaims-null.md) — getClaims() returns data:null when no session; always use data?.claims not destructuring
 - [Guest mode pattern](guest-mode.md) — guest additions stay manual/local; approved signup/signin transfer is owner-bound, idempotent and non-AI.
 - [Gemini extended clothing fields](gemini-clothing-fields.md) — Gemini prompt returns fit/neckline/sleeveLength/rise/warmthBand; applied before subtype inference in add-item.tsx.
+- [Gemini model alias routing](gemini-model-alias-routing.md) — record response modelVersion; requested IDs may route to newer versions, so disclose pricing proxies.
 - [Supabase direct client pattern](supabase-direct-client.md) — use publishable keys for user-facing data/Auth and reserve the secret key for admin-only operations.
 - [Image upload and transient bulk staging](image-upload-flow.md) — recovery photo IDs differ from garment IDs; stage picker files before routing and retain sources until confirmed save.
 - [Classifier item boundary](classifier-item-boundary.md) — matching pairs and coordinated worn sets are one item; distinguish semantic refusals from preparation failures.

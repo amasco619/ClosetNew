@@ -46,6 +46,69 @@ const PERSONA_SET1_MODEL_LADDER = [
 ];
 const PERSONA_SET1_TOKEN_CAP = 2_000_000;
 const PERSONA_SET1_RUN_PATH = path.join(OUTPUT_DIR, "persona-set1-run.jsonl");
+const PERSONA_SET1_TUNING_MODELS = [
+  "gemini-3.5-flash",
+  "gemini-3.1-pro-preview",
+  "gemini-pro-latest",
+  "gemini-3.7-flash",
+  "gemini-4-argon",
+];
+const PERSONA_SET1_TUNING_EXAMPLES_PATH =
+  path.join(ROOT, "attached_assets/fewshot_examples_1794012527523.md");
+const PERSONA_SET1_TUNING_EXAMPLE_IDS = new Set([
+  "S01-A", "S01-C", "S11-D", "S13-C", "S12-D", "S09-D", "S12-B", "S25-A", "S03-A",
+]);
+const PERSONA_SET1_TUNING_THINKING_LEVELS: Record<string, string> = {
+  "gemini-3.5-flash": "minimal",
+  "gemini-3.1-pro-preview": "low",
+  "gemini-pro-latest": "low",
+  // 3.7 Flash is deprecated and routes to 3.8 Flash; low is the lowest supported level.
+  "gemini-3.7-flash": "low",
+  "gemini-4-argon": "low",
+};
+const PERSONA_SET1_TUNING_PRICES: Record<string, {
+  inputPerMillion: number;
+  outputPerMillion: number;
+  basis: string;
+}> = {
+  "gemini-3.5-flash": {
+    inputPerMillion: 0.75,
+    outputPerMillion: 3.75,
+    basis: "Published Gemini 3.6 Flash rate; gemini-3.5-flash was previously observed resolving to 3.6 Flash.",
+  },
+  "gemini-3.1-pro-preview": {
+    inputPerMillion: 2,
+    outputPerMillion: 12,
+    basis: "Published Gemini 3.1 Pro Preview rate for prompts under 200k tokens.",
+  },
+  "gemini-pro-latest": {
+    inputPerMillion: 2,
+    outputPerMillion: 12,
+    basis: "Estimate using the published Gemini 3.1 Pro Preview rate; alias billing resolution is not established.",
+  },
+  "gemini-3.7-flash": {
+    inputPerMillion: 0.75,
+    outputPerMillion: 3.75,
+    basis: "Published Gemini 3.8 Flash rate; 3.7 Flash is deprecated and requests route to 3.8 Flash.",
+  },
+  "gemini-4-argon": {
+    inputPerMillion: 2,
+    outputPerMillion: 10,
+    basis: "Published Gemini 4 Argon Standard rate through November 30, 2026.",
+  },
+};
+const PERSONA_SET1_TUNING_PRICE_SOURCE =
+  "https://ai.google.dev/gemini-api/docs/pricing (Standard paid-tier prices retrieved 2026-11-07)";
+const PERSONA_SET1_TUNING_THINKING_SOURCE =
+  "https://ai.google.dev/gemini-api/docs/generate-content/thinking (retrieved 2026-11-07)";
+const PERSONA_SET1_TUNING_EXTRA_INSTRUCTIONS = [
+  "For arm C, override the earlier two-key reply instruction and return exactly the failures, verdict, and reason fields required by the response schema.",
+  "List only independent failures supported by a stated rule or clear styling logic.",
+  "Do not list taste preferences as failures.",
+  "Return a short string for each independent failure.",
+  "If a decisive unstated fact would change the result, set verdict to Ask and name that fact in reason.",
+].join("\n");
+const PERSONA_SET1_TUNING_VERDICTS = new Set(["Works", "Almost", "Rethink", "Ask"]);
 const PERSONA_VERDICTS = new Set(["Works", "Almost", "Rethink", "Ask"]);
 const REQUEST_TIMEOUT_MS = 60_000;
 const VERDICTS = new Set(["Works", "Almost", "Rethink"]);
@@ -257,6 +320,582 @@ async function loadInputs(): Promise<{
 
 function buildPersonaSystemPrompt(personaText: string, rulesText: string): string {
   return `${personaText.trim()}\n\n${rulesText.trim()}\n\n${PERSONA_SET1_QUALITY_SENTENCE}`;
+}
+
+function buildTuningSystemPrompts(basePrompt: string, examplesText: string): Record<"A" | "B" | "C", string> {
+  const withExamples = `${basePrompt}\n\n${examplesText.trim()}`;
+  return {
+    A: basePrompt,
+    B: withExamples,
+    C: `${withExamples}\n\n${PERSONA_SET1_TUNING_EXTRA_INSTRUCTIONS}`,
+  };
+}
+
+function buildTuningSchema(arm: "A" | "B" | "C"): Record<string, any> {
+  const properties: Record<string, any> = {
+    verdict: { type: "STRING", enum: [...PERSONA_SET1_TUNING_VERDICTS] },
+    reason: { type: "STRING" },
+  };
+  if (arm === "C") {
+    properties.failures = { type: "ARRAY", items: { type: "STRING" } };
+  }
+  return {
+    type: "OBJECT",
+    properties,
+    required: arm === "C" ? ["failures", "verdict", "reason"] : ["verdict", "reason"],
+  };
+}
+
+function decodeTuning(
+  response: any,
+  arm: "A" | "B" | "C",
+): { verdict: string; reason: string; failures: string[]; modelVerdict: string } | null {
+  const text = responseText(response);
+  if (!text) return null;
+  try {
+    const value = JSON.parse(text);
+    const expectedKeys = arm === "C" ? "failures,reason,verdict" : "reason,verdict";
+    if (!value || typeof value !== "object" || Array.isArray(value) ||
+        Object.keys(value).sort().join(",") !== expectedKeys ||
+        !PERSONA_SET1_TUNING_VERDICTS.has(value.verdict) ||
+        typeof value.reason !== "string" ||
+        value.reason.trim().split(/\s+/).filter(Boolean).length > 15) return null;
+
+    if (arm !== "C") {
+      return {
+        verdict: value.verdict,
+        reason: value.reason.trim(),
+        failures: [],
+        modelVerdict: value.verdict,
+      };
+    }
+    if (!Array.isArray(value.failures) ||
+        value.failures.some((failure: unknown) =>
+          typeof failure !== "string" || !failure.trim())) return null;
+    const failures = value.failures.map((failure: string) => failure.trim());
+    const verdict = value.verdict === "Ask"
+      ? "Ask"
+      : failures.length === 0 ? "Works" : failures.length === 1 ? "Almost" : "Rethink";
+    return { verdict, reason: value.reason.trim(), failures, modelVerdict: value.verdict };
+  } catch {
+    return null;
+  }
+}
+
+function tuningUsage(response: any): {
+  input: number; output: number; thinking: number; total: number | null;
+} {
+  const usage = response?.data?.usageMetadata ?? {};
+  return {
+    input: Number.isFinite(usage.promptTokenCount) ? usage.promptTokenCount : 0,
+    output: Number.isFinite(usage.candidatesTokenCount) ? usage.candidatesTokenCount : 0,
+    thinking: Number.isFinite(usage.thoughtsTokenCount) ? usage.thoughtsTokenCount : 0,
+    total: Number.isFinite(usage.totalTokenCount) ? usage.totalTokenCount : null,
+  };
+}
+
+function tuningCostUsd(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  thinkingTokens: number,
+): number {
+  const price = PERSONA_SET1_TUNING_PRICES[model];
+  if (!price) throw new Error(`No published-price estimate is configured for ${model}.`);
+  return Number((
+    inputTokens * price.inputPerMillion / 1_000_000 +
+    (outputTokens + thinkingTokens) * price.outputPerMillion / 1_000_000
+  ).toFixed(8));
+}
+
+function tuningCsvCell(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+function tuningCsv(rows: Array<{
+  look_id: string; verdict: string; reason: string; failures: string[]; example_flag: string;
+}>): string {
+  return [
+    "look_id,verdict,reason,failures,example_flag",
+    ...rows.map((row) => [
+      row.look_id, row.verdict, row.reason, JSON.stringify(row.failures), row.example_flag,
+    ].map(tuningCsvCell).join(",")),
+  ].join("\n") + "\n";
+}
+
+function tuningExampleFlag(lookId: string, arm: "A" | "B" | "C"): string {
+  return arm !== "A" && PERSONA_SET1_TUNING_EXAMPLE_IDS.has(lookId) ? "example" : "";
+}
+
+function tuningFinishReason(response: any): string | null {
+  const reason = response?.data?.candidates?.[0]?.finishReason;
+  return typeof reason === "string" ? reason : null;
+}
+
+async function loadPersonaSet1TuningInputs(): Promise<{
+  looks: LookInput[];
+  examplesText: string;
+  examplesHash: string;
+  prompts: Record<"A" | "B" | "C", string>;
+  inputHashes: Record<string, string>;
+}> {
+  const inputs = await loadPersonaSet1Inputs();
+  const expected = {
+    persona: "838624bfa69c3530af58384170b84b2ab7cca387660bd5e387927b08990b79ef",
+    rules: "a0dc2a8d9661f23d5d685805f3c781073fe8ff7fbfc4f244c0f995bb65ac7c2c",
+    systemPrompt: "3024fe78a9d1157b9713eee92691713a18150328375f8eff10c065701f6b82d5",
+    looks: "939d3fd63f10e17fd33fa3dfae452a6141957a959c206ed2ceb949c679b670cc",
+  };
+  for (const [key, expectedHash] of Object.entries(expected)) {
+    if (inputs.hashes[key as keyof typeof inputs.hashes] !== expectedHash) {
+      throw new Error(`Set 1 ${key} SHA-256 changed; refusing to run prompt tuning.`);
+    }
+  }
+  const examplesBuffer = await readFile(PERSONA_SET1_TUNING_EXAMPLES_PATH);
+  const examplesText = examplesBuffer.toString("utf8");
+  const examplesHash = sha256(examplesBuffer);
+  const prompts = buildTuningSystemPrompts(inputs.systemPrompt, examplesText);
+  return {
+    looks: inputs.looks,
+    examplesText,
+    examplesHash,
+    prompts,
+    inputHashes: {
+      ...inputs.hashes,
+      fewshotExamples: examplesHash,
+      promptA: sha256(prompts.A),
+      promptB: sha256(prompts.B),
+      promptC: sha256(prompts.C),
+    },
+  };
+}
+
+type TuningArm = "A" | "B" | "C";
+type TuningCsvRow = {
+  look_id: string;
+  verdict: string;
+  reason: string;
+  failures: string[];
+  example_flag: string;
+};
+type TuningMetrics = {
+  calls: number;
+  validRows: number;
+  parseFailures: number;
+  requestFailures: Record<string, number>;
+  inputTokens: number;
+  outputTokens: number;
+  thinkingTokens: number;
+  totalTokens: number;
+  unreportedUsageCalls: number;
+  latenciesMs: number[];
+  finishReasons: Array<string | null>;
+  thoughtsTokenCounts: Array<number | null>;
+};
+type TuningRuntime = {
+  reportedTokens: number;
+  lastCallAt: number;
+  consecutiveFailuresByModel: Map<string, number>;
+  stoppedModels: Set<string>;
+  stopReasonByModel: Map<string, string>;
+  tokenCapReached: boolean;
+};
+
+function emptyTuningRow(look: LookInput, arm: TuningArm, reason: string): TuningCsvRow {
+  return {
+    look_id: look.id,
+    verdict: "",
+    reason,
+    failures: [],
+    example_flag: tuningExampleFlag(look.id, arm),
+  };
+}
+
+function modelThinkingLevel(model: string): string {
+  const level = PERSONA_SET1_TUNING_THINKING_LEVELS[model];
+  if (!level) throw new Error(`No minimum thinking level is set for ${model}.`);
+  return level;
+}
+
+function newTuningMetrics(): TuningMetrics {
+  return {
+    calls: 0, validRows: 0, parseFailures: 0, requestFailures: {},
+    inputTokens: 0, outputTokens: 0, thinkingTokens: 0, totalTokens: 0,
+    unreportedUsageCalls: 0, latenciesMs: [], finishReasons: [], thoughtsTokenCounts: [],
+  };
+}
+
+async function priorPromptTuningUsage(): Promise<{ calls: number; tokens: number }> {
+  let text: string;
+  try {
+    text = await readFile(PERSONA_SET1_RUN_PATH, "utf8");
+  } catch (error: any) {
+    if (error?.code === "ENOENT") return { calls: 0, tokens: 0 };
+    throw error;
+  }
+  const calls = text.split(/\r?\n/).filter(Boolean)
+    .map((line) => JSON.parse(line))
+    .filter((record) => record.type === "persona-set1-tuning-call");
+  return {
+    calls: calls.length,
+    tokens: calls.reduce((sum, record) =>
+      sum + (Number.isFinite(record.totalTokenCount) ? record.totalTokenCount : 0), 0),
+  };
+}
+
+function tuningRunSummary(model: string, arm: TuningArm, metrics: TuningMetrics) {
+  const price = PERSONA_SET1_TUNING_PRICES[model];
+  const costUsd = tuningCostUsd(
+    model, metrics.inputTokens, metrics.outputTokens, metrics.thinkingTokens,
+  );
+  return {
+    model,
+    arm,
+    thinkingLevel: modelThinkingLevel(model),
+    calls: metrics.calls,
+    validRows: metrics.validRows,
+    parseFailures: metrics.parseFailures,
+    requestFailures: metrics.requestFailures,
+    tokens: {
+      input: metrics.inputTokens,
+      output: metrics.outputTokens,
+      thinking: metrics.thinkingTokens,
+      reportedTotal: metrics.totalTokens,
+      unreportedUsageCalls: metrics.unreportedUsageCalls,
+    },
+    latencyMs: {
+      median: percentile(metrics.latenciesMs, 0.5),
+      p95: percentile(metrics.latenciesMs, 0.95),
+    },
+    estimatedCostUsd: costUsd,
+    priceBasis: price.basis,
+  };
+}
+
+async function appendTuningRecord(record: Record<string, unknown>): Promise<void> {
+  const text = JSON.stringify(record);
+  console.log(text);
+  await appendFile(PERSONA_SET1_RUN_PATH, `${text}\n`);
+}
+
+async function runTuningCalls(
+  looks: LookInput[],
+  model: string,
+  arm: TuningArm,
+  systemPrompt: string,
+  apiKey: string,
+  runtime: TuningRuntime,
+  metrics: TuningMetrics,
+): Promise<Map<string, TuningCsvRow>> {
+  const rows = new Map<string, TuningCsvRow>();
+  const thinkingLevel = modelThinkingLevel(model);
+  for (const look of looks) {
+    if (runtime.stoppedModels.has(model)) {
+      rows.set(look.id, emptyTuningRow(
+        look, arm, `NOT_RUN_${runtime.stopReasonByModel.get(model) ?? "MODEL_STOPPED"}`,
+      ));
+      continue;
+    }
+    if (runtime.reportedTokens >= PERSONA_SET1_TOKEN_CAP) {
+      runtime.tokenCapReached = true;
+      rows.set(look.id, emptyTuningRow(look, arm, "NOT_RUN_TOKEN_CAP"));
+      continue;
+    }
+    const spacingMs = runtime.lastCallAt
+      ? Math.max(0, CALL_SPACING_MS - (Date.now() - runtime.lastCallAt)) : 0;
+    if (spacingMs) await new Promise((resolve) => setTimeout(resolve, spacingMs));
+    const userText = look.plainText;
+    const requestStartedAt = Date.now();
+    const request = buildGeminiGenerationRequest({
+      model,
+      apiKey,
+      baseRequestBody: {
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: "user", parts: [{ text: userText }] }],
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: 1024,
+          responseMimeType: "application/json",
+          responseSchema: buildTuningSchema(arm),
+          thinkingConfig: { thinkingLevel },
+        },
+      },
+      maxOutputTokens: 1024,
+      timeout: REQUEST_TIMEOUT_MS,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    runtime.lastCallAt = Date.now();
+    metrics.calls++;
+    try {
+      const response = await axios.post(request.url, request.body, request.config);
+      const latencyMs = Date.now() - requestStartedAt;
+      metrics.latenciesMs.push(latencyMs);
+      const usage = tuningUsage(response);
+      const finishReason = tuningFinishReason(response);
+      metrics.inputTokens += usage.input;
+      metrics.outputTokens += usage.output;
+      metrics.thinkingTokens += usage.thinking;
+      metrics.finishReasons.push(finishReason);
+      metrics.thoughtsTokenCounts.push(
+        Number.isFinite(response?.data?.usageMetadata?.thoughtsTokenCount)
+          ? response.data.usageMetadata.thoughtsTokenCount : null,
+      );
+      if (usage.total === null) metrics.unreportedUsageCalls++;
+      else {
+        metrics.totalTokens += usage.total;
+        runtime.reportedTokens += usage.total;
+      }
+      const consecutive = runtime.consecutiveFailuresByModel.get(model) ?? 0;
+      runtime.consecutiveFailuresByModel.set(model, 0);
+      const decoded = refusal(response) ? null : decodeTuning(response, arm);
+      const rawText = responseText(response);
+      if (decoded) {
+        metrics.validRows++;
+        rows.set(look.id, {
+          look_id: look.id,
+          verdict: decoded.verdict,
+          reason: decoded.reason,
+          failures: decoded.failures,
+          example_flag: tuningExampleFlag(look.id, arm),
+        });
+      } else {
+        metrics.parseFailures++;
+        rows.set(look.id, emptyTuningRow(look, arm, refusal(response) ? "REFUSAL" : "PARSE_FAILURE"));
+      }
+      await appendTuningRecord({
+        type: "persona-set1-tuning-call",
+        model,
+        arm,
+        lookId: look.id,
+        call: metrics.calls,
+        status: response.status ?? 200,
+        modelVersion: response.data?.modelVersion ?? null,
+        finishReason,
+        thoughtsTokenCount: metrics.thoughtsTokenCounts.at(-1),
+        promptTokenCount: usage.input,
+        candidatesTokenCount: usage.output,
+        totalTokenCount: usage.total,
+        latencyMs,
+        valid: Boolean(decoded),
+        modelVerdict: decoded?.modelVerdict ?? null,
+        rejectedResponseText: decoded ? undefined : rawText,
+        consecutiveRequestFailuresBeforeSuccess: consecutive,
+        reportedTokensAfterCall: runtime.reportedTokens,
+      });
+      if (runtime.reportedTokens >= PERSONA_SET1_TOKEN_CAP) {
+        runtime.tokenCapReached = true;
+      }
+    } catch (error: any) {
+      const latencyMs = Date.now() - requestStartedAt;
+      metrics.latenciesMs.push(latencyMs);
+      const code = providerFailureCode(error);
+      metrics.finishReasons.push(null);
+      metrics.thoughtsTokenCounts.push(null);
+      metrics.requestFailures[code] = (metrics.requestFailures[code] ?? 0) + 1;
+      const consecutive = (runtime.consecutiveFailuresByModel.get(model) ?? 0) + 1;
+      runtime.consecutiveFailuresByModel.set(model, consecutive);
+      const status = Number.isInteger(error?.response?.status) ? error.response.status : null;
+      rows.set(look.id, emptyTuningRow(look, arm, `REQUEST_FAILED_${code}`));
+      await appendTuningRecord({
+        type: "persona-set1-tuning-call",
+        model,
+        arm,
+        lookId: look.id,
+        call: metrics.calls,
+        status,
+        errorCode: code,
+        finishReason: null,
+        thoughtsTokenCount: null,
+        promptTokenCount: 0,
+        candidatesTokenCount: 0,
+        totalTokenCount: null,
+        latencyMs,
+        valid: false,
+        rejectedResponseText: null,
+        consecutiveRequestFailures: consecutive,
+        reportedTokensAfterCall: runtime.reportedTokens,
+      });
+      if (consecutive >= 5) {
+        runtime.stoppedModels.add(model);
+        runtime.stopReasonByModel.set(model, "FIVE_CONSECUTIVE_REQUEST_FAILURES");
+      }
+    }
+  }
+  return rows;
+}
+
+async function writeTuningCsv(
+  filename: string,
+  looks: LookInput[],
+  arm: TuningArm,
+  observed: Map<string, TuningCsvRow>,
+  notRunReason = "NOT_RUN",
+): Promise<void> {
+  const rows = looks.map((look) =>
+    observed.get(look.id) ?? emptyTuningRow(look, arm, notRunReason));
+  await writeFile(path.join(OUTPUT_DIR, filename), tuningCsv(rows), "utf8");
+}
+
+async function runPersonaSet1PromptTuning(apiKey: string): Promise<void> {
+  const inputs = await loadPersonaSet1TuningInputs();
+  await mkdir(OUTPUT_DIR, { recursive: true });
+  const previousUsage = await priorPromptTuningUsage();
+  const runtime: TuningRuntime = {
+    reportedTokens: previousUsage.tokens, lastCallAt: 0, consecutiveFailuresByModel: new Map(),
+    stoppedModels: new Set(), stopReasonByModel: new Map(), tokenCapReached: false,
+  };
+  await appendTuningRecord({
+    type: "persona-set1-prompt-tuning-start",
+    models: PERSONA_SET1_TUNING_MODELS,
+    inputSha256: inputs.inputHashes,
+    promptTextSha256: Object.fromEntries(
+      Object.entries(inputs.prompts).map(([arm, prompt]) => [arm, sha256(prompt)]),
+    ),
+    systemPrompts: inputs.prompts,
+    fewshotExampleIds: [...PERSONA_SET1_TUNING_EXAMPLE_IDS],
+    thinkingLevels: PERSONA_SET1_TUNING_THINKING_LEVELS,
+    thinkingLevelSource: PERSONA_SET1_TUNING_THINKING_SOURCE,
+    pricingSource: PERSONA_SET1_TUNING_PRICE_SOURCE,
+    prices: PERSONA_SET1_TUNING_PRICES,
+    caps: { totalReportedTokens: PERSONA_SET1_TOKEN_CAP, consecutiveRequestFailures: 5 },
+    priorTuningCallsCountedAgainstCap: previousUsage.calls,
+    priorTuningReportedTokensCountedAgainstCap: previousUsage.tokens,
+    priorCallsAppearInAttemptLogsButNotInArmCsvs: true,
+    startedAt: new Date().toISOString(),
+  });
+
+  const primaryModel = "gemini-3.5-flash";
+  const primarySummaries: Array<{ arm: TuningArm; validRows: number; parseFailures: number }> = [];
+  for (const arm of ["A", "B", "C"] as const) {
+    const metrics = newTuningMetrics();
+    const rows = await runTuningCalls(
+      inputs.looks, primaryModel, arm, inputs.prompts[arm], apiKey, runtime, metrics,
+    );
+    const filename = `persona-set1-tuning-${primaryModel}-arm-${arm.toLowerCase()}.csv`;
+    await writeTuningCsv(filename, inputs.looks, arm, rows,
+      `NOT_RUN_${runtime.tokenCapReached ? "TOKEN_CAP" :
+        runtime.stopReasonByModel.get(primaryModel) ?? "NOT_ATTEMPTED"}`);
+    const summary = tuningRunSummary(primaryModel, arm, metrics);
+    primarySummaries.push({
+      arm, validRows: metrics.validRows, parseFailures: metrics.parseFailures,
+    });
+    await appendTuningRecord({
+      type: "persona-set1-tuning-arm-summary",
+      ...summary,
+      csv: path.join("docs/reports/judge-experiment", filename),
+      stopped: runtime.tokenCapReached || runtime.stoppedModels.has(primaryModel),
+      stopReason: runtime.tokenCapReached ? "TOKEN_CAP" :
+        runtime.stopReasonByModel.get(primaryModel) ?? null,
+      totalReportedTokens: runtime.reportedTokens,
+      tokenCap: PERSONA_SET1_TOKEN_CAP,
+    });
+    if (runtime.tokenCapReached || runtime.stoppedModels.has(primaryModel)) break;
+  }
+
+  if (runtime.tokenCapReached || runtime.stoppedModels.has(primaryModel) ||
+      primarySummaries.length !== 3) {
+    await appendTuningRecord({
+      type: "persona-set1-prompt-tuning-stop",
+      reason: runtime.tokenCapReached ? "TOKEN_CAP" :
+        runtime.stopReasonByModel.get(primaryModel) ?? "PRIMARY_ARMS_INCOMPLETE",
+      totalReportedTokens: runtime.reportedTokens,
+    });
+    return;
+  }
+  const best = [...primarySummaries].sort((left, right) =>
+    right.validRows - left.validRows ||
+    left.parseFailures - right.parseFailures ||
+    ["A", "B", "C"].indexOf(left.arm) - ["A", "B", "C"].indexOf(right.arm),
+  )[0];
+  await appendTuningRecord({
+    type: "persona-set1-tuning-best-arm",
+    model: primaryModel,
+    arm: best.arm,
+    selectionRule: "Most valid rows; ties use fewer parse failures, then A before B before C.",
+    primaryArmSummaries: primarySummaries,
+  });
+
+  for (const model of PERSONA_SET1_TUNING_MODELS.slice(1)) {
+    if (runtime.tokenCapReached) break;
+    const metrics = newTuningMetrics();
+    const probeLooks = inputs.looks.slice(0, 10);
+    const observed = await runTuningCalls(
+      probeLooks, model, best.arm, inputs.prompts[best.arm], apiKey, runtime, metrics,
+    );
+    const parseFailures = metrics.parseFailures;
+    const modelStopped = runtime.stoppedModels.has(model);
+    const probePassed = !runtime.tokenCapReached && !modelStopped && parseFailures < 3;
+    await appendTuningRecord({
+      type: "persona-set1-tuning-model-probe",
+      model,
+      arm: best.arm,
+      thinkingLevel: modelThinkingLevel(model),
+      calls: metrics.calls,
+      validRows: metrics.validRows,
+      parseFailures,
+      requestFailures: metrics.requestFailures,
+      finishReasons: metrics.finishReasons,
+      thoughtsTokenCounts: metrics.thoughtsTokenCounts,
+      passed: probePassed,
+      decision: runtime.tokenCapReached ? "TOKEN_CAP" : modelStopped
+        ? runtime.stopReasonByModel.get(model) : parseFailures >= 3
+          ? "THREE_OR_MORE_PARSE_FAILURES" : "CONTINUE_TO_FULL_BATCH",
+    });
+    if (parseFailures >= 3 || modelStopped || runtime.tokenCapReached) {
+      const filename = `persona-set1-tuning-${model}-arm-${best.arm.toLowerCase()}.csv`;
+      await writeTuningCsv(
+        filename, inputs.looks, best.arm, observed,
+        `NOT_RUN_${runtime.tokenCapReached ? "TOKEN_CAP" : modelStopped
+          ? runtime.stopReasonByModel.get(model) : "PROBE_PARSE_FAILURES"}`,
+      );
+      await appendTuningRecord({
+        type: "persona-set1-tuning-arm-summary",
+        ...tuningRunSummary(model, best.arm, metrics),
+        csv: path.join("docs/reports/judge-experiment", filename),
+        fullBatchRun: false,
+        probePassed: false,
+        stopped: modelStopped || runtime.tokenCapReached,
+        stopReason: runtime.tokenCapReached ? "TOKEN_CAP" : modelStopped
+          ? runtime.stopReasonByModel.get(model) : "THREE_OR_MORE_PARSE_FAILURES",
+        totalReportedTokens: runtime.reportedTokens,
+      });
+      continue;
+    }
+    const remaining = inputs.looks.slice(10);
+    const remainingRows = await runTuningCalls(
+      remaining, model, best.arm, inputs.prompts[best.arm], apiKey, runtime, metrics,
+    );
+    for (const [lookId, row] of remainingRows) observed.set(lookId, row);
+    const filename = `persona-set1-tuning-${model}-arm-${best.arm.toLowerCase()}.csv`;
+    await writeTuningCsv(
+      filename, inputs.looks, best.arm, observed,
+      `NOT_RUN_${runtime.tokenCapReached ? "TOKEN_CAP" :
+        runtime.stopReasonByModel.get(model) ?? "NOT_ATTEMPTED"}`,
+    );
+    await appendTuningRecord({
+      type: "persona-set1-tuning-arm-summary",
+      ...tuningRunSummary(model, best.arm, metrics),
+      csv: path.join("docs/reports/judge-experiment", filename),
+      fullBatchRun: !runtime.tokenCapReached && !runtime.stoppedModels.has(model),
+      probePassed: true,
+      stopped: runtime.tokenCapReached || runtime.stoppedModels.has(model),
+      stopReason: runtime.tokenCapReached ? "TOKEN_CAP" :
+        runtime.stopReasonByModel.get(model) ?? null,
+      totalReportedTokens: runtime.reportedTokens,
+      tokenCap: PERSONA_SET1_TOKEN_CAP,
+    });
+  }
+  await appendTuningRecord({
+    type: "persona-set1-prompt-tuning-complete",
+    selectedArm: best.arm,
+    totalReportedTokens: runtime.reportedTokens,
+    tokenCap: PERSONA_SET1_TOKEN_CAP,
+    stopped: runtime.tokenCapReached || runtime.stoppedModels.size > 0,
+    stoppedModels: [...runtime.stoppedModels],
+    stopReasons: Object.fromEntries(runtime.stopReasonByModel),
+    stopReason: runtime.tokenCapReached ? "TOKEN_CAP" : null,
+    completedAt: new Date().toISOString(),
+  });
 }
 
 async function loadPersonaSet1Inputs(): Promise<{
@@ -952,6 +1591,9 @@ async function runSet2AndResume(apiKey: string): Promise<void> {
 async function main(): Promise<void> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is required; its value is never printed.");
+  if (process.argv.includes("--persona-set1-prompt-tuning")) {
+    return runPersonaSet1PromptTuning(apiKey);
+  }
   if (process.argv.includes("--persona-set1-model-ladder")) return runPersonaSet1ModelLadder(apiKey);
   if (process.argv.includes("--persona-set1-plain")) return runPersonaSet1Plain(apiKey);
   if (process.argv.includes("--set2-and-resume")) return runSet2AndResume(apiKey);
