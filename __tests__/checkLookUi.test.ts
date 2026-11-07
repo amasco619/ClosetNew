@@ -50,19 +50,23 @@ async function main() {
     allowanceLoading: boolean;
     membershipLoading: boolean;
     membershipUnavailable: boolean;
+    groups: Array<Record<string, unknown>>;
+    constraints?: Record<string, unknown>;
     checking: boolean;
     weatherTemperatureC?: number | null;
     result: { tier: 'free'; verdict: 'Works' | 'Almost' | 'Rethink' }
       | { tier: 'free'; verdict: 'Not judged'; message: string } | null;
     onOpen(): void;
     onClose(): void;
-    onCheck(): void;
+    onCheck(request?: unknown): void;
+    onRetryMembership(): void;
     onUpgrade(): void;
     onClearResult(): void;
   }>;
   const renderer = requireProject('react-test-renderer');
   let upgradeCalls = 0;
   let checkCalls = 0;
+  let membershipRetries = 0;
   let screen!: {
     root: { findAllByType(type: string): Array<{ props: Record<string, unknown>; children: unknown[] }> };
     update(element: React.ReactElement): void;
@@ -71,8 +75,13 @@ async function main() {
   const props: React.ComponentProps<typeof Component> = {
       visible: true, items: [], isPremium: false, freeRemaining: 0,
       allowanceLoading: false, membershipLoading: false, membershipUnavailable: false,
+      groups: [{
+        id: 'marked-set', relationshipType: 'coordinated_set',
+        confirmationStatus: 'user_confirmed', members: [{ garmentId: 'test-top' }],
+      }],
       checking: false, weatherTemperatureC: null as number | null, result: { tier: 'free' as const, verdict: 'Almost' as const },
       onOpen() {}, onClose() {}, onCheck() { checkCalls++; },
+      onRetryMembership() { membershipRetries++; },
       onUpgrade() { upgradeCalls++; }, onClearResult() {},
   };
   await React.act(async () => { screen = renderer.create(React.createElement(Component, props)); });
@@ -84,12 +93,75 @@ async function main() {
   await React.act(async () => { (paywall.props.onPress as () => void)(); });
   assert.equal(upgradeCalls, 1);
   assert.equal(checkCalls, 0, 'zero allowance cannot compute another verdict');
-  const text = screen.root.findAllByType('Text').map(node =>
+  const textContent = () => screen.root.findAllByType('Text').map(node =>
     node.children.map(child => typeof child === 'string' ? child : '').join(''),
   ).join(' ');
+  const text = textContent();
   assert.match(text, /Your verdict/);
   assert.match(text, /Premium offers a fuller review/);
   assert.doesNotMatch(text, /What works|Worth reconsidering|Possible swaps/);
+
+  const press = async (id: string) => {
+    const node = pressable(id);
+    assert.ok(node, `expected ${id}`);
+    await React.act(async () => { (node.props.onPress as () => void)(); });
+  };
+  await press('check-my-look-occasion-church');
+  assert.match(textContent(), /Denomination/);
+  assert.doesNotMatch(textContent(), /Announced colours|Your role|Assigned aso-ebi/);
+  await press('check-my-look-brief-denomination');
+  assert.ok(pressable('check-my-look-brief-denomination-not-sure'));
+  assert.ok(pressable('check-my-look-brief-denomination-catholic'));
+  await press('check-my-look-brief-denomination-not-sure');
+  assert.match(textContent(), /Denomination Not sure/);
+
+  await press('check-my-look-occasion-traditional-wedding');
+  assert.match(textContent(), /Your role/);
+  assert.match(textContent(), /Assigned aso-ebi/);
+  assert.doesNotMatch(textContent(), /Denomination/);
+  await press('check-my-look-brief-aso-ebi-set');
+  assert.ok(pressable('check-my-look-brief-aso-ebi-set-not-sure'));
+  assert.ok(pressable('check-my-look-brief-aso-ebi-set-none'));
+
+  await press('check-my-look-occasion-funeral');
+  assert.match(textContent(), /Announced colours/);
+  assert.match(textContent(), /Assigned group fabric/);
+  assert.doesNotMatch(textContent(), /Your role|Denomination/);
+  await press('check-my-look-brief-announced-colours');
+  assert.ok(pressable('check-my-look-brief-announced-colours-not-sure'));
+  assert.ok(pressable('check-my-look-brief-announced-colours-none'));
+  assert.ok(pressable('check-my-look-brief-colour-red'));
+  await press('check-my-look-brief-funeral-set');
+  assert.ok(pressable('check-my-look-brief-funeral-set-not-sure'));
+  assert.ok(pressable('check-my-look-brief-funeral-set-none'));
+  assert.ok(pressable('check-my-look-brief-funeral-set-marked-set'));
+
+  await React.act(async () => {
+    screen.update(React.createElement(Component, {
+      ...props,
+      items: [
+        { id: 'test-top', photoUri: 'test://top', category: 'top', subType: 'blouse', colorFamily: 'navy', occasionTags: [], seasonTags: [], createdAt: '' },
+        { id: 'test-bottom', photoUri: 'test://bottom', category: 'bottom', subType: 'trousers', colorFamily: 'black', occasionTags: [], seasonTags: [], createdAt: '' },
+        { id: 'test-hijab', photoUri: 'test://hijab', category: 'jewelry', subType: 'hijab', colorFamily: 'navy', occasionTags: [], seasonTags: [], createdAt: '' },
+      ] as WardrobeItem[],
+      freeRemaining: 3,
+      membershipUnavailable: true,
+    }));
+  });
+  await press('check-my-look-slot-top');
+  await press('check-my-look-item-test-top');
+  await press('check-my-look-slot-bottom');
+  await press('check-my-look-item-test-bottom');
+  await press('check-my-look-slot-headwear');
+  assert.ok(pressable('check-my-look-item-test-hijab'),
+    'covering items can be selected in the headwear slot');
+  await press('check-my-look-item-test-hijab');
+  assert.equal(pressable('check-my-look-submit')?.props.disabled, true,
+    'membership failure blocks an otherwise valid look');
+  assert.match(textContent(), /Retry before reviewing this look/);
+  await press('check-my-look-membership-retry');
+  assert.equal(membershipRetries, 1);
+
   const temperatureInput = () => screen.root.findAllByType('TextInput')
     .find(node => node.props.accessibilityLabel === 'Temperature in degrees Celsius');
   assert.equal(temperatureInput()?.props.value, '', 'no forecast leaves the field empty');

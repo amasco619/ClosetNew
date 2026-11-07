@@ -11,12 +11,27 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
-import type { OccasionTag, WardrobeItem } from '@/constants/types';
+import type {
+  Constraints, GarmentGroup, OccasionTag, WardrobeItem,
+} from '@/constants/types';
 import { wardrobeItemDisplayName } from '@/constants/wardrobeLabels';
 import { isHeadwearSubtype } from '@/lib/lookCardPresentation';
-import type { CheckLookResult, CheckLookSelection } from '@/lib/checkLook';
+import type { CheckLookResult } from '@/lib/checkLook';
+import {
+  guardCheckLook,
+  type CheckLookAnnouncedColours,
+  type CheckLookBrief,
+  type CheckLookBriefContext,
+  type CheckLookDenomination,
+  type CheckLookGuardResult,
+  type CheckLookRequest,
+  type CheckLookRole,
+  type CheckLookSetChoice,
+} from '@/lib/checkLookGuard';
 
-export type { CheckLookResult, CheckLookSelection } from '@/lib/checkLook';
+export type { CheckLookResult } from '@/lib/checkLook';
+export type { CheckLookSelection } from '@/lib/checkLook';
+export type { CheckLookRequest } from '@/lib/checkLookGuard';
 
 export interface CheckMyLookSheetProps {
   visible: boolean;
@@ -26,12 +41,15 @@ export interface CheckMyLookSheetProps {
   allowanceLoading: boolean;
   membershipLoading: boolean;
   membershipUnavailable: boolean;
+  groups: readonly GarmentGroup[];
+  constraints?: Partial<Constraints>;
   weatherTemperatureC?: number | null;
   checking: boolean;
   result: CheckLookResult | null;
   onOpen(): void;
   onClose(): void;
-  onCheck(selection: CheckLookSelection): void;
+  onCheck(request: CheckLookRequest): void;
+  onRetryMembership(): void;
   onUpgrade(): void;
   onClearResult(): void;
 }
@@ -39,21 +57,53 @@ export interface CheckMyLookSheetProps {
 type SlotKey = 'dress' | 'top' | 'bottom' | 'shoes' | 'layer' | 'bag' | 'jewellery' | 'headwear';
 type LocalSelection = Record<SlotKey, string | null>;
 
-const OCCASIONS: { value: OccasionTag; label: string }[] = [
-  { value: 'work', label: 'Work' },
-  { value: 'date-casual', label: 'Date · daytime' },
-  { value: 'date-dressy', label: 'Date · evening' },
-  { value: 'casual', label: 'Casual' },
-  { value: 'event', label: 'Event' },
-  { value: 'interview', label: 'Interview' },
-  { value: 'wedding', label: 'Wedding' },
-  { value: 'traditional-event', label: 'Traditional event' },
-  { value: 'travel', label: 'Travel' },
-  { value: 'brunch', label: 'Brunch' },
-  { value: 'active', label: 'Active' },
-  { value: 'resort', label: 'Resort' },
-  { value: 'night-out', label: 'Night out' },
+const OCCASIONS: {
+  value: OccasionTag;
+  context: CheckLookBriefContext;
+  label: string;
+}[] = [
+  { value: 'work', context: 'work', label: 'Work' },
+  { value: 'date-casual', context: 'date', label: 'Date · daytime' },
+  { value: 'date-dressy', context: 'date', label: 'Date · evening' },
+  { value: 'casual', context: 'casual', label: 'Casual' },
+  { value: 'event', context: 'event', label: 'Event' },
+  { value: 'interview', context: 'interview', label: 'Interview' },
+  { value: 'wedding', context: 'wedding', label: 'Wedding' },
+  { value: 'event', context: 'church', label: 'Church' },
+  { value: 'event', context: 'funeral', label: 'Funeral or burial' },
+  { value: 'wedding', context: 'traditional-wedding', label: 'Traditional wedding' },
+  { value: 'traditional-event', context: 'owambe', label: 'Owambe' },
+  { value: 'traditional-event', context: 'naming-ceremony', label: 'Naming ceremony' },
+  { value: 'traditional-event', context: 'traditional-event', label: 'Traditional event' },
+  { value: 'travel', context: 'travel', label: 'Travel' },
+  { value: 'brunch', context: 'casual', label: 'Brunch' },
+  { value: 'active', context: 'casual', label: 'Active' },
+  { value: 'resort', context: 'casual', label: 'Resort' },
+  { value: 'night-out', context: 'event', label: 'Night out' },
 ];
+
+const FUNERAL_COLOURS = [
+  'black', 'white', 'grey', 'cream', 'beige', 'camel', 'brown', 'red', 'burgundy',
+  'coral', 'orange', 'yellow', 'olive', 'green', 'blue', 'navy', 'lavender', 'pink',
+];
+const DENOMINATION_OPTIONS: { value: CheckLookDenomination; label: string }[] = [
+  { value: 'catholic', label: 'Catholic' },
+  { value: 'anglican', label: 'Anglican' },
+  { value: 'pentecostal', label: 'Pentecostal' },
+  { value: 'other', label: 'Other' },
+  { value: 'not-sure', label: 'Not sure' },
+];
+const ROLE_OPTIONS: { value: CheckLookRole; label: string }[] = [
+  { value: 'guest', label: 'Guest' },
+  { value: 'family', label: 'Family' },
+  { value: 'host', label: 'Host' },
+  { value: 'bridal-party', label: 'Bridal party' },
+  { value: 'not-sure', label: 'Not sure' },
+];
+const CHECK_LOOK_COVERING_SUBTYPES = new Set([
+  'gyale', 'kallabi', 'mayafi', 'hijab', 'scarf', 'head-scarf', 'headscarf',
+  'headwrap', 'head-tie', 'turban', 'ichafu',
+]);
 
 const SLOT_CONFIG: { key: SlotKey; label: string; category?: WardrobeItem['category'] }[] = [
   { key: 'dress', label: 'Dress', category: 'dress' },
@@ -82,13 +132,22 @@ function itemName(item: WardrobeItem): string {
 }
 
 function isHeadwear(item: WardrobeItem): boolean {
-  return isHeadwearSubtype(item.subType);
+  const subtype = item.subType.trim().toLowerCase().replace(/[\s_]+/g, '-');
+  return isHeadwearSubtype(item.subType) || CHECK_LOOK_COVERING_SUBTYPES.has(subtype);
 }
 
 export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   const insets = useSafeAreaInsets();
   const [selection, setSelection] = useState<LocalSelection>(EMPTY_SELECTION);
   const [occasion, setOccasion] = useState<OccasionTag>('casual');
+  const [briefContext, setBriefContext] = useState<CheckLookBriefContext>('casual');
+  const [denomination, setDenomination] = useState<CheckLookDenomination>('not-sure');
+  const [announcedColours, setAnnouncedColours] = useState<CheckLookAnnouncedColours>({ kind: 'not-sure' });
+  const [funeralGroupId, setFuneralGroupId] = useState<CheckLookSetChoice>('not-sure');
+  const [role, setRole] = useState<CheckLookRole>('not-sure');
+  const [asoEbiGroupId, setAsoEbiGroupId] = useState<CheckLookSetChoice>('not-sure');
+  const [expandedBriefField, setExpandedBriefField] = useState<string | null>(null);
+  const [guardFeedback, setGuardFeedback] = useState<CheckLookGuardResult | null>(null);
   const [temperatureOverride, setTemperatureOverride] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<SlotKey | null>(null);
 
@@ -110,9 +169,30 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   const validTemperature = parsedTemperature === undefined || Number.isFinite(parsedTemperature);
   const selectionSummary = selectedItems.map(item => itemName(item)).join(', ');
   const quotaReached = !props.isPremium && props.freeRemaining <= 0;
+  const markedSets = useMemo(
+    () => props.groups.filter(group =>
+      group.relationshipType === 'coordinated_set' &&
+      group.confirmationStatus === 'user_confirmed' &&
+      group.members.length > 0,
+    ),
+    [props.groups],
+  );
+  const setOptions = [
+    { value: 'none', label: 'None assigned' },
+    { value: 'not-sure', label: 'Not sure' },
+    ...markedSets.map(group => ({
+      value: group.id,
+      label: group.members
+        .map(member => props.items.find(item => item.id === member.garmentId))
+        .filter((item): item is WardrobeItem => Boolean(item))
+        .map(itemName)
+        .join(' + ') || 'Confirmed set',
+    })),
+  ];
 
   const changeSelection = (next: LocalSelection) => {
     setSelection(next);
+    setGuardFeedback(null);
     props.onClearResult();
   };
 
@@ -140,15 +220,49 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
     changeSelection(next);
   };
 
-  const handleOccasion = (value: OccasionTag) => {
-    setOccasion(value);
+  const handleOccasion = (option: (typeof OCCASIONS)[number]) => {
+    setOccasion(option.value);
+    setBriefContext(option.context);
+    setDenomination('not-sure');
+    setAnnouncedColours({ kind: 'not-sure' });
+    setFuneralGroupId('not-sure');
+    setRole('not-sure');
+    setAsoEbiGroupId('not-sure');
+    setExpandedBriefField(null);
+    setGuardFeedback(null);
     props.onClearResult();
+  };
+
+  const handleClose = () => {
+    setOccasion('casual');
+    setBriefContext('casual');
+    setDenomination('not-sure');
+    setAnnouncedColours({ kind: 'not-sure' });
+    setFuneralGroupId('not-sure');
+    setRole('not-sure');
+    setAsoEbiGroupId('not-sure');
+    setExpandedBriefField(null);
+    setGuardFeedback(null);
+    props.onClose();
   };
 
   const handleTemperature = (value: string) => {
     const cleaned = value.replace(/[^\d.-]/g, '').replace(/(?!^)-/g, '');
     setTemperatureOverride(cleaned);
+    setGuardFeedback(null);
     props.onClearResult();
+  };
+
+  const currentBrief = (): CheckLookBrief => {
+    if (briefContext === 'church') return { context: 'church', denomination };
+    if (briefContext === 'funeral') {
+      return { context: 'funeral', announcedColours, assignedGroupId: funeralGroupId };
+    }
+    if (briefContext === 'traditional-wedding' || briefContext === 'owambe' ||
+        briefContext === 'naming-ceremony') {
+      return { context: briefContext, role, asoEbiGroupId };
+    }
+    return { context: briefContext };
   };
 
   const submit = () => {
@@ -156,17 +270,196 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
       props.onUpgrade();
       return;
     }
-    if (!hasBaseLook || props.membershipLoading || props.checking || !validTemperature) return;
+    if (!hasBaseLook || props.membershipLoading || props.membershipUnavailable ||
+        props.checking || !validTemperature) return;
     Keyboard.dismiss();
-    props.onCheck({
+    const nextSelection = {
       itemIds: selectedIds,
       occasion,
       ...(parsedTemperature === undefined ? {} : { temperatureC: parsedTemperature }),
+    };
+    const brief = currentBrief();
+    const outcome = guardCheckLook({
+      selection: nextSelection,
+      brief,
+      items: props.items,
+      groups: props.groups,
+      constraints: props.constraints,
     });
+    if (!outcome.pass) {
+      setGuardFeedback(outcome);
+      return;
+    }
+    setGuardFeedback(null);
+    props.onCheck({ selection: nextSelection, brief });
   };
 
-  const checkDisabled = props.membershipLoading || props.allowanceLoading || props.checking ||
+  const checkDisabled = props.membershipLoading || props.membershipUnavailable ||
+    props.allowanceLoading || props.checking ||
     (!quotaReached && (!hasBaseLook || !validTemperature));
+  const renderChoiceField = (
+    id: string,
+    label: string,
+    value: string,
+    options: { value: string; label: string }[],
+    onChoose: (value: string) => void,
+  ) => (
+    <View style={styles.briefField} key={id}>
+      <Pressable
+        testID={`check-my-look-brief-${id}`}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${options.find(option => option.value === value)?.label ?? 'Not sure'}`}
+        accessibilityState={{ expanded: expandedBriefField === id }}
+        onPress={() => setExpandedBriefField(expandedBriefField === id ? null : id)}
+        style={styles.briefFieldHeader}
+      >
+        <Text style={styles.briefFieldLabel}>{label}</Text>
+        <Text style={styles.briefFieldValue}>
+          {options.find(option => option.value === value)?.label ?? 'Not sure'}
+        </Text>
+      </Pressable>
+      {expandedBriefField === id && (
+        <View style={styles.briefChips}>
+          {options.map(option => (
+            <Pressable
+              key={option.value}
+              testID={`check-my-look-brief-${id}-${option.value}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: value === option.value }}
+              onPress={() => {
+                onChoose(option.value);
+                setExpandedBriefField(null);
+                setGuardFeedback(null);
+                props.onClearResult();
+              }}
+              style={[styles.briefChip, value === option.value && styles.briefChipSelected]}
+            >
+              <Text style={[styles.briefChipText, value === option.value && styles.briefChipTextSelected]}>
+                {option.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+
+  const renderedBriefFields = () => {
+    if (briefContext === 'church') {
+      return renderChoiceField(
+        'denomination', 'Denomination', denomination, DENOMINATION_OPTIONS,
+        value => setDenomination(value as CheckLookDenomination),
+      );
+    }
+    if (briefContext === 'funeral') {
+      const colourSummary = announcedColours.kind === 'not-sure'
+        ? 'Not sure'
+        : announcedColours.kind === 'none'
+          ? 'None announced'
+          : announcedColours.values.map(value => value[0].toUpperCase() + value.slice(1)).join(', ') || 'Choose colours';
+      return (
+        <View style={styles.briefBlock}>
+          <View style={styles.briefField}>
+            <Pressable
+              testID="check-my-look-brief-announced-colours"
+              accessibilityRole="button"
+              accessibilityLabel={`Announced colours: ${colourSummary}`}
+              accessibilityState={{ expanded: expandedBriefField === 'announced-colours' }}
+              onPress={() => setExpandedBriefField(
+                expandedBriefField === 'announced-colours' ? null : 'announced-colours',
+              )}
+              style={styles.briefFieldHeader}
+            >
+              <Text style={styles.briefFieldLabel}>Announced colours</Text>
+              <Text style={styles.briefFieldValue}>{colourSummary}</Text>
+            </Pressable>
+            {expandedBriefField === 'announced-colours' && (
+              <View style={styles.briefChips}>
+                {[
+                  { kind: 'not-sure' as const, label: 'Not sure' },
+                  { kind: 'none' as const, label: 'None announced' },
+                ].map(option => (
+                  <Pressable
+                    key={option.kind}
+                    testID={`check-my-look-brief-announced-colours-${option.kind}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: announcedColours.kind === option.kind }}
+                    onPress={() => {
+                      setAnnouncedColours({ kind: option.kind });
+                      setExpandedBriefField(null);
+                      setGuardFeedback(null);
+                      props.onClearResult();
+                    }}
+                    style={[
+                      styles.briefChip,
+                      announcedColours.kind === option.kind && styles.briefChipSelected,
+                    ]}
+                  >
+                    <Text style={[
+                      styles.briefChipText,
+                      announcedColours.kind === option.kind && styles.briefChipTextSelected,
+                    ]}>{option.label}</Text>
+                  </Pressable>
+                ))}
+                {FUNERAL_COLOURS.map(colour => {
+                  const selected = announcedColours.kind === 'colours' &&
+                    announcedColours.values.includes(colour);
+                  return (
+                    <Pressable
+                      key={colour}
+                      testID={`check-my-look-brief-colour-${colour}`}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => {
+                        const values = announcedColours.kind === 'colours'
+                          ? announcedColours.values
+                          : [];
+                        setAnnouncedColours({
+                          kind: 'colours',
+                          values: selected ? values.filter(value => value !== colour) : [...values, colour],
+                        });
+                        setGuardFeedback(null);
+                        props.onClearResult();
+                      }}
+                      style={[styles.briefChip, selected && styles.briefChipSelected]}
+                    >
+                      <Text style={[styles.briefChipText, selected && styles.briefChipTextSelected]}>
+                        {colour[0].toUpperCase() + colour.slice(1)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+          {renderChoiceField(
+            'funeral-set', 'Assigned group fabric', funeralGroupId, setOptions,
+            value => setFuneralGroupId(value as CheckLookSetChoice),
+          )}
+          <Text style={styles.briefHelper}>Choose every colour the family announced.</Text>
+        </View>
+      );
+    }
+    if (
+      briefContext === 'traditional-wedding' ||
+      briefContext === 'owambe' ||
+      briefContext === 'naming-ceremony'
+    ) {
+      return (
+        <View style={styles.briefBlock}>
+          {renderChoiceField(
+            'occasion-role', 'Your role', role, ROLE_OPTIONS,
+            value => setRole(value as CheckLookRole),
+          )}
+          {renderChoiceField(
+            'aso-ebi-set', 'Assigned aso-ebi', asoEbiGroupId, setOptions,
+            value => setAsoEbiGroupId(value as CheckLookSetChoice),
+          )}
+        </View>
+      );
+    }
+    return null;
+  };
   const verdictColor = props.result?.verdict === 'Works'
     ? Colors.success
     : props.result?.verdict === 'Almost'
@@ -202,7 +495,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
         statusBarTranslucent
         presentationStyle="overFullScreen"
         animationType="slide"
-        onRequestClose={props.onClose}
+        onRequestClose={handleClose}
       >
         <View style={styles.stage}>
           <Pressable
@@ -210,7 +503,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
             accessibilityRole="button"
             accessibilityLabel="Close Check My Look"
             style={styles.scrim}
-            onPress={props.onClose}
+            onPress={handleClose}
           />
           <View
             testID="check-my-look-sheet"
@@ -227,7 +520,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                 accessibilityRole="button"
                 accessibilityLabel="Close Check My Look"
                 hitSlop={12}
-                onPress={props.onClose}
+                onPress={handleClose}
                 style={styles.closeButton}
               >
                 <Text style={styles.closeText}>Close</Text>
@@ -264,6 +557,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                       ) : null}
                     </View>
                     <Pressable
+                      testID={`check-my-look-slot-${slot.key}`}
                       accessibilityRole="button"
                       accessibilityLabel={`${slot.label}: ${selectedItem ? itemName(selectedItem) : 'Choose from wardrobe'}`}
                       accessibilityState={{ expanded }}
@@ -282,6 +576,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                           return (
                             <Pressable
                               key={item.id}
+                              testID={`check-my-look-item-${item.id}`}
                               accessibilityRole="button"
                               accessibilityLabel={`${itemName(item)}${selected ? ', selected' : ''}`}
                               accessibilityState={{ selected }}
@@ -315,20 +610,31 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
               <Text style={styles.sectionTitle}>Where are you wearing it?</Text>
               <View style={styles.occasionGrid}>
                 {OCCASIONS.map(option => {
-                  const selected = occasion === option.value;
                   return (
                     <Pressable
-                      key={option.value}
+                      key={`${option.value}-${option.context}`}
+                      testID={`check-my-look-occasion-${option.context}`}
                       accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      onPress={() => handleOccasion(option.value)}
-                      style={[styles.occasionChip, selected && styles.occasionChipSelected]}
+                      accessibilityState={{
+                        selected: occasion === option.value && briefContext === option.context,
+                      }}
+                      onPress={() => handleOccasion(option)}
+                      style={[
+                        styles.occasionChip,
+                        occasion === option.value && briefContext === option.context &&
+                          styles.occasionChipSelected,
+                      ]}
                     >
-                      <Text style={[styles.occasionText, selected && styles.occasionTextSelected]}>{option.label}</Text>
+                      <Text style={[
+                        styles.occasionText,
+                        occasion === option.value && briefContext === option.context &&
+                          styles.occasionTextSelected,
+                      ]}>{option.label}</Text>
                     </Pressable>
                   );
                 })}
               </View>
+              {renderedBriefFields()}
 
               <View style={styles.weatherRow}>
                 <View style={styles.weatherCopy}>
@@ -363,9 +669,41 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                   <Text style={styles.noticeText}>Checking confirmed coordinated-set membership.</Text>
                 </View>
               )}
+              {props.membershipUnavailable && (
+                <View accessibilityLiveRegion="polite" style={styles.notice}>
+                  <Text style={styles.noticeText}>
+                    Confirmed set membership could not be checked. Retry before reviewing this look.
+                  </Text>
+                  <Pressable
+                    testID="check-my-look-membership-retry"
+                    accessibilityRole="button"
+                    accessibilityLabel="Retry set membership check"
+                    accessibilityState={{ disabled: props.membershipLoading, busy: props.membershipLoading }}
+                    disabled={props.membershipLoading}
+                    onPress={props.onRetryMembership}
+                    style={styles.retryButton}
+                  >
+                    <Text style={styles.retryText}>
+                      {props.membershipLoading ? 'Checking…' : 'Try again'}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
               {props.allowanceLoading && (
                 <View accessibilityLiveRegion="polite" style={styles.notice}>
                   <Text style={styles.noticeText}>Checking today’s free allowance.</Text>
+                </View>
+              )}
+
+              {guardFeedback && (
+                <View accessibilityLiveRegion="polite" style={styles.guardNotice}>
+                  <Text style={styles.guardNoticeTitle}>A few details need confirming</Text>
+                  {guardFeedback.failures.map((failure, index) => (
+                    <Text key={`failure-${index}`} style={styles.noticeText}>{failure}</Text>
+                  ))}
+                  {guardFeedback.missing.map((fact, index) => (
+                    <Text key={`missing-${index}`} style={styles.noticeText}>Still needed · {fact}</Text>
+                  ))}
                 </View>
               )}
 
@@ -379,9 +717,6 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                     <Text style={styles.premiumQuiet}>Premium offers a fuller review of what works and what to refine.</Text>
                   ) : (
                     <>
-                      {props.membershipUnavailable && (
-                        <Text style={styles.noticeText}>Confirmed set membership could not be checked. This review uses the information available.</Text>
-                      )}
                       {props.result.working.length > 0 && (
                         <ResultList title="What works" values={props.result.working} />
                       )}
@@ -437,9 +772,6 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                     ? 'Premium access is active'
                     : `${props.freeRemaining} free ${props.freeRemaining === 1 ? 'verdict' : 'verdicts'} remaining`}
                 </Text>
-              )}
-              {props.membershipUnavailable && !props.result && (
-                <Text style={styles.quietNote}>Confirmed set membership is unavailable at the moment. You can still check this look.</Text>
               )}
               {quotaReached && (
                 <Pressable
@@ -569,6 +901,44 @@ const styles = StyleSheet.create({
   occasionChipSelected: { borderColor: Colors.primary, backgroundColor: Colors.primary },
   occasionText: { color: Colors.textSecondary, fontFamily: 'Inter_500Medium', fontSize: 12 },
   occasionTextSelected: { color: Colors.textOnDark },
+  briefBlock: { marginTop: 8, gap: 8 },
+  briefField: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 14,
+    backgroundColor: Colors.cardBackground,
+    overflow: 'hidden',
+  },
+  briefFieldHeader: {
+    minHeight: 45,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 13,
+    gap: 12,
+  },
+  briefFieldLabel: { color: Colors.primary, fontFamily: 'Inter_500Medium', fontSize: 12 },
+  briefFieldValue: {
+    flexShrink: 1,
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    textAlign: 'right',
+  },
+  briefChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, padding: 10, paddingTop: 0 },
+  briefChip: {
+    minHeight: 34,
+    justifyContent: 'center',
+    paddingHorizontal: 11,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 17,
+    backgroundColor: Colors.background,
+  },
+  briefChipSelected: { borderColor: Colors.primary, backgroundColor: Colors.primary },
+  briefChipText: { color: Colors.textSecondary, fontFamily: 'Inter_500Medium', fontSize: 11 },
+  briefChipTextSelected: { color: Colors.textOnDark },
+  briefHelper: { paddingHorizontal: 3, color: Colors.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 11 },
   weatherRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 19, marginBottom: 14 },
   weatherCopy: { flex: 1 },
   temperatureField: {
@@ -587,6 +957,10 @@ const styles = StyleSheet.create({
   validationNote: { marginBottom: 10, color: Colors.warning, fontFamily: 'Inter_500Medium', fontSize: 12, lineHeight: 18 },
   notice: { padding: 12, marginBottom: 12, borderRadius: 13, backgroundColor: Colors.garmentStudioTop },
   noticeText: { color: Colors.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 18 },
+  retryButton: { alignSelf: 'flex-start', minHeight: 38, justifyContent: 'center', paddingHorizontal: 4 },
+  retryText: { color: Colors.primary, fontFamily: 'Inter_600SemiBold', fontSize: 12 },
+  guardNotice: { gap: 5, padding: 12, marginBottom: 12, borderRadius: 13, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.cardBackground },
+  guardNoticeTitle: { marginBottom: 2, color: Colors.primary, fontFamily: 'Inter_600SemiBold', fontSize: 12 },
   resultCard: { padding: 16, marginTop: 3, marginBottom: 15, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.cardBackground },
   resultEyebrow: { color: Colors.textSecondary, fontFamily: 'Inter_500Medium', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
   verdict: { marginTop: 4, marginBottom: 8, fontFamily: 'Georgia', fontSize: 29, lineHeight: 35 },
@@ -598,7 +972,6 @@ const styles = StyleSheet.create({
   primaryDisabled: { opacity: 0.45 },
   primaryText: { color: Colors.textOnDark, fontFamily: 'Inter_600SemiBold', fontSize: 14 },
   remainingCount: { marginTop: 10, textAlign: 'center', color: Colors.textLight, fontFamily: 'Inter_400Regular', fontSize: 11 },
-  quietNote: { marginTop: 10, textAlign: 'center', color: Colors.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 16 },
   secondaryUpgrade: { alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 14 },
   secondaryUpgradeText: { color: Colors.textSecondary, fontFamily: 'Inter_500Medium', fontSize: 12 },
   selectionSummary: { marginTop: 13, color: Colors.textLight, fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 16 },

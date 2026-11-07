@@ -217,6 +217,11 @@ assert.deepEqual(await loadCheckLookMembershipsOnOpen('owner', async id => {
   return ['group'];
 }), ['group']);
 assert.equal(groupFetches, 1, 'signed-in users load set membership so either tier can avoid an unsupported verdict');
+await assert.rejects(
+  loadCheckLookMembershipsOnOpen('owner', async () => { throw new Error('membership read failed'); }),
+  /membership read failed/,
+  'membership read failures propagate so the screen can block and offer a retry',
+);
 
 console.log('Check My Look rules, swaps, membership timeout and local free allowance passed.');
 }
