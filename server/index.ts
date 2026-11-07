@@ -9,6 +9,7 @@ import * as path from "path";
 import { randomUUID } from "crypto";
 import { reportError } from "../shared/observability";
 import { noApiCache } from "./noApiCache";
+import { registerLegalPages } from "./legalPages";
 
 const app = express();
 const log = console.log;
@@ -348,6 +349,7 @@ function setupErrorHandler(app: express.Application) {
   await initBgRemovalStore();
 
   const server = await registerRoutes(app);
+  registerLegalPages(app);
 
   // Static-file and landing-page serving comes after API routes so it only
   // handles requests that no API route matched.

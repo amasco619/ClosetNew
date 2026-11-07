@@ -28,6 +28,7 @@ import type { HeadCoveringPreference } from '@/constants/types';
 import { AmodkaErrorState } from '@/components/AmodkaErrorState';
 import { useDialog } from '@/contexts/LuxuryFeedbackContext';
 import { AiProcessingConsent } from '@/components/AiProcessingConsent';
+import { LegalLinks } from '@/components/LegalLinks';
 import { useAiProcessingPreference } from '@/lib/useAiProcessingPreference';
 import {
   getAiProcessingDisplay,
@@ -564,6 +565,8 @@ export default function ProfileScreen() {
         <Animated.View entering={entering(240)} style={styles.section}>
           <SectionLabel>Privacy</SectionLabel>
           <View style={styles.card}>
+            <LegalLinks />
+            <View style={styles.insetDivider} />
             <View style={styles.aiRow}>
               <View style={styles.aiCopy}>
                 <Text style={styles.rowTitle}>AI Processing</Text>

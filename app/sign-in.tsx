@@ -32,6 +32,7 @@ import { NATIVE_OAUTH_CALLBACK_URL, isOAuthCallbackUrl } from '../lib/oauth-call
 import { useApp } from '@/contexts/AppContext'
 import Colors from '@/constants/colors'
 import { AuthNotice } from '@/components/AuthNotice'
+import { LegalLinks } from '@/components/LegalLinks'
 import { normalizeAuthError, type AuthError, type AuthErrorAction } from '@/lib/authErrors'
 
 type Mode = 'sign-in' | 'sign-up'
@@ -462,6 +463,7 @@ export default function SignInScreen() {
               <Text style={styles.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
           )}
+          <LegalLinks tone="light" />
 
         </ScrollView>
       </KeyboardAvoidingView>

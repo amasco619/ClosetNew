@@ -68,6 +68,8 @@ function RootLayoutNav() {
         <Stack.Screen name="choose-30" options={{ headerShown: false, ...MODAL_OPTIONS }} />
         <Stack.Screen name="outfit-ideas" options={{ headerShown: false, ...FADE_OPTIONS }} />
         <Stack.Screen name="sign-in" options={{ headerShown: false, ...FADE_OPTIONS }} />
+        <Stack.Screen name="privacy-policy" options={{ headerShown: false, ...FADE_OPTIONS }} />
+        <Stack.Screen name="terms-of-service" options={{ headerShown: false, ...FADE_OPTIONS }} />
         <Stack.Screen name="forgot-password" options={{ headerShown: false, ...FADE_OPTIONS }} />
         <Stack.Screen name="auth/callback" options={{ headerShown: false, ...FADE_OPTIONS }} />
         <Stack.Screen name="auth/confirm" options={{ headerShown: false, ...FADE_OPTIONS }} />
