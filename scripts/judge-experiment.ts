@@ -125,6 +125,62 @@ const SET2_PATHS = {
   rules: path.join(ROOT, "attached_assets/rules_brief2_1793925434333.md"),
 };
 const SET2_VERDICTS = new Set([...VERDICTS, "Ask"]);
+const SET2_CONFIRMATION_PROMPT_HASHES = {
+  B: "e1f1f2497b0227c93633747bc1c0273171bcae47631bc0a6927319c0bb412ebf",
+  C: "eedf6445cfb017e793ebe0451df5649d239cf918e8ae83bca4f7ee32f97a6368",
+};
+const SET2_CONFIRMATION_TOKEN_CAP = 1_000_000;
+const SET2_CONFIRMATION_PRICE_SOURCE =
+  "https://ai.google.dev/gemini-api/docs/pricing (Standard paid-tier prices retrieved 2026-11-07)";
+const SET2_CONFIRMATION_PRICES = {
+  "gemini-3.5-flash": {
+    inputPerMillion: 0.75,
+    outputPerMillion: 3.75,
+    basis: "Published Gemini 3.6 Flash rate; prior calls observed gemini-3.5-flash serving gemini-3.6-flash.",
+  },
+  "gemini-3.5-flash-lite": {
+    inputPerMillion: 0.3,
+    outputPerMillion: 2.5,
+    basis: "Published Gemini 3.5 Flash-Lite Standard rate.",
+  },
+} as const;
+const SET2_CONFIRMATION_RUNS = [
+  {
+    id: "flash-b-ask",
+    filename: "set2-confirmation-gemini-3.5-flash-arm-b-ask.csv",
+    model: "gemini-3.5-flash",
+    arm: "B",
+    includeAsk: true,
+  },
+  {
+    id: "flash-c-ask",
+    filename: "set2-confirmation-gemini-3.5-flash-arm-c-ask.csv",
+    model: "gemini-3.5-flash",
+    arm: "C",
+    includeAsk: true,
+  },
+  {
+    id: "flash-b-no-ask",
+    filename: "set2-confirmation-gemini-3.5-flash-arm-b-no-ask.csv",
+    model: "gemini-3.5-flash",
+    arm: "B",
+    includeAsk: false,
+  },
+  {
+    id: "flash-c-no-ask",
+    filename: "set2-confirmation-gemini-3.5-flash-arm-c-no-ask.csv",
+    model: "gemini-3.5-flash",
+    arm: "C",
+    includeAsk: false,
+  },
+  {
+    id: "flash-lite-b-info",
+    filename: "set2-confirmation-gemini-3.5-flash-lite-arm-b-info.csv",
+    model: "gemini-3.5-flash-lite",
+    arm: "B",
+    includeAsk: true,
+  },
+] as const;
 const SET2_INSTRUCTIONS = [
   "Judge only the supplied scenario and look. Treat null or absent facts as unknown; do not infer them.",
   "Return exactly one JSON object with exactly two keys: verdict and reason.",
@@ -346,6 +402,16 @@ function buildTuningSchema(arm: "A" | "B" | "C"): Record<string, any> {
   };
 }
 
+function buildSet2ConfirmationSchema(
+  arm: "B" | "C",
+  includeAsk: boolean,
+): Record<string, any> {
+  const schema = buildTuningSchema(arm);
+  schema.properties.verdict.enum = [...PERSONA_SET1_TUNING_VERDICTS]
+    .filter((verdict) => includeAsk || verdict !== "Ask");
+  return schema;
+}
+
 function decodeTuning(
   response: any,
   arm: "A" | "B" | "C",
@@ -380,6 +446,20 @@ function decodeTuning(
   } catch {
     return null;
   }
+}
+
+function decodeSet2Confirmation(
+  response: any,
+  arm: "B" | "C",
+  includeAsk: boolean,
+): { verdict: string; reason: string; failures: string[] } | null {
+  const decoded = decodeTuning(response, arm);
+  if (!decoded || (!includeAsk && decoded.modelVerdict === "Ask")) return null;
+  return {
+    verdict: decoded.verdict,
+    reason: decoded.reason,
+    failures: decoded.failures,
+  };
 }
 
 function tuningUsage(response: any): {
@@ -1001,6 +1081,50 @@ async function loadSet2Inputs() {
   };
 }
 
+async function loadSet2PlainConfirmationInputs(): Promise<{
+  looks: LookInput[];
+  looksTextSha256: string;
+}> {
+  const buffer = await readFile(SET2_PATHS.looks);
+  const parsed = parsePlainLooks(buffer.toString("utf8"), "T");
+  const ids = Array.from({ length: 25 }, (_, index) =>
+    ["A", "B", "C", "D"].map((letter) => `T${String(index + 1).padStart(2, "0")}-${letter}`),
+  ).flat();
+  if (ids.some((id) => !parsed.has(id))) {
+    throw new Error("Set 2 plain input IDs must be T01-A through T25-D.");
+  }
+  return {
+    looks: ids.map((id) => ({ id, plainText: parsed.get(id)!, structuredFacts: {} })),
+    looksTextSha256: sha256(buffer),
+  };
+}
+
+async function loadSet2ConfirmationPrompts(): Promise<{
+  prompts: Record<"B" | "C", string>;
+  sourceStartedAt: string | null;
+}> {
+  const records = (await readFile(PERSONA_SET1_RUN_PATH, "utf8"))
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  const source = records.reverse().find((record) =>
+    record.type === "persona-set1-prompt-tuning-start" &&
+    record.promptTextSha256?.B === SET2_CONFIRMATION_PROMPT_HASHES.B &&
+    record.promptTextSha256?.C === SET2_CONFIRMATION_PROMPT_HASHES.C &&
+    typeof record.systemPrompts?.B === "string" &&
+    typeof record.systemPrompts?.C === "string" &&
+    sha256(record.systemPrompts.B) === SET2_CONFIRMATION_PROMPT_HASHES.B &&
+    sha256(record.systemPrompts.C) === SET2_CONFIRMATION_PROMPT_HASHES.C,
+  );
+  if (!source) {
+    throw new Error("The exact recorded Set 1 B/C system prompts were not found; refusing to run.");
+  }
+  return {
+    prompts: { B: source.systemPrompts.B, C: source.systemPrompts.C },
+    sourceStartedAt: source.startedAt ?? null,
+  };
+}
+
 function responseText(response: any): string | null {
   const parts = response?.data?.candidates?.[0]?.content?.parts;
   if (!Array.isArray(parts)) return null;
@@ -1110,6 +1234,397 @@ const CALL_SPACING_MS = 5_000;
 const INITIAL_BACKOFF_MS = 5_000;
 const MAX_BACKOFF_MS = 60_000;
 const MAX_CONSECUTIVE_FAILURES = 10;
+
+type Set2ConfirmationRun = typeof SET2_CONFIRMATION_RUNS[number];
+type Set2ConfirmationRow = {
+  look_id: string;
+  verdict: string;
+  reason: string;
+  failures: string[];
+};
+type Set2ConfirmationRuntime = {
+  reportedTokens: number;
+  lastCallAt: number;
+  tokenCapReached: boolean;
+};
+
+function set2ConfirmationCsv(rows: Set2ConfirmationRow[]): string {
+  return [
+    "look_id,verdict,reason,failures",
+    ...rows.map((row) => [
+      row.look_id, row.verdict, row.reason, JSON.stringify(row.failures),
+    ].map(tuningCsvCell).join(",")),
+  ].join("\n") + "\n";
+}
+
+function set2ConfirmationCostUsd(
+  model: Set2ConfirmationRun["model"],
+  inputTokens: number,
+  outputTokens: number,
+  thinkingTokens: number,
+): number {
+  const price = SET2_CONFIRMATION_PRICES[model];
+  return Number((
+    inputTokens * price.inputPerMillion / 1_000_000 +
+    (outputTokens + thinkingTokens) * price.outputPerMillion / 1_000_000
+  ).toFixed(8));
+}
+
+async function appendSet2ConfirmationRecord(record: Record<string, unknown>): Promise<void> {
+  await appendFile(PERSONA_SET1_RUN_PATH, `${JSON.stringify(record)}\n`);
+  console.log(JSON.stringify({
+    type: record.type,
+    runId: record.runId,
+    lookId: record.lookId,
+    calls: record.calls,
+    validRows: record.validRows,
+    stopped: record.stopped,
+    totalReportedTokens: record.totalReportedTokens,
+  }));
+}
+
+async function runSet2ConfirmationBatch(
+  run: Set2ConfirmationRun,
+  looks: LookInput[],
+  systemPrompt: string,
+  apiKey: string,
+  runtime: Set2ConfirmationRuntime,
+  initializeCsv = true,
+): Promise<Record<string, unknown>> {
+  const filePath = path.join(OUTPUT_DIR, run.filename);
+  const rows: Set2ConfirmationRow[] = looks.map((look) => ({
+    look_id: look.id, verdict: "", reason: "NOT_RUN", failures: [],
+  }));
+  if (initializeCsv) {
+    await writeFile(filePath, set2ConfirmationCsv(rows), { encoding: "utf8", flag: "wx" });
+  }
+
+  const schema = buildSet2ConfirmationSchema(run.arm, run.includeAsk);
+  const inputTokens = { prompt: 0, candidate: 0, thinking: 0, total: 0, unreported: 0 };
+  const latenciesMs: number[] = [];
+  const requestFailures: Record<string, number> = {};
+  const rejectedResponses: Array<{ lookId: string; attempt: number; text: string | null }> = [];
+  const modelVersions: Record<string, number> = {};
+  let calls = 0;
+  let parseFailures = 0;
+  let refusals = 0;
+  let consecutiveRequestFailures = 0;
+  let stoppedAfterFiveConsecutiveFailures = false;
+  let stoppedForTokenCap = false;
+
+  for (let index = 0; index < looks.length; index++) {
+    if (runtime.tokenCapReached) {
+      stoppedForTokenCap = true;
+      break;
+    }
+    const look = looks[index];
+    let parseRetryUsed = false;
+    let retryNumber = 0;
+    let callAttempt = 0;
+    let waitBeforeNextCall = 0;
+
+    while (true) {
+      if (runtime.reportedTokens >= SET2_CONFIRMATION_TOKEN_CAP) {
+        runtime.tokenCapReached = true;
+        stoppedForTokenCap = true;
+        break;
+      }
+      const spacing = runtime.lastCallAt
+        ? Math.max(0, CALL_SPACING_MS - (Date.now() - runtime.lastCallAt)) : 0;
+      const waitMs = Math.max(spacing, waitBeforeNextCall);
+      if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+      waitBeforeNextCall = 0;
+
+      const request = buildGeminiGenerationRequest({
+        model: run.model,
+        apiKey,
+        baseRequestBody: {
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: "user", parts: [{ text: look.plainText }] }],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 1024,
+            responseMimeType: "application/json",
+            responseSchema: schema,
+            thinkingConfig: { thinkingLevel: "minimal" },
+          },
+        },
+        maxOutputTokens: 1024,
+        timeout: REQUEST_TIMEOUT_MS,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      const startedAt = Date.now();
+      runtime.lastCallAt = startedAt;
+      calls++;
+      callAttempt++;
+
+      try {
+        const response = await axios.post(request.url, request.body, request.config);
+        const latencyMs = Date.now() - startedAt;
+        latenciesMs.push(latencyMs);
+        const usage = tuningUsage(response);
+        inputTokens.prompt += usage.input;
+        inputTokens.candidate += usage.output;
+        inputTokens.thinking += usage.thinking;
+        if (usage.total === null) inputTokens.unreported++;
+        else {
+          inputTokens.total += usage.total;
+          runtime.reportedTokens += usage.total;
+        }
+        const finishReason = tuningFinishReason(response);
+        const modelVersion = typeof response?.data?.modelVersion === "string"
+          ? response.data.modelVersion : null;
+        if (modelVersion) modelVersions[modelVersion] = (modelVersions[modelVersion] ?? 0) + 1;
+        consecutiveRequestFailures = 0;
+
+        const isRefusal = refusal(response);
+        const rawText = responseText(response);
+        const decoded = isRefusal ? null : decodeSet2Confirmation(response, run.arm, run.includeAsk);
+        const responseStatus = response.status ?? 200;
+        await appendSet2ConfirmationRecord({
+          type: "set2-confirmation-call",
+          runId: run.id,
+          requestedModel: run.model,
+          arm: run.arm,
+          allowAsk: run.includeAsk,
+          lookId: look.id,
+          attempt: callAttempt,
+          status: responseStatus,
+          modelVersion,
+          finishReason,
+          promptTokenCount: usage.input,
+          candidatesTokenCount: usage.output,
+          thoughtsTokenCount: Number.isFinite(response?.data?.usageMetadata?.thoughtsTokenCount)
+            ? response.data.usageMetadata.thoughtsTokenCount : null,
+          totalTokenCount: usage.total,
+          latencyMs,
+          valid: Boolean(decoded),
+          rejectionType: decoded ? null : isRefusal ? "REFUSAL" : "PARSE_FAILURE",
+          rejectedResponseText: decoded ? undefined : rawText,
+          reportedTokensAfterCall: runtime.reportedTokens,
+        });
+
+        if (decoded) {
+          rows[index] = {
+            look_id: look.id,
+            verdict: decoded.verdict,
+            reason: decoded.reason,
+            failures: decoded.failures,
+          };
+          break;
+        }
+        if (isRefusal) {
+          refusals++;
+          rejectedResponses.push({ lookId: look.id, attempt: callAttempt, text: rawText });
+          rows[index] = { ...rows[index], reason: "REFUSAL" };
+          break;
+        }
+        parseFailures++;
+        rejectedResponses.push({ lookId: look.id, attempt: callAttempt, text: rawText });
+        if (!parseRetryUsed) {
+          parseRetryUsed = true;
+          continue;
+        }
+        rows[index] = { ...rows[index], reason: "PARSE_FAILURE" };
+        break;
+      } catch (error: any) {
+        const latencyMs = Date.now() - startedAt;
+        latenciesMs.push(latencyMs);
+        consecutiveRequestFailures++;
+        const code = providerFailureCode(error);
+        requestFailures[code] = (requestFailures[code] ?? 0) + 1;
+        const status = Number.isInteger(error?.response?.status) ? error.response.status : null;
+        await appendSet2ConfirmationRecord({
+          type: "set2-confirmation-call",
+          runId: run.id,
+          requestedModel: run.model,
+          arm: run.arm,
+          allowAsk: run.includeAsk,
+          lookId: look.id,
+          attempt: callAttempt,
+          status,
+          modelVersion: null,
+          errorCode: code,
+          finishReason: null,
+          promptTokenCount: 0,
+          candidatesTokenCount: 0,
+          thoughtsTokenCount: null,
+          totalTokenCount: null,
+          latencyMs,
+          valid: false,
+          rejectedResponseText: null,
+          consecutiveRequestFailures,
+          reportedTokensAfterCall: runtime.reportedTokens,
+        });
+        rows[index] = { ...rows[index], reason: `REQUEST_FAILED_${code}` };
+        if (consecutiveRequestFailures >= 5) {
+          stoppedAfterFiveConsecutiveFailures = true;
+          break;
+        }
+        const statusCode = error?.response?.status;
+        if (statusCode === 429 || (Number.isInteger(statusCode) && statusCode >= 500)) {
+          retryNumber++;
+          const evidence = rateLimitEvidence(error);
+          waitBeforeNextCall = retryDelay(retryNumber, evidence.retryAfterMs);
+          continue;
+        }
+        break;
+      }
+    }
+
+    await writeFile(filePath, set2ConfirmationCsv(rows), "utf8");
+    if (runtime.reportedTokens >= SET2_CONFIRMATION_TOKEN_CAP) {
+      runtime.tokenCapReached = true;
+      stoppedForTokenCap = true;
+    }
+    if (stoppedAfterFiveConsecutiveFailures || stoppedForTokenCap) break;
+  }
+
+  const validRows = rows.filter((row) => Boolean(row.verdict)).length;
+  const runCostUsd = set2ConfirmationCostUsd(
+    run.model, inputTokens.prompt, inputTokens.candidate, inputTokens.thinking,
+  );
+  const summary = {
+    type: "set2-confirmation-run-summary",
+    runId: run.id,
+    requestedModel: run.model,
+    arm: run.arm,
+    allowAsk: run.includeAsk,
+    calls,
+    validRows,
+    parseFailures,
+    refusals,
+    requestFailures,
+    consecutiveRequestFailures,
+    stoppedAfterFiveConsecutiveFailures,
+    stoppedForTokenCap,
+    tokens: inputTokens,
+    modelVersions,
+    latencyMs: {
+      median: percentile(latenciesMs, 0.5),
+      p95: percentile(latenciesMs, 0.95),
+    },
+    estimatedCostUsd: runCostUsd,
+    priceBasis: SET2_CONFIRMATION_PRICES[run.model].basis,
+    rejectedResponses,
+    csv: path.join("docs/reports/judge-experiment", run.filename),
+    totalReportedTokensAfterRun: runtime.reportedTokens,
+    tokenCap: SET2_CONFIRMATION_TOKEN_CAP,
+  };
+  await appendSet2ConfirmationRecord(summary);
+  return summary;
+}
+
+async function runSet2Confirmation(apiKey: string): Promise<void> {
+  const [{ looks, looksTextSha256 }, { prompts, sourceStartedAt }] = await Promise.all([
+    loadSet2PlainConfirmationInputs(),
+    loadSet2ConfirmationPrompts(),
+  ]);
+  await mkdir(OUTPUT_DIR, { recursive: true });
+  const schemas = SET2_CONFIRMATION_RUNS.map((run) => {
+    const schema = buildSet2ConfirmationSchema(run.arm, run.includeAsk);
+    return {
+      runId: run.id,
+      sha256: sha256(JSON.stringify(schema)),
+      schema,
+    };
+  });
+  for (const run of SET2_CONFIRMATION_RUNS) {
+    const filePath = path.join(OUTPUT_DIR, run.filename);
+    try {
+      await readFile(filePath, "utf8");
+      throw new Error(`Refusing to overwrite existing Set 2 confirmation CSV: ${run.filename}`);
+    } catch (error: any) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+  }
+  for (const run of SET2_CONFIRMATION_RUNS) {
+    const filename = path.join(OUTPUT_DIR, run.filename);
+    const rows = looks.map((look) => ({
+      look_id: look.id, verdict: "", reason: "NOT_RUN", failures: [],
+    }));
+    await writeFile(filename, set2ConfirmationCsv(rows), { encoding: "utf8", flag: "wx" });
+  }
+
+  const runtime: Set2ConfirmationRuntime = {
+    reportedTokens: 0,
+    lastCallAt: 0,
+    tokenCapReached: false,
+  };
+  const promptHashes = {
+    B: sha256(prompts.B),
+    C: sha256(prompts.C),
+  };
+  await appendSet2ConfirmationRecord({
+    type: "set2-confirmation-start",
+    set: 2,
+    mode: "plain",
+    looksTextSha256,
+    promptHashes,
+    promptSourceRecordStartedAt: sourceStartedAt,
+    modelOrder: SET2_CONFIRMATION_RUNS.map(({ id, model, arm, includeAsk }) => ({
+      id, requestedModel: model, arm, allowAsk: includeAsk,
+    })),
+    schemas,
+    temperature: 0,
+    maxOutputTokens: 1024,
+    thinkingLevel: "minimal",
+    spacingMs: CALL_SPACING_MS,
+    parseFailureRetries: 1,
+    consecutiveRequestFailureStop: 5,
+    tokenCap: SET2_CONFIRMATION_TOKEN_CAP,
+    priceSource: SET2_CONFIRMATION_PRICE_SOURCE,
+    prices: SET2_CONFIRMATION_PRICES,
+    startedAt: new Date().toISOString(),
+  });
+
+  const summaries: Record<string, unknown>[] = [];
+  for (const run of SET2_CONFIRMATION_RUNS) {
+    if (runtime.tokenCapReached) {
+      const summary = {
+        type: "set2-confirmation-run-summary",
+        runId: run.id,
+        requestedModel: run.model,
+        arm: run.arm,
+        allowAsk: run.includeAsk,
+        calls: 0,
+        validRows: 0,
+        skipped: "TOKEN_CAP",
+        csv: path.join("docs/reports/judge-experiment", run.filename),
+        totalReportedTokensAfterRun: runtime.reportedTokens,
+      };
+      summaries.push(summary);
+      await appendSet2ConfirmationRecord(summary);
+      continue;
+    }
+    const summary = await runSet2ConfirmationBatch(
+      run, looks, prompts[run.arm], apiKey, runtime, false,
+    );
+    summaries.push(summary);
+  }
+  const totalCostUsd = summaries.reduce((sum, summary) =>
+    sum + (typeof summary.estimatedCostUsd === "number" ? summary.estimatedCostUsd : 0), 0);
+  await appendSet2ConfirmationRecord({
+    type: "set2-confirmation-report",
+    calls: summaries.reduce((sum, summary) =>
+      sum + (typeof summary.calls === "number" ? summary.calls : 0), 0),
+    reportedTokens: runtime.reportedTokens,
+    tokenCap: SET2_CONFIRMATION_TOKEN_CAP,
+    estimatedCostUsd: Number(totalCostUsd.toFixed(8)),
+    runSummaries: summaries.map((summary) => ({
+      runId: summary.runId,
+      requestedModel: summary.requestedModel,
+      calls: summary.calls,
+      validRows: summary.validRows,
+      parseFailures: summary.parseFailures,
+      requestFailures: summary.requestFailures,
+      latencyMs: summary.latencyMs,
+      estimatedCostUsd: summary.estimatedCostUsd,
+      csv: summary.csv,
+    })),
+    completedAt: new Date().toISOString(),
+  });
+}
 
 type RunOneOptions = {
   maxConsecutiveFailures?: number;
@@ -1596,6 +2111,7 @@ async function main(): Promise<void> {
   }
   if (process.argv.includes("--persona-set1-model-ladder")) return runPersonaSet1ModelLadder(apiKey);
   if (process.argv.includes("--persona-set1-plain")) return runPersonaSet1Plain(apiKey);
+  if (process.argv.includes("--set2-confirmation")) return runSet2Confirmation(apiKey);
   if (process.argv.includes("--set2-and-resume")) return runSet2AndResume(apiKey);
 
   const { looks, rulesText, looksHash, rulesHash } = await loadInputs();

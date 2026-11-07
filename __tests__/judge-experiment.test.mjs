@@ -14,7 +14,7 @@ const testSource = source
   .replace(/const require = createRequire\(import\.meta\.url\);[\s\S]*?const \{ buildGeminiGenerationRequest, getClassifierModelOrder \} = classifierReliability;/,
     "const { buildGeminiGenerationRequest, getClassifierModelOrder } = globalThis.classifier;")
   .replace(/main\(\)\.catch\([\s\S]*$/, "")
-  + "\nexport { loadInputs, loadSet2Inputs, loadPersonaSet1Inputs, loadPersonaSet1TuningInputs, priorPromptTuningUsage, buildPersonaSystemPrompt, buildTuningSystemPrompts, buildTuningSchema, decodeTuning, tuningUsage, tuningCostUsd, tuningCsv, tuningExampleFlag, modelThinkingLevel, runTuningCalls, newTuningMetrics, isGeneralTextGenerationModel, isLargerTextTier, listPersonaModels, decode, probeModel, percentile, runOne, runSet2AndResume, parseCsv, sha256, OUTPUT_INSTRUCTIONS, SET2_INSTRUCTIONS, SET2_VERDICTS, PERSONA_VERDICTS, PERSONA_SET1_QUALITY_SENTENCE, PERSONA_SET1_MODEL_LADDER, PERSONA_SET1_TOKEN_CAP, PERSONA_SET1_TUNING_EXAMPLE_IDS, PERSONA_SET1_TUNING_THINKING_LEVELS, PERSONA_SET1_TUNING_PRICES };";
+  + "\nexport { loadInputs, loadSet2Inputs, loadSet2PlainConfirmationInputs, loadSet2ConfirmationPrompts, loadPersonaSet1Inputs, loadPersonaSet1TuningInputs, priorPromptTuningUsage, buildPersonaSystemPrompt, buildTuningSystemPrompts, buildTuningSchema, buildSet2ConfirmationSchema, decodeSet2Confirmation, decodeTuning, tuningUsage, tuningCostUsd, tuningCsv, tuningExampleFlag, modelThinkingLevel, runTuningCalls, newTuningMetrics, isGeneralTextGenerationModel, isLargerTextTier, listPersonaModels, decode, probeModel, percentile, runOne, runSet2AndResume, runSet2ConfirmationBatch, set2ConfirmationCsv, SET2_CONFIRMATION_PROMPT_HASHES, SET2_CONFIRMATION_RUNS, parseCsv, sha256, OUTPUT_INSTRUCTIONS, SET2_INSTRUCTIONS, SET2_VERDICTS, PERSONA_VERDICTS, PERSONA_SET1_QUALITY_SENTENCE, PERSONA_SET1_MODEL_LADDER, PERSONA_SET1_TOKEN_CAP, PERSONA_SET1_TUNING_EXAMPLE_IDS, PERSONA_SET1_TUNING_THINKING_LEVELS, PERSONA_SET1_TUNING_PRICES };";
 const code = transformSync(testSource, { loader: "ts", format: "cjs" }).code;
 
 function harness(responses = [], cataloguePages = []) {
@@ -76,6 +76,19 @@ function response(verdict = "Ask", reason = "Which venue dress code applies?") {
     },
   };
 }
+function textResponse(text, modelVersion = "gemini-3.6-flash") {
+  return {
+    status: 200,
+    data: {
+      modelVersion,
+      candidates: [{ finishReason: "STOP", content: { parts: [{ text }] } }],
+      usageMetadata: {
+        promptTokenCount: 10, candidatesTokenCount: 5, thoughtsTokenCount: 2,
+        totalTokenCount: 17,
+      },
+    },
+  };
+}
 function failure(status) {
   return Object.assign(new Error("Synthetic provider failure"), {
     response: { status, headers: { "retry-after": "1" } },
@@ -106,6 +119,91 @@ test("Set 2 matches all 100 supplied entries and preserves nulls and briefs", as
   assert.equal(api.decode(response(), api.SET2_VERDICTS).verdict, "Ask");
   assert.equal(api.decode(response("Ask", Array(16).fill("word").join(" ")), api.SET2_VERDICTS), null);
   assert.ok(api.SET2_INSTRUCTIONS.includes("missing decisive fact"));
+});
+
+test("Set 2 confirmation uses the exact recorded B/C prompts and plain inputs", async () => {
+  const { api, files } = harness();
+  files.set(output("persona-set1-run.jsonl"),
+    await fs.readFile("docs/reports/judge-experiment/persona-set1-run.jsonl", "utf8"));
+  const inputs = await api.loadSet2PlainConfirmationInputs();
+  const prompts = await api.loadSet2ConfirmationPrompts();
+  assert.equal(inputs.looks.length, 100);
+  assert.equal(inputs.looks[0].id, "T01-A");
+  assert.ok(inputs.looks[0].plainText.includes("Scenario:"));
+  assert.deepEqual({ ...api.SET2_CONFIRMATION_PROMPT_HASHES }, {
+    B: "e1f1f2497b0227c93633747bc1c0273171bcae47631bc0a6927319c0bb412ebf",
+    C: "eedf6445cfb017e793ebe0451df5649d239cf918e8ae83bca4f7ee32f97a6368",
+  });
+  assert.equal(api.sha256(prompts.prompts.B), api.SET2_CONFIRMATION_PROMPT_HASHES.B);
+  assert.equal(api.sha256(prompts.prompts.C), api.SET2_CONFIRMATION_PROMPT_HASHES.C);
+});
+
+test("Set 2 confirmation schemas remove only Ask when requested; C verdict is derived from failures", async () => {
+  const { api } = harness();
+  for (const arm of ["B", "C"]) {
+    assert.deepEqual(
+      Array.from(api.buildSet2ConfirmationSchema(arm, true).properties.verdict.enum),
+      ["Works", "Almost", "Rethink", "Ask"],
+    );
+    assert.deepEqual(
+      Array.from(api.buildSet2ConfirmationSchema(arm, false).properties.verdict.enum),
+      ["Works", "Almost", "Rethink"],
+    );
+  }
+  const decoded = api.decodeSet2Confirmation(textResponse(JSON.stringify({
+    failures: ["First independent issue.", "Second independent issue."],
+    verdict: "Works",
+    reason: "Two changes are needed.",
+  })), "C", false);
+  assert.equal(decoded.verdict, "Rethink");
+});
+
+test("Set 2 confirmation retries one parse failure and records served model versions", async () => {
+  const { api, files, calls } = harness([
+    textResponse("not JSON", "gemini-3.6-flash"),
+    textResponse(JSON.stringify({ verdict: "Works", reason: "The look suits the occasion." })),
+  ]);
+  const run = {
+    id: "test-b-ask",
+    filename: "set2-confirmation-test.csv",
+    model: "gemini-3.5-flash",
+    arm: "B",
+    includeAsk: true,
+  };
+  const result = await api.runSet2ConfirmationBatch(
+    run, [look], "Recorded arm B prompt", "synthetic",
+    { reportedTokens: 0, lastCallAt: 0, tokenCapReached: false },
+  );
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].body.generationConfig.maxOutputTokens, 1024);
+  assert.equal(calls[0].body.generationConfig.thinkingConfig.thinkingLevel, "minimal");
+  assert.equal(result.validRows, 1);
+  assert.equal(result.parseFailures, 1);
+  const csv = files.get(output("set2-confirmation-test.csv"));
+  assert.equal(csv.split("\n")[0], "look_id,verdict,reason,failures");
+  assert.ok(csv.includes('"Works"'));
+  const log = files.get(output("persona-set1-run.jsonl"));
+  assert.ok(log.includes('"requestedModel":"gemini-3.5-flash"'));
+  assert.ok(log.includes('"modelVersion":"gemini-3.6-flash"'));
+  assert.ok(log.includes('"rejectedResponseText":"not JSON"'));
+});
+
+test("Set 2 confirmation stops one run after five consecutive request failures", async () => {
+  const { api, calls } = harness(Array.from({ length: 5 }, () => failure(429)));
+  const run = {
+    id: "test-b-ask",
+    filename: "set2-confirmation-rate-limit-test.csv",
+    model: "gemini-3.5-flash",
+    arm: "B",
+    includeAsk: true,
+  };
+  const result = await api.runSet2ConfirmationBatch(
+    run, [look], "Recorded arm B prompt", "synthetic",
+    { reportedTokens: 0, lastCallAt: 0, tokenCapReached: false },
+  );
+  assert.equal(calls.length, 5);
+  assert.equal(result.stoppedAfterFiveConsecutiveFailures, true);
+  assert.equal(result.requestFailures.RATE_LIMITED, 5);
 });
 
 test("persona Set 1 prompt preserves attachment order, appends the quality sentence and accepts Ask", async () => {
