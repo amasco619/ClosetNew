@@ -14,7 +14,7 @@ const testSource = source
   .replace(/const require = createRequire\(import\.meta\.url\);[\s\S]*?const \{ buildGeminiGenerationRequest, getClassifierModelOrder \} = classifierReliability;/,
     "const { buildGeminiGenerationRequest, getClassifierModelOrder } = globalThis.classifier;")
   .replace(/main\(\)\.catch\([\s\S]*$/, "")
-  + "\nexport { loadInputs, loadSet2Inputs, loadPersonaSet1Inputs, buildPersonaSystemPrompt, isGeneralTextGenerationModel, isLargerTextTier, listPersonaModels, decode, runOne, runSet2AndResume, parseCsv, sha256, OUTPUT_INSTRUCTIONS, SET2_INSTRUCTIONS, SET2_VERDICTS, PERSONA_VERDICTS, PERSONA_SET1_QUALITY_SENTENCE };";
+  + "\nexport { loadInputs, loadSet2Inputs, loadPersonaSet1Inputs, buildPersonaSystemPrompt, isGeneralTextGenerationModel, isLargerTextTier, listPersonaModels, decode, probeModel, percentile, runOne, runSet2AndResume, parseCsv, sha256, OUTPUT_INSTRUCTIONS, SET2_INSTRUCTIONS, SET2_VERDICTS, PERSONA_VERDICTS, PERSONA_SET1_QUALITY_SENTENCE, PERSONA_SET1_MODEL_LADDER, PERSONA_SET1_TOKEN_CAP };";
 const code = transformSync(testSource, { loader: "ts", format: "cjs" }).code;
 
 function harness(responses = [], cataloguePages = []) {
@@ -153,6 +153,65 @@ test("persona batch accepts its four-verdict schema and writes the model-specifi
   assert.deepEqual(Array.from(calls[0].body.generationConfig.responseSchema.properties.verdict.enum),
     ["Works", "Almost", "Rethink", "Ask"]);
   assert.equal(api.parseCsv(files.get(output("persona-set1-gemini-3.5-flash-lite.csv"))).rows[0].verdict, "Ask");
+});
+
+test("requested model ladder probes all eight exact IDs and computes latency percentiles", async () => {
+  const { api } = harness();
+  assert.deepEqual(Array.from(api.PERSONA_SET1_MODEL_LADDER), [
+    "gemini-3.1-pro-preview", "gemini-pro-latest", "gemini-3.8-flash",
+    "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3-flash-preview",
+    "gemini-4-argon", "gemini-flash-latest",
+  ]);
+  assert.equal(api.PERSONA_SET1_TOKEN_CAP, 2_000_000);
+  assert.equal(api.percentile([9, 1, 5, 3], 0.5), 3);
+  assert.equal(api.percentile([9, 1, 5, 3], 0.95), 9);
+  assert.equal(api.percentile([], 0.5), null);
+});
+
+test("minimal generation probe uses the classifier request builder and records status", async () => {
+  const { api, calls } = harness([response("Works", "A valid minimal response.")]);
+  const result = await api.probeModel("gemini-3.1-pro-preview", "synthetic");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "gemini-3.1-pro-preview");
+  assert.equal(calls[0].body.generationConfig.temperature, 0);
+  assert.equal(result.status, 200);
+  assert.equal(result.success, true);
+  assert.equal(result.tokens.total, 15);
+});
+
+test("model probe records a 404 and returns so the caller can continue", async () => {
+  const { api } = harness([failure(404)]);
+  const result = await api.probeModel("gemini-pro-latest", "synthetic");
+  assert.equal(result.status, 404);
+  assert.equal(result.success, false);
+  assert.equal(result.errorCode, "MODEL_NOT_FOUND");
+});
+
+test("model-ladder run stops on the fifth consecutive provider failure", async () => {
+  const { api, calls } = harness(Array.from({ length: 5 }, () => failure(429)));
+  const result = await api.runOne(
+    "plain", "gemini-3.8-flash", [look], "Exact recorded prompt", "synthetic",
+    false, "persona-set1-gemini-3.8-flash.csv", true,
+    "persona-set1-plain:gemini-3.8-flash", false, true,
+    { maxConsecutiveFailures: 5, stopAtConsecutiveLimit: true },
+  );
+  assert.equal(calls.length, 5);
+  assert.equal(result.stoppedAfterConsecutiveFailures, true);
+  assert.equal(result.failures, 1);
+});
+
+test("model-ladder run stops immediately after reported usage reaches its token cap", async () => {
+  const { api, calls } = harness([response("Works", "Synthetic valid response.")]);
+  const result = await api.runOne(
+    "plain", "gemini-3.8-flash", [look, { ...look, id: "T01-B" }],
+    "Exact recorded prompt", "synthetic", false,
+    "persona-set1-gemini-3.8-flash.csv", true,
+    "persona-set1-plain:gemini-3.8-flash", false, true,
+    { reportedTokensBeforeRun: 1_999_990, maxReportedTokens: 2_000_000 },
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(result.stoppedForTokenCap, true);
+  assert.equal(result.validRows, 1);
 });
 
 test("persona ladder stops after the first model access error", async () => {

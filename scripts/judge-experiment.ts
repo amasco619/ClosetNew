@@ -1,7 +1,7 @@
 import axios from "axios";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const require = createRequire(import.meta.url);
@@ -34,6 +34,18 @@ const PERSONA_SET1_PATHS = {
 };
 const PERSONA_SET1_QUALITY_SENTENCE =
   "Descriptions that say thin or shiny mean poor quality; premium or heavy mean good quality.";
+const PERSONA_SET1_MODEL_LADDER = [
+  "gemini-3.1-pro-preview",
+  "gemini-pro-latest",
+  "gemini-3.8-flash",
+  "gemini-3.7-flash",
+  "gemini-3.6-flash",
+  "gemini-3-flash-preview",
+  "gemini-4-argon",
+  "gemini-flash-latest",
+];
+const PERSONA_SET1_TOKEN_CAP = 2_000_000;
+const PERSONA_SET1_RUN_PATH = path.join(OUTPUT_DIR, "persona-set1-run.jsonl");
 const PERSONA_VERDICTS = new Set(["Works", "Almost", "Rethink", "Ask"]);
 const REQUEST_TIMEOUT_MS = 60_000;
 const VERDICTS = new Set(["Works", "Almost", "Rethink"]);
@@ -460,6 +472,60 @@ const INITIAL_BACKOFF_MS = 5_000;
 const MAX_BACKOFF_MS = 60_000;
 const MAX_CONSECUTIVE_FAILURES = 10;
 
+type RunOneOptions = {
+  maxConsecutiveFailures?: number;
+  stopAtConsecutiveLimit?: boolean;
+  reportedTokensBeforeRun?: number;
+  maxReportedTokens?: number;
+};
+
+function percentile(values: number[], fraction: number): number | null {
+  if (!values.length) return null;
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.min(sorted.length - 1, Math.ceil(fraction * sorted.length) - 1)];
+}
+
+async function probeModel(model: string, apiKey: string): Promise<{
+  model: string;
+  status: number | null;
+  success: boolean;
+  latencyMs: number;
+  tokens: { prompt: number; candidate: number; total: number };
+  errorCode?: string;
+}> {
+  const request = buildGeminiGenerationRequest({
+    model,
+    apiKey,
+    baseRequestBody: {
+      contents: [{ role: "user", parts: [{ text: 'Reply with the word "OK".' }] }],
+      generationConfig: { temperature: 0, maxOutputTokens: 8 },
+    },
+    maxOutputTokens: 8,
+    timeout: REQUEST_TIMEOUT_MS,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  const startedAt = Date.now();
+  try {
+    const response = await axios.post(request.url, request.body, request.config);
+    return {
+      model,
+      status: response.status ?? 200,
+      success: (response.status ?? 200) === 200,
+      latencyMs: Date.now() - startedAt,
+      tokens: tokenUsage(response),
+    };
+  } catch (error: any) {
+    return {
+      model,
+      status: Number.isInteger(error?.response?.status) ? error.response.status : null,
+      success: false,
+      latencyMs: Date.now() - startedAt,
+      tokens: { prompt: 0, candidate: 0, total: 0 },
+      errorCode: providerFailureCode(error),
+    };
+  }
+}
+
 function retryDelay(retryNumber: number, retryAfterMs: number): number {
   const exponential = Math.min(MAX_BACKOFF_MS, INITIAL_BACKOFF_MS * 2 ** (retryNumber - 1));
   return Math.min(MAX_BACKOFF_MS, Math.max(CALL_SPACING_MS, exponential, retryAfterMs));
@@ -477,6 +543,7 @@ async function runOne(
   batchLabel?: string,
   stopOnAccessFailure = false,
   personaMode = false,
+  options: RunOneOptions = {},
 ): Promise<{
   rowCount: number;
   failures: number;
@@ -484,6 +551,13 @@ async function runOne(
   stoppedForAccessFailure: boolean;
   stoppedForProviderError: boolean;
   unresolvedRequestFailures: number;
+  stoppedForTokenCap: boolean;
+  calls: number;
+  validRows: number;
+  parseFailures: number;
+  tokens: { prompt: number; candidate: number; total: number; unreported: number };
+  latenciesMs: number[];
+  rejectedResponses: Array<{ look_id: string; text: string | null }>;
 }> {
   const role = model === (set2 ? "gemini-3.5-flash-lite" : getClassifierModelOrder()[0])
     ? "primary" : "fallback";
@@ -505,8 +579,11 @@ async function runOne(
   let stoppedAfterConsecutiveFailures = false;
   let stoppedForAccessFailure = false;
   let stoppedForProviderError = false;
+  let stoppedForTokenCap = false;
   let waitBeforeNextCall = 0;
   let lastCallAt = 0;
+  const latenciesMs: number[] = [];
+  const rejectedResponses: Array<{ look_id: string; text: string | null }> = [];
 
   for (let index = 0; index < looks.length; index++) {
     if ((set2 || retryAllFailed)
@@ -516,6 +593,11 @@ async function runOne(
     let retriesForRow = 0;
 
     while (true) {
+      if (options.maxReportedTokens !== undefined &&
+          (options.reportedTokensBeforeRun ?? 0) + tokens.total >= options.maxReportedTokens) {
+        stoppedForTokenCap = true;
+        break;
+      }
       const waitMs = Math.max(waitBeforeNextCall, lastCallAt ? CALL_SPACING_MS - (Date.now() - lastCallAt) : 0);
       if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
       waitBeforeNextCall = 0;
@@ -548,9 +630,11 @@ async function runOne(
       });
       calls++;
       lastCallAt = Date.now();
+      const requestStartedAt = Date.now();
 
       try {
         const response = await axios.post(request.url, request.body, request.config);
+        latenciesMs.push(Date.now() - requestStartedAt);
         const successEvidence = rateLimitEvidence({ response });
         if (Object.keys(successEvidence.headers).length) {
           rateLimitObservations.set(JSON.stringify(successEvidence.headers), {
@@ -574,6 +658,7 @@ async function runOne(
           const parsed = decode(response, verdicts);
           if (!parsed) {
             parseFailures++;
+            rejectedResponses.push({ look_id: look.id, text: responseText(response) });
             rows[index] = { ...rows[index], verdict: "", reason: "PARSE_FAILURE", raw: csvRecord({
               look_id: look.id, verdict: "", reason: "PARSE_FAILURE",
             }) };
@@ -584,8 +669,13 @@ async function runOne(
           }
         }
         await writeCsvSnapshot(filePath, header, rows);
+        if (options.maxReportedTokens !== undefined &&
+            (options.reportedTokensBeforeRun ?? 0) + tokens.total >= options.maxReportedTokens) {
+          stoppedForTokenCap = true;
+        }
         break;
       } catch (error: any) {
+        latenciesMs.push(Date.now() - requestStartedAt);
         tokens.unreported++;
         consecutiveFailures++;
         const code = providerFailureCode(error);
@@ -611,22 +701,26 @@ async function runOne(
           stoppedForProviderError = true;
           break;
         }
-        if ((status === 429 || (Number.isInteger(status) && status >= 500)) &&
-            consecutiveFailures <= MAX_CONSECUTIVE_FAILURES) {
+        const failureLimit = options.maxConsecutiveFailures ?? MAX_CONSECUTIVE_FAILURES;
+        const limitReached = options.stopAtConsecutiveLimit
+          ? consecutiveFailures >= failureLimit
+          : consecutiveFailures > failureLimit;
+        if (limitReached) {
+          stoppedAfterConsecutiveFailures = true;
+          break;
+        }
+        if (status === 429 || (Number.isInteger(status) && status >= 500)) {
           retriesForRow++;
           waitBeforeNextCall = retryDelay(retriesForRow, evidence.retryAfterMs);
         } else {
-          if (consecutiveFailures > MAX_CONSECUTIVE_FAILURES) {
-            stoppedAfterConsecutiveFailures = true;
-            break;
-          }
           break;
         }
       }
 
-      if (stoppedAfterConsecutiveFailures) break;
+      if (stoppedAfterConsecutiveFailures || stoppedForTokenCap) break;
     }
-    if (stoppedAfterConsecutiveFailures || stoppedForAccessFailure || stoppedForProviderError) break;
+    if (stoppedAfterConsecutiveFailures || stoppedForAccessFailure ||
+        stoppedForProviderError || stoppedForTokenCap) break;
   }
 
   const failures = rows.filter((row) => !row.verdict).length;
@@ -647,7 +741,13 @@ async function runOne(
     stoppedAfterConsecutiveFailures,
     stoppedForAccessFailure,
     stoppedForProviderError,
+    stoppedForTokenCap,
     unresolvedRequestFailures,
+    validRows: rows.filter((row) => Boolean(row.verdict)).length,
+    latencyMs: {
+      median: percentile(latenciesMs, 0.5),
+      p95: percentile(latenciesMs, 0.95),
+    },
     rateLimitObservations: [...rateLimitObservations.values()],
     csv: path.join("docs/reports/judge-experiment", filename),
   }));
@@ -658,7 +758,113 @@ async function runOne(
     stoppedForAccessFailure,
     stoppedForProviderError,
     unresolvedRequestFailures,
+    stoppedForTokenCap,
+    calls,
+    validRows: rows.filter((row) => Boolean(row.verdict)).length,
+    parseFailures,
+    tokens,
+    latenciesMs,
+    rejectedResponses,
   };
+}
+
+async function runPersonaSet1ModelLadder(apiKey: string): Promise<void> {
+  const { looks, systemPrompt, hashes } = await loadPersonaSet1Inputs();
+  const priorRunText = await readFile(PERSONA_SET1_RUN_PATH, "utf8");
+  const priorRun = JSON.parse(priorRunText.split(/\r?\n/, 1)[0]);
+  if (priorRun.inputSha256?.systemPrompt !== "3024fe78a9d1157b9713eee92691713a18150328375f8eff10c065701f6b82d5" ||
+      priorRun.systemPromptText !== systemPrompt ||
+      hashes.systemPrompt !== priorRun.inputSha256.systemPrompt) {
+    throw new Error("The Set 1 system prompt does not match the recorded prompt and SHA-256.");
+  }
+  await mkdir(OUTPUT_DIR, { recursive: true });
+  await appendFile(PERSONA_SET1_RUN_PATH, `${JSON.stringify({
+    type: "persona-set1-model-ladder-start",
+    modelIds: PERSONA_SET1_MODEL_LADDER,
+    inputSha256: hashes,
+    systemPromptText: systemPrompt,
+    startedAt: new Date().toISOString(),
+    totalReportedTokenCap: PERSONA_SET1_TOKEN_CAP,
+  })}\n`);
+
+  const probes: Array<Awaited<ReturnType<typeof probeModel>>> = [];
+  for (const model of PERSONA_SET1_MODEL_LADDER) {
+    if (probes.length) await new Promise((resolve) => setTimeout(resolve, CALL_SPACING_MS));
+    const probe = await probeModel(model, apiKey);
+    probes.push(probe);
+    console.log(JSON.stringify({ type: "persona-set1-generation-probe", ...probe }));
+    await appendFile(PERSONA_SET1_RUN_PATH, `${JSON.stringify({
+      type: "persona-set1-generation-probe",
+      ...probe,
+      recordedAt: new Date().toISOString(),
+    })}\n`);
+  }
+
+  let reportedTokens = probes.reduce((sum, probe) => sum + probe.tokens.total, 0);
+  if (reportedTokens >= PERSONA_SET1_TOKEN_CAP) {
+    await appendFile(PERSONA_SET1_RUN_PATH, `${JSON.stringify({
+      type: "persona-set1-model-ladder-stop",
+      reason: "TOKEN_CAP_REACHED_DURING_PROBES",
+      totalReportedTokens: reportedTokens,
+      cap: PERSONA_SET1_TOKEN_CAP,
+    })}\n`);
+    return;
+  }
+
+  for (const probe of probes.filter((entry) => entry.success)) {
+    await new Promise((resolve) => setTimeout(resolve, CALL_SPACING_MS));
+    const filename = `persona-set1-${probe.model.replace(/[^A-Za-z0-9.-]/g, "-")}.csv`;
+    const result = await runOne(
+      "plain",
+      probe.model,
+      looks,
+      systemPrompt,
+      apiKey,
+      false,
+      filename,
+      true,
+      `persona-set1-plain:${probe.model}`,
+      false,
+      true,
+      {
+        maxConsecutiveFailures: 5,
+        stopAtConsecutiveLimit: true,
+        reportedTokensBeforeRun: reportedTokens,
+        maxReportedTokens: PERSONA_SET1_TOKEN_CAP,
+      },
+    );
+    reportedTokens += result.tokens.total;
+    const runRecord = {
+      type: "persona-set1-model-run",
+      model: probe.model,
+      csv: path.join("docs/reports/judge-experiment", filename),
+      rowCount: result.rowCount,
+      calls: result.calls,
+      validRows: result.validRows,
+      parseFailures: result.parseFailures,
+      tokens: result.tokens,
+      latencyMs: {
+        median: percentile(result.latenciesMs, 0.5),
+        p95: percentile(result.latenciesMs, 0.95),
+      },
+      rejectedResponses: result.rejectedResponses,
+      remainingFailedRows: result.failures,
+      stoppedAfterFiveConsecutiveFailures: result.stoppedAfterConsecutiveFailures,
+      totalReportedTokensAfterRun: reportedTokens,
+      tokenCap: PERSONA_SET1_TOKEN_CAP,
+    };
+    console.log(JSON.stringify(runRecord));
+    await appendFile(PERSONA_SET1_RUN_PATH, `${JSON.stringify(runRecord)}\n`);
+    if (result.stoppedForTokenCap || reportedTokens >= PERSONA_SET1_TOKEN_CAP) {
+      await appendFile(PERSONA_SET1_RUN_PATH, `${JSON.stringify({
+        type: "persona-set1-model-ladder-stop",
+        reason: "TOKEN_CAP_REACHED",
+        totalReportedTokens: reportedTokens,
+        cap: PERSONA_SET1_TOKEN_CAP,
+      })}\n`);
+      break;
+    }
+  }
 }
 
 async function runPersonaSet1Plain(apiKey: string): Promise<void> {
@@ -746,6 +952,7 @@ async function runSet2AndResume(apiKey: string): Promise<void> {
 async function main(): Promise<void> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is required; its value is never printed.");
+  if (process.argv.includes("--persona-set1-model-ladder")) return runPersonaSet1ModelLadder(apiKey);
   if (process.argv.includes("--persona-set1-plain")) return runPersonaSet1Plain(apiKey);
   if (process.argv.includes("--set2-and-resume")) return runSet2AndResume(apiKey);
 
