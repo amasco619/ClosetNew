@@ -132,6 +132,21 @@ const SET2_CONFIRMATION_PROMPT_HASHES = {
 const SET2_CONFIRMATION_TOKEN_CAP = 1_000_000;
 const SET2_CONFIRMATION_MAX_OUTPUT_TOKENS = 1024;
 const SET2_CONFIRMATION_REQUEST_OVERHEAD_RESERVE = 1024;
+const SET3A_PATH = path.join(ROOT, "attached_assets/looks3_1794220715219.txt");
+const SET3A_INPUT_SHA256 = "dc4c09fbd4e566ab41298cba7b70cb9a8260a6f04ed7b471296039b8593ed068";
+const SET3A_PROMPT_SHA256 = SET2_CONFIRMATION_PROMPT_HASHES.B;
+const SET3A_TOKEN_CAP = 600_000;
+const SET3A_MAX_OUTPUT_TOKENS = 1024;
+const SET3A_PRICE = {
+  inputPerMillion: 0.75,
+  outputPerMillion: 3.75,
+  basis: "Published Gemini 3.6 Flash rate; prior calls observed gemini-3.5-flash serving gemini-3.6-flash.",
+};
+const SET3A_RUNS = [
+  { id: "arm-b-ask-allowed", filename: "set3a-arm-b-ask-allowed.csv", allowAsk: true, qualityStripped: false },
+  { id: "arm-b-ask-removed", filename: "set3a-arm-b-ask-removed.csv", allowAsk: false, qualityStripped: false },
+  { id: "arm-b-quality-stripped", filename: "set3a-arm-b-quality-stripped.csv", allowAsk: true, qualityStripped: true },
+] as const;
 const SET2_CONFIRMATION_PRICE_SOURCE =
   "https://ai.google.dev/gemini-api/docs/pricing (Standard paid-tier prices retrieved 2026-11-07)";
 const SET2_CONFIRMATION_PRICES = {
@@ -302,7 +317,7 @@ async function readExistingCsv(filePath: string, looks: LookInput[], createMissi
   return parsed;
 }
 
-function parsePlainLooks(text: string, prefix = "S"): Map<string, string> {
+function parsePlainLooks(text: string, prefix = "S", expectedCount = 100): Map<string, string> {
   const result = new Map<string, string>();
   let scenarioTitle = "";
   let scenarioParagraph = "";
@@ -329,7 +344,9 @@ function parsePlainLooks(text: string, prefix = "S"): Map<string, string> {
     if (scenarioTitle && !scenarioParagraph && trimmed) scenarioParagraph = trimmed;
   }
 
-  if (result.size !== 100) throw new Error(`Expected 100 plain-text looks; found ${result.size}.`);
+  if (result.size !== expectedCount) {
+    throw new Error(`Expected ${expectedCount} plain-text looks; found ${result.size}.`);
+  }
   return result;
 }
 
@@ -1101,6 +1118,27 @@ async function loadSet2PlainConfirmationInputs(): Promise<{
   };
 }
 
+async function loadSet3aInputs(): Promise<{
+  looks: LookInput[];
+  looksTextSha256: string;
+}> {
+  const buffer = await readFile(SET3A_PATH);
+  const text = buffer.toString("utf8");
+  const looks = parsePlainLooks(text, "U", 72);
+  const expectedIds = Array.from({ length: 18 }, (_, index) =>
+    ["A", "B", "C", "D"].map((letter) => `U${String(index + 1).padStart(2, "0")}-${letter}`),
+  ).flat();
+  if (expectedIds.some((id) => !looks.has(id))) {
+    throw new Error("Set 3A IDs must match U01-A through U18-D.");
+  }
+  return {
+    looks: expectedIds.map((id) => ({
+      id, plainText: looks.get(id)!, structuredFacts: {},
+    })),
+    looksTextSha256: sha256(buffer),
+  };
+}
+
 async function loadSet2ConfirmationPrompts(): Promise<{
   prompts: Record<"B" | "C", string>;
   sourceStartedAt: string | null;
@@ -1125,6 +1163,23 @@ async function loadSet2ConfirmationPrompts(): Promise<{
     prompts: { B: source.systemPrompts.B, C: source.systemPrompts.C },
     sourceStartedAt: source.startedAt ?? null,
   };
+}
+
+async function loadSet3aPrompt(): Promise<{ prompt: string; sourceStartedAt: string | null }> {
+  const records = (await readFile(PERSONA_SET1_RUN_PATH, "utf8"))
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  const source = records.find((record) =>
+    record.type === "persona-set1-prompt-tuning-start" &&
+    record.promptTextSha256?.B === SET3A_PROMPT_SHA256 &&
+    typeof record.systemPrompts?.B === "string" &&
+    sha256(record.systemPrompts.B) === SET3A_PROMPT_SHA256,
+  );
+  if (!source) {
+    throw new Error("The exact recorded Arm B prompt was not found; refusing to run Set 3A.");
+  }
+  return { prompt: source.systemPrompts.B, sourceStartedAt: source.startedAt ?? null };
 }
 
 function responseText(response: any): string | null {
@@ -1638,6 +1693,385 @@ async function runSet2Confirmation(apiKey: string): Promise<void> {
   });
 }
 
+type Set3aRow = { look_id: string; verdict: string; reason: string; failures: string[] };
+type Set3aRuntime = {
+  reportedTokens: number;
+  reservedTokens: number;
+  lastGenerationAt: number;
+  stoppedForTokenCap: boolean;
+};
+
+function set3aCsv(rows: Set3aRow[]): string {
+  return [
+    "look_id,verdict,reason,failures",
+    ...rows.map((row) => [
+      row.look_id, row.verdict, row.reason, JSON.stringify(row.failures),
+    ].map(tuningCsvCell).join(",")),
+  ].join("\n") + "\n";
+}
+
+function set3aCost(inputTokens: number, outputTokens: number, thinkingTokens: number): number {
+  return Number((
+    inputTokens * SET3A_PRICE.inputPerMillion / 1_000_000 +
+    (outputTokens + thinkingTokens) * SET3A_PRICE.outputPerMillion / 1_000_000
+  ).toFixed(8));
+}
+
+async function countSet3aPromptTokens(
+  model: string,
+  apiKey: string,
+  systemPrompt: string,
+  userText: string,
+  includeAsk: boolean,
+): Promise<number> {
+  const request = buildGeminiGenerationRequest({
+    model,
+    apiKey,
+    baseRequestBody: {
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: "user", parts: [{ text: userText }] }],
+      generationConfig: {
+        temperature: 0,
+        maxOutputTokens: SET3A_MAX_OUTPUT_TOKENS,
+        responseMimeType: "application/json",
+        responseSchema: buildSet2ConfirmationSchema("B", includeAsk),
+        thinkingConfig: { thinkingLevel: "minimal" },
+      },
+    },
+    maxOutputTokens: SET3A_MAX_OUTPUT_TOKENS,
+    timeout: REQUEST_TIMEOUT_MS,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  const countUrl = request.url.replace(":generateContent", ":countTokens");
+  const countBody = {
+    generateContentRequest: {
+      model: `models/${model}`,
+      systemInstruction: request.body.systemInstruction,
+      contents: request.body.contents,
+    },
+  };
+  const response = await axios.post(countUrl, countBody, request.config);
+  const count = response?.data?.totalTokens;
+  if (!Number.isSafeInteger(count) || count < 0) {
+    throw new Error("Gemini token-count response did not include a valid totalTokens value.");
+  }
+  return count;
+}
+
+async function runSet3aBatch(
+  run: typeof SET3A_RUNS[number],
+  looks: LookInput[],
+  systemPrompt: string,
+  apiKey: string,
+  runtime: Set3aRuntime,
+): Promise<Record<string, unknown>> {
+  const filePath = path.join(OUTPUT_DIR, run.filename);
+  const rows: Set3aRow[] = looks.map((look) => ({
+    look_id: look.id, verdict: "", reason: "NOT_RUN", failures: [],
+  }));
+  await writeFile(filePath, set3aCsv(rows), { encoding: "utf8", flag: "wx" });
+
+  const schema = buildSet2ConfirmationSchema("B", run.allowAsk);
+  const tokens = { prompt: 0, candidate: 0, thinking: 0, total: 0, unreported: 0 };
+  const latenciesMs: number[] = [];
+  const modelVersions: Record<string, number> = {};
+  const rejectedResponses: Array<{ lookId: string; attempt: number; text: string | null }> = [];
+  let calls = 0;
+  let parseFailures = 0;
+  let countTokenCalls = 0;
+  let tokenCountFailures = 0;
+  let stoppedForTokenCap = false;
+  let lastCountTokenAt = 0;
+
+  for (let index = 0; index < looks.length; index++) {
+    const look = looks[index];
+    const userText = run.qualityStripped
+      ? look.plainText.replace(/\(quality (?:premium|standard|poor)\)/g, "(quality not stated)")
+      : look.plainText;
+    const reservedUsage = new Set3aPromptReservation(runtime);
+    let parseRetryUsed = false;
+    let attempt = 0;
+
+    while (true) {
+      let promptTokens: number;
+      try {
+        promptTokens = await countSet3aPromptTokens(
+          "gemini-3.5-flash", apiKey, systemPrompt, userText, run.allowAsk,
+        );
+        countTokenCalls++;
+        lastCountTokenAt = Date.now();
+      } catch (error: any) {
+        tokenCountFailures++;
+        await appendSet2ConfirmationRecord({
+          type: "set3a-token-count-failure",
+          runId: run.id,
+          lookId: look.id,
+          errorCode: providerFailureCode(error),
+          status: Number.isInteger(error?.response?.status) ? error.response.status : null,
+        });
+        rows[index] = { ...rows[index], reason: "TOKEN_COUNT_FAILED" };
+        break;
+      }
+
+      const reservation = promptTokens + SET3A_MAX_OUTPUT_TOKENS + 256;
+      if (runtime.reportedTokens + runtime.reservedTokens + reservation > SET3A_TOKEN_CAP) {
+        runtime.stoppedForTokenCap = true;
+        stoppedForTokenCap = true;
+        break;
+      }
+      runtime.reservedTokens += reservation;
+      reservedUsage.set(reservation);
+
+      const generationSpacing = runtime.lastGenerationAt
+        ? Math.max(0, CALL_SPACING_MS - (Date.now() - runtime.lastGenerationAt)) : 0;
+      const countSpacing = lastCountTokenAt
+        ? Math.max(0, CALL_SPACING_MS - (Date.now() - lastCountTokenAt)) : 0;
+      const waitMs = Math.max(generationSpacing, countSpacing);
+      if (waitMs) await new Promise((resolve) => setTimeout(resolve, waitMs));
+
+      const request = buildGeminiGenerationRequest({
+        model: "gemini-3.5-flash",
+        apiKey,
+        baseRequestBody: {
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: "user", parts: [{ text: userText }] }],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: SET3A_MAX_OUTPUT_TOKENS,
+            responseMimeType: "application/json",
+            responseSchema: schema,
+            thinkingConfig: { thinkingLevel: "minimal" },
+          },
+        },
+        maxOutputTokens: SET3A_MAX_OUTPUT_TOKENS,
+        timeout: REQUEST_TIMEOUT_MS,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      const startedAt = Date.now();
+      runtime.lastGenerationAt = startedAt;
+      calls++;
+      attempt++;
+
+      try {
+        const response = await axios.post(request.url, request.body, request.config);
+        const latencyMs = Date.now() - startedAt;
+        latenciesMs.push(latencyMs);
+        const usage = tuningUsage(response);
+        const modelVersion = typeof response?.data?.modelVersion === "string"
+          ? response.data.modelVersion : null;
+        if (modelVersion) modelVersions[modelVersion] = (modelVersions[modelVersion] ?? 0) + 1;
+        const rawText = responseText(response);
+        const isRefusal = refusal(response);
+        const decoded = isRefusal ? null : decodeSet2Confirmation(response, "B", run.allowAsk);
+        const actualTokens = usage.total;
+        reservedUsage.release(actualTokens ?? reservation);
+        if (actualTokens === null) {
+          tokens.unreported++;
+          runtime.stoppedForTokenCap = true;
+          stoppedForTokenCap = true;
+        } else {
+          tokens.prompt += usage.input;
+          tokens.candidate += usage.output;
+          tokens.thinking += usage.thinking;
+          tokens.total += actualTokens;
+        }
+        await appendSet2ConfirmationRecord({
+          type: "set3a-call",
+          runId: run.id,
+          requestedModel: "gemini-3.5-flash",
+          modelVersion,
+          askAllowed: run.allowAsk,
+          qualityStripped: run.qualityStripped,
+          lookId: look.id,
+          attempt,
+          status: response.status ?? 200,
+          finishReason: tuningFinishReason(response),
+          promptTokenCount: usage.input,
+          candidatesTokenCount: usage.output,
+          thoughtsTokenCount: usage.thinking,
+          totalTokenCount: usage.total,
+          reservedTokenBudget: reservation,
+          latencyMs,
+          valid: Boolean(decoded),
+          rejectionType: decoded ? null : isRefusal ? "REFUSAL" : "PARSE_FAILURE",
+          rejectedResponseText: decoded ? undefined : rawText,
+          totalReportedTokensAfterCall: runtime.reportedTokens,
+          tokenCap: SET3A_TOKEN_CAP,
+        });
+
+        if (decoded) {
+          rows[index] = {
+            look_id: look.id,
+            verdict: decoded.verdict,
+            reason: decoded.reason,
+            failures: [],
+          };
+          break;
+        }
+        if (isRefusal) {
+          rows[index] = { ...rows[index], reason: "REFUSAL" };
+          break;
+        }
+        parseFailures++;
+        rejectedResponses.push({ lookId: look.id, attempt, text: rawText });
+        if (!parseRetryUsed && !stoppedForTokenCap) {
+          parseRetryUsed = true;
+          continue;
+        }
+        rows[index] = { ...rows[index], reason: "PARSE_FAILURE" };
+        break;
+      } catch (error: any) {
+        const latencyMs = Date.now() - startedAt;
+        latenciesMs.push(latencyMs);
+        reservedUsage.release(reservation);
+        const code = providerFailureCode(error);
+        await appendSet2ConfirmationRecord({
+          type: "set3a-call",
+          runId: run.id,
+          requestedModel: "gemini-3.5-flash",
+          modelVersion: null,
+          askAllowed: run.allowAsk,
+          qualityStripped: run.qualityStripped,
+          lookId: look.id,
+          attempt,
+          status: Number.isInteger(error?.response?.status) ? error.response.status : null,
+          errorCode: code,
+          finishReason: null,
+          latencyMs,
+          valid: false,
+          rejectionType: "REQUEST_FAILURE",
+          totalReportedTokensAfterCall: runtime.reportedTokens,
+          tokenCap: SET3A_TOKEN_CAP,
+        });
+        rows[index] = { ...rows[index], reason: `REQUEST_FAILED_${code}` };
+        break;
+      }
+    }
+
+    await writeFile(filePath, set3aCsv(rows), "utf8");
+    if (stoppedForTokenCap || runtime.stoppedForTokenCap) {
+      for (let remaining = index + 1; remaining < rows.length; remaining++) {
+        rows[remaining] = { ...rows[remaining], reason: "NOT_RUN_TOKEN_CAP" };
+      }
+      await writeFile(filePath, set3aCsv(rows), "utf8");
+      break;
+    }
+  }
+
+  const summary = {
+    type: "set3a-run-summary",
+    runId: run.id,
+    requestedModel: "gemini-3.5-flash",
+    promptSha256: SET3A_PROMPT_SHA256,
+    askAllowed: run.allowAsk,
+    qualityStripped: run.qualityStripped,
+    qualityReplacements: run.qualityStripped
+      ? looks.reduce((count, look) => count +
+          (look.plainText.match(/\(quality (?:premium|standard|poor)\)/g) ?? []).length, 0)
+      : 0,
+    rowCount: rows.length,
+    calls,
+    countTokenCalls,
+    tokenCountFailures,
+    validRows: rows.filter((row) => Boolean(row.verdict)).length,
+    parseFailures,
+    rejectedResponses,
+    modelVersions,
+    tokens,
+    latencyMs: {
+      median: percentile(latenciesMs, 0.5),
+      p95: percentile(latenciesMs, 0.95),
+    },
+    estimatedCostUsd: set3aCost(tokens.prompt, tokens.candidate, tokens.thinking),
+    priceBasis: SET2_CONFIRMATION_PRICES["gemini-3.5-flash"].basis,
+    csv: path.join("docs/reports/judge-experiment", run.filename),
+    totalReportedTokensAfterRun: runtime.reportedTokens,
+    reservedTokensRemaining: runtime.reservedTokens,
+    tokenCap: SET3A_TOKEN_CAP,
+    stoppedForTokenCap,
+  };
+  await appendSet2ConfirmationRecord(summary);
+  return summary;
+}
+
+class Set3aPromptReservation {
+  private current = 0;
+
+  constructor(private readonly runtime: Set3aRuntime) {}
+
+  set(tokens: number): void {
+    this.current = tokens;
+  }
+
+  release(actualTokens: number): void {
+    this.runtime.reservedTokens -= this.current;
+    this.current = 0;
+    this.runtime.reportedTokens += actualTokens;
+  }
+}
+
+async function runSet3aPlain(apiKey: string): Promise<void> {
+  const [input, promptSource] = await Promise.all([loadSet3aInputs(), loadSet3aPrompt()]);
+  if (input.looksTextSha256 !== SET3A_INPUT_SHA256) {
+    throw new Error("Set 3A input SHA-256 does not match the supplied frozen input.");
+  }
+  if (getClassifierModelOrder()[1] !== "gemini-3.5-flash") {
+    throw new Error("Configured fallback has changed; refusing the frozen Set 3A run.");
+  }
+  await mkdir(OUTPUT_DIR, { recursive: true });
+  for (const run of SET3A_RUNS) {
+    try {
+      await readFile(path.join(OUTPUT_DIR, run.filename), "utf8");
+      throw new Error(`Refusing to overwrite existing Set 3A CSV: ${run.filename}`);
+    } catch (error: any) {
+      if (error?.code !== "ENOENT") throw error;
+    }
+  }
+  const prompt = promptSource.prompt;
+  const runtime: Set3aRuntime = {
+    reportedTokens: 0,
+    reservedTokens: 0,
+    lastGenerationAt: 0,
+    stoppedForTokenCap: false,
+  };
+  await appendSet2ConfirmationRecord({
+    type: "set3a-start",
+    input: "looks3.txt",
+    looksTextSha256: input.looksTextSha256,
+    promptSourceRecordStartedAt: promptSource.sourceStartedAt,
+    promptSha256: sha256(prompt),
+    expectedPromptSha256: SET3A_PROMPT_SHA256,
+    systemPromptText: prompt,
+    requestedModel: "gemini-3.5-flash",
+    runs: SET3A_RUNS,
+    temperature: 0,
+    maxOutputTokens: SET3A_MAX_OUTPUT_TOKENS,
+    thinkingLevel: "minimal",
+    spacingMs: CALL_SPACING_MS,
+    parseFailureRetries: 1,
+    tokenCap: SET3A_TOKEN_CAP,
+    priceSource: SET2_CONFIRMATION_PRICE_SOURCE,
+    price: SET3A_PRICE,
+    startedAt: new Date().toISOString(),
+  });
+  const summaries: Record<string, unknown>[] = [];
+  for (const run of SET3A_RUNS) {
+    const summary = await runSet3aBatch(run, input.looks, prompt, apiKey, runtime);
+    summaries.push(summary);
+    if (runtime.stoppedForTokenCap || summary.tokenCountFailures) break;
+  }
+  await appendSet2ConfirmationRecord({
+    type: "set3a-report",
+    calls: summaries.reduce((sum, row) => sum + Number(row.calls ?? 0), 0),
+    countTokenCalls: summaries.reduce((sum, row) => sum + Number(row.countTokenCalls ?? 0), 0),
+    reportedTokens: runtime.reportedTokens,
+    reservedTokensRemaining: runtime.reservedTokens,
+    tokenCap: SET3A_TOKEN_CAP,
+    summaries,
+    completedAt: new Date().toISOString(),
+  });
+}
+
 type RunOneOptions = {
   maxConsecutiveFailures?: number;
   stopAtConsecutiveLimit?: boolean;
@@ -2123,6 +2557,7 @@ async function main(): Promise<void> {
   }
   if (process.argv.includes("--persona-set1-model-ladder")) return runPersonaSet1ModelLadder(apiKey);
   if (process.argv.includes("--persona-set1-plain")) return runPersonaSet1Plain(apiKey);
+  if (process.argv.includes("--set3a-plain")) return runSet3aPlain(apiKey);
   if (process.argv.includes("--set2-confirmation")) return runSet2Confirmation(apiKey);
   if (process.argv.includes("--set2-and-resume")) return runSet2AndResume(apiKey);
 

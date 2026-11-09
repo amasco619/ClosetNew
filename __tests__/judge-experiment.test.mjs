@@ -14,7 +14,7 @@ const testSource = source
   .replace(/const require = createRequire\(import\.meta\.url\);[\s\S]*?const \{ buildGeminiGenerationRequest, getClassifierModelOrder \} = classifierReliability;/,
     "const { buildGeminiGenerationRequest, getClassifierModelOrder } = globalThis.classifier;")
   .replace(/main\(\)\.catch\([\s\S]*$/, "")
-  + "\nexport { loadInputs, loadSet2Inputs, loadSet2PlainConfirmationInputs, loadSet2ConfirmationPrompts, loadPersonaSet1Inputs, loadPersonaSet1TuningInputs, priorPromptTuningUsage, buildPersonaSystemPrompt, buildTuningSystemPrompts, buildTuningSchema, buildSet2ConfirmationSchema, decodeSet2Confirmation, decodeTuning, tuningUsage, tuningCostUsd, tuningCsv, tuningExampleFlag, modelThinkingLevel, runTuningCalls, newTuningMetrics, isGeneralTextGenerationModel, isLargerTextTier, listPersonaModels, decode, probeModel, percentile, runOne, runSet2AndResume, runSet2ConfirmationBatch, set2ConfirmationCsv, SET2_CONFIRMATION_PROMPT_HASHES, SET2_CONFIRMATION_RUNS, SET2_CONFIRMATION_TOKEN_CAP, parseCsv, sha256, OUTPUT_INSTRUCTIONS, SET2_INSTRUCTIONS, SET2_VERDICTS, PERSONA_VERDICTS, PERSONA_SET1_QUALITY_SENTENCE, PERSONA_SET1_MODEL_LADDER, PERSONA_SET1_TOKEN_CAP, PERSONA_SET1_TUNING_EXAMPLE_IDS, PERSONA_SET1_TUNING_THINKING_LEVELS, PERSONA_SET1_TUNING_PRICES };";
+  + "\nexport { loadInputs, loadSet2Inputs, loadSet2PlainConfirmationInputs, loadSet2ConfirmationPrompts, loadSet3aInputs, loadSet3aPrompt, runSet3aBatch, SET3A_RUNS, SET3A_INPUT_SHA256, SET3A_PROMPT_SHA256, SET3A_TOKEN_CAP, loadPersonaSet1Inputs, loadPersonaSet1TuningInputs, priorPromptTuningUsage, buildPersonaSystemPrompt, buildTuningSystemPrompts, buildTuningSchema, buildSet2ConfirmationSchema, decodeSet2Confirmation, decodeTuning, tuningUsage, tuningCostUsd, tuningCsv, tuningExampleFlag, modelThinkingLevel, runTuningCalls, newTuningMetrics, isGeneralTextGenerationModel, isLargerTextTier, listPersonaModels, decode, probeModel, percentile, runOne, runSet2AndResume, runSet2ConfirmationBatch, set2ConfirmationCsv, SET2_CONFIRMATION_PROMPT_HASHES, SET2_CONFIRMATION_RUNS, SET2_CONFIRMATION_TOKEN_CAP, parseCsv, sha256, OUTPUT_INSTRUCTIONS, SET2_INSTRUCTIONS, SET2_VERDICTS, PERSONA_VERDICTS, PERSONA_SET1_QUALITY_SENTENCE, PERSONA_SET1_MODEL_LADDER, PERSONA_SET1_TOKEN_CAP, PERSONA_SET1_TUNING_EXAMPLE_IDS, PERSONA_SET1_TUNING_THINKING_LEVELS, PERSONA_SET1_TUNING_PRICES };";
 const code = transformSync(testSource, { loader: "ts", format: "cjs" }).code;
 
 function harness(responses = [], cataloguePages = []) {
@@ -136,6 +136,86 @@ test("Set 2 confirmation uses the exact recorded B/C prompts and plain inputs", 
   });
   assert.equal(api.sha256(prompts.prompts.B), api.SET2_CONFIRMATION_PROMPT_HASHES.B);
   assert.equal(api.sha256(prompts.prompts.C), api.SET2_CONFIRMATION_PROMPT_HASHES.C);
+});
+
+test("Set 3A loads exactly 72 U looks and the frozen Arm B prompt", async () => {
+  const { api, files } = harness();
+  files.set(output("persona-set1-run.jsonl"),
+    await fs.readFile("docs/reports/judge-experiment/persona-set1-run.jsonl", "utf8"));
+  const input = await api.loadSet3aInputs();
+  const prompt = await api.loadSet3aPrompt();
+  assert.equal(input.looks.length, 72);
+  assert.equal(input.looks[0].id, "U01-A");
+  assert.equal(input.looks.at(-1).id, "U18-D");
+  assert.equal(input.looksTextSha256, api.SET3A_INPUT_SHA256);
+  assert.equal(api.sha256(prompt.prompt), api.SET3A_PROMPT_SHA256);
+  assert.equal(api.SET3A_PROMPT_SHA256, api.SET2_CONFIRMATION_PROMPT_HASHES.B);
+});
+
+test("Set 3A quality-stripped mode only replaces the specified quality labels", async () => {
+  const { api, calls, files } = harness([
+    { data: { totalTokens: 50 } },
+    textResponse(JSON.stringify({ verdict: "Ask", reason: "Which denomination applies?" })),
+  ]);
+  const run = api.SET3A_RUNS.find((entry) => entry.qualityStripped);
+  const sourceLook = {
+    id: "U01-A",
+    plainText: "Scenario: synthetic.\nLook: (quality premium), (quality poor), (quality standard), (quality not stated).",
+    structuredFacts: {},
+  };
+  files.set(output(run.filename), "");
+  const runtime = { reportedTokens: 0, reservedTokens: 0, lastGenerationAt: 0, stoppedForTokenCap: false };
+  await api.runSet3aBatch(run, [sourceLook], "Recorded Arm B prompt", "synthetic", runtime);
+  const generation = calls.find((call) => call.body.generationConfig);
+  assert.ok(generation);
+  assert.equal(generation.body.contents[0].parts[0].text,
+    "Scenario: synthetic.\nLook: (quality not stated), (quality not stated), (quality not stated), (quality not stated).");
+  assert.equal(generation.body.generationConfig.temperature, 0);
+  assert.equal(generation.body.generationConfig.maxOutputTokens, 1024);
+  assert.equal(generation.body.generationConfig.thinkingConfig.thinkingLevel, "minimal");
+  assert.deepEqual(Array.from(generation.body.generationConfig.responseSchema.properties.verdict.enum),
+    ["Works", "Almost", "Rethink", "Ask"]);
+});
+
+test("Set 3A reserves token budget before generation and writes the four-column CSV", async () => {
+  const { api, calls, files } = harness([
+    { data: { totalTokens: 123 } },
+    textResponse(JSON.stringify({ verdict: "Works", reason: "The look suits the occasion." })),
+  ]);
+  const runtime = { reportedTokens: 0, reservedTokens: 0, lastGenerationAt: 0, stoppedForTokenCap: false };
+  const result = await api.runSet3aBatch(
+    api.SET3A_RUNS[0], [{ ...look, id: "U01-A" }], "Recorded Arm B prompt", "synthetic", runtime,
+  );
+  assert.equal(calls.length, 2);
+  assert.equal(result.validRows, 1);
+  assert.equal(runtime.reportedTokens, 17);
+  assert.equal(runtime.reservedTokens, 0);
+  assert.equal(calls.find((call) => !call.body.generationConfig).body
+    .generateContentRequest.model, "models/gemini-3.5-flash");
+  assert.equal(calls.find((call) => call.body.generationConfig).body.generationConfig
+    .responseSchema.properties.verdict.enum.includes("Ask"), true);
+  const csv = files.get(output(api.SET3A_RUNS[0].filename));
+  assert.ok(csv.startsWith("look_id,verdict,reason,failures\n"));
+  assert.ok(csv.includes('"U01-A","Works","The look suits the occasion.","[]"'), csv);
+});
+
+test("Set 3A Ask-removed schema rejects Ask and retries one parse failure", async () => {
+  const { api, calls } = harness([
+    { data: { totalTokens: 80 } },
+    textResponse(JSON.stringify({ verdict: "Ask", reason: "Which denomination applies?" })),
+    { data: { totalTokens: 80 } },
+    textResponse(JSON.stringify({ verdict: "Works", reason: "The look suits the occasion." })),
+  ]);
+  const runtime = { reportedTokens: 0, reservedTokens: 0, lastGenerationAt: 0, stoppedForTokenCap: false };
+  const result = await api.runSet3aBatch(
+    api.SET3A_RUNS[1], [look], "Recorded Arm B prompt", "synthetic", runtime,
+  );
+  const generations = calls.filter((call) => call.body.generationConfig);
+  assert.equal(generations.length, 2);
+  assert.deepEqual(Array.from(generations[0].body.generationConfig.responseSchema.properties.verdict.enum),
+    ["Works", "Almost", "Rethink"]);
+  assert.equal(result.validRows, 1);
+  assert.equal(result.parseFailures, 1);
 });
 
 test("Set 2 confirmation schemas remove only Ask when requested; C verdict is derived from failures", async () => {
