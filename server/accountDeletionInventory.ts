@@ -39,5 +39,5 @@ export const ACCOUNT_DELETION_RETAINED_TABLES = [
 export const ACCOUNT_DELETION_SHARED_TABLES = [
   { table: "bg_removal_cache", policy: "shared image-hash result cache" },
   { table: "lockout_store", policy: "expiring authentication abuse controls" },
-  { table: "ratelimit_store", policy: "expiring request rate limits" },
+  { table: "ratelimit_store", policy: "judge owner-prefix keys deleted on account deletion; other request limits expire" },
 ] as const;

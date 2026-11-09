@@ -925,3 +925,31 @@ mtime_ms = 1793964991108
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/f24e2fb9-d141-49a7-a504-60d0e670b081/f4727337-6c58-4ee0-be1f-bf13691a73b5"
 storage_version_token = "1793965299190172"
 content_type = "text/csv"
+
+[[outputs]]
+id = "iR6nFV2Vx1KUyhU7hv1G_"
+uri = "file://docs/reports/check-look-judge-route.md"
+type = "text"
+title = "Check my look judge implementation report"
+description = "Flag-off route, payload contract, verification results and remaining release checks."
+logical_id = "54936ebe-c38a-4537-ba79-c601799273a7"
+content_hash = "sha256:35595a1829d49611baa38951ebb96b8ef9389235f99a8f2227b5122552ca441d"
+size = 9500
+mtime_ms = 1794229351289
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/54936ebe-c38a-4537-ba79-c601799273a7/06450163-ac50-4ba8-868f-904a78308043"
+storage_version_token = "1794229358156610"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "7bYr_abQbs_bsv-TdkUcE"
+uri = "file://generated-artifacts/check-look-judge-synthetic-payload.json"
+type = "unspecified"
+title = "Synthetic Gemini request body"
+description = "Exact credential-free body for a synthetic work look. No model call was made."
+logical_id = "a78846fa-d5a7-4456-b4d0-2cde7d8136a8"
+content_hash = "sha256:c5cb52a145c18d5c04178f1439a1721e294a11e647093b2d81c9af22ccc2e740"
+size = 10686
+mtime_ms = 1794229155558
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/a78846fa-d5a7-4456-b4d0-2cde7d8136a8/ff61744a-50b1-4334-8960-2317db1ffe1f"
+storage_version_token = "1794229358795059"
+content_type = "application/octet-stream"

@@ -21,6 +21,7 @@ const stages = [
     `storage_list_${bucket}`, `storage_remove_${bucket}`, `storage_verify_${bucket}`,
   ]),
   ...tables.map(table => `table_${table}`),
+  "check_look_judge_quota",
   "auth_delete",
 ];
 const userId = "deletion-test-user";
@@ -133,7 +134,12 @@ function mockDeletion(failure?: string, wardrobeCount = 1, silentRemoval = false
       },
     }),
   }));
-  Reflect.set(supabaseAdmin, "rpc", async (name: string) => {
+  Reflect.set(supabaseAdmin, "rpc", async (name: string, args: { p_prefix?: string }) => {
+    if (name === "ratelimit_delete_prefix") {
+      assert.equal(args.p_prefix, `check-look-judge:${userId}:`);
+      calls.push("check_look_judge_quota");
+      return { error: failed("check_look_judge_quota") ? error : null };
+    }
     assert.equal(name, "billing_tombstone_account");
     calls.push("billing_tombstone");
     return { error: failed("billing_tombstone") ? error : null };

@@ -328,7 +328,7 @@ assets/
   body_types/            Illustrated body shape images (6 types)
   recommendations/       Sample images for blueprint slots (19 flat-lay photos)
 
-__tests__/               146 test suites (see §11)
+__tests__/               152 test suites (see §11)
 
 scripts/
   run-tests.mjs          Test runner (tsx, Node)
@@ -440,7 +440,7 @@ npx expo start --localhost   # or use the "Start Frontend" Replit workflow
 
 | Command | Description |
 |---------|-------------|
-| `npm test` | Run all 146 test suites once |
+| `npm test` | Run all 152 test suites once |
 | `npm run test:watch` | Re-run tests on file change (400ms debounce) |
 | `npm run typecheck` | TypeScript type-check (`tsc --noEmit`) |
 | `npm run lint` | Run the Expo SDK 57 ESLint checks for app, component, and source files |
@@ -1500,7 +1500,7 @@ These features are **not yet implemented**. They are the next development priori
 
 ## 11. Testing & Quality
 
-### Test Suites (146 total)
+### Test Suites (152 total)
 
 | Suite | What it tests |
 |-------|--------------|
@@ -1520,6 +1520,7 @@ These features are **not yet implemented**. They are the next development priori
 | `stylingRelationships.test.ts` | Additive Phase A membership projection, owner/parent checks, all three types, pre-evaluation coordinated construction under shortlist crowding, relationship removal and renamed-garment controls, Western complements, normal alternatives, immutable canonical/shared facts, transient provenance and provider-free graph |
 | `swipeDismiss.test.ts` | Exact-top gesture capture, scroll gating during movement/release, 120 px threshold, and scroll-ref/accessible-close wiring on all three sheet routes |
 | `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, pending-receipt preservation and cleanup across partial retries |
+| `checkLookJudge.test.ts` | Mocked-only judge adapter and mounted route: exact prompt/schema, Ask conversion, retry/deadline, privacy projection, consent/auth, owner selection, tier payloads, atomic 5/30 admission, fail-closed store errors, membership timeout and owner/TTL cache |
 | `accountDeletionNavigation.test.ts` | Real Expo Router reducers and mounted Profile cases verify confirmed deletion clears cached account data and removes stale routes even when sign-out fails, while preserving the incomplete-cleanup warning |
 | `accountDeletionRateLimit.test.ts` | In-app deletion's 60/hour IP and 5/hour authenticated-user limits, ordering, fixed-window Retry-After, user isolation, and failed-attempt counting |
 | `accountDeletionLocalCleanup.test.ts` | Confirmed deletion clears account cache keys, local wardrobe photos, and signed-photo cache; server failure preserves them for retry |
@@ -2456,6 +2457,12 @@ the provider's returned error; exceptions also stop the sequence. Storage
 objects are listed in pages before removal, and each bucket is checked again
 afterward. Unexpected folder entries fail closed rather than being skipped.
 Auth deletion only runs if all prior cleanup succeeds.
+
+Before Auth deletion, `check_look_judge_quota` also deletes the literal
+`check-look-judge:<owner>:` prefix from `ratelimit_store` through the existing
+`ratelimit_delete_prefix` RPC, then clears that owner's in-process judge cache.
+Failure stops deletion under the same checked-stage/retry semantics. Other
+limiter keys and shared tables are not purged by this stage.
 
 Failure responses do not assert that nothing was deleted: earlier steps may
 have completed. Repeating the cleanup against an account that still exists
@@ -3851,3 +3858,64 @@ zero-group results with unchecked rules. Category coverage separates those
 results from other final results, floor-only results and abstentions; it is not
 accuracy evidence. Fixtures, adapter conventions and reviewer rules are unchanged.
 See `docs/reports/nigerian-v2-step3e.md`.
+
+## 59. Check my look judge route — flag off, not yet live
+
+`POST /api/check-my-look` requires authentication and the existing recorded
+AI-processing consent middleware. `CHECK_LOOK_JUDGE_ENABLED` is enabled only
+by the exact string `true`; the default is false. No environment values were
+changed and no client calls were added. Flag-off or provider failure returns
+`{ useLocalCheck: true }`, a directive for a future caller to use the unchanged
+`lib/checkLook.ts`; the route never invents a substitute verdict. Existing
+client-local behaviour and local allowance remain unchanged.
+
+When enabled, the server verifies entitlement, loads owner-filtered garments,
+confirmed group memberships and an allowlisted subset of profile constraints,
+and validates the selected IDs. Lookup errors/timeouts block the request with
+503/retry, never a verdict. The existing deterministic guard runs before the
+model; failures/missing facts are sent as facts. Only the Pentecostal above-knee
+church rule is downgraded to an advisory flag in this server wrapper, without
+changing personal coverage failures or the existing client guard.
+
+`server/checkLookPrompt.ts` stores the exact frozen Arm B text and SHA-256
+`e1f1f2497b0227c93633747bc1c0273171bcae47631bc0a6927319c0bb412ebf`.
+The adapter uses `CHECK_LOOK_JUDGE_MODEL` (default `gemini-3.5-flash`), JSON
+schema, temperature 0, minimal thinking and 1,024 output tokens. The 6-second
+budget covers both attempts together; only malformed output is retried once.
+An unsupported Ask requests the model's best non-Ask answer using a constrained
+retry, or falls back locally if still invalid. Allowed missing-fact values are
+`denomination`, `assigned_set`, `announced_colours`, `hem_position` and
+`sleeve_lining`. Model version, prompt hash, attempt, status and duration are
+logged; verdict text, reasons, item facts, owner IDs and raw errors are not.
+
+Free returns only `{ verdict }`, converting Ask to Almost. Premium returns a
+reason, nullable safe owned-item swap IDs and a single fixed friendly question
+for Ask. The swap is an unchanged local-check candidate rechecked against the
+guard, not an invented or model-selected replacement; unavailable/unsafe swaps
+are null. The model receives no IDs, URLs, photos, custom descriptions, personal
+names or full profile. `Name` is a generated canonical garment label. Unknown
+fabric is omitted and quality is always unknown. See the exact synthetic
+request-body example and contract in `docs/reports/check-look-judge-route.md`.
+
+Daily server admission is 5 Free / 30 Premium per owner per UTC date, using the
+existing atomic `ratelimit_increment` RPC and `ratelimit_store`. This dedicated
+wrapper has a 1.5-second durable-store deadline and no memory fallback. Cached
+verdicts and provider-failed admitted requests count; a quota outage is 503 and
+an exceeded allowance is 429, not local fallback. Date-key rows expire at the
+UTC day boundary and the existing rate-limit pruner removes expired rows.
+Deletion removes the owner's judge prefix even while the flag is off. No
+migration, RLS, RPC definition or live DDL changed.
+
+The bounded in-memory cache has a 60-second TTL, owner partitioning and a
+canonical hash over selected identity/facts, brief, guard inputs, requested
+model, observed served model version and prompt hash. A served-version alias
+change is discovered on the next uncached call; no metadata probe is made on
+cache hits. Entitlement, consent, ownership and quota are checked afresh before
+serving any cached answer.
+
+`scripts/check-look-live-eval.ts` accepts only the hash-checked synthetic Set 3A
+file. Default invocation checks its 72 IDs/hashes without network access.
+`--live [--limit 72]` is the explicit generation opt-in, using this same adapter,
+serial five-second spacing and a CSV under ignored `generated-artifacts/`.
+Unit tests inject providers/stores and block unmocked judge access. The
+compliance checklist continues to mark this judge flow **NOT YET LIVE**.

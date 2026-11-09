@@ -41,6 +41,8 @@ import {
   clearLockout,
 } from "./middleware/rateLimiter";
 import { NATIVE_PASSWORD_RECOVERY_URL } from "../lib/oauth-callback";
+import { checkLookJudgeRoute, clearJudgeCache } from "./checkLookJudgeRoute";
+import { judgeQuotaOwnerPrefix } from "./checkLookJudgeStore";
 // P-E: cap simultaneous AI calls so a burst cannot exhaust Gemini quota
 // or connections. Extras are queued, not rejected (the rate limiters
 // above handle outright rejection). Max 5 concurrent AI invocations.
@@ -152,6 +154,10 @@ async function deleteAccountData(userId: string): Promise<void> {
       return await supabaseAdmin.from(table).delete().eq(ownerColumn, userId);
     });
   }
+  await checked("check_look_judge_quota", () => supabaseAdmin.rpc("ratelimit_delete_prefix", {
+    p_prefix: judgeQuotaOwnerPrefix(userId),
+  }));
+  clearJudgeCache(userId);
   await checked("auth_delete", () => supabaseAdmin.auth.admin.deleteUser(userId));
 }
 
@@ -351,6 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── AI endpoints: authentication required ────────────────────────────────
   // Without auth, anyone can exhaust Gemini / Google Vision quota.
   app.post("/api/classify-garment", aiLimiter, requireAuth, requireAiProcessingConsent, withAiLimit(classifyGarment));
+  app.post("/api/check-my-look", requireAuth, requireAiProcessingConsent, withAiLimit(checkLookJudgeRoute));
   app.post("/api/classify-garments", aiLimiter, requireAuth, requireAiProcessingConsent, withAiLimit(classifyMultiItem));
   app.post("/api/remove-background", bgRemovalLimiter, requireAuth, requireAiProcessingConsent, withAiLimit(removeBackground));
 
