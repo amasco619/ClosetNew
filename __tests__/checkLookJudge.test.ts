@@ -50,6 +50,25 @@ async function adapterTests() {
   }
   assert.equal(parseJudgeResponse(JSON.stringify({ verdict: "Ask", reason: "Which venue?", missing_fact: "venue" }), true), null);
   assert.equal(parseJudgeResponse(JSON.stringify({ verdict: "Ask", reason: "Which church?", missing_fact: "denomination" }), false), null);
+  assert.equal(judgeRequestSchema.safeParse({
+    ...input,
+    brief: { context: "interview", venue: "upscale-restaurant", dressCode: "conservative" },
+  }).success, true, "bounded venue and dress-code details are accepted");
+  assert.equal(judgeRequestSchema.safeParse({
+    ...input, brief: { context: "interview", venue: "private venue text" },
+  }).success, false, "venue text is never accepted as free text");
+  assert.equal(judgeRequestSchema.safeParse({
+    ...input, brief: { context: "interview", dressCode: "relaxed-ish" },
+  }).success, false, "dress-code text is restricted to known choices");
+  const qualifiedBrief = judgeRequestSchema.parse({
+    ...input,
+    brief: { context: "interview", venue: "upscale-restaurant", dressCode: "conservative" },
+  });
+  assert.deepEqual(
+    judgeGuard(qualifiedBrief, [top, bottom], [], {}),
+    { pass: true, failures: [], missing: [], flags: [] },
+    "venue and dress-code qualifiers are accepted without changing deterministic guard rules",
+  );
   const canonicalColours: Array<[string, string]> = [
     ["ivory", "ivory"], ["wine", "wine"], ["royal blue", "royal blue"], ["emerald", "emerald"],
     ["champagne", "champagne"], ["nude", "nude"], ["tan", "tan"], ["lilac", "lilac"],
@@ -216,12 +235,24 @@ async function routeTests() {
   assert.deepEqual(first.body, { verdict: "Works" }, "Free never receives reason, swaps, question or provider metadata");
   assert.equal(providerCalls, 1);
   assert.ok(!lastText.includes(user) && !lastText.includes(topId) && !lastText.includes(top.photoUri));
+  const venueRequest = {
+    ...input,
+    brief: { context: "interview" as const, venue: "upscale-restaurant" as const, dressCode: "conservative" as const },
+  };
+  clearJudgeCache(user);
+  await send(venueRequest);
+  assert.match(lastText, /"venue":"upscale-restaurant"/);
+  assert.match(lastText, /"dress_code":"conservative"/);
+  clearJudgeCache(user);
+  providerCalls = 0;
+  quotaCalls = 0;
   assert.ok(!lastText.includes("secret@example.invalid") && !lastText.includes("Private Name"));
   assert.ok(lastText.includes("Quality: unknown"));
   assert.ok(!exportJudgeItem(bottom).includes("Fabric:"));
   assert.ok(!exportJudgeItem({ ...top, subType: "private@example.invalid", colorFamily: "Private Name" }).includes("private@"));
   assert.equal((await send()).status, 200);
   assert.equal(providerCalls, 1, "identical input uses the short-lived cache");
+  assert.equal((await send()).status, 200);
   assert.equal(quotaCalls, 2, "cache hits still consume a verdict admission");
   const realNow = Date.now;
   const expiredTime = realNow() + 61_000;

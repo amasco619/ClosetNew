@@ -66,6 +66,7 @@ async function main() {
   const renderer = requireProject('react-test-renderer');
   let upgradeCalls = 0;
   let checkCalls = 0;
+  let lastCheckRequest: unknown;
   let membershipRetries = 0;
   let screen!: {
     root: { findAllByType(type: string): Array<{ props: Record<string, unknown>; children: unknown[] }> };
@@ -80,7 +81,7 @@ async function main() {
         confirmationStatus: 'user_confirmed', members: [{ garmentId: 'test-top' }],
       }],
       checking: false, weatherTemperatureC: null as number | null, result: { tier: 'free' as const, verdict: 'Almost' as const },
-      onOpen() {}, onClose() {}, onCheck() { checkCalls++; },
+      onOpen() {}, onClose() {}, onCheck(request) { checkCalls++; lastCheckRequest = request; },
       onRetryMembership() { membershipRetries++; },
       onUpgrade() { upgradeCalls++; }, onClearResult() {},
   };
@@ -118,6 +119,8 @@ async function main() {
   await press('check-my-look-occasion-traditional-wedding');
   assert.match(textContent(), /Your role/);
   assert.match(textContent(), /Assigned aso-ebi/);
+  assert.ok(pressable('check-my-look-brief-venue'));
+  assert.ok(pressable('check-my-look-brief-dress-code'));
   assert.doesNotMatch(textContent(), /Denomination/);
   await press('check-my-look-brief-aso-ebi-set');
   assert.ok(pressable('check-my-look-brief-aso-ebi-set-not-sure'));
@@ -135,6 +138,8 @@ async function main() {
   assert.ok(pressable('check-my-look-brief-funeral-set-not-sure'));
   assert.ok(pressable('check-my-look-brief-funeral-set-none'));
   assert.ok(pressable('check-my-look-brief-funeral-set-marked-set'));
+  assert.ok(pressable('check-my-look-brief-venue'));
+  assert.ok(pressable('check-my-look-brief-dress-code'));
 
   await React.act(async () => {
     screen.update(React.createElement(Component, {
@@ -161,6 +166,38 @@ async function main() {
   assert.match(textContent(), /Retry before reviewing this look/);
   await press('check-my-look-membership-retry');
   assert.equal(membershipRetries, 1);
+  await press('check-my-look-slot-top');
+  await press('check-my-look-item-test-top');
+  await press('check-my-look-slot-bottom');
+  await press('check-my-look-item-test-bottom');
+
+  await React.act(async () => {
+    screen.update(React.createElement(Component, {
+      ...props,
+      items: [
+        { id: 'test-top', photoUri: 'test://top', category: 'top', subType: 'blouse', colorFamily: 'navy', occasionTags: [], seasonTags: [], createdAt: '' },
+        { id: 'test-bottom', photoUri: 'test://bottom', category: 'bottom', subType: 'trousers', colorFamily: 'black', occasionTags: [], seasonTags: [], createdAt: '' },
+      ] as WardrobeItem[],
+      freeRemaining: 3,
+      membershipUnavailable: false,
+    }));
+  });
+  await press('check-my-look-occasion-interview');
+  await press('check-my-look-brief-venue');
+  await press('check-my-look-brief-venue-upscale-restaurant');
+  await press('check-my-look-brief-dress-code');
+  await press('check-my-look-brief-dress-code-conservative');
+  await press('check-my-look-slot-top');
+  await press('check-my-look-item-test-top');
+  await press('check-my-look-slot-bottom');
+  await press('check-my-look-item-test-bottom');
+  await press('check-my-look-submit');
+  assert.deepEqual(lastCheckRequest, {
+    selection: { itemIds: ['test-top', 'test-bottom'], occasion: 'interview' },
+    brief: {
+      context: 'interview', venue: 'upscale-restaurant', dressCode: 'conservative',
+    },
+  }, 'the transient sheet choices are forwarded with the request');
 
   const temperatureInput = () => screen.root.findAllByType('TextInput')
     .find(node => node.props.accessibilityLabel === 'Temperature in degrees Celsius');

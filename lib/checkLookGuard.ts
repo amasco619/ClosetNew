@@ -11,26 +11,35 @@ export type CheckLookBriefContext =
 export type CheckLookDenomination = 'catholic' | 'anglican' | 'pentecostal' | 'other' | 'not-sure';
 export type CheckLookRole = 'guest' | 'family' | 'host' | 'bridal-party' | 'not-sure';
 export type CheckLookSetChoice = string | 'none' | 'not-sure';
+export type CheckLookVenue =
+  | 'restaurant' | 'upscale-restaurant' | 'workplace' | 'place-of-worship'
+  | 'outdoors' | 'home' | 'other' | 'not-sure';
+export type CheckLookDressCode =
+  | 'casual' | 'smart-casual' | 'business' | 'conservative' | 'formal'
+  | 'black-tie' | 'traditional' | 'other' | 'not-sure';
 export type CheckLookAnnouncedColours =
   | { kind: 'not-sure' }
   | { kind: 'none' }
   | { kind: 'colours'; values: string[] };
 
 export type CheckLookBrief =
-  | { context: 'church'; denomination: CheckLookDenomination }
   | {
-      context: 'funeral';
-      announcedColours: CheckLookAnnouncedColours;
-      assignedGroupId: CheckLookSetChoice;
+      context: 'church'; denomination: CheckLookDenomination;
+      venue?: CheckLookVenue; dressCode?: CheckLookDressCode;
+    }
+  | {
+      context: 'funeral'; announcedColours: CheckLookAnnouncedColours;
+      assignedGroupId: CheckLookSetChoice; venue?: CheckLookVenue; dressCode?: CheckLookDressCode;
     }
   | {
       context: 'traditional-wedding' | 'owambe' | 'naming-ceremony';
-      role: CheckLookRole;
-      asoEbiGroupId: CheckLookSetChoice;
+      role: CheckLookRole; asoEbiGroupId: CheckLookSetChoice;
+      venue?: CheckLookVenue; dressCode?: CheckLookDressCode;
     }
   | {
       context: Exclude<CheckLookBriefContext,
         'church' | 'funeral' | 'traditional-wedding' | 'owambe' | 'naming-ceremony'>;
+      venue?: CheckLookVenue; dressCode?: CheckLookDressCode;
     };
 
 export interface CheckLookRequest {

@@ -23,10 +23,12 @@ import {
   type CheckLookBrief,
   type CheckLookBriefContext,
   type CheckLookDenomination,
+  type CheckLookDressCode,
   type CheckLookGuardResult,
   type CheckLookRequest,
   type CheckLookRole,
   type CheckLookSetChoice,
+  type CheckLookVenue,
 } from '@/lib/checkLookGuard';
 
 export type { CheckLookResult } from '@/lib/checkLook';
@@ -100,6 +102,27 @@ const ROLE_OPTIONS: { value: CheckLookRole; label: string }[] = [
   { value: 'bridal-party', label: 'Bridal party' },
   { value: 'not-sure', label: 'Not sure' },
 ];
+const VENUE_OPTIONS: { value: CheckLookVenue; label: string }[] = [
+  { value: 'restaurant', label: 'Restaurant' },
+  { value: 'upscale-restaurant', label: 'Upmarket restaurant' },
+  { value: 'workplace', label: 'Workplace' },
+  { value: 'place-of-worship', label: 'Place of worship' },
+  { value: 'outdoors', label: 'Outdoors' },
+  { value: 'home', label: 'At home' },
+  { value: 'other', label: 'Other' },
+  { value: 'not-sure', label: 'Not sure' },
+];
+const DRESS_CODE_OPTIONS: { value: CheckLookDressCode; label: string }[] = [
+  { value: 'casual', label: 'Casual' },
+  { value: 'smart-casual', label: 'Smart casual' },
+  { value: 'business', label: 'Business' },
+  { value: 'conservative', label: 'Conservative' },
+  { value: 'formal', label: 'Formal' },
+  { value: 'black-tie', label: 'Black tie' },
+  { value: 'traditional', label: 'Traditional' },
+  { value: 'other', label: 'Other' },
+  { value: 'not-sure', label: 'Not sure' },
+];
 const CHECK_LOOK_COVERING_SUBTYPES = new Set([
   'gyale', 'kallabi', 'mayafi', 'hijab', 'scarf', 'head-scarf', 'headscarf',
   'headwrap', 'head-tie', 'turban', 'ichafu',
@@ -146,6 +169,8 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   const [funeralGroupId, setFuneralGroupId] = useState<CheckLookSetChoice>('not-sure');
   const [role, setRole] = useState<CheckLookRole>('not-sure');
   const [asoEbiGroupId, setAsoEbiGroupId] = useState<CheckLookSetChoice>('not-sure');
+  const [venue, setVenue] = useState<CheckLookVenue>('not-sure');
+  const [dressCode, setDressCode] = useState<CheckLookDressCode>('not-sure');
   const [expandedBriefField, setExpandedBriefField] = useState<string | null>(null);
   const [guardFeedback, setGuardFeedback] = useState<CheckLookGuardResult | null>(null);
   const [temperatureOverride, setTemperatureOverride] = useState<string | null>(null);
@@ -228,6 +253,8 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
     setFuneralGroupId('not-sure');
     setRole('not-sure');
     setAsoEbiGroupId('not-sure');
+    setVenue('not-sure');
+    setDressCode('not-sure');
     setExpandedBriefField(null);
     setGuardFeedback(null);
     props.onClearResult();
@@ -241,6 +268,8 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
     setFuneralGroupId('not-sure');
     setRole('not-sure');
     setAsoEbiGroupId('not-sure');
+    setVenue('not-sure');
+    setDressCode('not-sure');
     setExpandedBriefField(null);
     setGuardFeedback(null);
     props.onClose();
@@ -254,15 +283,16 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   };
 
   const currentBrief = (): CheckLookBrief => {
-    if (briefContext === 'church') return { context: 'church', denomination };
+    const details = { venue, dressCode };
+    if (briefContext === 'church') return { context: 'church', denomination, ...details };
     if (briefContext === 'funeral') {
-      return { context: 'funeral', announcedColours, assignedGroupId: funeralGroupId };
+      return { context: 'funeral', announcedColours, assignedGroupId: funeralGroupId, ...details };
     }
     if (briefContext === 'traditional-wedding' || briefContext === 'owambe' ||
         briefContext === 'naming-ceremony') {
-      return { context: briefContext, role, asoEbiGroupId };
+      return { context: briefContext, role, asoEbiGroupId, ...details };
     }
-    return { context: briefContext };
+    return { context: briefContext, ...details };
   };
 
   const submit = () => {
@@ -635,6 +665,18 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                 })}
               </View>
               {renderedBriefFields()}
+              {briefContext !== 'casual' && briefContext !== 'travel' && (
+                <View style={styles.briefBlock}>
+                  {renderChoiceField(
+                    'venue', 'Venue', venue, VENUE_OPTIONS,
+                    value => setVenue(value as CheckLookVenue),
+                  )}
+                  {renderChoiceField(
+                    'dress-code', 'Dress code', dressCode, DRESS_CODE_OPTIONS,
+                    value => setDressCode(value as CheckLookDressCode),
+                  )}
+                </View>
+              )}
 
               <View style={styles.weatherRow}>
                 <View style={styles.weatherCopy}>

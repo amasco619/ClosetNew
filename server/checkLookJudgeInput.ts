@@ -26,10 +26,23 @@ const contextSchema = z.enum([
   "work", "interview", "date", "casual", "travel", "event", "wedding",
   "church", "funeral", "traditional-wedding", "owambe", "naming-ceremony", "traditional-event",
 ]);
+const venueSchema = z.enum([
+  "restaurant", "upscale-restaurant", "workplace", "place-of-worship",
+  "outdoors", "home", "other", "not-sure",
+]);
+const dressCodeSchema = z.enum([
+  "casual", "smart-casual", "business", "conservative", "formal",
+  "black-tie", "traditional", "other", "not-sure",
+]);
 const briefSchema = z.discriminatedUnion("context", [
-  z.object({ context: z.literal("church"), denomination: z.enum(["catholic", "anglican", "pentecostal", "other", "not-sure"]) }).strict(),
+  z.object({
+    context: z.literal("church"),
+    denomination: z.enum(["catholic", "anglican", "pentecostal", "other", "not-sure"]),
+    venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
+  }).strict(),
   z.object({
     context: z.literal("funeral"), assignedGroupId: choice,
+    venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
     announcedColours: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("none") }).strict(),
       z.object({ kind: z.literal("not-sure") }).strict(),
@@ -37,9 +50,14 @@ const briefSchema = z.discriminatedUnion("context", [
     ]),
   }).strict(),
   ...(["traditional-wedding", "owambe", "naming-ceremony"] as const).map(context =>
-    z.object({ context: z.literal(context), role: z.enum(["guest", "family", "host", "bridal-party", "not-sure"]), asoEbiGroupId: choice }).strict()),
+    z.object({
+      context: z.literal(context), role: z.enum(["guest", "family", "host", "bridal-party", "not-sure"]),
+      asoEbiGroupId: choice, venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
+    }).strict()),
   ...(["work", "interview", "date", "casual", "travel", "event", "wedding", "traditional-event"] as const)
-    .map(context => z.object({ context: z.literal(context) }).strict()),
+    .map(context => z.object({
+      context: z.literal(context), venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
+    }).strict()),
 ]);
 export const judgeRequestSchema = z.object({
   selection: z.object({
@@ -231,6 +249,8 @@ export function exportJudgeText(
     }).sort();
   const safeBrief = {
     context: contextSchema.parse(brief.context),
+    venue: brief.venue ?? null,
+    dress_code: brief.dressCode ?? null,
     denomination: "denomination" in brief ? brief.denomination : null,
     role: "role" in brief ? brief.role : null,
     announced_colours: "announcedColours" in brief ? brief.announcedColours : null,
