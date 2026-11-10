@@ -50,6 +50,56 @@ async function adapterTests() {
   }
   assert.equal(parseJudgeResponse(JSON.stringify({ verdict: "Ask", reason: "Which venue?", missing_fact: "venue" }), true), null);
   assert.equal(parseJudgeResponse(JSON.stringify({ verdict: "Ask", reason: "Which church?", missing_fact: "denomination" }), false), null);
+  const canonicalColours: Array<[string, string]> = [
+    ["ivory", "ivory"], ["wine", "wine"], ["royal blue", "royal blue"], ["emerald", "emerald"],
+    ["champagne", "champagne"], ["nude", "nude"], ["tan", "tan"], ["lilac", "lilac"],
+    ["ash", "ash"], ["grey", "grey"], ["stone", "stone"], ["camel", "camel"], ["teal", "teal"],
+    ["coral red", "coral"], ["navy blue", "navy"], ["off-white", "cream"],
+    ["royal-blue", "royal blue"], ["offwhite", "cream"],
+  ];
+  for (const [stored, expected] of canonicalColours) {
+    assert.ok(exportJudgeItem({ ...top, colorFamily: stored }).includes(`Colour: ${expected};`), `${stored} maps to ${expected}`);
+  }
+  assert.ok(exportJudgeItem({ ...top, colorFamily: "blue and orange" }).includes("Colour: blue and orange;"));
+  assert.ok(exportJudgeItem({ ...top, colorFamily: "green and yellow" }).includes("Colour: green and yellow;"));
+  assert.ok(exportJudgeItem({ ...top, colorFamily: "ash/grey" }).includes("Colour: ash and grey;"));
+  assert.ok(exportJudgeItem({ ...top, colorFamily: "unmatched shade" }).includes("Colour: unknown;"));
+  assert.ok(exportJudgeItem({ ...top, colorFamily: "constructor" }).includes("Colour: unknown;"));
+  assert.ok(exportJudgeItem({ ...top, colorFamily: "blue and unmatched" }).includes("Colour: blue and unknown;"));
+  for (const fabric of [
+    "George", "Swiss voile", "aso-oke", "Akwete", "Hollandais", "cord lace", "French lace",
+    "beaded lace", "Ankara/wax print", "adire", "brocade", "sequin", "crepe", "wool blend", "polyester blend",
+  ]) {
+    assert.ok(exportJudgeItem({ ...top, fabric: fabric as WardrobeItem["fabric"] }).includes(`Fabric: ${fabric};`), fabric);
+  }
+  for (const subtype of [
+    "abaya", "kaftan", "kimono jacket", "trainers", "shorts", "skirt suit", "head tie", "wrapper",
+    "iro and buba", "gele", "ichafu", "block sandals", "trench coat", "low heels", "flat sandals", "t-shirt",
+  ]) {
+    assert.ok(exportJudgeItem({ ...top, subType: subtype }).includes(`Name: ${subtype};`), subtype);
+  }
+  const detailed = exportJudgeItem({
+    ...top,
+    fit: "wide-leg" as WardrobeItem["fit"],
+    neckline: "round" as WardrobeItem["neckline"],
+    formalityLevel: 7,
+  });
+  assert.ok(detailed.includes("sleeves long"));
+  assert.ok(detailed.includes("fit wide-leg"));
+  assert.ok(detailed.includes("neckline round"));
+  assert.ok(detailed.includes("formality 7"));
+  const oldInfo = console.info;
+  const colourLogs: string[] = [];
+  console.info = (...args: unknown[]) => colourLogs.push(args.map(String).join(" "));
+  try {
+    const text = exportJudgeText(input, [{ ...top, colorFamily: "Unmatched Shade" }, bottom], [], {});
+    assert.ok(text.includes("Colour: unknown;"));
+  } finally {
+    console.info = oldInfo;
+  }
+  assert.equal(colourLogs.length, 1);
+  assert.ok(colourLogs[0].includes('"unmatched shade":1'));
+  assert.ok(!colourLogs[0].includes(topId) && !colourLogs[0].includes("private.invalid"));
   const metadata: JudgeCallMetadata[] = [];
   const good = await callCheckLookJudge("Synthetic", { post: async () => response(works), record: event => metadata.push(event) });
   assert.equal(good.modelVersion, "gemini-3.6-flash");

@@ -1051,3 +1051,59 @@ mtime_ms = 1794270053420
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/c8527745-4bcb-491e-92f5-b0280be9dd8e/feee4a6e-eecd-4cae-9af5-f2510fbd78cf"
 storage_version_token = "1794270142266750"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "f8te6lpSdeUXpYS3ggiRe"
+uri = "file://docs/reports/judge-experiment/set3b-v2-report.md"
+type = "text"
+title = "Set 3B exporter rerun report"
+description = "Run metrics, price basis, failed row, unmatched-colour result and fields still dropped."
+logical_id = "03d8edab-31ae-4c2c-8839-aae1e11ace86"
+content_hash = "sha256:cb44589da8b907da0f12ca5273ce9ca30b608b3f7e02efb47a9538f02b81c78b"
+size = 5012
+mtime_ms = 1794314790124
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/03d8edab-31ae-4c2c-8839-aae1e11ace86/17ce2f6c-3679-42af-885c-a45a62696296"
+storage_version_token = "1794314828325485"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "hrHkmADhHoNSEJDpYT5bV"
+uri = "file://docs/reports/judge-experiment/set3b-v2-ask-allowed.csv"
+type = "table"
+title = "Set 3B Ask-allowed results"
+description = "30 look rows, including the single parse-failure marker."
+logical_id = "26da5534-4f25-4925-a65e-5adbed7e1161"
+content_hash = "sha256:f4351f0438bdc369e29e3fa6ee9cd6d563d3cd70d6337b1474aadf2b994b4c01"
+size = 3613
+mtime_ms = 1794314445773
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/26da5534-4f25-4925-a65e-5adbed7e1161/0e081f28-cf58-4b81-b129-7b167791d51c"
+storage_version_token = "1794314829028619"
+content_type = "text/csv"
+
+[[outputs]]
+id = "ib-iQc91RLjxDu-EM0Lp8"
+uri = "file://docs/reports/judge-experiment/set3b-v2-fabric-stripped.csv"
+type = "table"
+title = "Set 3B fabric-stripped results"
+description = "30 look rows from the fabric-sensitivity condition."
+logical_id = "a9b8b2fd-3189-4756-824d-9995ac65d955"
+content_hash = "sha256:ca0a42027130834931d2096620b7c03c7173874a2fcd70d8b9b0025cf4f68d39"
+size = 3483
+mtime_ms = 1794314651838
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/a9b8b2fd-3189-4756-824d-9995ac65d955/c8bb5880-c1ba-4119-94db-17b90de20559"
+storage_version_token = "1794314829615002"
+content_type = "text/csv"
+
+[[outputs]]
+id = "_KOdhcAYPXIADeuBpGYf5"
+uri = "file://docs/reports/judge-experiment/set3b-v2-before-after-payloads.json"
+type = "unspecified"
+title = "Set 3B before-and-after payloads"
+description = "Exact payload bodies for V01-D, V02-C, V04-E, V05-C and V05-A."
+logical_id = "607154cd-133a-4485-81ff-327599edb63f"
+content_hash = "sha256:6589575f5e0b40ba763814fe47b3b6765cbcde7b1a5a36f5e4c73064a479df77"
+size = 169629
+mtime_ms = 1794313978645
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/607154cd-133a-4485-81ff-327599edb63f/a3dc210a-affa-41ec-8df6-44b2514f6975"
+storage_version_token = "1794314830269162"
+content_type = "application/octet-stream"

@@ -1,0 +1,31 @@
+look_id,verdict,reason,missing_fact,served_model,latency_ms
+V01-A,Works,"A tailored navy suit, white shirt, and loafers are ideal for work.",,gemini-3.6-flash,1409
+V01-B,Works,A tailored black blazer grounds the printed midi dress perfectly for professional work settings.,,gemini-3.6-flash,1151
+V01-C,Almost,Ankle boots in 33°C heat are impractical: swap for open sandals.,,gemini-3.6-flash,1081
+V01-D,Almost,Add a cardigan or blazer over the sleeveless dress for church.,,gemini-3.6-flash,1006
+V01-E,Works,Sleeveless emerald midi with gold accents works well for an informal or semi-formal event.,,gemini-3.6-flash,2452
+V02-A,Works,"A polished, weather-appropriate corporate look suited for cold-weather work settings.",,gemini-3.6-flash,1349
+V02-B,Works,"Long-sleeved midi dress, coat, and ankle boots fit a cold Pentecostal church service.",,gemini-3.6-flash,1292
+V02-C,Rethink,"Ivory is unacceptable for a wedding guest, plus a coat is needed for cold.",,gemini-3.6-flash,1381
+V02-D,Works,All-black tailored outfit with gold heels suits a winter date perfectly.,,gemini-3.6-flash,1388
+V02-E,Works,"A clean, lightweight travel ensemble suitable for 28°C weather.",,gemini-3.6-flash,1159
+V03-A,Works,The modest emerald abaya with matching hijab and gold flats suits a formal wedding.,,gemini-3.6-flash,2448
+V03-B,Works,Modest olive kaftan with matching hijab and flats is professional for work.,,gemini-3.6-flash,1104
+V03-C,Works,The loose cream abaya with matching hijab and flats provides appropriate modest coverage.,,gemini-3.6-flash,2487
+V03-D,Rethink,Sleeveless dress violates coverage preference and head covering is missing entirely.,,gemini-3.6-flash,1187
+V03-E,Rethink,Sleeveless conflicts with coverage preference and lacks the required head covering.,,gemini-3.6-flash,1074
+V04-A,Ask,The hem position of the wrapper must be confirmed for Catholic modesty.,hem_position,gemini-3.6-flash,1416
+V04-B,Works,Black and white ensemble suits the funeral dress code and warm weather accurately.,,gemini-3.6-flash,1261
+V04-C,Works,"Double wrapper, gold blouse, wine ichafu, and coral suit a traditional wedding guest.",,gemini-3.6-flash,1053
+V04-D,Works,A casual midi skirt and t-shirt with sandals is fully appropriate.,,gemini-3.6-flash,1325
+V04-E,Almost,Swap Western maxi-dress for a traditional George double wrapper or lace outfit.,,gemini-3.6-flash,1227
+V05-A,Works,A tailored navy skirt suit and white blouse is perfectly suited for an interview.,,gemini-3.6-flash,1335
+V05-B,Works,Assigned royal blue iro and buba worn with matching gele and gold accessories.,,gemini-3.6-flash,1356
+V05-C,Works,"Casual shorts, t-shirt, and trainers suit an informal daytime date in warm weather.",,gemini-3.6-flash,1320
+V05-D,Works,Short sleeves and round neck pass Pentecostal church modesty; flat shoes fit comfortably.,,gemini-3.6-flash,1231
+V05-E,Ask,church denomination,denomination,gemini-3.6-flash,1156
+V06-A,Works,Lilac iro and buba with gele and block heels suit a naming ceremony guest.,,gemini-3.6-flash,1137
+V06-B,Ask,Hem position is not stated for an Anglican service,hem_position,gemini-3.6-flash,1322
+V06-C,Rethink,Red blouse breaks funeral code and clashes with announced ash and white family colours.,,gemini-3.6-flash,1223
+V06-D,Works,"A short-sleeved printed blouse, regular beige trousers, and flat sandals suit a 31°C workday.",,gemini-3.6-flash,1260
+V06-E,Rethink,Wear assigned wine and gold aso-ebi instead of the plain gold maxi-dress.,,gemini-3.6-flash,1434

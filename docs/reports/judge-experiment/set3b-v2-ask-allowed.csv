@@ -1,0 +1,31 @@
+look_id,verdict,reason,missing_fact,served_model,latency_ms
+V01-A,Works,"A sharp, classic navy tailored suit with white shirt and loafers fits corporate work.",,gemini-3.6-flash,2283
+V01-B,Works,A tailored blazer over a printed midi dress and pumps works well for work.,,gemini-3.6-flash,952
+V01-C,Almost,Swap leather ankle boots for light flats or sandals for 33C weather,,gemini-3.6-flash,1426
+V01-D,Almost,Add a cardigan or jacket to cover the sleeveless dress for a Catholic service.,,gemini-3.6-flash,1884
+V01-E,Works,Emerald silk midi-dress with gold accessories suits a formal event setting perfectly.,,gemini-3.6-flash,2271
+V02-A,Works,"A sharp, professional winter corporate look that is fully appropriate and coordinated.",,gemini-3.6-flash,1284
+V02-B,Works,"Long-sleeved wool-blend midi dress, coat, and boots are ideal for cold church service.",,gemini-3.6-flash,1374
+V02-C,Rethink,Ivory midi dress violates the guest rule against wearing white or ivory at weddings,,gemini-3.6-flash,1116
+V02-D,Works,"A sharp evening-date outfit: long-sleeve sequin blouse, tailored trousers, gold heels, wool coat.",,gemini-3.6-flash,1546
+V02-E,Works,Breathable linen co-ord with leather sandals is ideal for 28°C travel.,,gemini-3.6-flash,1272
+V03-A,REQUEST_FAILED,Provider response could not be parsed.,,gemini-3.6-flash,2054
+V03-B,Works,"Loose cotton kaftan, hijab, and flats meet her coverage preferences and suit work.",,gemini-3.6-flash,1027
+V03-C,Works,Modest cream abaya with matching hijab is completely appropriate for an event,,gemini-3.6-flash,1415
+V03-D,Rethink,"Sleeveless dress violates coverage rule, and missing head covering breaks head-covering preference.",,gemini-3.6-flash,1010
+V03-E,Rethink,"Sleeveless mini conflicts with coverage preference, and missing required head covering.",,gemini-3.6-flash,1302
+V04-A,Ask,Hem position for the skirt is not stated for Catholic church.,hem_position,gemini-3.6-flash,1164
+V04-B,Works,Black and white ensemble strictly complies with announced family colours for the funeral.,,gemini-3.6-flash,1312
+V04-C,Works,"Indian George double wrapper, velvet blouse, ichafu, and coral suit a traditional wedding guest.",,gemini-3.6-flash,2296
+V04-D,Works,"A printed cotton midi skirt, white t-shirt, and leather sandals suit casual warm weather.",,gemini-3.6-flash,1401
+V04-E,Works,Coral lace maxi with matching ichafu and gold heels suits a traditional wedding guest.,,gemini-3.6-flash,1498
+V05-A,Works,"A tailored navy skirt suit with a white shirt is classic, polished interview attire.",,gemini-3.6-flash,1262
+V05-B,Works,Assigned royal blue lace iro and buba worn with matching gele and gold accessories.,,gemini-3.6-flash,1316
+V05-C,Works,"Casual denim shorts, white t-shirt, and trainers suit a warm date setting perfectly.",,gemini-3.6-flash,1291
+V05-D,Works,Short-sleeved cotton midi dress with nude flats is appropriate for Pentecostal church service.,,gemini-3.6-flash,1300
+V05-E,Ask,Church denomination is needed to evaluate sleeveless dress suitability.,denomination,gemini-3.6-flash,1154
+V06-A,Works,Swiss voile iro and buba with gele suits a warm naming ceremony guest.,,gemini-3.6-flash,991
+V06-B,Ask,Which hem position does the skirt have?,hem_position,gemini-3.6-flash,1128
+V06-C,Rethink,Red blouse breaks the funeral colour code and flat sandals undercut lace wrapper set,,gemini-3.6-flash,1206
+V06-D,Works,"A short-sleeve cotton print blouse, linen trousers, and leather sandals work for hot office weather.",,gemini-3.6-flash,1397
+V06-E,Rethink,"Must wear the assigned wine and gold lace aso-ebi, not a gold satin dress",,gemini-3.6-flash,1305
