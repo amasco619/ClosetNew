@@ -69,6 +69,13 @@ async function adapterTests() {
     { pass: true, failures: [], missing: [], flags: [] },
     "venue and dress-code qualifiers are accepted without changing deterministic guard rules",
   );
+  const unsafeBriefText = exportJudgeText({
+    ...input,
+    brief: { context: "work", venue: "Private venue", dressCode: "Private dress code" } as any,
+  }, [top, bottom], [], {});
+  assert.ok(!unsafeBriefText.includes("Private"), "the exporter also allowlists qualifiers independently of the request parser");
+  assert.match(unsafeBriefText, /"venue":null/);
+  assert.match(unsafeBriefText, /"dress_code":null/);
   const canonicalColours: Array<[string, string]> = [
     ["ivory", "ivory"], ["wine", "wine"], ["royal blue", "royal blue"], ["emerald", "emerald"],
     ["champagne", "champagne"], ["nude", "nude"], ["tan", "tan"], ["lilac", "lilac"],

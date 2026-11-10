@@ -249,8 +249,8 @@ export function exportJudgeText(
     }).sort();
   const safeBrief = {
     context: contextSchema.parse(brief.context),
-    venue: brief.venue ?? null,
-    dress_code: brief.dressCode ?? null,
+    venue: allowed(brief.venue, venueSchema.options) ?? null,
+    dress_code: allowed(brief.dressCode, dressCodeSchema.options) ?? null,
     denomination: "denomination" in brief ? brief.denomination : null,
     role: "role" in brief ? brief.role : null,
     announced_colours: "announcedColours" in brief ? brief.announcedColours : null,

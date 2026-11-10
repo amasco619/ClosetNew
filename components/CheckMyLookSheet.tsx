@@ -665,18 +665,16 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                 })}
               </View>
               {renderedBriefFields()}
-              {briefContext !== 'casual' && briefContext !== 'travel' && (
-                <View style={styles.briefBlock}>
-                  {renderChoiceField(
-                    'venue', 'Venue', venue, VENUE_OPTIONS,
-                    value => setVenue(value as CheckLookVenue),
-                  )}
-                  {renderChoiceField(
-                    'dress-code', 'Dress code', dressCode, DRESS_CODE_OPTIONS,
-                    value => setDressCode(value as CheckLookDressCode),
-                  )}
-                </View>
-              )}
+              <View style={styles.briefBlock}>
+                {renderChoiceField(
+                  'venue', 'Venue · optional', venue, VENUE_OPTIONS,
+                  value => setVenue(value as CheckLookVenue),
+                )}
+                {renderChoiceField(
+                  'dress-code', 'Dress code · optional', dressCode, DRESS_CODE_OPTIONS,
+                  value => setDressCode(value as CheckLookDressCode),
+                )}
+              </View>
 
               <View style={styles.weatherRow}>
                 <View style={styles.weatherCopy}>

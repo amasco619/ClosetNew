@@ -198,6 +198,26 @@ async function main() {
       context: 'interview', venue: 'upscale-restaurant', dressCode: 'conservative',
     },
   }, 'the transient sheet choices are forwarded with the request');
+  await press('check-my-look-brief-venue');
+  await press('check-my-look-brief-venue-not-sure');
+  await press('check-my-look-brief-dress-code');
+  await press('check-my-look-brief-dress-code-not-sure');
+  await press('check-my-look-submit');
+  assert.equal(checkCalls, 2, 'Not sure is optional and never blocks a check');
+  await press('check-my-look-brief-venue');
+  await press('check-my-look-brief-venue-upscale-restaurant');
+  await press('check-my-look-brief-dress-code');
+  await press('check-my-look-brief-dress-code-conservative');
+  await press('check-my-look-occasion-work');
+  assert.equal(pressable('check-my-look-brief-venue')?.props.accessibilityLabel, 'Venue · optional: Not sure');
+  assert.equal(pressable('check-my-look-brief-dress-code')?.props.accessibilityLabel, 'Dress code · optional: Not sure');
+  await press('check-my-look-brief-venue');
+  await press('check-my-look-brief-venue-workplace');
+  await press('check-my-look-brief-dress-code');
+  await press('check-my-look-brief-dress-code-business');
+  await press('check-my-look-backdrop');
+  assert.equal(pressable('check-my-look-brief-venue')?.props.accessibilityLabel, 'Venue · optional: Not sure');
+  assert.equal(pressable('check-my-look-brief-dress-code')?.props.accessibilityLabel, 'Dress code · optional: Not sure');
 
   const temperatureInput = () => screen.root.findAllByType('TextInput')
     .find(node => node.props.accessibilityLabel === 'Temperature in degrees Celsius');

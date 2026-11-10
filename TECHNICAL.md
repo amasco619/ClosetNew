@@ -3919,3 +3919,16 @@ file. Default invocation checks its 72 IDs/hashes without network access.
 serial five-second spacing and a CSV under ignored `generated-artifacts/`.
 Unit tests inject providers/stores and block unmocked judge access. The
 compliance checklist continues to mark this judge flow **NOT YET LIVE**.
+
+The transient sheet brief also carries optional, closed-choice `venue` and
+`dressCode` qualifiers. Venues are restaurant, upscale restaurant (displayed
+as “Upmarket restaurant”), workplace, place of worship, outdoors, home, other
+or not sure. Dress codes are casual, smart casual, business, conservative,
+formal, black tie, traditional, other or not sure. There is no free-text field.
+Both choices reset on occasion change and sheet close; neither is persisted
+or added to logs. Existing requests may omit them. The strict route schema
+rejects unsupported values, and the exporter independently allowlists them
+as `venue` and `dress_code` in the safe brief. These qualifiers do not alter
+the deterministic guard or frozen v3.7 scoring. No judge flag or client route
+integration was changed: the current visible check remains local until that
+separate integration is enabled.
