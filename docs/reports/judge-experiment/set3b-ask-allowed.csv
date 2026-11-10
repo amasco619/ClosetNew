@@ -1,0 +1,31 @@
+look_id,verdict,reason,missing_fact,served_model,latency_ms
+V01-A,Works,A sharp navy suit with crisp white cotton shirt and leather loafers is flawless.,,gemini-3.6-flash,1217
+V01-B,Works,A solid black blazer over a midi dress with pumps fits a standard workplace.,,gemini-3.6-flash,1082
+V01-C,Almost,Leather boots and trousers in 33°C heat is too heavy: swap boots for breathable shoes.,,gemini-3.6-flash,1323
+V01-D,Ask,Missing the dress hem position and sleeve coverage for Catholic church.,hem_position,gemini-3.6-flash,1168
+V01-E,Works,A solid silk midi dress paired with gold shoes and clutch works well.,,gemini-3.6-flash,1306
+V02-A,Works,"A sharp wool trouser, silk blouse, leather boots, and coat fit cold-weather work environments perfectly.",,gemini-3.6-flash,1518
+V02-B,Ask,Hem position and upper body coverage for the dress are not stated.,hem_position,gemini-3.6-flash,1457
+V02-C,Ask,Which church denomination is the wedding taking place in?,denomination,gemini-3.6-flash,1129
+V02-D,Works,All-black smart ensemble with gold heels is polished and appropriate for a date.,,gemini-3.6-flash,1341
+V02-E,Works,Linen shirt and trousers with leather sandals are ideal for 28°C travel.,,gemini-3.6-flash,1032
+V03-A,Ask,Which sleeve length does the dress have for your coverage preference?,sleeve_lining,gemini-3.6-flash,1127
+V03-B,Rethink,Cotton kaftan with flats lacks the structured polish required for a professional work environment.,,gemini-3.6-flash,1200
+V03-C,Rethink,Cotton dress is too casual for an event and missing required sleeves,,gemini-3.6-flash,1137
+V03-D,Rethink,Look lacks required head covering and sleeve details miss your coverage rule.,,gemini-3.6-flash,1237
+V03-E,Rethink,Mini dress and lack of head covering fail both event level and coverage rules.,,gemini-3.6-flash,931
+V04-A,Ask,Church modesty rules require knowing the hem position of the wrapper.,hem_position,gemini-3.6-flash,1064
+V04-B,Works,Black lace ensemble respects the announced black and white funeral palette for a guest.,,gemini-3.6-flash,1274
+V04-C,Ask,Which family colours were announced for guests?,announced_colours,gemini-3.6-flash,976
+V04-D,Works,"A cotton top, printed midi skirt, and flat leather sandals suit casual warm weather.",,gemini-3.6-flash,1405
+V04-E,Works,"Maxi lace gown, ichafu, and gold heels suit a traditional wedding guest perfectly.",,gemini-3.6-flash,1094
+V05-A,Rethink,Wearing a blouse under a solid dress is inappropriate for a job interview,,gemini-3.6-flash,1050
+V05-B,Works,"Lace iro and buba with gele, heels and clutch is complete for an owambe guest.",,gemini-3.6-flash,1202
+V05-C,Works,"A clean, simple casual outfit for a date.",,gemini-3.6-flash,1027
+V05-D,Ask,Which dress sleeve length and hem position are being worn?,hem_position,gemini-3.6-flash,933
+V05-E,Ask,Church denomination is not stated.,denomination,gemini-3.6-flash,1280
+V06-A,Works,Iro and buba with gele and block heels suit a naming ceremony guest perfectly.,,gemini-3.6-flash,1201
+V06-B,Ask,sleeve length and back coverage for church,sleeve_lining,gemini-3.6-flash,1042
+V06-C,Rethink,Red blouse breaks the announced funeral grey and white colour requirement,,gemini-3.6-flash,1048
+V06-D,Works,"A teal print blouse, linen trousers, and leather sandals suit a warm corporate setting.",,gemini-3.6-flash,1087
+V06-E,Rethink,Must wear the assigned lace aso-ebi instead of the gold satin dress.,,gemini-3.6-flash,1056

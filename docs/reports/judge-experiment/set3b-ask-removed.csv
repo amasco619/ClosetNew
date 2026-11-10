@@ -1,0 +1,31 @@
+look_id,verdict,reason,missing_fact,served_model,latency_ms
+V01-A,Works,Classic navy suit with white shirt and black leather loafers works perfectly for work.,,gemini-3.6-flash,745
+V01-B,Works,A black blazer tempers a print midi dress perfectly for a standard work setting.,,gemini-3.6-flash,947
+V01-C,Almost,Replace ankle boots with breathable shoes or sandals for 33°C heat,,gemini-3.6-flash,947
+V01-D,Rethink,Cotton midi dress is too casual for a Catholic church service,,gemini-3.6-flash,1078
+V01-E,Works,A silk midi-dress with gold shoes and matching gold clutch works for a formal event.,,gemini-3.6-flash,954
+V02-A,Works,A grey wool suit with a silk blouse and ankle boots is sharp corporate wear.,,gemini-3.6-flash,1160
+V02-B,Rethink,Lack of warmth layering and unknown sleeve/back modesty makes this look unsafe.,,gemini-3.6-flash,1069
+V02-C,Works,The warm camel coat over a lace midi dress suits the cool temperature.,,gemini-3.6-flash,1033
+V02-D,Works,All-black tailoring with wool coat and gold heels suits a winter evening date perfectly.,,gemini-3.6-flash,1331
+V02-E,Works,"Linen shirt, linen trousers, and leather sandals suit warm travel perfectly.",,gemini-3.6-flash,677
+V03-A,Rethink,"She requires sleeves for coverage, but the lace dress has unknown sleeve length.",,gemini-3.6-flash,834
+V03-B,Works,The olive kaftan with matching hijab and black flats meets all coverage requirements.,,gemini-3.6-flash,1523
+V03-C,Rethink,Cream dress violates wedding rules and violates her strict coverage preference.,,gemini-3.6-flash,932
+V03-D,Rethink,Look lacks a head covering and fails your confirmed coverage preferences.,,gemini-3.6-flash,1177
+V03-E,Rethink,Mini dress violates short skirts preference while lacking sleeves and a head covering.,,gemini-3.6-flash,1083
+V04-A,Rethink,Cream fabric violates church dress standards and unstated wrapper colour creates severe mis-coordination.,,gemini-3.6-flash,1131
+V04-B,Works,Black lace ensemble matches the announced black-and-white funeral dress code.,,gemini-3.6-flash,958
+V04-C,Works,"Velvet blouse, wrapper, ichafu and coral present appropriate guest attire for traditional wedding.",,gemini-3.6-flash,883
+V04-D,Works,A solid white top and printed midi skirt make an easy casual outfit.,,gemini-3.6-flash,1115
+V04-E,Works,Floor-length lace gown with ichafu and gold heels suit a traditional wedding guest.,,gemini-3.6-flash,942
+V05-A,Rethink,Wearing a white blouse and a navy dress together makes no sense,,gemini-3.6-flash,824
+V05-B,Works,Lace iro and buba with gele and gold accessories fit an owambe guest perfectly.,,gemini-3.6-flash,744
+V05-C,Works,"A clean, simple denim and white cotton outfit suitable for a casual date.",,gemini-3.6-flash,933
+V05-D,Rethink,Dress coverage and hem details are missing for Pentecostal church compliance,,gemini-3.6-flash,976
+V05-E,Rethink,Hem position and sleeve coverage are not stated for church attire,,gemini-3.6-flash,921
+V06-A,Works,Traditional iro and buba with gele and heels perfectly suits a naming ceremony guest.,,gemini-3.6-flash,920
+V06-B,Rethink,Anglican church requires covered shoulders and modest hem; white/cream top violates white rules,,gemini-3.6-flash,954
+V06-C,Rethink,Red blouse breaks the funeral colour code and family grey-and-white theme.,,gemini-3.6-flash,813
+V06-D,Works,A breathable cotton print blouse with linen trousers suits warm professional work environments well.,,gemini-3.6-flash,948
+V06-E,Rethink,"She must wear the assigned lace aso-ebi, not a gold satin dress.",,gemini-3.6-flash,1016

@@ -953,3 +953,101 @@ mtime_ms = 1794229155558
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/a78846fa-d5a7-4456-b4d0-2cde7d8136a8/ff61744a-50b1-4334-8960-2317db1ffe1f"
 storage_version_token = "1794229358795059"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "4Z142tOhe5LPp0aAKXYty"
+uri = "file://docs/reports/judge-experiment/set3b-report.md"
+type = "text"
+title = "Set 3B judge experiment report"
+description = "Run totals, served model, errors, token cap and per-condition metrics."
+logical_id = "3c2bc92c-9f2f-4b4d-9ad8-eb75e17305dd"
+content_hash = "sha256:0d0c99646a81b4785e741558a287734f7e6b32789094e0cdaa47b0ac4f3414a9"
+size = 2110
+mtime_ms = 1794270105136
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/3c2bc92c-9f2f-4b4d-9ad8-eb75e17305dd/de7564b7-b116-41d1-8bc2-024fd9855888"
+storage_version_token = "1794270137516907"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "VFxvJ5WoSj5nCONBAd6e1"
+uri = "file://docs/reports/judge-experiment/set3b-route-mapping.md"
+type = "text"
+title = "Set 3B route mapping and dropped fields"
+description = "Thirty-look before-and-after mapping table and complete list of omitted or lossy facts."
+logical_id = "6d9eff41-27ea-4e05-bbce-e9b75eec4d13"
+content_hash = "sha256:cb7e111bdd2bf4ff50e5c95a3f1e7f398b19713e4331cbd977a7c929f4d8a77c"
+size = 9607
+mtime_ms = 1794270105786
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/6d9eff41-27ea-4e05-bbce-e9b75eec4d13/effe5d23-efc1-4da6-91f6-5f24007162ca"
+storage_version_token = "1794270138136203"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "8uUGfWHIZDVcjKDeu9RG6"
+uri = "file://docs/reports/judge-experiment/set3b-selected-payloads.json"
+type = "unspecified"
+title = "Exact Set 3B production payloads"
+description = "The exact built request bodies for V01-D, V03-B, V04-E, V05-E and V06-E in all three conditions."
+logical_id = "6ba2df51-c07a-494a-89dc-99047c275fad"
+content_hash = "sha256:7eb37591acff0d088f4799cb41d6290d49399979c85e306afb9f942ad6ee1415"
+size = 169285
+mtime_ms = 1794269787098
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/6ba2df51-c07a-494a-89dc-99047c275fad/4c3b1a99-35dd-4c64-a4ce-5fca58d22bcb"
+storage_version_token = "1794270138787848"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "-tcwUTa0Qwf20Lys8Pt0L"
+uri = "file://docs/reports/judge-experiment/set3b-ask-allowed.csv"
+type = "table"
+title = "Set 3B Ask-allowed results"
+description = "30 rows with verdict, reason, missing fact, served model and latency."
+logical_id = "362e7a73-8b2f-4d2d-9e92-d997cab82af5"
+content_hash = "sha256:5c4685618fb1008fb01c44810a7a7e8c1be129e65cd3925175d0e98e2b76e3c2"
+size = 3415
+mtime_ms = 1794269733235
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/362e7a73-8b2f-4d2d-9e92-d997cab82af5/308a8a18-0307-43b2-9a30-edbdb04fbed2"
+storage_version_token = "1794270139372737"
+content_type = "text/csv"
+
+[[outputs]]
+id = "Hic4MN7pORSx5Z8bOPYux"
+uri = "file://docs/reports/judge-experiment/set3b-fabric-stripped.csv"
+type = "table"
+title = "Set 3B fabric-stripped results"
+description = "30 rows with fabric omitted before production payload export."
+logical_id = "fbfeffbe-fab8-4cb4-a695-570c166de823"
+content_hash = "sha256:63e1fc482eea7d9ce80da7d870ffb3f06f43469ad88c9634293fadac5cfa2d21"
+size = 3464
+mtime_ms = 1794269898671
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/fbfeffbe-fab8-4cb4-a695-570c166de823/af23039b-cd6c-484b-8cb1-3c890df61383"
+storage_version_token = "1794270140459910"
+content_type = "text/csv"
+
+[[outputs]]
+id = "3KCDEiWJ8kLULOjNH0A2_"
+uri = "file://docs/reports/judge-experiment/set3b-ask-removed.csv"
+type = "table"
+title = "Set 3B Ask-removed results"
+description = "30 rows using the production no-Ask retry schema and instruction."
+logical_id = "3eb4bbed-ec3c-475c-b4f8-eb3bc16a2deb"
+content_hash = "sha256:0badc2a7f1ac2298295480126180f9fcf291c95b38312a8fe65e020caaae2e97"
+size = 3533
+mtime_ms = 1794270053418
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/3eb4bbed-ec3c-475c-b4f8-eb3bc16a2deb/9e45ef6b-4bfb-4316-a1a3-fbea97c0029d"
+storage_version_token = "1794270141427320"
+content_type = "text/csv"
+
+[[outputs]]
+id = "Dom_2HDpURUVaaEoM9mon"
+uri = "file://docs/reports/judge-experiment/set3b-run.jsonl"
+type = "unspecified"
+title = "Set 3B per-call run log"
+description = "Per-call status, requested and served model, token usage, reservation and latency; no response payload text."
+logical_id = "c8527745-4bcb-491e-92f5-b0280be9dd8e"
+content_hash = "sha256:565798fef8fd34db326835386c9a77b518a25f340571093e83c69d6c734bd6a4"
+size = 36930
+mtime_ms = 1794270053420
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/c8527745-4bcb-491e-92f5-b0280be9dd8e/feee4a6e-eecd-4cae-9af5-f2510fbd78cf"
+storage_version_token = "1794270142266750"
+content_type = "application/octet-stream"

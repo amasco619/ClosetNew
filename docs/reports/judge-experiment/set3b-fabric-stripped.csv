@@ -1,0 +1,31 @@
+look_id,verdict,reason,missing_fact,served_model,latency_ms
+V01-A,Works,"A sharp navy suit, white shirt, and loafers are ideal for work in hot weather.",,gemini-3.6-flash,1038
+V01-B,Works,A solid black blazer over a midi print dress with pumps suits the office.,,gemini-3.6-flash,1062
+V01-C,Works,A black monochrome casual outfit is practical and appropriate.,,gemini-3.6-flash,1416
+V01-D,Ask,sleeve and hem coverage details are missing for this Catholic church outfit,hem_position,gemini-3.6-flash,1002
+V01-E,Ask,Which church denomination is she attending?,denomination,gemini-3.6-flash,1227
+V02-A,Works,"A solid work outfit of blouse, trousers, outerwear, and ankle boots suits cold weather.",,gemini-3.6-flash,1271
+V02-B,Ask,"Which sleeve length, back and hem coverage does the midi-dress have?",hem_position,gemini-3.6-flash,1150
+V02-C,Ask,Which denomination's church wedding is she attending?,denomination,gemini-3.6-flash,1361
+V02-D,Works,A sleek black monochrome outfit with gold heels is perfect for a date.,,gemini-3.6-flash,1044
+V02-E,Works,"A solid white shirt, beige trousers, and sandals are perfect for warm-weather travel.",,gemini-3.6-flash,1136
+V03-A,Rethink,Lack of sleeve detail on dress violates client's strict no-sleeveless coverage requirement.,,gemini-3.6-flash,1491
+V03-B,Ask,Which sleeve length does the kaftan have?,sleeve_lining,gemini-3.6-flash,1036
+V03-C,Rethink,Cream violates wedding guest etiquette and the dress lacks sleeves to meet coverage preference.,,gemini-3.6-flash,1096
+V03-D,Ask,Which church denomination is she attending?,denomination,gemini-3.6-flash,954
+V03-E,Rethink,Mini-dress fails wedding formality and lacks required head covering and modest coverage.,,gemini-3.6-flash,1149
+V04-A,Ask,Which Catholic church modality rules apply depend on knowing the hem position.,hem_position,gemini-3.6-flash,1103
+V04-B,Works,Black blouse and midi skirt fit the black and white funeral colour code.,,gemini-3.6-flash,948
+V04-C,Works,"Double wrapper, gold blouse, ichafu and single coral strand suit an Igbo traditional wedding guest.",,gemini-3.6-flash,1054
+V04-D,Works,A solid top with a printed midi skirt and sandals suits casual wear.,,gemini-3.6-flash,1383
+V04-E,Works,Maxi dress with matching ichafu and gold heels fits traditional wedding guest register nicely.,,gemini-3.6-flash,987
+V05-A,Rethink,"Wearing both a blouse and a navy dress together creates an ill-fitting, redundant pairing",,gemini-3.6-flash,1066
+V05-B,Works,The look correctly follows the assigned aso-ebi with appropriate festive accessories.,,gemini-3.6-flash,992
+V05-C,Works,"A clean, simple casual combination suitable for a date.",,gemini-3.6-flash,804
+V05-D,Ask,"Which sleeve, back and hem details belong to the blue dress?",hem_position,gemini-3.6-flash,1000
+V05-E,Ask,Church denomination is not stated and determines modesty rules.,denomination,gemini-3.6-flash,1028
+V06-A,Works,Classic iro and buba with gele and block heels suits a naming ceremony guest.,,gemini-3.6-flash,831
+V06-B,Ask,sleeve length and back coverage are missing for the Anglican church setting,sleeve_lining,gemini-3.6-flash,1752
+V06-C,Rethink,Red blouse breaks the grey and white code and festive red fails at funerals,,gemini-3.6-flash,1079
+V06-D,Works,"A teal print blouse, beige trousers, and sandals suit a warm office environment.",,gemini-3.6-flash,1011
+V06-E,Rethink,Missing assigned aso-ebi and improperly paired with a non-aso-ebi maxi dress,,gemini-3.6-flash,1376
