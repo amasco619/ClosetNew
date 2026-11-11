@@ -1,7 +1,8 @@
 import type {
-  Constraints, GarmentGroup, OccasionTag, WardrobeItem,
+  GarmentGroup, OccasionTag, WardrobeItem,
 } from '../constants/types';
 import type { CheckLookSelection } from './checkLook';
+import { minimumSleeveLength, type SleeveConstraints } from '../shared/sleevePreference';
 
 export type CheckLookBriefContext =
   | 'work' | 'interview' | 'date' | 'casual' | 'travel' | 'event' | 'wedding'
@@ -71,7 +72,7 @@ export interface CheckLookGarmentFacts {
 export interface CheckLookGuardInput extends CheckLookRequest {
   items: readonly WardrobeItem[];
   groups: readonly GarmentGroup[];
-  constraints?: Partial<Constraints>;
+  constraints?: SleeveConstraints;
 }
 
 export interface CheckLookGuardResult {
@@ -253,10 +254,14 @@ export function guardCheckLook(input: CheckLookGuardInput): CheckLookGuardResult
     missing.add('selected garment details');
   }
 
-  if (constraints?.noSleeveless) {
-    for (const item of items.filter(value => value.category === 'top' || value.category === 'dress')) {
-      if (!item.sleeveLength) missing.add('sleeve length required by your coverage preference');
-      else if (item.sleeveLength === 'sleeveless') failures.add('A selected piece conflicts with your no-sleeveless preference.');
+  const minimum = minimumSleeveLength(constraints);
+  if (minimum !== 'none') {
+    const sleeves = ['sleeveless', 'short', 'three-quarter', 'long'];
+    for (const item of items.filter(value =>
+      value.category === 'top' || value.category === 'dress' || value.category === 'outerwear')) {
+      const rank = sleeves.indexOf(item.sleeveLength ?? '');
+      if (rank < 0) missing.add('sleeve length required by your coverage preference');
+      else if (rank < sleeves.indexOf(minimum)) failures.add('Sleeve shorter than your preference');
     }
   }
 

@@ -52,3 +52,4 @@
 - [Deterministic copy audits](deterministic-copy-audits.md) — require phrase presence as well as frequency; correlated synthetic IDs can silently omit variants.
 - [Judge colour export](judge-colour-export-policy.md) — preserve compound colours; unmatched non-empty values stay `unknown` and emit only token/count telemetry.
 - [Expo lint cache](expo-lint-cache.md) — cached import parse errors may outlive a source fix; use `--no-cache` before changing otherwise valid types.
+- [Sleeve preference rollout](sleeve-preference-rollout.md) — user declined backfills; legacy coverage is interpreted at read time until an explicit setting edit.

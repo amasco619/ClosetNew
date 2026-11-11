@@ -238,7 +238,7 @@ const noSleeveless = run({ context: 'work' }, {
   items: [item('top', 'top', 'blouse', { sleeveLength: 'sleeveless' }), bottom],
   constraints: { noSleeveless: true },
 });
-assert.ok(noSleeveless.failures.some(value => value.includes('no-sleeveless')));
+assert.ok(noSleeveless.failures.includes('Sleeve shorter than your preference'));
 assert.ok(run({ context: 'work' }, {
   items: [item('top', 'top', 'blouse'), bottom],
   constraints: { noSleeveless: true },

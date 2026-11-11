@@ -1107,3 +1107,17 @@ mtime_ms = 1794313978645
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/607154cd-133a-4485-81ff-327599edb63f/a3dc210a-affa-41ec-8df6-44b2514f6975"
 storage_version_token = "1794314830269162"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "dorNx9DPuGgz6Ij4HLy51"
+uri = "file://docs/reports/shortest-sleeve-preference.md"
+type = "text"
+title = "Shortest-sleeve setting report"
+description = "Read-only catalog findings, code-only implementation, tests and verification limits."
+logical_id = "cad491e0-f335-4845-8baf-3efa07626f6b"
+content_hash = "sha256:c239184967d93b195b01c9cd2e1fa2ad5ea55cd42adc1aad565f6230135dc98c"
+size = 4791
+mtime_ms = 1794398864454
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/cad491e0-f335-4845-8baf-3efa07626f6b/642a86b9-3d8c-4618-803d-2571de9667f1"
+storage_version_token = "1794398880869291"
+content_type = "text/markdown"

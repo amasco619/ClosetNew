@@ -62,6 +62,7 @@ Collected during onboarding; editable in profile settings:
 | Industry / life phase | Contextual recommendations | As above |
 | Contrast level | Colour-pairing recommendations | As above |
 | Metal preference | Accessory matching | As above |
+| Optional shortest-sleeve preference (No preference, Short sleeves, Three-quarter sleeves, Long sleeves) | Deterministic Check my look coverage check. Stored in existing `user_profiles.constraints` JSON and the device profile only after an explicit edit; legacy `noSleeveless` is read as Short sleeves without a backfill. Deleted with the profile/account. The disabled wardrobe-text judge adapter can export the setting, but the app does not currently send it to that judge. | Performance of contract / Legitimate interests — TBD; legal review required, do not infer religion or other sensitive attributes |
 
 ### 2.3 Wardrobe Content
 

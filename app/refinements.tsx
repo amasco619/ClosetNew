@@ -29,6 +29,7 @@ import type {
   MoodGoal,
 } from '@/constants/types';
 import { LIFESTYLE_OPTIONS, LIFESTYLE_SCENARIOS, type LifestyleKey } from '@/constants/lifestyle';
+import { minimumSleeveLength, withMinimumSleeveLength } from '@/shared/sleevePreference';
 
 type RefinementGroup = 'physical' | 'style' | 'lifestyle';
 
@@ -268,13 +269,20 @@ export default function RefinementsScreen() {
                   />
                 );
               }))}
-              <PreferenceSwitch
-                label="No sleeveless"
-                value={profile.constraints.noSleeveless}
-                onValueChange={value => updateProfile({
-                  constraints: { ...profile.constraints, noSleeveless: value },
-                })}
-              />
+              <Text style={styles.fieldLabel}>Shortest sleeve I wear</Text>
+              {renderChipRow(([
+                ['none', 'No preference'], ['short', 'Short sleeves'],
+                ['three-quarter', 'Three-quarter sleeves'], ['long', 'Long sleeves'],
+              ] as const).map(([value, label]) => (
+                <RefinementChip
+                  key={value}
+                  label={label}
+                  active={minimumSleeveLength(profile.constraints) === value}
+                  onPress={() => updateProfile({
+                    constraints: withMinimumSleeveLength(profile.constraints, value),
+                  })}
+                />
+              )))}
               <PreferenceSwitch
                 label="No short skirts"
                 value={profile.constraints.noShortSkirts}

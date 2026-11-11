@@ -64,6 +64,9 @@ function readDeletionInventory() {
   if (!entries.length || entries.length !== declaredEntries) {
     throw new Error("Deletion inventory has an unsupported shape; refusing a partial readiness check");
   }
+  if (!entries.some(entry => entry.table === "user_profiles" && entry.ownerColumn === "id")) {
+    throw new Error("Profile constraints (including minimumSleeveLength) require user_profiles deletion coverage");
+  }
   return entries;
 }
 

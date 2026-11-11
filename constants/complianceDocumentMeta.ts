@@ -1,5 +1,5 @@
 export const COMPLIANCE_DOCUMENT_META = {
-  version: '0.1',
-  effectiveDate: '7 November 2026 (draft date; not in force)',
-  changeLog: 'Initial in-app and public draft from the compliance sources and current product flows.',
+  version: '0.2',
+  effectiveDate: '11 November 2026 (draft date; not in force)',
+  changeLog: 'Added the optional shortest-sleeve profile preference, local coverage use and account-deletion handling.',
 } as const;

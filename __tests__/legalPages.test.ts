@@ -17,7 +17,7 @@ async function main() {
     assert.equal(json.headers['cache-control'], 'no-store');
     assert.equal(json.headers['set-cookie'], undefined, 'public documents do not set cookies');
     assert.equal(json.body.title, title);
-    assert.equal(json.body.version, '0.1');
+    assert.equal(json.body.version, '0.2');
     assert.match(json.body.effectiveDate, /draft date; not in force/);
     assert.ok(json.body.changeLog);
     assert.ok(json.body.content.length > 100);
@@ -37,6 +37,8 @@ async function main() {
   const terms = fs.readFileSync('docs/compliance/terms-of-service-page.md', 'utf8');
   assert.match(privacy, /PhotoRoom/);
   assert.match(privacy, /planned model-based wardrobe-text judge is not live/);
+  assert.match(privacy, /shortest sleeve you wear/);
+  assert.match(privacy, /not currently sent to the planned wardrobe-text judge/);
   assert.match(terms, /recorded AI-processing permission/);
   assert.match(fs.readFileSync('docs/compliance/page-update-checklist.md', 'utf8'), /NOT YET LIVE/);
 

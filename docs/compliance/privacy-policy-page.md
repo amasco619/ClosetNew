@@ -20,6 +20,8 @@ Weather-aware outfit suggestions can use foreground device location when permiss
 
 The current Check my look feature uses local rules and scoring. The planned model-based wardrobe-text judge is not live; the app does not currently send a wardrobe text block to that judge.
 
+You can optionally choose the shortest sleeve you wear in Refinements. We save this preference with your profile and on your device when you change it, and use it for local coverage checks. An existing no-sleeveless preference appears as Short sleeves without changing your saved setting. The preference is removed with your profile when you delete your account. It is not currently sent to the planned wardrobe-text judge.
+
 ## Account deletion
 
 Account deletion is available from Profile. After the server confirms deletion, the app clears the account’s defined cloud records and stored wardrobe images, removes the authentication account, and clears local app data as part of the deletion flow.

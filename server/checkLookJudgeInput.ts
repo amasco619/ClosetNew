@@ -6,6 +6,7 @@ import {
 import { STYLE_BLUEPRINT_SLOTS } from "../constants/blueprintSlots";
 import { MANUAL_ONLY_SUBTYPES } from "../constants/manualSubtypeOptions";
 import { guardCheckLook, type CheckLookBrief, type CheckLookGarmentFacts } from "../lib/checkLookGuard";
+import { MINIMUM_SLEEVE_LENGTHS, minimumSleeveLength, type SleeveConstraints } from "../shared/sleevePreference";
 
 const colours = [
   "black", "white", "grey", "ash", "ivory", "cream", "beige", "stone", "nude", "tan",
@@ -104,13 +105,16 @@ export const judgeRequestSchema = z.object({
 });
 export type JudgeRequest = z.infer<typeof judgeRequestSchema>;
 
-export function profileJudgeConstraints(value: unknown): Partial<Constraints> {
-  return z.object({
+export function profileJudgeConstraints(value: unknown): SleeveConstraints {
+  const parsed = z.object({
     noSleeveless: z.boolean().optional(), noShortSkirts: z.boolean().optional(),
+    minimumSleeveLength: z.enum(MINIMUM_SLEEVE_LENGTHS).optional(),
     maxHeelHeight: z.enum(["any", "low", "medium", "flat"]).optional(),
     headCoveringPreference: z.enum(["always", "events", "never"]).optional(),
     colorAversions: z.array(z.enum(colours)).optional(),
   }).parse(value ?? {});
+  const minimum = minimumSleeveLength(parsed);
+  return { ...parsed, minimumSleeveLength: minimum, noSleeveless: minimum !== "none" };
 }
 
 function allowed(value: string | undefined, values: readonly string[]): string | undefined {

@@ -3951,3 +3951,27 @@ the sleeve-lining question. The answers reset when the occasion changes or the
 sheet closes. They are not stored, logged or sent to a provider; this does not
 change any privacy-policy data-flow fact. The judge flag remains off and no
 Gemini calls are made by the sheet.
+
+## Standing shortest-sleeve preference
+
+Refinements replaces the No sleeveless switch with No preference / Short sleeves /
+Three-quarter sleeves / Long sleeves. `shared/sleevePreference.ts` interprets a
+missing `minimumSleeveLength` as short when the legacy boolean is true, otherwise
+none. This selector works on hydrated account, guest and cached profiles without
+adding a key during parsing or serialisation. Only an explicit chip edit adds
+`minimumSleeveLength` to existing profile constraints JSON and synchronises
+`noSleeveless` (true for any minimum other than none). No migration or backfill.
+
+The separate Check my look guard compares tops, dresses and outerwear against
+the selected minimum, reporting unknown sleeve facts only when a minimum is
+required. Bottoms, shoes, bags and jewellery are ignored. The server profile
+allowlist exports the closed enum and compatibility boolean; the judge remains
+disabled and no provider calls are introduced. v3.7 and its types are unchanged.
+
+Read-only live catalog inspection found only the primary key and cascading
+auth-user foreign key constraints on user_profiles, and a single non-internal
+BEFORE UPDATE trigger that sets updated_at. No JSON-key validator or sync-version
+trigger was present. The existing deletion inventory covers user_profiles by id;
+the readiness script now asserts that coverage before its existing probes.
+Privacy sources, inventory, draft page and update checklist describe the optional
+preference and distinguish it from transient brief facts.
