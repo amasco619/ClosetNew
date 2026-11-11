@@ -86,6 +86,7 @@ const questions: Record<MissingFact, string> = {
   announced_colours: "Has the family announced any colours?",
   hem_position: "Does the hem sit above or below your knee?",
   sleeve_lining: "Are the sleeves lined or sheer?",
+  sleeve_length: "How long are the sleeves on this piece?",
 };
 
 function safeSwap(context: OwnedContext, request: JudgeRequest, userId: string) {
@@ -153,6 +154,7 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
     }
   }
   const guard = judgeGuard(request, context.items, context.groups, context.constraints);
+  const allowSleeveLengthAsk = guard.missing.includes("sleeve length required by your coverage preference");
   const text = exportJudgeText(request, context.items, context.groups, context.constraints, guard);
   try {
     const consume = process.env.NODE_ENV === "test" && _testOverrides.quota ? _testOverrides.quota : consumeJudgeQuota;
@@ -173,7 +175,11 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
     if (cached && cached.expires > Date.now()) answer = cached.answer;
     else {
       const judge = process.env.NODE_ENV === "test" && _testOverrides.judge ? _testOverrides.judge : callCheckLookJudge;
-      answer = await judge(text, { model });
+      answer = await judge(text, { model, allowSleeveLengthAsk });
+      if (answer.result.verdict === "Ask" && answer.result.missing_fact === "sleeve_length" &&
+          !allowSleeveLengthAsk) {
+        throw new Error("Unsupported judge question");
+      }
       servedVersions.set(model, answer.modelVersion);
       if (cache.size >= 1000) cache.delete(cache.keys().next().value!);
       const entries = owned ?? new Map();

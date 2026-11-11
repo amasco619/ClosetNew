@@ -41,15 +41,22 @@ async function adapterTests() {
   assert.deepEqual(body.generationConfig.thinkingConfig, { thinkingLevel: "minimal" });
   assert.equal(body.generationConfig.responseMimeType, "application/json");
   assert.deepEqual(body.generationConfig.responseSchema.properties.missing_fact.enum, [...MISSING_FACTS]);
+  assert.deepEqual(MISSING_FACTS, [
+    "denomination", "assigned_set", "announced_colours", "hem_position", "sleeve_lining", "sleeve_length",
+  ]);
   assert.equal(parseJudgeResponse(JSON.stringify({ ...works, extra: true }), true), null);
   assert.equal(parseJudgeResponse(JSON.stringify({ ...works, reason: "word ".repeat(16) }), true), null);
   assert.equal(parseJudgeResponse('{"verdict":"Works"}', true), null);
   assert.equal(parseJudgeResponse(JSON.stringify({ ...works, missing_fact: "denomination" }), true), null);
   for (const missing_fact of MISSING_FACTS) {
-    assert.equal(parseJudgeResponse(JSON.stringify({ verdict: "Ask", reason: "One fact is missing.", missing_fact }), true)?.missing_fact, missing_fact);
+    assert.equal(parseJudgeResponse(JSON.stringify({ verdict: "Ask", reason: "One fact is missing.", missing_fact }),
+      true, missing_fact === "sleeve_length")?.missing_fact, missing_fact);
   }
   assert.equal(parseJudgeResponse(JSON.stringify({ verdict: "Ask", reason: "Which venue?", missing_fact: "venue" }), true), null);
   assert.equal(parseJudgeResponse(JSON.stringify({ verdict: "Ask", reason: "Which church?", missing_fact: "denomination" }), false), null);
+  const sleeveAsk = JSON.stringify({ verdict: "Ask", reason: "How long are the sleeves?", missing_fact: "sleeve_length" });
+  assert.equal(parseJudgeResponse(sleeveAsk, true), null, "sleeve length is unsupported without an explicit guard allowance");
+  assert.equal(parseJudgeResponse(sleeveAsk, true, true)?.missing_fact, "sleeve_length");
   assert.equal(judgeRequestSchema.safeParse({
     ...input,
     brief: { context: "interview", venue: "upscale-restaurant", dressCode: "conservative" },
@@ -210,6 +217,27 @@ async function adapterTests() {
   assert.equal(converted.result.verdict, "Almost");
   assert.equal(calls, 2);
   calls = 0;
+  const sleeveAskConverted = await callCheckLookJudge("Synthetic", { record, post: async (_url, requestBody) => {
+    calls++;
+    const schema = (requestBody as ReturnType<typeof buildJudgeBody>).generationConfig.responseSchema;
+    if (calls === 1) {
+      assert.ok(schema.properties.missing_fact.enum.includes("sleeve_length"));
+      return response({ verdict: "Ask", reason: "What are the sleeves like?", missing_fact: "sleeve_length" });
+    }
+    assert.ok(!schema.properties.verdict.enum.includes("Ask"), "unsupported sleeve-length Ask triggers the one non-Ask retry");
+    return response({ verdict: "Almost", reason: "Choose another top.", missing_fact: null });
+  } });
+  assert.equal(sleeveAskConverted.result.verdict, "Almost");
+  assert.equal(calls, 2);
+  calls = 0;
+  const supportedSleeveAsk = await callCheckLookJudge("Synthetic", {
+    record, allowSleeveLengthAsk: true, post: async () => {
+      calls++; return response({ verdict: "Ask", reason: "How long are the sleeves?", missing_fact: "sleeve_length" });
+    },
+  });
+  assert.equal(supportedSleeveAsk.result.missing_fact, "sleeve_length");
+  assert.equal(calls, 1, "a guard-supported sleeve-length Ask is accepted without retry");
+  calls = 0;
   await assert.rejects(callCheckLookJudge("Synthetic", { record, post: async () => {
     calls++; throw new Error("Network failure with private details");
   } }));
@@ -264,7 +292,7 @@ async function routeTests() {
   let lastText = "";
   let premium = false;
   let consent = true;
-  let currentResult = works as { verdict: "Works" | "Almost" | "Rethink" | "Ask"; reason: string; missing_fact: "denomination" | null };
+  let currentResult = works as { verdict: "Works" | "Almost" | "Rethink" | "Ask"; reason: string; missing_fact: "denomination" | "sleeve_length" | null };
   authOverrides.authenticatedUser = { id: user };
   consentOverrides.load = async () => ({ amodka_ai_image_processing: consent ? "allowed" : "declined" });
   routeOverrides.load = async () => ({ items: [top, bottom], groups: [], constraints: {} });
@@ -273,10 +301,11 @@ async function routeTests() {
     assert.equal(isPremium, premium, "tier comes from the server");
     quotaCalls++; return { allowed: true, remaining: 4 };
   };
-  routeOverrides.judge = async text => {
+  const normalJudge = async (text: string) => {
     providerCalls++; lastText = text;
     return { result: currentResult, modelVersion: "gemini-3.6-flash", promptHash: CHECK_LOOK_PROMPT_HASH };
   };
+  routeOverrides.judge = normalJudge;
   const send = (body: object = input) => request(app).post("/api/check-my-look").send(body);
   routeOverrides.enabled = false;
   assert.deepEqual((await send()).body, { useLocalCheck: true, reason: "disabled" });
@@ -337,7 +366,39 @@ async function routeTests() {
   assert.equal(ask.body.verdict, "Ask");
   assert.equal(typeof ask.body.question, "string");
   assert.equal(ask.body.missing_fact, "denomination");
+  premium = true;
+  clearJudgeCache(user);
+  routeOverrides.load = async () => ({
+    items: [{ ...top, sleeveLength: undefined }, bottom], groups: [], constraints: { noSleeveless: true },
+  });
+  routeOverrides.judge = async (_text, options) => {
+    assert.equal(options?.allowSleeveLengthAsk, true,
+      'the exact guard missing fact is mapped to the sleeve_length Ask allowance');
+    return {
+      result: { verdict: "Ask", reason: "One detail is missing.", missing_fact: "sleeve_length" },
+      modelVersion: "gemini-3.6-flash", promptHash: CHECK_LOOK_PROMPT_HASH,
+    };
+  };
+  const sleeveAskResponse = await send();
+  assert.deepEqual(
+    { verdict: sleeveAskResponse.body.verdict, missing_fact: sleeveAskResponse.body.missing_fact,
+      question: sleeveAskResponse.body.question },
+    { verdict: "Ask", missing_fact: "sleeve_length", question: "How long are the sleeves on this piece?" },
+  );
+  clearJudgeCache(user);
+  routeOverrides.load = async () => ({ items: [top, bottom], groups: [], constraints: {} });
+  routeOverrides.judge = async (_text, options) => {
+    assert.equal(options?.allowSleeveLengthAsk, false);
+    return {
+      result: { verdict: "Ask", reason: "One detail is missing.", missing_fact: "sleeve_length" },
+      modelVersion: "gemini-3.6-flash", promptHash: CHECK_LOOK_PROMPT_HASH,
+    };
+  };
+  assert.deepEqual((await send()).body, { useLocalCheck: true, reason: "unavailable" },
+    "the route never returns sleeve_length Ask when the guard did not list that missing fact");
+  routeOverrides.judge = normalJudge;
   premium = false;
+  clearJudgeCache(user);
   assert.deepEqual((await send()).body, { verdict: "Almost" }, "Free Ask conversion never exposes reasons");
   routeOverrides.quota = async () => ({ allowed: false, remaining: 0 });
   const before = providerCalls;

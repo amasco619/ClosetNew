@@ -5,7 +5,7 @@ import { CHECK_LOOK_PROMPT, CHECK_LOOK_PROMPT_HASH, CHECK_LOOK_PROMPT_VERSION } 
 
 export { CHECK_LOOK_PROMPT_HASH, CHECK_LOOK_PROMPT_VERSION };
 export const MISSING_FACTS = [
-  "denomination", "assigned_set", "announced_colours", "hem_position", "sleeve_lining",
+  "denomination", "assigned_set", "announced_colours", "hem_position", "sleeve_lining", "sleeve_length",
 ] as const;
 export type MissingFact = typeof MISSING_FACTS[number];
 export interface JudgeResult {
@@ -52,11 +52,12 @@ const resultSchema = z.object({
   missing_fact: z.string().nullable(),
 }).strict();
 
-export function parseJudgeResponse(text: string, allowAsk: boolean): JudgeResult | null {
+export function parseJudgeResponse(text: string, allowAsk: boolean, allowSleeveLengthAsk = false): JudgeResult | null {
   try {
     const parsed = resultSchema.parse(JSON.parse(text));
     if (parsed.verdict === "Ask") {
       if (!allowAsk || !MISSING_FACTS.includes(parsed.missing_fact as MissingFact)) return null;
+      if (parsed.missing_fact === "sleeve_length" && !allowSleeveLengthAsk) return null;
     } else if (parsed.missing_fact !== null) return null;
     return parsed as JudgeResult;
   } catch {
@@ -94,6 +95,7 @@ export async function callCheckLookJudge(text: string, options: {
   post?: JudgePost;
   model?: string;
   timeoutMs?: number;
+  allowSleeveLengthAsk?: boolean;
   record?: (metadata: JudgeCallMetadata) => void;
 } = {}): Promise<JudgeAnswer> {
   if (process.env.NODE_ENV === "test" && !options.post) {
@@ -138,13 +140,17 @@ export async function callCheckLookJudge(text: string, options: {
         if (status !== 200) throw new Error("Judge provider unavailable");
         const candidate = data?.candidates?.[0];
         const textResponse = candidate?.content?.parts?.filter(part => !part.thought).map(part => part.text ?? "").join("") ?? "";
-        const result = candidate?.finishReason === "STOP" ? parseJudgeResponse(textResponse, allowAsk) : null;
+        const result = candidate?.finishReason === "STOP"
+          ? parseJudgeResponse(textResponse, allowAsk, options.allowSleeveLengthAsk) : null;
         if (result && modelVersion) return { result, modelVersion, promptHash: CHECK_LOOK_PROMPT_HASH };
         // One retry for malformed output. Unsupported Ask uses a non-Ask schema,
         // so any conversion is still the model's answer, never an invented score.
         try {
           const rejected = JSON.parse(textResponse);
-          if (rejected.verdict === "Ask" && !MISSING_FACTS.includes(rejected.missing_fact)) allowAsk = false;
+          if (rejected.verdict === "Ask" && (
+            !MISSING_FACTS.includes(rejected.missing_fact) ||
+            (rejected.missing_fact === "sleeve_length" && !options.allowSleeveLengthAsk)
+          )) allowAsk = false;
         } catch { /* malformed JSON keeps the original schema */ }
       } catch (error) {
         const providerStatus = (error as { response?: { status?: unknown } } | null)?.response?.status;
