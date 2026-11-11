@@ -26,6 +26,9 @@ const contextSchema = z.enum([
   "work", "interview", "date", "casual", "travel", "event", "wedding",
   "church", "funeral", "traditional-wedding", "owambe", "naming-ceremony", "traditional-event",
 ]);
+const roleSchema = z.enum(["guest", "family", "host", "bridal-party", "not-sure"]);
+const denominationSchema = z.enum(["catholic", "anglican", "pentecostal", "other", "not-sure"]);
+const timeOfDaySchema = z.enum(["daytime", "evening", "not-sure"]);
 const venueSchema = z.enum([
   "restaurant", "upscale-restaurant", "workplace", "place-of-worship",
   "outdoors", "home", "other", "not-sure",
@@ -37,11 +40,13 @@ const dressCodeSchema = z.enum([
 const briefSchema = z.discriminatedUnion("context", [
   z.object({
     context: z.literal("church"),
-    denomination: z.enum(["catholic", "anglican", "pentecostal", "other", "not-sure"]),
+    denomination: denominationSchema,
     venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
   }).strict(),
   z.object({
     context: z.literal("funeral"), assignedGroupId: choice,
+    role: roleSchema.optional(), denomination: denominationSchema.optional(),
+    timeOfDay: timeOfDaySchema.optional(),
     venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
     announcedColours: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("none") }).strict(),
@@ -51,13 +56,26 @@ const briefSchema = z.discriminatedUnion("context", [
   }).strict(),
   ...(["traditional-wedding", "owambe", "naming-ceremony"] as const).map(context =>
     z.object({
-      context: z.literal(context), role: z.enum(["guest", "family", "host", "bridal-party", "not-sure"]),
+      context: z.literal(context), role: roleSchema,
       asoEbiGroupId: choice, venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
+      denomination: denominationSchema.optional(), timeOfDay: timeOfDaySchema.optional(),
     }).strict()),
-  ...(["work", "interview", "date", "casual", "travel", "event", "wedding", "traditional-event"] as const)
-    .map(context => z.object({
-      context: z.literal(context), venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
-    }).strict()),
+  z.object({ context: z.literal("work"), venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
+    denomination: denominationSchema.optional() }).strict(),
+  z.object({ context: z.literal("interview"), venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
+    denomination: denominationSchema.optional() }).strict(),
+  z.object({ context: z.literal("date"), venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
+    denomination: denominationSchema.optional(), timeOfDay: timeOfDaySchema.optional() }).strict(),
+  z.object({ context: z.literal("casual"), venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
+    denomination: denominationSchema.optional() }).strict(),
+  z.object({ context: z.literal("travel"), venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
+    denomination: denominationSchema.optional() }).strict(),
+  z.object({ context: z.literal("event"), venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
+    denomination: denominationSchema.optional(), role: roleSchema.optional(), timeOfDay: timeOfDaySchema.optional() }).strict(),
+  z.object({ context: z.literal("wedding"), venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
+    denomination: denominationSchema.optional(), role: roleSchema.optional(), timeOfDay: timeOfDaySchema.optional() }).strict(),
+  z.object({ context: z.literal("traditional-event"), venue: venueSchema.optional(), dressCode: dressCodeSchema.optional(),
+    denomination: denominationSchema.optional() }).strict(),
 ]);
 export const judgeRequestSchema = z.object({
   selection: z.object({
@@ -69,12 +87,19 @@ export const judgeRequestSchema = z.object({
   brief: briefSchema,
   garmentFacts: z.record(z.string().uuid(), z.object({
     hemPosition: z.enum(["above-knee", "at-or-below-knee"]).optional(),
-    backless: z.boolean().optional(), strapless: z.boolean().optional(), modestForChurch: z.boolean().optional(),
+    backless: z.boolean().optional(), strapless: z.boolean().optional(),
+    backOrStrapCoverage: z.enum(["covered", "exposed-with-cover", "exposed-no-cover"]).optional(),
+    modestForChurch: z.boolean().optional(),
     sleeveLining: z.enum(["lined", "sheer", "not-sure"]).optional(),
   }).strict()).optional(),
 }).strict().superRefine((request, ctx) => {
   for (const id of Object.keys(request.garmentFacts ?? {})) {
     if (!request.selection.itemIds.includes(id)) ctx.addIssue({ code: "custom", message: "Facts must belong to selected pieces" });
+  }
+  if (request.brief.context !== "church" && "denomination" in request.brief &&
+      request.brief.denomination !== undefined && request.brief.venue !== "place-of-worship") {
+    ctx.addIssue({ code: "custom", path: ["brief", "denomination"],
+      message: "A denomination is only accepted for a place-of-worship venue" });
   }
 });
 export type JudgeRequest = z.infer<typeof judgeRequestSchema>;
@@ -171,13 +196,13 @@ const safeSubtypes = [...new Set([
 ])].filter((value): value is string => typeof value === "string");
 
 /** Generated garment labels only. No description, custom name, ID, image or URL is exported. */
-export function exportJudgeItem(item: WardrobeItem, facts?: CheckLookGarmentFacts & { sleeveLining?: "lined" | "sheer" | "not-sure" }): string {
+export function exportJudgeItem(item: WardrobeItem, facts?: CheckLookGarmentFacts): string {
   return exportJudgeItemWithUnmatchedColour(item, facts).text;
 }
 
 function exportJudgeItemWithUnmatchedColour(
   item: WardrobeItem,
-  facts?: CheckLookGarmentFacts & { sleeveLining?: "lined" | "sheer" | "not-sure" },
+  facts?: CheckLookGarmentFacts,
 ): { text: string; unmatchedColours: string[] } {
   const name = allowedSafeToken(item.subType, safeSubtypes)
     ?? allowed(item.category, ["top", "bottom", "dress", "outerwear", "shoes", "bag", "jewelry"])
@@ -195,6 +220,7 @@ function exportJudgeItemWithUnmatchedColour(
     facts?.hemPosition && `hem ${facts.hemPosition}`,
     facts?.backless !== undefined && `backless ${facts.backless}`,
     facts?.strapless !== undefined && `strapless ${facts.strapless}`,
+    facts?.backOrStrapCoverage && `back/strap coverage ${facts.backOrStrapCoverage}`,
     facts?.modestForChurch !== undefined && `modest for church ${facts.modestForChurch}`,
     facts?.sleeveLining && `sleeve lining ${facts.sleeveLining === "not-sure" ? "unknown" : facts.sleeveLining}`,
   ].filter(Boolean);
@@ -251,9 +277,10 @@ export function exportJudgeText(
     context: contextSchema.parse(brief.context),
     venue: allowed(brief.venue, venueSchema.options) ?? null,
     dress_code: allowed(brief.dressCode, dressCodeSchema.options) ?? null,
-    denomination: "denomination" in brief ? brief.denomination : null,
-    role: "role" in brief ? brief.role : null,
+    denomination: "denomination" in brief ? allowed(brief.denomination, denominationSchema.options) ?? null : null,
+    role: "role" in brief ? allowed(brief.role, roleSchema.options) ?? null : null,
     announced_colours: "announcedColours" in brief ? brief.announcedColours : null,
+    time_of_day: "timeOfDay" in brief ? allowed(brief.timeOfDay, timeOfDaySchema.options) ?? null : null,
     assigned_set: assignedId === undefined ? null : assignedId === "none" ? "none"
       : assignedId === "not-sure" ? "unknown" : assignedItemText,
     temperature_c: request.selection.temperatureC ?? null,

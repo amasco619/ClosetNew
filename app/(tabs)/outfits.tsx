@@ -538,7 +538,7 @@ export default function OutfitsScreen() {
 
   const clearCheckLookResult = useCallback(() => setCheckLookResult(null), []);
 
-  const runCheckMyLook = useCallback(async ({ selection, brief }: CheckLookRequest) => {
+  const runCheckMyLook = useCallback(async ({ selection, brief, garmentFacts }: CheckLookRequest) => {
     const requestId = checkLookRequest.current;
     if (checkLookBusyRequest.current === requestId || checkLookChecking || checkLookAllowanceLoading ||
         checkLookMembershipLoading ||
@@ -557,6 +557,7 @@ export default function OutfitsScreen() {
       items: wardrobeItems,
       groups: checkLookGroups ?? [],
       constraints: profile?.constraints,
+      garmentFacts,
     });
     if (!guard.pass) {
       checkLookToast.show({

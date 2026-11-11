@@ -107,6 +107,13 @@ async function main() {
     assert.ok(node, `expected ${id}`);
     await React.act(async () => { (node.props.onPress as () => void)(); });
   };
+  assert.equal(pressable('check-my-look-brief-occasion-role'), undefined,
+    'role chips stay hidden before an occasion is chosen');
+  assert.equal(pressable('check-my-look-brief-time-of-day'), undefined,
+    'time-of-day chips stay hidden before an occasion is chosen');
+  assert.equal(screen.root.findAllByType('View')
+    .some(node => String(node.props.testID ?? '').startsWith('check-my-look-fact-question-')), false,
+  'church garment questions stay hidden before an occasion is chosen');
   await press('check-my-look-occasion-church');
   assert.match(textContent(), /Denomination/);
   assert.doesNotMatch(textContent(), /Announced colours|Your role|Assigned aso-ebi/);
@@ -119,9 +126,20 @@ async function main() {
   await press('check-my-look-occasion-traditional-wedding');
   assert.match(textContent(), /Your role/);
   assert.match(textContent(), /Assigned aso-ebi/);
+  assert.ok(pressable('check-my-look-brief-time-of-day'));
   assert.ok(pressable('check-my-look-brief-venue'));
   assert.ok(pressable('check-my-look-brief-dress-code'));
   assert.doesNotMatch(textContent(), /Denomination/);
+  await press('check-my-look-brief-occasion-role');
+  for (const value of ['guest', 'family', 'host', 'bridal-party', 'not-sure']) {
+    assert.ok(pressable(`check-my-look-brief-occasion-role-${value}`), `role option ${value}`);
+  }
+  await press('check-my-look-brief-occasion-role-guest');
+  await press('check-my-look-brief-time-of-day');
+  for (const value of ['daytime', 'evening', 'not-sure']) {
+    assert.ok(pressable(`check-my-look-brief-time-of-day-${value}`), `time option ${value}`);
+  }
+  await press('check-my-look-brief-time-of-day-evening');
   await press('check-my-look-brief-aso-ebi-set');
   assert.ok(pressable('check-my-look-brief-aso-ebi-set-not-sure'));
   assert.ok(pressable('check-my-look-brief-aso-ebi-set-none'));
@@ -129,7 +147,15 @@ async function main() {
   await press('check-my-look-occasion-funeral');
   assert.match(textContent(), /Announced colours/);
   assert.match(textContent(), /Assigned group fabric/);
-  assert.doesNotMatch(textContent(), /Your role|Denomination/);
+  assert.match(textContent(), /Your role/);
+  assert.doesNotMatch(textContent(), /Denomination/);
+  assert.ok(pressable('check-my-look-brief-time-of-day'));
+  await press('check-my-look-brief-occasion-role');
+  assert.ok(pressable('check-my-look-brief-occasion-role-not-sure'));
+  await press('check-my-look-brief-occasion-role-not-sure');
+  await press('check-my-look-brief-time-of-day');
+  assert.ok(pressable('check-my-look-brief-time-of-day-not-sure'));
+  await press('check-my-look-brief-time-of-day-not-sure');
   await press('check-my-look-brief-announced-colours');
   assert.ok(pressable('check-my-look-brief-announced-colours-not-sure'));
   assert.ok(pressable('check-my-look-brief-announced-colours-none'));
@@ -241,6 +267,101 @@ async function main() {
   ).join(' ');
   assert.match(notJudgedText, /Traditional looks need a stylist's eye\. We are still learning these\./);
   assert.doesNotMatch(notJudgedText, /What works|Worth reconsidering|Possible swaps/);
+
+  const churchDress = {
+    id: 'test-church-dress', photoUri: 'test://dress', category: 'dress' as const,
+    subType: 'gown', colorFamily: 'navy', fabric: 'chiffon' as const,
+    sleeveLength: 'long' as const, occasionTags: [], seasonTags: [], createdAt: '',
+  };
+  await React.act(async () => {
+    screen.update(React.createElement(Component, {
+      ...props, items: [churchDress], freeRemaining: 3, result: null,
+    }));
+  });
+  await press('check-my-look-occasion-church');
+  await press('check-my-look-slot-dress');
+  await press('check-my-look-item-test-church-dress');
+  await press('check-my-look-brief-denomination');
+  await press('check-my-look-brief-denomination-anglican');
+  assert.ok(pressable('check-my-look-fact-test-church-dress-hemPosition-field'));
+  await press('check-my-look-fact-test-church-dress-hemPosition-field');
+  assert.ok(pressable('check-my-look-fact-test-church-dress-hemPosition-above-knee'));
+  assert.ok(pressable('check-my-look-fact-test-church-dress-hemPosition-at-knee'));
+  assert.ok(pressable('check-my-look-fact-test-church-dress-hemPosition-below-knee'));
+  assert.ok(pressable('check-my-look-fact-test-church-dress-hemPosition-floor-length'));
+  assert.ok(pressable('check-my-look-fact-test-church-dress-hemPosition-not-sure'));
+  await press('check-my-look-fact-test-church-dress-hemPosition-at-knee');
+  await press('check-my-look-fact-test-church-dress-backAndStraps-field');
+  assert.ok(pressable('check-my-look-fact-test-church-dress-backAndStraps-covered'));
+  assert.ok(pressable('check-my-look-fact-test-church-dress-backAndStraps-covered-layer'));
+  assert.ok(pressable('check-my-look-fact-test-church-dress-backAndStraps-no-cover'));
+  assert.ok(pressable('check-my-look-fact-test-church-dress-backAndStraps-not-sure'));
+  await press('check-my-look-fact-test-church-dress-backAndStraps-covered');
+  await press('check-my-look-fact-test-church-dress-sleeveLining-field');
+  assert.ok(pressable('check-my-look-fact-test-church-dress-sleeveLining-lined'));
+  assert.ok(pressable('check-my-look-fact-test-church-dress-sleeveLining-sheer'));
+  assert.ok(pressable('check-my-look-fact-test-church-dress-sleeveLining-not-sure'));
+  await press('check-my-look-fact-test-church-dress-sleeveLining-lined');
+  await press('check-my-look-submit');
+  assert.deepEqual(lastCheckRequest, {
+    selection: { itemIds: ['test-church-dress'], occasion: 'event', temperatureC: 22 },
+    brief: {
+      context: 'church', denomination: 'anglican', venue: 'not-sure', dressCode: 'not-sure',
+    },
+    garmentFacts: {
+      'test-church-dress': {
+        hemPosition: 'at-or-below-knee', backOrStrapCoverage: 'covered', sleeveLining: 'lined',
+      },
+    },
+  }, 'church chip values map to the transient route garmentFacts structure');
+
+  const unknownDress = { ...churchDress, id: 'test-unknown-dress' };
+  await React.act(async () => {
+    screen.update(React.createElement(Component, {
+      ...props, items: [unknownDress], freeRemaining: 3, result: null,
+    }));
+  });
+  await press('check-my-look-occasion-church');
+  await press('check-my-look-item-test-unknown-dress');
+  await press('check-my-look-brief-denomination');
+  await press('check-my-look-brief-denomination-anglican');
+  await press('check-my-look-fact-test-unknown-dress-hemPosition-field');
+  await press('check-my-look-fact-test-unknown-dress-hemPosition-not-sure');
+  await press('check-my-look-fact-test-unknown-dress-backAndStraps-field');
+  await press('check-my-look-fact-test-unknown-dress-backAndStraps-not-sure');
+  await press('check-my-look-fact-test-unknown-dress-sleeveLining-field');
+  await press('check-my-look-fact-test-unknown-dress-sleeveLining-not-sure');
+  await press('check-my-look-submit');
+  assert.equal(checkCalls, 3, 'Not sure does not submit a fabricated garment fact');
+  assert.match(textContent(), /hem position for the selected dress/);
+  assert.match(textContent(), /back coverage for the selected dress/);
+  assert.match(textContent(), /strap coverage for the selected dress/);
+  assert.match(textContent(), /sleeve lining for the selected dress/);
+
+  await press('check-my-look-occasion-wedding');
+  await press('check-my-look-brief-occasion-role');
+  assert.ok(pressable('check-my-look-brief-occasion-role-not-sure'));
+  await press('check-my-look-brief-occasion-role-family');
+  await press('check-my-look-brief-time-of-day');
+  await press('check-my-look-brief-time-of-day-daytime');
+  await press('check-my-look-submit');
+  assert.deepEqual((lastCheckRequest as { brief: unknown }).brief, {
+    context: 'wedding', role: 'family', timeOfDay: 'daytime', venue: 'not-sure', dressCode: 'not-sure',
+  }, 'the selected optional role and time of day remain transient in the request');
+  await press('check-my-look-occasion-owambe');
+  await press('check-my-look-brief-occasion-role');
+  await press('check-my-look-brief-occasion-role-guest');
+  await press('check-my-look-brief-aso-ebi-set');
+  await press('check-my-look-brief-aso-ebi-set-none');
+  await press('check-my-look-brief-time-of-day');
+  await press('check-my-look-brief-time-of-day-evening');
+  await press('check-my-look-submit');
+  assert.deepEqual((lastCheckRequest as { brief: unknown }).brief, {
+    context: 'owambe', role: 'guest', asoEbiGroupId: 'none', timeOfDay: 'evening',
+    venue: 'not-sure', dressCode: 'not-sure',
+  }, 'Owambe chips use the route brief fields without persistence');
+  assert.equal((lastCheckRequest as { garmentFacts?: unknown }).garmentFacts, undefined,
+    'church-only facts are cleared when the occasion changes');
   await React.act(async () => { screen.unmount(); });
   console.log('Check My Look free verdict visibility and zero-allowance paywall passed.');
 }

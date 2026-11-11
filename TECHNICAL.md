@@ -3932,3 +3932,22 @@ as `venue` and `dress_code` in the safe brief. These qualifiers do not alter
 the deterministic guard or frozen v3.7 scoring. No judge flag or client route
 integration was changed: the current visible check remains local until that
 separate integration is enabled.
+
+The sheet progressively reveals optional role chips for Wedding, Traditional
+wedding, Owambe, Naming ceremony and Funeral, and Daytime / Evening / Not sure
+chips for event-type occasions (including Date). The route accepts the role
+field on wedding, funeral and generic event briefs, and accepts `timeOfDay`
+only on event-type contexts; the safe judge brief exports it as
+`time_of_day`. Church facts are asked one selected garment at a time only for
+Church or a place-of-worship venue: hem, back/straps and lining for recognised
+sheer fabrics. Their values are submitted only as transient `garmentFacts`;
+The combined back/strap answer uses the closed `backOrStrapCoverage` values
+`covered`, `exposed-with-cover` and `exposed-no-cover`, rather than falsely
+asserting both separate booleans. Not sure remains unknown (omitted for
+hem/back/straps and explicit `sleeveLining: "not-sure"` for lining), so the
+deterministic guard continues to list those facts as missing. Existing garment
+`sleeveLength` is used directly, not re-asked; a known sleeveless item skips
+the sleeve-lining question. The answers reset when the occasion changes or the
+sheet closes. They are not stored, logged or sent to a provider; this does not
+change any privacy-policy data-flow fact. The judge flag remains off and no
+Gemini calls are made by the sheet.

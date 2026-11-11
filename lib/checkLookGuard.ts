@@ -10,6 +10,7 @@ export type CheckLookBriefContext =
 
 export type CheckLookDenomination = 'catholic' | 'anglican' | 'pentecostal' | 'other' | 'not-sure';
 export type CheckLookRole = 'guest' | 'family' | 'host' | 'bridal-party' | 'not-sure';
+export type CheckLookTimeOfDay = 'daytime' | 'evening' | 'not-sure';
 export type CheckLookSetChoice = string | 'none' | 'not-sure';
 export type CheckLookVenue =
   | 'restaurant' | 'upscale-restaurant' | 'workplace' | 'place-of-worship'
@@ -29,37 +30,48 @@ export type CheckLookBrief =
     }
   | {
       context: 'funeral'; announcedColours: CheckLookAnnouncedColours;
-      assignedGroupId: CheckLookSetChoice; venue?: CheckLookVenue; dressCode?: CheckLookDressCode;
+      assignedGroupId: CheckLookSetChoice; role?: CheckLookRole; denomination?: CheckLookDenomination;
+      timeOfDay?: CheckLookTimeOfDay; venue?: CheckLookVenue; dressCode?: CheckLookDressCode;
     }
   | {
       context: 'traditional-wedding' | 'owambe' | 'naming-ceremony';
-      role: CheckLookRole; asoEbiGroupId: CheckLookSetChoice;
+      role: CheckLookRole; asoEbiGroupId: CheckLookSetChoice; denomination?: CheckLookDenomination;
+      timeOfDay?: CheckLookTimeOfDay;
       venue?: CheckLookVenue; dressCode?: CheckLookDressCode;
     }
   | {
-      context: Exclude<CheckLookBriefContext,
-        'church' | 'funeral' | 'traditional-wedding' | 'owambe' | 'naming-ceremony'>;
+      context: 'wedding' | 'event'; role?: CheckLookRole; denomination?: CheckLookDenomination;
+      timeOfDay?: CheckLookTimeOfDay; venue?: CheckLookVenue; dressCode?: CheckLookDressCode;
+    }
+  | {
+      context: 'date'; denomination?: CheckLookDenomination; timeOfDay?: CheckLookTimeOfDay;
       venue?: CheckLookVenue; dressCode?: CheckLookDressCode;
+    }
+  | {
+      context: 'work' | 'interview' | 'casual' | 'travel' | 'traditional-event';
+      denomination?: CheckLookDenomination; venue?: CheckLookVenue; dressCode?: CheckLookDressCode;
     };
 
 export interface CheckLookRequest {
   selection: CheckLookSelection;
   brief: CheckLookBrief;
+  /** Transient facts for this look; never persisted by Check My Look. */
+  garmentFacts?: Readonly<Record<string, CheckLookGarmentFacts>>;
 }
 
 export interface CheckLookGarmentFacts {
   hemPosition?: 'above-knee' | 'at-or-below-knee';
   backless?: boolean;
   strapless?: boolean;
+  backOrStrapCoverage?: 'covered' | 'exposed-with-cover' | 'exposed-no-cover';
   modestForChurch?: boolean;
+  sleeveLining?: 'lined' | 'sheer' | 'not-sure';
 }
 
 export interface CheckLookGuardInput extends CheckLookRequest {
   items: readonly WardrobeItem[];
   groups: readonly GarmentGroup[];
   constraints?: Partial<Constraints>;
-  /** Facts not represented by WardrobeItem remain unknown unless supplied explicitly. */
-  garmentFacts?: Readonly<Record<string, CheckLookGarmentFacts>>;
 }
 
 export interface CheckLookGuardResult {
@@ -81,6 +93,12 @@ const TROUSER_SUBTYPES = new Set(['jeans', 'trousers', 'chinos', 'wide-leg', 'jo
 
 function normaliseSubtype(value: string): string {
   return value.trim().toLowerCase().replace(/[\s_]+/g, '-');
+}
+
+export function isSheerFabric(value?: string): boolean {
+  const fabric = value?.trim().toLowerCase().replace(/[_-]+/g, ' ');
+  return !!fabric && (fabric === 'chiffon' || fabric.includes('lace') || fabric.includes('voile') ||
+    fabric === 'organza' || fabric === 'tulle' || fabric === 'mesh');
 }
 
 function isCoveringItem(item: WardrobeItem): boolean {
@@ -155,10 +173,11 @@ function checkChurch(
   failures: Set<string>,
   missing: Set<string>,
 ): void {
-  if (input.brief.context !== 'church') return;
-  const denomination = input.brief.denomination;
-  const denominationKnown = denomination !== 'not-sure' && denomination !== 'other';
-  if (denomination === 'not-sure') missing.add('church denomination');
+  if (input.brief.context !== 'church' && input.brief.venue !== 'place-of-worship') return;
+  const denomination = 'denomination' in input.brief ? input.brief.denomination : undefined;
+  const denominationKnown = denomination === 'catholic' || denomination === 'anglican' ||
+    denomination === 'pentecostal';
+  if (!denomination || denomination === 'not-sure') missing.add('church denomination');
   if (denomination === 'other') missing.add('church coverage rules for this denomination');
 
   const bodyCovered = hasWornBodyCover(items);
@@ -180,15 +199,25 @@ function checkChurch(
       missing.add(`church sleeve rule for ${label}`);
     }
 
-    if (facts?.backless === undefined) {
-      missing.add(`back coverage for ${label}`);
-    } else if (facts.backless && !bodyCovered) {
-      failures.add(`A backless piece needs a worn cover.`);
+    if (facts?.backOrStrapCoverage) {
+      if (facts.backOrStrapCoverage === 'exposed-no-cover') {
+        failures.add('An exposed back or strap needs a worn cover.');
+      }
+    } else {
+      if (facts?.backless === undefined) {
+        missing.add(`back coverage for ${label}`);
+      } else if (facts.backless && !bodyCovered) {
+        failures.add(`A backless piece needs a worn cover.`);
+      }
+      if (facts?.strapless === undefined) {
+        missing.add(`strap coverage for ${label}`);
+      } else if (facts.strapless && !bodyCovered) {
+        failures.add(`A strapless piece needs a worn cover.`);
+      }
     }
-    if (facts?.strapless === undefined) {
-      missing.add(`strap coverage for ${label}`);
-    } else if (facts.strapless && !bodyCovered) {
-      failures.add(`A strapless piece needs a worn cover.`);
+    if (item.sleeveLength !== 'sleeveless' && isSheerFabric(item.fabric) &&
+        (!facts?.sleeveLining || facts.sleeveLining === 'not-sure')) {
+      missing.add(`sleeve lining for ${label}`);
     }
   }
 
@@ -297,11 +326,6 @@ export function guardCheckLook(input: CheckLookGuardInput): CheckLookGuardResult
   ) {
     if (input.brief.role === 'not-sure') missing.add('your role at this occasion');
     checkAssignedSet(input.brief.asoEbiGroupId, 'assigned aso-ebi', input, items, failures, missing);
-  }
-
-  if (input.brief.context === 'church' && input.brief.denomination === 'not-sure') {
-    // The denomination is required even when no garment rule can be evaluated.
-    missing.add('church denomination');
   }
 
   return {

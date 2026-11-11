@@ -24,11 +24,14 @@ import {
   type CheckLookBriefContext,
   type CheckLookDenomination,
   type CheckLookDressCode,
+  type CheckLookGarmentFacts,
   type CheckLookGuardResult,
   type CheckLookRequest,
   type CheckLookRole,
   type CheckLookSetChoice,
+  type CheckLookTimeOfDay,
   type CheckLookVenue,
+  isSheerFabric,
 } from '@/lib/checkLookGuard';
 
 export type { CheckLookResult } from '@/lib/checkLook';
@@ -102,6 +105,38 @@ const ROLE_OPTIONS: { value: CheckLookRole; label: string }[] = [
   { value: 'bridal-party', label: 'Bridal party' },
   { value: 'not-sure', label: 'Not sure' },
 ];
+const TIME_OF_DAY_OPTIONS: { value: CheckLookTimeOfDay; label: string }[] = [
+  { value: 'daytime', label: 'Daytime' },
+  { value: 'evening', label: 'Evening' },
+  { value: 'not-sure', label: 'Not sure' },
+];
+const HEM_OPTIONS = [
+  { id: 'above-knee', label: 'Above the knee', value: 'above-knee' },
+  { id: 'at-knee', label: 'At the knee', value: 'at-or-below-knee' },
+  { id: 'below-knee', label: 'Below the knee', value: 'at-or-below-knee' },
+  { id: 'floor-length', label: 'Floor length', value: 'at-or-below-knee' },
+  { id: 'not-sure', label: 'Not sure', value: 'not-sure' },
+] as const;
+const BACK_STRAP_OPTIONS = [
+  { id: 'covered', label: 'Covered', value: 'covered' },
+  { id: 'covered-layer', label: 'Backless or strapless, cover worn', value: 'covered-layer' },
+  { id: 'no-cover', label: 'Backless or strapless, no cover', value: 'no-cover' },
+  { id: 'not-sure', label: 'Not sure', value: 'not-sure' },
+] as const;
+const SLEEVE_LINING_OPTIONS = [
+  { id: 'lined', label: 'Lined', value: 'lined' },
+  { id: 'sheer', label: 'Sheer, no lining', value: 'sheer' },
+  { id: 'not-sure', label: 'Not sure', value: 'not-sure' },
+] as const;
+type ChurchFact = 'hemPosition' | 'backAndStraps' | 'sleeveLining';
+type ChurchFactAnswers = Partial<Record<ChurchFact, string>>;
+type ChurchQuestion = { item: WardrobeItem; fact: ChurchFact };
+const TIME_OF_DAY_CONTEXTS = new Set<CheckLookBriefContext>([
+  'wedding', 'traditional-wedding', 'owambe', 'naming-ceremony', 'funeral', 'event', 'date',
+]);
+const SKIRT_SUBTYPES = new Set([
+  'mini-skirt', 'midi-skirt', 'maxi-skirt', 'pencil-skirt', 'wrapper', 'iro', 'double-wrapper',
+]);
 const VENUE_OPTIONS: { value: CheckLookVenue; label: string }[] = [
   { value: 'restaurant', label: 'Restaurant' },
   { value: 'upscale-restaurant', label: 'Upmarket restaurant' },
@@ -164,10 +199,12 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   const [selection, setSelection] = useState<LocalSelection>(EMPTY_SELECTION);
   const [occasion, setOccasion] = useState<OccasionTag>('casual');
   const [briefContext, setBriefContext] = useState<CheckLookBriefContext>('casual');
+  const [occasionChosen, setOccasionChosen] = useState(false);
   const [denomination, setDenomination] = useState<CheckLookDenomination>('not-sure');
   const [announcedColours, setAnnouncedColours] = useState<CheckLookAnnouncedColours>({ kind: 'not-sure' });
   const [funeralGroupId, setFuneralGroupId] = useState<CheckLookSetChoice>('not-sure');
   const [role, setRole] = useState<CheckLookRole>('not-sure');
+  const [timeOfDay, setTimeOfDay] = useState<CheckLookTimeOfDay>('not-sure');
   const [asoEbiGroupId, setAsoEbiGroupId] = useState<CheckLookSetChoice>('not-sure');
   const [venue, setVenue] = useState<CheckLookVenue>('not-sure');
   const [dressCode, setDressCode] = useState<CheckLookDressCode>('not-sure');
@@ -175,6 +212,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   const [guardFeedback, setGuardFeedback] = useState<CheckLookGuardResult | null>(null);
   const [temperatureOverride, setTemperatureOverride] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<SlotKey | null>(null);
+  const [churchFactAnswers, setChurchFactAnswers] = useState<Record<string, ChurchFactAnswers>>({});
 
   const selectedIds = useMemo(
     () => SLOT_CONFIG.map(slot => selection[slot.key])
@@ -185,6 +223,28 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
     () => selectedIds.map(id => props.items.find(item => item.id === id)).filter((item): item is WardrobeItem => Boolean(item)),
     [selectedIds, props.items],
   );
+  const churchQuestions = useMemo<ChurchQuestion[]>(() => {
+    if (!occasionChosen || (briefContext !== 'church' && venue !== 'place-of-worship')) return [];
+    return selectedItems.flatMap(item => {
+      const answered = churchFactAnswers[item.id] ?? {};
+      const questions: ChurchQuestion[] = [];
+      const subtype = item.subType.trim().toLowerCase().replace(/[\s_]+/g, '-');
+      const isSkirt = item.category === 'bottom' && SKIRT_SUBTYPES.has(subtype);
+      if ((item.category === 'dress' || isSkirt) && answered.hemPosition === undefined) {
+        questions.push({ item, fact: 'hemPosition' });
+      }
+      if ((item.category === 'top' || item.category === 'dress') &&
+          answered.backAndStraps === undefined) {
+        questions.push({ item, fact: 'backAndStraps' });
+      }
+      if ((item.category === 'top' || item.category === 'dress') &&
+          item.sleeveLength !== 'sleeveless' && isSheerFabric(item.fabric) &&
+          answered.sleeveLining === undefined) {
+        questions.push({ item, fact: 'sleeveLining' });
+      }
+      return questions;
+    });
+  }, [occasionChosen, briefContext, venue, selectedItems, churchFactAnswers]);
   const selectedCategories = new Set(selectedItems.map(item => item.category));
   const hasBaseLook = selectedCategories.has('dress') ||
     (selectedCategories.has('top') && selectedCategories.has('bottom'));
@@ -243,35 +303,45 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
       if (slot === 'top' || slot === 'bottom') next.dress = null;
     }
     changeSelection(next);
+    const retainedIds = new Set(Object.values(next).filter((id): id is string => Boolean(id)));
+    setChurchFactAnswers(current => Object.fromEntries(
+      Object.entries(current).filter(([id]) => retainedIds.has(id)),
+    ));
   };
 
   const handleOccasion = (option: (typeof OCCASIONS)[number]) => {
     setOccasion(option.value);
     setBriefContext(option.context);
+    setOccasionChosen(true);
     setDenomination('not-sure');
     setAnnouncedColours({ kind: 'not-sure' });
     setFuneralGroupId('not-sure');
     setRole('not-sure');
+    setTimeOfDay('not-sure');
     setAsoEbiGroupId('not-sure');
     setVenue('not-sure');
     setDressCode('not-sure');
     setExpandedBriefField(null);
     setGuardFeedback(null);
+    setChurchFactAnswers({});
     props.onClearResult();
   };
 
   const handleClose = () => {
     setOccasion('casual');
     setBriefContext('casual');
+    setOccasionChosen(false);
     setDenomination('not-sure');
     setAnnouncedColours({ kind: 'not-sure' });
     setFuneralGroupId('not-sure');
     setRole('not-sure');
+    setTimeOfDay('not-sure');
     setAsoEbiGroupId('not-sure');
     setVenue('not-sure');
     setDressCode('not-sure');
     setExpandedBriefField(null);
     setGuardFeedback(null);
+    setChurchFactAnswers({});
     props.onClose();
   };
 
@@ -284,15 +354,48 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
 
   const currentBrief = (): CheckLookBrief => {
     const details = { venue, dressCode };
+    const churchDetails = briefContext === 'church' || venue === 'place-of-worship'
+      ? { denomination } : {};
+    const timeDetails = TIME_OF_DAY_CONTEXTS.has(briefContext) ? { timeOfDay } : {};
     if (briefContext === 'church') return { context: 'church', denomination, ...details };
     if (briefContext === 'funeral') {
-      return { context: 'funeral', announcedColours, assignedGroupId: funeralGroupId, ...details };
+      return {
+        context: 'funeral', announcedColours, assignedGroupId: funeralGroupId, role,
+        ...churchDetails, ...timeDetails, ...details,
+      };
     }
     if (briefContext === 'traditional-wedding' || briefContext === 'owambe' ||
         briefContext === 'naming-ceremony') {
-      return { context: briefContext, role, asoEbiGroupId, ...details };
+      return { context: briefContext, role, asoEbiGroupId, ...churchDetails, ...timeDetails, ...details };
     }
-    return { context: briefContext, ...details };
+    if (briefContext === 'wedding') {
+      return { context: briefContext, role, ...churchDetails, ...timeDetails, ...details };
+    }
+    return { context: briefContext, ...churchDetails, ...timeDetails, ...details } as CheckLookBrief;
+  };
+
+  const requestGarmentFacts = (): Record<string, CheckLookGarmentFacts> => {
+    const facts: Record<string, CheckLookGarmentFacts> = {};
+    const selectedIdSet = new Set(selectedItems.map(item => item.id));
+    for (const [itemId, answers] of Object.entries(churchFactAnswers)) {
+      if (!selectedIdSet.has(itemId)) continue;
+      const itemFacts: CheckLookGarmentFacts = {};
+      if (answers.hemPosition === 'above-knee') itemFacts.hemPosition = 'above-knee';
+      else if (['at-knee', 'below-knee', 'floor-length'].includes(answers.hemPosition ?? '')) {
+        itemFacts.hemPosition = 'at-or-below-knee';
+      }
+      if (answers.backAndStraps === 'covered') itemFacts.backOrStrapCoverage = 'covered';
+      else if (answers.backAndStraps === 'covered-layer') {
+        itemFacts.backOrStrapCoverage = 'exposed-with-cover';
+      } else if (answers.backAndStraps === 'no-cover') {
+        itemFacts.backOrStrapCoverage = 'exposed-no-cover';
+      }
+      if (answers.sleeveLining === 'lined' || answers.sleeveLining === 'sheer') {
+        itemFacts.sleeveLining = answers.sleeveLining;
+      } else if (answers.sleeveLining === 'not-sure') itemFacts.sleeveLining = 'not-sure';
+      if (Object.keys(itemFacts).length) facts[itemId] = itemFacts;
+    }
+    return facts;
   };
 
   const submit = () => {
@@ -309,19 +412,24 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
       ...(parsedTemperature === undefined ? {} : { temperatureC: parsedTemperature }),
     };
     const brief = currentBrief();
+    const garmentFacts = requestGarmentFacts();
     const outcome = guardCheckLook({
       selection: nextSelection,
       brief,
       items: props.items,
       groups: props.groups,
       constraints: props.constraints,
+      garmentFacts,
     });
     if (!outcome.pass) {
       setGuardFeedback(outcome);
       return;
     }
     setGuardFeedback(null);
-    props.onCheck({ selection: nextSelection, brief });
+    props.onCheck({
+      selection: nextSelection, brief,
+      ...(Object.keys(garmentFacts).length ? { garmentFacts } : {}),
+    });
   };
 
   const checkDisabled = props.membershipLoading || props.membershipUnavailable ||
@@ -375,12 +483,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   );
 
   const renderedBriefFields = () => {
-    if (briefContext === 'church') {
-      return renderChoiceField(
-        'denomination', 'Denomination', denomination, DENOMINATION_OPTIONS,
-        value => setDenomination(value as CheckLookDenomination),
-      );
-    }
+    if (!occasionChosen) return null;
     if (briefContext === 'funeral') {
       const colourSummary = announcedColours.kind === 'not-sure'
         ? 'Not sure'
@@ -466,6 +569,14 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
             'funeral-set', 'Assigned group fabric', funeralGroupId, setOptions,
             value => setFuneralGroupId(value as CheckLookSetChoice),
           )}
+          {renderChoiceField(
+            'occasion-role', 'Your role', role, ROLE_OPTIONS,
+            value => setRole(value as CheckLookRole),
+          )}
+          {TIME_OF_DAY_CONTEXTS.has(briefContext) && renderChoiceField(
+            'time-of-day', 'Time of day', timeOfDay, TIME_OF_DAY_OPTIONS,
+            value => setTimeOfDay(value as CheckLookTimeOfDay),
+          )}
           <Text style={styles.briefHelper}>Choose every colour the family announced.</Text>
         </View>
       );
@@ -473,7 +584,8 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
     if (
       briefContext === 'traditional-wedding' ||
       briefContext === 'owambe' ||
-      briefContext === 'naming-ceremony'
+      briefContext === 'naming-ceremony' ||
+      briefContext === 'wedding'
     ) {
       return (
         <View style={styles.briefBlock}>
@@ -481,14 +593,95 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
             'occasion-role', 'Your role', role, ROLE_OPTIONS,
             value => setRole(value as CheckLookRole),
           )}
-          {renderChoiceField(
-            'aso-ebi-set', 'Assigned aso-ebi', asoEbiGroupId, setOptions,
-            value => setAsoEbiGroupId(value as CheckLookSetChoice),
+          {briefContext !== 'wedding' && renderChoiceField(
+              'aso-ebi-set', 'Assigned aso-ebi', asoEbiGroupId, setOptions,
+              value => setAsoEbiGroupId(value as CheckLookSetChoice),
+            )}
+          {TIME_OF_DAY_CONTEXTS.has(briefContext) && renderChoiceField(
+            'time-of-day', 'Time of day', timeOfDay, TIME_OF_DAY_OPTIONS,
+            value => setTimeOfDay(value as CheckLookTimeOfDay),
           )}
         </View>
       );
     }
+    if (TIME_OF_DAY_CONTEXTS.has(briefContext)) {
+      return renderChoiceField(
+        'time-of-day', 'Time of day', timeOfDay, TIME_OF_DAY_OPTIONS,
+        value => setTimeOfDay(value as CheckLookTimeOfDay),
+      );
+    }
     return null;
+  };
+  const renderedChurchFacts = () => {
+    if (!occasionChosen || (briefContext !== 'church' && venue !== 'place-of-worship')) return null;
+    const question = churchQuestions[0];
+    const options = question?.fact === 'hemPosition' ? HEM_OPTIONS
+      : question?.fact === 'backAndStraps' ? BACK_STRAP_OPTIONS
+        : question?.fact === 'sleeveLining' ? SLEEVE_LINING_OPTIONS : [];
+    const questionId = question ? `fact-${question.item.id}-${question.fact}` : '';
+    const selectedAnswer = question ? churchFactAnswers[question.item.id]?.[question.fact] : undefined;
+    const answerLabel = question
+      ? options.find(option => option.id === selectedAnswer)?.label ?? 'Choose an answer'
+      : '';
+    return (
+      <View style={styles.briefBlock}>
+        {renderChoiceField(
+          'denomination', 'Denomination', denomination, DENOMINATION_OPTIONS,
+          value => setDenomination(value as CheckLookDenomination),
+        )}
+        {question && (
+          <View testID={`check-my-look-fact-question-${question.item.id}-${question.fact}`} style={styles.factQuestion}>
+            <Pressable
+              testID={`check-my-look-${questionId}-field`}
+              accessibilityRole="button"
+              accessibilityLabel={`${question.fact === 'hemPosition'
+                ? `Where does the hem fall on ${itemName(question.item)}?`
+                : question.fact === 'backAndStraps'
+                  ? `Is the back or strap exposed on ${itemName(question.item)}?`
+                  : `Is ${itemName(question.item)} lined?`}: ${answerLabel}`}
+              accessibilityState={{ expanded: expandedBriefField === questionId }}
+              onPress={() => setExpandedBriefField(expandedBriefField === questionId ? null : questionId)}
+              style={styles.briefFieldHeader}
+            >
+              <Text style={styles.briefFieldLabel}>
+                {question.fact === 'hemPosition'
+                  ? `Where does the hem fall on ${itemName(question.item)}?`
+                  : question.fact === 'backAndStraps'
+                    ? `Is the back or strap exposed on ${itemName(question.item)}?`
+                    : `Is ${itemName(question.item)} lined?`}
+              </Text>
+              <Text style={styles.briefFieldValue}>{answerLabel}</Text>
+            </Pressable>
+            {expandedBriefField === questionId && (
+              <View style={styles.briefChips}>
+                {options.map(option => (
+                  <Pressable
+                    key={option.id}
+                    testID={`check-my-look-fact-${question.item.id}-${question.fact}-${option.id}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedAnswer === option.id }}
+                    onPress={() => {
+                      setChurchFactAnswers(current => ({
+                        ...current,
+                        [question.item.id]: { ...current[question.item.id], [question.fact]: option.id },
+                      }));
+                      setExpandedBriefField(null);
+                      setGuardFeedback(null);
+                      props.onClearResult();
+                    }}
+                    style={[styles.briefChip, selectedAnswer === option.id && styles.briefChipSelected]}
+                  >
+                    <Text style={[styles.briefChipText, selectedAnswer === option.id && styles.briefChipTextSelected]}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    );
   };
   const verdictColor = props.result?.verdict === 'Works'
     ? Colors.success
@@ -675,6 +868,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                   value => setDressCode(value as CheckLookDressCode),
                 )}
               </View>
+              {renderedChurchFacts()}
 
               <View style={styles.weatherRow}>
                 <View style={styles.weatherCopy}>
@@ -942,6 +1136,12 @@ const styles = StyleSheet.create({
   occasionText: { color: Colors.textSecondary, fontFamily: 'Inter_500Medium', fontSize: 12 },
   occasionTextSelected: { color: Colors.textOnDark },
   briefBlock: { marginTop: 8, gap: 8 },
+  factQuestion: {
+    gap: 9,
+    paddingVertical: 9,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
   briefField: {
     borderWidth: 1,
     borderColor: Colors.border,

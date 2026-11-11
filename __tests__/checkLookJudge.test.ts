@@ -60,6 +60,22 @@ async function adapterTests() {
   assert.equal(judgeRequestSchema.safeParse({
     ...input, brief: { context: "interview", dressCode: "relaxed-ish" },
   }).success, false, "dress-code text is restricted to known choices");
+  for (const brief of [
+    { context: "wedding", role: "guest", timeOfDay: "evening" },
+    { context: "funeral", role: "family", timeOfDay: "daytime", announcedColours: { kind: "none" }, assignedGroupId: "none" },
+    { context: "event", role: "host", timeOfDay: "not-sure" },
+    { context: "traditional-wedding", role: "bridal-party", timeOfDay: "daytime", asoEbiGroupId: "none" },
+    { context: "date", timeOfDay: "evening" },
+  ]) {
+    assert.equal(judgeRequestSchema.safeParse({ ...input, brief }).success, true,
+      `${brief.context} accepts its optional role/time-of-day fields`);
+  }
+  assert.equal(judgeRequestSchema.safeParse({
+    ...input, brief: { context: "work", timeOfDay: "evening" },
+  }).success, false, "time of day is not accepted outside event-type contexts");
+  assert.equal(judgeRequestSchema.safeParse({
+    ...input, brief: { context: "work", denomination: "anglican" },
+  }).success, false, "a denomination is only accepted for church or place-of-worship context");
   const qualifiedBrief = judgeRequestSchema.parse({
     ...input,
     brief: { context: "interview", venue: "upscale-restaurant", dressCode: "conservative" },
@@ -71,11 +87,49 @@ async function adapterTests() {
   );
   const unsafeBriefText = exportJudgeText({
     ...input,
-    brief: { context: "work", venue: "Private venue", dressCode: "Private dress code" } as any,
+    brief: {
+      context: "work", venue: "Private venue", dressCode: "Private dress code",
+      role: "Private role", timeOfDay: "custom",
+    } as any,
   }, [top, bottom], [], {});
   assert.ok(!unsafeBriefText.includes("Private"), "the exporter also allowlists qualifiers independently of the request parser");
   assert.match(unsafeBriefText, /"venue":null/);
   assert.match(unsafeBriefText, /"dress_code":null/);
+  assert.match(unsafeBriefText, /"role":null/);
+  assert.match(unsafeBriefText, /"time_of_day":null/);
+  const timedWedding = judgeRequestSchema.parse({
+    ...input,
+    brief: { context: "wedding", venue: "outdoors", role: "guest", timeOfDay: "evening" },
+  });
+  const timedWeddingText = exportJudgeText(timedWedding, [top, bottom], [], {});
+  assert.match(timedWeddingText,
+    /"context":"wedding","venue":"outdoors","dress_code":null,"denomination":null,"role":"guest","announced_colours":null,"time_of_day":"evening","assigned_set":null/);
+  const owambeBrief = judgeRequestSchema.parse({
+    ...input,
+    brief: { context: "owambe", role: "guest", asoEbiGroupId: "none", timeOfDay: "evening" },
+  });
+  assert.match(exportJudgeText(owambeBrief, [top, bottom], [], {}),
+    /"context":"owambe","venue":null,"dress_code":null,"denomination":null,"role":"guest","announced_colours":null,"time_of_day":"evening","assigned_set":"none"/);
+  const worshipBrief = judgeRequestSchema.parse({
+    ...input,
+    brief: { context: "event", venue: "place-of-worship", denomination: "anglican", timeOfDay: "daytime" },
+  });
+  assert.deepEqual(judgeGuard(worshipBrief, [top, bottom], [], {}).missing,
+    ["back coverage for the selected top", "strap coverage for the selected top"],
+    "a place-of-worship venue enables the church fact guard");
+  const liningFactsText = exportJudgeText({
+    ...input,
+    brief: { context: "church", denomination: "anglican" },
+    garmentFacts: { [topId]: { backless: false, strapless: false, sleeveLining: "not-sure" } },
+  }, [{ ...top, fabric: "lace" }, bottom], [], {});
+  assert.match(liningFactsText, /sleeve lining unknown/);
+  const combinedCoverageRequest = judgeRequestSchema.parse({
+    ...input,
+    brief: { context: "church", denomination: "anglican" },
+    garmentFacts: { [topId]: { backOrStrapCoverage: "exposed-with-cover" } },
+  });
+  assert.match(exportJudgeText(combinedCoverageRequest, [top, bottom], [], {}),
+    /back\/strap coverage exposed-with-cover/);
   const canonicalColours: Array<[string, string]> = [
     ["ivory", "ivory"], ["wine", "wine"], ["royal blue", "royal blue"], ["emerald", "emerald"],
     ["champagne", "champagne"], ["nude", "nude"], ["tan", "tan"], ["lilac", "lilac"],

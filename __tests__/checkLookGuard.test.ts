@@ -68,6 +68,16 @@ const otherChurch = run({
 });
 assert.ok(otherChurch.missing.includes('church coverage rules for this denomination'));
 
+const venueChurchMissing = run(
+  { context: 'event', venue: 'place-of-worship' },
+  { garmentFacts: { top: { backless: false, strapless: false } } },
+);
+assert.ok(venueChurchMissing.missing.includes('church denomination'));
+assert.ok(run(
+  { context: 'event', venue: 'place-of-worship', denomination: 'anglican' },
+  { garmentFacts: { top: { backless: false, strapless: false } } },
+).pass, 'a place-of-worship venue applies church coverage checks');
+
 const catholicSleeveless = run(
   { context: 'church', denomination: 'catholic' },
   {
@@ -162,6 +172,67 @@ const straplessNoCover = run(
   },
 );
 assert.ok(straplessNoCover.failures.some(value => value.includes('strapless')));
+
+for (const coverage of ['covered', 'exposed-with-cover', 'exposed-no-cover'] as const) {
+  const combinedCoverage = run({ context: 'church', denomination: 'anglican' }, {
+    garmentFacts: { top: { backOrStrapCoverage: coverage } },
+  });
+  assert.equal(combinedCoverage.missing.some(value =>
+    value.includes('back coverage') || value.includes('strap coverage')), false);
+  assert.equal(
+    combinedCoverage.failures.includes('An exposed back or strap needs a worn cover.'),
+    coverage === 'exposed-no-cover',
+  );
+}
+
+const sheerDress = item('sheer-dress', 'dress', 'gown', {
+  fabric: 'Swiss voile' as WardrobeItem['fabric'], sleeveLength: 'long',
+});
+const missingLining = run({ context: 'church', denomination: 'anglican' }, {
+  selection: { itemIds: ['sheer-dress'], occasion: 'event' },
+  items: [sheerDress],
+  garmentFacts: { 'sheer-dress': { hemPosition: 'at-or-below-knee', backless: false, strapless: false } },
+});
+assert.ok(missingLining.missing.includes('sleeve lining for the selected dress'));
+const unknownLining = run({ context: 'church', denomination: 'anglican' }, {
+  selection: { itemIds: ['sheer-dress'], occasion: 'event' },
+  items: [sheerDress],
+  garmentFacts: {
+    'sheer-dress': {
+      hemPosition: 'at-or-below-knee', backless: false, strapless: false, sleeveLining: 'not-sure',
+    },
+  },
+});
+assert.ok(unknownLining.missing.includes('sleeve lining for the selected dress'),
+  'Not sure keeps the lining fact unknown');
+const linedDress = run({ context: 'church', denomination: 'anglican' }, {
+  selection: { itemIds: ['sheer-dress'], occasion: 'event' },
+  items: [sheerDress],
+  garmentFacts: {
+    'sheer-dress': {
+      hemPosition: 'at-or-below-knee', backless: false, strapless: false, sleeveLining: 'lined',
+    },
+  },
+});
+assert.equal(linedDress.pass, true);
+const sleevelessSheerDress = item('sleeveless-sheer', 'dress', 'gown', {
+  fabric: 'Swiss voile' as WardrobeItem['fabric'], sleeveLength: 'sleeveless',
+});
+const sleevelessDoesNotAskForLining = run({ context: 'church', denomination: 'anglican' }, {
+  selection: { itemIds: ['sleeveless-sheer'], occasion: 'event' },
+  items: [sleevelessSheerDress],
+  garmentFacts: {
+    'sleeveless-sheer': { hemPosition: 'at-or-below-knee', backless: false, strapless: false },
+  },
+});
+assert.equal(sleevelessDoesNotAskForLining.missing.some(value => value.includes('sleeve lining')), false,
+  'a known sleeveless garment does not prompt for sleeve lining');
+assert.equal(run({ context: 'church', denomination: 'anglican' }, {
+  selection: { itemIds: ['dress'], occasion: 'event' },
+  items: [item('dress', 'dress', 'gown', { fabric: 'cotton', sleeveLength: 'sleeveless' })],
+  garmentFacts: { dress: { hemPosition: 'at-or-below-knee', backless: false, strapless: false } },
+}).missing.some(value => value.includes('sleeve length')), false,
+'a known sleeve length is not requested as an additional fact');
 
 const noSleeveless = run({ context: 'work' }, {
   items: [item('top', 'top', 'blouse', { sleeveLength: 'sleeveless' }), bottom],
