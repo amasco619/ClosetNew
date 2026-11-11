@@ -238,11 +238,12 @@ async function main() {
     await unmount();
   } finally { Date.now = realNow; }
 
-  for (const fact of ['denomination', 'assigned_set', 'announced_colours', 'hem_position', 'sleeve_lining']) {
-    handler = reply({ verdict: 'Ask', reason: 'A detail is missing.', question: 'Could you confirm this detail?',
+  for (const fact of ['denomination', 'assigned_set', 'announced_colours', 'hem_position', 'sleeve_lining', 'sleeve_length']) {
+    handler = reply({ verdict: 'Ask', reason: 'A detail is missing.',
+      question: fact === 'sleeve_length' ? 'How long are the sleeves on this piece?' : 'Could you confirm this detail?',
       missing_fact: fact, swapSuggestion: null });
     await mount(true);
-    if (fact === 'denomination' || fact === 'hem_position' || fact === 'sleeve_lining') {
+    if (fact === 'denomination' || fact === 'hem_position' || fact === 'sleeve_lining' || fact === 'sleeve_length') {
       await press('check-my-look-occasion-church');
       assert.equal(node('check-my-look-submit').props.disabled, true, 'required choice is not preselected');
       await press('check-my-look-brief-denomination');
@@ -262,7 +263,9 @@ async function main() {
     }
     assert.equal(node('check-my-look-submit').props.disabled, false, 'Not sure counts as chosen');
     await submit();
-    assert.match(text(), /Could you confirm this detail/);
+    assert.match(text(), fact === 'sleeve_length'
+      ? /How long are the sleeves on this piece\?/
+      : /Could you confirm this detail/);
     assert.doesNotMatch(text(), /Not judged|A detail is missing/);
     handler = reply({ verdict: 'Works', reason: 'Thank you.', swapSuggestion: null });
     if (fact === 'denomination') await press('check-my-look-answer-anglican');
@@ -274,12 +277,20 @@ async function main() {
       await press('check-my-look-answer-colours-confirm');
     }
     else if (fact === 'hem_position') await press(`check-my-look-answer-${dress.id}-below-knee`);
-    else await press(`check-my-look-answer-${top.id}-lined`);
+    else if (fact === 'sleeve_lining') await press(`check-my-look-answer-${top.id}-lined`);
+    else if (fact === 'sleeve_length') {
+      assert.match(text(), /How long are the sleeves on this piece\?/);
+      for (const value of ['sleeveless', 'short', 'three-quarter', 'long', 'not-sure']) {
+        assert.ok(node(`check-my-look-answer-${top.id}-${value}`), `${value} sleeve answer is shown`);
+      }
+      await press(`check-my-look-answer-${top.id}-short`);
+    }
     assert.equal(calls.length, 2);
     if (fact === 'denomination') assert.equal((latestRequest!.brief as any).denomination, 'anglican');
     if (fact === 'assigned_set') assert.equal((latestRequest!.brief as any).assignedGroupId, 'none');
     if (fact === 'announced_colours') assert.deepEqual((latestRequest!.brief as any).announcedColours, { kind: 'colours', values: ['black', 'white'] });
     if (fact === 'sleeve_lining') assert.equal(latestRequest!.garmentFacts?.[top.id].sleeveLining, 'lined');
+    if (fact === 'sleeve_length') assert.equal(latestRequest!.garmentFacts?.[top.id].sleeveLength, 'short');
     if (fact === 'hem_position') assert.equal(latestRequest!.garmentFacts?.[dress.id].hemPosition, 'at-or-below-knee');
     await unmount();
   }

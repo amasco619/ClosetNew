@@ -127,14 +127,21 @@ const SLEEVE_LINING_OPTIONS = [
   { id: 'sheer', label: 'Sheer, no lining', value: 'sheer' },
   { id: 'not-sure', label: 'Not sure', value: 'not-sure' },
 ] as const;
-type ChurchFact = 'hemPosition' | 'backAndStraps' | 'sleeveLining';
+const SLEEVE_LENGTH_OPTIONS = [
+  { id: 'sleeveless', label: 'Sleeveless', value: 'sleeveless' },
+  { id: 'short', label: 'Short', value: 'short' },
+  { id: 'three-quarter', label: 'Three-quarter', value: 'three-quarter' },
+  { id: 'long', label: 'Long', value: 'long' },
+  { id: 'not-sure', label: 'Not sure', value: 'not-sure' },
+] as const;
+type ChurchFact = 'hemPosition' | 'backAndStraps' | 'sleeveLining' | 'sleeveLength';
 type ChurchFactAnswers = Partial<Record<ChurchFact, string>>;
 type ChurchQuestion = { item: WardrobeItem; fact: ChurchFact };
 const TIME_OF_DAY_CONTEXTS = new Set<CheckLookBriefContext>([
   'wedding', 'traditional-wedding', 'owambe', 'naming-ceremony', 'funeral', 'event', 'date',
 ]);
 const SKIRT_SUBTYPES = new Set([
-  'mini-skirt', 'midi-skirt', 'maxi-skirt', 'pencil-skirt', 'wrapper', 'iro', 'double-wrapper',
+  'mini-skirt', 'midi-skirt', 'maxi-skirt', 'pencil-skirt', 'wrapper', 'iro', 'double-wrapper', 'shorts',
 ]);
 const VENUE_OPTIONS: { value: CheckLookVenue; label: string }[] = [
   { value: 'restaurant', label: 'Restaurant' },
@@ -395,6 +402,9 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
       if (answers.sleeveLining === 'lined' || answers.sleeveLining === 'sheer') {
         itemFacts.sleeveLining = answers.sleeveLining;
       } else if (answers.sleeveLining === 'not-sure') itemFacts.sleeveLining = 'not-sure';
+      if (['sleeveless', 'short', 'three-quarter', 'long', 'not-sure'].includes(answers.sleeveLength ?? '')) {
+        itemFacts.sleeveLength = answers.sleeveLength as NonNullable<CheckLookGarmentFacts['sleeveLength']>;
+      }
       if (Object.keys(itemFacts).length) facts[itemId] = itemFacts;
     }
     return facts;
@@ -689,6 +699,11 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
         setChurchFactAnswers(current => ({
           ...current, [itemId]: { ...current[itemId], hemPosition: value },
         }));
+      } else if (fact === 'sleeve_length') {
+        next.sleeveLength = value as NonNullable<CheckLookGarmentFacts['sleeveLength']>;
+        setChurchFactAnswers(current => ({
+          ...current, [itemId]: { ...current[itemId], sleeveLength: value },
+        }));
       } else {
         next.sleeveLining = value as 'lined' | 'sheer' | 'not-sure';
         setChurchFactAnswers(current => ({
@@ -716,7 +731,9 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
         ] : [];
     const targets = selectedItems.filter(item => fact === 'hem_position'
       ? item.category === 'dress' || (item.category === 'bottom' && SKIRT_SUBTYPES.has(item.subType))
-      : item.category === 'top' || item.category === 'dress');
+      : fact === 'sleeve_length'
+        ? item.category === 'top' || item.category === 'dress' || item.category === 'outerwear'
+        : item.category === 'top' || item.category === 'dress');
     return (
       <View testID="check-my-look-ask" style={styles.resultSection}>
         <Text style={styles.resultLine}>{result.question}</Text>
@@ -749,11 +766,12 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
             <Text style={styles.retryText}>Check with these colours</Text>
           </Pressable>
         )}
-        {(fact === 'hem_position' || fact === 'sleeve_lining') && targets.map(item => (
+        {(fact === 'hem_position' || fact === 'sleeve_lining' || fact === 'sleeve_length') && targets.map(item => (
           <View key={item.id}>
             <Text style={styles.helper}>{itemName(item)}</Text>
             <View style={styles.briefChips}>
-              {(fact === 'hem_position' ? HEM_OPTIONS : SLEEVE_LINING_OPTIONS).map(option => (
+              {(fact === 'hem_position' ? HEM_OPTIONS
+                : fact === 'sleeve_length' ? SLEEVE_LENGTH_OPTIONS : SLEEVE_LINING_OPTIONS).map(option => (
                 <Pressable key={option.id} testID={`check-my-look-answer-${item.id}-${option.id}`}
                   accessibilityRole="button" disabled={props.checking}
                   onPress={() => answerJudgeQuestion(fact, option.id, item.id)} style={styles.briefChip}>

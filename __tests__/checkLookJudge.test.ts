@@ -67,6 +67,12 @@ async function adapterTests() {
   assert.equal(judgeRequestSchema.safeParse({
     ...input, brief: { context: "interview", dressCode: "relaxed-ish" },
   }).success, false, "dress-code text is restricted to known choices");
+  assert.equal(judgeRequestSchema.safeParse({
+    ...input, garmentFacts: { [topId]: { sleeveLength: "three-quarter" } },
+  }).success, true, "the route accepts the selected sleeve-length answer");
+  assert.equal(judgeRequestSchema.safeParse({
+    ...input, garmentFacts: { [topId]: { sleeveLength: "elbow" } },
+  }).success, false, "sleeve-length answers are restricted to garment tokens and not-sure");
   for (const brief of [
     { context: "wedding", role: "guest", timeOfDay: "evening" },
     { context: "funeral", role: "family", timeOfDay: "daytime", announcedColours: { kind: "none" }, assignedGroupId: "none" },
@@ -436,6 +442,31 @@ async function main() {
   assert.equal(guard.flags.length, 1, "Pentecostal above-knee hem is a flag, not a block");
   const coverage = judgeGuard(churchDress, [dress], [], { noShortSkirts: true });
   assert.ok(coverage.failures.length > 0, "the separate personal coverage preference still applies");
+  const sleeveUnknown = judgeRequestSchema.parse({
+    selection: { itemIds: [topId], occasion: "work" },
+    brief: { context: "work" },
+  });
+  const missingSleeve = { ...top, sleeveLength: undefined };
+  assert.ok(judgeGuard(sleeveUnknown, [missingSleeve], [], { minimumSleeveLength: "short" })
+    .missing.includes("sleeve length required by your coverage preference"));
+  const answeredSleeve = judgeRequestSchema.parse({
+    ...sleeveUnknown, garmentFacts: { [topId]: { sleeveLength: "long" } },
+  });
+  assert.match(exportJudgeText(answeredSleeve, [missingSleeve], [], {}), /sleeves long/);
+  assert.deepEqual(judgeGuard(answeredSleeve, [missingSleeve], [], { minimumSleeveLength: "short" }),
+    { pass: true, failures: [], missing: [], flags: [] },
+    "the explicitly supplied sleeve answer resolves the missing-fact guard");
+  const shortSleeve = judgeRequestSchema.parse({
+    ...sleeveUnknown, garmentFacts: { [topId]: { sleeveLength: "short" } },
+  });
+  assert.ok(judgeGuard(shortSleeve, [missingSleeve], [], { minimumSleeveLength: "long" })
+    .failures.includes("Sleeve shorter than your preference"));
+  const unsureSleeve = judgeRequestSchema.parse({
+    ...sleeveUnknown, garmentFacts: { [topId]: { sleeveLength: "not-sure" } },
+  });
+  assert.ok(judgeGuard(unsureSleeve, [missingSleeve], [], { minimumSleeveLength: "short" })
+    .missing.includes("sleeve length required by your coverage preference"),
+  "Not sure remains unresolved");
   const text = exportJudgeText(input, [top, bottom], [], { noSleeveless: true });
   assert.ok(text.includes("Deterministic guard facts:"));
   assert.equal(judgeRequestSchema.safeParse({ ...input, garmentFacts: { [otherId]: { backless: true } } }).success, false);

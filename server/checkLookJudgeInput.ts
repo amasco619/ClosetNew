@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Constraints, GarmentGroup, WardrobeItem } from "../constants/types";
+import type { GarmentGroup, WardrobeItem } from "../constants/types";
 import {
   ALL_FABRICS, ALL_FITS, ALL_NECKLINES, ALL_PATTERNS, ALL_SLEEVES, ALL_FABRIC_WEIGHTS,
 } from "../constants/types";
@@ -92,6 +92,7 @@ export const judgeRequestSchema = z.object({
     backOrStrapCoverage: z.enum(["covered", "exposed-with-cover", "exposed-no-cover"]).optional(),
     modestForChurch: z.boolean().optional(),
     sleeveLining: z.enum(["lined", "sheer", "not-sure"]).optional(),
+    sleeveLength: z.enum(["sleeveless", "short", "three-quarter", "long", "not-sure"]).optional(),
   }).strict()).optional(),
 }).strict().superRefine((request, ctx) => {
   for (const id of Object.keys(request.garmentFacts ?? {})) {
@@ -215,7 +216,9 @@ function exportJudgeItemWithUnmatchedColour(
   const fabric = allowedSafeToken(item.fabric, safeFabrics);
   const notes = [
     allowed(item.pattern, ALL_PATTERNS),
-    allowed(item.sleeveLength, ALL_SLEEVES) && `sleeves ${item.sleeveLength}`,
+    allowed(item.sleeveLength ?? facts?.sleeveLength, ALL_SLEEVES) &&
+      `sleeves ${item.sleeveLength ?? facts?.sleeveLength}`,
+    facts?.sleeveLength === "not-sure" && !item.sleeveLength && "sleeves unknown",
     allowedSafeToken(item.fit, safeFits) && `fit ${allowedSafeToken(item.fit, safeFits)}`,
     allowedSafeToken(item.neckline, safeNecklines) && `neckline ${allowedSafeToken(item.neckline, safeNecklines)}`,
     Number.isInteger(item.formalityLevel) && safeFormality.has(item.formalityLevel!)
@@ -234,7 +237,7 @@ function exportJudgeItemWithUnmatchedColour(
   };
 }
 
-export function judgeGuard(request: JudgeRequest, items: WardrobeItem[], groups: GarmentGroup[], constraints: Partial<Constraints>) {
+export function judgeGuard(request: JudgeRequest, items: WardrobeItem[], groups: GarmentGroup[], constraints: SleeveConstraints) {
   const result = guardCheckLook({ ...request, items, groups, constraints });
   const flags: string[] = [];
   if (request.brief.context === "church" && request.brief.denomination === "pentecostal") {
@@ -254,7 +257,7 @@ export function judgeGuard(request: JudgeRequest, items: WardrobeItem[], groups:
 }
 
 export function exportJudgeText(
-  request: JudgeRequest, items: WardrobeItem[], groups: GarmentGroup[], constraints: Partial<Constraints>,
+  request: JudgeRequest, items: WardrobeItem[], groups: GarmentGroup[], constraints: SleeveConstraints,
   guard = judgeGuard(request, items, groups, constraints),
 ): string {
   const brief = request.brief as CheckLookBrief;

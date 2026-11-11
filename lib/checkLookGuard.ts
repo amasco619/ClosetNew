@@ -67,6 +67,7 @@ export interface CheckLookGarmentFacts {
   backOrStrapCoverage?: 'covered' | 'exposed-with-cover' | 'exposed-no-cover';
   modestForChurch?: boolean;
   sleeveLining?: 'lined' | 'sheer' | 'not-sure';
+  sleeveLength?: 'sleeveless' | 'short' | 'three-quarter' | 'long' | 'not-sure';
 }
 
 export interface CheckLookGuardInput extends CheckLookRequest {
@@ -259,7 +260,8 @@ export function guardCheckLook(input: CheckLookGuardInput): CheckLookGuardResult
     const sleeves = ['sleeveless', 'short', 'three-quarter', 'long'];
     for (const item of items.filter(value =>
       value.category === 'top' || value.category === 'dress' || value.category === 'outerwear')) {
-      const rank = sleeves.indexOf(item.sleeveLength ?? '');
+      const sleeveLength = item.sleeveLength ?? input.garmentFacts?.[item.id]?.sleeveLength;
+      const rank = sleeves.indexOf(sleeveLength ?? '');
       if (rank < 0) missing.add('sleeve length required by your coverage preference');
       else if (rank < sleeves.indexOf(minimum)) failures.add('Sleeve shorter than your preference');
     }

@@ -361,6 +361,38 @@ async function main() {
   assert.equal((lastCheckRequest as { garmentFacts?: unknown }).garmentFacts, undefined,
     'church-only facts are cleared when the occasion changes');
   await React.act(async () => { screen.unmount(); });
+
+  const shortsTop = {
+    id: 'test-shorts-top', photoUri: 'test://top', category: 'top' as const,
+    subType: 'blouse', colorFamily: 'navy', sleeveLength: 'long' as const,
+    occasionTags: [], seasonTags: [], createdAt: '',
+  };
+  const shortsBottom = {
+    id: 'test-church-shorts', photoUri: 'test://shorts', category: 'bottom' as const,
+    subType: 'shorts', colorFamily: 'black', occasionTags: [], seasonTags: [], createdAt: '',
+  };
+  await React.act(async () => {
+    screen = renderer.create(React.createElement(Component, {
+      ...props, items: [shortsTop, shortsBottom] as WardrobeItem[], result: null,
+    }));
+  });
+  await press('check-my-look-slot-top');
+  await press(`check-my-look-item-${shortsTop.id}`);
+  await press('check-my-look-slot-bottom');
+  await press(`check-my-look-item-${shortsBottom.id}`);
+  await press('check-my-look-occasion-church');
+  await press('check-my-look-brief-denomination');
+  await press('check-my-look-brief-denomination-anglican');
+  await press(`check-my-look-fact-${shortsTop.id}-backAndStraps-field`);
+  await press(`check-my-look-fact-${shortsTop.id}-backAndStraps-not-sure`);
+  assert.ok(pressable(`check-my-look-fact-${shortsBottom.id}-hemPosition-field`),
+    'shorts expose the church hem question');
+  await press(`check-my-look-fact-${shortsBottom.id}-hemPosition-field`);
+  for (const value of ['above-knee', 'at-knee', 'below-knee', 'floor-length', 'not-sure']) {
+    assert.ok(pressable(`check-my-look-fact-${shortsBottom.id}-hemPosition-${value}`),
+      `${value} hem choice is shown for shorts`);
+  }
+  await React.act(async () => { screen.unmount(); });
   console.log('Check My Look free verdict privacy, transient chip payloads and server-owned quota entry passed.');
 }
 
