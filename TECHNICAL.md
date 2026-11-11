@@ -3988,8 +3988,10 @@ announced colours and assigned group; Traditional wedding/Owambe/Naming role and
 assigned set. Each offers Not sure (and None for sets). Required submission waits
 only for explicit choices, not certainty. Untouched optional fields are omitted,
 not sent as null (the unchanged route rejects null) or implicit not-sure. Known
-deterministic guard failures still block submission; missing facts can reach the
-route so it may ask a question. The existing local guard still applies on fallback.
+deterministic guard failures no longer block the sheet submission: selection,
+brief and garment facts reach the route, which recomputes the guard and includes
+its result in the judge input. The existing local guard applies only when the
+route directs the client to use local checking.
 The previously documented chip encodings for role, timeOfDay, hem, back/straps and
 lining are unchanged.
 

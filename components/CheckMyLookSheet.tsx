@@ -18,14 +18,12 @@ import { wardrobeItemDisplayName } from '@/constants/wardrobeLabels';
 import { isHeadwearSubtype } from '@/lib/lookCardPresentation';
 import type { CheckLookDisplayResult, JudgeMissingFact } from '@/lib/checkLookClient';
 import {
-  guardCheckLook,
   type CheckLookAnnouncedColours,
   type CheckLookBrief,
   type CheckLookBriefContext,
   type CheckLookDenomination,
   type CheckLookDressCode,
   type CheckLookGarmentFacts,
-  type CheckLookGuardResult,
   type CheckLookRequest,
   type CheckLookRole,
   type CheckLookSetChoice,
@@ -210,7 +208,6 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   const [venue, setVenue] = useState<CheckLookVenue>();
   const [dressCode, setDressCode] = useState<CheckLookDressCode>();
   const [expandedBriefField, setExpandedBriefField] = useState<string | null>(null);
-  const [guardFeedback, setGuardFeedback] = useState<CheckLookGuardResult | null>(null);
   const [temperatureOverride, setTemperatureOverride] = useState<string | null>(null);
   const [activeSlot, setActiveSlot] = useState<SlotKey | null>(null);
   const [churchFactAnswers, setChurchFactAnswers] = useState<Record<string, ChurchFactAnswers>>({});
@@ -282,7 +279,6 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
 
   const changeSelection = (next: LocalSelection) => {
     setSelection(next);
-    setGuardFeedback(null);
     props.onClearResult();
   };
 
@@ -327,7 +323,6 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
     setVenue(undefined);
     setDressCode(undefined);
     setExpandedBriefField(null);
-    setGuardFeedback(null);
     setChurchFactAnswers({});
     props.onClearResult();
   };
@@ -345,7 +340,6 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
     setVenue(undefined);
     setDressCode(undefined);
     setExpandedBriefField(null);
-    setGuardFeedback(null);
     setChurchFactAnswers({});
     props.onClose();
   };
@@ -353,7 +347,6 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   const handleTemperature = (value: string) => {
     const cleaned = value.replace(/[^\d.-]/g, '').replace(/(?!^)-/g, '');
     setTemperatureOverride(cleaned);
-    setGuardFeedback(null);
     props.onClearResult();
   };
 
@@ -418,19 +411,6 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
     };
     const brief = currentBrief();
     const garmentFacts = requestGarmentFacts();
-    const outcome = guardCheckLook({
-      selection: nextSelection,
-      brief,
-      items: props.items,
-      groups: props.groups,
-      constraints: props.constraints,
-      garmentFacts,
-    });
-    if (outcome.failures.length) {
-      setGuardFeedback(outcome);
-      return;
-    }
-    setGuardFeedback(null);
     props.onCheck({
       selection: nextSelection, brief,
       ...(Object.keys(garmentFacts).length ? { garmentFacts } : {}),
@@ -472,7 +452,6 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
               onPress={() => {
                 onChoose(option.value);
                 setExpandedBriefField(null);
-                setGuardFeedback(null);
                 props.onClearResult();
               }}
               style={[styles.briefChip, value === option.value && styles.briefChipSelected]}
@@ -525,7 +504,6 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                     onPress={() => {
                       setAnnouncedColours({ kind: option.kind });
                       setExpandedBriefField(null);
-                      setGuardFeedback(null);
                       props.onClearResult();
                     }}
                     style={[
@@ -556,7 +534,6 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                           kind: 'colours',
                           values: selected ? values.filter(value => value !== colour) : [...values, colour],
                         });
-                        setGuardFeedback(null);
                         props.onClearResult();
                       }}
                       style={[styles.briefChip, selected && styles.briefChipSelected]}
@@ -671,7 +648,6 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                         [question.item.id]: { ...current[question.item.id], [question.fact]: option.id },
                       }));
                       setExpandedBriefField(null);
-                      setGuardFeedback(null);
                       props.onClearResult();
                     }}
                     style={[styles.briefChip, selectedAnswer === option.id && styles.briefChipSelected]}
@@ -1036,18 +1012,6 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                 </View>
               )}
 
-              {guardFeedback && (
-                <View accessibilityLiveRegion="polite" style={styles.guardNotice}>
-                  <Text style={styles.guardNoticeTitle}>A few details need confirming</Text>
-                  {guardFeedback.failures.map((failure, index) => (
-                    <Text key={`failure-${index}`} style={styles.noticeText}>{failure}</Text>
-                  ))}
-                  {guardFeedback.missing.map((fact, index) => (
-                    <Text key={`missing-${index}`} style={styles.noticeText}>Still needed · {fact}</Text>
-                  ))}
-                </View>
-              )}
-
               {props.error && (
                 <View testID="check-my-look-error" accessibilityLiveRegion="polite" style={styles.notice}>
                   <Text style={styles.noticeText}>{props.error}</Text>
@@ -1318,8 +1282,6 @@ const styles = StyleSheet.create({
   noticeText: { color: Colors.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 18 },
   retryButton: { alignSelf: 'flex-start', minHeight: 38, justifyContent: 'center', paddingHorizontal: 4 },
   retryText: { color: Colors.primary, fontFamily: 'Inter_600SemiBold', fontSize: 12 },
-  guardNotice: { gap: 5, padding: 12, marginBottom: 12, borderRadius: 13, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.cardBackground },
-  guardNoticeTitle: { marginBottom: 2, color: Colors.primary, fontFamily: 'Inter_600SemiBold', fontSize: 12 },
   resultCard: { padding: 16, marginTop: 3, marginBottom: 15, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.cardBackground },
   resultEyebrow: { color: Colors.textSecondary, fontFamily: 'Inter_500Medium', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
   verdict: { marginTop: 4, marginBottom: 8, fontFamily: 'Georgia', fontSize: 29, lineHeight: 35 },

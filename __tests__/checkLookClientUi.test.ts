@@ -64,7 +64,7 @@ async function main() {
   const fail = (kind: string, status?: number, code?: string) => async () => {
     throw new api.ApiRequestError('DO NOT SHOW RAW SERVER DETAILS', kind, status, code);
   };
-  function Harness({ premium = false }: { premium?: boolean }) {
+  function Harness({ premium = false, guardFailure = false }: { premium?: boolean; guardFailure?: boolean }) {
     controls = api.useCheckLookReview({
       premium, ownerId,
       localCheck: async () => {
@@ -76,9 +76,13 @@ async function main() {
       },
     });
     const props: CheckMyLookSheetProps = {
-      visible: true, items: [top, bottom, replacement, dress] as any,
+      visible: true, items: [
+        guardFailure ? { ...top, sleeveLength: 'sleeveless' } : top,
+        bottom, replacement, dress,
+      ] as any,
       groups: [], isPremium: premium, freeRemaining: 0, allowanceLoading: false,
       membershipLoading: false, membershipUnavailable: false,
+      constraints: guardFailure ? { noSleeveless: true } : undefined,
       checking: controls.checking, result: controls.result, error: controls.error,
       onOpen() {}, onClose: controls.cancel, onRetryMembership() {}, onUpgrade() {},
       onClearResult: controls.clear,
@@ -93,7 +97,7 @@ async function main() {
     assert.notEqual(node(id).props.disabled, true, `${id} should be enabled`);
     await React.act(async () => { node(id).props.onPress(); });
   };
-  async function mount(premium = false, reset = true) {
+  async function mount(premium = false, reset = true, guardFailure = false) {
     if (reset) api.resetJudgeClientForTests();
     calls = []; localCalls = 0;
     api._testOverrides.post = async (...args: any[]) => {
@@ -101,7 +105,7 @@ async function main() {
       calls.push(args);
       return handler();
     };
-    await React.act(async () => { screen = renderer.create(React.createElement(Harness, { premium })); });
+    await React.act(async () => { screen = renderer.create(React.createElement(Harness, { premium, guardFailure })); });
     assert.equal(node('check-my-look-submit').props.disabled, true);
     await press('check-my-look-slot-top');
     await press(`check-my-look-item-${top.id}`);
@@ -129,6 +133,27 @@ async function main() {
   assert.deepEqual(controls.result, { tier: 'free', verdict: 'Works' });
   assert.equal(localCalls, 0);
   await unmount();
+
+  for (const premium of [false, true]) {
+    handler = reply({
+      verdict: 'Almost',
+      reason: 'The selected sleeves are shorter than your preference.',
+      swapSuggestion: { replacesId: top.id, replacementId: replacement.id },
+    });
+    await mount(premium, true, true);
+    await submit();
+    assert.equal(calls.length, 1, 'a local guard failure is submitted to the server');
+    assert.equal(localCalls, 0, 'a server verdict does not run the local check');
+    assert.equal(controls.result.verdict, 'Almost');
+    if (premium) {
+      assert.match(text(), /shorter than your preference/);
+      assert.match(text(), /try cream blouse/i);
+    } else {
+      assert.deepEqual(controls.result, { tier: 'free', verdict: 'Almost' });
+      assert.doesNotMatch(text(), /shorter than your preference|try cream blouse/i);
+    }
+    await unmount();
+  }
 
   handler = reply({ verdict: 'Works', reason: 'The pieces work well together.',
     swapSuggestion: { replacesId: top.id, replacementId: replacement.id } });
