@@ -3,14 +3,16 @@
 ## Status
 
 Implementation and mocked verification are complete. The judge flag, frozen
-prompt, engine, migrations and environment are unchanged. No Gemini calls were
-made for this work.
+prompt, engine, migrations and environment are unchanged. No Gemini generation
+calls were made for this work.
 
-**Backend restart is pending approval.** Existing non-test startup in
-`server/classifierReliability.ts` calls the Gemini model-metadata endpoints.
-Restarting now would conflict with the instruction not to call Gemini. The
-running backend has not yet loaded the new directive reasons; do not treat the
-new route/client combination as verified live until it has been restarted.
+**Backend restarted after approval.** The user clarified that the restriction
+concerns generation, not the existing startup metadata checks. Startup completed
+and the backend is listening on port 5000; Supabase limiter initialisation
+succeeded. After restart, the mocked registered-route test passed and asserted
+exactly `{ "useLocalCheck": true, "reason": "disabled" }` for the disabled branch,
+with zero provider calls and zero quota calls. This is mocked route evidence,
+not an authenticated live-account or device check.
 
 ## Request and contract
 
@@ -131,6 +133,6 @@ hook with a mocked transport and validate every body against the real route sche
 No changes to the flag, frozen prompt, engine, database, migrations, consent
 enforcement or server contract beyond the two approved directive reasons.
 
-Backend restart/live integration is pending the metadata-call decision above.
+Backend restart and the approved mocked flag-off route check are complete.
 No physical-device, live enabled-judge, provider-latency or under-load verification
 was performed. No deployment or provider generation probe was run.
