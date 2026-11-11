@@ -88,18 +88,18 @@ async function main() {
   await React.act(async () => { screen = renderer.create(React.createElement(Component, props)); });
   const pressable = (id: string) => screen.root.findAllByType('Pressable')
     .find(node => node.props.testID === id);
-  const paywall = pressable('check-my-look-paywall');
-  assert.ok(paywall, 'zero free allowance renders the paywall action');
-  assert.notEqual(paywall.props.disabled, true);
-  await React.act(async () => { (paywall.props.onPress as () => void)(); });
-  assert.equal(upgradeCalls, 1);
-  assert.equal(checkCalls, 0, 'zero allowance cannot compute another verdict');
+  assert.equal(pressable('check-my-look-paywall'), undefined,
+    'old device allowance must not block a server-owned check');
+  assert.equal(pressable('check-my-look-submit')?.props.disabled, true,
+    'an incomplete selection remains disabled');
+  assert.equal(upgradeCalls, 0);
+  assert.equal(checkCalls, 0);
   const textContent = () => screen.root.findAllByType('Text').map(node =>
     node.children.map(child => typeof child === 'string' ? child : '').join(''),
   ).join(' ');
   const text = textContent();
   assert.match(text, /Your verdict/);
-  assert.match(text, /Premium offers a fuller review/);
+  assert.match(text, /Free includes 5 look checks a day/);
   assert.doesNotMatch(text, /What works|Worth reconsidering|Possible swaps/);
 
   const press = async (id: string) => {
@@ -235,15 +235,15 @@ async function main() {
   await press('check-my-look-brief-dress-code');
   await press('check-my-look-brief-dress-code-conservative');
   await press('check-my-look-occasion-work');
-  assert.equal(pressable('check-my-look-brief-venue')?.props.accessibilityLabel, 'Venue · optional: Not sure');
-  assert.equal(pressable('check-my-look-brief-dress-code')?.props.accessibilityLabel, 'Dress code · optional: Not sure');
+  assert.equal(pressable('check-my-look-brief-venue')?.props.accessibilityLabel, 'Venue · optional: Choose');
+  assert.equal(pressable('check-my-look-brief-dress-code')?.props.accessibilityLabel, 'Dress code · optional: Choose');
   await press('check-my-look-brief-venue');
   await press('check-my-look-brief-venue-workplace');
   await press('check-my-look-brief-dress-code');
   await press('check-my-look-brief-dress-code-business');
   await press('check-my-look-backdrop');
-  assert.equal(pressable('check-my-look-brief-venue')?.props.accessibilityLabel, 'Venue · optional: Not sure');
-  assert.equal(pressable('check-my-look-brief-dress-code')?.props.accessibilityLabel, 'Dress code · optional: Not sure');
+  assert.equal(pressable('check-my-look-brief-venue')?.props.accessibilityLabel, 'Venue · optional: Choose');
+  assert.equal(pressable('check-my-look-brief-dress-code')?.props.accessibilityLabel, 'Dress code · optional: Choose');
 
   const temperatureInput = () => screen.root.findAllByType('TextInput')
     .find(node => node.props.accessibilityLabel === 'Temperature in degrees Celsius');
@@ -306,7 +306,7 @@ async function main() {
   assert.deepEqual(lastCheckRequest, {
     selection: { itemIds: ['test-church-dress'], occasion: 'event', temperatureC: 22 },
     brief: {
-      context: 'church', denomination: 'anglican', venue: 'not-sure', dressCode: 'not-sure',
+      context: 'church', denomination: 'anglican',
     },
     garmentFacts: {
       'test-church-dress': {
@@ -332,11 +332,10 @@ async function main() {
   await press('check-my-look-fact-test-unknown-dress-sleeveLining-field');
   await press('check-my-look-fact-test-unknown-dress-sleeveLining-not-sure');
   await press('check-my-look-submit');
-  assert.equal(checkCalls, 3, 'Not sure does not submit a fabricated garment fact');
-  assert.match(textContent(), /hem position for the selected dress/);
-  assert.match(textContent(), /back coverage for the selected dress/);
-  assert.match(textContent(), /strap coverage for the selected dress/);
-  assert.match(textContent(), /sleeve lining for the selected dress/);
+  assert.equal(checkCalls, 4, 'Not sure allows the server to ask, without fabricating garment facts');
+  assert.deepEqual((lastCheckRequest as { garmentFacts: unknown }).garmentFacts, {
+    'test-unknown-dress': { sleeveLining: 'not-sure' },
+  }, 'unknown hem and back/strap facts remain absent; explicit lining uncertainty is retained');
 
   await press('check-my-look-occasion-wedding');
   await press('check-my-look-brief-occasion-role');
@@ -346,7 +345,7 @@ async function main() {
   await press('check-my-look-brief-time-of-day-daytime');
   await press('check-my-look-submit');
   assert.deepEqual((lastCheckRequest as { brief: unknown }).brief, {
-    context: 'wedding', role: 'family', timeOfDay: 'daytime', venue: 'not-sure', dressCode: 'not-sure',
+    context: 'wedding', role: 'family', timeOfDay: 'daytime',
   }, 'the selected optional role and time of day remain transient in the request');
   await press('check-my-look-occasion-owambe');
   await press('check-my-look-brief-occasion-role');
@@ -358,12 +357,11 @@ async function main() {
   await press('check-my-look-submit');
   assert.deepEqual((lastCheckRequest as { brief: unknown }).brief, {
     context: 'owambe', role: 'guest', asoEbiGroupId: 'none', timeOfDay: 'evening',
-    venue: 'not-sure', dressCode: 'not-sure',
   }, 'Owambe chips use the route brief fields without persistence');
   assert.equal((lastCheckRequest as { garmentFacts?: unknown }).garmentFacts, undefined,
     'church-only facts are cleared when the occasion changes');
   await React.act(async () => { screen.unmount(); });
-  console.log('Check My Look free verdict visibility and zero-allowance paywall passed.');
+  console.log('Check My Look free verdict privacy, transient chip payloads and server-owned quota entry passed.');
 }
 
 void main().catch(error => {

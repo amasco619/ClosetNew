@@ -109,7 +109,7 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
   if (!userId) { res.status(401).json({ error: "authentication_required" }); return; }
   const enabled = process.env.NODE_ENV === "test" && _testOverrides.enabled !== undefined
     ? _testOverrides.enabled : judgeEnabled();
-  if (!enabled) { res.json({ useLocalCheck: true }); return; }
+  if (!enabled) { res.json({ useLocalCheck: true, reason: "disabled" }); return; }
   const parsed = judgeRequestSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "invalid_check_look_request" }); return; }
   const request = parsed.data;
@@ -193,6 +193,6 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
     });
   } catch {
     // The existing client-local evaluator remains the fallback, not a fabricated model verdict.
-    res.json({ useLocalCheck: true });
+    res.json({ useLocalCheck: true, reason: "unavailable" });
   }
 }

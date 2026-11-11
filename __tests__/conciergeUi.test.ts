@@ -78,6 +78,8 @@ const fixture = {
 };
 Object.assign(globalThis, { __conciergeUi: fixture, __lookExportEvents: exportEvents, IS_REACT_ACT_ENVIRONMENT: true });
 const mocks: Record<string, string> = {
+  '../../hooks/useCheckLookReview': `const noop=()=>{};export const useCheckLookReview=()=>({checking:false,result:null,error:null,run:async()=>{},clear:noop,cancel:noop});`,
+  '../../lib/checkLookClient': `export class CheckLookClientError extends Error {}`,
   '../../components/TravelPlanner': `export default ()=>null;`,
   '@/components/CheckMyLookSheet': `export const CheckMyLookSheet=()=>null;`,
   '../../components/LockedLookSilhouettes': `import React from 'react';export default ()=>React.createElement('Svg');`,

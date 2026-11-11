@@ -3864,10 +3864,13 @@ See `docs/reports/nigerian-v2-step3e.md`.
 `POST /api/check-my-look` requires authentication and the existing recorded
 AI-processing consent middleware. `CHECK_LOOK_JUDGE_ENABLED` is enabled only
 by the exact string `true`; the default is false. No environment values were
-changed and no client calls were added. Flag-off or provider failure returns
-`{ useLocalCheck: true }`, a directive for a future caller to use the unchanged
-`lib/checkLook.ts`; the route never invents a substitute verdict. Existing
-client-local behaviour and local allowance remain unchanged.
+changed. The client now contacts this route with selection, brief and transient
+garment facts only. Flag-off returns `{ useLocalCheck: true, reason: "disabled" }`;
+provider failure returns `{ useLocalCheck: true, reason: "unavailable" }`. Both
+direct the caller to unchanged `lib/checkLook.ts`; the route never invents a
+substitute verdict. The local allowance applies only to a local check, not as a
+fallback for quota, entitlement or other request errors. See the client integration
+section below.
 
 When enabled, the server verifies entitlement, loads owner-filtered garments,
 confirmed group memberships and an allowlisted subset of profile constraints,
@@ -3951,6 +3954,50 @@ the sleeve-lining question. The answers reset when the occasion changes or the
 sheet closes. They are not stored, logged or sent to a provider; this does not
 change any privacy-policy data-flow fact. The judge flag remains off and no
 Gemini calls are made by the sheet.
+
+## Check my look client route integration — flag still off
+
+`app/(tabs)/outfits.tsx` now uses `useCheckLookReview` and `requestCheckLook` to
+POST only `{ selection, brief, garmentFacts? }` with the authenticated API helper.
+No tier, profile, garment text, photo, provider request or model is sent by the
+client. Authentication credentials remain in the existing Bearer header.
+The server still owns entitlement and the enabled-mode quota.
+
+`disabled` is a non-sensitive, in-memory app-session capability, cached for
+15 minutes of foreground use across sheet opens. One app-session AppState listener
+pauses its clock in background; after expiry the next check contacts the route.
+`unavailable` triggers the existing local check once and never caches a disabled
+state. HTTP 401 and the specific HTTP 403 `ai_processing_consent_required`
+response silently use local checking without changing consent or prompting here.
+Other 403s, 400/404s, 429s, 503s, network failures, malformed responses and the
+six-second deadline do not grant a local check. 429 copy names Free 5 / Premium 30;
+503/deadline failures show retry copy. The shared API helper now accepts an
+optional timeout and reads a stable `error` field when no explicit `code` exists;
+other request deadlines are unchanged.
+
+The normal loading/busy state starts before the first request. The hook ignores
+repeat submissions, discards late responses after close/account switch and
+invalidates old results on selection/brief edits. Free result objects retain only
+the verdict. Premium renders a reason and an optional owned-item swap, or one
+friendly Ask question with closed answer chips that resubmit the updated brief or
+garmentFacts. Traditional/set looks still take the unchanged local Not judged path
+without contacting the judge route.
+
+Required brief fields have no preselected answer: Church denomination; Funeral
+announced colours and assigned group; Traditional wedding/Owambe/Naming role and
+assigned set. Each offers Not sure (and None for sets). Required submission waits
+only for explicit choices, not certainty. Untouched optional fields are omitted,
+not sent as null (the unchanged route rejects null) or implicit not-sure. Known
+deterministic guard failures still block submission; missing facts can reach the
+route so it may ask a question. The existing local guard still applies on fallback.
+The previously documented chip encodings for role, timeOfDay, hem, back/straps and
+lining are unchanged.
+
+No flag, prompt, engine, migration or environment change. No new persistent data
+or application request logging. With the flag off, these requests cannot invoke
+the judge provider; consent/auth middleware remains unchanged and precedes the
+flag directive. Verification uses mocked route, transport and mounted sheet/hook
+responses, not live Gemini calls or physical-device evidence.
 
 ## Standing shortest-sleeve preference
 

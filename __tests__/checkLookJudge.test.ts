@@ -279,7 +279,7 @@ async function routeTests() {
   };
   const send = (body: object = input) => request(app).post("/api/check-my-look").send(body);
   routeOverrides.enabled = false;
-  assert.deepEqual((await send()).body, { useLocalCheck: true });
+  assert.deepEqual((await send()).body, { useLocalCheck: true, reason: "disabled" });
   assert.equal(providerCalls, 0);
   assert.equal(quotaCalls, 0);
   consent = false;
@@ -355,7 +355,7 @@ async function routeTests() {
   assert.equal((await send({ ...input, brief: { context: "owambe", role: "guest", asoEbiGroupId: otherId } })).status, 503);
   clearJudgeCache();
   routeOverrides.judge = async () => { throw new Error("provider timed out"); };
-  assert.deepEqual((await send()).body, { useLocalCheck: true }, "provider failure uses the unchanged local path");
+  assert.deepEqual((await send()).body, { useLocalCheck: true, reason: "unavailable" }, "provider failure uses the unchanged local path");
   delete authOverrides.authenticatedUser;
   delete consentOverrides.load;
   for (const key of Object.keys(routeOverrides)) Reflect.deleteProperty(routeOverrides, key);

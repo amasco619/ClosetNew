@@ -91,6 +91,8 @@ const model = {
 Object.assign(globalThis, { __wardrobeRetryUi: model, IS_REACT_ACT_ENVIRONMENT: true });
 
 const hostMocks: Record<string, string> = {
+  '../../hooks/useCheckLookReview': `const noop=()=>{};export const useCheckLookReview=()=>({checking:false,result:null,error:null,run:async()=>{},clear:noop,cancel:noop});`,
+  '../../lib/checkLookClient': `export class CheckLookClientError extends Error {}`,
   'react-native': `
     import React from 'react';
     const host = name => ({children, ...props}) => React.createElement(name, props, children);

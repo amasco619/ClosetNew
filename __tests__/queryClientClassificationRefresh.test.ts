@@ -60,6 +60,7 @@ async function main() {
     for (const [body, headers, expectedCode, expectedWait] of [
       ['{"error":"rate_limit","code":"APP_RATE_LIMIT","retryAfter":12}', {}, 'APP_RATE_LIMIT', 12],
       ['{"error":"rate_limit","code":"APP_RATE_LIMIT"}', { 'Retry-After': '9' }, 'APP_RATE_LIMIT', 9],
+      ['{"error":"ai_processing_consent_required"}', {}, 'ai_processing_consent_required', undefined],
       ['not JSON', {}, undefined, undefined],
       ['null', {}, undefined, undefined],
     ] as const) {

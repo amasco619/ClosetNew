@@ -77,8 +77,9 @@ async function throwIfResNotOk(res: Response) {
     let code: string | undefined;
     let retryAfter: number | undefined;
     try {
-      const body = JSON.parse(text) as { code?: unknown; retryAfter?: unknown };
+      const body = JSON.parse(text) as { code?: unknown; error?: unknown; retryAfter?: unknown };
       if (typeof body?.code === "string") code = body.code;
+      else if (typeof body?.error === "string") code = body.error;
       if (typeof body?.retryAfter === "number" && Number.isFinite(body.retryAfter)) {
         retryAfter = Math.max(1, Math.ceil(body.retryAfter));
       }
@@ -137,6 +138,7 @@ export async function authenticatedApiRequest(
   method: string,
   route: string,
   data?: unknown,
+  options?: { timeoutMs?: number },
 ): Promise<Response> {
   const isClassificationRoute = route === "/api/classify-garment" || route === "/api/classify-garments";
   const baseUrl = getApiUrl();
@@ -177,8 +179,8 @@ export async function authenticatedApiRequest(
     }
     await throwIfResNotOk(res);
     return res;
-  }, isClassificationRoute
-    ? CLASSIFICATION_REQUEST_TIMEOUT_MS : API_REQUEST_TIMEOUT_MS);
+  }, options?.timeoutMs ?? (isClassificationRoute
+    ? CLASSIFICATION_REQUEST_TIMEOUT_MS : API_REQUEST_TIMEOUT_MS));
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";

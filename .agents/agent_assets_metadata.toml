@@ -1121,3 +1121,17 @@ mtime_ms = 1794398864454
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/cad491e0-f335-4845-8baf-3efa07626f6b/642a86b9-3d8c-4618-803d-2571de9667f1"
 storage_version_token = "1794398880869291"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "zLvZbjIUGZAJQst2yg1c5"
+uri = "file://docs/reports/check-look-client-route-integration.md"
+type = "text"
+title = "Check my look route integration report"
+description = "Behaviour, changed files, mocked verification and the pending backend restart decision."
+logical_id = "5ac6697f-7389-4f3d-b5dd-8107c2ab00d2"
+content_hash = "sha256:92e9aba6635336fff230d08a6220a967553b437ffa3700365e6759aa9549fce2"
+size = 6932
+mtime_ms = 1794401359274
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/5ac6697f-7389-4f3d-b5dd-8107c2ab00d2/2f143d87-6f61-4e6b-888c-f14f9d8a66a2"
+storage_version_token = "1794401384678258"
+content_type = "text/markdown"

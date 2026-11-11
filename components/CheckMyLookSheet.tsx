@@ -16,7 +16,7 @@ import type {
 } from '@/constants/types';
 import { wardrobeItemDisplayName } from '@/constants/wardrobeLabels';
 import { isHeadwearSubtype } from '@/lib/lookCardPresentation';
-import type { CheckLookResult } from '@/lib/checkLook';
+import type { CheckLookDisplayResult, JudgeMissingFact } from '@/lib/checkLookClient';
 import {
   guardCheckLook,
   type CheckLookAnnouncedColours,
@@ -50,7 +50,8 @@ export interface CheckMyLookSheetProps {
   constraints?: Partial<Constraints>;
   weatherTemperatureC?: number | null;
   checking: boolean;
-  result: CheckLookResult | null;
+  result: CheckLookDisplayResult | null;
+  error?: string | null;
   onOpen(): void;
   onClose(): void;
   onCheck(request: CheckLookRequest): void;
@@ -200,14 +201,14 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   const [occasion, setOccasion] = useState<OccasionTag>('casual');
   const [briefContext, setBriefContext] = useState<CheckLookBriefContext>('casual');
   const [occasionChosen, setOccasionChosen] = useState(false);
-  const [denomination, setDenomination] = useState<CheckLookDenomination>('not-sure');
-  const [announcedColours, setAnnouncedColours] = useState<CheckLookAnnouncedColours>({ kind: 'not-sure' });
-  const [funeralGroupId, setFuneralGroupId] = useState<CheckLookSetChoice>('not-sure');
-  const [role, setRole] = useState<CheckLookRole>('not-sure');
-  const [timeOfDay, setTimeOfDay] = useState<CheckLookTimeOfDay>('not-sure');
-  const [asoEbiGroupId, setAsoEbiGroupId] = useState<CheckLookSetChoice>('not-sure');
-  const [venue, setVenue] = useState<CheckLookVenue>('not-sure');
-  const [dressCode, setDressCode] = useState<CheckLookDressCode>('not-sure');
+  const [denomination, setDenomination] = useState<CheckLookDenomination>();
+  const [announcedColours, setAnnouncedColours] = useState<CheckLookAnnouncedColours>();
+  const [funeralGroupId, setFuneralGroupId] = useState<CheckLookSetChoice>();
+  const [role, setRole] = useState<CheckLookRole>();
+  const [timeOfDay, setTimeOfDay] = useState<CheckLookTimeOfDay>();
+  const [asoEbiGroupId, setAsoEbiGroupId] = useState<CheckLookSetChoice>();
+  const [venue, setVenue] = useState<CheckLookVenue>();
+  const [dressCode, setDressCode] = useState<CheckLookDressCode>();
   const [expandedBriefField, setExpandedBriefField] = useState<string | null>(null);
   const [guardFeedback, setGuardFeedback] = useState<CheckLookGuardResult | null>(null);
   const [temperatureOverride, setTemperatureOverride] = useState<string | null>(null);
@@ -253,7 +254,11 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   const parsedTemperature = temperatureText.trim() === '' ? undefined : Number(temperatureText);
   const validTemperature = parsedTemperature === undefined || Number.isFinite(parsedTemperature);
   const selectionSummary = selectedItems.map(item => itemName(item)).join(', ');
-  const quotaReached = !props.isPremium && props.freeRemaining <= 0;
+  const requiredBriefChosen = occasionChosen && (briefContext === 'church' ? denomination !== undefined
+    : briefContext === 'funeral' ? announcedColours !== undefined &&
+      (announcedColours.kind !== 'colours' || announcedColours.values.length > 0) && funeralGroupId !== undefined
+    : ['traditional-wedding', 'owambe', 'naming-ceremony'].includes(briefContext)
+      ? role !== undefined && asoEbiGroupId !== undefined : true);
   const markedSets = useMemo(
     () => props.groups.filter(group =>
       group.relationshipType === 'coordinated_set' &&
@@ -313,14 +318,14 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
     setOccasion(option.value);
     setBriefContext(option.context);
     setOccasionChosen(true);
-    setDenomination('not-sure');
-    setAnnouncedColours({ kind: 'not-sure' });
-    setFuneralGroupId('not-sure');
-    setRole('not-sure');
-    setTimeOfDay('not-sure');
-    setAsoEbiGroupId('not-sure');
-    setVenue('not-sure');
-    setDressCode('not-sure');
+    setDenomination(undefined);
+    setAnnouncedColours(undefined);
+    setFuneralGroupId(undefined);
+    setRole(undefined);
+    setTimeOfDay(undefined);
+    setAsoEbiGroupId(undefined);
+    setVenue(undefined);
+    setDressCode(undefined);
     setExpandedBriefField(null);
     setGuardFeedback(null);
     setChurchFactAnswers({});
@@ -331,14 +336,14 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
     setOccasion('casual');
     setBriefContext('casual');
     setOccasionChosen(false);
-    setDenomination('not-sure');
-    setAnnouncedColours({ kind: 'not-sure' });
-    setFuneralGroupId('not-sure');
-    setRole('not-sure');
-    setTimeOfDay('not-sure');
-    setAsoEbiGroupId('not-sure');
-    setVenue('not-sure');
-    setDressCode('not-sure');
+    setDenomination(undefined);
+    setAnnouncedColours(undefined);
+    setFuneralGroupId(undefined);
+    setRole(undefined);
+    setTimeOfDay(undefined);
+    setAsoEbiGroupId(undefined);
+    setVenue(undefined);
+    setDressCode(undefined);
     setExpandedBriefField(null);
     setGuardFeedback(null);
     setChurchFactAnswers({});
@@ -353,23 +358,27 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   };
 
   const currentBrief = (): CheckLookBrief => {
-    const details = { venue, dressCode };
+    const details = {
+      ...(venue === undefined ? {} : { venue }),
+      ...(dressCode === undefined ? {} : { dressCode }),
+    };
     const churchDetails = briefContext === 'church' || venue === 'place-of-worship'
-      ? { denomination } : {};
-    const timeDetails = TIME_OF_DAY_CONTEXTS.has(briefContext) ? { timeOfDay } : {};
-    if (briefContext === 'church') return { context: 'church', denomination, ...details };
+      ? (denomination === undefined ? {} : { denomination }) : {};
+    const timeDetails = TIME_OF_DAY_CONTEXTS.has(briefContext) && timeOfDay !== undefined ? { timeOfDay } : {};
+    const roleDetails = role === undefined ? {} : { role };
+    if (briefContext === 'church') return { context: 'church', denomination: denomination!, ...details };
     if (briefContext === 'funeral') {
       return {
-        context: 'funeral', announcedColours, assignedGroupId: funeralGroupId, role,
+        context: 'funeral', announcedColours: announcedColours!, assignedGroupId: funeralGroupId!, ...roleDetails,
         ...churchDetails, ...timeDetails, ...details,
       };
     }
     if (briefContext === 'traditional-wedding' || briefContext === 'owambe' ||
         briefContext === 'naming-ceremony') {
-      return { context: briefContext, role, asoEbiGroupId, ...churchDetails, ...timeDetails, ...details };
+      return { context: briefContext, role: role!, asoEbiGroupId: asoEbiGroupId!, ...churchDetails, ...timeDetails, ...details };
     }
     if (briefContext === 'wedding') {
-      return { context: briefContext, role, ...churchDetails, ...timeDetails, ...details };
+      return { context: briefContext, ...roleDetails, ...churchDetails, ...timeDetails, ...details };
     }
     return { context: briefContext, ...churchDetails, ...timeDetails, ...details } as CheckLookBrief;
   };
@@ -399,12 +408,8 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   };
 
   const submit = () => {
-    if (quotaReached) {
-      props.onUpgrade();
-      return;
-    }
     if (!hasBaseLook || props.membershipLoading || props.membershipUnavailable ||
-        props.checking || !validTemperature) return;
+        props.checking || !validTemperature || !requiredBriefChosen) return;
     Keyboard.dismiss();
     const nextSelection = {
       itemIds: selectedIds,
@@ -421,7 +426,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
       constraints: props.constraints,
       garmentFacts,
     });
-    if (!outcome.pass) {
+    if (outcome.failures.length) {
       setGuardFeedback(outcome);
       return;
     }
@@ -434,11 +439,11 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
 
   const checkDisabled = props.membershipLoading || props.membershipUnavailable ||
     props.allowanceLoading || props.checking ||
-    (!quotaReached && (!hasBaseLook || !validTemperature));
+    !hasBaseLook || !validTemperature || !requiredBriefChosen;
   const renderChoiceField = (
     id: string,
     label: string,
-    value: string,
+    value: string | undefined,
     options: { value: string; label: string }[],
     onChoose: (value: string) => void,
   ) => (
@@ -446,14 +451,14 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
       <Pressable
         testID={`check-my-look-brief-${id}`}
         accessibilityRole="button"
-        accessibilityLabel={`${label}: ${options.find(option => option.value === value)?.label ?? 'Not sure'}`}
+        accessibilityLabel={`${label}: ${options.find(option => option.value === value)?.label ?? 'Choose'}`}
         accessibilityState={{ expanded: expandedBriefField === id }}
         onPress={() => setExpandedBriefField(expandedBriefField === id ? null : id)}
         style={styles.briefFieldHeader}
       >
         <Text style={styles.briefFieldLabel}>{label}</Text>
         <Text style={styles.briefFieldValue}>
-          {options.find(option => option.value === value)?.label ?? 'Not sure'}
+          {options.find(option => option.value === value)?.label ?? 'Choose'}
         </Text>
       </Pressable>
       {expandedBriefField === id && (
@@ -485,7 +490,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   const renderedBriefFields = () => {
     if (!occasionChosen) return null;
     if (briefContext === 'funeral') {
-      const colourSummary = announcedColours.kind === 'not-sure'
+      const colourSummary = !announcedColours ? 'Choose' : announcedColours.kind === 'not-sure'
         ? 'Not sure'
         : announcedColours.kind === 'none'
           ? 'None announced'
@@ -516,7 +521,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                     key={option.kind}
                     testID={`check-my-look-brief-announced-colours-${option.kind}`}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: announcedColours.kind === option.kind }}
+                    accessibilityState={{ selected: announcedColours?.kind === option.kind }}
                     onPress={() => {
                       setAnnouncedColours({ kind: option.kind });
                       setExpandedBriefField(null);
@@ -525,17 +530,17 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                     }}
                     style={[
                       styles.briefChip,
-                      announcedColours.kind === option.kind && styles.briefChipSelected,
+                      announcedColours?.kind === option.kind && styles.briefChipSelected,
                     ]}
                   >
                     <Text style={[
                       styles.briefChipText,
-                      announcedColours.kind === option.kind && styles.briefChipTextSelected,
+                      announcedColours?.kind === option.kind && styles.briefChipTextSelected,
                     ]}>{option.label}</Text>
                   </Pressable>
                 ))}
                 {FUNERAL_COLOURS.map(colour => {
-                  const selected = announcedColours.kind === 'colours' &&
+                  const selected = announcedColours?.kind === 'colours' &&
                     announcedColours.values.includes(colour);
                   return (
                     <Pressable
@@ -544,7 +549,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                       accessibilityRole="button"
                       accessibilityState={{ selected }}
                       onPress={() => {
-                        const values = announcedColours.kind === 'colours'
+                        const values = announcedColours?.kind === 'colours'
                           ? announcedColours.values
                           : [];
                         setAnnouncedColours({
@@ -680,6 +685,108 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
             )}
           </View>
         )}
+      </View>
+    );
+  };
+
+  const answerJudgeQuestion = (fact: JudgeMissingFact, value: string, itemId?: string, colours?: string[]) => {
+    if (props.checking || !requiredBriefChosen) return;
+    const brief = currentBrief();
+    const garmentFacts = requestGarmentFacts();
+    if (fact === 'denomination') {
+      Object.assign(brief, { denomination: value });
+      setDenomination(value as CheckLookDenomination);
+    } else if (fact === 'assigned_set') {
+      if (brief.context === 'funeral') { brief.assignedGroupId = value; setFuneralGroupId(value); }
+      else if ('asoEbiGroupId' in brief) { brief.asoEbiGroupId = value; setAsoEbiGroupId(value); }
+      else return;
+    } else if (fact === 'announced_colours') {
+      if (brief.context !== 'funeral') return;
+      brief.announcedColours = value === 'none' || value === 'not-sure'
+        ? { kind: value } : { kind: 'colours', values: colours ?? [value] };
+      setAnnouncedColours(brief.announcedColours);
+    } else if (itemId) {
+      const next = { ...garmentFacts[itemId] };
+      if (fact === 'hem_position') {
+        if (value === 'not-sure') delete next.hemPosition;
+        else next.hemPosition = value === 'above-knee' ? 'above-knee' : 'at-or-below-knee';
+        setChurchFactAnswers(current => ({
+          ...current, [itemId]: { ...current[itemId], hemPosition: value },
+        }));
+      } else {
+        next.sleeveLining = value as 'lined' | 'sheer' | 'not-sure';
+        setChurchFactAnswers(current => ({
+          ...current, [itemId]: { ...current[itemId], sleeveLining: value },
+        }));
+      }
+      garmentFacts[itemId] = next;
+    } else return;
+    props.onCheck({
+      selection: { itemIds: selectedIds, occasion,
+        ...(parsedTemperature === undefined ? {} : { temperatureC: parsedTemperature }) },
+      brief, ...(Object.keys(garmentFacts).length ? { garmentFacts } : {}),
+    });
+  };
+
+  const renderedJudgeQuestion = () => {
+    const result = props.result;
+    if (!props.isPremium || !result || result.verdict !== 'Ask') return null;
+    const fact = result.missingFact;
+    const choices = fact === 'denomination' ? DENOMINATION_OPTIONS
+      : fact === 'assigned_set' ? setOptions
+        : fact === 'announced_colours' ? [
+          { value: 'none', label: 'None announced' }, { value: 'not-sure', label: 'Not sure' },
+          ...FUNERAL_COLOURS.map(value => ({ value, label: value })),
+        ] : [];
+    const targets = selectedItems.filter(item => fact === 'hem_position'
+      ? item.category === 'dress' || (item.category === 'bottom' && SKIRT_SUBTYPES.has(item.subType))
+      : item.category === 'top' || item.category === 'dress');
+    return (
+      <View testID="check-my-look-ask" style={styles.resultSection}>
+        <Text style={styles.resultLine}>{result.question}</Text>
+        <View style={styles.briefChips}>
+          {choices.map(option => (
+            <Pressable key={option.value} testID={`check-my-look-answer-${option.value}`}
+              accessibilityRole="button" disabled={props.checking}
+              accessibilityState={{ selected: fact === 'announced_colours' &&
+                announcedColours?.kind === 'colours' && announcedColours.values.includes(option.value) }}
+              onPress={() => {
+                if (fact !== 'announced_colours' || option.value === 'none' || option.value === 'not-sure') {
+                  answerJudgeQuestion(fact, option.value);
+                  return;
+                }
+                setAnnouncedColours(previous => {
+                  const values = previous?.kind === 'colours' ? previous.values : [];
+                  return { kind: 'colours', values: values.includes(option.value)
+                    ? values.filter(value => value !== option.value) : [...values, option.value] };
+                });
+              }} style={styles.briefChip}>
+              <Text style={styles.briefChipText}>{option.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {fact === 'announced_colours' && announcedColours?.kind === 'colours' && (
+          <Pressable testID="check-my-look-answer-colours-confirm" accessibilityRole="button"
+            disabled={props.checking || announcedColours.values.length === 0}
+            onPress={() => answerJudgeQuestion(fact, 'colours', undefined, announcedColours.values)}
+            style={styles.retryButton}>
+            <Text style={styles.retryText}>Check with these colours</Text>
+          </Pressable>
+        )}
+        {(fact === 'hem_position' || fact === 'sleeve_lining') && targets.map(item => (
+          <View key={item.id}>
+            <Text style={styles.helper}>{itemName(item)}</Text>
+            <View style={styles.briefChips}>
+              {(fact === 'hem_position' ? HEM_OPTIONS : SLEEVE_LINING_OPTIONS).map(option => (
+                <Pressable key={option.id} testID={`check-my-look-answer-${item.id}-${option.id}`}
+                  accessibilityRole="button" disabled={props.checking}
+                  onPress={() => answerJudgeQuestion(fact, option.id, item.id)} style={styles.briefChip}>
+                  <Text style={styles.briefChipText}>{option.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ))}
       </View>
     );
   };
@@ -839,18 +946,18 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                       testID={`check-my-look-occasion-${option.context}`}
                       accessibilityRole="button"
                       accessibilityState={{
-                        selected: occasion === option.value && briefContext === option.context,
+                        selected: occasionChosen && occasion === option.value && briefContext === option.context,
                       }}
                       onPress={() => handleOccasion(option)}
                       style={[
                         styles.occasionChip,
-                        occasion === option.value && briefContext === option.context &&
+                        occasionChosen && occasion === option.value && briefContext === option.context &&
                           styles.occasionChipSelected,
                       ]}
                     >
                       <Text style={[
                         styles.occasionText,
-                        occasion === option.value && briefContext === option.context &&
+                        occasionChosen && occasion === option.value && briefContext === option.context &&
                           styles.occasionTextSelected,
                       ]}>{option.label}</Text>
                     </Pressable>
@@ -941,14 +1048,39 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                 </View>
               )}
 
-              {props.result && (
+              {props.error && (
+                <View testID="check-my-look-error" accessibilityLiveRegion="polite" style={styles.notice}>
+                  <Text style={styles.noticeText}>{props.error}</Text>
+                  <Pressable testID="check-my-look-retry" accessibilityRole="button"
+                    disabled={checkDisabled} onPress={submit} style={styles.retryButton}>
+                    <Text style={styles.retryText}>Try again</Text>
+                  </Pressable>
+                </View>
+              )}
+              {props.result && (props.result.tier === 'free' || props.isPremium) && (
                 <View accessibilityLiveRegion="polite" style={styles.resultCard}>
                   <Text style={styles.resultEyebrow}>{props.result.tier === 'premium' ? 'Amodka’s review' : 'Your verdict'}</Text>
-                  <Text style={[styles.verdict, { color: verdictColor }]}>{props.result.verdict}</Text>
+                  <Text style={[styles.verdict, { color: verdictColor }]}>
+                    {props.result.verdict === 'Ask' ? 'One detail to confirm' : props.result.verdict}
+                  </Text>
                   {props.result.verdict === 'Not judged' ? (
                     <Text style={styles.premiumQuiet}>{props.result.message}</Text>
-                  ) : props.result.tier === 'free' ? (
-                    <Text style={styles.premiumQuiet}>Premium offers a fuller review of what works and what to refine.</Text>
+                  ) : props.result.tier === 'free' ? null : props.result.verdict === 'Ask' ? (
+                    renderedJudgeQuestion()
+                  ) : 'source' in props.result ? (
+                    <>
+                      <Text style={styles.resultLine}>{props.result.reason}</Text>
+                      {props.result.swapSuggestion && (() => {
+                        const swap = props.result.swapSuggestion;
+                        const original = props.items.find(item => item.id === swap.replacesId);
+                        const replacement = props.items.find(item => item.id === swap.replacementId);
+                        return original && replacement ? (
+                          <Text style={styles.resultLine}>
+                            {itemName(original)} · try {itemName(replacement)}
+                          </Text>
+                        ) : null;
+                      })()}
+                    </>
                   ) : (
                     <>
                       {props.result.working.length > 0 && (
@@ -977,46 +1109,33 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
               )}
 
               <Pressable
-                testID={quotaReached ? 'check-my-look-paywall' : 'check-my-look-submit'}
+                testID="check-my-look-submit"
                 accessibilityRole="button"
-                accessibilityLabel={quotaReached ? 'Upgrade to Premium' : 'Check this look'}
+                accessibilityLabel="Check this look"
                 accessibilityState={{
-                  disabled: !quotaReached && checkDisabled,
+                  disabled: checkDisabled,
                   busy: props.checking,
                 }}
-                disabled={!quotaReached && checkDisabled}
+                disabled={checkDisabled}
                 onPress={submit}
                 style={({ pressed }) => [
                   styles.primaryButton,
-                  !quotaReached && checkDisabled && styles.primaryDisabled,
-                  pressed && !(!quotaReached && checkDisabled) && styles.pressed,
+                  checkDisabled && styles.primaryDisabled,
+                  pressed && !checkDisabled && styles.pressed,
                 ]}
               >
                 <Text style={styles.primaryText}>
-                  {quotaReached
-                    ? 'Explore Premium'
-                    : props.checking
+                  {props.checking
                       ? 'Reviewing your look…'
                       : 'Check this look'}
                 </Text>
               </Pressable>
-              {!quotaReached && (
+              {(
                 <Text style={styles.remainingCount}>
                   {props.isPremium
-                    ? 'Premium access is active'
-                    : `${props.freeRemaining} free ${props.freeRemaining === 1 ? 'verdict' : 'verdicts'} remaining`}
+                    ? 'Premium includes 30 look checks a day'
+                    : 'Free includes 5 look checks a day'}
                 </Text>
-              )}
-              {quotaReached && (
-                <Pressable
-                  testID="check-my-look-paywall-secondary"
-                  accessibilityRole="button"
-                  accessibilityLabel="See Premium options"
-                  onPress={props.onUpgrade}
-                  style={styles.secondaryUpgrade}
-                >
-                  <Text style={styles.secondaryUpgradeText}>See Premium options</Text>
-                </Pressable>
               )}
               {!!selectionSummary && (
                 <Text accessibilityLabel={`Selected pieces: ${selectionSummary}`} style={styles.selectionSummary}>
