@@ -1135,3 +1135,59 @@ mtime_ms = 1794401359274
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/5ac6697f-7389-4f3d-b5dd-8107c2ab00d2/2f143d87-6f61-4e6b-888c-f14f9d8a66a2"
 storage_version_token = "1794401384678258"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "lpFeGKwiBxIp4FrPV-axp"
+uri = "file://docs/reports/judge-experiment/set4a-ask-allowed.csv"
+type = "table"
+title = "Set 4A — Ask allowed"
+description = "Frozen Arm B experiment using production payload builders; no gold-label scoring."
+logical_id = "68a936ff-e900-4f9f-bec0-3f0dcce057aa"
+content_hash = "sha256:fb5de24e8d470587c180a77d41f35b5845154403e57d565e34746d2500aecd24"
+size = 16577
+mtime_ms = 1794442328243
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/68a936ff-e900-4f9f-bec0-3f0dcce057aa/a671a353-3454-458b-909b-3c30b9d0da9d"
+storage_version_token = "1794442531850743"
+content_type = "text/csv"
+
+[[outputs]]
+id = "-KyWml2v5vDa43z3FnvDB"
+uri = "file://docs/reports/judge-experiment/set4a-fabric-stripped.csv"
+type = "table"
+title = "Set 4A — Fabric stripped"
+description = "Frozen Arm B experiment using production payload builders; no gold-label scoring."
+logical_id = "d4b35e5d-6875-4c68-b9ef-2fd33dfa070f"
+content_hash = "sha256:70ffdbfb12e1d52ef3bab95aa6ab9ecc36550aedb439e7393ab24597cd65b47e"
+size = 15758
+mtime_ms = 1794442468248
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/d4b35e5d-6875-4c68-b9ef-2fd33dfa070f/f4b6c05b-434e-4813-8a81-4c3c262cec80"
+storage_version_token = "1794442532577892"
+content_type = "text/csv"
+
+[[outputs]]
+id = "VAFxI0ucIQ3BBSR5L9fhI"
+uri = "file://docs/reports/judge-experiment/set4a-run.jsonl"
+type = "unspecified"
+title = "Set 4A — Full request and response log"
+description = "Frozen Arm B experiment using production payload builders; no gold-label scoring."
+logical_id = "42b31443-90b9-4869-9d15-10f5ef53293f"
+content_hash = "sha256:1ef3b9620640abf81f316e2258b7739139ae04963610d10badd7ff21e8312163"
+size = 682772
+mtime_ms = 1794442468252
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/42b31443-90b9-4869-9d15-10f5ef53293f/52d97872-ae8a-401f-b6d9-9fa7ee79b00e"
+storage_version_token = "1794442533393632"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "qs4dJWvkC_UCjx1WMgrl-"
+uri = "file://docs/reports/judge-experiment/set4a-report.md"
+type = "text"
+title = "Set 4A — Experiment report"
+description = "Frozen Arm B experiment using production payload builders; no gold-label scoring."
+logical_id = "aefc132e-aa72-47a8-b3ed-b54e373d01b3"
+content_hash = "sha256:dd4bb5f071b3faac480dd996b16d586ad4f80158ead4b57e9a5557b350b9b0a3"
+size = 8567
+mtime_ms = 1794442521714
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/aefc132e-aa72-47a8-b3ed-b54e373d01b3/da9d5456-7512-46a8-b51b-37d5edbc473b"
+storage_version_token = "1794442534073594"
+content_type = "text/markdown"

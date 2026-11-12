@@ -1,0 +1,94 @@
+look_id,verdict,reason,missing_fact,served_model,latency_ms,guard,brief_json,items_block
+"W1-A","Works","A white long-sleeve collared shirt with tailored navy trousers and black flats is appropriate.","","gemini-3.6-flash","1097","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""work"",""venue"":""workplace"",""dress_code"":""business"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":32}","Items:
+Name: flats; Colour: black; Quality: unknown; Notes: solid
+Name: shirt; Colour: white; Quality: unknown; Notes: solid, sleeves long, neckline collared
+Name: tote; Colour: black; Quality: unknown; Notes: solid
+Name: trousers; Colour: navy; Quality: unknown; Notes: solid, fit tailored, formality 7"
+"W1-B","Almost","Add a blazer or jacket to meet the business dress code.","","gemini-3.6-flash","1220","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""event"",""venue"":""upscale-restaurant"",""dress_code"":""business"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":29}","Items:
+Name: clutch; Colour: black; Quality: unknown; Notes: solid
+Name: slip-dress; Colour: black; Quality: unknown; Notes: solid, sleeves sleeveless, fit slim, neckline v-neck, formality 7
+Name: strappy-heels; Colour: gold; Quality: unknown; Notes: solid"
+"W1-C","Rethink","Stilettos fail for outdoor casual work; wide-leg white trousers will ruin on outdoor terrain.","","gemini-3.6-flash","1166","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""work"",""venue"":""outdoors"",""dress_code"":""casual"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":33}","Items:
+Name: camisole; Colour: champagne; Quality: unknown; Notes: solid, sleeves sleeveless, neckline v-neck
+Name: stilettos; Colour: white; Quality: unknown; Notes: solid
+Name: wide-leg; Colour: white; Quality: unknown; Notes: solid, fit loose"
+"W1-D","Almost","Swap black ankle boots for trainers or sandals for hot outdoor weather","","gemini-3.6-flash","1172","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""casual"",""venue"":""outdoors"",""dress_code"":""casual"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":32}","Items:
+Name: ankle-boots; Colour: black; Quality: unknown; Notes: solid
+Name: jeans; Colour: blue; Quality: unknown; Notes: solid, fit slim
+Name: t-shirt; Colour: white; Quality: unknown; Notes: solid, sleeves short, neckline round"
+"W2-A","Works","Loose navy abaya with matching hijab and flats is professional for a business workplace.","","gemini-3.6-flash","898","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""work"",""venue"":""workplace"",""dress_code"":""business"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":34}","Items:
+Name: abaya; Colour: navy; Quality: unknown; Notes: solid, sleeves long, fit loose, neckline round
+Name: flats; Colour: black; Quality: unknown; Notes: solid
+Name: hijab; Colour: navy; Quality: unknown; Notes: solid"
+"W2-B","Almost","Add a matching headscarf or gyale to complete the covered look.","","gemini-3.6-flash","1147","{""pass"":false,""failures"":[""Your head-covering preference is not met by the selected look.""],""missing"":[],""flags"":[]}","{""context"":""wedding"",""venue"":""other"",""dress_code"":""traditional"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":31}","Items:
+Name: abaya; Colour: emerald; Quality: unknown; Notes: solid, sleeves long, fit loose, neckline round, formality 8
+Name: block-heels; Colour: gold; Quality: unknown; Notes: solid
+Name: clutch; Colour: gold; Quality: unknown; Notes: solid"
+"W2-C","Works","Lilac kaftan with matching hijab and flats is perfectly suited for a home naming ceremony.","","gemini-3.6-flash","1250","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""naming-ceremony"",""venue"":""home"",""dress_code"":""traditional"",""denomination"":null,""role"":""guest"",""announced_colours"":null,""time_of_day"":null,""assigned_set"":""none"",""temperature_c"":33}","Items:
+Name: flats; Colour: silver; Quality: unknown; Notes: solid
+Name: hijab; Colour: lilac; Quality: unknown; Notes: solid
+Name: kaftan; Colour: lilac; Quality: unknown; Notes: solid, sleeves long, fit loose, neckline round, formality 7"
+"W2-D","Rethink","Sleeveless mini dress violates sleeve preference and lacks required head covering","","gemini-3.6-flash","1287","{""pass"":false,""failures"":[""Sleeve shorter than your preference"",""Your head-covering preference is not met by the selected look.""],""missing"":[],""flags"":[]}","{""context"":""event"",""venue"":""upscale-restaurant"",""dress_code"":""smart-casual"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":31}","Items:
+Name: mini-dress; Colour: gold; Quality: unknown; Notes: solid, sleeves sleeveless, fit slim, neckline v-neck, formality 8
+Name: stilettos; Colour: gold; Quality: unknown; Notes: solid"
+"W3-A","Works","A tailored midi skirt, long-sleeve collared blouse, trench and pumps suit a cold business interview.","","gemini-3.6-flash","1179","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""interview"",""venue"":""workplace"",""dress_code"":""business"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":10}","Items:
+Name: blouse; Colour: white; Quality: unknown; Notes: solid, sleeves long, neckline collared
+Name: midi-skirt; Colour: navy; Quality: unknown; Notes: solid, fit tailored, formality 8
+Name: pumps; Colour: black; Quality: unknown; Notes: solid
+Name: trench; Colour: stone; Quality: unknown; Notes: solid"
+"W3-B","Almost","Print midi dress is slightly underdressed for formal wedding: upgrade to solid formal dress.","","gemini-3.6-flash","1170","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""wedding"",""venue"":""outdoors"",""dress_code"":""formal"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":21}","Items:
+Name: clutch; Colour: silver; Quality: unknown; Notes: solid
+Name: midi-dress; Colour: blue; Quality: unknown; Notes: print, sleeves short, fit regular, neckline round, formality 7
+Name: stilettos; Colour: black; Quality: unknown; Notes: solid"
+"W3-C","Rethink","Sleeveless mini-dress at 5°C with sandals is weather-inappropriate and lacks cold-weather layering.","","gemini-3.6-flash","1296","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""event"",""venue"":""other"",""dress_code"":""smart-casual"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":5}","Items:
+Name: mini-dress; Colour: black; Quality: unknown; Notes: solid, sleeves sleeveless, fit slim, neckline round, formality 7
+Name: sandals; Colour: black; Quality: unknown; Notes: solid"
+"W3-D","Ask","Which colours have the family announced for the funeral?","announced_colours","gemini-3.6-flash","1147","{""pass"":false,""failures"":[],""missing"":[""announced funeral colours""],""flags"":[]}","{""context"":""funeral"",""venue"":""other"",""dress_code"":""formal"",""denomination"":null,""role"":null,""announced_colours"":{""kind"":""not-sure""},""time_of_day"":null,""assigned_set"":""none"",""temperature_c"":11}","Items:
+Name: midi-dress; Colour: royal blue; Quality: unknown; Notes: solid, sleeves long, fit regular, neckline round, formality 7
+Name: pumps; Colour: black; Quality: unknown; Notes: solid"
+"W4-A","Works","Navy long-sleeved collared shirt-dress and black low heels suit a conservative corporate workplace perfectly.","","gemini-3.6-flash","1120","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""work"",""venue"":""workplace"",""dress_code"":""conservative"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":31}","Items:
+Name: low heels; Colour: black; Quality: unknown; Notes: solid
+Name: shirt-dress; Colour: navy; Quality: unknown; Notes: solid, sleeves long, fit regular, neckline collared, formality 7"
+"W4-B","Works","Lilac iro and buba with gele and block heels fully suits a guest owambe.","","gemini-3.6-flash","1115","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""owambe"",""venue"":""other"",""dress_code"":""traditional"",""denomination"":null,""role"":""guest"",""announced_colours"":null,""time_of_day"":null,""assigned_set"":""none"",""temperature_c"":30}","Items:
+Name: block-heels; Colour: silver; Quality: unknown; Notes: solid
+Name: clutch; Colour: silver; Quality: unknown; Notes: solid
+Name: gele; Colour: lilac; Quality: unknown; Notes: solid
+Name: iro-and-buba; Colour: lilac; Quality: unknown; Notes: solid, formality 7"
+"W4-C","Rethink","Pink maxi dress violates the announced black and white funeral colours.","","gemini-3.6-flash","1218","{""pass"":false,""failures"":[""The look does not include an announced funeral colour.""],""missing"":[],""flags"":[]}","{""context"":""funeral"",""venue"":""outdoors"",""dress_code"":""traditional"",""denomination"":null,""role"":null,""announced_colours"":{""kind"":""colours"",""values"":[""black"",""white""]},""time_of_day"":null,""assigned_set"":""none"",""temperature_c"":31}","Items:
+Name: heels; Colour: gold; Quality: unknown; Notes: solid
+Name: maxi-dress; Colour: pink; Quality: unknown; Notes: solid, sleeves short, fit slim, neckline v-neck, formality 8"
+"W4-D","Works","Teal short-sleeve shirt-dress with tan flats and tote works well for smart-casual outdoors.","","gemini-3.6-flash","1221","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""event"",""venue"":""outdoors"",""dress_code"":""smart-casual"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":31}","Items:
+Name: flats; Colour: tan; Quality: unknown; Notes: solid
+Name: shirt-dress; Colour: teal; Quality: unknown; Notes: solid, sleeves short, fit regular, neckline collared, formality 6
+Name: tote; Colour: brown; Quality: unknown; Notes: solid"
+"W5-A","Works","Relaxed linen set and leather sandals fit a casual restaurant setting in hot weather.","","gemini-3.6-flash","1201","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""casual"",""venue"":""restaurant"",""dress_code"":""casual"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":30}","Items:
+Name: linen-set; Colour: beige; Quality: unknown; Notes: solid, sleeves short, fit loose
+Name: sandals; Colour: tan; Quality: unknown; Notes: solid"
+"W5-B","Works","A tailored blazer, white t-shirt, beige trousers, and loafers fit smart-casual office wear.","","gemini-3.6-flash","1305","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""work"",""venue"":""workplace"",""dress_code"":""smart-casual"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":30}","Items:
+Name: blazer; Colour: black; Quality: unknown; Notes: solid, fit tailored, formality 7
+Name: loafers; Colour: brown; Quality: unknown; Notes: solid
+Name: t-shirt; Colour: white; Quality: unknown; Notes: solid, sleeves short, neckline round
+Name: trousers; Colour: beige; Quality: unknown; Notes: solid, fit regular"
+"W5-C","Works","Floor-length emerald gown with gold heels and clutch is perfect for a formal wedding.","","gemini-3.6-flash","1179","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""wedding"",""venue"":""other"",""dress_code"":""formal"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":28}","Items:
+Name: clutch; Colour: gold; Quality: unknown; Notes: solid
+Name: maxi-dress; Colour: emerald; Quality: unknown; Notes: solid, sleeves sleeveless, fit slim, neckline v-neck, formality 8
+Name: strappy-heels; Colour: gold; Quality: unknown; Notes: solid"
+"W5-D","Rethink","White and ivory are forbidden for wedding guests, and trainers undercut formal wear","","gemini-3.6-flash","1108","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""wedding"",""venue"":""other"",""dress_code"":""formal"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":28}","Items:
+Name: maxi-dress; Colour: ivory; Quality: unknown; Notes: solid, sleeves sleeveless, fit slim, neckline v-neck, formality 8
+Name: trainers; Colour: white; Quality: unknown; Notes: solid"
+"W6-A","Works","A white collared short-sleeve blouse with grey trousers and black flats works for business.","","gemini-3.6-flash","1211","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""work"",""venue"":""workplace"",""dress_code"":""business"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":33}","Items:
+Name: blouse; Colour: white; Quality: unknown; Notes: solid, sleeves short, neckline collared
+Name: flats; Colour: black; Quality: unknown; Notes: solid
+Name: trousers; Colour: grey; Quality: unknown; Notes: solid, fit regular, formality 6
+Name: watch; Colour: silver; Quality: unknown; Notes: solid"
+"W6-B","Almost","Swap trainers for sandals or heels to respect traditional attire.","","gemini-3.6-flash","1195","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""naming-ceremony"",""venue"":""home"",""dress_code"":""traditional"",""denomination"":null,""role"":""guest"",""announced_colours"":null,""time_of_day"":null,""assigned_set"":""none"",""temperature_c"":32}","Items:
+Name: gele; Colour: blue; Quality: unknown; Notes: solid
+Name: iro-and-buba; Colour: blue; Quality: unknown; Notes: print, formality 6
+Name: trainers; Colour: white; Quality: unknown; Notes: solid"
+"W6-C","Ask","Check if aso-ebi was assigned for this owambe","assigned_set","gemini-3.6-flash","1114","{""pass"":false,""failures"":[],""missing"":[""assigned aso-ebi""],""flags"":[]}","{""context"":""owambe"",""venue"":""other"",""dress_code"":""traditional"",""denomination"":null,""role"":""guest"",""announced_colours"":null,""time_of_day"":null,""assigned_set"":""unknown"",""temperature_c"":31}","Items:
+Name: block-heels; Colour: gold; Quality: unknown; Notes: solid
+Name: gele; Colour: royal blue; Quality: unknown; Notes: solid
+Name: maxi-dress; Colour: royal blue; Quality: unknown; Notes: solid, sleeves three-quarter, fit regular, neckline round, formality 9"
+"W6-D","Rethink","A sleeveless mini-dress is inappropriate for a formal corporate business workplace.","","gemini-3.6-flash","1111","{""pass"":true,""failures"":[],""missing"":[],""flags"":[]}","{""context"":""work"",""venue"":""workplace"",""dress_code"":""business"",""denomination"":null,""role"":null,""announced_colours"":null,""time_of_day"":null,""assigned_set"":null,""temperature_c"":33}","Items:
+Name: mini-dress; Colour: coral; Quality: unknown; Notes: solid, sleeves sleeveless, fit slim, neckline v-neck
+Name: sandals; Colour: tan; Quality: unknown; Notes: solid"
