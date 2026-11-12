@@ -6,7 +6,7 @@ import { mapDbRowToWardrobeItem } from "../lib/wardrobeMapper";
 import { mapDbRowToGarmentGroup } from "../lib/garmentGroupMapper";
 import { evaluateCheckLook, isValidCheckLookSelection } from "../lib/checkLook";
 import type { WardrobeItem, GarmentGroup, Constraints } from "../constants/types";
-import { callCheckLookJudge, judgeEnabled, judgeModel, CHECK_LOOK_PROMPT_HASH,
+import { callCheckLookJudge, judgeEnabled, judgeModel, CHECK_LOOK_PROMPT_HASH, missingFactsFromGuard,
   type JudgeAnswer, type MissingFact } from "./checkLookJudge";
 import { judgeRequestSchema, exportJudgeText, judgeGuard, profileJudgeConstraints, type JudgeRequest } from "./checkLookJudgeInput";
 import { consumeJudgeQuota } from "./checkLookJudgeStore";
@@ -154,7 +154,7 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
     }
   }
   const guard = judgeGuard(request, context.items, context.groups, context.constraints);
-  const allowSleeveLengthAsk = guard.missing.includes("sleeve length required by your coverage preference");
+  const missingFacts = missingFactsFromGuard(guard.missing);
   const text = exportJudgeText(request, context.items, context.groups, context.constraints, guard);
   try {
     const consume = process.env.NODE_ENV === "test" && _testOverrides.quota ? _testOverrides.quota : consumeJudgeQuota;
@@ -175,9 +175,9 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
     if (cached && cached.expires > Date.now()) answer = cached.answer;
     else {
       const judge = process.env.NODE_ENV === "test" && _testOverrides.judge ? _testOverrides.judge : callCheckLookJudge;
-      answer = await judge(text, { model, allowSleeveLengthAsk });
-      if (answer.result.verdict === "Ask" && answer.result.missing_fact === "sleeve_length" &&
-          !allowSleeveLengthAsk) {
+      answer = await judge(text, { model, missingFacts });
+      if (answer.result.verdict === "Ask" &&
+          (!answer.result.missing_fact || !missingFacts.includes(answer.result.missing_fact))) {
         throw new Error("Unsupported judge question");
       }
       servedVersions.set(model, answer.modelVersion);

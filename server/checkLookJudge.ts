@@ -32,13 +32,28 @@ export function judgeModel(): string {
   return model;
 }
 
-export function judgeSchema(allowAsk = true) {
+export function missingFactsFromGuard(missing: readonly string[]): MissingFact[] {
+  const mappings: Record<MissingFact, RegExp> = {
+    denomination: /^church (denomination|coverage rules for this denomination|hem rule for this denomination)$/,
+    assigned_set: /^assigned (aso-ebi|funeral set)( membership| garment details)?$/,
+    announced_colours: /^announced funeral colours$/,
+    hem_position: /^hem position (for |required by )/,
+    sleeve_lining: /^sleeve lining for /,
+    sleeve_length: /^sleeve length (for |required by )/,
+  };
+  return MISSING_FACTS.filter(fact => missing.some(label => mappings[fact].test(label)));
+}
+
+export function judgeSchema(allowAsk = true, missingFacts: readonly MissingFact[] = MISSING_FACTS) {
+  const allowed = allowAsk ? MISSING_FACTS.filter(fact => missingFacts.includes(fact)) : [];
   return {
     type: "OBJECT",
     properties: {
-      verdict: { type: "STRING", enum: allowAsk ? ["Works", "Almost", "Rethink", "Ask"] : ["Works", "Almost", "Rethink"] },
+      verdict: { type: "STRING", enum: allowed.length ? ["Works", "Almost", "Rethink", "Ask"] : ["Works", "Almost", "Rethink"] },
       reason: { type: "STRING" },
-      missing_fact: { type: "STRING", nullable: true, enum: [...MISSING_FACTS] },
+      missing_fact: allowed.length
+        ? { type: "STRING", nullable: true, enum: allowed }
+        : { type: "NULL", enum: undefined },
     },
     required: ["verdict", "reason", "missing_fact"],
     propertyOrdering: ["verdict", "reason", "missing_fact"],
@@ -47,25 +62,32 @@ export function judgeSchema(allowAsk = true) {
 
 const resultSchema = z.object({
   verdict: z.enum(["Works", "Almost", "Rethink", "Ask"]),
-  reason: z.string().trim().min(1).max(200).refine(value => value.split(/\s+/).length <= 15),
+  reason: z.string().trim().min(1),
   // Retain an unsupported Ask long enough to request the model's non-Ask verdict.
   missing_fact: z.string().nullable(),
 }).strict();
 
-export function parseJudgeResponse(text: string, allowAsk: boolean, allowSleeveLengthAsk = false): JudgeResult | null {
+export function parseJudgeResponse(text: string, allowAsk: boolean, allowSleeveLengthAsk = false,
+  missingFacts: readonly MissingFact[] = MISSING_FACTS): JudgeResult | null {
   try {
     const parsed = resultSchema.parse(JSON.parse(text));
     if (parsed.verdict === "Ask") {
       if (!allowAsk || !MISSING_FACTS.includes(parsed.missing_fact as MissingFact)) return null;
+      if (!missingFacts.includes(parsed.missing_fact as MissingFact)) return null;
       if (parsed.missing_fact === "sleeve_length" && !allowSleeveLengthAsk) return null;
     } else if (parsed.missing_fact !== null) return null;
+    const words = parsed.reason.split(/\s+/);
+    if (words.length > 15) {
+      parsed.reason = words.slice(0, 15).join(" ");
+      console.info(JSON.stringify({ type: "check_look_judge_reason_trimmed", count: 1 }));
+    }
     return parsed as JudgeResult;
   } catch {
     return null;
   }
 }
 
-export function buildJudgeBody(text: string, allowAsk = true) {
+export function buildJudgeBody(text: string, allowAsk = true, missingFacts: readonly MissingFact[] = MISSING_FACTS) {
   if (createHash("sha256").update(CHECK_LOOK_PROMPT).digest("hex") !== CHECK_LOOK_PROMPT_HASH) {
     throw new Error("Judge prompt integrity failure");
   }
@@ -75,7 +97,7 @@ export function buildJudgeBody(text: string, allowAsk = true) {
     generationConfig: {
       temperature: 0, maxOutputTokens: 1024,
       thinkingConfig: { thinkingLevel: "minimal" },
-      responseMimeType: "application/json", responseSchema: judgeSchema(allowAsk),
+      responseMimeType: "application/json", responseSchema: judgeSchema(allowAsk, missingFacts),
     },
   };
 }
@@ -95,7 +117,7 @@ export async function callCheckLookJudge(text: string, options: {
   post?: JudgePost;
   model?: string;
   timeoutMs?: number;
-  allowSleeveLengthAsk?: boolean;
+  missingFacts?: readonly MissingFact[];
   record?: (metadata: JudgeCallMetadata) => void;
 } = {}): Promise<JudgeAnswer> {
   if (process.env.NODE_ENV === "test" && !options.post) {
@@ -109,7 +131,8 @@ export async function callCheckLookJudge(text: string, options: {
   const post = options.post ?? axios.post;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const work = async (): Promise<JudgeAnswer> => {
-    let allowAsk = true;
+    const missingFacts = options.missingFacts ?? [];
+    let allowAsk = missingFacts.length > 0;
     for (let attempt = 1; attempt <= 2; attempt++) {
       if (controller.signal.aborted) throw new Error("Judge timed out");
       const started = Date.now();
@@ -119,7 +142,7 @@ export async function callCheckLookJudge(text: string, options: {
       try {
         const pending = post(
           `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-          buildJudgeBody(text + (allowAsk ? "" : "\nJudge the stated facts with your best non-Ask verdict; missing_fact must be null."), allowAsk),
+          buildJudgeBody(text + (allowAsk ? "" : "\nJudge the stated facts with your best non-Ask verdict; missing_fact must be null."), allowAsk, missingFacts),
           {
             timeout: Math.max(1, deadline - Date.now()), signal: controller.signal,
             headers: { "x-goog-api-key": process.env.GEMINI_API_KEY ?? "" },
@@ -141,15 +164,14 @@ export async function callCheckLookJudge(text: string, options: {
         const candidate = data?.candidates?.[0];
         const textResponse = candidate?.content?.parts?.filter(part => !part.thought).map(part => part.text ?? "").join("") ?? "";
         const result = candidate?.finishReason === "STOP"
-          ? parseJudgeResponse(textResponse, allowAsk, options.allowSleeveLengthAsk) : null;
+          ? parseJudgeResponse(textResponse, allowAsk, missingFacts.includes("sleeve_length"), missingFacts) : null;
         if (result && modelVersion) return { result, modelVersion, promptHash: CHECK_LOOK_PROMPT_HASH };
         // One retry for malformed output. Unsupported Ask uses a non-Ask schema,
         // so any conversion is still the model's answer, never an invented score.
         try {
           const rejected = JSON.parse(textResponse);
           if (rejected.verdict === "Ask" && (
-            !MISSING_FACTS.includes(rejected.missing_fact) ||
-            (rejected.missing_fact === "sleeve_length" && !options.allowSleeveLengthAsk)
+            !missingFacts.includes(rejected.missing_fact)
           )) allowAsk = false;
         } catch { /* malformed JSON keeps the original schema */ }
       } catch (error) {

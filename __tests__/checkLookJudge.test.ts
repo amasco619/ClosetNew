@@ -5,7 +5,7 @@ import express from "express";
 import request from "supertest";
 import type { WardrobeItem } from "../constants/types";
 import {
-  buildJudgeBody, callCheckLookJudge, parseJudgeResponse, MISSING_FACTS,
+  buildJudgeBody, callCheckLookJudge, parseJudgeResponse, MISSING_FACTS, missingFactsFromGuard,
   CHECK_LOOK_PROMPT_HASH, type JudgeCallMetadata,
 } from "../server/checkLookJudge";
 import { CHECK_LOOK_PROMPT } from "../server/checkLookPrompt";
@@ -45,7 +45,67 @@ async function adapterTests() {
     "denomination", "assigned_set", "announced_colours", "hem_position", "sleeve_lining", "sleeve_length",
   ]);
   assert.equal(parseJudgeResponse(JSON.stringify({ ...works, extra: true }), true), null);
-  assert.equal(parseJudgeResponse(JSON.stringify({ ...works, reason: "word ".repeat(16) }), true), null);
+  const trimLogs: string[] = [];
+  const originalInfo = console.info;
+  console.info = value => trimLogs.push(String(value));
+  try {
+    for (const verdict of ["Works", "Almost", "Rethink", "Ask"] as const) {
+      const trimmed = parseJudgeResponse(JSON.stringify({
+        verdict, reason: "word ".repeat(100),
+        missing_fact: verdict === "Ask" ? "denomination" : null,
+      }), true);
+      assert.equal(trimmed?.verdict, verdict);
+      assert.equal(trimmed?.reason, Array(15).fill("word").join(" "));
+    }
+    assert.equal(parseJudgeResponse(JSON.stringify({ ...works, reason: "word ".repeat(16), missing_fact: "bad" }), true), null);
+    assert.equal(trimLogs.length, 4, "only valid results count as trimmed");
+    for (const log of trimLogs) assert.deepEqual(JSON.parse(log),
+      { type: "check_look_judge_reason_trimmed", count: 1 });
+  } finally { console.info = originalInfo; }
+  const mappings: [string, typeof MISSING_FACTS[number]][] = [
+    ["church denomination", "denomination"],
+    ["church coverage rules for this denomination", "denomination"],
+    ["church hem rule for this denomination", "denomination"],
+    ["assigned aso-ebi", "assigned_set"],
+    ["assigned funeral set membership", "assigned_set"],
+    ["assigned aso-ebi garment details", "assigned_set"],
+    ["announced funeral colours", "announced_colours"],
+    ["hem position for the selected skirt or shorts", "hem_position"],
+    ["hem position required by your short-skirt preference", "hem_position"],
+    ["sleeve lining for the selected top", "sleeve_lining"],
+    ["sleeve length required by your coverage preference", "sleeve_length"],
+    ["sleeve length for the selected dress", "sleeve_length"],
+  ];
+  for (const [label, fact] of mappings) {
+    const missingFacts = missingFactsFromGuard([label, label]);
+    assert.deepEqual(missingFacts, [fact]);
+    const requestBody = buildJudgeBody("Synthetic", true, missingFacts);
+    assert.deepEqual(requestBody.generationConfig.responseSchema.properties.missing_fact.enum, [fact]);
+    let attempts = 0;
+    const answer = await callCheckLookJudge("Synthetic", { record, missingFacts, post: async (_url, actual) => {
+      attempts++;
+      assert.deepEqual(actual, requestBody);
+      return response({ verdict: "Ask", reason: "One fact is missing.", missing_fact: fact });
+    } });
+    assert.equal(answer.result.missing_fact, fact);
+    assert.equal(attempts, 1);
+  }
+  assert.deepEqual(missingFactsFromGuard(["your role at this occasion", "back coverage for the selected top"]), []);
+  const noMissing = buildJudgeBody("Synthetic", true, []);
+  assert.ok(!noMissing.generationConfig.responseSchema.properties.verdict.enum.includes("Ask"));
+  assert.equal(noMissing.generationConfig.responseSchema.properties.missing_fact.type, "NULL");
+  let trimCalls = 0;
+  console.info = value => trimLogs.push(String(value));
+  try {
+    const trimmed = await callCheckLookJudge("Synthetic", { record, post: async (_url, actual) => {
+      trimCalls++;
+      const schema = (actual as ReturnType<typeof buildJudgeBody>).generationConfig.responseSchema;
+      assert.ok(!schema.properties.verdict.enum.includes("Ask"), "default call with no guard facts forbids Ask");
+      return response({ ...works, reason: "word ".repeat(16) });
+    } });
+    assert.equal(trimmed.result.reason.split(/\s+/).length, 15);
+    assert.equal(trimCalls, 1, "a long valid reason never causes a retry");
+  } finally { console.info = originalInfo; }
   assert.equal(parseJudgeResponse('{"verdict":"Works"}', true), null);
   assert.equal(parseJudgeResponse(JSON.stringify({ ...works, missing_fact: "denomination" }), true), null);
   for (const missing_fact of MISSING_FACTS) {
@@ -227,7 +287,7 @@ async function adapterTests() {
     calls++;
     const schema = (requestBody as ReturnType<typeof buildJudgeBody>).generationConfig.responseSchema;
     if (calls === 1) {
-      assert.ok(schema.properties.missing_fact.enum.includes("sleeve_length"));
+      assert.ok(!schema.properties.verdict.enum.includes("Ask"), "no missing facts means no Ask");
       return response({ verdict: "Ask", reason: "What are the sleeves like?", missing_fact: "sleeve_length" });
     }
     assert.ok(!schema.properties.verdict.enum.includes("Ask"), "unsupported sleeve-length Ask triggers the one non-Ask retry");
@@ -237,12 +297,27 @@ async function adapterTests() {
   assert.equal(calls, 2);
   calls = 0;
   const supportedSleeveAsk = await callCheckLookJudge("Synthetic", {
-    record, allowSleeveLengthAsk: true, post: async () => {
+    record, missingFacts: ["sleeve_length"], post: async () => {
       calls++; return response({ verdict: "Ask", reason: "How long are the sleeves?", missing_fact: "sleeve_length" });
     },
   });
   assert.equal(supportedSleeveAsk.result.missing_fact, "sleeve_length");
   assert.equal(calls, 1, "a guard-supported sleeve-length Ask is accepted without retry");
+  calls = 0;
+  const unsupportedKnownAsk = await callCheckLookJudge("Synthetic", {
+    record, missingFacts: ["hem_position"], post: async (_url, requestBody) => {
+      calls++;
+      const schema = (requestBody as ReturnType<typeof buildJudgeBody>).generationConfig.responseSchema;
+      if (calls === 1) {
+        assert.deepEqual(schema.properties.missing_fact.enum, ["hem_position"]);
+        return response({ verdict: "Ask", reason: "Which church?", missing_fact: "denomination" });
+      }
+      assert.ok(!schema.properties.verdict.enum.includes("Ask"));
+      return response(works);
+    },
+  });
+  assert.equal(calls, 2, "an out-of-schema but known Ask still triggers the safety net");
+  assert.deepEqual(unsupportedKnownAsk.result, works);
   calls = 0;
   await assert.rejects(callCheckLookJudge("Synthetic", { record, post: async () => {
     calls++; throw new Error("Network failure with private details");
@@ -368,7 +443,8 @@ async function routeTests() {
   authOverrides.authenticatedUser = { id: user };
   clearJudgeCache(user);
   currentResult = { verdict: "Ask", reason: "Which church denomination?", missing_fact: "denomination" };
-  const ask = await send();
+  const churchInput = { ...input, brief: { context: "church", denomination: "not-sure" } };
+  const ask = await send(churchInput);
   assert.equal(ask.body.verdict, "Ask");
   assert.equal(typeof ask.body.question, "string");
   assert.equal(ask.body.missing_fact, "denomination");
@@ -378,7 +454,7 @@ async function routeTests() {
     items: [{ ...top, sleeveLength: undefined }, bottom], groups: [], constraints: { noSleeveless: true },
   });
   routeOverrides.judge = async (_text, options) => {
-    assert.equal(options?.allowSleeveLengthAsk, true,
+    assert.deepEqual(options?.missingFacts, ["sleeve_length"],
       'the exact guard missing fact is mapped to the sleeve_length Ask allowance');
     return {
       result: { verdict: "Ask", reason: "One detail is missing.", missing_fact: "sleeve_length" },
@@ -394,7 +470,7 @@ async function routeTests() {
   clearJudgeCache(user);
   routeOverrides.load = async () => ({ items: [top, bottom], groups: [], constraints: {} });
   routeOverrides.judge = async (_text, options) => {
-    assert.equal(options?.allowSleeveLengthAsk, false);
+    assert.deepEqual(options?.missingFacts, []);
     return {
       result: { verdict: "Ask", reason: "One detail is missing.", missing_fact: "sleeve_length" },
       modelVersion: "gemini-3.6-flash", promptHash: CHECK_LOOK_PROMPT_HASH,
@@ -405,7 +481,7 @@ async function routeTests() {
   routeOverrides.judge = normalJudge;
   premium = false;
   clearJudgeCache(user);
-  assert.deepEqual((await send()).body, { verdict: "Almost" }, "Free Ask conversion never exposes reasons");
+  assert.deepEqual((await send(churchInput)).body, { verdict: "Almost" }, "Free Ask conversion never exposes reasons");
   routeOverrides.quota = async () => ({ allowed: false, remaining: 0 });
   const before = providerCalls;
   assert.equal((await send()).status, 429);
