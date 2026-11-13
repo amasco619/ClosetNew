@@ -3,14 +3,15 @@ import { readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import axios from "axios";
 import { judgeRequestSchema, profileJudgeConstraints, judgeGuard, exportJudgeText } from "../server/checkLookJudgeInput";
-import { buildJudgeBody, parseJudgeResponse, MISSING_FACTS } from "../server/checkLookJudge";
+import { buildJudgeBody, missingFactsFromGuard, parseJudgeResponse, type MissingFact } from "../server/checkLookJudge";
 import { CHECK_LOOK_PROMPT_HASH } from "../server/checkLookPrompt";
 import { isValidCheckLookSelection } from "../lib/checkLook";
 import type { WardrobeItem } from "../constants/types";
 
 const INPUT = "attached_assets/looks4a_v2_1794442011359.json";
 const OUT = "docs/reports/judge-experiment";
-const LOG = `${OUT}/set4a-run.jsonl`;
+const RUN_TAG = process.argv.includes("--r14") ? "r14-" : "";
+const LOG = `${OUT}/set4a-${RUN_TAG}run.jsonl`;
 const MODEL = "gemini-3.5-flash";
 const CAP = 600_000;
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
@@ -44,10 +45,11 @@ function prepare(look: any, stripped: boolean) {
   }
   const constraints = profileJudgeConstraints(look.profile);
   const guard = judgeGuard(request, items, [], constraints);
+  const missingFacts = missingFactsFromGuard(guard.missing);
   const text = exportJudgeText(request, items, [], constraints, guard);
   const briefJSON = text.split("\n").find(line => line.startsWith("Brief: "))!.slice(7);
   const itemsBlock = text.slice(text.indexOf("\nItems:\n") + 1);
-  return { request, guard, text, briefJSON, itemsBlock };
+  return { request, guard, missingFacts, text, briefJSON, itemsBlock };
 }
 
 function supportedAsk(fact: string | null, missing: string[]): boolean {
@@ -62,7 +64,10 @@ function supportedAsk(fact: string | null, missing: string[]): boolean {
   return !!fact && !!patterns[fact] && missing.some(value => patterns[fact].test(value));
 }
 
-function rejection(raw: string, finish: string | undefined, version: string | undefined, allowAsk: boolean, sleeve: boolean) {
+function rejection(
+  raw: string, finish: string | undefined, version: string | undefined,
+  allowAsk: boolean, missingFacts: readonly MissingFact[],
+) {
   const reasons: string[] = [];
   if (finish !== "STOP") reasons.push(`other: finishReason=${finish ?? "absent"}`);
   if (!version) reasons.push("other: modelVersion absent");
@@ -74,7 +79,8 @@ function rejection(raw: string, finish: string | undefined, version: string | un
   if (!obj || typeof obj !== "object" || Array.isArray(obj)) return [...reasons, "schema: expected object"];
   const keys = Object.keys(obj).sort();
   if (keys.join(",") !== "missing_fact,reason,verdict") reasons.push(`schema: expected exactly missing_fact,reason,verdict; received ${keys.join(",")}`);
-  if (!["Works", "Almost", "Rethink", ...(allowAsk ? ["Ask"] : [])].includes(obj.verdict)) reasons.push(`enum: verdict=${JSON.stringify(obj.verdict)}`);
+  const askAllowed = allowAsk && missingFacts.length > 0;
+  if (!["Works", "Almost", "Rethink", ...(askAllowed ? ["Ask"] : [])].includes(obj.verdict)) reasons.push(`enum: verdict=${JSON.stringify(obj.verdict)}`);
   if (typeof obj.reason !== "string") reasons.push("schema: reason must be a string");
   else {
     const trimmed = obj.reason.trim();
@@ -83,8 +89,7 @@ function rejection(raw: string, finish: string | undefined, version: string | un
     if (!trimmed || trimmed.length > 200) reasons.push(`schema: reason length ${trimmed.length} outside 1–200 characters`);
   }
   if (obj.missing_fact !== null && typeof obj.missing_fact !== "string") reasons.push("schema: missing_fact must be string or null");
-  if (obj.verdict === "Ask" && !MISSING_FACTS.includes(obj.missing_fact)) reasons.push(`enum: unsupported missing_fact=${JSON.stringify(obj.missing_fact)}`);
-  if (obj.verdict === "Ask" && obj.missing_fact === "sleeve_length" && !sleeve) reasons.push("other: sleeve_length Ask unsupported by guard");
+  if (obj.verdict === "Ask" && !missingFacts.includes(obj.missing_fact)) reasons.push(`enum: unsupported missing_fact=${JSON.stringify(obj.missing_fact)}`);
   if (obj.verdict !== "Ask" && obj.missing_fact !== null) reasons.push("schema: non-Ask missing_fact must be null");
   return reasons;
 }
@@ -100,7 +105,7 @@ async function main() {
     return;
   }
   if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is required");
-  // Refuse overwrite: each requested condition is run only once.
+  // Refuse overwrite: retain the earlier run and write this revision separately.
   writeFileSync(LOG, "", { flag: "wx" });
   const headers = { "x-goog-api-key": process.env.GEMINI_API_KEY };
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}`;
@@ -114,7 +119,8 @@ async function main() {
   log({ type: "manifest", input: INPUT, inputHash, requestedModel: MODEL, promptHash: CHECK_LOOK_PROMPT_HASH,
     tokenCap: CAP, inputPricePerMillion: 0.75, outputPricePerMillion: 3.75,
     priceBasis: "Set 3B v2 recorded Gemini 3.6 Flash Standard rates; estimate, not a new price verification",
-    settings: buildJudgeBody(prepared[0].looks[0].text).generationConfig, startedAt: new Date().toISOString() });
+    settings: buildJudgeBody(prepared[0].looks[0].text, true, prepared[0].looks[0].missingFacts).generationConfig,
+    startedAt: new Date().toISOString() });
 
   for (const batch of prepared) {
     const rows: any[] = [];
@@ -128,7 +134,7 @@ async function main() {
       let pendingUnsupported = false;
       for (let attempt = 1; attempt <= 2; attempt++) {
         const text = look.text + (allowAsk ? "" : "\nJudge the stated facts with your best non-Ask verdict; missing_fact must be null.");
-        const body = buildJudgeBody(text, allowAsk);
+        const body = buildJudgeBody(text, allowAsk, look.missingFacts);
         // countTokens does not accept systemInstruction; count the exact system and user text as contents.
         const countResponse = await axios.post(`${url}:countTokens`, { contents: [
           { role: "user", parts: body.systemInstruction.parts },
@@ -158,9 +164,10 @@ async function main() {
         const total = Number.isInteger(usage?.totalTokenCount) ? usage.totalTokenCount : null;
         if (total !== null) budgetUsed += total - reservation;
         if (budgetUsed > CAP) throw new Error("Provider usage exceeded reservation; stopped");
-        const sleeve = look.guard.missing.includes("sleeve length required by your coverage preference");
-        const reasons = response.status === 200 ? rejection(raw, candidate?.finishReason, data.modelVersion, allowAsk, sleeve) : [];
-        const answer = response.status === 200 && reasons.length === 0 ? parseJudgeResponse(raw, allowAsk, sleeve) : null;
+        const reasons = response.status === 200
+          ? rejection(raw, candidate?.finishReason, data.modelVersion, allowAsk, look.missingFacts) : [];
+        const answer = response.status === 200 && reasons.length === 0
+          ? parseJudgeResponse(raw, allowAsk, look.missingFacts.includes("sleeve_length"), look.missingFacts) : null;
         const unsupported = answer?.verdict === "Ask" && !supportedAsk(answer.missing_fact, look.guard.missing);
         lastCall = {
           type: "call", timestamp: new Date(started).toISOString(), condition: batch.condition, look_id: look.lookId,
@@ -194,8 +201,7 @@ async function main() {
         else {
           try {
             const rejected = JSON.parse(raw);
-            if (rejected.verdict === "Ask" && (!MISSING_FACTS.includes(rejected.missing_fact) ||
-                (rejected.missing_fact === "sleeve_length" && !sleeve))) allowAsk = false;
+            if (rejected.verdict === "Ask" && !supportedAsk(rejected.missing_fact, look.guard.missing)) allowAsk = false;
           } catch { /* One parse retry with the same schema. */ }
         }
       }
@@ -208,7 +214,7 @@ async function main() {
       };
       rows.push(row); log(row);
       const columns = ["look_id", "verdict", "reason", "missing_fact", "served_model", "latency_ms", "guard", "brief_json", "items_block"];
-      writeFileSync(`${OUT}/set4a-${batch.condition}.csv`, columns.join(",") + "\n" +
+      writeFileSync(`${OUT}/set4a-${RUN_TAG}${batch.condition}.csv`, columns.join(",") + "\n" +
         rows.map(r => columns.map(k => csv(k === "guard" ? JSON.stringify(r[k]) : r[k])).join(",")).join("\n") + "\n");
     }
     const calls = allCalls.filter(c => c.condition === batch.condition);

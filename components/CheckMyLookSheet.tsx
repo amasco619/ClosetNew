@@ -530,12 +530,15 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                 {FUNERAL_COLOURS.map(colour => {
                   const selected = announcedColours?.kind === 'colours' &&
                     announcedColours.values.includes(colour);
+                  const atColourLimit = announcedColours?.kind === 'colours' &&
+                    announcedColours.values.length >= 8;
                   return (
                     <Pressable
                       key={colour}
                       testID={`check-my-look-brief-colour-${colour}`}
                       accessibilityRole="button"
                       accessibilityState={{ selected }}
+                      disabled={!selected && atColourLimit}
                       onPress={() => {
                         const values = announcedColours?.kind === 'colours'
                           ? announcedColours.values
@@ -546,7 +549,11 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                         });
                         props.onClearResult();
                       }}
-                      style={[styles.briefChip, selected && styles.briefChipSelected]}
+                      style={[
+                        styles.briefChip,
+                        selected && styles.briefChipSelected,
+                        !selected && atColourLimit && styles.briefChipDisabled,
+                      ]}
                     >
                       <Text style={[styles.briefChipText, selected && styles.briefChipTextSelected]}>
                         {colour[0].toUpperCase() + colour.slice(1)}
@@ -555,6 +562,9 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                   );
                 })}
               </View>
+            )}
+            {announcedColours?.kind === 'colours' && announcedColours.values.length >= 8 && (
+              <Text style={styles.briefHelper}>Choose up to eight colours.</Text>
             )}
           </View>
           {renderChoiceField(
@@ -1276,6 +1286,7 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     backgroundColor: Colors.background,
   },
+  briefChipDisabled: { opacity: 0.45 },
   briefChipSelected: { borderColor: Colors.primary, backgroundColor: Colors.primary },
   briefChipText: { color: Colors.textSecondary, fontFamily: 'Inter_500Medium', fontSize: 11 },
   briefChipTextSelected: { color: Colors.textOnDark },

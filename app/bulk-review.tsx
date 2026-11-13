@@ -18,7 +18,8 @@ import { useApp } from '@/contexts/AppContext';
 import { GarmentTile } from '@/components/GarmentTile';
 import { useDialog, useToast } from '@/contexts/LuxuryFeedbackContext';
 import { PhotoRefusalNotice } from '@/components/PhotoRefusalNotice';
-import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
+import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
+import { isFabricOption } from '@/constants/fabricOptions';
 import BulkItemEditPanel from '@/components/BulkItemEditPanel';
 import Colors from '@/constants/colors';
 import { wardrobeValueLabel } from '@/constants/wardrobeLabels';
@@ -122,7 +123,7 @@ interface BulkItem {
 
 const asPattern      = (v?: string) => v && (PATTERNS      as readonly string[]).includes(v) ? v as any : undefined;
 const asPatternScale = (v?: string) => v && (PATTERN_SCALES as readonly string[]).includes(v) ? v as any : undefined;
-const asFabric       = (v?: string) => v && (FABRICS        as readonly string[]).includes(v) ? v as any : undefined;
+const asFabric       = (v?: string) => isFabricOption(v) ? v as any : undefined;
 const asWeight       = (v?: string) => v && (FABRIC_WEIGHTS as readonly string[]).includes(v) ? v as any : undefined;
 const asFit          = (v?: string) => v && (FITS           as readonly string[]).includes(v) ? v as any : undefined;
 const asNeckline     = (v?: string) => v && (NECKLINES      as readonly string[]).includes(v) ? v as any : undefined;

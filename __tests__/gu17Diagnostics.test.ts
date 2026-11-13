@@ -113,8 +113,8 @@ try {
   assert.ok(!lines.join('\n').includes('derived-sat'));
 
   result = await run(async () => output({ ...wrapper, fabric: 'aso-oke' }));
-  assert.equal(result.response.status, 200, 'unsupported textile field does not fail the garment');
-  assert.equal(result.response.body.fabric, undefined, 'unsupported fabric is not invented');
+  assert.equal(result.response.status, 200, 'newly supported textile does not fail the garment');
+  assert.equal(result.response.body.fabric, 'aso-oke', 'supported aso-oke identity is preserved');
 
   for (const [body, code] of [
     [{ candidates: [] }, 'MALFORMED_JSON'],

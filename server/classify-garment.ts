@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import axios from "axios";
+import { ADDITIONAL_FABRICS } from "../constants/fabricOptions";
 import { reportError } from "../shared/observability";
 import { flattenGarmentPngOnStudio } from "./garmentPng";
 import {
@@ -439,6 +440,7 @@ export const VALID_COLOR_FAMILIES = new Set<string>([
 const VALID_FABRICS = new Set<string>([
   "cotton","linen","lace","silk","chiffon","satin","wool","cashmere",
   "knit","denim","leather","suede","velvet","corduroy","tweed","jersey","synthetic",
+  ...ADDITIONAL_FABRICS,
 ]);
 
 const VALID_PATTERNS = new Set<string>(["solid","stripe","floral","check","print","wax-print","color-block","geometric","animal"]);
@@ -579,11 +581,10 @@ export function processGeminiResult(parsed: GeminiResult): ClassificationResult 
       ? parsed.accentColor
       : undefined;
 
+  const rawFabric = normalizeTaxonomyValue(parsed.fabric);
   const normalizedFabric = normalizeGarmentFabric(parsed.fabric);
-  const fabric =
-    VALID_FABRICS.has(normalizedFabric)
-      ? normalizedFabric
-      : undefined;
+  const fabric = VALID_FABRICS.has(rawFabric) ? rawFabric
+    : VALID_FABRICS.has(normalizedFabric) ? normalizedFabric : undefined;
 
   const normalizedPattern = normalizeGarmentPattern(parsed.pattern);
   const pattern =
@@ -734,6 +735,7 @@ accentColor (optional): If the garment has a clearly visible secondary colour, p
 
 fabric (optional): Best-guess material. One of:
   "cotton" | "linen" | "lace" | "silk" | "chiffon" | "satin" | "wool" | "cashmere" | "knit" | "denim" | "leather" | "suede" | "velvet" | "corduroy" | "tweed" | "jersey" | "synthetic"
+  | ${ADDITIONAL_FABRICS.map(value => `"${value}"`).join(" | ")}
   Omit if genuinely unclear.
 
 pattern (optional): One of: "solid" | "stripe" | "floral" | "check" | "print" | "wax-print" | "color-block" | "geometric" | "animal"

@@ -31,7 +31,8 @@ import Animated, {
 import Colors from '@/constants/colors';
 import { subTypes, colorFamilies } from '@/contexts/AppContext';
 import type { ItemCategory, OccasionTag, SeasonTag } from '@/constants/types';
-import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES } from '@/constants/types';
+import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES } from '@/constants/types';
+import { FABRIC_OPTIONS as FABRICS, fabricOptionLabel } from '@/constants/fabricOptions';
 import type { BulkItemCore, ClassifyResult } from '@/lib/bulkClassifyCore';
 import { stepCarousel, canGoPrev, canGoNext } from '@/lib/carouselUtils';
 import { rs } from '../lib/responsive';
@@ -488,7 +489,7 @@ export default function BulkItemEditPanel({
                   onPress={() => patch({ fabric: f })}
                   disabled={isReadOnly}
                 >
-                  <Text style={[styles.chipText, cl.fabric === f && styles.chipTextActive]}>{f}</Text>
+                  <Text style={[styles.chipText, cl.fabric === f && styles.chipTextActive]}>{fabricOptionLabel(f)}</Text>
                 </Pressable>
               ))}
             </View>

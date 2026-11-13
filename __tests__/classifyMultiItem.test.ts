@@ -226,7 +226,7 @@ test("20. successful optional scalar normalization is retained", () => {
   });
   const result = validateMultiItemResult(envelope)!;
   const normalized = result.items.find(entry => entry.classification.subType === "t-shirt")!.classification;
-  assert.equal(normalized.fabric, "lace");
+  assert.equal(normalized.fabric, "french lace");
   assert.equal(normalized.pattern, "wax-print");
   assert.equal(normalized.fit, "tailored");
   assert.equal(normalized.sleeveLength, "long");

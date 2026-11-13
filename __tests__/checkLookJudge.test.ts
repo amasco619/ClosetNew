@@ -9,7 +9,12 @@ import {
   CHECK_LOOK_PROMPT_HASH, type JudgeCallMetadata,
 } from "../server/checkLookJudge";
 import { CHECK_LOOK_PROMPT } from "../server/checkLookPrompt";
-import { judgeRequestSchema, exportJudgeItem, exportJudgeText, judgeGuard } from "../server/checkLookJudgeInput";
+import {
+  judgeRequestSchema, exportJudgeItem, exportJudgeText, judgeGuard, profileJudgeConstraints,
+  SAFE_JUDGE_SUBTYPES,
+} from "../server/checkLookJudgeInput";
+import { MANUAL_ONLY_SUBTYPES } from "../constants/manualSubtypeOptions";
+import { STYLE_BLUEPRINT_SLOTS } from "../constants/blueprintSlots";
 import { _testOverrides as quotaOverrides, consumeJudgeQuota, judgeQuotaOwnerPrefix } from "../server/checkLookJudgeStore";
 import { _testOverrides as routeOverrides, clearJudgeCache, canonicalHash } from "../server/checkLookJudgeRoute";
 import { registerRoutes, _testOverrides as authOverrides } from "../server/routes";
@@ -117,6 +122,8 @@ async function adapterTests() {
   const sleeveAsk = JSON.stringify({ verdict: "Ask", reason: "How long are the sleeves?", missing_fact: "sleeve_length" });
   assert.equal(parseJudgeResponse(sleeveAsk, true), null, "sleeve length is unsupported without an explicit guard allowance");
   assert.equal(parseJudgeResponse(sleeveAsk, true, true)?.missing_fact, "sleeve_length");
+  assert.deepEqual(profileJudgeConstraints({ colorAversions: ["neon"] }).colorAversions, ["neon"],
+    "a saved neon aversion is accepted by the profile schema");
   assert.equal(judgeRequestSchema.safeParse({
     ...input,
     brief: { context: "interview", venue: "upscale-restaurant", dressCode: "conservative" },
@@ -240,7 +247,33 @@ async function adapterTests() {
   assert.ok(detailed.includes("sleeves long"));
   assert.ok(detailed.includes("fit wide-leg"));
   assert.ok(detailed.includes("neckline round"));
-  assert.ok(detailed.includes("formality 7"));
+  assert.ok(!detailed.includes("formality"));
+  assert.ok(!detailed.includes("weight"));
+  const uiSubtypes = [
+    ...Object.values(STYLE_BLUEPRINT_SLOTS).flat().map(slot => slot.subType),
+    ...Object.values(MANUAL_ONLY_SUBTYPES).flat(),
+    "t-shirt", "long-sleeve", "polo-shirt", "henley", "rugby-shirt", "tank-top", "crop-top",
+    "shirt", "button-down", "blouse", "sweater", "cardigan", "turtleneck", "knit-top",
+    "camisole", "hoodie", "sweatshirt", "sports-bra", "sports-hoodie", "windbreaker", "rashguard",
+    "sequin-top", "linen-set", "buba", "jeans", "trousers", "chinos", "wide-leg", "joggers",
+    "shorts", "leggings", "mini-skirt", "midi-skirt", "maxi-skirt", "pencil-skirt", "iro", "wrapper",
+    "midi-dress", "maxi-dress", "mini-dress", "wrap-dress", "shirt-dress", "cocktail-dress",
+    "knit-dress", "bodycon-dress", "slip-dress", "gown", "sundress", "resort-dress", "cover-up",
+    "aso-ebi", "iro-and-buba", "boubou", "blazer", "coat", "peacoat", "trench", "jacket",
+    "bomber-jacket", "leather-jacket", "puffer", "raincoat", "vest", "denim-jacket",
+    "sneakers", "training-shoes", "heels", "pumps", "stilettos", "strappy-heels", "block-heels",
+    "flats", "boots", "ankle-boots", "sandals", "espadrilles", "loafers", "mules", "tote",
+    "crossbody", "clutch", "backpack", "shoulder-bag", "mini-bag", "gym-bag", "wicker-bag",
+    "evening-bag", "beach-bag", "necklace", "earrings", "bracelet", "ring", "watch", "brooch",
+    "statement-earrings", "sunglasses", "sunhat", "gele", "headwrap", "head-scarf",
+    "structured-headpiece", "stole", "abaya", "kaftan", "kimono jacket", "trainers", "skirt suit",
+    "head tie", "iro and buba", "ichafu", "block sandals", "trench coat", "low heels", "flat sandals",
+  ];
+  for (const subtype of uiSubtypes) {
+    assert.ok(SAFE_JUDGE_SUBTYPES.includes(subtype), `judge allowlist includes ${subtype}`);
+    assert.ok(exportJudgeItem({ ...top, subType: subtype }).includes(`Name: ${subtype};`),
+      `${subtype} exports instead of falling back to category`);
+  }
   const oldInfo = console.info;
   const colourLogs: string[] = [];
   console.info = (...args: unknown[]) => colourLogs.push(args.map(String).join(" "));
@@ -402,6 +435,14 @@ async function routeTests() {
   assert.equal((await send({ ...input, premium: true })).status, 400);
   assert.equal((await send({ ...input, selection: { ...input.selection, itemIds: [topId, otherId] } })).status, 404);
   assert.equal(providerCalls, 0, "ownership is resolved before any provider call");
+  routeOverrides.load = async () => ({
+    items: [top, bottom], groups: [],
+    constraints: profileJudgeConstraints({ colorAversions: ["neon"] }),
+  });
+  assert.equal((await send()).status, 200, "a saved neon aversion does not make the route return 503");
+  routeOverrides.load = async () => ({ items: [top, bottom], groups: [], constraints: {} });
+  clearJudgeCache(user);
+  providerCalls = 0;
   const first = await send();
   assert.deepEqual(first.body, { verdict: "Works" }, "Free never receives reason, swaps, question or provider metadata");
   assert.equal(providerCalls, 1);
@@ -545,6 +586,20 @@ async function main() {
   "Not sure remains unresolved");
   const text = exportJudgeText(input, [top, bottom], [], { noSleeveless: true });
   assert.ok(text.includes("Deterministic guard facts:"));
+  assert.match(text, /Do not answer Ask because no allowed missing facts remain/);
+  const sleeveMissingRequest = judgeRequestSchema.parse({
+    selection: { itemIds: [topId], occasion: "work" },
+    brief: { context: "work" },
+  });
+  const sleeveMissingItem = { ...top, sleeveLength: undefined };
+  const sleeveConstraints = { minimumSleeveLength: "short" as const };
+  const sleeveGuard = judgeGuard(sleeveMissingRequest, [sleeveMissingItem], [], sleeveConstraints);
+  const sleeveAskText = exportJudgeText(
+    sleeveMissingRequest, [sleeveMissingItem], [], sleeveConstraints, sleeveGuard,
+  );
+  assert.match(sleeveAskText,
+    /For Ask, missing_fact must be one of sleeve_length\. Otherwise give your best non-Ask verdict/);
+  assert.doesNotMatch(sleeveAskText, /denomination, assigned_set/);
   assert.equal(judgeRequestSchema.safeParse({ ...input, garmentFacts: { [otherId]: { backless: true } } }).success, false);
   assert.equal(parseSyntheticLooks(readFileSync("attached_assets/looks3_1794220715219.txt", "utf8")).length, 72);
   await routeTests();

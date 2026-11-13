@@ -160,6 +160,17 @@ async function main() {
   assert.ok(pressable('check-my-look-brief-announced-colours-not-sure'));
   assert.ok(pressable('check-my-look-brief-announced-colours-none'));
   assert.ok(pressable('check-my-look-brief-colour-red'));
+  for (const colour of ['black', 'white', 'grey', 'cream', 'beige', 'camel', 'brown', 'red']) {
+    await press(`check-my-look-brief-colour-${colour}`);
+  }
+  assert.equal(pressable('check-my-look-brief-colour-coral')?.props.disabled, true,
+    'additional funeral colours are disabled after eight selections');
+  assert.match(textContent(), /Choose up to eight colours/);
+  await press('check-my-look-brief-colour-black');
+  assert.equal(pressable('check-my-look-brief-colour-coral')?.props.disabled, false,
+    'removing a selected colour allows another choice');
+  await press('check-my-look-brief-colour-coral');
+  await press('check-my-look-brief-announced-colours-not-sure');
   await press('check-my-look-brief-funeral-set');
   assert.ok(pressable('check-my-look-brief-funeral-set-not-sure'));
   assert.ok(pressable('check-my-look-brief-funeral-set-none'));

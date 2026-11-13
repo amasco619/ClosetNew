@@ -48,6 +48,8 @@ import {
   normalizeGarmentSubType,
   GEMINI_PROMPT,
 } from '../server/classify-garment';
+import { ADDITIONAL_FABRICS, FABRIC_OPTIONS, fabricOptionLabel, isFabricOption } from '../constants/fabricOptions';
+import { MULTI_ITEM_PROMPT } from '../server/classify-multi-item';
 
 // ── Assertion harness ─────────────────────────────────────────────────────────
 
@@ -242,7 +244,7 @@ for (const rule of [
     pattern: 'Ankara',
   }) as any;
   assertEq(r.subType, 'gele', 'classifier normalizes head tie before subtype validation');
-  assertEq(r.fabric, 'lace', 'classifier normalizes lace synonyms before fabric validation');
+  assertEq(r.fabric, 'french lace', 'classifier preserves a newly supported French lace identity');
   assertEq(r.pattern, 'wax-print', 'classifier normalizes Ankara before pattern validation');
 }
 
@@ -391,6 +393,20 @@ console.log('\nprocessGeminiResult — sleeveLength / neckline / rise / fit / fa
   }) as any;
   assertEq(r.fabric, 'cotton', 'valid fabric "cotton" passes through');
 }
+
+for (const fabric of ADDITIONAL_FABRICS) {
+  const result = processGeminiResult({
+    category: 'top', subType: 'blouse', colorFamily: 'blue', fabric,
+  }) as any;
+  assertEq(result.fabric, fabric, `new fabric "${fabric}" is accepted and preserved`);
+  assert(GEMINI_PROMPT.includes(`"${fabric}"`), `single-item prompt permits "${fabric}"`);
+  assert(MULTI_ITEM_PROMPT.includes(`"${fabric}"`), `bulk prompt permits "${fabric}"`);
+  assert(isFabricOption(fabric), `fabric chip accepts "${fabric}"`);
+  assert((FABRIC_OPTIONS as readonly string[]).includes(fabric), `fabric chip list includes "${fabric}"`);
+}
+assertEq(fabricOptionLabel('george'), 'George', 'chip label preserves George capitalisation');
+assertEq(fabricOptionLabel('akwete'), 'Akwete', 'chip label preserves Akwete capitalisation');
+assertEq(fabricOptionLabel('hollandais'), 'Hollandais', 'chip label preserves Hollandais capitalisation');
 
 {
   const r = processGeminiResult({

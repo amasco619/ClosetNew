@@ -9,7 +9,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useApp, ItemCategory, OccasionTag, SeasonTag, subTypes, colorFamilies, type WardrobeItem } from '@/contexts/AppContext';
 import type { Pattern, PatternScale, Fabric, FabricWeight, Fit, Neckline, SleeveLength, Rise, WarmthBand } from '@/constants/types';
-import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRICS as FABRICS, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
+import { ALL_PATTERNS as PATTERNS, ALL_PATTERN_SCALES as PATTERN_SCALES, ALL_FABRIC_WEIGHTS as FABRIC_WEIGHTS, ALL_FITS as FITS, ALL_NECKLINES as NECKLINES, ALL_SLEEVES as SLEEVES, ALL_RISES as RISES, ALL_WARMTHS as WARMTHS } from '@/constants/types';
+import { FABRIC_OPTIONS as FABRICS, fabricOptionLabel, isFabricOption } from '@/constants/fabricOptions';
 import { centroidHsl, centroidLab } from '@/constants/colorPerceptual';
 import Colors from '@/constants/colors';
 import { wardrobeCategoryLabel, wardrobeItemDisplayName, wardrobeValueLabel } from '@/constants/wardrobeLabels';
@@ -123,7 +124,7 @@ function isCoreCategory(cat: ItemCategory) { return CORE_CATEGORIES.has(cat); }
 
 const asPattern       = (v?: string): Pattern | undefined       => v && (PATTERNS        as readonly string[]).includes(v) ? v as Pattern       : undefined;
 const asPatternScale  = (v?: string): PatternScale | undefined  => v && (PATTERN_SCALES  as readonly string[]).includes(v) ? v as PatternScale  : undefined;
-const asFabric        = (v?: string): Fabric | undefined        => v && (FABRICS         as readonly string[]).includes(v) ? v as Fabric        : undefined;
+const asFabric        = (v?: string): Fabric | undefined        => isFabricOption(v) ? v as Fabric : undefined;
 const asWeight        = (v?: string): FabricWeight | undefined  => v && (FABRIC_WEIGHTS  as readonly string[]).includes(v) ? v as FabricWeight  : undefined;
 const asFit           = (v?: string): Fit | undefined           => v && (FITS            as readonly string[]).includes(v) ? v as Fit           : undefined;
 const asNeckline      = (v?: string): Neckline | undefined      => v && (NECKLINES       as readonly string[]).includes(v) ? v as Neckline      : undefined;
@@ -1775,7 +1776,7 @@ export default function AddItemScreen() {
                         setFabric(fabric === f ? undefined : f);
                       }}
                     >
-                      <Text style={[styles.chipSmallText, fabric === f && styles.chipSmallTextActive]}>{f}</Text>
+                      <Text style={[styles.chipSmallText, fabric === f && styles.chipSmallTextActive]}>{fabricOptionLabel(f)}</Text>
                     </Pressable>
                   ))}
                 </View>

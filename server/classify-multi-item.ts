@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { ADDITIONAL_FABRICS } from "../constants/fabricOptions";
 import axios from "axios";
 import {
   processGeminiResult,
@@ -55,7 +56,7 @@ const SHARED_ATTRIBUTES = new Set(["colorFamily", "pattern", "fabric", "occasion
 const MAX_ITEMS = 6 as const;
 const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
 const own = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
-const MULTI_ITEM_PROMPT = `You are a fashion classification AI for a wardrobe styling app.
+export const MULTI_ITEM_PROMPT = `You are a fashion classification AI for a wardrobe styling app.
 
 CONTENT GUARDRAILS — check these FIRST before classifying:
 If the image is blurry, too dark, unreadable, has no clothing visible, is mainly a selfie or portrait, contains explicit/inappropriate/sexually suggestive content, or shows animals/pets/non-fashion subjects, return ONLY:
@@ -74,7 +75,7 @@ Rules:
 - subType must match its category exactly: ${JSON.stringify(VALID_SUBTYPES_BY_CATEGORY)}.
 - displayName is a concise title-case garment name.
 - colorFamily and optional accentColor are exactly one of: ${JSON.stringify([...VALID_COLOR_FAMILIES])}.
-- Optional fabric: "cotton" | "linen" | "lace" | "silk" | "chiffon" | "satin" | "wool" | "cashmere" | "knit" | "denim" | "leather" | "suede" | "velvet" | "corduroy" | "tweed" | "jersey" | "synthetic".
+- Optional fabric: "cotton" | "linen" | "lace" | "silk" | "chiffon" | "satin" | "wool" | "cashmere" | "knit" | "denim" | "leather" | "suede" | "velvet" | "corduroy" | "tweed" | "jersey" | "synthetic" | ${ADDITIONAL_FABRICS.map(value => `"${value}"`).join(" | ")}.
 - Optional pattern: "solid" | "stripe" | "floral" | "check" | "print" | "wax-print" | "color-block" | "geometric" | "animal".
 - Optional patternScale: "small" | "medium" | "large".
 - Optional fit: "slim" | "regular" | "loose" | "oversized" | "tailored".
