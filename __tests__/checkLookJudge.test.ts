@@ -100,15 +100,18 @@ async function adapterTests() {
   assert.ok(!noMissing.generationConfig.responseSchema.properties.verdict.enum.includes("Ask"));
   assert.equal(noMissing.generationConfig.responseSchema.properties.missing_fact.type, "NULL");
   let trimCalls = 0;
+  const savedW3AReason = "A crisp white collared blouse, navy tailored skirt, trench coat, and pumps fit a business interview perfectly.";
+  assert.equal(savedW3AReason.split(/\s+/).length, 17, "replay the R-14 W3-A first-attempt reason");
   console.info = value => trimLogs.push(String(value));
   try {
     const trimmed = await callCheckLookJudge("Synthetic", { record, post: async (_url, actual) => {
       trimCalls++;
       const schema = (actual as ReturnType<typeof buildJudgeBody>).generationConfig.responseSchema;
       assert.ok(!schema.properties.verdict.enum.includes("Ask"), "default call with no guard facts forbids Ask");
-      return response({ ...works, reason: "word ".repeat(16) });
+      return response({ ...works, reason: savedW3AReason });
     } });
-    assert.equal(trimmed.result.reason.split(/\s+/).length, 15);
+    assert.equal(trimmed.result.verdict, "Works");
+    assert.equal(trimmed.result.reason, savedW3AReason.split(/\s+/).slice(0, 15).join(" "));
     assert.equal(trimCalls, 1, "a long valid reason never causes a retry");
   } finally { console.info = originalInfo; }
   assert.equal(parseJudgeResponse('{"verdict":"Works"}', true), null);

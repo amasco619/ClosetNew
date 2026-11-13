@@ -70,7 +70,7 @@ function rejection(
 ) {
   const reasons: string[] = [];
   if (finish !== "STOP") reasons.push(`other: finishReason=${finish ?? "absent"}`);
-  if (!version) reasons.push("other: modelVersion absent");
+  if (!version || !/^[a-zA-Z0-9.-]{1,100}$/.test(version)) reasons.push("other: modelVersion absent or invalid");
   let obj: any;
   try { obj = JSON.parse(raw); } catch (error) {
     reasons.push(`schema: invalid JSON (${(error as Error).message})`);
@@ -82,12 +82,7 @@ function rejection(
   const askAllowed = allowAsk && missingFacts.length > 0;
   if (!["Works", "Almost", "Rethink", ...(askAllowed ? ["Ask"] : [])].includes(obj.verdict)) reasons.push(`enum: verdict=${JSON.stringify(obj.verdict)}`);
   if (typeof obj.reason !== "string") reasons.push("schema: reason must be a string");
-  else {
-    const trimmed = obj.reason.trim();
-    const words = trimmed ? trimmed.split(/\s+/).length : 0;
-    if (words > 15) reasons.push(`word limit: ${words} words exceeds 15`);
-    if (!trimmed || trimmed.length > 200) reasons.push(`schema: reason length ${trimmed.length} outside 1–200 characters`);
-  }
+  else if (!obj.reason.trim()) reasons.push("schema: reason must not be empty");
   if (obj.missing_fact !== null && typeof obj.missing_fact !== "string") reasons.push("schema: missing_fact must be string or null");
   if (obj.verdict === "Ask" && !missingFacts.includes(obj.missing_fact)) reasons.push(`enum: unsupported missing_fact=${JSON.stringify(obj.missing_fact)}`);
   if (obj.verdict !== "Ask" && obj.missing_fact !== null) reasons.push("schema: non-Ask missing_fact must be null");
@@ -164,10 +159,13 @@ async function main() {
         const total = Number.isInteger(usage?.totalTokenCount) ? usage.totalTokenCount : null;
         if (total !== null) budgetUsed += total - reservation;
         if (budgetUsed > CAP) throw new Error("Provider usage exceeded reservation; stopped");
-        const reasons = response.status === 200
-          ? rejection(raw, candidate?.finishReason, data.modelVersion, allowAsk, look.missingFacts) : [];
-        const answer = response.status === 200 && reasons.length === 0
+        // Production parsing decides acceptance, including trimming long reasons.
+        // The separate diagnostics below explain rejected responses only.
+        const answer = response.status === 200 && candidate?.finishReason === "STOP" &&
+          typeof data.modelVersion === "string" && /^[a-zA-Z0-9.-]{1,100}$/.test(data.modelVersion)
           ? parseJudgeResponse(raw, allowAsk, look.missingFacts.includes("sleeve_length"), look.missingFacts) : null;
+        const reasons = response.status === 200 && !answer
+          ? rejection(raw, candidate?.finishReason, data.modelVersion, allowAsk, look.missingFacts) : [];
         const unsupported = answer?.verdict === "Ask" && !supportedAsk(answer.missing_fact, look.guard.missing);
         lastCall = {
           type: "call", timestamp: new Date(started).toISOString(), condition: batch.condition, look_id: look.lookId,
