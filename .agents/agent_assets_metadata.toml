@@ -1191,3 +1191,59 @@ mtime_ms = 1794442521714
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/aefc132e-aa72-47a8-b3ed-b54e373d01b3/da9d5456-7512-46a8-b51b-37d5edbc473b"
 storage_version_token = "1794442534073594"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "6AdqRIYkgCPahUTbVkoZU"
+uri = "file://docs/reports/judge-experiment/set4b-ask-allowed-run1.csv"
+type = "table"
+title = "Set 4B — Ask allowed run 1"
+description = "30-look CSV from the first fresh production-payload judge run."
+logical_id = "88c4850e-b66c-49bb-a558-acfa008415e4"
+content_hash = "sha256:a1377e0f09a04e875c1eafc55ca13ada26efb42c84f75d4187bad9b37ecb95d5"
+size = 6653
+mtime_ms = 1794695598972
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/88c4850e-b66c-49bb-a558-acfa008415e4/cff30fc4-f2ea-468c-b136-ab3479c6870a"
+storage_version_token = "1794695961128341"
+content_type = "text/csv"
+
+[[outputs]]
+id = "fP9uE_FrqEhonUxT7yA_2"
+uri = "file://docs/reports/judge-experiment/set4b-ask-allowed-run2.csv"
+type = "table"
+title = "Set 4B — Ask allowed run 2"
+description = "30-look CSV from the second fresh production-payload judge run."
+logical_id = "4516edf9-d638-4f02-9771-10f55ea4fc28"
+content_hash = "sha256:ea2ed3ca712fe75c3fcc80e1e42c3da73ae791189d1a6c9ebb30bb54ab7f9a0d"
+size = 6694
+mtime_ms = 1794695749135
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/4516edf9-d638-4f02-9771-10f55ea4fc28/3debbb8b-0c2a-4772-a2a7-4e79ae8145ea"
+storage_version_token = "1794695961893837"
+content_type = "text/csv"
+
+[[outputs]]
+id = "Sq75E8iJDqLjDcTOH2UPH"
+uri = "file://docs/reports/judge-experiment/set4b-fabric-stripped.csv"
+type = "table"
+title = "Set 4B — Fabric stripped"
+description = "30-look CSV from the fabric-stripped sensitivity run."
+logical_id = "5f07b317-9fb5-4301-8d45-f4197de54664"
+content_hash = "sha256:362dc2010b79a8adc516807a834285aa4bbaaae25681f8ff68f54eaca164a55c"
+size = 6689
+mtime_ms = 1794695899215
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/5f07b317-9fb5-4301-8d45-f4197de54664/bd32ea46-90fa-4fe3-9b5f-dc88cb25ecc5"
+storage_version_token = "1794695962591117"
+content_type = "text/csv"
+
+[[outputs]]
+id = "IExHCv4psH_VIB1ltDhEq"
+uri = "file://docs/reports/judge-experiment/set4b-run.jsonl"
+type = "unspecified"
+title = "Set 4B — Full run log"
+description = "Full request/response-attempt log, including payloads, guard results, usage and timing."
+logical_id = "4ee6f528-adb7-4180-80ea-bff3d5135825"
+content_hash = "sha256:068ba4aa6526e0ca391df8d608cfe73e17cfb074893b188a2ac6eb09dc129d82"
+size = 1148351
+mtime_ms = 1794695899221
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/4ee6f528-adb7-4180-80ea-bff3d5135825/c3d4cc84-95db-4da6-93f2-675f8dda0201"
+storage_version_token = "1794695963479011"
+content_type = "application/octet-stream"
