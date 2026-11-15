@@ -20,6 +20,7 @@ import {
   isSupportedRevenueCatEventType,
   isRevenueCatBillingEnabled,
   getBillingReadiness,
+  validateRevenueCatEventEnvironment,
 } from "./billing";
 import {
   ACCOUNT_DELETION_STORAGE_BUCKETS,
@@ -316,6 +317,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch {
         return res.status(503).json({ error: "billing_event_processing_unavailable" });
       }
+    }
+    if (typeof providerEventType !== "string") {
+      return res.status(400).json({ error: "invalid_webhook_event" });
+    }
+    const environmentStatus = validateRevenueCatEventEnvironment(payload);
+    if (environmentStatus === "configuration_unavailable") {
+      return res.status(503).json({ error: "billing_configuration_unavailable" });
+    }
+    if (environmentStatus !== "valid") {
+      return res.status(400).json({ error: "invalid_webhook_environment" });
     }
     const event = normalizeRevenueCatEvent(payload);
     if (!event) return res.status(400).json({ error: "invalid_webhook_event" });

@@ -13,6 +13,7 @@ process.env.REVENUECAT_ANDROID_ANNUAL_PRODUCT_ID ||= "amodka.android.annual.test
 process.env.REVENUECAT_WEBHOOK_SECRET ||= "test-only-webhook-secret";
 process.env.REVENUECAT_SECRET_API_KEY ||= "test-only-revenuecat-api-key";
 Reflect.set(process.env, "REVENUECAT_BILLING_ENABLED", "true");
+Reflect.set(process.env, "REVENUECAT_EXPECTED_ENVIRONMENT", "SANDBOX");
 Reflect.set(process.env, "NODE_ENV", "test");
 
 const nowSeconds = 1_800_000_000;
@@ -35,6 +36,7 @@ function payload(overrides: Record<string, unknown> = {}) {
       app_user_id: userId,
       original_app_user_id: userId,
       type: "INITIAL_PURCHASE",
+      environment: "SANDBOX",
       store: "APP_STORE",
       product_id: "amodka.ios.monthly.test",
       entitlement_ids: ["amodka_premium"],
@@ -58,12 +60,26 @@ async function main(): Promise<void> {
     normalizeRevenueCatEvent,
     processRevenueCatEvent,
     verifyRevenueCatSignature,
+    validateRevenueCatEventEnvironment,
   } = await import("../server/billing");
   const raw = Buffer.from(JSON.stringify(payload()), "utf8");
   _billingTestOverrides.secret = "test-only-webhook-secret";
   _billingTestOverrides.nowSeconds = nowSeconds;
 
   assert.equal(hasRevenueCatProductConfiguration(), true);
+  assert.equal(validateRevenueCatEventEnvironment(payload()), "valid");
+  assert.equal(
+    validateRevenueCatEventEnvironment(payload({ environment: "PRODUCTION" })),
+    "invalid_event_environment",
+  );
+  assert.equal(
+    validateRevenueCatEventEnvironment(payload({ environment: "preview" })),
+    "invalid_event_environment",
+  );
+  assert.equal(
+    validateRevenueCatEventEnvironment(payload({ environment: undefined })),
+    "invalid_event_environment",
+  );
   assert.equal(verifyRevenueCatSignature(raw, signed(raw)), true, "valid raw-body HMAC verifies");
   assert.equal(
     verifyRevenueCatSignature(Buffer.from(`${raw.toString()} `), signed(raw)),
@@ -137,6 +153,7 @@ async function main(): Promise<void> {
   const journal = new Map<string, { status: string; hash: string }>();
   const ignoredJournal = new Map<string, string>();
   let writes = 0;
+  let lifecycleJournalCalls = 0;
   let failOnce = true;
   let accountTombstoned = false;
   let readinessRpcUnavailable = false;
@@ -144,6 +161,7 @@ async function main(): Promise<void> {
   const snapshotRpcCalls: Array<Record<string, unknown>> = [];
   _billingTestOverrides.rpc = async (name, args) => {
     if (name === "billing_journal_revenuecat_event") {
+      lifecycleJournalCalls++;
       const id = String(args.p_event_id);
       const found = journal.get(id);
       if (found && found.hash !== args.p_payload_hash) return { data: null, error: new Error("collision") };
@@ -340,6 +358,133 @@ async function main(): Promise<void> {
     .send(raw.toString("utf8"));
   assert.equal(accepted.status, 200, "HTTP webhook acknowledges a valid signed duplicate");
   assert.equal(writes, 1, "HTTP replay remains idempotent");
+
+  const sandboxPayload = payload({
+    id: "evt-sandbox-environment-01",
+    type: "INITIAL_PURCHASE",
+    transaction_id: "transaction-sandbox-01",
+    original_transaction_id: "original-transaction-sandbox-01",
+  });
+  const sandboxRaw = Buffer.from(JSON.stringify(sandboxPayload));
+  const sandboxAccepted = await request(app)
+    .post("/api/billing/revenuecat/webhook")
+    .set("Content-Type", "application/json")
+    .set("X-RevenueCat-Webhook-Signature", signed(sandboxRaw))
+    .send(sandboxRaw.toString("utf8"));
+  assert.equal(sandboxAccepted.status, 200,
+    "valid authenticated SANDBOX lifecycle event is accepted when configured for sandbox");
+  assert.equal(writes, 2);
+
+  const lifecycleCallsBeforeRejects = lifecycleJournalCalls;
+  for (const override of [
+    { environment: "PRODUCTION" },
+    { environment: "INVALID" },
+    { environment: undefined },
+  ]) {
+    const rejectedRaw = Buffer.from(JSON.stringify(payload({
+      id: `evt-wrong-environment-${String(override.environment ?? "missing")}`,
+      ...override,
+    })));
+    const wrongEnvironment = await request(app)
+      .post("/api/billing/revenuecat/webhook")
+      .set("Content-Type", "application/json")
+      .set("X-RevenueCat-Webhook-Signature", signed(rejectedRaw))
+      .send(rejectedRaw.toString("utf8"));
+    assert.equal(wrongEnvironment.status, 400,
+      "missing, invalid or mismatched event environment is rejected");
+  }
+  assert.equal(lifecycleJournalCalls, lifecycleCallsBeforeRejects,
+    "wrong-environment lifecycle events never enter the durable billing journal");
+
+  delete process.env.REVENUECAT_EXPECTED_ENVIRONMENT;
+  const configProbeRaw = Buffer.from(JSON.stringify(payload({ id: "evt-env-config-missing" })));
+  const invalidHmacBeforeConfig = await request(app)
+    .post("/api/billing/revenuecat/webhook")
+    .set("Content-Type", "application/json")
+    .set("X-RevenueCat-Webhook-Signature", "t=1800000000,v1=" + "0".repeat(64))
+    .send(configProbeRaw.toString("utf8"));
+  assert.equal(invalidHmacBeforeConfig.status, 401,
+    "HMAC verification happens before expected-environment validation");
+  const missingExpectedEnvironment = await request(app)
+    .post("/api/billing/revenuecat/webhook")
+    .set("Content-Type", "application/json")
+    .set("X-RevenueCat-Webhook-Signature", signed(configProbeRaw))
+    .send(configProbeRaw.toString("utf8"));
+  assert.equal(missingExpectedEnvironment.status, 503,
+    "missing expected environment fails closed with a retryable response");
+  assert.deepEqual(missingExpectedEnvironment.body, { error: "billing_configuration_unavailable" },
+    "configuration errors do not expose the expected environment");
+  Reflect.set(process.env, "REVENUECAT_EXPECTED_ENVIRONMENT", "PREVIEW");
+  const invalidExpectedEnvironment = await request(app)
+    .post("/api/billing/revenuecat/webhook")
+    .set("Content-Type", "application/json")
+    .set("X-RevenueCat-Webhook-Signature", signed(configProbeRaw))
+    .send(configProbeRaw.toString("utf8"));
+  assert.equal(invalidExpectedEnvironment.status, 503,
+    "invalid expected environment fails closed with a retryable response");
+  assert.equal(lifecycleJournalCalls, lifecycleCallsBeforeRejects,
+    "missing or invalid expected configuration never journals a lifecycle event");
+  Reflect.set(process.env, "REVENUECAT_EXPECTED_ENVIRONMENT", "PRODUCTION");
+
+  const productionPayload = payload({
+    id: "evt-production-environment-01",
+    type: "RENEWAL",
+    environment: "PRODUCTION",
+    transaction_id: "transaction-production-01",
+    original_transaction_id: "original-transaction-production-01",
+  });
+  const productionRaw = Buffer.from(JSON.stringify(productionPayload));
+  const productionAccepted = await request(app)
+    .post("/api/billing/revenuecat/webhook")
+    .set("Content-Type", "application/json")
+    .set("X-RevenueCat-Webhook-Signature", signed(productionRaw))
+    .send(productionRaw.toString("utf8"));
+  assert.equal(productionAccepted.status, 200,
+    "valid authenticated PRODUCTION lifecycle event is accepted when configured for production");
+  const productionJournalCalls = lifecycleJournalCalls;
+  for (const [suffix, environment] of [
+    ["sandbox", "SANDBOX"],
+    ["invalid", "INVALID"],
+    ["missing", undefined],
+  ] as const) {
+    const mismatchedRaw = Buffer.from(JSON.stringify(payload({
+      id: `evt-production-reject-${suffix}`,
+      environment,
+    })));
+    const rejectedInProduction = await request(app)
+      .post("/api/billing/revenuecat/webhook")
+      .set("Content-Type", "application/json")
+      .set("X-RevenueCat-Webhook-Signature", signed(mismatchedRaw))
+      .send(mismatchedRaw.toString("utf8"));
+    assert.equal(rejectedInProduction.status, 400,
+      `non-PRODUCTION lifecycle environment (${suffix}) is rejected`);
+  }
+  assert.equal(lifecycleJournalCalls, productionJournalCalls,
+    "invalid PRODUCTION lifecycle environments never enter the durable journal");
+  Reflect.set(process.env, "REVENUECAT_EXPECTED_ENVIRONMENT", "SANDBOX");
+
+  const temporaryGrant = {
+    event: {
+      id: "evt-temporary-grant-01",
+      type: "TEMPORARY_ENTITLEMENT_GRANT",
+      event_timestamp_ms: nowMs,
+      app_user_id: userId,
+      store: "APP_STORE",
+    },
+  };
+  const temporaryGrantRaw = Buffer.from(JSON.stringify(temporaryGrant));
+  const temporaryGrantResponse = await request(app)
+    .post("/api/billing/revenuecat/webhook")
+    .set("Content-Type", "application/json")
+    .set("X-RevenueCat-Webhook-Signature", signed(temporaryGrantRaw))
+    .send(temporaryGrantRaw.toString("utf8"));
+  assert.equal(temporaryGrantResponse.status, 200,
+    "environment-optional temporary grants use the safe ignored-event path");
+  assert.equal(temporaryGrantResponse.body.status, "ignored");
+  assert.equal(ignoredJournal.get("evt-temporary-grant-01"), "TEMPORARY_ENTITLEMENT_GRANT");
+  assert.equal(writes, 3,
+    "temporary grants never reach entitlement-changing processing");
+
   const transfer = {
     event: {
       id: "evt-transfer-01",
@@ -358,7 +503,7 @@ async function main(): Promise<void> {
   assert.equal(transferResponse.body.status, "ignored");
   assert.equal(ignoredJournal.get("evt-transfer-01"), "TRANSFER",
     "transfer is journaled as ignored and cannot grant another account");
-  assert.equal(writes, 1, "transfer never invokes entitlement processing");
+  assert.equal(writes, 3, "transfer never invokes entitlement processing");
 
   _billingTestOverrides.fetch = async () => ({
     ok: true,
@@ -480,6 +625,7 @@ async function main(): Promise<void> {
   delete _billingTestOverrides.nowSeconds;
   delete _billingTestOverrides.fetch;
   delete process.env.REVENUECAT_SECRET_API_KEY;
+  delete process.env.REVENUECAT_EXPECTED_ENVIRONMENT;
   console.log("RevenueCat billing security, aggregation, idempotency and tombstone tests passed.");
 }
 

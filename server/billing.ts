@@ -6,6 +6,7 @@ export const REVENUECAT_ENTITLEMENT_ID =
 export const BILLING_REPLAY_TOLERANCE_SECONDS = 5 * 60;
 
 export type BillingStore = "APPLE" | "GOOGLE";
+export type RevenueCatEnvironment = "SANDBOX" | "PRODUCTION";
 
 export interface NormalizedRevenueCatEvent {
   eventId: string;
@@ -136,8 +137,9 @@ function storeName(value: unknown): BillingStore | null {
 
 const POSITIVE_EVENT_TYPES = new Set([
   "INITIAL_PURCHASE", "RENEWAL", "PRODUCT_CHANGE", "UNCANCELLATION",
-  "TEMPORARY_ENTITLEMENT_GRANT",
 ]);
+// Temporary grants lack reliable environment and transaction ownership facts;
+// the route sends them through the existing ignored-event journal instead.
 const STILL_VALID_EVENT_TYPES = new Set(["CANCELLATION", "BILLING_ISSUE"]);
 const TERMINAL_EVENT_TYPES = new Set(["EXPIRATION", "REFUND", "REVOKE"]);
 const SUPPORTED_EVENT_TYPES = new Set([
@@ -148,6 +150,27 @@ const SUPPORTED_EVENT_TYPES = new Set([
 
 export function isSupportedRevenueCatEventType(value: unknown): value is string {
   return typeof value === "string" && SUPPORTED_EVENT_TYPES.has(value);
+}
+
+function normalizeRevenueCatEnvironment(value: unknown): RevenueCatEnvironment | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toUpperCase();
+  return normalized === "SANDBOX" || normalized === "PRODUCTION" ? normalized : null;
+}
+
+export function getExpectedRevenueCatEnvironment(): RevenueCatEnvironment | null {
+  return normalizeRevenueCatEnvironment(process.env.REVENUECAT_EXPECTED_ENVIRONMENT);
+}
+
+export function validateRevenueCatEventEnvironment(
+  payload: unknown,
+): "valid" | "configuration_unavailable" | "invalid_event_environment" {
+  const expected = getExpectedRevenueCatEnvironment();
+  if (!expected) return "configuration_unavailable";
+
+  const event = (payload as { event?: Record<string, unknown> } | null)?.event;
+  const received = normalizeRevenueCatEnvironment(event?.environment);
+  return received === expected ? "valid" : "invalid_event_environment";
 }
 
 export function normalizeRevenueCatEvent(
@@ -163,6 +186,8 @@ export function normalizeRevenueCatEvent(
   const originalUserId = typeof e.original_app_user_id === "string"
     ? e.original_app_user_id : "";
   const type = typeof e.type === "string" ? e.type : "";
+  if (isSupportedRevenueCatEventType(type) &&
+      validateRevenueCatEventEnvironment(payload) !== "valid") return null;
   const store = storeName(e.store);
   const productId = typeof e.product_id === "string" ? e.product_id : "";
   const entitlementIds = Array.isArray(e.entitlement_ids) ? e.entitlement_ids : [];
@@ -367,6 +392,7 @@ export async function getAuthoritativeBillingState(userId: string): Promise<Bill
 export async function getBillingReadiness(): Promise<{ ready: boolean }> {
   const configured = isRevenueCatBillingEnabled() &&
     hasRevenueCatProductConfiguration() &&
+    Boolean(getExpectedRevenueCatEnvironment()) &&
     Boolean(process.env.REVENUECAT_WEBHOOK_SECRET?.trim()) &&
     Boolean(process.env.REVENUECAT_SECRET_API_KEY?.trim());
   if (!configured) return { ready: false };
