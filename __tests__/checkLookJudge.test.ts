@@ -20,6 +20,7 @@ import { _testOverrides as routeOverrides, clearJudgeCache, canonicalHash } from
 import { registerRoutes, _testOverrides as authOverrides } from "../server/routes";
 import { _testOverrides as consentOverrides } from "../server/aiProcessingConsent";
 import { parseSyntheticLooks } from "../scripts/check-look-live-eval";
+import { prepareSet4bLook } from "../scripts/run-set4b-judge";
 
 const user = "11111111-1111-4111-8111-111111111111";
 const topId = "22222222-2222-4222-8222-222222222222";
@@ -458,6 +459,29 @@ async function routeTests() {
   await send(venueRequest);
   assert.match(lastText, /"venue":"upscale-restaurant"/);
   assert.match(lastText, /"dress_code":"conservative"/);
+  const churchDressId = "55555555-5555-4555-8555-555555555555";
+  const churchDress: WardrobeItem = {
+    ...top, id: churchDressId, category: "dress", subType: "mini-dress", fabric: "cotton",
+    sleeveLength: "long",
+  };
+  routeOverrides.load = async () => ({ items: [churchDress], groups: [], constraints: {} });
+  clearJudgeCache(user);
+  const routeFactsRequest = {
+    selection: { itemIds: [churchDressId], occasion: "event" as const },
+    brief: { context: "church" as const, denomination: "anglican" as const },
+    garmentFacts: {
+      [churchDressId]: { hemPosition: "above-knee" as const, backOrStrapCoverage: "covered" as const },
+    },
+  };
+  assert.equal((await send(routeFactsRequest)).status, 200);
+  const routeGuard = JSON.parse(lastText.split("\n").find(line =>
+    line.startsWith("Deterministic guard facts: "))!.slice("Deterministic guard facts: ".length));
+  assert.ok(lastText.includes("hem above-knee, back/strap coverage covered"),
+    "the real route exports garment facts keyed by the selected item UUID");
+  assert.ok(routeGuard.failures.includes("A hem clearly above the knee does not meet the church coverage rule."));
+  assert.deepEqual(routeGuard.missing, [],
+    "the real route guard consumes those UUID-keyed facts instead of requesting them again");
+  routeOverrides.load = async () => ({ items: [top, bottom], groups: [], constraints: {} });
   clearJudgeCache(user);
   providerCalls = 0;
   quotaCalls = 0;
@@ -553,6 +577,29 @@ async function main() {
   assert.equal(process.env.NODE_ENV, "test", "run through the repository test runner");
   await adapterTests();
   await quotaTests();
+  const set4b = JSON.parse(readFileSync("attached_assets/looks4b_1794695292968.json", "utf8"));
+  for (const lookId of ["B10", "B11", "B12", "B13", "B14", "B25"]) {
+    const look = set4b.find((candidate: any) => candidate.look_id === lookId);
+    assert.ok(look, `Set 4B fixture contains ${lookId}`);
+    const prepared = prepareSet4bLook(look, false);
+    const factsById = prepared.request.garmentFacts ?? {};
+    const factIndexes = Object.keys(look.garmentFactsByItemIndex);
+    assert.ok(factIndexes.length, `${lookId} supplies garment facts`);
+    for (const rawIndex of factIndexes) {
+      const item = prepared.request.selection.itemIds[Number(rawIndex)];
+      const facts = factsById[item];
+      assert.deepEqual(facts, look.garmentFactsByItemIndex[rawIndex],
+        `${lookId} maps item-index facts to the harness-assigned UUID`);
+      assert.ok(prepared.itemsBlock.includes(`hem ${facts.hemPosition}`), `${lookId} exports hem`);
+      assert.ok(prepared.itemsBlock.includes(`back/strap coverage ${facts.backOrStrapCoverage}`),
+        `${lookId} exports back/strap coverage`);
+    }
+    if (["B10", "B12", "B14", "B25"].includes(lookId)) {
+      assert.equal(prepared.guard.missing.some((fact: string) =>
+        /hem position|back coverage|strap coverage/.test(fact)), false,
+      `${lookId} facts resolve hem and back/strap guard questions`);
+    }
+  }
   const church = judgeRequestSchema.parse({ ...input, brief: { context: "church", denomination: "pentecostal" },
     garmentFacts: { [topId]: { backless: false, strapless: false, hemPosition: "above-knee" } } });
   const dress = { ...top, category: "dress" as const, subType: "gown" };

@@ -1247,3 +1247,73 @@ mtime_ms = 1794695899221
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/4ee6f528-adb7-4180-80ea-bff3d5135825/c3d4cc84-95db-4da6-93f2-675f8dda0201"
 storage_version_token = "1794695963479011"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "iPqON5drH4tYRgO2Aye5x"
+uri = "file://docs/reports/judge-experiment/set4b-church-report.md"
+type = "text"
+title = "Set 4B church rerun report"
+description = "Summary of the harness fix, tests and six-look results."
+logical_id = "5156c375-b631-4299-9f92-e0d5521787ac"
+content_hash = "sha256:156173a96f48b7c06e774d422641cd2267318273d510e69a304481cc374cfa13"
+size = 2593
+mtime_ms = 1794779590199
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/5156c375-b631-4299-9f92-e0d5521787ac/07f6621d-21b1-4d78-939b-8bfad81e02b7"
+storage_version_token = "1794779611394941"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "RGlssZjSiULos94-jbJaT"
+uri = "file://docs/reports/judge-experiment/set4b-church-ask-allowed-run1.csv"
+type = "table"
+title = "Set 4B church run 1"
+description = "CSV results for the six church looks."
+logical_id = "6ea1e012-b116-453d-b6a2-ddfa3c696f8e"
+content_hash = "sha256:8432cfceea1a465b71a9769e3f6a1c938bfc34c5b6962ac321f12602e6c753c6"
+size = 1660
+mtime_ms = 1794779370119
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/6ea1e012-b116-453d-b6a2-ddfa3c696f8e/89f9e0fa-e128-4d07-88b7-1c1097cd3161"
+storage_version_token = "1794779612105662"
+content_type = "text/csv"
+
+[[outputs]]
+id = "1v5IF8viBHmxrsG4uoU9s"
+uri = "file://docs/reports/judge-experiment/set4b-church-ask-allowed-run2.csv"
+type = "table"
+title = "Set 4B church run 2"
+description = "Fresh repeat CSV results for the six church looks."
+logical_id = "75574819-be70-496c-aba0-3709a73632b8"
+content_hash = "sha256:3a1eb8cf675121aa1600cf1e7fca989e27fc9df8b4cee3b905a7b59d5c0effe4"
+size = 1683
+mtime_ms = 1794779399999
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/75574819-be70-496c-aba0-3709a73632b8/f81a6c0d-b501-4920-9e93-060cf677fd9f"
+storage_version_token = "1794779612763061"
+content_type = "text/csv"
+
+[[outputs]]
+id = "QVTCKG_XUSInjkgLLtEKO"
+uri = "file://docs/reports/judge-experiment/set4b-church-fabric-stripped.csv"
+type = "table"
+title = "Set 4B church fabric-stripped"
+description = "CSV results with fabric removed."
+logical_id = "33386ce0-5521-4fbd-8af0-3083f79a3c54"
+content_hash = "sha256:fe2739783fc30b780689cf23cb43ea08a584dce0b4a56c33732671da68d4ab2f"
+size = 1669
+mtime_ms = 1794779430402
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/33386ce0-5521-4fbd-8af0-3083f79a3c54/cd620aa3-d477-4d55-b82f-4f70de1b6622"
+storage_version_token = "1794779613423517"
+content_type = "text/csv"
+
+[[outputs]]
+id = "vCI30Q6JhTbQFNPyMnLUZ"
+uri = "file://docs/reports/judge-experiment/set4b-church-run.jsonl"
+type = "unspecified"
+title = "Set 4B church call log"
+description = "Full call log, including exported Items blocks."
+logical_id = "795b6c25-5c15-48a1-aaa1-55f292c86b70"
+content_hash = "sha256:1b3e7d85f9ce15d6e8a27a3110ca07e0ab3662169a014aefc5900dcde270e86a"
+size = 233956
+mtime_ms = 1794779430404
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/795b6c25-5c15-48a1-aaa1-55f292c86b70/1ba48db2-b243-4188-b707-c5ff2e522b65"
+storage_version_token = "1794779614139575"
+content_type = "application/octet-stream"

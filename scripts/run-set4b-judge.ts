@@ -10,10 +10,12 @@ import type { WardrobeItem } from "../constants/types";
 
 const INPUT = "attached_assets/looks4b_1794695292968.json";
 const OUT = "docs/reports/judge-experiment";
-const LOG = `${OUT}/set4b-run.jsonl`;
+const CHURCH_ONLY = process.argv.includes("--church-only");
+const CHURCH_LOOK_IDS = new Set(["B10", "B11", "B12", "B13", "B14", "B25"]);
+const LOG = `${OUT}/set4b-${CHURCH_ONLY ? "church-" : ""}run.jsonl`;
 const MODEL = "gemini-3.5-flash";
 const TOKEN_CAP = 600_000;
-const CALL_CAP = 130;
+const CALL_CAP = CHURCH_ONLY ? 30 : 130;
 const CONDITIONS = [
   { name: "ask-allowed-run1", stripped: false },
   { name: "ask-allowed-run2", stripped: false },
@@ -31,7 +33,7 @@ const uuid = (key: string) => {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
 };
 
-function prepare(look: any, stripped: boolean) {
+export function prepareSet4bLook(look: any, stripped: boolean) {
   const items = look.items.map((item: any, index: number) => ({
     id: uuid(`${look.look_id}/${index}`),
     category: item.category, subType: item.subtype, colorFamily: item.colour,
@@ -42,8 +44,16 @@ function prepare(look: any, stripped: boolean) {
     ...(item.formality !== null ? { formalityLevel: item.formality } : {}),
     ...(item.pattern !== null ? { pattern: item.pattern } : {}),
   })) as WardrobeItem[];
+  const garmentFacts = Object.fromEntries(
+    Object.entries(look.garmentFactsByItemIndex ?? {}).map(([rawIndex, facts]) => {
+      const item = items[Number(rawIndex)];
+      if (!item) throw new Error(`${look.look_id}: garment facts reference missing item index ${rawIndex}`);
+      return [item.id, facts];
+    }),
+  );
   const request = judgeRequestSchema.parse({
     selection: { ...look.selection, itemIds: items.map(item => item.id) }, brief: look.brief,
+    ...(Object.keys(garmentFacts).length ? { garmentFacts } : {}),
   });
   if (!isValidCheckLookSelection(items, request.selection.itemIds)) {
     throw new Error(`${look.look_id}: invalid production selection`);
@@ -98,9 +108,14 @@ async function main() {
   if (!Array.isArray(looks) || looks.length !== 30 || new Set(looks.map((l: any) => l.look_id)).size !== 30) {
     throw new Error("Expected 30 unique Set 4B looks");
   }
+  const selectedLooks = CHURCH_ONLY ? looks.filter((look: any) => CHURCH_LOOK_IDS.has(look.look_id)) : looks;
+  if (CHURCH_ONLY && (selectedLooks.length !== 6 ||
+      selectedLooks.some((look: any) => !CHURCH_LOOK_IDS.has(look.look_id)))) {
+    throw new Error("Expected exactly the six selected Set 4B church looks");
+  }
   const prepared = CONDITIONS.map(condition => ({
     condition: condition.name,
-    looks: looks.map((look: any) => ({ lookId: look.look_id, ...prepare(look, condition.stripped) })),
+    looks: selectedLooks.map((look: any) => ({ lookId: look.look_id, ...prepareSet4bLook(look, condition.stripped) })),
   }));
   if (process.argv.includes("--validate-only")) {
     console.log(JSON.stringify({ inputHash, promptHash: CHECK_LOOK_PROMPT_HASH,
@@ -218,7 +233,7 @@ async function main() {
       rows.push(row); log(row);
       const columns = ["look_id", "condition", "verdict", "confidence", "missing_fact", "reason", "swap_suggestion",
         "guard_pass", "guard_failures", "guard_missing", "served_model", "latency_ms", "retry", "parse_ok"];
-      writeFileSync(`${OUT}/set4b-${batch.condition}.csv`, columns.join(",") + "\n" +
+      writeFileSync(`${OUT}/set4b-${CHURCH_ONLY ? "church-" : ""}${batch.condition}.csv`, columns.join(",") + "\n" +
         rows.map(r => columns.map(k => csv(Array.isArray(r[k]) ? JSON.stringify(r[k]) : r[k])).join(",")).join("\n") + "\n");
     }
     const calls = batchCalls;
@@ -243,7 +258,9 @@ async function main() {
   console.log(JSON.stringify({ summaries, generationCalls, capHit, budgetUsed }));
 }
 
-main().catch(error => {
-  console.error(error instanceof Error ? error.message.replace(/https?:\/\/\S+/g, "[URL]") : "Experiment failed");
-  process.exitCode = 1;
-});
+if (process.argv[1] && /(?:^|[\\/])run-set4b-judge\.ts$/.test(process.argv[1])) {
+  main().catch(error => {
+    console.error(error instanceof Error ? error.message.replace(/https?:\/\/\S+/g, "[URL]") : "Experiment failed");
+    process.exitCode = 1;
+  });
+}
