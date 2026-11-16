@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import type { WardrobeItem } from "../constants/types";
 import type { CheckLookRequest } from "../lib/checkLookGuard";
-import { floorJudgeAnswer } from "../server/checkLookFloor";
+import {
+  CHECK_LOOK_FLOOR_N1_ENABLED, CHECK_LOOK_FLOOR_N2_ENABLED, CHECK_LOOK_FLOOR_N3_ENABLED,
+  CHECK_LOOK_FLOOR_N4_ENABLED, CHECK_LOOK_FLOOR_N5_ENABLED, CHECK_LOOK_FLOOR_N6_ENABLED,
+  CHECK_LOOK_FLOOR_N7_ENABLED, CHECK_LOOK_FLOOR_N8_ENABLED, CHECK_LOOK_FLOOR_N9_ENABLED,
+  CHECK_LOOK_FLOOR_R6_ENABLED, floorJudgeAnswer,
+} from "../server/checkLookFloor";
 import { CHECK_LOOK_PROMPT_HASH, type JudgeAnswer, type JudgeResult } from "../server/checkLookJudge";
 
 const topId = "22222222-2222-4222-8222-222222222222";
@@ -114,6 +119,10 @@ for (const item of cases) {
   } else {
     assert.equal(result.answer.result.verdict, "Almost");
     assert.notEqual(result.answer.result.reason, answer().result.reason);
+    if (item.id === "N1") {
+      assert.equal(result.answer.result.reason,
+        "The hem sits above the knee; check what your church expects.");
+    }
   }
   if (item.boundary) {
     const boundary = floorFor(item.boundary);
@@ -121,6 +130,13 @@ for (const item of cases) {
     assert.equal(boundary.answer.result.verdict, "Works");
   }
 }
+
+assert.deepEqual([
+  CHECK_LOOK_FLOOR_N1_ENABLED, CHECK_LOOK_FLOOR_N2_ENABLED, CHECK_LOOK_FLOOR_N3_ENABLED,
+  CHECK_LOOK_FLOOR_N4_ENABLED, CHECK_LOOK_FLOOR_N5_ENABLED, CHECK_LOOK_FLOOR_N6_ENABLED,
+  CHECK_LOOK_FLOOR_N7_ENABLED, CHECK_LOOK_FLOOR_N8_ENABLED, CHECK_LOOK_FLOOR_N9_ENABLED,
+  CHECK_LOOK_FLOOR_R6_ENABLED,
+], Array(10).fill(true), "every floor rule has a named one-line switch");
 
 assert.ok(floorFor(makeRequest({ context: "church", denomination: "anglican" }), {
   failures: ["A hem clearly above the knee does not meet the church coverage rule."],
@@ -140,19 +156,68 @@ const setExempt = floorFor(makeRequest({
   context: "traditional-wedding", role: "guest", asoEbiGroupId: "55555555-5555-4555-8555-555555555555",
 }, [{ ...top, colorFamily: "white" }, bottom]));
 assert.ok(!setExempt.firedRules.includes("N5"), "an assigned set attached to the brief exempts the colour rule");
+for (const colour of ["white", "off-white", "ivory", "cream", "champagne"]) {
+  const caution = floorFor(makeRequest({ context: "wedding", role: "guest" },
+    [{ ...top, colorFamily: colour }, bottom]));
+  assert.ok(caution.firedRules.includes("N5"), `${colour} fires N5`);
+  assert.equal(caution.answer.result.verdict, "Almost", "N5 is caution-only");
+  assert.equal(caution.answer.result.reason,
+    "Light colours can read as bridal at a wedding; check the couple's colours.");
+}
 assert.ok(floorFor(makeRequest({ context: "wedding", role: "guest" },
   [{ ...top, colorFamily: "white and navy" }, bottom])).firedRules.includes("N5"),
-"compound white colour is covered by N5");
+"a known white-family token in a compound colour fires N5");
 
 const multi = floorFor(makeRequest({ context: "funeral", announcedColours: { kind: "none" },
+  assignedGroupId: "none" }, [top, bottom], {
+  [topId]: { backOrStrapCoverage: "exposed-no-cover", sleeveLining: "sheer" },
+}));
+assert.equal(multi.answer.result.verdict, "Rethink", "two independent hard rules escalate Works to Rethink");
+assert.ok(multi.firedRules.includes("N2") && multi.firedRules.includes("N3"));
+
+const cautionPlusHard = floorFor(makeRequest({ context: "funeral", announcedColours: { kind: "none" },
   assignedGroupId: "none" }, [top, {
   ...bottom, id: bottomId, category: "dress", subType: "mini-dress",
 }], {
   [topId]: { backOrStrapCoverage: "exposed-no-cover" },
   [bottomId]: { hemPosition: "above-knee" },
 }));
-assert.equal(multi.answer.result.verdict, "Rethink", "two independent rules escalate Works to Rethink");
-assert.ok(multi.firedRules.includes("N1") && multi.firedRules.includes("N2"));
+assert.equal(cautionPlusHard.answer.result.verdict, "Almost",
+  "N1 caution does not count towards the two-hard-rule Rethink threshold");
+
+const funeralRequest = (assignedGroupId: string, items: WardrobeItem[], values = ["black"]) => makeRequest({
+  context: "funeral", announcedColours: { kind: "colours", values }, assignedGroupId,
+}, items);
+const setId = "55555555-5555-4555-8555-555555555555";
+const funeralDress: WardrobeItem = {
+  ...top, id: "44444444-4444-4444-8444-444444444444", category: "dress", subType: "gown",
+  colorFamily: "red",
+};
+assert.ok(floorFor(funeralRequest("none", [funeralDress])).firedRules.includes("N6"),
+  "a single-colour funeral dress outside announced colours fires N6");
+const funeralSet = floorFor(funeralRequest(setId, [
+  { ...top, colorFamily: "red" }, { ...bottom, colorFamily: "blue" },
+]));
+assert.ok(funeralSet.firedRules.includes("N6"), "both off-colour pieces in an assigned set fire N6");
+assert.equal(floorFor(funeralRequest(setId, [
+  { ...top, colorFamily: "black" }, { ...bottom, colorFamily: "red" },
+])).firedRules.includes("N6"), false, "one matching set piece prevents N6");
+assert.equal(floorFor(funeralRequest("none", [
+  { ...top, colorFamily: "red" }, { ...bottom, colorFamily: "blue" },
+])).firedRules.includes("N6"), false, "unassigned top/bottom are not treated as a set");
+assert.equal(floorFor(funeralRequest("none", [
+  { ...funeralDress, colorFamily: "red and gold" },
+])).firedRules.includes("N6"), false, "multi-colour dress is not judged by N6");
+for (const [category, subtype] of [
+  ["shoes", "pumps"], ["bag", "clutch"], ["jewelry", "earrings"], ["outerwear", "coat"],
+] as const) {
+  assert.equal(floorFor(funeralRequest(setId, [{
+    ...top, category, subType: subtype, colorFamily: "red",
+  }])).firedRules.includes("N6"), false, `${category} is ignored by the new N6 check`);
+}
+assert.equal(floorFor(funeralRequest("none", [
+  funeralDress, { ...funeralDress, id: "66666666-6666-4666-8666-666666666666" },
+])).firedRules.includes("N6"), false, "multiple dresses leave dominance unclear");
 assert.equal(floorFor(makeRequest({ context: "casual" }), {
   failures: ["unmapped deterministic failure"],
 }).answer.result.verdict, "Almost", "the R6 baseline caps any unexpected guard failure");

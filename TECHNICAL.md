@@ -3898,25 +3898,38 @@ owner IDs and raw errors are not.
 Free returns only `{ verdict }`, converting Ask to Almost. Premium returns a
 reason, nullable safe owned-item swap IDs and a single fixed friendly question
 for Ask. The deterministic floor runs after parsing and before caching or
-returning; it only downgrades Works, except N9 may turn Works into Ask for an
-unanswered required church denomination, hem, or back/strap fact. A floored
-answer uses fixed UK-English reason text and has no swap. The cache stores the
-floored answer and re-applies the floor on hits. Logs contain only fired rule
-IDs. The floor never adds inputs or changes the model-facing text.
+returning. It never changes an existing Ask; N9 alone may turn Works into Ask
+for an unanswered required church denomination, hem, or back/strap fact. A
+floored answer uses fixed UK-English reason text and has no swap. The cache
+stores the floored answer and re-applies the floor on hits. Logs contain only
+fired rule IDs. The floor never adds inputs or changes model-facing text.
 
-Floor rules: N1 covers above-knee/mini hems at church, funeral and naming
-ceremonies; N2 covers exposed-no-cover backs/straps at church or funerals; N3
-uses only an explicit sheer sleeve-lining fact at church or funerals. N4 maps
-existing profile-guard failures, N6 maps existing assigned-set and funeral
-colour guard failures, and the R6 baseline caps any other guard failure. N5
-blocks white, ivory or cream for wedding guests or unspecified roles unless a
-bridal-party role or assigned set is present. It intentionally has no announced
-colour exception: a couple who asks guests to wear white or cream may therefore
-be over-blocked. This is a known Judge v2 limitation. N7 applies the approved
-activewear/swimwear subtype list above casual dress codes. N8 applies its
-approved casual-item list at formal/black-tie and above-knee/mini only at
-black-tie. N4 heel-height enforcement is skipped because wardrobe items have
-no deterministic heel-height fact. N3 does not infer sheerness from fabric.
+Hard rules are N2, N3, N4, N6, N7, N8 and N9. Two independent hard rules give
+Rethink; one gives Almost. Caution rules N1 and N5 can only cap Works at Almost
+and do not count towards that threshold. The legacy R6 fallback caps Works at
+Almost for an otherwise-unmapped guard failure, but is not counted as a hard
+rule. Every rule, including R6, has an individual `CHECK_LOOK_FLOOR_*_ENABLED`
+boolean in `server/checkLookFloor.ts`; set its one line to `false` to disable it.
+
+N1 covers an above-knee hem fact or a mini-dress/mini-skirt label at church,
+funeral or naming ceremony. Its fixed copy is “The hem sits above the knee;
+check what your church expects.” N2 covers exposed-no-cover backs/straps at
+church or funerals. N3 uses only an explicit sheer sleeve-lining fact at church
+or funerals. N4 maps existing profile-guard failures. N6 maps existing
+assigned-set/funeral-colour guard failures and additionally checks a single
+unannounced colour on a funeral dress, or both the top and bottom of an
+assigned set. This added check ignores shoes, bags, accessories and outerwear;
+it does not fire for multicolour items or ambiguous garment dominance. The
+existing funeral guard is unchanged. N5 covers white, off-white, ivory, cream
+and champagne for wedding guests or unspecified roles, except bridal-party
+roles and briefs with an assigned set. Its fixed copy is “Light colours can
+read as bridal at a wedding; check the couple's colours.” There is no
+announced-colour exception, so a couple who asks guests to wear a listed light
+colour may be over-blocked; this remains a Judge v2 limitation. N7 applies the
+approved activewear/swimwear subtype list above casual dress codes. N8 applies
+its approved informal-item list at formal/black-tie and above-knee/mini only at
+black-tie. N4 heel-height enforcement is skipped because wardrobe items have no
+deterministic heel-height fact. N3 does not infer sheerness from fabric.
 
 The model receives no IDs, URLs, photos, custom descriptions, personal names or
 full profile. `Name` is a generated canonical garment label. Unknown fabric is
