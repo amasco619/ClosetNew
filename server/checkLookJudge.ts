@@ -6,6 +6,7 @@ import { CHECK_LOOK_PROMPT, CHECK_LOOK_PROMPT_HASH, CHECK_LOOK_PROMPT_VERSION } 
 export { CHECK_LOOK_PROMPT_HASH, CHECK_LOOK_PROMPT_VERSION };
 export const MISSING_FACTS = [
   "denomination", "assigned_set", "announced_colours", "hem_position", "sleeve_lining", "sleeve_length",
+  "back_strap_coverage",
 ] as const;
 export type MissingFact = typeof MISSING_FACTS[number];
 export interface JudgeResult {
@@ -40,6 +41,7 @@ export function missingFactsFromGuard(missing: readonly string[]): MissingFact[]
     hem_position: /^hem position (for |required by )/,
     sleeve_lining: /^sleeve lining for /,
     sleeve_length: /^sleeve length (for |required by )/,
+    back_strap_coverage: /^(back|strap) coverage for the selected (top|dress)$/,
   };
   return MISSING_FACTS.filter(fact => missing.some(label => mappings[fact].test(label)));
 }

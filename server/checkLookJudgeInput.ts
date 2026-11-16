@@ -304,7 +304,10 @@ export function exportJudgeText(
       : assignedId === "not-sure" ? "unknown" : assignedItemText,
     temperature_c: request.selection.temperatureC ?? null,
   };
-  const askFacts = missingFactsFromGuard(guard.missing);
+  // Keep the frozen model-facing text byte-for-byte stable. Back/strap is a
+  // response-schema capability used by the server/client layer, not new model text.
+  const askFacts = missingFactsFromGuard(guard.missing)
+    .filter(fact => fact !== "back_strap_coverage");
   const askInstruction = askFacts.length
     ? `For Ask, missing_fact must be one of ${askFacts.join(", ")}. Otherwise give your best non-Ask verdict and set missing_fact to null.`
     : "Do not answer Ask because no allowed missing facts remain; set missing_fact to null.";

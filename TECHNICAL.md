@@ -1520,7 +1520,8 @@ These features are **not yet implemented**. They are the next development priori
 | `stylingRelationships.test.ts` | Additive Phase A membership projection, owner/parent checks, all three types, pre-evaluation coordinated construction under shortlist crowding, relationship removal and renamed-garment controls, Western complements, normal alternatives, immutable canonical/shared facts, transient provenance and provider-free graph |
 | `swipeDismiss.test.ts` | Exact-top gesture capture, scroll gating during movement/release, 120 px threshold, and scroll-ref/accessible-close wiring on all three sheet routes |
 | `accountDeletion.test.ts` | Both account-deletion routes: authentication boundary, per-stage Storage/table/Auth failures, paginated removal, no-op removal detection, pending-receipt preservation and cleanup across partial retries |
-| `checkLookJudge.test.ts` | Mocked-only judge adapter and mounted route: exact prompt/schema, Ask conversion, retry/deadline, privacy projection, consent/auth, owner selection, tier payloads, atomic 5/30 admission, fail-closed store errors, membership timeout and owner/TTL cache |
+| `checkLookJudge.test.ts` | Mocked-only judge adapter and mounted route: frozen prompt/export, seven Ask values, response-only church back/strap question, route-floor and cache behavior, privacy, consent/auth, tier payloads, quota, membership timeout |
+| `checkLookFloor.test.ts` | Per-rule firing and boundaries, guard failure mapping, N9 Ask precedence, property sweep, monotonicity and idempotence |
 | `accountDeletionNavigation.test.ts` | Real Expo Router reducers and mounted Profile cases verify confirmed deletion clears cached account data and removes stale routes even when sign-out fails, while preserving the incomplete-cleanup warning |
 | `accountDeletionRateLimit.test.ts` | In-app deletion's 60/hour IP and 5/hour authenticated-user limits, ordering, fixed-window Retry-After, user isolation, and failed-attempt counting |
 | `accountDeletionLocalCleanup.test.ts` | Confirmed deletion clears account cache keys, local wardrobe photos, and signed-photo cache; server failure preserves them for retry |
@@ -3887,18 +3888,40 @@ schema, temperature 0, minimal thinking and 1,024 output tokens. The 6-second
 budget covers both attempts together; only malformed output is retried once.
 An unsupported Ask requests the model's best non-Ask answer using a constrained
 retry, or falls back locally if still invalid. Allowed missing-fact values are
-`denomination`, `assigned_set`, `announced_colours`, `hem_position` and
-`sleeve_lining`. Model version, prompt hash, attempt, status and duration are
-logged; verdict text, reasons, item facts, owner IDs and raw errors are not.
+`denomination`, `assigned_set`, `announced_colours`, `hem_position`,
+`sleeve_lining`, `sleeve_length` and `back_strap_coverage`. Back/strap is a
+response-schema capability only: it adds no input field and does not change
+the exported Items/Brief text or frozen prompt. Model version, prompt hash,
+attempt, status and duration are logged; verdict text, reasons, item facts,
+owner IDs and raw errors are not.
 
 Free returns only `{ verdict }`, converting Ask to Almost. Premium returns a
 reason, nullable safe owned-item swap IDs and a single fixed friendly question
-for Ask. The swap is an unchanged local-check candidate rechecked against the
-guard, not an invented or model-selected replacement; unavailable/unsafe swaps
-are null. The model receives no IDs, URLs, photos, custom descriptions, personal
-names or full profile. `Name` is a generated canonical garment label. Unknown
-fabric is omitted and quality is always unknown. See the exact synthetic
-request-body example and contract in `docs/reports/check-look-judge-route.md`.
+for Ask. The deterministic floor runs after parsing and before caching or
+returning; it only downgrades Works, except N9 may turn Works into Ask for an
+unanswered required church denomination, hem, or back/strap fact. A floored
+answer uses fixed UK-English reason text and has no swap. The cache stores the
+floored answer and re-applies the floor on hits. Logs contain only fired rule
+IDs. The floor never adds inputs or changes the model-facing text.
+
+Floor rules: N1 covers above-knee/mini hems at church, funeral and naming
+ceremonies; N2 covers exposed-no-cover backs/straps at church or funerals; N3
+uses only an explicit sheer sleeve-lining fact at church or funerals. N4 maps
+existing profile-guard failures, N6 maps existing assigned-set and funeral
+colour guard failures, and the R6 baseline caps any other guard failure. N5
+blocks white, ivory or cream for wedding guests or unspecified roles unless a
+bridal-party role or assigned set is present. It intentionally has no announced
+colour exception: a couple who asks guests to wear white or cream may therefore
+be over-blocked. This is a known Judge v2 limitation. N7 applies the approved
+activewear/swimwear subtype list above casual dress codes. N8 applies its
+approved casual-item list at formal/black-tie and above-knee/mini only at
+black-tie. N4 heel-height enforcement is skipped because wardrobe items have
+no deterministic heel-height fact. N3 does not infer sheerness from fabric.
+
+The model receives no IDs, URLs, photos, custom descriptions, personal names or
+full profile. `Name` is a generated canonical garment label. Unknown fabric is
+omitted and quality is always unknown. See the exact synthetic request-body
+example and contract in `docs/reports/check-look-judge-route.md`.
 
 Daily server admission is 5 Free / 30 Premium per owner per UTC date, using the
 existing atomic `ratelimit_increment` RPC and `ratelimit_store`. This dedicated
@@ -3920,6 +3943,9 @@ serving any cached answer.
 file. Default invocation checks its 72 IDs/hashes without network access.
 `--live [--limit 72]` is the explicit generation opt-in, using this same adapter,
 serial five-second spacing and a CSV under ignored `generated-artifacts/`.
+`scripts/score-floor-offline.ts` re-applies the floor to stored Set 4A/4B judge
+outputs using their matching source fixtures and writes
+`docs/reports/judge-experiment/floor-offline.csv`; it makes no provider calls.
 Unit tests inject providers/stores and block unmocked judge access. The
 compliance checklist continues to mark this judge flow **NOT YET LIVE**.
 
@@ -3932,9 +3958,9 @@ Both choices reset on occasion change and sheet close; neither is persisted
 or added to logs. Existing requests may omit them. The strict route schema
 rejects unsupported values, and the exporter independently allowlists them
 as `venue` and `dress_code` in the safe brief. These qualifiers do not alter
-the deterministic guard or frozen v3.7 scoring. No judge flag or client route
-integration was changed: the current visible check remains local until that
-separate integration is enabled.
+the deterministic guard or frozen v3.7 scoring. The judge flag remains off;
+the existing client route integration is present but provider judging remains
+disabled until the flag is enabled.
 
 The sheet progressively reveals optional role chips for Wedding, Traditional
 wedding, Owambe, Naming ceremony and Funeral, and Daytime / Evening / Not sure

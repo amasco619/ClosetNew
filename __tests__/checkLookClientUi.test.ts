@@ -238,12 +238,16 @@ async function main() {
     await unmount();
   } finally { Date.now = realNow; }
 
-  for (const fact of ['denomination', 'assigned_set', 'announced_colours', 'hem_position', 'sleeve_lining', 'sleeve_length']) {
+  for (const fact of [
+    'denomination', 'assigned_set', 'announced_colours', 'hem_position', 'sleeve_lining',
+    'sleeve_length', 'back_strap_coverage',
+  ]) {
     handler = reply({ verdict: 'Ask', reason: 'A detail is missing.',
       question: fact === 'sleeve_length' ? 'How long are the sleeves on this piece?' : 'Could you confirm this detail?',
       missing_fact: fact, swapSuggestion: null });
     await mount(true);
-    if (fact === 'denomination' || fact === 'hem_position' || fact === 'sleeve_lining' || fact === 'sleeve_length') {
+    if (fact === 'denomination' || fact === 'hem_position' || fact === 'sleeve_lining' ||
+        fact === 'sleeve_length' || fact === 'back_strap_coverage') {
       await press('check-my-look-occasion-church');
       assert.equal(node('check-my-look-submit').props.disabled, true, 'required choice is not preselected');
       await press('check-my-look-brief-denomination');
@@ -284,6 +288,11 @@ async function main() {
         assert.ok(node(`check-my-look-answer-${top.id}-${value}`), `${value} sleeve answer is shown`);
       }
       await press(`check-my-look-answer-${top.id}-short`);
+    } else if (fact === 'back_strap_coverage') {
+      assert.ok(node(`check-my-look-fact-${top.id}-backAndStraps-covered`));
+      assert.ok(node(`check-my-look-fact-${top.id}-backAndStraps-no-cover`));
+      assert.ok(node(`check-my-look-fact-${top.id}-backAndStraps-not-sure`));
+      await press(`check-my-look-fact-${top.id}-backAndStraps-no-cover`);
     }
     assert.equal(calls.length, 2);
     if (fact === 'denomination') assert.equal((latestRequest!.brief as any).denomination, 'anglican');
@@ -291,6 +300,10 @@ async function main() {
     if (fact === 'announced_colours') assert.deepEqual((latestRequest!.brief as any).announcedColours, { kind: 'colours', values: ['black', 'white'] });
     if (fact === 'sleeve_lining') assert.equal(latestRequest!.garmentFacts?.[top.id].sleeveLining, 'lined');
     if (fact === 'sleeve_length') assert.equal(latestRequest!.garmentFacts?.[top.id].sleeveLength, 'short');
+    if (fact === 'back_strap_coverage') {
+      assert.equal(latestRequest!.garmentFacts?.[top.id].backOrStrapCoverage, 'exposed-no-cover');
+      assert.equal(latestRequest!.garmentFacts?.[top.id].sleeveLining, undefined);
+    }
     if (fact === 'hem_position') assert.equal(latestRequest!.garmentFacts?.[dress.id].hemPosition, 'at-or-below-knee');
     await unmount();
   }

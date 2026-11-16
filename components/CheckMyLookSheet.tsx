@@ -616,6 +616,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
   };
   const renderedChurchFacts = () => {
     if (!occasionChosen || (briefContext !== 'church' && venue !== 'place-of-worship')) return null;
+    if (props.result?.verdict === 'Ask' && props.result.missingFact === 'back_strap_coverage') return null;
     const question = churchQuestions[0];
     const options = question?.fact === 'hemPosition' ? HEM_OPTIONS
       : question?.fact === 'backAndStraps' ? BACK_STRAP_OPTIONS
@@ -714,6 +715,14 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
         setChurchFactAnswers(current => ({
           ...current, [itemId]: { ...current[itemId], sleeveLength: value },
         }));
+      } else if (fact === 'back_strap_coverage') {
+        if (value === 'covered') next.backOrStrapCoverage = 'covered';
+        else if (value === 'covered-layer') next.backOrStrapCoverage = 'exposed-with-cover';
+        else if (value === 'no-cover') next.backOrStrapCoverage = 'exposed-no-cover';
+        else delete next.backOrStrapCoverage;
+        setChurchFactAnswers(current => ({
+          ...current, [itemId]: { ...current[itemId], backAndStraps: value },
+        }));
       } else {
         next.sleeveLining = value as 'lined' | 'sheer' | 'not-sure';
         setChurchFactAnswers(current => ({
@@ -735,6 +744,7 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
     const fact = result.missingFact;
     const choices = fact === 'denomination' ? DENOMINATION_OPTIONS
       : fact === 'assigned_set' ? setOptions
+        : fact === 'back_strap_coverage' ? []
         : fact === 'announced_colours' ? [
           { value: 'none', label: 'None announced' }, { value: 'not-sure', label: 'Not sure' },
           ...FUNERAL_COLOURS.map(value => ({ value, label: value })),
@@ -776,13 +786,18 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
             <Text style={styles.retryText}>Check with these colours</Text>
           </Pressable>
         )}
-        {(fact === 'hem_position' || fact === 'sleeve_lining' || fact === 'sleeve_length') && targets.map(item => (
+        {(fact === 'hem_position' || fact === 'sleeve_lining' ||
+          fact === 'sleeve_length' || fact === 'back_strap_coverage') && targets.map(item => (
           <View key={item.id}>
             <Text style={styles.helper}>{itemName(item)}</Text>
             <View style={styles.briefChips}>
-              {(fact === 'hem_position' ? HEM_OPTIONS
+              {(fact === 'back_strap_coverage' ? BACK_STRAP_OPTIONS
+                : fact === 'hem_position' ? HEM_OPTIONS
                 : fact === 'sleeve_length' ? SLEEVE_LENGTH_OPTIONS : SLEEVE_LINING_OPTIONS).map(option => (
-                <Pressable key={option.id} testID={`check-my-look-answer-${item.id}-${option.id}`}
+                <Pressable key={option.id}
+                  testID={fact === 'back_strap_coverage'
+                    ? `check-my-look-fact-${item.id}-backAndStraps-${option.id}`
+                    : `check-my-look-answer-${item.id}-${option.id}`}
                   accessibilityRole="button" disabled={props.checking}
                   onPress={() => answerJudgeQuestion(fact, option.id, item.id)} style={styles.briefChip}>
                   <Text style={styles.briefChipText}>{option.label}</Text>

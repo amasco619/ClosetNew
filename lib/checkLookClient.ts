@@ -7,6 +7,7 @@ export const CHECK_LOOK_BUDGET_MS = 6_000;
 export const JUDGE_DISABLED_FOREGROUND_MS = 15 * 60_000;
 export const JUDGE_MISSING_FACTS = [
   'denomination', 'assigned_set', 'announced_colours', 'hem_position', 'sleeve_lining', 'sleeve_length',
+  'back_strap_coverage',
 ] as const;
 export type JudgeMissingFact = typeof JUDGE_MISSING_FACTS[number];
 export type CheckLookDisplayResult = CheckLookResult | {

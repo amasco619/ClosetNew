@@ -49,6 +49,7 @@ async function adapterTests() {
   assert.deepEqual(body.generationConfig.responseSchema.properties.missing_fact.enum, [...MISSING_FACTS]);
   assert.deepEqual(MISSING_FACTS, [
     "denomination", "assigned_set", "announced_colours", "hem_position", "sleeve_lining", "sleeve_length",
+    "back_strap_coverage",
   ]);
   assert.equal(parseJudgeResponse(JSON.stringify({ ...works, extra: true }), true), null);
   const trimLogs: string[] = [];
@@ -81,6 +82,8 @@ async function adapterTests() {
     ["sleeve lining for the selected top", "sleeve_lining"],
     ["sleeve length required by your coverage preference", "sleeve_length"],
     ["sleeve length for the selected dress", "sleeve_length"],
+    ["back coverage for the selected top", "back_strap_coverage"],
+    ["strap coverage for the selected dress", "back_strap_coverage"],
   ];
   for (const [label, fact] of mappings) {
     const missingFacts = missingFactsFromGuard([label, label]);
@@ -96,7 +99,23 @@ async function adapterTests() {
     assert.equal(answer.result.missing_fact, fact);
     assert.equal(attempts, 1);
   }
-  assert.deepEqual(missingFactsFromGuard(["your role at this occasion", "back coverage for the selected top"]), []);
+  assert.deepEqual(missingFactsFromGuard(["your role at this occasion"]), []);
+  const backStrapMissing = judgeRequestSchema.parse({
+    ...input, brief: { context: "church", denomination: "anglican" },
+  });
+  const backStrapGuard = judgeGuard(backStrapMissing, [top, bottom], [], {});
+  assert.deepEqual(backStrapGuard.missing, [
+    "back coverage for the selected top", "strap coverage for the selected top",
+  ]);
+  assert.deepEqual(missingFactsFromGuard(backStrapGuard.missing), ["back_strap_coverage"]);
+  assert.deepEqual(buildJudgeBody("unchanged", true, ["back_strap_coverage"])
+    .generationConfig.responseSchema.properties.missing_fact.enum, ["back_strap_coverage"]);
+  const backStrapText = exportJudgeText(backStrapMissing, [top, bottom], [], {}, backStrapGuard);
+  assert.equal(createHash("sha256").update(backStrapText).digest("hex"),
+    "5357315f6b28616310de278fe798b6c8e886e5e5f392ebe7293661b761db96f4",
+    "adding the response-only back/strap Ask value leaves the model-facing export byte-identical");
+  assert.match(backStrapText, /"context":"church","venue":null,"dress_code":null,"denomination":"anglican"/);
+  assert.match(backStrapText, /Name: blouse; Colour: navy; Fabric: cotton; Quality: unknown; Notes: sleeves long/);
   const noMissing = buildJudgeBody("Synthetic", true, []);
   assert.ok(!noMissing.generationConfig.responseSchema.properties.verdict.enum.includes("Ask"));
   assert.equal(noMissing.generationConfig.responseSchema.properties.missing_fact.type, "NULL");
@@ -126,6 +145,9 @@ async function adapterTests() {
   const sleeveAsk = JSON.stringify({ verdict: "Ask", reason: "How long are the sleeves?", missing_fact: "sleeve_length" });
   assert.equal(parseJudgeResponse(sleeveAsk, true), null, "sleeve length is unsupported without an explicit guard allowance");
   assert.equal(parseJudgeResponse(sleeveAsk, true, true)?.missing_fact, "sleeve_length");
+  assert.equal(parseJudgeResponse(JSON.stringify({
+    verdict: "Ask", reason: "Is the back or strap covered?", missing_fact: "back_strap_coverage",
+  }), true, false, ["back_strap_coverage"])?.missing_fact, "back_strap_coverage");
   assert.deepEqual(profileJudgeConstraints({ colorAversions: ["neon"] }).colorAversions, ["neon"],
     "a saved neon aversion is accepted by the profile schema");
   assert.equal(judgeRequestSchema.safeParse({
@@ -567,6 +589,52 @@ async function routeTests() {
   clearJudgeCache();
   routeOverrides.judge = async () => { throw new Error("provider timed out"); };
   assert.deepEqual((await send()).body, { useLocalCheck: true, reason: "unavailable" }, "provider failure uses the unchanged local path");
+  premium = true;
+  routeOverrides.load = async () => ({ items: [top, bottom], groups: [], constraints: {} });
+  clearJudgeCache(user);
+  let churchFloorCalls = 0;
+  routeOverrides.judge = async (text, options) => {
+    churchFloorCalls++;
+    lastText = text;
+    assert.deepEqual(options?.missingFacts, ["back_strap_coverage"]);
+    return { result: works, modelVersion: "gemini-3.6-flash", promptHash: CHECK_LOOK_PROMPT_HASH };
+  };
+  const churchMissingCoverage = {
+    ...input, brief: { context: "church" as const, denomination: "anglican" as const },
+  };
+  const churchFloorAsk = await send(churchMissingCoverage);
+  assert.equal(churchFloorAsk.body.verdict, "Ask", "N9 turns Works into Ask for required church coverage");
+  assert.equal(churchFloorAsk.body.missing_fact, "back_strap_coverage");
+  assert.equal(churchFloorAsk.body.question, "Is the back or strap exposed on this piece?");
+  assert.equal(churchFloorAsk.body.reason, "A church detail needs confirmation.");
+  assert.equal(churchFloorAsk.body.swapSuggestion, null);
+  assert.equal(createHash("sha256").update(lastText).digest("hex"),
+    "5357315f6b28616310de278fe798b6c8e886e5e5f392ebe7293661b761db96f4",
+    "response-layer Ask leaves exported Brief, Items and all model-facing text unchanged");
+  const churchFloorAskCached = await send(churchMissingCoverage);
+  assert.equal(churchFloorAskCached.body.missing_fact, "back_strap_coverage");
+  assert.equal(churchFloorCalls, 1, "the cached N9 result remains a response-layer Ask");
+
+  routeOverrides.load = async () => ({
+    items: [top, bottom], groups: [], constraints: profileJudgeConstraints({ colorAversions: ["navy"] }),
+  });
+  routeOverrides.judge = async () => ({
+    result: works, modelVersion: "gemini-3.6-flash", promptHash: CHECK_LOOK_PROMPT_HASH,
+  });
+  clearJudgeCache(user);
+  const floorVerdict = await send();
+  assert.deepEqual(floorVerdict.body, {
+    verdict: "Almost", reason: "This look conflicts with one of your preferences.", swapSuggestion: null,
+  }, "Premium receives the fixed reason and no swap after a floor downgrade");
+  const floorCachedVerdict = await send();
+  assert.deepEqual(floorCachedVerdict.body, floorVerdict.body, "cached Works is served floored");
+  premium = false;
+  clearJudgeCache(user);
+  const freeFloorVerdict = await send();
+  assert.deepEqual(freeFloorVerdict.body, { verdict: "Almost" },
+    "Free receives only the floored verdict, not the fixed reason or swap");
+  routeOverrides.load = async () => ({ items: [top, bottom], groups: [], constraints: {} });
+  clearJudgeCache(user);
   delete authOverrides.authenticatedUser;
   delete consentOverrides.load;
   for (const key of Object.keys(routeOverrides)) Reflect.deleteProperty(routeOverrides, key);

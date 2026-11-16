@@ -8,6 +8,7 @@ import { evaluateCheckLook, isValidCheckLookSelection } from "../lib/checkLook";
 import type { WardrobeItem, GarmentGroup, Constraints } from "../constants/types";
 import { callCheckLookJudge, judgeEnabled, judgeModel, CHECK_LOOK_PROMPT_HASH, missingFactsFromGuard,
   type JudgeAnswer, type MissingFact } from "./checkLookJudge";
+import { floorJudgeAnswer, getCheckLookFloorRules } from "./checkLookFloor";
 import { judgeRequestSchema, exportJudgeText, judgeGuard, profileJudgeConstraints, type JudgeRequest } from "./checkLookJudgeInput";
 import { consumeJudgeQuota } from "./checkLookJudgeStore";
 
@@ -22,7 +23,9 @@ export const _testOverrides: {
 } = {};
 
 // No raw user data in cache keys; answers are transient and isolated by owner.
-const cache = new Map<string, Map<string, { expires: number; answer: JudgeAnswer }>>();
+const cache = new Map<string, Map<string, {
+  expires: number; answer: JudgeAnswer; floored: boolean;
+}>>();
 const servedVersions = new Map<string, string>();
 const CACHE_TTL_MS = 60_000;
 export function clearJudgeCache(userId?: string): void {
@@ -87,6 +90,7 @@ const questions: Record<MissingFact, string> = {
   hem_position: "Does the hem sit above or below your knee?",
   sleeve_lining: "Are the sleeves lined or sheer?",
   sleeve_length: "How long are the sleeves on this piece?",
+  back_strap_coverage: "Is the back or strap exposed on this piece?",
 };
 
 function safeSwap(context: OwnedContext, request: JudgeRequest, userId: string) {
@@ -154,6 +158,8 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
     }
   }
   const guard = judgeGuard(request, context.items, context.groups, context.constraints);
+  const floorFacts = { request, items: context.items, guard };
+  console.info(JSON.stringify({ event: "check_look_floor", firedRules: getCheckLookFloorRules(floorFacts) }));
   const missingFacts = missingFactsFromGuard(guard.missing);
   const text = exportJudgeText(request, context.items, context.groups, context.constraints, guard);
   try {
@@ -172,7 +178,11 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
     const owned = cache.get(userId);
     const cached = owned?.get(keyFor(servedVersions.get(model) ?? null));
     let answer: JudgeAnswer;
-    if (cached && cached.expires > Date.now()) answer = cached.answer;
+    let wasFloored = false;
+    if (cached && cached.expires > Date.now()) {
+      answer = cached.answer;
+      wasFloored = cached.floored;
+    }
     else {
       const judge = process.env.NODE_ENV === "test" && _testOverrides.judge ? _testOverrides.judge : callCheckLookJudge;
       answer = await judge(text, { model, missingFacts });
@@ -181,11 +191,18 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
         throw new Error("Unsupported judge question");
       }
       servedVersions.set(model, answer.modelVersion);
+    }
+    const floor = floorJudgeAnswer(answer, floorFacts);
+    answer = floor.answer;
+    wasFloored ||= floor.floored;
+    if (!cached || cached.expires <= Date.now()) {
       if (cache.size >= 1000) cache.delete(cache.keys().next().value!);
       const entries = owned ?? new Map();
       for (const [key, entry] of entries) if (entry.expires <= Date.now()) entries.delete(key);
       if (entries.size >= 20) entries.delete(entries.keys().next().value!);
-      entries.set(keyFor(answer.modelVersion), { answer, expires: Date.now() + CACHE_TTL_MS });
+      entries.set(keyFor(answer.modelVersion), {
+        answer, floored: wasFloored, expires: Date.now() + CACHE_TTL_MS,
+      });
       cache.set(userId, entries);
     }
     if (!premium) {
@@ -193,7 +210,7 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
     }
     res.json({
       verdict: answer.result.verdict, reason: answer.result.reason,
-      swapSuggestion: safeSwap(context, request, userId),
+      swapSuggestion: wasFloored ? null : safeSwap(context, request, userId),
       ...(answer.result.verdict === "Ask" && answer.result.missing_fact
         ? { question: questions[answer.result.missing_fact], missing_fact: answer.result.missing_fact } : {}),
     });
