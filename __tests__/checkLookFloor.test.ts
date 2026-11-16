@@ -153,9 +153,12 @@ assert.ok(floorFor(makeRequest({ context: "funeral", announcedColours: { kind: "
 }).firedRules.includes("N6"), "funeral colour failure maps to N6 without duplicating the guard");
 
 const setExempt = floorFor(makeRequest({
-  context: "traditional-wedding", role: "guest", asoEbiGroupId: "55555555-5555-4555-8555-555555555555",
+  context: "wedding", role: "guest", asoEbiGroupId: "55555555-5555-4555-8555-555555555555",
 }, [{ ...top, colorFamily: "white" }, bottom]));
 assert.ok(!setExempt.firedRules.includes("N5"), "an assigned set attached to the brief exempts the colour rule");
+assert.ok(!floorFor(makeRequest({ context: "traditional-wedding", role: "guest", asoEbiGroupId: "none" },
+  [{ ...top, colorFamily: "white" }, bottom])).firedRules.includes("N5"),
+"N5 does not apply to traditional-wedding, even without an assigned set");
 for (const colour of ["white", "off-white", "ivory", "cream", "champagne"]) {
   const caution = floorFor(makeRequest({ context: "wedding", role: "guest" },
     [{ ...top, colorFamily: colour }, bottom]));
@@ -195,6 +198,12 @@ const funeralDress: WardrobeItem = {
 };
 assert.ok(floorFor(funeralRequest("none", [funeralDress])).firedRules.includes("N6"),
   "a single-colour funeral dress outside announced colours fires N6");
+for (const colour of ["black", "white", "gold", "silver"]) {
+  assert.ok(floorFor(funeralRequest("none", [{ ...funeralDress, colorFamily: colour }], ["navy"]))
+    .firedRules.includes("N6"), `${colour} has no implicit funeral exemption`);
+  assert.ok(!floorFor(funeralRequest("none", [{ ...funeralDress, colorFamily: colour }], [colour]))
+    .firedRules.includes("N6"), `${colour} matches when explicitly announced`);
+}
 const funeralSet = floorFor(funeralRequest(setId, [
   { ...top, colorFamily: "red" }, { ...bottom, colorFamily: "blue" },
 ]));

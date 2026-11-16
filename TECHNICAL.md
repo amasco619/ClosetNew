@@ -3921,7 +3921,8 @@ unannounced colour on a funeral dress, or both the top and bottom of an
 assigned set. This added check ignores shoes, bags, accessories and outerwear;
 it does not fire for multicolour items or ambiguous garment dominance. The
 existing funeral guard is unchanged. N5 covers white, off-white, ivory, cream
-and champagne for wedding guests or unspecified roles, except bridal-party
+and champagne only in the `wedding` context (not `traditional-wedding`) for guests
+or unspecified roles, except bridal-party
 roles and briefs with an assigned set. Its fixed copy is “Light colours can
 read as bridal at a wedding; check the couple's colours.” There is no
 announced-colour exception, so a couple who asks guests to wear a listed light

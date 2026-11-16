@@ -192,7 +192,7 @@ export function getCheckLookFloorRules(facts: CheckLookFloorFacts): CheckLookFlo
     addRule(fired, "N6");
   }
 
-  if (request.brief.context === "wedding" || request.brief.context === "traditional-wedding") {
+  if (request.brief.context === "wedding") {
     const role = "role" in request.brief ? request.brief.role : undefined;
     const guestOrUnspecified = role === undefined || role === "guest" || role === "not-sure";
     if (guestOrUnspecified && !hasAssignedSet(request.brief) &&
