@@ -21,6 +21,7 @@ import { registerRoutes, _testOverrides as authOverrides } from "../server/route
 import { _testOverrides as consentOverrides } from "../server/aiProcessingConsent";
 import { parseSyntheticLooks } from "../scripts/check-look-live-eval";
 import { prepareSet4bLook } from "../scripts/run-set4b-judge";
+import { _testOverrides as feedbackOverrides } from "../server/checkLookFeedback";
 
 const user = "11111111-1111-4111-8111-111111111111";
 const topId = "22222222-2222-4222-8222-222222222222";
@@ -472,6 +473,27 @@ async function routeTests() {
   const first = await send();
   assert.deepEqual(first.body, { verdict: "Works" }, "Free never receives reason, swaps, question or provider metadata");
   assert.equal(providerCalls, 1);
+  feedbackOverrides.appVersion = null;
+  assert.deepEqual((await send()).body, { verdict: "Works" }, "missing app_version never changes a cached verdict");
+  delete feedbackOverrides.appVersion;
+  feedbackOverrides.client = { from: () => ({
+    insert: () => ({ abortSignal: async () => ({ error: { code: "receipt_failed" } }) }),
+  }) } as any;
+  assert.deepEqual((await send()).body, { verdict: "Works" }, "receipt insert rejection never blocks the verdict");
+  let storedReceipt: any;
+  feedbackOverrides.client = { from: () => ({
+    insert: (row: any) => {
+      storedReceipt = row;
+      return { abortSignal: async () => ({ error: null }) };
+    },
+  }) } as any;
+  const withFeedback = (await send()).body;
+  assert.match(withFeedback.request_id, /^[0-9a-f-]{36}$/);
+  assert.deepEqual(Object.keys(withFeedback).sort(), ["request_id", "verdict"]);
+  assert.equal(storedReceipt.payload_text, lastText);
+  assert.equal(storedReceipt.model_verdict, "Works");
+  assert.equal(storedReceipt.final_verdict, "Works");
+  delete feedbackOverrides.client;
   assert.ok(!lastText.includes(user) && !lastText.includes(topId) && !lastText.includes(top.photoUri));
   const venueRequest = {
     ...input,

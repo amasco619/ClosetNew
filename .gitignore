@@ -8,6 +8,9 @@ node_modules/
 dist/
 web-build/
 /generated-artifacts/
+
+# Sensitive owner-grouped judge review exports: never commit.
+/docs/reports/judge-beta/
 expo-env.d.ts
 
 # Native

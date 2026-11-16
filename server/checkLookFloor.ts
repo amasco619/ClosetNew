@@ -1,4 +1,4 @@
-import type { WardrobeItem } from "../constants/types";
+import type { WardrobeItem, Constraints } from "../constants/types";
 import type { CheckLookGuardResult, CheckLookRequest } from "../lib/checkLookGuard";
 import type { JudgeAnswer, JudgeResult } from "./checkLookJudge";
 
@@ -38,6 +38,7 @@ export interface CheckLookFloorFacts {
   request: CheckLookRequest;
   items: readonly WardrobeItem[];
   guard: CheckLookGuardResult;
+  constraints?: Partial<Constraints>;
 }
 
 export interface CheckLookFloorResult {
@@ -171,6 +172,12 @@ export function getCheckLookFloorRules(facts: CheckLookFloorFacts): CheckLookFlo
   const fired = new Set<CheckLookFloorRule>();
 
   addGuardFailureRules(guard.failures, fired);
+
+  if (facts.constraints?.noShortSkirts && items.some(item =>
+    (item.category === "dress" || item.category === "bottom") &&
+    MINI_SUBTYPES.has(normaliseSubtype(item.subType)))) {
+    addRule(fired, "N4");
+  }
 
   if (["church", "funeral", "naming-ceremony"].includes(context) &&
       items.some(item => (item.category === "dress" || item.category === "bottom") &&

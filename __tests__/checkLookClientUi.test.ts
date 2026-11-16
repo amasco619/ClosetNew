@@ -9,6 +9,7 @@ import { judgeRequestSchema } from '../server/checkLookJudgeInput';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const mocks: Record<string, string> = {
+  '@expo/vector-icons': `import React from 'react'; export const Feather=props=>React.createElement('Icon',props);`,
   'react-native': `import React from 'react';
     const host=name=>({children,...props})=>React.createElement(name,props,children);
     export const View=host('View'),Text=host('Text'),Pressable=host('Pressable'),
@@ -101,7 +102,9 @@ async function main() {
     if (reset) api.resetJudgeClientForTests();
     calls = []; localCalls = 0;
     api._testOverrides.post = async (...args: any[]) => {
-      assert.equal(judgeRequestSchema.safeParse(args[2]).success, true, 'every mounted request matches the real route schema');
+      if (args[1] === '/api/check-my-look') {
+        assert.equal(judgeRequestSchema.safeParse(args[2]).success, true, 'every mounted request matches the real route schema');
+      }
       calls.push(args);
       return handler();
     };
@@ -267,6 +270,7 @@ async function main() {
     }
     assert.equal(node('check-my-look-submit').props.disabled, false, 'Not sure counts as chosen');
     await submit();
+    assert.equal(node('check-look-thumb-up'), undefined, 'Ask never has thumbs');
     assert.match(text(), fact === 'sleeve_length'
       ? /How long are the sleeves on this piece\?/
       : /Could you confirm this detail/);
@@ -307,6 +311,30 @@ async function main() {
     if (fact === 'hem_position') assert.equal(latestRequest!.garmentFacts?.[dress.id].hemPosition, 'at-or-below-knee');
     await unmount();
   }
+
+  for (const premium of [false, true]) {
+    const requestId = '12345678-1234-4123-8123-123456789abc';
+    handler = reply({ verdict: 'Works', ...(premium ? { reason: 'A balanced look.' } : {}), request_id: requestId });
+    await mount(premium); await submit();
+    assert.ok(screen.root.findAllByProps({ testID: 'check-look-feedback' }).length);
+    assert.ok(node('check-look-thumb-up')); assert.ok(node('check-look-thumb-down'));
+    let feedbackCalls = 0;
+    handler = async () => { feedbackCalls++; return new Response('{"saved":true}'); };
+    await press('check-look-thumb-down');
+    assert.match(text(), /This helps us improve Check my look/);
+    await press('check-look-reason-too_strict');
+    await press('check-look-feedback-skip');
+    assert.equal(feedbackCalls, 2);
+    const feedback = calls.filter(call => call[1] === '/api/check-my-look/feedback');
+    assert.equal(feedback.length, 2);
+    assert.deepEqual(feedback[1][2], { request_id: requestId, thumbs: 'down', reason_chip: 'too_strict' });
+    assert.match(text(), /Works/);
+    await unmount();
+  }
+  let quietRetries = 0;
+  api._testOverrides.post = async () => { quietRetries++; throw new api.ApiRequestError('offline', 'network'); };
+  await api.sendLookFeedback('12345678-1234-4123-8123-123456789abc', 'down', null);
+  assert.equal(quietRetries, 2, 'offline feedback retries exactly once and does not throw');
 
   handler = async () => new Response('not JSON');
   await mount(); await submit(); assert.equal(localCalls, 0); assert.match(text(), /try again/i); await unmount();

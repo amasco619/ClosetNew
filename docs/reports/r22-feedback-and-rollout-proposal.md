@@ -1,5 +1,9 @@
 # R-22: approval checkpoint
 
+Historical checkpoint: the SQL was subsequently approved and applied exactly
+as written on 16 November 2026. See `r22-implementation-report.md` for the final
+implementation, verification and retention position. No scheduled purge was built.
+
 ## Implemented before the database approval checkpoint
 
 - N5 now applies only to `wedding`, not `traditional-wedding`.

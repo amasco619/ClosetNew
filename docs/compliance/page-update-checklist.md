@@ -13,6 +13,13 @@ These pages are draft product disclosures, not approved legal documents. Review 
 
 ## Release review
 
+- [ ] Build the daily 12-month purge job before public launch. No scheduled purge
+  exists today; do not claim time-based enforcement.
+- [ ] Review judge receipts and thumbs disclosures before closed-test rollout:
+  exact exported outfit text, brief and profile constraints; model/final verdicts;
+  optional fixed-choice feedback, account deletion, and restricted review exports.
+  Kept while the account exists and deleted with it; a scheduled purge is not yet built.
+
 - [ ] Confirm every statement against the current code and provider configuration.
 - [ ] Resolve the legal identity, contact, retention, provider-contract and transfer details marked for review in the source documents.
 - [ ] Obtain legal review of the final Privacy Policy and Terms of Service.

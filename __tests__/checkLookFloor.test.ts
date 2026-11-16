@@ -19,6 +19,21 @@ const bottom: WardrobeItem = {
   ...top, id: bottomId, category: "bottom", subType: "trousers", colorFamily: "black",
 };
 const guard = { pass: true, failures: [], missing: [], flags: [] };
+for (const [category, subType] of [["dress", "mini-dress"], ["bottom", "mini-skirt"]] as const) {
+  const mini = { ...bottom, category, subType };
+  const miniRequest = {
+    selection: { itemIds: [mini.id], occasion: "casual" as const },
+    brief: { context: "casual" as const },
+  };
+  const facts = { request: miniRequest, items: [mini], guard, constraints: { noShortSkirts: true } };
+  const result = floorJudgeAnswer(answer("Works"), facts);
+  assert.equal(result.answer.result.verdict, "Almost");
+  assert.deepEqual(result.firedRules, ["N4"]);
+  assert.equal(result.answer.result.reason, "This look conflicts with one of your preferences.");
+  assert.equal(floorJudgeAnswer(answer("Works"), { ...facts, constraints: { noShortSkirts: false } })
+    .answer.result.verdict, "Works");
+  assert.equal(floorJudgeAnswer(answer("Ask"), facts).answer.result.verdict, "Ask");
+}
 const requestItems = new WeakMap<CheckLookRequest, WardrobeItem[]>();
 
 function makeRequest(brief: Record<string, unknown>, items: WardrobeItem[] = [top, bottom],

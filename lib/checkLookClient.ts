@@ -10,13 +10,13 @@ export const JUDGE_MISSING_FACTS = [
   'back_strap_coverage',
 ] as const;
 export type JudgeMissingFact = typeof JUDGE_MISSING_FACTS[number];
-export type CheckLookDisplayResult = CheckLookResult | {
+export type CheckLookDisplayResult = (CheckLookResult | {
   source: 'judge'; tier: 'premium'; verdict: 'Works' | 'Almost' | 'Rethink';
   reason: string; swapSuggestion: { replacesId: string; replacementId: string } | null;
 } | {
   source: 'judge'; tier: 'premium'; verdict: 'Ask';
   question: string; missingFact: JudgeMissingFact;
-};
+}) & { feedbackRequestId?: string };
 
 const responseSchema = z.union([
   z.object({ useLocalCheck: z.literal(true), reason: z.enum(['disabled', 'unavailable']) }),
@@ -26,6 +26,7 @@ const responseSchema = z.union([
     swapSuggestion: z.object({ replacesId: z.string().uuid(), replacementId: z.string().uuid() }).nullable().optional(),
     question: z.string().min(1).max(300).optional(),
     missing_fact: z.enum(JUDGE_MISSING_FACTS).optional(),
+    request_id: z.string().uuid().optional(),
   }),
 ]);
 
@@ -104,7 +105,8 @@ export async function requestCheckLook(
     // Defence in depth: free UI objects never contain a reason, question or swap.
     if (!options.premium || response.reason === undefined) {
       if (response.verdict === 'Ask') throw new Error('Invalid free verdict');
-      return { tier: 'free', verdict: response.verdict };
+      return { tier: 'free', verdict: response.verdict,
+        ...(response.request_id ? { feedbackRequestId: response.request_id } : {}) };
     }
     if (response.verdict === 'Ask') {
       if (!response.question || !response.missing_fact) throw new Error('Incomplete question');
@@ -112,7 +114,8 @@ export async function requestCheckLook(
         question: response.question, missingFact: response.missing_fact };
     }
     return { source: 'judge', tier: 'premium', verdict: response.verdict,
-      reason: response.reason, swapSuggestion: response.swapSuggestion ?? null };
+      reason: response.reason, swapSuggestion: response.swapSuggestion ?? null,
+      ...(response.request_id ? { feedbackRequestId: response.request_id } : {}) };
   } catch (error) {
     if (error instanceof ApiRequestError &&
         (error.status === 401 || (error.status === 403 && error.code === 'ai_processing_consent_required'))) {
@@ -120,4 +123,27 @@ export async function requestCheckLook(
     }
     throw error;
   } finally { if (timer) clearTimeout(timer); }
+}
+
+export const FEEDBACK_REASON_CHIPS = [
+  ['too_strict', 'Too strict'],
+  ['too_lenient', 'Too lenient'],
+  ['wrong_piece_read', 'A piece was read incorrectly'],
+  ['culture_or_occasion_wrong', 'Culture or occasion'],
+  ['unclear_reason', 'Unclear reason'],
+  ['other', 'Other'],
+] as const;
+export type FeedbackReason = typeof FEEDBACK_REASON_CHIPS[number][0];
+/** Best effort only: no persisted offline queue and at most one quiet retry. */
+export async function sendLookFeedback(requestId: string, thumbs: 'up' | 'down', reason: FeedbackReason | null) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await (_testOverrides.post ?? authenticatedApiRequest)('POST', '/api/check-my-look/feedback', {
+        request_id: requestId, thumbs, reason_chip: thumbs === 'down' ? reason : null,
+      }, { timeoutMs: CHECK_LOOK_BUDGET_MS });
+      return;
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status && error.status < 500) return;
+    }
+  }
 }

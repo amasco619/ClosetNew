@@ -3895,13 +3895,13 @@ the exported Items/Brief text or frozen prompt. Model version, prompt hash,
 attempt, status and duration are logged; verdict text, reasons, item facts,
 owner IDs and raw errors are not.
 
-Free returns only `{ verdict }`, converting Ask to Almost. Premium returns a
+Free returns a verdict (and optional non-sensitive receipt ID), converting Ask to Almost. Premium returns a
 reason, nullable safe owned-item swap IDs and a single fixed friendly question
-for Ask. The deterministic floor runs after parsing and before caching or
-returning. It never changes an existing Ask; N9 alone may turn Works into Ask
+for Ask. The deterministic floor runs after parsing and before returning,
+including on cache hits. It never changes an existing Ask; N9 alone may turn Works into Ask
 for an unanswered required church denomination, hem, or back/strap fact. A
 floored answer uses fixed UK-English reason text and has no swap. The cache
-stores the floored answer and re-applies the floor on hits. Logs contain only
+stores the original model answer and re-applies the floor on every delivery. Logs contain only
 fired rule IDs. The floor never adds inputs or changes model-facing text.
 
 Hard rules are N2, N3, N4, N6, N7, N8 and N9. Two independent hard rules give
@@ -4064,3 +4064,60 @@ trigger was present. The existing deletion inventory covers user_profiles by id;
 the readiness script now asserts that coverage before its existing probes.
 Privacy sources, inventory, draft page and update checklist describe the optional
 preference and distinguish it from transient brief facts.
+
+## R-22: judge closed-test rollout, receipts and feedback
+
+`server/checkLookRollout.ts` assigns a stable SHA-256 bucket from account ID and
+the fixed `amodka-check-look-closed-test-v1` salt. `JUDGE_ROLLOUT_PERCENT` is a
+server-only integer 0–100, default 0; invalid values fail closed. Eligibility is
+global `CHECK_LOOK_JUDGE_ENABLED=true` OR bucket below percentage, shared by Free
+and Premium. The global flag ON overrides percentage 0. **The operating kill
+switch is global flag OFF AND percentage 0. During the closed test the
+percentage is the only control used; leave the global flag OFF.** No rollout
+setting was changed by this implementation. Eligibility is checked before any
+judge-cache hit. Existing clients may hold a disabled directive for up to 15
+minutes of foreground use before checking eligibility again.
+
+The approved `20261116233111_check_look_feedback_receipts.sql` migration is applied.
+For each delivered model result, including a cached answer, the server attempts
+a new receipt with the original and final verdict, floor rule IDs, exact
+exported input text, served model, prompt hash and app version from the release
+manifest. It never trusts client-supplied receipt metadata. The model answer,
+not a tier-shaped or floored response, is cached for 60 seconds. Receipts are
+optional: insert errors, timeouts and missing app version log a count-only
+`check_look_receipt_failed` event and return the verdict without `request_id`.
+The receipt request has a 750 ms upper bound. No local directive gets a receipt.
+Ask receipts have no feedback capability.
+
+`POST /api/check-my-look/feedback` requires authentication, strict enums and an
+existing owned, non-Ask receipt. Only request ID, thumbs and an optional fixed
+reason chip are accepted. Server-only updates replace the previous feedback,
+with a separate persistent 30/minute account rate limit. It never calls the
+judge, requires no additional consent prompt and does not consume verdict quota.
+Owners have SELECT only under RLS; client roles cannot INSERT/UPDATE/DELETE.
+Account deletion explicitly removes feedback rows and auth deletion also cascades.
+
+The sheet shows thumbs on receipt-backed Works/Almost/Rethink for both tiers,
+below Premium reasons, never on an Ask or local result. Down-reason chips are
+optional and skippable. Feedback writes are serialised and retry once quietly;
+offline feedback is not stored in a durable queue and never blocks the verdict.
+
+`scripts/export-judge-beta.ts --since=ISO_DATE [--n=20]` writes restricted,
+git-ignored `docs/reports/judge-beta/thumbs-down.csv` and `works-sample.csv`.
+Both deduplicate identical owner/payload/final-verdict receipts within a rolling
+60-second cache window before sampling; Works includes untouched receipts.
+Grouping uses a domain-separated HMAC with existing SESSION_SECRET, never raw
+account IDs. The date filter is receipt creation time, not feedback-tap time.
+Kept while the account exists and deleted with it; a scheduled purge is not yet
+built. The daily 12-month purge job is a pre-public-launch checklist item, not
+an enforced retention policy.
+
+### Floor-only mini preference follow-up
+
+N4 also recognises a selected mini-dress/mini-skirt with `noShortSkirts=true`,
+using its existing HARD switch and fixed wording. It only caps Works, never
+changes Ask and never changes the model request. **The guard still asks for a
+hem on a mini-labelled garment without a hem fact; that guard change is deferred
+to Judge v2.** `scripts/check-r22-payloads.ts` compares the entire production
+body, including guard facts: all 108 full/fabric-stripped Set 4A/4B bodies stayed
+byte-identical. The 204-row offline floor rerun changed no verdicts.

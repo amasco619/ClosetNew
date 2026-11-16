@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import type { WardrobeItem } from "../constants/types";
 import type { CheckLookRequest } from "../lib/checkLookGuard";
-import { judgeRequestSchema, exportJudgeItem } from "../server/checkLookJudgeInput";
+import { judgeRequestSchema, exportJudgeItem, profileJudgeConstraints } from "../server/checkLookJudgeInput";
 import { floorJudgeAnswer } from "../server/checkLookFloor";
 import { CHECK_LOOK_PROMPT_HASH, type JudgeAnswer, type JudgeResult } from "../server/checkLookJudge";
 
@@ -108,7 +108,9 @@ for (const file of RUNS) {
     if (reconstructedBrief.context !== request.brief.context) {
       throw new Error(`${file}/${row.look_id}: stored brief context differs from source fixture`);
     }
-    const result = floorJudgeAnswer(answer, { request, items, guard: row.guard });
+    const result = floorJudgeAnswer(answer, {
+      request, items, guard: row.guard, constraints: profileJudgeConstraints(look.profile),
+    });
     const floored = result.answer.result.verdict.toLowerCase();
     scored.push([
       file, row.look_id, row.condition, answer.result.verdict.toLowerCase(), floored,

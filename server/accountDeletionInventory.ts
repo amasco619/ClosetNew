@@ -4,6 +4,7 @@
  * whenever a new table or Storage bucket is introduced.
  */
 export const ACCOUNT_DELETION_TABLES = [
+  { table: "check_look_feedback", ownerColumn: "user_id" },
   { table: "affinity_signals", ownerColumn: "user_id" },
   { table: "pair_affinity_signals", ownerColumn: "user_id" },
   { table: "rotation_cursors", ownerColumn: "user_id" },

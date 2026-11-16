@@ -22,6 +22,13 @@ The current Check my look feature uses local rules and scoring. The planned mode
 
 You can optionally choose the shortest sleeve you wear in Refinements. We save this preference with your profile and on your device when you change it, and use it for local coverage checks. An existing no-sleeveless preference appears as Short sleeves without changing your saved setting. The preference is removed with your profile when you delete your account. It is not currently sent to the planned wardrobe-text judge.
 
+For accounts included in a future Check my look judge test, we may keep the
+outfit text sent to the AI model, including the occasion and coverage
+preferences, alongside the verdict, model details and optional thumbs feedback.
+Feedback uses fixed choices, not free text. These records contain no photos.
+They are kept while the account exists and deleted with it. A scheduled purge
+is not yet built. The model-based judge remains disabled by default.
+
 ## Account deletion
 
 Account deletion is available from Profile. After the server confirms deletion, the app clears the account’s defined cloud records and stored wardrobe images, removes the authentication account, and clears local app data as part of the deletion flow.

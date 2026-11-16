@@ -17,7 +17,7 @@ async function main() {
     assert.equal(json.headers['cache-control'], 'no-store');
     assert.equal(json.headers['set-cookie'], undefined, 'public documents do not set cookies');
     assert.equal(json.body.title, title);
-    assert.equal(json.body.version, '0.2');
+    assert.equal(json.body.version, '0.3');
     assert.match(json.body.effectiveDate, /draft date; not in force/);
     assert.ok(json.body.changeLog);
     assert.ok(json.body.content.length > 100);

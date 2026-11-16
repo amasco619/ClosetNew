@@ -8,6 +8,9 @@ import type { WardrobeItem } from '../constants/types';
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const mocks: Record<string, string> = {
+  '@expo/vector-icons': `import React from 'react'; export const Feather=props=>React.createElement('Icon',props);`,
+  './query-client': `export class ApiRequestError extends Error {}
+    export const authenticatedApiRequest=()=>{throw Error('Unexpected feedback request')};`,
   'react-native': `import React from 'react';
     const host=name=>({children,...props})=>React.createElement(name,props,children);
     export const View=host('View'),Text=host('Text'),Pressable=host('Pressable'),

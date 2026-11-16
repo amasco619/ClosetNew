@@ -67,6 +67,9 @@ function readDeletionInventory() {
   if (!entries.some(entry => entry.table === "user_profiles" && entry.ownerColumn === "id")) {
     throw new Error("Profile constraints (including minimumSleeveLength) require user_profiles deletion coverage");
   }
+  if (!entries.some(entry => entry.table === "check_look_feedback" && entry.ownerColumn === "user_id")) {
+    throw new Error("Judge receipts and feedback require owner-scoped deletion coverage");
+  }
   return entries;
 }
 

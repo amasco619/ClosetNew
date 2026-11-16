@@ -1,5 +1,17 @@
 # Amodka — Complete Data Inventory
 
+## Check my look verdict receipts and optional feedback (R-22)
+
+`check_look_feedback` is owner-scoped with server-only writes and owner-only
+reads. It records delivered model/final verdicts, floor rules, exact allowlisted
+outfit text (including profile constraints and brief), request and account IDs,
+model version, prompt hash, app version and timestamps. Optional thumbs and
+fixed reason chips contain no free text. No photos, image URLs, personal name,
+email or account ID occur in the payload text. The table's owner ID is separate
+operational metadata. Kept while the account exists and deleted with it; a
+scheduled purge is not yet built. The judge remains disabled by default.
+Restricted review exports use anonymous HMAC grouping and contain outfit text.
+
 **Phase 5B | Date:** 2026-08-14 (operational-store entries updated 2026-10-21)
 
 **Status:** Verified against source code. Operational rate-limit and lockout storage reflects the current Supabase cutover.

@@ -43,6 +43,7 @@ import {
 } from "./middleware/rateLimiter";
 import { NATIVE_PASSWORD_RECOVERY_URL } from "../lib/oauth-callback";
 import { checkLookJudgeRoute, clearJudgeCache } from "./checkLookJudgeRoute";
+import { checkLookFeedbackRoute } from "./checkLookFeedback";
 import { judgeQuotaOwnerPrefix } from "./checkLookJudgeStore";
 // P-E: cap simultaneous AI calls so a burst cannot exhaust Gemini quota
 // or connections. Extras are queued, not rejected (the rate limiters
@@ -369,6 +370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Without auth, anyone can exhaust Gemini / Google Vision quota.
   app.post("/api/classify-garment", aiLimiter, requireAuth, requireAiProcessingConsent, withAiLimit(classifyGarment));
   app.post("/api/check-my-look", requireAuth, requireAiProcessingConsent, withAiLimit(checkLookJudgeRoute));
+  app.post("/api/check-my-look/feedback", requireAuth, checkLookFeedbackRoute);
   app.post("/api/classify-garments", aiLimiter, requireAuth, requireAiProcessingConsent, withAiLimit(classifyMultiItem));
   app.post("/api/remove-background", bgRemovalLimiter, requireAuth, requireAiProcessingConsent, withAiLimit(removeBackground));
 

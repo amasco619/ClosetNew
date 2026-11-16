@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
+import CheckLookFeedback from '@/components/CheckLookFeedback';
 import type {
   Constraints, GarmentGroup, OccasionTag, WardrobeItem,
 } from '@/constants/types';
@@ -1111,6 +1112,11 @@ export function CheckMyLookSheet(props: CheckMyLookSheetProps) {
                         </View>
                       )}
                     </>
+                  )}
+                  {props.result.feedbackRequestId &&
+                    ['Works', 'Almost', 'Rethink'].includes(props.result.verdict) && (
+                    <CheckLookFeedback key={props.result.feedbackRequestId}
+                      requestId={props.result.feedbackRequestId} />
                   )}
                 </View>
               )}

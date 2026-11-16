@@ -1317,3 +1317,17 @@ mtime_ms = 1794779430404
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/795b6c25-5c15-48a1-aaa1-55f292c86b70/1ba48db2-b243-4188-b707-c5ff2e522b65"
 storage_version_token = "1794779614139575"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "yaQY9r_0eMmxNG8GKTK47"
+uri = "file://docs/reports/r22-implementation-report.md"
+type = "text"
+title = "R-22 implementation and post-apply report"
+description = "SQL access checks, rollout and feedback behaviour, unchanged payload proof, offline floor results, files and test evidence."
+logical_id = "afd29f4f-726c-4be8-ad95-6fb01259c0cd"
+content_hash = "sha256:80d2fb795c7eaa74f39cd8e3cc23a1ea0b6554081012247ca3ea776aed0ad0a4"
+size = 11647
+mtime_ms = 1794872945462
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:53ecd44a-9d8d-422e-9856-0c22d2daefb0/afd29f4f-726c-4be8-ad95-6fb01259c0cd/987ccba7-9fcb-4496-a14b-5679ce2dec42"
+storage_version_token = "1794872962567825"
+content_type = "text/markdown"

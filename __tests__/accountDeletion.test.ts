@@ -217,6 +217,7 @@ async function main() {
 
   try {
     assert(tables.includes("bg_removal_usage"), "per-user background-removal usage must be deleted");
+    assert(tables.includes("check_look_feedback"), "judge receipts and feedback must be deleted before Auth");
     const usageFailure = mockDeletion("table_bg_removal_usage");
     try {
       const res = await attempt("app");

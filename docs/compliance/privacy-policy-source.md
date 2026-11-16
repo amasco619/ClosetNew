@@ -9,6 +9,23 @@
 
 ## IMPORTANT NOTICE
 
+### Check my look feedback facts (R-22, flag disabled)
+
+The judge remains disabled by default. When enabled for a closed-test account,
+the server may store a receipt for a delivered verdict, including when no thumb
+is tapped. Optional feedback is thumbs up/down and fixed reason chips only, with
+no free-text feedback. A second tap updates that receipt. A receipt failure does
+not prevent delivery of the verdict.
+
+Receipts store the exact allowlisted outfit text sent to Gemini, including the
+brief and exported profile constraints, model and final verdicts, floor rule IDs,
+served model, prompt hash, app version and operational request/account IDs.
+The outfit text contains no photos, image URLs, personal name, email or account
+ID. Coverage preferences and occasions can be sensitive. Owner-scoped feedback
+is kept while the account exists and deleted with it; a scheduled purge is not
+yet built. Review exports contain outfit text and a stable anonymous grouping
+hash, never the account ID. Such exports need restricted handling.
+
 This document does not constitute Amodka's Privacy Policy.  
 It is factual source material for subsequent legal drafting.  
 Do not publish this document to users.  

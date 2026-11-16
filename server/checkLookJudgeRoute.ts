@@ -11,6 +11,8 @@ import { callCheckLookJudge, judgeEnabled, judgeModel, CHECK_LOOK_PROMPT_HASH, m
 import { floorJudgeAnswer, getCheckLookFloorRules } from "./checkLookFloor";
 import { judgeRequestSchema, exportJudgeText, judgeGuard, profileJudgeConstraints, type JudgeRequest } from "./checkLookJudgeInput";
 import { consumeJudgeQuota } from "./checkLookJudgeStore";
+import { judgeRolloutEnabled } from "./checkLookRollout";
+import { recordVerdict } from "./checkLookFeedback";
 
 interface OwnedContext { items: WardrobeItem[]; groups: GarmentGroup[]; constraints: Partial<Constraints> }
 export const _testOverrides: {
@@ -24,7 +26,7 @@ export const _testOverrides: {
 
 // No raw user data in cache keys; answers are transient and isolated by owner.
 const cache = new Map<string, Map<string, {
-  expires: number; answer: JudgeAnswer; floored: boolean;
+  expires: number; answer: JudgeAnswer;
 }>>();
 const servedVersions = new Map<string, string>();
 const CACHE_TTL_MS = 60_000;
@@ -113,7 +115,7 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
   const userId = (req as Request & { authenticatedUser?: { id: string } }).authenticatedUser?.id;
   if (!userId) { res.status(401).json({ error: "authentication_required" }); return; }
   const enabled = process.env.NODE_ENV === "test" && _testOverrides.enabled !== undefined
-    ? _testOverrides.enabled : judgeEnabled();
+    ? _testOverrides.enabled : judgeRolloutEnabled(userId, judgeEnabled(), process.env.JUDGE_ROLLOUT_PERCENT);
   if (!enabled) { res.json({ useLocalCheck: true, reason: "disabled" }); return; }
   const parsed = judgeRequestSchema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "invalid_check_look_request" }); return; }
@@ -158,7 +160,7 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
     }
   }
   const guard = judgeGuard(request, context.items, context.groups, context.constraints);
-  const floorFacts = { request, items: context.items, guard };
+  const floorFacts = { request, items: context.items, guard, constraints: context.constraints };
   console.info(JSON.stringify({ event: "check_look_floor", firedRules: getCheckLookFloorRules(floorFacts) }));
   const missingFacts = missingFactsFromGuard(guard.missing);
   const text = exportJudgeText(request, context.items, context.groups, context.constraints, guard);
@@ -178,10 +180,8 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
     const owned = cache.get(userId);
     const cached = owned?.get(keyFor(servedVersions.get(model) ?? null));
     let answer: JudgeAnswer;
-    let wasFloored = false;
     if (cached && cached.expires > Date.now()) {
       answer = cached.answer;
-      wasFloored = cached.floored;
     }
     else {
       const judge = process.env.NODE_ENV === "test" && _testOverrides.judge ? _testOverrides.judge : callCheckLookJudge;
@@ -192,25 +192,33 @@ export async function checkLookJudgeRoute(req: Request, res: Response): Promise<
       }
       servedVersions.set(model, answer.modelVersion);
     }
-    const floor = floorJudgeAnswer(answer, floorFacts);
-    answer = floor.answer;
-    wasFloored ||= floor.floored;
+    // Cache the original response, then apply today's floor on every delivery.
+    const modelVerdict = answer.result.verdict;
     if (!cached || cached.expires <= Date.now()) {
       if (cache.size >= 1000) cache.delete(cache.keys().next().value!);
       const entries = owned ?? new Map();
       for (const [key, entry] of entries) if (entry.expires <= Date.now()) entries.delete(key);
       if (entries.size >= 20) entries.delete(entries.keys().next().value!);
       entries.set(keyFor(answer.modelVersion), {
-        answer, floored: wasFloored, expires: Date.now() + CACHE_TTL_MS,
+        answer, expires: Date.now() + CACHE_TTL_MS,
       });
       cache.set(userId, entries);
     }
+    const floor = floorJudgeAnswer(answer, floorFacts);
+    answer = floor.answer;
+    const requestId = await recordVerdict({
+      user_id: userId, model_verdict: modelVerdict, final_verdict: answer.result.verdict,
+      floor_rules: floor.firedRules, payload_text: text, model_served: answer.modelVersion || null,
+      prompt_hash: CHECK_LOOK_PROMPT_HASH,
+    });
+    const feedback = requestId && answer.result.verdict !== "Ask" ? { request_id: requestId } : {};
     if (!premium) {
-      res.json({ verdict: answer.result.verdict === "Ask" ? "Almost" : answer.result.verdict }); return;
+      res.json({ verdict: answer.result.verdict === "Ask" ? "Almost" : answer.result.verdict, ...feedback }); return;
     }
     res.json({
       verdict: answer.result.verdict, reason: answer.result.reason,
-      swapSuggestion: wasFloored ? null : safeSwap(context, request, userId),
+      swapSuggestion: floor.floored ? null : safeSwap(context, request, userId),
+      ...feedback,
       ...(answer.result.verdict === "Ask" && answer.result.missing_fact
         ? { question: questions[answer.result.missing_fact], missing_fact: answer.result.missing_fact } : {}),
     });
